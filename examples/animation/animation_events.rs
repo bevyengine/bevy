@@ -9,39 +9,49 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .observe(Say::observer)
+        .add_event::<Say>()
         .add_systems(Startup, setup)
-        .add_systems(PreUpdate, animate_text_opacity)
+        .add_systems(PreUpdate, (animate_text_opacity, edit_message))
         .run();
 }
 
-#[derive(Event, AnimationEvent, Reflect, Clone)]
+#[derive(Component)]
+struct MessageText;
+
+#[derive(Event, Reflect, Clone)]
 #[reflect(AnimationEvent)]
 enum Say {
     Hello,
     Bye,
 }
 
-impl Say {
-    fn observer(trigger: Trigger<Self>, mut text: Query<&mut Text, With<MessageText>>) {
-        let mut text = text.get_single_mut().unwrap();
-        match trigger.event() {
+// AnimationEvent can also be derived, but doing so will
+// trigger it as an observer event which runs in PostUpdate.
+// We need to set the message text before that so it is
+// updated before rendering without a one frame delay.
+impl AnimationEvent for Say {
+    fn trigger(&self, _time: f32, _entity: Entity, world: &mut World) {
+        world.send_event(self.clone());
+    }
+}
+
+fn edit_message(
+    mut event_reader: EventReader<Say>,
+    mut text: Single<&mut Text, With<MessageText>>,
+) {
+    for event in event_reader.read() {
+        match event {
             Say::Hello => {
-                text.sections[0].style.color = ALICE_BLUE.into();
                 text.sections[0].value = "HELLO".into();
-                println!("HELLO");
+                text.sections[0].style.color = ALICE_BLUE.into();
             }
             Say::Bye => {
-                text.sections[0].style.color = CRIMSON.into();
                 text.sections[0].value = "BYE".into();
-                println!("BYE");
+                text.sections[0].style.color = CRIMSON.into();
             }
         }
     }
 }
-
-#[derive(Component)]
-struct MessageText;
 
 fn setup(
     mut commands: Commands,

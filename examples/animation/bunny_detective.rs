@@ -49,6 +49,7 @@ struct BoneTargets {
 
 impl Default for BoneTargets {
     fn default() -> Self {
+        // Store the id's of the bones we want to add events to for later use.
         Self {
             root: AnimationTargetId::from_iter(["Bunny"]),
             right_foot: AnimationTargetId::from_iter([
@@ -65,33 +66,6 @@ impl Default for BoneTargets {
                 "lowerleg.l",
                 "foot.l",
             ]),
-        }
-    }
-}
-
-#[derive(Component)]
-struct Particle {
-    lifeteime: Timer,
-    size: f32,
-    velocity: Vec3,
-}
-
-#[derive(Resource)]
-struct ParticleAssets {
-    mesh: Handle<Mesh>,
-    material: Handle<StandardMaterial>,
-}
-
-impl FromWorld for ParticleAssets {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            mesh: world.resource_mut::<Assets<Mesh>>().add(Sphere::new(0.25)),
-            material: world
-                .resource_mut::<Assets<StandardMaterial>>()
-                .add(StandardMaterial {
-                    base_color: WHITE.into(),
-                    ..Default::default()
-                }),
         }
     }
 }
@@ -361,6 +335,33 @@ fn jump_input(
     for (mut player, mut transitions) in &mut players {
         if keyboard_input.just_pressed(KeyCode::Space) {
             transitions.play(&mut player, animations.jump, Duration::from_millis(75));
+        }
+    }
+}
+
+#[derive(Component)]
+struct Particle {
+    lifeteime: Timer,
+    size: f32,
+    velocity: Vec3,
+}
+
+#[derive(Resource)]
+struct ParticleAssets {
+    mesh: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+}
+
+impl FromWorld for ParticleAssets {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            mesh: world.resource_mut::<Assets<Mesh>>().add(Sphere::new(0.25)),
+            material: world
+                .resource_mut::<Assets<StandardMaterial>>()
+                .add(StandardMaterial {
+                    base_color: WHITE.into(),
+                    ..Default::default()
+                }),
         }
     }
 }
