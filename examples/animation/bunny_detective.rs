@@ -70,6 +70,9 @@ impl Default for BoneTargets {
     }
 }
 
+#[derive(Component)]
+struct Jumping;
+
 #[derive(Event, AnimationEvent, Reflect, Clone)]
 #[reflect(AnimationEvent)]
 struct OnJumped;
@@ -83,6 +86,8 @@ impl OnJumped {
         transforms: Query<&GlobalTransform>,
         mut text_visibility: Single<&mut Visibility, With<Text>>,
     ) {
+        commands.entity(trigger.entity()).insert(Jumping);
+
         // Hide instructions text.
         *text_visibility.as_mut() = Visibility::Hidden;
 
@@ -135,6 +140,8 @@ impl OnLanded {
         mut text_visibility: Single<&mut Visibility, With<Text>>,
         transforms: Query<&GlobalTransform>,
     ) {
+        commands.entity(trigger.entity()).remove::<Jumping>();
+
         // Transition to the `walk` animation.
         let (mut player, mut transitions) = animation_players.get_mut(trigger.entity()).unwrap();
         transitions
@@ -339,7 +346,7 @@ fn setup_scene_once_loaded(
 fn jump_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     animations: Res<Animations>,
-    mut players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
+    mut players: Query<(&mut AnimationPlayer, &mut AnimationTransitions), Without<Jumping>>,
 ) {
     for (mut player, mut transitions) in &mut players {
         if keyboard_input.just_pressed(KeyCode::Space) {
