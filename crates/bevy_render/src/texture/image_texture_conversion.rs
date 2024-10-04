@@ -1,5 +1,5 @@
 use crate::{
-    render_asset::RenderAssetUsages,
+    texture::image::RenderAssetUsages,
     texture::{Image, TextureFormatPixelInfo},
 };
 use image::{DynamicImage, ImageBuffer};

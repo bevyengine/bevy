@@ -1,6 +1,6 @@
 use crate::{
     mesh::{Indices, Mesh, MeshBuilder, Meshable},
-    render_asset::RenderAssetUsages,
+    texture::RenderAssetUsages,
 };
 use bevy_math::{ops, primitives::Capsule3d, Vec2, Vec3};
 use wgpu::PrimitiveTopology;

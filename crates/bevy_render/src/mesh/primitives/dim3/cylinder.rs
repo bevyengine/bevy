@@ -3,7 +3,7 @@ use wgpu::PrimitiveTopology;
 
 use crate::{
     mesh::{Indices, Mesh, MeshBuilder, Meshable},
-    render_asset::RenderAssetUsages,
+    texture::RenderAssetUsages,
 };
 
 /// Anchoring options for [`CylinderMeshBuilder`]

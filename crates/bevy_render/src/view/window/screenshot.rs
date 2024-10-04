@@ -3,7 +3,7 @@ use crate::{
     camera::{ManualTextureViewHandle, ManualTextureViews, NormalizedRenderTarget, RenderTarget},
     gpu_readback,
     prelude::{Image, Shader},
-    render_asset::{RenderAssetUsages, RenderAssets},
+    render_asset::RenderAssets,
     render_resource::{
         binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, Buffer, BufferUsages, CachedRenderPipelineId, FragmentState,
@@ -11,6 +11,7 @@ use crate::{
         SpecializedRenderPipelines, Texture, TextureUsages, TextureView, VertexState,
     },
     renderer::RenderDevice,
+    texture::RenderAssetUsages,
     texture::{GpuImage, OutputColorAttachment, TextureFormatPixelInfo},
     view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,

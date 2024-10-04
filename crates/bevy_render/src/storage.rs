@@ -1,7 +1,8 @@
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin},
     render_resource::{Buffer, BufferUsages},
     renderer::RenderDevice,
+    texture::RenderAssetUsages,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp};

@@ -1,4 +1,4 @@
-use crate::{render_asset::RenderAssetUsages, render_resource::*, texture::DefaultImageSampler};
+use crate::{render_resource::*, texture::image::RenderAssetUsages, texture::DefaultImageSampler};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},

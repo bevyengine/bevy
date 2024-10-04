@@ -4,7 +4,7 @@ use wgpu::PrimitiveTopology;
 
 use crate::{
     mesh::{Indices, Mesh, MeshBuilder, Meshable},
-    render_asset::RenderAssetUsages,
+    texture::RenderAssetUsages,
 };
 
 /// A builder used for creating a [`Mesh`] with a [`Torus`] shape.

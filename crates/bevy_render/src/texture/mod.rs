@@ -7,6 +7,7 @@ mod dds;
 #[cfg(feature = "exr")]
 mod exr_texture_loader;
 mod fallback_image;
+mod gpu_image;
 #[cfg(feature = "hdr")]
 mod hdr_texture_loader;
 #[allow(clippy::module_inception)]
@@ -26,6 +27,7 @@ pub use self::ktx2::*;
 pub use dds::*;
 #[cfg(feature = "exr")]
 pub use exr_texture_loader::*;
+pub use gpu_image::*;
 #[cfg(feature = "hdr")]
 pub use hdr_texture_loader::*;
 
@@ -36,6 +38,7 @@ pub use image_loader::*;
 pub use texture_attachment::*;
 pub use texture_cache::*;
 
+pub use crate::render_resource::DefaultImageSampler;
 use crate::{
     render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSet,
 };
@@ -168,15 +171,5 @@ impl Plugin for ImagePlugin {
                 .init_resource::<FallbackImageCubemap>()
                 .init_resource::<FallbackImageFormatMsaaCache>();
         }
-    }
-}
-
-pub trait BevyDefault {
-    fn bevy_default() -> Self;
-}
-
-impl BevyDefault for wgpu::TextureFormat {
-    fn bevy_default() -> Self {
-        wgpu::TextureFormat::Rgba8UnormSrgb
     }
 }

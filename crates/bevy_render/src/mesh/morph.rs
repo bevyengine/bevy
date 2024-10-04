@@ -1,8 +1,8 @@
 use crate::{
     mesh::Mesh,
-    render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,
+    texture::RenderAssetUsages,
 };
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::Handle;

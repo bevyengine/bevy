@@ -7,9 +7,9 @@ pub use wgpu::PrimitiveTopology;
 use crate::{
     prelude::Image,
     primitives::Aabb,
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages, RenderAssets},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssets},
     render_resource::{TextureView, VertexBufferLayout},
-    texture::GpuImage,
+    texture::{GpuImage, RenderAssetUsages},
 };
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, Handle};
@@ -1973,7 +1973,7 @@ mod tests {
     use super::Mesh;
     use crate::{
         mesh::{Indices, MeshWindingInvertError, VertexAttributeValues},
-        render_asset::RenderAssetUsages,
+        texture::RenderAssetUsages,
     };
     use bevy_math::Vec3;
     use bevy_transform::components::Transform;

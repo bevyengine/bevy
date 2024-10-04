@@ -2,7 +2,7 @@ use core::f32::consts::FRAC_PI_2;
 
 use crate::{
     mesh::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment},
-    render_asset::RenderAssetUsages,
+    texture::RenderAssetUsages,
 };
 
 use super::{Extrudable, MeshBuilder, Meshable};

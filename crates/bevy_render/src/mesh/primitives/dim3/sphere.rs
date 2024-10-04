@@ -2,7 +2,7 @@ use core::f32::consts::PI;
 
 use crate::{
     mesh::{Indices, Mesh, MeshBuilder, Meshable},
-    render_asset::RenderAssetUsages,
+    texture::RenderAssetUsages,
 };
 use bevy_math::{ops, primitives::Sphere};
 use hexasphere::shapes::IcoSphere;

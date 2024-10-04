@@ -3,8 +3,8 @@ use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
 
 use crate::{
-    render_asset::RenderAssetUsages,
     renderer::RenderDevice,
+    texture::image::RenderAssetUsages,
     texture::{Image, ImageFormat, ImageType, TextureError},
 };
 

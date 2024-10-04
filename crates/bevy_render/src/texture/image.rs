@@ -5,21 +5,70 @@ use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
 
-use crate::{
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
-    render_resource::{Sampler, Texture, TextureView},
-    renderer::{RenderDevice, RenderQueue},
-    texture::BevyDefault,
-};
 use bevy_asset::Asset;
-use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::{AspectRatio, UVec2, Vec2};
 use bevy_reflect::prelude::*;
+use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use core::hash::Hash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
+pub trait BevyDefault {
+    fn bevy_default() -> Self;
+}
+
+impl BevyDefault for TextureFormat {
+    fn bevy_default() -> Self {
+        TextureFormat::Rgba8UnormSrgb
+    }
+}
+
+bitflags::bitflags! {
+    /// Defines where the asset will be used.
+    ///
+    /// If an asset is set to the `RENDER_WORLD` but not the `MAIN_WORLD`, the asset will be
+    /// unloaded from the asset server once it's been extracted and prepared in the render world.
+    ///
+    /// Unloading the asset saves on memory, as for most cases it is no longer necessary to keep
+    /// it in RAM once it's been uploaded to the GPU's VRAM. However, this means you can no longer
+    /// access the asset from the CPU (via the `Assets<T>` resource) once unloaded (without re-loading it).
+    ///
+    /// If you never need access to the asset from the CPU past the first frame it's loaded on,
+    /// or only need very infrequent access, then set this to `RENDER_WORLD`. Otherwise, set this to
+    /// `RENDER_WORLD | MAIN_WORLD`.
+    ///
+    /// If you have an asset that doesn't actually need to end up in the render world, like an Image
+    /// that will be decoded into another Image asset, use `MAIN_WORLD` only.
+    ///
+    /// ## Platform-specific
+    ///
+    /// On Wasm, it is not possible for now to free reserved memory. To control memory usage, load assets
+    /// in sequence and unload one before loading the next. See this
+    /// [discussion about memory management](https://github.com/WebAssembly/design/issues/1397) for more
+    /// details.
+    #[repr(transparent)]
+    #[derive(Serialize, Deserialize, Hash, Clone, Copy, PartialEq, Eq, Debug, Reflect)]
+    #[reflect(opaque)]
+    #[reflect(Serialize, Deserialize, Hash, PartialEq, Debug)]
+    pub struct RenderAssetUsages: u8 {
+        const MAIN_WORLD = 1 << 0;
+        const RENDER_WORLD = 1 << 1;
+    }
+}
+
+impl Default for RenderAssetUsages {
+    /// Returns the default render asset usage flags:
+    /// `RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD`
+    ///
+    /// This default configuration ensures the asset persists in the main world, even after being prepared for rendering.
+    ///
+    /// If your asset does not change, consider using `RenderAssetUsages::RENDER_WORLD` exclusively. This will cause
+    /// the asset to be unloaded from the main world once it has been prepared for rendering. If the asset does not need
+    /// to reach the render world at all, use `RenderAssetUsages::MAIN_WORLD` exclusively.
+    fn default() -> Self {
+        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
+    }
+}
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
@@ -221,14 +270,6 @@ impl ImageSampler {
         }
     }
 }
-
-/// A rendering resource for the default image sampler which is set during renderer
-/// initialization.
-///
-/// The [`ImagePlugin`](super::ImagePlugin) can be set during app initialization to change the default
-/// image sampler.
-#[derive(Resource, Debug, Clone, Deref, DerefMut)]
-pub struct DefaultImageSampler(pub(crate) Sampler);
 
 /// How edges should be handled in texture addressing.
 ///
@@ -921,75 +962,6 @@ impl TextureFormatPixelInfo for TextureFormat {
             (1, 1) => info.block_copy_size(None).unwrap() as usize,
             _ => panic!("Using pixel_size for compressed textures is invalid"),
         }
-    }
-}
-
-/// The GPU-representation of an [`Image`].
-/// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`], and the texture's size.
-#[derive(Debug, Clone)]
-pub struct GpuImage {
-    pub texture: Texture,
-    pub texture_view: TextureView,
-    pub texture_format: TextureFormat,
-    pub sampler: Sampler,
-    pub size: UVec2,
-    pub mip_level_count: u32,
-}
-
-impl RenderAsset for GpuImage {
-    type SourceAsset = Image;
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<RenderQueue>,
-        SRes<DefaultImageSampler>,
-    );
-
-    #[inline]
-    fn asset_usage(image: &Self::SourceAsset) -> RenderAssetUsages {
-        image.asset_usage
-    }
-
-    #[inline]
-    fn byte_len(image: &Self::SourceAsset) -> Option<usize> {
-        Some(image.data.len())
-    }
-
-    /// Converts the extracted image into a [`GpuImage`].
-    fn prepare_asset(
-        image: Self::SourceAsset,
-        (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        let texture = render_device.create_texture_with_data(
-            render_queue,
-            &image.texture_descriptor,
-            // TODO: Is this correct? Do we need to use `MipMajor` if it's a ktx2 file?
-            wgpu::util::TextureDataOrder::default(),
-            &image.data,
-        );
-
-        let size = image.size();
-        let texture_view = texture.create_view(
-            image
-                .texture_view_descriptor
-                .or_else(|| Some(TextureViewDescriptor::default()))
-                .as_ref()
-                .unwrap(),
-        );
-        let sampler = match image.sampler {
-            ImageSampler::Default => (***default_sampler).clone(),
-            ImageSampler::Descriptor(descriptor) => {
-                render_device.create_sampler(&descriptor.as_wgpu())
-            }
-        };
-
-        Ok(GpuImage {
-            texture,
-            texture_view,
-            texture_format: image.texture_descriptor.format,
-            sampler,
-            size,
-            mip_level_count: image.texture_descriptor.mip_level_count,
-        })
     }
 }
 
