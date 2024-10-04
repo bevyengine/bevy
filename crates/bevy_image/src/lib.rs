@@ -6,8 +6,6 @@ mod image;
 pub use self::image::*;
 #[cfg(feature = "basis-universal")]
 mod basis;
-#[cfg(feature = "basis-universal")]
-mod compressed_image_saver;
 #[cfg(feature = "dds")]
 mod dds;
 #[cfg(feature = "exr")]
@@ -26,7 +24,5 @@ pub use exr_texture_loader::*;
 #[cfg(feature = "hdr")]
 pub use hdr_texture_loader::*;
 
-#[cfg(feature = "basis-universal")]
-pub use compressed_image_saver::*;
 pub(crate) mod image_texture_conversion;
 pub use image_texture_conversion::IntoDynamicImageError;
