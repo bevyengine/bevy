@@ -719,7 +719,7 @@ impl ActiveAnimation {
     /// Seeks to a specific time in the animation.
     ///
     /// This will not trigger events between the current time and `seek_time`.
-    /// Use [`seek_ti`](Self::seek_to) if this is desired.
+    /// Use [`seek_to`](Self::seek_to) if this is desired.
     pub fn set_seek_time(&mut self, seek_time: f32) -> &mut Self {
         self.last_seek_time = Some(seek_time);
         self.seek_time = seek_time;
