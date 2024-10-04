@@ -287,12 +287,18 @@ pub struct AnimationClip {
 }
 
 #[derive(Reflect, Debug, Clone)]
-pub(crate) struct AnimationEventKey {
+pub(crate) struct TimedAnimationEvent {
     time: f32,
     event: AnimationEventData,
 }
 
-pub(crate) type AnimationEvents = HashMap<Option<AnimationTargetId>, Vec<AnimationEventKey>>;
+#[derive(Reflect, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
+pub(crate) enum AnimationEventTarget {
+    Root,
+    Node(AnimationTargetId),
+}
+
+pub(crate) type AnimationEvents = HashMap<AnimationEventTarget, Vec<TimedAnimationEvent>>;
 
 /// A mapping from [`AnimationTargetId`] (e.g. bone in a skinned mesh) to the
 /// animation curves.
@@ -463,7 +469,7 @@ impl AnimationClip {
         time: f32,
         event: impl AnimationEvent,
     ) {
-        self.add_event_to_target_inner(Some(target_id), time, event);
+        self.add_event_to_target_inner(AnimationEventTarget::Node(target_id), time, event);
     }
 
     /// Add a untargeted [`AnimationEvent`] to this [`AnimationClip`].
@@ -472,21 +478,21 @@ impl AnimationClip {
     ///
     /// See also [`add_event_to_target`](Self::add_event_to_target).
     pub fn add_event(&mut self, time: f32, event: impl AnimationEvent) {
-        self.add_event_to_target_inner(None, time, event);
+        self.add_event_to_target_inner(AnimationEventTarget::Root, time, event);
     }
 
     fn add_event_to_target_inner(
         &mut self,
-        target_id: Option<AnimationTargetId>,
+        target: AnimationEventTarget,
         time: f32,
         event: impl AnimationEvent,
     ) {
         self.duration = self.duration.max(time);
-        let triggers = self.events.entry(target_id).or_default();
+        let triggers = self.events.entry(target).or_default();
         match triggers.binary_search_by_key(&FloatOrd(time), |e| FloatOrd(e.time)) {
             Ok(index) | Err(index) => triggers.insert(
                 index,
-                AnimationEventKey {
+                TimedAnimationEvent {
                     time,
                     event: AnimationEventData::new(event),
                 },
@@ -711,6 +717,20 @@ impl ActiveAnimation {
     }
 
     /// Seeks to a specific time in the animation.
+    ///
+    /// This will not trigger events between the current time and `seek_time`.
+    /// Use [`seek_ti`](Self::seek_to) if this is desired.
+    pub fn set_seek_time(&mut self, seek_time: f32) -> &mut Self {
+        self.last_seek_time = Some(seek_time);
+        self.seek_time = seek_time;
+        self
+    }
+
+    /// Seeks to a specific time in the animation.
+    ///
+    /// Note that any events between the current time and `seek_time`
+    /// will be triggered on the next update.
+    /// Use [`set_seek_time`](Self::set_seek_time) if this is undisered.
     pub fn seek_to(&mut self, seek_time: f32) -> &mut Self {
         self.last_seek_time = Some(self.seek_time);
         self.seek_time = seek_time;
@@ -718,7 +738,12 @@ impl ActiveAnimation {
     }
 
     /// Seeks to the beginning of the animation.
+    ///
+    /// Note that any events between the current time and `0.0`
+    /// will be triggered on the next update.
+    /// Use [`set_seek_time`](Self::set_seek_time) if this is undisered.
     pub fn rewind(&mut self) -> &mut Self {
+        self.last_seek_time = Some(self.seek_time);
         self.seek_time = 0.0;
         self
     }
@@ -934,11 +959,13 @@ fn trigger_untargeted_animation_events(
                 continue;
             };
 
-            let Some(triggered_events) = TriggeredEvents::new(None, clip, active_animation) else {
+            let Some(triggered_events) =
+                TriggeredEvents::from_animation(AnimationEventTarget::Root, clip, active_animation)
+            else {
                 continue;
             };
 
-            for AnimationEventKey { time, event } in triggered_events.iter() {
+            for TimedAnimationEvent { time, event } in triggered_events.iter() {
                 commands.queue(trigger_animation_event(
                     entity,
                     *time,
@@ -1114,12 +1141,15 @@ pub fn animate_targets(
                         };
 
                         // Trigger all animation events that occurred this tick, if any.
-                        if let Some(triggered_events) =
-                            TriggeredEvents::new(Some(target_id), clip, active_animation)
-                        {
+                        if let Some(triggered_events) = TriggeredEvents::from_animation(
+                            AnimationEventTarget::Node(target_id),
+                            clip,
+                            active_animation,
+                        ) {
                             if !triggered_events.is_empty() {
                                 par_commands.command_scope(move |mut commands| {
-                                    for AnimationEventKey { time, event } in triggered_events.iter()
+                                    for TimedAnimationEvent { time, event } in
+                                        triggered_events.iter()
                                     {
                                         commands.queue(trigger_animation_event(
                                             entity,
@@ -1327,17 +1357,17 @@ impl AnimationEvaluationState {
 #[derive(Debug, Clone)]
 struct TriggeredEvents<'a> {
     direction: TriggeredEventsDir,
-    lower: &'a [AnimationEventKey],
-    upper: &'a [AnimationEventKey],
+    lower: &'a [TimedAnimationEvent],
+    upper: &'a [TimedAnimationEvent],
 }
 
 impl<'a> TriggeredEvents<'a> {
-    fn new(
-        target_id: Option<AnimationTargetId>,
+    fn from_animation(
+        target: AnimationEventTarget,
         clip: &'a AnimationClip,
         active_animation: &ActiveAnimation,
     ) -> Option<Self> {
-        let events = clip.events.get(&target_id)?;
+        let events = clip.events.get(&target)?;
         let reverse = active_animation.is_playback_reversed();
         let is_finished = active_animation.is_finished();
 
@@ -1443,20 +1473,20 @@ enum TriggeredEventsDir {
 
 #[derive(Debug, Clone)]
 enum TriggeredEventsIter<'a> {
-    Forward(slice::Iter<'a, AnimationEventKey>),
-    Reverse(iter::Rev<slice::Iter<'a, AnimationEventKey>>),
+    Forward(slice::Iter<'a, TimedAnimationEvent>),
+    Reverse(iter::Rev<slice::Iter<'a, TimedAnimationEvent>>),
     ForwardLooping {
-        upper: slice::Iter<'a, AnimationEventKey>,
-        lower: slice::Iter<'a, AnimationEventKey>,
+        upper: slice::Iter<'a, TimedAnimationEvent>,
+        lower: slice::Iter<'a, TimedAnimationEvent>,
     },
     ReverseLooping {
-        lower: iter::Rev<slice::Iter<'a, AnimationEventKey>>,
-        upper: iter::Rev<slice::Iter<'a, AnimationEventKey>>,
+        lower: iter::Rev<slice::Iter<'a, TimedAnimationEvent>>,
+        upper: iter::Rev<slice::Iter<'a, TimedAnimationEvent>>,
     },
 }
 
 impl<'a> Iterator for TriggeredEventsIter<'a> {
-    type Item = &'a AnimationEventKey;
+    type Item = &'a TimedAnimationEvent;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -1491,7 +1521,9 @@ mod tests {
         clip: &AnimationClip,
         expected: impl Into<Vec<f32>>,
     ) {
-        let Some(events) = TriggeredEvents::new(None, clip, active_animation) else {
+        let Some(events) =
+            TriggeredEvents::from_animation(AnimationEventTarget::Root, clip, active_animation)
+        else {
             assert_eq!(expected.into(), Vec::<f32>::new());
             return;
         };
