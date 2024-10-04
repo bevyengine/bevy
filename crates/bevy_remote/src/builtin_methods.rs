@@ -361,16 +361,22 @@ pub fn process_remote_get_watching_request(
 
     let mut changed = Vec::new();
     let mut removed = Vec::new();
+    let mut errors = HashMap::new();
 
     'component_loop: for component_path in components {
         let type_registration = get_component_type_registration(&type_registry, &component_path)
             .map_err(BrpError::component_error)?;
-        let component_id = world
-            .components()
-            .get_id(type_registration.type_id())
-            .ok_or(BrpError::component_error(format!(
-                "Unknown component: `{component_path}`"
-            )))?;
+        let Some(component_id) = world.components().get_id(type_registration.type_id()) else {
+            let err = BrpError::component_error(format!("Unknown component: `{component_path}`"));
+            if strict {
+                return Err(err);
+            }
+            errors.insert(
+                component_path,
+                serde_json::to_value(err).map_err(BrpError::internal)?,
+            );
+            continue;
+        };
 
         if let Some(ticks) = entity_ref.get_change_ticks_by_id(component_id) {
             if ticks.is_changed(world.last_change_tick(), world.read_change_tick()) {
@@ -395,10 +401,16 @@ pub fn process_remote_get_watching_request(
         reflect_components_to_response(changed, strict, entity, entity_ref, &type_registry)?;
 
     let response = match response {
-        BrpGetResponse::Lenient { components, errors } => BrpGetWatchingResponse::Lenient {
+        BrpGetResponse::Lenient {
+            components,
+            errors: mut errs,
+        } => BrpGetWatchingResponse::Lenient {
             components,
             removed,
-            errors,
+            errors: {
+                errs.extend(errors);
+                errs
+            },
         },
         BrpGetResponse::Strict(components) => BrpGetWatchingResponse::Strict {
             components,
