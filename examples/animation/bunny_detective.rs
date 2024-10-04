@@ -81,10 +81,15 @@ impl OnJumped {
         mut commands: Commands,
         particle: Res<ParticleAssets>,
         transforms: Query<&GlobalTransform>,
+        mut text_visibility: Single<&mut Visibility, With<Text>>,
     ) {
+        // Hide instructions text.
+        *text_visibility.as_mut() = Visibility::Hidden;
+
         let translation = transforms.get(trigger.entity()).unwrap().translation();
         let mut rng = thread_rng();
-        // Vertical
+
+        // Spawn particle upward burst
         for _ in 0..5 {
             let horizontal = rng.gen::<Dir2>() * rng.gen_range(0.0..0.2);
             let vertical = rng.gen_range(0.0..10.0);
@@ -98,7 +103,7 @@ impl OnJumped {
                 Vec3::new(horizontal.x, vertical, horizontal.y),
             ));
         }
-        // Horizontal
+        // Spawn particle horizontal burst
         for _ in 0..20 {
             let horizontal = rng.gen::<Dir2>() * rng.gen_range(6.0..8.0);
             let vertical = rng.gen_range(0.0..2.0);
@@ -126,14 +131,18 @@ impl OnLanded {
         mut commands: Commands,
         particle: Res<ParticleAssets>,
         animations: Res<Animations>,
-        mut players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
+        mut animation_players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
+        mut text_visibility: Single<&mut Visibility, With<Text>>,
         transforms: Query<&GlobalTransform>,
     ) {
         // Transition to the `walk` animation.
-        let (mut player, mut transitions) = players.get_mut(trigger.entity()).unwrap();
+        let (mut player, mut transitions) = animation_players.get_mut(trigger.entity()).unwrap();
         transitions
             .play(&mut player, animations.walk, Duration::from_secs_f32(0.8))
             .repeat();
+
+        // Show instructions text.
+        **text_visibility = Visibility::Visible;
 
         let translation = transforms.get(trigger.entity()).unwrap().translation();
         let mut rng = thread_rng();
@@ -341,7 +350,7 @@ fn jump_input(
 
 #[derive(Component)]
 struct Particle {
-    lifeteime: Timer,
+    lifeteime_timer: Timer,
     size: f32,
     velocity: Vec3,
 }
@@ -372,11 +381,12 @@ fn simulate_particles(
     time: Res<Time>,
 ) {
     for (entity, mut transform, mut particle) in &mut query {
-        if particle.lifeteime.tick(time.delta()).just_finished() {
+        if particle.lifeteime_timer.tick(time.delta()).just_finished() {
             commands.entity(entity).despawn();
         } else {
             transform.translation += particle.velocity * time.delta_seconds();
-            transform.scale = Vec3::splat(particle.size.lerp(0.0, particle.lifeteime.fraction()));
+            transform.scale =
+                Vec3::splat(particle.size.lerp(0.0, particle.lifeteime_timer.fraction()));
             particle
                 .velocity
                 .smooth_nudge(&Vec3::ZERO, 4.0, time.delta_seconds());
@@ -396,7 +406,7 @@ fn spawn_particle<M: Material>(
     move |world: &mut World| {
         world.spawn((
             Particle {
-                lifeteime: Timer::from_seconds(lifetime, TimerMode::Once),
+                lifeteime_timer: Timer::from_seconds(lifetime, TimerMode::Once),
                 size,
                 velocity,
             },
