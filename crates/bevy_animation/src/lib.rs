@@ -287,18 +287,18 @@ pub struct AnimationClip {
 }
 
 #[derive(Reflect, Debug, Clone)]
-pub(crate) struct TimedAnimationEvent {
+struct TimedAnimationEvent {
     time: f32,
     event: AnimationEventData,
 }
 
 #[derive(Reflect, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
-pub(crate) enum AnimationEventTarget {
+enum AnimationEventTarget {
     Root,
     Node(AnimationTargetId),
 }
 
-pub(crate) type AnimationEvents = HashMap<AnimationEventTarget, Vec<TimedAnimationEvent>>;
+type AnimationEvents = HashMap<AnimationEventTarget, Vec<TimedAnimationEvent>>;
 
 /// A mapping from [`AnimationTargetId`] (e.g. bone in a skinned mesh) to the
 /// animation curves.
