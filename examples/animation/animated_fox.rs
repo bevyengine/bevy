@@ -153,9 +153,11 @@ fn setup_scene_once_loaded(
     for (entity, mut player) in &mut players {
         let graph = graphs.get(&animations.graph).unwrap();
 
-        // Send `OnStep` events once the fox feet hits the ground
-        // in the running animation.
+        // Send `OnStep` events once the fox feet hits the ground in the running animation.
         let running_animation = get_clip(animations.animations[0], graph, &mut clips);
+        // You can determine the time an event should trigger if you know witch frame it occurs and
+        // the frame rate of the animation. Let's say we want to trigger an event at frame 15,
+        // and the animation has a frame rate of 24 fps, then time = 15 / 24 = 0.625.
         running_animation.add_event_to_target(feet.front_left, 0.625, OnStep);
         running_animation.add_event_to_target(feet.front_right, 0.5, OnStep);
         running_animation.add_event_to_target(feet.back_left, 0.0, OnStep);
