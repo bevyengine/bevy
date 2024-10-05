@@ -458,7 +458,7 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
     let (width, height) = buffer
         .layout_runs()
         .map(|run| (run.line_w, run.line_height))
-        .reduce(|(w1, h1), (w2, h2)| (w1.max(w2), h1.max(h2)))
+        .reduce(|(w1, h1), (w2, h2)| (w1.max(w2), h1 + h2))
         .unwrap_or((0.0, 0.0));
 
     Vec2::new(width, height).ceil()
