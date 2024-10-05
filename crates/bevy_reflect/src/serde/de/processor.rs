@@ -181,6 +181,9 @@ pub trait ReflectDeserializerProcessor {
     ///     }
     /// }
     /// ```
+    ///
+    /// [`TypedReflectDeserializer`]: crate::serde::TypedReflectDeserializer
+    /// [`FromReflect`]: crate::FromReflect
     fn try_deserialize<'de, D>(
         &mut self,
         registration: &TypeRegistration,
