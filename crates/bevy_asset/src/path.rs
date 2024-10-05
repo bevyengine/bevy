@@ -474,16 +474,7 @@ impl<'a> AssetPath<'a> {
             return None;
         }
         let path = self.path();
-        let path = if path.is_absolute() {
-            match path.strip_prefix("/") {
-                Ok(path) => path,
-                Err(_) => {
-                    return None;
-                }
-            }
-        } else {
-            path
-        };
+        let path = path.is_absolute().then(|| path.strip_prefix("/").ok()).flatten()?;
         Some(Path::new(crate::AssetPlugin::DEFAULT_UNPROCESSED_FILE_PATH).join(path))
     }
 
