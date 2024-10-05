@@ -1,7 +1,7 @@
 use crate::{
     ops,
     primitives::{InfinitePlane3d, Plane2d},
-    Dir2, Dir3, Vec2, Vec3,
+    Dir2, Dir3, Isometry2d, Isometry3d, Vec2, Vec3,
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -64,6 +64,28 @@ impl Ray2d {
         self.intersect_plane(plane_origin, plane)
             .map(|distance| self.get_point(distance))
     }
+
+    /// Returns `self` transformed by the given [isometry].
+    ///
+    /// [isometry]: crate::Isometry2d
+    #[inline]
+    pub fn transformed_by(&self, isometry: Isometry2d) -> Self {
+        Self {
+            origin: isometry.transform_point(self.origin),
+            direction: isometry.rotation * self.direction,
+        }
+    }
+
+    /// Returns `self` transformed by the inverse of the given [isometry].
+    ///
+    /// [isometry]: crate::Isometry2d
+    #[inline]
+    pub fn inverse_transformed_by(&self, isometry: Isometry2d) -> Self {
+        Self {
+            origin: isometry.inverse_transform_point(self.origin),
+            direction: isometry.rotation.inverse() * self.direction,
+        }
+    }
 }
 
 /// An infinite half-line starting at `origin` and going in `direction` in 3D space.
@@ -124,6 +146,28 @@ impl Ray3d {
     ) -> Option<Vec3> {
         self.intersect_plane(plane_origin, plane)
             .map(|distance| self.get_point(distance))
+    }
+
+    /// Returns `self` transformed by the given [isometry].
+    ///
+    /// [isometry]: crate::Isometry3d
+    #[inline]
+    pub fn transformed_by(&self, isometry: Isometry3d) -> Self {
+        Self {
+            origin: isometry.transform_point(self.origin).into(),
+            direction: isometry.rotation * self.direction,
+        }
+    }
+
+    /// Returns `self` transformed by the inverse of the given [isometry].
+    ///
+    /// [isometry]: crate::Isometry3d
+    #[inline]
+    pub fn inverse_transformed_by(&self, isometry: Isometry3d) -> Self {
+        Self {
+            origin: isometry.inverse_transform_point(self.origin).into(),
+            direction: isometry.rotation.inverse() * self.direction,
+        }
     }
 }
 
