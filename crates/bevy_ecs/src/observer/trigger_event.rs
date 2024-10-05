@@ -16,8 +16,15 @@ pub struct TriggerEvent<E, Targets: TriggerTargets = ()> {
 
 impl<E: Event, Targets: TriggerTargets> TriggerEvent<E, Targets> {
     pub(super) fn trigger(mut self, world: &mut World) {
-        let event_type = world.init_component::<E>();
+        let event_type = world.register_component::<E>();
         trigger_event(world, event_type, &mut self.event, self.targets);
+    }
+}
+
+impl<E: Event, Targets: TriggerTargets> TriggerEvent<&mut E, Targets> {
+    pub(super) fn trigger_ref(self, world: &mut World) {
+        let event_type = world.register_component::<E>();
+        trigger_event(world, event_type, self.event, self.targets);
     }
 }
 
@@ -93,6 +100,7 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
 }
 
 /// Represents a collection of targets for a specific [`Trigger`] of an [`Event`]. Targets can be of type [`Entity`] or [`ComponentId`].
+///
 /// When a trigger occurs for a given event and [`TriggerTargets`], any [`Observer`] that watches for that specific event-target combination
 /// will run.
 ///
@@ -122,7 +130,7 @@ impl TriggerTargets for Entity {
     }
 
     fn entities(&self) -> &[Entity] {
-        std::slice::from_ref(self)
+        core::slice::from_ref(self)
     }
 }
 
@@ -148,7 +156,7 @@ impl<const N: usize> TriggerTargets for [Entity; N] {
 
 impl TriggerTargets for ComponentId {
     fn components(&self) -> &[ComponentId] {
-        std::slice::from_ref(self)
+        core::slice::from_ref(self)
     }
 
     fn entities(&self) -> &[Entity] {
@@ -173,5 +181,15 @@ impl<const N: usize> TriggerTargets for [ComponentId; N] {
 
     fn entities(&self) -> &[Entity] {
         &[]
+    }
+}
+
+impl TriggerTargets for &Vec<Entity> {
+    fn components(&self) -> &[ComponentId] {
+        &[]
+    }
+
+    fn entities(&self) -> &[Entity] {
+        self.as_slice()
     }
 }

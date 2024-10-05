@@ -1,6 +1,7 @@
+use crate::pipeline::CosmicFontSystem;
 use crate::{
-    BreakLineOn, CosmicBuffer, Font, FontAtlasSets, PositionedGlyph, Text, TextBounds, TextError,
-    TextLayoutInfo, TextPipeline, YAxisOrientation,
+    CosmicBuffer, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, Text, TextBounds,
+    TextError, TextLayoutInfo, TextPipeline, YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
@@ -14,6 +15,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
+use bevy_render::world_sync::TemporaryRenderEntity;
 use bevy_render::{
     primitives::Aabb,
     texture::Image,
@@ -25,7 +27,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
-/// The bundle of components needed to draw text in a 2D scene via a 2D `Camera2dBundle`.
+/// The bundle of components needed to draw text in a 2D scene via a `Camera2d`.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct Text2dBundle {
@@ -114,9 +116,8 @@ pub fn extract_text2d_sprite(
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            let entity = commands.spawn_empty().id();
             extracted_sprites.sprites.insert(
-                entity,
+                commands.spawn(TemporaryRenderEntity).id(),
                 ExtractedSprite {
                     transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                     color,
@@ -158,6 +159,8 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut CosmicBuffer,
     )>,
+    mut font_system: ResMut<CosmicFontSystem>,
+    mut swash_cache: ResMut<SwashCache>,
 ) {
     // We need to consume the entire iterator, hence `last`
     let factor_changed = scale_factor_changed.read().last().is_some();
@@ -170,10 +173,10 @@ pub fn update_text2d_layout(
 
     let inverse_scale_factor = scale_factor.recip();
 
-    for (entity, text, bounds, mut text_layout_info, mut buffer) in &mut text_query {
+    for (entity, text, bounds, text_layout_info, mut buffer) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
             let text_bounds = TextBounds {
-                width: if text.linebreak_behavior == BreakLineOn::NoWrap {
+                width: if text.linebreak == LineBreak::NoWrap {
                     None
                 } else {
                     bounds.width.map(|width| scale_value(width, scale_factor))
@@ -183,18 +186,23 @@ pub fn update_text2d_layout(
                     .map(|height| scale_value(height, scale_factor)),
             };
 
+            let text_layout_info = text_layout_info.into_inner();
             match text_pipeline.queue_text(
+                text_layout_info,
                 &fonts,
                 &text.sections,
                 scale_factor.into(),
                 text.justify,
-                text.linebreak_behavior,
+                text.linebreak,
+                text.font_smoothing,
                 text_bounds,
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
                 YAxisOrientation::BottomToTop,
                 buffer.as_mut(),
+                &mut font_system,
+                &mut swash_cache,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
@@ -204,10 +212,11 @@ pub fn update_text2d_layout(
                 Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
-                Ok(mut info) => {
-                    info.size.x = scale_value(info.size.x, inverse_scale_factor);
-                    info.size.y = scale_value(info.size.y, inverse_scale_factor);
-                    *text_layout_info = info;
+                Ok(()) => {
+                    text_layout_info.size.x =
+                        scale_value(text_layout_info.size.x, inverse_scale_factor);
+                    text_layout_info.size.y =
+                        scale_value(text_layout_info.size.y, inverse_scale_factor);
                 }
             }
         }
@@ -270,7 +279,9 @@ mod tests {
             .init_resource::<Assets<TextureAtlasLayout>>()
             .init_resource::<FontAtlasSets>()
             .init_resource::<Events<WindowScaleFactorChanged>>()
-            .insert_resource(TextPipeline::default())
+            .init_resource::<TextPipeline>()
+            .init_resource::<CosmicFontSystem>()
+            .init_resource::<SwashCache>()
             .add_systems(
                 Update,
                 (

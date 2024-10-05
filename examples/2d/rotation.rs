@@ -1,6 +1,6 @@
 //! Demonstrates rotating entities in 2D using quaternions.
 
-use bevy::prelude::*;
+use bevy::{math::ops, prelude::*};
 
 const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 
@@ -55,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let enemy_b_handle = asset_server.load("textures/simplespace/enemy_B.png");
 
     // 2D orthographic camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let horizontal_margin = BOUNDS.x / 4.0;
     let vertical_margin = BOUNDS.y / 4.0;
@@ -241,7 +241,7 @@ fn rotate_to_player_system(
 
         // limit rotation so we don't overshoot the target. We need to convert our dot product to
         // an angle here so we can get an angle of rotation to clamp against.
-        let max_angle = forward_dot_player.clamp(-1.0, 1.0).acos(); // clamp acos for safety
+        let max_angle = ops::acos(forward_dot_player.clamp(-1.0, 1.0)); // clamp acos for safety
 
         // calculate angle of rotation with limit
         let rotation_angle =

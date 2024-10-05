@@ -6,8 +6,7 @@
 //!
 //! Reflection probes don't work on WebGL 2 or WebGPU.
 
-use bevy::core_pipeline::Skybox;
-use bevy::prelude::*;
+use bevy::{core_pipeline::Skybox, prelude::*};
 
 use std::{
     f32::consts::PI,
@@ -97,22 +96,21 @@ fn setup(
 
 // Spawns the cubes, light, and camera.
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb")),
-        ..SceneBundle::default()
-    });
+    commands.spawn(SceneRoot(
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb")),
+    ));
 }
 
 // Spawns the camera.
 fn spawn_camera(commands: &mut Commands) {
-    commands.spawn(Camera3dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
             hdr: true,
             ..default()
         },
-        transform: Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+        Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 // Creates the sphere mesh and spawns it.
@@ -125,17 +123,15 @@ fn spawn_sphere(
     let sphere_mesh = meshes.add(Sphere::new(1.0).mesh().ico(7).unwrap());
 
     // Create a sphere.
-    commands.spawn(PbrBundle {
-        mesh: sphere_mesh.clone(),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(sphere_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Srgba::hex("#ffd891").unwrap().into(),
             metallic: 1.0,
             perceptual_roughness: 0.0,
             ..StandardMaterial::default()
-        }),
-        transform: Transform::default(),
-        ..PbrBundle::default()
-    });
+        })),
+    ));
 }
 
 // Spawns the reflection probe.
@@ -151,6 +147,7 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
             diffuse_map: cubemaps.diffuse.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),
             intensity: 5000.0,
+            ..default()
         },
     });
 }
@@ -187,7 +184,7 @@ fn add_environment_map_to_camera(
             .insert(Skybox {
                 image: cubemaps.skybox.clone(),
                 brightness: 5000.0,
-                ..Default::default()
+                ..default()
             });
     }
 }
@@ -299,6 +296,7 @@ fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLig
         diffuse_map: cubemaps.diffuse.clone(),
         specular_map: cubemaps.specular_environment_map.clone(),
         intensity: 5000.0,
+        ..default()
     }
 }
 

@@ -86,11 +86,11 @@ impl AssetLoader for ImageLoader {
     type Asset = Image;
     type Settings = ImageLoaderSettings;
     type Error = ImageLoaderError;
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn Reader,
-        settings: &'a ImageLoaderSettings,
-        load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        settings: &ImageLoaderSettings,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -154,8 +154,8 @@ pub struct FileTextureError {
     error: TextureError,
     path: String,
 }
-impl std::fmt::Display for FileTextureError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl core::fmt::Display for FileTextureError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
             "Error reading image file {}: {}, this is an error in `bevy_render`.",

@@ -31,6 +31,8 @@
 
 #![allow(clippy::type_complexity)]
 
+extern crate alloc;
+
 mod bounds;
 mod error;
 mod font;
@@ -55,7 +57,9 @@ pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
 
-/// Most commonly used re-exported types.
+/// The text prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{Font, JustifyText, Text, Text2dBundle, TextError, TextSection, TextStyle};
@@ -70,6 +74,10 @@ use bevy_render::{
     camera::CameraUpdateSystem, view::VisibilitySystems, ExtractSchedule, RenderApp,
 };
 use bevy_sprite::SpriteSystem;
+
+/// The raw data for the default font used by `bevy_text`
+#[cfg(feature = "default_font")]
+pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
 
 /// Adds text rendering support to an app.
 ///
@@ -101,7 +109,9 @@ impl Plugin for TextPlugin {
             .register_type::<TextBounds>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
-            .insert_resource(TextPipeline::default())
+            .init_resource::<TextPipeline>()
+            .init_resource::<CosmicFontSystem>()
+            .init_resource::<SwashCache>()
             .add_systems(
                 PostUpdate,
                 (
@@ -109,7 +119,7 @@ impl Plugin for TextPlugin {
                         .in_set(VisibilitySystems::CalculateBounds)
                         .after(update_text2d_layout),
                     update_text2d_layout
-                        .after(font_atlas_set::remove_dropped_font_atlas_sets)
+                        .after(remove_dropped_font_atlas_sets)
                         // Potential conflict: `Assets<Image>`
                         // In practice, they run independently since `bevy_render::camera_update_system`
                         // will only ever observe its own render target, and `update_text2d_layout`
@@ -117,7 +127,8 @@ impl Plugin for TextPlugin {
                         .ambiguous_with(CameraUpdateSystem),
                     remove_dropped_font_atlas_sets,
                 ),
-            );
+            )
+            .add_systems(Last, trim_cosmic_cache);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(

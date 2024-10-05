@@ -1,37 +1,25 @@
 #[cfg(feature = "basis-universal")]
-mod basis;
-#[cfg(feature = "basis-universal")]
 mod compressed_image_saver;
-#[cfg(feature = "dds")]
-mod dds;
-#[cfg(feature = "exr")]
-mod exr_texture_loader;
 mod fallback_image;
-#[cfg(feature = "hdr")]
-mod hdr_texture_loader;
-#[allow(clippy::module_inception)]
-mod image;
+mod gpu_image;
 mod image_loader;
-#[cfg(feature = "ktx2")]
-mod ktx2;
 mod texture_attachment;
 mod texture_cache;
 
-pub(crate) mod image_texture_conversion;
-
-pub use self::image::*;
-#[cfg(feature = "ktx2")]
-pub use self::ktx2::*;
-#[cfg(feature = "dds")]
-pub use dds::*;
+pub use crate::render_resource::DefaultImageSampler;
 #[cfg(feature = "exr")]
-pub use exr_texture_loader::*;
+pub use bevy_image::ExrTextureLoader;
 #[cfg(feature = "hdr")]
-pub use hdr_texture_loader::*;
-
+pub use bevy_image::HdrTextureLoader;
+pub use bevy_image::{
+    BevyDefault, CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageFormat,
+    ImageSampler, ImageSamplerDescriptor, ImageType, IntoDynamicImageError, TextureError,
+    TextureFormatPixelInfo,
+};
 #[cfg(feature = "basis-universal")]
 pub use compressed_image_saver::*;
 pub use fallback_image::*;
+pub use gpu_image::*;
 pub use image_loader::*;
 pub use texture_attachment::*;
 pub use texture_cache::*;
@@ -107,11 +95,16 @@ impl Plugin for ImagePlugin {
             .world()
             .get_resource::<bevy_asset::processor::AssetProcessor>()
         {
-            processor.register_processor::<bevy_asset::processor::LoadAndSave<ImageLoader, CompressedImageSaver>>(
-                CompressedImageSaver.into(),
-            );
-            processor
-                .set_default_processor::<bevy_asset::processor::LoadAndSave<ImageLoader, CompressedImageSaver>>("png");
+            processor.register_processor::<bevy_asset::processor::LoadTransformAndSave<
+                ImageLoader,
+                bevy_asset::transformer::IdentityAssetTransformer<Image>,
+                CompressedImageSaver,
+            >>(CompressedImageSaver.into());
+            processor.set_default_processor::<bevy_asset::processor::LoadTransformAndSave<
+                ImageLoader,
+                bevy_asset::transformer::IdentityAssetTransformer<Image>,
+                CompressedImageSaver,
+            >>("png");
         }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -163,15 +156,5 @@ impl Plugin for ImagePlugin {
                 .init_resource::<FallbackImageCubemap>()
                 .init_resource::<FallbackImageFormatMsaaCache>();
         }
-    }
-}
-
-pub trait BevyDefault {
-    fn bevy_default() -> Self;
-}
-
-impl BevyDefault for wgpu::TextureFormat {
-    fn bevy_default() -> Self {
-        wgpu::TextureFormat::Rgba8UnormSrgb
     }
 }

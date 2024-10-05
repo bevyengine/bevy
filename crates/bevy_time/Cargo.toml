@@ -32,5 +32,5 @@ thiserror = "1.0"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

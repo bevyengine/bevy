@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
     // of the other sprite which moves based on `Real` (unscaled) time
     time.set_relative_speed(2.);
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let virtual_color = GOLD.into();
     let sprite_scale = Vec2::splat(0.5).extend(1.);
@@ -80,7 +80,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
     ));
 
     // info UI
-    let font_size = 40.;
+    let font_size = 33.;
 
     commands
         .spawn(NodeBundle {
@@ -169,7 +169,7 @@ fn move_virtual_time_sprites(
 }
 
 fn get_sprite_translation_x(elapsed: f32) -> f32 {
-    elapsed.sin() * 500.
+    ops::sin(elapsed) * 500.
 }
 
 /// Update the speed of `Time<Virtual>.` by `DELTA`

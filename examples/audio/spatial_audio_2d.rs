@@ -3,7 +3,6 @@ use bevy::{
     audio::{AudioPlugin, SpatialScale},
     color::palettes::css::*,
     prelude::*,
-    sprite::MaterialMesh2dBundle,
 };
 
 /// Spatial audio uses the distance to attenuate the sound volume. In 2D with the default camera,
@@ -34,17 +33,12 @@ fn setup(
 
     // sound emitter
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(Circle::new(15.0)).into(),
-            material: materials.add(Color::from(BLUE)),
-            transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
-            ..default()
-        },
+        Mesh2d(meshes.add(Circle::new(15.0))),
+        MeshMaterial2d(materials.add(Color::from(BLUE))),
+        Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
         Emitter::default(),
-        AudioBundle {
-            source: asset_server.load("sounds/Windless Slopes.ogg"),
-            settings: PlaybackSettings::LOOP.with_spatial(true),
-        },
+        AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
+        PlaybackSettings::LOOP.with_spatial(true),
     ));
 
     let listener = SpatialListener::new(gap);
@@ -89,7 +83,7 @@ fn setup(
     );
 
     // camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }
 
 #[derive(Component, Default)]
@@ -108,7 +102,7 @@ fn update_emitters(
         }
 
         if !emitter.stopped {
-            emitter_transform.translation.x = time.elapsed_seconds().sin() * 500.0;
+            emitter_transform.translation.x = ops::sin(time.elapsed_seconds()) * 500.0;
         }
     }
 }

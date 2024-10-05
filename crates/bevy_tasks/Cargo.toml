@@ -14,7 +14,7 @@ multi_threaded = ["dep:async-channel", "dep:concurrent-queue"]
 [dependencies]
 futures-lite = "2.0.1"
 async-executor = "1.11"
-async-channel = { version = "2.2.0", optional = true }
+async-channel = { version = "2.3.0", optional = true }
 async-io = { version = "2.0.0", optional = true }
 concurrent-queue = { version = "2.0.0", optional = true }
 
@@ -30,5 +30,5 @@ web-time = { version = "1.1" }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

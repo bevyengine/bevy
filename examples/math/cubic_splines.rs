@@ -6,7 +6,7 @@ use bevy::{
     ecs::system::Commands,
     gizmos::gizmos::Gizmos,
     input::{mouse::MouseButtonInput, ButtonState},
-    math::{cubic_splines::*, vec2},
+    math::{cubic_splines::*, vec2, Isometry2d},
     prelude::*,
 };
 
@@ -66,15 +66,15 @@ fn setup(mut commands: Commands) {
     commands.insert_resource(MousePosition::default());
     commands.insert_resource(MouseEditMove::default());
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // The instructions and modes are rendered on the left-hand side in a column.
     let instructions_text = "Click and drag to add control points and their tangents\n\
         R: Remove the last control point\n\
         S: Cycle the spline construction being used\n\
         C: Toggle cyclic curve construction";
-    let spline_mode_text = format!("Spline: {}", spline_mode);
-    let cycling_mode_text = format!("{}", cycling_mode);
+    let spline_mode_text = format!("Spline: {spline_mode}");
+    let cycling_mode_text = format!("{cycling_mode}");
     let style = TextStyle::default();
 
     commands
@@ -147,15 +147,7 @@ impl std::fmt::Display for CyclingMode {
 /// The curve presently being displayed. This is optional because there may not be enough control
 /// points to actually generate a curve.
 #[derive(Clone, Default, Resource)]
-struct Curve {
-    inner: Option<CubicCurve<Vec2>>,
-}
-
-impl From<CubicCurve<Vec2>> for Curve {
-    fn from(value: CubicCurve<Vec2>) -> Self {
-        Self { inner: Some(value) }
-    }
-}
+struct Curve(Option<CubicCurve<Vec2>>);
 
 /// The control points used to generate a curve. The tangent components are only used in the case of
 /// Hermite interpolation.
@@ -184,11 +176,11 @@ fn update_curve(
 /// This system uses gizmos to draw the current [`Curve`] by breaking it up into a large number
 /// of line segments.
 fn draw_curve(curve: Res<Curve>, mut gizmos: Gizmos) {
-    let Some(ref curve) = curve.inner else {
+    let Some(ref curve) = curve.0 else {
         return;
     };
     // Scale resolution with curve length so it doesn't degrade as the length increases.
-    let resolution = 100 * curve.segments.len();
+    let resolution = 100 * curve.segments().len();
     gizmos.linestrip(
         curve.iter_positions(resolution).map(|pt| pt.extend(0.0)),
         Color::srgb(1.0, 1.0, 1.0),
@@ -205,7 +197,11 @@ fn draw_control_points(
     mut gizmos: Gizmos,
 ) {
     for &(point, tangent) in &control_points.points_and_tangents {
-        gizmos.circle_2d(point, 10.0, Color::srgb(0.0, 1.0, 0.0));
+        gizmos.circle_2d(
+            Isometry2d::from_translation(point),
+            10.0,
+            Color::srgb(0.0, 1.0, 0.0),
+        );
 
         if matches!(*spline_mode, SplineMode::Hermite) {
             gizmos.arrow_2d(point, point + tangent, Color::srgb(1.0, 0.0, 0.0));
@@ -226,39 +222,25 @@ fn form_curve(
 
     match spline_mode {
         SplineMode::Hermite => {
-            if points.len() < 2 {
-                Curve::default()
-            } else {
-                let spline = CubicHermite::new(points, tangents);
-                Curve::from(match cycling_mode {
-                    CyclingMode::NotCyclic => spline.to_curve(),
-                    CyclingMode::Cyclic => spline.to_curve_cyclic(),
-                })
-            }
+            let spline = CubicHermite::new(points, tangents);
+            Curve(match cycling_mode {
+                CyclingMode::NotCyclic => spline.to_curve().ok(),
+                CyclingMode::Cyclic => spline.to_curve_cyclic().ok(),
+            })
         }
         SplineMode::Cardinal => {
-            if points.len() < 2 {
-                Curve::default()
-            } else {
-                let spline = CubicCardinalSpline::new_catmull_rom(points);
-                Curve::from(match cycling_mode {
-                    CyclingMode::NotCyclic => spline.to_curve(),
-                    CyclingMode::Cyclic => spline.to_curve_cyclic(),
-                })
-            }
+            let spline = CubicCardinalSpline::new_catmull_rom(points);
+            Curve(match cycling_mode {
+                CyclingMode::NotCyclic => spline.to_curve().ok(),
+                CyclingMode::Cyclic => spline.to_curve_cyclic().ok(),
+            })
         }
         SplineMode::B => {
-            if matches!(cycling_mode, CyclingMode::NotCyclic) && points.len() < 4
-                || matches!(cycling_mode, CyclingMode::Cyclic) && points.len() < 2
-            {
-                Curve::default()
-            } else {
-                let spline = CubicBSpline::new(points);
-                Curve::from(match cycling_mode {
-                    CyclingMode::NotCyclic => spline.to_curve(),
-                    CyclingMode::Cyclic => spline.to_curve_cyclic(),
-                })
-            }
+            let spline = CubicBSpline::new(points);
+            Curve(match cycling_mode {
+                CyclingMode::NotCyclic => spline.to_curve().ok(),
+                CyclingMode::Cyclic => spline.to_curve_cyclic().ok(),
+            })
         }
     }
 }
@@ -314,6 +296,7 @@ fn update_cycling_mode_text(
 // -----------------------------------
 
 /// A small state machine which tracks a click-and-drag motion used to create new control points.
+///
 /// When the user is not doing a click-and-drag motion, the `start` field is `None`. When the user
 /// presses the left mouse button, the location of that press is temporarily stored in the field.
 #[derive(Clone, Default, Resource)]
@@ -375,11 +358,10 @@ fn handle_mouse_press(
                 };
 
                 // Convert the starting point and end point (current mouse pos) into world coords:
-                let Some(point) = camera.viewport_to_world_2d(camera_transform, start) else {
+                let Ok(point) = camera.viewport_to_world_2d(camera_transform, start) else {
                     continue;
                 };
-                let Some(end_point) = camera.viewport_to_world_2d(camera_transform, mouse_pos)
-                else {
+                let Ok(end_point) = camera.viewport_to_world_2d(camera_transform, mouse_pos) else {
                     continue;
                 };
                 let tangent = end_point - point;
@@ -414,15 +396,23 @@ fn draw_edit_move(
 
     // Resources store data in viewport coordinates, so we need to convert to world coordinates
     // to display them:
-    let Some(start) = camera.viewport_to_world_2d(camera_transform, start) else {
+    let Ok(start) = camera.viewport_to_world_2d(camera_transform, start) else {
         return;
     };
-    let Some(end) = camera.viewport_to_world_2d(camera_transform, mouse_pos) else {
+    let Ok(end) = camera.viewport_to_world_2d(camera_transform, mouse_pos) else {
         return;
     };
 
-    gizmos.circle_2d(start, 10.0, Color::srgb(0.0, 1.0, 0.7));
-    gizmos.circle_2d(start, 7.0, Color::srgb(0.0, 1.0, 0.7));
+    gizmos.circle_2d(
+        Isometry2d::from_translation(start),
+        10.0,
+        Color::srgb(0.0, 1.0, 0.7),
+    );
+    gizmos.circle_2d(
+        Isometry2d::from_translation(start),
+        7.0,
+        Color::srgb(0.0, 1.0, 0.7),
+    );
     gizmos.arrow_2d(start, end, Color::srgb(1.0, 0.0, 0.7));
 }
 

@@ -1,6 +1,5 @@
 use bevy_ecs::prelude::{Component, ReflectComponent};
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use smallvec::SmallVec;
 
 pub const DEFAULT_LAYERS: &RenderLayers = &RenderLayers::layer(0);
@@ -21,7 +20,7 @@ pub type Layer = usize;
 ///
 /// Entities without this component belong to layer `0`.
 #[derive(Component, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug)]
 pub struct RenderLayers(SmallVec<[u64; INLINE_BLOCKS]>);
 
 /// The number of memory blocks stored inline
@@ -33,8 +32,8 @@ impl Default for &RenderLayers {
     }
 }
 
-impl std::fmt::Debug for RenderLayers {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for RenderLayers {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("RenderLayers")
             .field(&self.iter().collect::<Vec<_>>())
             .finish()
@@ -58,6 +57,10 @@ impl Default for RenderLayers {
 
 impl RenderLayers {
     /// Create a new `RenderLayers` belonging to the given layer.
+    ///
+    /// This `const` constructor is limited to `size_of::<usize>()` layers.
+    /// If you need to support an arbitrary number of layers, use [`with`](RenderLayers::with)
+    /// or [`from_layers`](RenderLayers::from_layers).
     pub const fn layer(n: Layer) -> Self {
         let (buffer_index, bit) = Self::layer_info(n);
         assert!(
@@ -135,7 +138,7 @@ impl RenderLayers {
         false
     }
 
-    /// get the bitmask representation of the contained layers
+    /// Get the bitmask representation of the contained layers.
     pub fn bits(&self) -> &[u64] {
         self.0.as_slice()
     }
@@ -149,7 +152,7 @@ impl RenderLayers {
     }
 
     fn extend_buffer(&mut self, other_len: usize) {
-        let new_size = std::cmp::max(self.0.len(), other_len);
+        let new_size = core::cmp::max(self.0.len(), other_len);
         self.0.reserve_exact(new_size - self.0.len());
         self.0.resize(new_size, 0u64);
     }
@@ -157,7 +160,7 @@ impl RenderLayers {
     fn iter_layers(buffer_and_offset: (u64, usize)) -> impl Iterator<Item = Layer> + 'static {
         let (mut buffer, mut layer) = buffer_and_offset;
         layer *= 64;
-        std::iter::from_fn(move || {
+        core::iter::from_fn(move || {
             if buffer == 0 {
                 return None;
             }
@@ -211,7 +214,7 @@ impl RenderLayers {
     fn combine_blocks(&self, other: &Self, mut f: impl FnMut(u64, u64) -> u64) -> Self {
         let mut a = self.0.iter();
         let mut b = other.0.iter();
-        let mask = std::iter::from_fn(|| {
+        let mask = core::iter::from_fn(|| {
             let a = a.next().copied();
             let b = b.next().copied();
             if a.is_none() && b.is_none() {
@@ -223,21 +226,21 @@ impl RenderLayers {
     }
 }
 
-impl std::ops::BitAnd for RenderLayers {
+impl core::ops::BitAnd for RenderLayers {
     type Output = Self;
     fn bitand(self, rhs: Self) -> Self::Output {
         self.intersection(&rhs)
     }
 }
 
-impl std::ops::BitOr for RenderLayers {
+impl core::ops::BitOr for RenderLayers {
     type Output = Self;
     fn bitor(self, rhs: Self) -> Self::Output {
         self.union(&rhs)
     }
 }
 
-impl std::ops::BitXor for RenderLayers {
+impl core::ops::BitXor for RenderLayers {
     type Output = Self;
     fn bitxor(self, rhs: Self) -> Self::Output {
         self.symmetric_difference(&rhs)

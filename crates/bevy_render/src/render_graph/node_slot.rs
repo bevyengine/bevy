@@ -1,5 +1,6 @@
+use alloc::borrow::Cow;
 use bevy_ecs::entity::Entity;
-use std::{borrow::Cow, fmt};
+use core::fmt;
 
 use crate::render_resource::{Buffer, Sampler, TextureView};
 

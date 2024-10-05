@@ -2,8 +2,7 @@
 
 use std::f32::consts::*;
 
-use bevy::color::palettes::css::*;
-use bevy::prelude::*;
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
@@ -14,7 +13,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     let texture = asset_server.load("branding/icon.png");
 
     // Spawn a root entity with no parent
@@ -40,7 +39,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Store parent entity for next sections
         .id();
 
-    // Another way is to use the push_children function to add children after the parent
+    // Another way is to use the add_child function to add children after the parent
     // entity has already been spawned.
     let child = commands
         .spawn(SpriteBundle {

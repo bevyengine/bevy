@@ -1,14 +1,16 @@
 #[cfg(feature = "reflect")]
-use bevy_ecs::reflect::{ReflectComponent, ReflectMapEntities};
+use bevy_ecs::reflect::{
+    ReflectComponent, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
+    ReflectVisitEntitiesMut,
+};
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityMapper, MapEntities},
+    entity::{Entity, VisitEntitiesMut},
     prelude::FromWorld,
     world::World,
 };
-use core::slice;
+use core::{ops::Deref, slice};
 use smallvec::SmallVec;
-use std::ops::Deref;
 
 /// Contains references to the child entities of this entity.
 ///
@@ -23,18 +25,20 @@ use std::ops::Deref;
 /// [`Query`]: bevy_ecs::system::Query
 /// [`Parent`]: crate::components::parent::Parent
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
-#[derive(Component, Debug)]
+#[derive(Component, Debug, VisitEntitiesMut)]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
-#[cfg_attr(feature = "reflect", reflect(Component, MapEntities))]
+#[cfg_attr(
+    feature = "reflect",
+    reflect(
+        Component,
+        MapEntities,
+        VisitEntities,
+        VisitEntitiesMut,
+        Debug,
+        FromWorld
+    )
+)]
 pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
-
-impl MapEntities for Children {
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-        for entity in &mut self.0 {
-            *entity = entity_mapper.map_entity(*entity);
-        }
-    }
-}
 
 // TODO: We need to impl either FromWorld or Default so Children can be registered as Reflect.
 // This is because Reflect deserialize by creating an instance and apply a patch on top.
@@ -71,7 +75,7 @@ impl Children {
     #[inline]
     pub fn sort_by<F>(&mut self, compare: F)
     where
-        F: FnMut(&Entity, &Entity) -> std::cmp::Ordering,
+        F: FnMut(&Entity, &Entity) -> core::cmp::Ordering,
     {
         self.0.sort_by(compare);
     }
@@ -120,7 +124,7 @@ impl Children {
     #[inline]
     pub fn sort_unstable_by<F>(&mut self, compare: F)
     where
-        F: FnMut(&Entity, &Entity) -> std::cmp::Ordering,
+        F: FnMut(&Entity, &Entity) -> core::cmp::Ordering,
     {
         self.0.sort_unstable_by(compare);
     }

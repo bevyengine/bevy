@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
@@ -33,14 +33,19 @@ pub use skybox::Skybox;
 ///
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 pub mod experimental {
+    #[expect(deprecated)]
     pub mod taa {
         pub use crate::taa::{
             TemporalAntiAliasBundle, TemporalAntiAliasNode, TemporalAntiAliasPlugin,
-            TemporalAntiAliasSettings,
+            TemporalAntiAliasSettings, TemporalAntiAliasing,
         };
     }
 }
 
+/// The core pipeline prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -52,7 +57,7 @@ pub mod prelude {
 use crate::{
     blit::BlitPlugin,
     bloom::BloomPlugin,
-    contrast_adaptive_sharpening::CASPlugin,
+    contrast_adaptive_sharpening::CasPlugin,
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
@@ -97,7 +102,7 @@ impl Plugin for CorePipelinePlugin {
                 UpscalingPlugin,
                 BloomPlugin,
                 FxaaPlugin,
-                CASPlugin,
+                CasPlugin,
                 MotionBlurPlugin,
                 DepthOfFieldPlugin,
                 SmaaPlugin,

@@ -23,13 +23,13 @@ use bevy_render::{
     settings::WgpuFeatures,
     texture::{FallbackImage, GpuImage, Image},
     view::ExtractedView,
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::prelude::GlobalTransform;
+use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use bevy_utils::{tracing::error, HashMap};
 
-use std::hash::Hash;
-use std::ops::Deref;
+use core::{hash::Hash, ops::Deref};
 
 use crate::{
     irradiance_volume::IRRADIANCE_VOLUME_SHADER_HANDLE,
@@ -103,7 +103,7 @@ pub struct LightProbePlugin;
 /// specific technique but rather to a class of techniques. Developers familiar
 /// with other engines should be aware of this terminology difference.
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct LightProbe;
 
 /// A GPU type that stores information about a light probe.
@@ -296,6 +296,31 @@ impl LightProbe {
     }
 }
 
+/// The uniform struct extracted from [`EnvironmentMapLight`].
+/// Will be available for use in the Environment Map shader.
+#[derive(Component, ShaderType, Clone)]
+pub struct EnvironmentMapUniform {
+    /// The world space transformation matrix of the sample ray for environment cubemaps.
+    transform: Mat4,
+}
+
+impl Default for EnvironmentMapUniform {
+    fn default() -> Self {
+        EnvironmentMapUniform {
+            transform: Mat4::IDENTITY,
+        }
+    }
+}
+
+/// A GPU buffer that stores the environment map settings for each view.
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct EnvironmentMapUniformBuffer(pub DynamicUniformBuffer<EnvironmentMapUniform>);
+
+/// A component that stores the offset within the
+/// [`EnvironmentMapUniformBuffer`] for each view.
+#[derive(Component, Default, Deref, DerefMut)]
+pub struct ViewEnvironmentMapUniformOffset(u32);
+
 impl Plugin for LightProbePlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
@@ -330,12 +355,39 @@ impl Plugin for LightProbePlugin {
         render_app
             .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
+            .init_resource::<EnvironmentMapUniformBuffer>()
+            .add_systems(ExtractSchedule, gather_environment_map_uniform)
             .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
             .add_systems(
                 Render,
-                upload_light_probes.in_set(RenderSet::PrepareResources),
+                (upload_light_probes, prepare_environment_uniform_buffer)
+                    .in_set(RenderSet::PrepareResources),
             );
+    }
+}
+
+/// Extracts [`EnvironmentMapLight`] from views and creates [`EnvironmentMapUniform`] for them.
+///
+/// Compared to the `ExtractComponentPlugin`, this implementation will create a default instance
+/// if one does not already exist.
+fn gather_environment_map_uniform(
+    view_query: Extract<Query<(&RenderEntity, Option<&EnvironmentMapLight>), With<Camera3d>>>,
+    mut commands: Commands,
+) {
+    for (view_entity, environment_map_light) in view_query.iter() {
+        let environment_map_uniform = if let Some(environment_map_light) = environment_map_light {
+            EnvironmentMapUniform {
+                transform: Transform::from_rotation(environment_map_light.rotation)
+                    .compute_matrix()
+                    .inverse(),
+            }
+        } else {
+            EnvironmentMapUniform::default()
+        };
+        commands
+            .get_or_spawn(view_entity.id())
+            .insert(environment_map_uniform);
     }
 }
 
@@ -344,7 +396,9 @@ impl Plugin for LightProbePlugin {
 fn gather_light_probes<C>(
     image_assets: Res<RenderAssets<GpuImage>>,
     light_probe_query: Extract<Query<(&GlobalTransform, &C), With<LightProbe>>>,
-    view_query: Extract<Query<(Entity, &GlobalTransform, &Frustum, Option<&C>), With<Camera3d>>>,
+    view_query: Extract<
+        Query<(&RenderEntity, &GlobalTransform, &Frustum, Option<&C>), With<Camera3d>>,
+    >,
     mut reflection_probes: Local<Vec<LightProbeInfo<C>>>,
     mut view_reflection_probes: Local<Vec<LightProbeInfo<C>>>,
     mut commands: Commands,
@@ -382,16 +436,43 @@ fn gather_light_probes<C>(
         // Gather up the light probes in the list.
         render_view_light_probes.maybe_gather_light_probes(&view_reflection_probes);
 
+        let entity = view_entity.id();
         // Record the per-view light probes.
         if render_view_light_probes.is_empty() {
             commands
-                .get_or_spawn(view_entity)
+                .get_or_spawn(entity)
                 .remove::<RenderViewLightProbes<C>>();
         } else {
             commands
-                .get_or_spawn(view_entity)
+                .get_or_spawn(entity)
                 .insert(render_view_light_probes);
         }
+    }
+}
+
+/// Gathers up environment map settings for each applicable view and
+/// writes them into a GPU buffer.
+pub fn prepare_environment_uniform_buffer(
+    mut commands: Commands,
+    views: Query<(Entity, Option<&EnvironmentMapUniform>), With<ExtractedView>>,
+    mut environment_uniform_buffer: ResMut<EnvironmentMapUniformBuffer>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+) {
+    let Some(mut writer) =
+        environment_uniform_buffer.get_writer(views.iter().len(), &render_device, &render_queue)
+    else {
+        return;
+    };
+
+    for (view, environment_uniform) in views.iter() {
+        let uniform_offset = match environment_uniform {
+            None => 0,
+            Some(environment_uniform) => writer.write(environment_uniform),
+        };
+        commands
+            .entity(view)
+            .insert(ViewEnvironmentMapUniformOffset(uniform_offset));
     }
 }
 

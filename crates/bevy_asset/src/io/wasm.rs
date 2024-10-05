@@ -23,7 +23,7 @@ extern "C" {
     fn worker(this: &Global) -> JsValue;
 }
 
-/// Reader implementation for loading assets via HTTP in WASM.
+/// Reader implementation for loading assets via HTTP in Wasm.
 pub struct HttpWasmAssetReader {
     root_path: PathBuf,
 }
@@ -106,10 +106,7 @@ impl AssetReader for HttpWasmAssetReader {
         Ok(stream)
     }
 
-    async fn is_directory<'a>(
-        &'a self,
-        _path: &'a Path,
-    ) -> std::result::Result<bool, AssetReaderError> {
+    async fn is_directory<'a>(&'a self, _path: &'a Path) -> Result<bool, AssetReaderError> {
         error!("Reading directories is not supported with the HttpWasmAssetReader");
         Ok(false)
     }
