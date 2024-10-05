@@ -134,9 +134,9 @@ fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<
 /// If there is one, player will track it.
 /// If there are too many enemies, the player will cease all action (the system will not run).
 fn move_pointer(
-    // `QuerySingle` ensures the system runs ONLY when exactly one matching entity exists.
+    // `Single` ensures the system runs ONLY when exactly one matching entity exists.
     mut player: Single<(&mut Transform, &Player)>,
-    // `Option<QuerySingle>` ensures that the system runs ONLY when zero or one matching entity exists.
+    // `Option<Single>` ensures that the system runs ONLY when zero or one matching entity exists.
     enemy: Option<Single<&Transform, (With<Enemy>, Without<Player>)>>,
     time: Res<Time>,
 ) {
