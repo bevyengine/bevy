@@ -52,12 +52,10 @@ fn setup(
 ) {
     // Camera
     commands.spawn((
-        Camera2dBundle {
-            camera: Camera {
-                clear_color: ClearColorConfig::Custom(BLACK.into()),
-                hdr: true,
-                ..Default::default()
-            },
+        Camera2d,
+        Camera {
+            clear_color: ClearColorConfig::Custom(BLACK.into()),
+            hdr: true,
             ..Default::default()
         },
         Bloom {
