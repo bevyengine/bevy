@@ -3275,7 +3275,7 @@ path = "examples/math/ray_cast_2d.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.ray_cast_2d]
-name = "Rendering Primitives"
+name = "2D Ray Casting for Primitives"
 description = "Shows off ray casting for primitive shapes in 2D"
 category = "Math"
 wasm = true
