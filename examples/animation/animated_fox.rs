@@ -24,7 +24,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, setup_scene_once_loaded.before(animate_targets))
         .add_systems(Update, (keyboard_animation_control, simulate_particles))
-        .observe(OnStep::observer)
+        .observe(observe_on_step)
         .run();
 }
 
@@ -38,30 +38,27 @@ struct Animations {
 #[reflect(AnimationEvent)]
 struct OnStep;
 
-impl OnStep {
-    // The observer is not required to be defined in an impl block
-    fn observer(
-        trigger: Trigger<Self>,
-        particle: Res<ParticleAssets>,
-        mut commands: Commands,
-        transforms: Query<&GlobalTransform>,
-    ) {
-        let translation = transforms.get(trigger.entity()).unwrap().translation();
-        let mut rng = thread_rng();
-        // Spawn a bunch of particles.
-        for _ in 0..14 {
-            let horizontal = rng.gen::<Dir2>() * rng.gen_range(8.0..12.0);
-            let vertical = rng.gen_range(0.0..4.0);
-            let size = rng.gen_range(0.2..1.0);
-            commands.queue(spawn_particle(
-                particle.mesh.clone(),
-                particle.material.clone(),
-                translation.reject_from_normalized(Vec3::Y),
-                rng.gen_range(0.2..0.6),
-                size,
-                Vec3::new(horizontal.x, vertical, horizontal.y) * 10.0,
-            ));
-        }
+fn observe_on_step(
+    trigger: Trigger<OnStep>,
+    particle: Res<ParticleAssets>,
+    mut commands: Commands,
+    transforms: Query<&GlobalTransform>,
+) {
+    let translation = transforms.get(trigger.entity()).unwrap().translation();
+    let mut rng = thread_rng();
+    // Spawn a bunch of particles.
+    for _ in 0..14 {
+        let horizontal = rng.gen::<Dir2>() * rng.gen_range(8.0..12.0);
+        let vertical = rng.gen_range(0.0..4.0);
+        let size = rng.gen_range(0.2..1.0);
+        commands.queue(spawn_particle(
+            particle.mesh.clone(),
+            particle.material.clone(),
+            translation.reject_from_normalized(Vec3::Y),
+            rng.gen_range(0.2..0.6),
+            size,
+            Vec3::new(horizontal.x, vertical, horizontal.y) * 10.0,
+        ));
     }
 }
 
