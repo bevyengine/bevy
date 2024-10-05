@@ -9,8 +9,6 @@ pub use many::OneToManyMany;
 
 #[cfg(test)]
 mod tests {
-    use core::marker::PhantomData;
-
     use bevy_ecs::{event::Events, world::World};
 
     use super::*;
@@ -157,7 +155,7 @@ mod tests {
                 .resource_mut::<Events<OneToManyEvent<Family>>>()
                 .drain()
                 .collect::<Vec<_>>(),
-            vec![OneToManyEvent::<Family>::Added(b, a, PhantomData)]
+            vec![OneToManyEvent::<Family>::added(a, b)]
         );
 
         world.entity_mut(b).remove::<Parent>();
@@ -172,7 +170,7 @@ mod tests {
                 .resource_mut::<Events<OneToManyEvent<Family>>>()
                 .drain()
                 .collect::<Vec<_>>(),
-            vec![OneToManyEvent::<Family>::Removed(b, a, PhantomData)]
+            vec![OneToManyEvent::<Family>::removed(a, b)]
         );
     }
 }

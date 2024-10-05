@@ -73,7 +73,7 @@ impl<R: 'static> OneToManyMany<R> {
                     b.insert(OneToManyOne::<R>::new(a_id));
 
                     if let Some(mut moved) = world.get_resource_mut::<Events<OneToManyEvent<R>>>() {
-                        moved.send(OneToManyEvent::<R>::Added(a_id, b_id, PhantomData));
+                        moved.send(OneToManyEvent::<R>::added(a_id, b_id));
                     }
                 }
             }
@@ -106,7 +106,7 @@ impl<R: 'static> OneToManyMany<R> {
                     }
 
                     if let Some(mut moved) = world.get_resource_mut::<Events<OneToManyEvent<R>>>() {
-                        moved.send(OneToManyEvent::<R>::Removed(a_id, b_id, PhantomData));
+                        moved.send(OneToManyEvent::<R>::removed(a_id, b_id));
                     }
                 }
             }

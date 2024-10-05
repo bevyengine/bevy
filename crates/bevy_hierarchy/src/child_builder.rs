@@ -580,8 +580,6 @@ impl BuildChildren for EntityWorldMut<'_> {
 
 #[cfg(test)]
 mod tests {
-    use core::marker::PhantomData;
-
     use super::{BuildChildren, ChildBuild};
     use crate::{Children, HierarchyEvent, Parent};
     use smallvec::{smallvec, SmallVec};
@@ -638,13 +636,13 @@ mod tests {
 
         assert_parent(world, b, Some(a));
         assert_children(world, a, Some(&[b]));
-        assert_events(world, &[HierarchyEvent::Added(b, a, PhantomData)]);
+        assert_events(world, &[HierarchyEvent::added(a, b)]);
 
         world.entity_mut(a).add_child(c);
 
         assert_children(world, a, Some(&[b, c]));
         assert_parent(world, c, Some(a));
-        assert_events(world, &[HierarchyEvent::Added(c, a, PhantomData)]);
+        assert_events(world, &[HierarchyEvent::added(a, c)]);
         // Children component should be removed when it's empty.
         world.entity_mut(d).add_child(b).add_child(c);
         assert_children(world, a, None);
@@ -661,7 +659,7 @@ mod tests {
 
         assert_parent(world, a, Some(b));
         assert_children(world, b, Some(&[a]));
-        assert_events(world, &[HierarchyEvent::Added(a, b, PhantomData)]);
+        assert_events(world, &[HierarchyEvent::added(b, a)]);
 
         world.entity_mut(a).set_parent(c);
 
@@ -670,10 +668,7 @@ mod tests {
         assert_children(world, c, Some(&[a]));
         assert_events(
             world,
-            &[
-                HierarchyEvent::Removed(a, b, PhantomData),
-                HierarchyEvent::Added(a, c, PhantomData),
-            ],
+            &[HierarchyEvent::removed(b, a), HierarchyEvent::added(c, a)],
         );
     }
 
@@ -707,13 +702,13 @@ mod tests {
         assert_parent(world, b, None);
         assert_parent(world, c, Some(a));
         assert_children(world, a, Some(&[c]));
-        omit_events(world, 2); // Omit ChildAdded events.
-        assert_events(world, &[HierarchyEvent::Removed(b, a, PhantomData)]);
+        omit_events(world, 2); // Omit Added events.
+        assert_events(world, &[HierarchyEvent::removed(a, b)]);
 
         world.entity_mut(c).remove_parent();
         assert_parent(world, c, None);
         assert_children(world, a, None);
-        assert_events(world, &[HierarchyEvent::Removed(c, a, PhantomData)]);
+        assert_events(world, &[HierarchyEvent::removed(a, c)]);
     }
 
     #[allow(dead_code)]

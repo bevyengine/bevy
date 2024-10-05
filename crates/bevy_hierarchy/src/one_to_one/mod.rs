@@ -9,8 +9,6 @@ pub use event::OneToOneEvent;
 
 #[cfg(test)]
 mod tests {
-    use core::marker::PhantomData;
-
     use bevy_ecs::{event::Events, world::World};
 
     use super::*;
@@ -194,7 +192,7 @@ mod tests {
                 .resource_mut::<Events<OneToOneEvent<Friendship>>>()
                 .drain()
                 .collect::<Vec<_>>(),
-            vec![OneToOneEvent::<Friendship>::Added(b, a, PhantomData)]
+            vec![OneToOneEvent::<Friendship>::added(b, a)]
         );
 
         world.entity_mut(a).remove::<Friend>();
@@ -209,7 +207,7 @@ mod tests {
                 .resource_mut::<Events<OneToOneEvent<Friendship>>>()
                 .drain()
                 .collect::<Vec<_>>(),
-            vec![OneToOneEvent::<Friendship>::Removed(a, b, PhantomData)]
+            vec![OneToOneEvent::<Friendship>::removed(a, b)]
         );
     }
 }
