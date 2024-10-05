@@ -2,13 +2,12 @@ use crate::{UiRect, Val};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
+use bevy_math::{vec4, Insets, Rect, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
     texture::{Image, TRANSPARENT_IMAGE_HANDLE},
 };
-use bevy_sprite::BorderRect;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
@@ -52,7 +51,7 @@ pub struct Node {
     /// Border updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
-    pub(crate) border: BorderRect,
+    pub(crate) border: Insets,
     /// Resolved border radius values in logical pixels.
     /// Border radius updates bypass change detection.
     ///
@@ -142,7 +141,7 @@ impl Node {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn border(&self) -> BorderRect {
+    pub fn border(&self) -> Insets {
         self.border
     }
 
@@ -185,7 +184,7 @@ impl Node {
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
         border_radius: ResolvedBorderRadius::ZERO,
-        border: BorderRect::ZERO,
+        border: Insets::ZERO,
     };
 }
 

@@ -28,7 +28,7 @@ fn spawn_sprites(
             style.clone(),
             Vec2::new(100.0, 200.0),
             Some(ImageScaleMode::Sliced(TextureSlicer {
-                border: BorderRect::square(slice_border),
+                border: Insets::square(slice_border),
                 center_scale_mode: SliceScaleMode::Stretch,
                 ..default()
             })),
@@ -39,7 +39,7 @@ fn spawn_sprites(
             style.clone(),
             Vec2::new(100.0, 200.0),
             Some(ImageScaleMode::Sliced(TextureSlicer {
-                border: BorderRect::square(slice_border),
+                border: Insets::square(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.5 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
                 ..default()
@@ -51,7 +51,7 @@ fn spawn_sprites(
             style.clone(),
             Vec2::new(300.0, 200.0),
             Some(ImageScaleMode::Sliced(TextureSlicer {
-                border: BorderRect::square(slice_border),
+                border: Insets::square(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.3 },
                 ..default()
@@ -63,7 +63,7 @@ fn spawn_sprites(
             style,
             Vec2::new(300.0, 200.0),
             Some(ImageScaleMode::Sliced(TextureSlicer {
-                border: BorderRect::square(slice_border),
+                border: Insets::square(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.1 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
                 max_corner_scale: 0.2,

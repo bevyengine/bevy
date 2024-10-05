@@ -1,9 +1,7 @@
-mod border_rect;
 mod computed_slices;
 mod slicer;
 
 use bevy_math::{Rect, Vec2};
-pub use border_rect::BorderRect;
 pub use slicer::{SliceScaleMode, TextureSlicer};
 
 pub(crate) use computed_slices::{

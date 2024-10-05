@@ -15,7 +15,9 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
-use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
+use bevy_math::{
+    FloatOrd, Insets, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles,
+};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::{
@@ -33,11 +35,10 @@ use bevy_render::{
     render_phase::{PhaseItem, PhaseItemExtraIndex},
     texture::GpuImage,
     view::ViewVisibility,
-    world_sync::{RenderEntity, TemporaryRenderEntity},
     ExtractSchedule, Render,
 };
 use bevy_sprite::TextureAtlasLayout;
-use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
+use bevy_sprite::{ImageScaleMode, SpriteAssetEvents, TextureAtlas};
 #[cfg(feature = "bevy_text")]
 use bevy_text::PositionedGlyph;
 #[cfg(feature = "bevy_text")]
@@ -180,7 +181,7 @@ pub struct ExtractedUiNode {
     /// Border radius of the UI node.
     pub border_radius: ResolvedBorderRadius,
     /// Border thickness of the UI node.
-    pub border: BorderRect,
+    pub border: Insets,
     pub node_type: NodeType,
 }
 
@@ -189,13 +190,12 @@ pub struct ExtractedUiNodes {
     pub uinodes: EntityHashMap<ExtractedUiNode>,
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_background_colors(
-    mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<(
+            Entity,
             &Node,
             &GlobalTransform,
             &ViewVisibility,
@@ -204,15 +204,12 @@ pub fn extract_uinode_background_colors(
             &BackgroundColor,
         )>,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
 ) {
-    for (uinode, transform, view_visibility, clip, camera, background_color) in &uinode_query {
+    for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
+        &uinode_query
+    {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
-            continue;
-        };
-
-        let Ok(&camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -222,7 +219,7 @@ pub fn extract_uinode_background_colors(
         }
 
         extracted_uinodes.uinodes.insert(
-            commands.spawn(TemporaryRenderEntity).id(),
+            entity,
             ExtractedUiNode {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
@@ -236,7 +233,7 @@ pub fn extract_uinode_background_colors(
                 atlas_scaling: None,
                 flip_x: false,
                 flip_y: false,
-                camera_entity: camera_entity.id(),
+                camera_entity,
                 border: uinode.border(),
                 border_radius: uinode.border_radius(),
                 node_type: NodeType::Rect,
@@ -265,15 +262,10 @@ pub fn extract_uinode_images(
             Without<ImageScaleMode>,
         >,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
 ) {
     for (uinode, transform, view_visibility, clip, camera, image, atlas) in &uinode_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
-            continue;
-        };
-
-        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -313,7 +305,7 @@ pub fn extract_uinode_images(
         };
 
         extracted_uinodes.uinodes.insert(
-            commands.spawn(TemporaryRenderEntity).id(),
+            commands.spawn_empty().id(),
             ExtractedUiNode {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
@@ -324,7 +316,7 @@ pub fn extract_uinode_images(
                 atlas_scaling,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
-                camera_entity: render_camera_entity.id(),
+                camera_entity,
                 border: uinode.border,
                 border_radius: uinode.border_radius,
                 node_type: NodeType::Rect,
@@ -347,7 +339,6 @@ pub fn extract_uinode_borders(
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
 ) {
     let image = AssetId::<Image>::default();
 
@@ -367,10 +358,6 @@ pub fn extract_uinode_borders(
             continue;
         };
 
-        let Ok(&camera_entity) = mapping.get(camera_entity) else {
-            continue;
-        };
-
         // Skip invisible borders
         if !view_visibility.get()
             || maybe_border_color.is_some_and(|border_color| border_color.0.is_fully_transparent())
@@ -380,10 +367,10 @@ pub fn extract_uinode_borders(
         }
 
         // don't extract border if no border or the node is zero-sized (a zero sized node can still have an outline).
-        if !uinode.is_empty() && uinode.border() != BorderRect::ZERO {
+        if !uinode.is_empty() && uinode.border() != Insets::ZERO {
             if let Some(border_color) = maybe_border_color {
                 extracted_uinodes.uinodes.insert(
-                    commands.spawn(TemporaryRenderEntity).id(),
+                    commands.spawn_empty().id(),
                     ExtractedUiNode {
                         stack_index: uinode.stack_index,
                         transform: global_transform.compute_matrix(),
@@ -397,7 +384,7 @@ pub fn extract_uinode_borders(
                         clip: maybe_clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
-                        camera_entity: camera_entity.id(),
+                        camera_entity,
                         border_radius: uinode.border_radius(),
                         border: uinode.border(),
                         node_type: NodeType::Border,
@@ -423,8 +410,8 @@ pub fn extract_uinode_borders(
                     clip: maybe_clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
-                    camera_entity: camera_entity.id(),
-                    border: BorderRect::square(uinode.outline_width()),
+                    camera_entity,
+                    border: Insets::square(uinode.outline_width()),
                     border_radius: uinode.outline_radius(),
                     node_type: NodeType::Border,
                 },
@@ -453,7 +440,7 @@ pub fn extract_default_ui_camera_view(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     ui_scale: Extract<Res<UiScale>>,
     query: Extract<
-        Query<(&RenderEntity, &Camera, Option<&UiAntiAlias>), Or<(With<Camera2d>, With<Camera3d>)>>,
+        Query<(Entity, &Camera, Option<&UiAntiAlias>), Or<(With<Camera2d>, With<Camera3d>)>>,
     >,
     mut live_entities: Local<EntityHashSet>,
 ) {
@@ -478,7 +465,6 @@ pub fn extract_default_ui_camera_view(
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
         ) {
-            let entity = entity.id();
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
                 0.0,
@@ -489,29 +475,27 @@ pub fn extract_default_ui_camera_view(
                 UI_CAMERA_FAR,
             );
             let default_camera_view = commands
-                .spawn((
-                    ExtractedView {
-                        clip_from_view: projection_matrix,
-                        world_from_view: GlobalTransform::from_xyz(
-                            0.0,
-                            0.0,
-                            UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
-                        ),
-                        clip_from_world: None,
-                        hdr: camera.hdr,
-                        viewport: UVec4::new(
-                            physical_origin.x,
-                            physical_origin.y,
-                            physical_size.x,
-                            physical_size.y,
-                        ),
-                        color_grading: Default::default(),
-                    },
-                    TemporaryRenderEntity,
-                ))
+                .spawn(ExtractedView {
+                    clip_from_view: projection_matrix,
+                    world_from_view: GlobalTransform::from_xyz(
+                        0.0,
+                        0.0,
+                        UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
+                    ),
+                    clip_from_world: None,
+                    hdr: camera.hdr,
+                    viewport: UVec4::new(
+                        physical_origin.x,
+                        physical_origin.y,
+                        physical_size.x,
+                        physical_size.y,
+                    ),
+                    color_grading: Default::default(),
+                })
                 .id();
-            let mut entity_commands = commands.get_or_spawn(entity);
-            entity_commands.insert(DefaultCameraView(default_camera_view));
+            let entity_commands = commands
+                .get_or_spawn(entity)
+                .insert(DefaultCameraView(default_camera_view));
             if let Some(ui_anti_alias) = ui_anti_alias {
                 entity_commands.insert(*ui_anti_alias);
             }
@@ -525,11 +509,10 @@ pub fn extract_default_ui_camera_view(
 }
 
 #[cfg(feature = "bevy_text")]
-#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_text(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<&Camera>>,
+    camera_query: Extract<Query<(Entity, &Camera)>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     ui_scale: Extract<Res<UiScale>>,
@@ -544,13 +527,12 @@ pub fn extract_uinode_text(
             &TextLayoutInfo,
         )>,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
 ) {
-    let default_ui_camera = default_ui_camera.get();
     for (uinode, global_transform, view_visibility, clip, camera, text, text_layout_info) in
         &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        else {
             continue;
         };
 
@@ -562,14 +544,11 @@ pub fn extract_uinode_text(
         let scale_factor = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(Camera::target_scaling_factor)
+            .and_then(|(_, c)| c.target_scaling_factor())
             .unwrap_or(1.0)
             * ui_scale.0;
         let inverse_scale_factor = scale_factor.recip();
 
-        let Ok(&camera_entity) = mapping.get(camera_entity) else {
-            continue;
-        };
         // Align the text to the nearest physical pixel:
         // * Translate by minus the text node's half-size
         //      (The transform translates to the center of the node but the text coordinates are relative to the node's top left corner)
@@ -604,9 +583,8 @@ pub fn extract_uinode_text(
             let mut rect = atlas.textures[atlas_info.location.glyph_index].as_rect();
             rect.min *= inverse_scale_factor;
             rect.max *= inverse_scale_factor;
-            let id = commands.spawn(TemporaryRenderEntity).id();
             extracted_uinodes.uinodes.insert(
-                id,
+                commands.spawn_empty().id(),
                 ExtractedUiNode {
                     stack_index: uinode.stack_index,
                     transform: transform
@@ -618,8 +596,8 @@ pub fn extract_uinode_text(
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
-                    camera_entity: camera_entity.id(),
-                    border: BorderRect::ZERO,
+                    camera_entity,
+                    border: Insets::ZERO,
                     border_radius: ResolvedBorderRadius::ZERO,
                     node_type: NodeType::Rect,
                 },
