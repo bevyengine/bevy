@@ -1613,13 +1613,13 @@ impl<const N: usize> Polygon<N> {
     reflect(Serialize, Deserialize)
 )]
 pub struct ConvexPolygon<const N: usize> {
-    /// The vertices of the `ConvexPolygon`.
+    /// The vertices of the [`ConvexPolygon`].
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec2; N],
 }
 impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
 
-/// An error that happens when creating a `ConvexPolygon`.
+/// An error that happens when creating a [`ConvexPolygon`].
 #[derive(Error, Debug, Clone)]
 pub enum ConvexPolygonError {
     /// The created polygon is not convex.
@@ -1637,8 +1637,11 @@ impl<const N: usize> ConvexPolygon<N> {
         (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
     }
 
-    /// Create a `ConvexPolygon` from its vertices.
-    /// The convexity of the polygon is checked.
+    /// Create a [`ConvexPolygon`] from its `vertices``.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`ConvexPolygonError::NotConvex`] if the `vertices` do not form a convex polygon.
     pub fn new(vertices: [Vec2; N]) -> Result<Self, ConvexPolygonError> {
         let polygon = Self::new_unchecked(vertices);
         let ref_cross_product_sign = polygon.compute_cross_product_for(N - 1, 0, 1).signum();
@@ -1651,8 +1654,8 @@ impl<const N: usize> ConvexPolygon<N> {
         Ok(polygon)
     }
 
-    /// Create a `ConvexPolygon` from its vertices, without checks.
-    /// Only use this version if you know that the `vertices` make up a convex polygon. 
+    /// Create a [`ConvexPolygon`] from its `vertices``, without checks.
+    /// Use this version only if you know that the `vertices` make up a convex polygon. 
     #[inline(always)]
     pub fn new_unchecked(vertices: [Vec2; N]) -> Self {
         Self { vertices }
