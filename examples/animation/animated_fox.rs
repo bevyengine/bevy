@@ -3,10 +3,12 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
-    animation::{animate_targets, RepeatAnimation},
+    animation::{animate_targets, AnimationTargetId, RepeatAnimation},
+    color::palettes::css::WHITE,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
 };
+use rand::{thread_rng, Rng};
 
 const FOX_PATH: &str = "models/animated/Fox.glb";
 
@@ -17,17 +19,49 @@ fn main() {
             brightness: 2000.,
         })
         .add_plugins(DefaultPlugins)
+        .init_resource::<ParticleAssets>()
+        .init_resource::<FoxFeetTargets>()
         .add_systems(Startup, setup)
         .add_systems(Update, setup_scene_once_loaded.before(animate_targets))
-        .add_systems(Update, keyboard_animation_control)
+        .add_systems(Update, (keyboard_animation_control, simulate_particles))
+        .observe(OnStep::observer)
         .run();
 }
 
 #[derive(Resource)]
 struct Animations {
     animations: Vec<AnimationNodeIndex>,
-    #[allow(dead_code)]
     graph: Handle<AnimationGraph>,
+}
+
+#[derive(Event, AnimationEvent, Reflect, Clone)]
+#[reflect(AnimationEvent)]
+struct OnStep;
+
+impl OnStep {
+    fn observer(
+        trigger: Trigger<Self>,
+        particle: Res<ParticleAssets>,
+        mut commands: Commands,
+        transforms: Query<&GlobalTransform>,
+    ) {
+        let translation = transforms.get(trigger.entity()).unwrap().translation();
+        let mut rng = thread_rng();
+        // Spawn a bunch of particles.
+        for _ in 0..14 {
+            let horizontal = rng.gen::<Dir2>() * rng.gen_range(8.0..12.0);
+            let vertical = rng.gen_range(0.0..4.0);
+            let size = rng.gen_range(0.2..1.0);
+            commands.queue(spawn_particle(
+                particle.mesh.clone(),
+                particle.material.clone(),
+                translation.reject_from_normalized(Vec3::Y),
+                rng.gen_range(0.2..0.6),
+                size,
+                Vec3::new(horizontal.x, vertical, horizontal.y) * 10.0,
+            ));
+        }
+    }
 }
 
 fn setup(
@@ -98,9 +132,32 @@ fn setup(
 fn setup_scene_once_loaded(
     mut commands: Commands,
     animations: Res<Animations>,
+    feet: Res<FoxFeetTargets>,
+    graphs: Res<Assets<AnimationGraph>>,
+    mut clips: ResMut<Assets<AnimationClip>>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
 ) {
+    fn get_clip<'a>(
+        node: AnimationNodeIndex,
+        graph: &AnimationGraph,
+        clips: &'a mut Assets<AnimationClip>,
+    ) -> &'a mut AnimationClip {
+        let node = graph.get(node).unwrap();
+        let clip = node.clip.as_ref().and_then(|id| clips.get_mut(id)).unwrap();
+        clip
+    }
+
     for (entity, mut player) in &mut players {
+        let graph = graphs.get(&animations.graph).unwrap();
+
+        // Send `OnStep` events once the fox feet hits the ground
+        // in the running animation.
+        let running_animation = get_clip(animations.animations[0], graph, &mut clips);
+        running_animation.add_event_to_target(feet.front_left, 0.625, OnStep);
+        running_animation.add_event_to_target(feet.front_right, 0.5, OnStep);
+        running_animation.add_event_to_target(feet.back_left, 0.0, OnStep);
+        running_animation.add_event_to_target(feet.back_right, 0.125, OnStep);
+
         let mut transitions = AnimationTransitions::new();
 
         // Make sure to start the animation via the `AnimationTransitions`
@@ -198,6 +255,138 @@ fn keyboard_animation_control(
         if keyboard_input.just_pressed(KeyCode::KeyL) {
             let playing_animation = player.animation_mut(playing_animation_index).unwrap();
             playing_animation.set_repeat(RepeatAnimation::Forever);
+        }
+    }
+}
+
+fn simulate_particles(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut Transform, &mut Particle)>,
+    time: Res<Time>,
+) {
+    for (entity, mut transform, mut particle) in &mut query {
+        if particle.lifeteime_timer.tick(time.delta()).just_finished() {
+            commands.entity(entity).despawn();
+        } else {
+            transform.translation += particle.velocity * time.delta_seconds();
+            transform.scale =
+                Vec3::splat(particle.size.lerp(0.0, particle.lifeteime_timer.fraction()));
+            particle
+                .velocity
+                .smooth_nudge(&Vec3::ZERO, 4.0, time.delta_seconds());
+        }
+        if transform.scale.length_squared() < 0.01 {}
+    }
+}
+
+fn spawn_particle<M: Material>(
+    mesh: Handle<Mesh>,
+    material: Handle<M>,
+    translation: Vec3,
+    lifetime: f32,
+    size: f32,
+    velocity: Vec3,
+) -> impl Command {
+    move |world: &mut World| {
+        world.spawn((
+            Particle {
+                lifeteime_timer: Timer::from_seconds(lifetime, TimerMode::Once),
+                size,
+                velocity,
+            },
+            Mesh3d(mesh),
+            MeshMaterial3d(material),
+            Transform {
+                translation,
+                scale: Vec3::splat(size),
+                ..Default::default()
+            },
+        ));
+    }
+}
+
+#[derive(Component)]
+struct Particle {
+    lifeteime_timer: Timer,
+    size: f32,
+    velocity: Vec3,
+}
+
+#[derive(Resource)]
+struct ParticleAssets {
+    mesh: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+}
+
+impl FromWorld for ParticleAssets {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            mesh: world.resource_mut::<Assets<Mesh>>().add(Sphere::new(10.0)),
+            material: world
+                .resource_mut::<Assets<StandardMaterial>>()
+                .add(StandardMaterial {
+                    base_color: WHITE.into(),
+                    ..Default::default()
+                }),
+        }
+    }
+}
+
+#[derive(Resource)]
+struct FoxFeetTargets {
+    front_right: AnimationTargetId,
+    front_left: AnimationTargetId,
+    back_left: AnimationTargetId,
+    back_right: AnimationTargetId,
+}
+
+impl Default for FoxFeetTargets {
+    fn default() -> Self {
+        // Get the id's of the feet and store them in a resource.
+        let hip_node = ["root", "_rootJoint", "b_Root_00", "b_Hip_01"];
+        let front_left_foot = hip_node.iter().chain(
+            [
+                "b_Spine01_02",
+                "b_Spine02_03",
+                "b_LeftUpperArm_09",
+                "b_LeftForeArm_010",
+                "b_LeftHand_011",
+            ]
+            .iter(),
+        );
+        let front_right_foot = hip_node.iter().chain(
+            [
+                "b_Spine01_02",
+                "b_Spine02_03",
+                "b_RightUpperArm_06",
+                "b_RightForeArm_07",
+                "b_RightHand_08",
+            ]
+            .iter(),
+        );
+        let back_left_foot = hip_node.iter().chain(
+            [
+                "b_LeftLeg01_015",
+                "b_LeftLeg02_016",
+                "b_LeftFoot01_017",
+                "b_LeftFoot02_018",
+            ]
+            .iter(),
+        );
+        let back_right_foot = hip_node.iter().chain(
+            [
+                "b_RightLeg01_019",
+                "b_RightLeg02_020",
+                "b_RightFoot01_021",
+                "b_RightFoot02_022",
+            ]
+            .iter(),
+        );
+        Self {
+            front_left: AnimationTargetId::from_iter(front_left_foot),
+            front_right: AnimationTargetId::from_iter(front_right_foot),
+            back_left: AnimationTargetId::from_iter(back_left_foot),
+            back_right: AnimationTargetId::from_iter(back_right_foot),
         }
     }
 }

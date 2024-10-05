@@ -1189,17 +1189,6 @@ hidden = true
 
 # Animation
 [[example]]
-name = "bunny_detective"
-path = "examples/animation/bunny_detective.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.bunny_detective]
-name = "Bunny Detective"
-description = "Demonstrate how to use animation events with an animated character"
-category = "Animation"
-wasm = true
-
-[[example]]
 name = "animation_events"
 path = "examples/animation/animation_events.rs"
 doc-scrape-examples = true

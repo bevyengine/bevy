@@ -196,7 +196,6 @@ Example | Description
 [Animation Events](../examples/animation/animation_events.rs) | Demonstrate how to use animation events
 [Animation Graph](../examples/animation/animation_graph.rs) | Blends multiple animations together with a graph
 [Animation Masks](../examples/animation/animation_masks.rs) | Demonstrates animation masks
-[Bunny Detective](../examples/animation/bunny_detective.rs) | Demonstrate how to use animation events with an animated character
 [Color animation](../examples/animation/color_animation.rs) | Demonstrates how to animate colors using mixing and splines in different color spaces
 [Cubic Curve](../examples/animation/cubic_curve.rs) | Bezier curve example showing a cube following a cubic curve
 [Custom Skinned Mesh](../examples/animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code
