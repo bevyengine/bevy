@@ -825,6 +825,87 @@ impl AnimationCurveEvaluator for WeightsCurveEvaluator {
     }
 }
 
+#[derive(Default, Debug, Reflect)]
+struct TransformCurveEvaluator {
+    stack: Vec<TransformStackElement>,
+    blend_register: Option<(TransformParts, f32)>,
+}
+
+#[derive(Default, Debug, Clone, Reflect)]
+struct TransformParts {
+    translation: Option<Vec3>,
+    rotation: Option<Quat>,
+    scale: Option<Vec3>,
+}
+
+fn interpolate_option<A: Animatable + Copy>(a: Option<&A>, b: Option<&A>, time: f32) -> Option<A> {
+    match (a, b) {
+        (None, None) => None,
+        (Some(a), None) => Some(*a),
+        (None, Some(b)) => Some(*b),
+        (Some(a), Some(b)) => Some(A::interpolate(a, b, time)),
+    }
+}
+
+impl Animatable for TransformParts {
+    fn interpolate(a: &Self, b: &Self, time: f32) -> Self {
+        TransformParts {
+            translation: interpolate_option(a.translation.as_ref(), b.translation.as_ref(), time),
+            rotation: interpolate_option(a.rotation.as_ref(), b.rotation.as_ref(), time),
+            scale: interpolate_option(a.scale.as_ref(), b.scale.as_ref(), time),
+        }
+    }
+
+    fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
+        let mut accum = TransformParts::default();
+        for BlendInput {
+            weight,
+            value,
+            additive,
+        } in inputs
+        {
+            let TransformParts {
+                translation,
+                rotation,
+                scale,
+            } = value;
+            if additive {
+            } else {
+            }
+        }
+    }
+}
+
+#[derive(Default, Debug, Reflect)]
+struct TransformStackElement {
+    value: TransformParts,
+    weight: f32,
+    graph_node: AnimationNodeIndex,
+}
+
+impl TransformCurveEvaluator {
+    fn combine(
+        &mut self,
+        graph_node: AnimationNodeIndex,
+        additive: bool,
+    ) -> Result<(), AnimationEvaluationError> {
+        let Some(top) = self.stack.last() else {
+            return Ok(());
+        };
+        if top.graph_node != graph_node {
+            return Ok(());
+        }
+
+        let TransformStackElement {
+            value: value_to_blend,
+            weight: weight_to_blend,
+            graph_node: _,
+        } = self.stack.pop().unwrap();
+
+        Ok(())
+    }
+}
+
 #[derive(Reflect, FromReflect)]
 #[reflect(from_reflect = false)]
 struct BasicAnimationCurveEvaluator<A>
