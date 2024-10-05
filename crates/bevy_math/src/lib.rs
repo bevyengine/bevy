@@ -24,6 +24,7 @@ mod isometry;
 pub mod ops;
 pub mod primitives;
 mod ray;
+pub mod ray_cast;
 mod rects;
 mod rotation2d;
 #[cfg(feature = "rand")]
@@ -60,6 +61,7 @@ pub mod prelude {
         direction::{Dir2, Dir3, Dir3A},
         ops,
         primitives::*,
+        ray_cast::{RayCast2d, RayCast3d, RayHit2d, RayHit3d},
         BVec2, BVec3, BVec4, EulerRot, FloatExt, IRect, IVec2, IVec3, IVec4, Isometry2d,
         Isometry3d, Mat2, Mat3, Mat4, Quat, Ray2d, Ray3d, Rect, Rot2, StableInterpolate, URect,
         UVec2, UVec3, UVec4, Vec2, Vec2Swizzles, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
