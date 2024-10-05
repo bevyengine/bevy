@@ -206,10 +206,12 @@ impl CameraProjection for PerspectiveProjection {
         // Y-axis increases from top to bottom
         let offset_y = full_height - (sub_view.offset.y + sub_height);
 
+        let full_aspect = full_width / full_height;
+
         // Original frustum parameters
         let top = self.near * ops::tan(0.5 * self.fov);
         let bottom = -top;
-        let right = top * self.aspect_ratio;
+        let right = top * full_aspect;
         let left = -right;
 
         // Calculate scaling factors
@@ -450,11 +452,18 @@ impl CameraProjection for OrthographicProjection {
         let sub_width = sub_view.size.x as f32;
         let sub_height = sub_view.size.y as f32;
 
-        // Orthographic projection parameters
+        let full_aspect = full_width / full_height;
+
+        // Base the vertical size on self.area and adjust the horizontal size
         let top = self.area.max.y;
         let bottom = self.area.min.y;
-        let right = self.area.max.x;
-        let left = self.area.min.x;
+        let ortho_height = top - bottom;
+        let ortho_width = ortho_height * full_aspect;
+
+        // Center the orthographic area horizontally
+        let center_x = (self.area.max.x + self.area.min.x) / 2.0;
+        let left = center_x - ortho_width / 2.0;
+        let right = center_x + ortho_width / 2.0;
 
         // Calculate scaling factors
         let scale_w = (right - left) / full_width;

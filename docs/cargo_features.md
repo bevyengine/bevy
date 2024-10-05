@@ -41,7 +41,7 @@ The default feature set enables most of the expected features of a game engine, 
 |png|PNG image format support|
 |smaa_luts|Include SMAA Look Up Tables KTX2 Files|
 |sysinfo_plugin|Enables system information diagnostic plugin|
-|tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.|
+|tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.|
 |vorbis|OGG/VORBIS audio format support|
 |webgl2|Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.|
 |x11|X11 display server support|

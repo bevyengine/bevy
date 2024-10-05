@@ -61,23 +61,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     // Spawn a camera.
-    commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-0.75, 1.0, 2.0)
-                .looking_at(vec3(0.0, 0.0, 0.0), Vec3::Y),
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-0.75, 1.0, 2.0).looking_at(vec3(0.0, 0.0, 0.0), Vec3::Y),
+        Camera {
+            hdr: true,
             ..default()
-        })
-        .insert(VolumetricFog {
+        },
+        VolumetricFog {
             // Make this relatively high in order to increase the fog quality.
             step_count: 64,
             // Disable ambient light.
             ambient_intensity: 0.0,
             ..default()
-        });
+        },
+    ));
 }
 
 /// Rotates the camera a bit every frame.

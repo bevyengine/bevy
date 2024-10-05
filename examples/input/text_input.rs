@@ -28,7 +28,7 @@ fn main() {
 }
 
 fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // The default font has a limited number of glyphs, so use the full version for
     // sections that will hold text input.
