@@ -488,6 +488,57 @@ where
     }
 }
 
+/// This type allows a [curve] valued in `Transform` to become an [`AnimationCurve`] that animates
+/// the entire transform.
+///
+/// [curve]: Curve
+#[derive(Debug, Clone, Reflect, FromReflect)]
+#[reflect(from_reflect = false)]
+pub struct TransformCurve<C>(pub C);
+
+impl<C> AnimationCurve for TransformCurve<C>
+where
+    C: AnimationCompatibleCurve<Transform>,
+{
+    fn clone_value(&self) -> Box<dyn AnimationCurve> {
+        Box::new(self.clone())
+    }
+
+    fn domain(&self) -> Interval {
+        self.0.domain()
+    }
+
+    fn evaluator_type(&self) -> TypeId {
+        TypeId::of::<TransformCurveEvaluator>()
+    }
+
+    fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
+        Box::new(TransformCurveEvaluator::default())
+    }
+
+    fn apply(
+        &self,
+        curve_evaluator: &mut dyn AnimationCurveEvaluator,
+        t: f32,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
+            .downcast_mut::<TransformCurveEvaluator>()
+            .unwrap();
+        let value = TransformParts::from_transform(self.0.sample_clamped(t));
+        curve_evaluator
+            .evaluator
+            .stack
+            .push(BasicAnimationCurveEvaluatorStackElement {
+                value,
+                weight,
+                graph_node,
+            });
+        Ok(())
+    }
+}
+
 /// This type allows an [`IterableCurve`] valued in `f32` to be used as an [`AnimationCurve`]
 /// that animates [morph weights].
 ///
