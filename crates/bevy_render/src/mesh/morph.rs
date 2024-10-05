@@ -1,20 +1,15 @@
-use crate::{
-    mesh::Mesh,
-    render_asset::RenderAssetUsages,
-    render_resource::{Extent3d, TextureDimension, TextureFormat},
-    texture::Image,
-};
+use super::{Mesh, Mesh3d};
 use bevy_app::{Plugin, PostUpdate};
-use bevy_asset::Handle;
+use bevy_asset::{Handle, RenderAssetUsages};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::Children;
+use bevy_image::Image;
 use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
 use core::iter;
 use thiserror::Error;
-
-use super::Mesh3d;
+use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 const MAX_TEXTURE_WIDTH: u32 = 2048;
 // NOTE: "component" refers to the element count of math objects,
