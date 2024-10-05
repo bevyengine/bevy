@@ -460,7 +460,8 @@ impl AnimationClip {
 
     /// Add an [`AnimationEvent`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
     ///
-    /// The `event` will trigger on the entity matching the target once the `time` is reached in the animation.
+    /// The `event` will trigger on the entity matching the target once the `time` (in seconds)
+    /// is reached in the animation.
     ///
     /// Use [`add_event`](Self::add_event) instead if you don't have a specific target.
     pub fn add_event_to_target(
@@ -474,7 +475,8 @@ impl AnimationClip {
 
     /// Add a untargeted [`AnimationEvent`] to this [`AnimationClip`].
     ///
-    /// The `event` will trigger on the [`AnimationPlayer`] entity once the `time` is reached in the animation.
+    /// The `event` will trigger on the [`AnimationPlayer`] entity once the `time` (in seconds)
+    /// is reached in the animation.
     ///
     /// See also [`add_event_to_target`](Self::add_event_to_target).
     pub fn add_event(&mut self, time: f32, event: impl AnimationEvent) {
