@@ -7,7 +7,6 @@ use bevy_ecs::{
     query::{QueryData, QueryFilter, WorldQuery},
     system::Query,
 };
-use smallvec::SmallVec;
 
 use crate::{Children, Parent};
 
@@ -44,9 +43,9 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// Returns an [`Iterator`] of [`Entity`]s over the `entity`s immediate siblings, who share them same parent.
     ///
     /// The entity itself is not included in the iterator.
-    fn iter_siblings(&'w self, entity: Entity) -> SiblingIter<'w, 's, D, F>
+    fn iter_siblings(&'w self, entity: Entity) -> impl Iterator<Item = Entity>
     where
-        D::ReadOnly: WorldQuery<Item<'w> = (&'w Parent, &'w Children)>;
+        D::ReadOnly: WorldQuery<Item<'w> = (Option<&'w Parent>, Option<&'w Children>)>;
 
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s descendants.
     ///
@@ -161,11 +160,24 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
         LeafIter::new(self, entity)
     }
 
-    fn iter_siblings(&'w self, entity: Entity) -> SiblingIter<'w, 's, D, F>
+    fn iter_siblings(&'w self, entity: Entity) -> impl Iterator<Item = Entity>
     where
-        D::ReadOnly: WorldQuery<Item<'w> = (&'w Parent, &'w Children)>,
+        D::ReadOnly: WorldQuery<Item<'w> = (Option<&'w Parent>, Option<&'w Children>)>,
     {
-        SiblingIter::<D, F>::new(self, entity)
+        self.get(entity).into_iter().flat_map(move |(parent, _)| {
+            parent.into_iter().flat_map(move |parent| {
+                self.get(parent.get())
+                    .into_iter()
+                    .flat_map(move |(_, children)| {
+                        children
+                            .into_iter()
+                            .flat_map(move |children| {
+                                children.iter().filter(move |child| **child != entity)
+                            })
+                            .copied()
+                    })
+            })
+        })
     }
 
     fn iter_descendants(&'w self, entity: Entity) -> DescendantIter<'w, 's, D, F>
@@ -224,59 +236,6 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         let entity: Entity = self.vecdeque.pop_front()?;
-        Some(entity)
-    }
-}
-
-/// An [`Iterator`] of [`Entity`]s over the siblings of an [`Entity`].
-pub struct SiblingIter<'w, 's, D: QueryData, F: QueryFilter>
-where
-    D::ReadOnly: WorldQuery<Item<'w> = (&'w Parent, &'w Children)>,
-{
-    // Unlike other iterators, we don't need to store the query here,
-    // as the number of siblings is likely to be much smaller than the number of descendants.
-    small_vec: SmallVec<[Entity; 8]>,
-    _phantom: PhantomData<(&'w D, &'s F)>,
-}
-
-impl<'w, 's, D: QueryData, F: QueryFilter> SiblingIter<'w, 's, D, F>
-where
-    D::ReadOnly: WorldQuery<Item<'w> = (&'w Parent, &'w Children)>,
-{
-    /// Returns a new [`SiblingIter`].
-    pub fn new(hierarchy_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
-        match hierarchy_query.get(entity) {
-            Ok((parent, _)) => {
-                let Ok((_, children_of_parent)) = hierarchy_query.get(parent.get()) else {
-                    return SiblingIter {
-                        small_vec: SmallVec::new(),
-                        _phantom: PhantomData,
-                    };
-                };
-
-                let siblings = children_of_parent.iter().filter(|child| **child != entity);
-
-                SiblingIter {
-                    small_vec: SmallVec::from_iter(siblings.copied()),
-                    _phantom: PhantomData,
-                }
-            }
-            Err(_) => SiblingIter {
-                small_vec: SmallVec::new(),
-                _phantom: PhantomData,
-            },
-        }
-    }
-}
-
-impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for SiblingIter<'w, 's, D, F>
-where
-    D::ReadOnly: WorldQuery<Item<'w> = (&'w Parent, &'w Children)>,
-{
-    type Item = Entity;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let entity: Entity = self.small_vec.pop()?;
         Some(entity)
     }
 }
@@ -453,7 +412,8 @@ mod tests {
         world.entity_mut(a0).add_children(&[a1, a2, a3]);
         world.entity_mut(a2).add_children(&[a4]);
 
-        let mut system_state = SystemState::<(Query<(&Parent, &Children)>, Query<&A>)>::new(world);
+        let mut system_state =
+            SystemState::<(Query<(Option<&Parent>, Option<&Children>)>, Query<&A>)>::new(world);
         let (hierarchy_query, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query
