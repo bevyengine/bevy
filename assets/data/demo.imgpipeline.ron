@@ -1,0 +1,15 @@
+[
+    {
+        "reflect_deserialized_asset::Load": (
+            image: "textures/Ryfjallet_cubemap.png",
+        ),
+    },
+    {
+        "reflect_deserialized_asset::Invert": (),
+    },
+    {
+        "reflect_deserialized_asset::Blur": (
+            sigma: 2.0,
+        ),
+    }
+]
