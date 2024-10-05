@@ -4,15 +4,15 @@
 //! # Examples
 //!
 //! ```
-//! use bevy_render::mesh::VertexAttributeValues;
+//! use bevy_mesh::VertexAttributeValues;
 //!
 //! // creating std::vec::Vec
 //! let buffer = vec![[0_u32; 4]; 10];
 //!
-//! // converting std::vec::Vec to bevy_render::mesh::VertexAttributeValues
+//! // converting std::vec::Vec to bevy_mesh::VertexAttributeValues
 //! let values = VertexAttributeValues::from(buffer.clone());
 //!
-//! // converting bevy_render::mesh::VertexAttributeValues to std::vec::Vec with two ways
+//! // converting bevy_mesh::VertexAttributeValues to std::vec::Vec with two ways
 //! let result_into: Vec<[u32; 4]> = values.clone().try_into().unwrap();
 //! let result_from: Vec<[u32; 4]> = Vec::try_from(values.clone()).unwrap();
 //!

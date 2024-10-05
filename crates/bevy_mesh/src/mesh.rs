@@ -39,9 +39,8 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// `StandardMaterial` or `ColorMaterial`:
 ///
 /// ```
-/// # use bevy_render::mesh::{Mesh, Indices};
-/// # use bevy_render::render_resource::PrimitiveTopology;
-/// # use bevy_render::render_asset::RenderAssetUsages;
+/// # use bevy_mesh::{Mesh, Indices, PrimitiveTopology};
+/// # use bevy_asset::RenderAssetUsages;
 /// fn create_simple_parallelogram() -> Mesh {
 ///     // Create a new mesh using a triangle list topology, where each set of 3 vertices composes a triangle.
 ///     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
@@ -79,7 +78,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ## Other examples
 ///
 /// For further visualization, explanation, and examples, see the built-in Bevy examples,
-/// and the [implementation of the built-in shapes](https://github.com/bevyengine/bevy/tree/main/crates/bevy_render/src/mesh/primitives).
+/// and the [implementation of the built-in shapes](https://github.com/bevyengine/bevy/tree/main/crates/bevy_mesh/src/primitives).
 /// In particular, [generate_custom_mesh](https://github.com/bevyengine/bevy/blob/main/examples/3d/generate_custom_mesh.rs)
 /// teaches you to access and modify the attributes of a [`Mesh`] after creating it.
 ///
