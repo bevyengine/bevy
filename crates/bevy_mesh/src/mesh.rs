@@ -27,8 +27,8 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// or by converting a [primitive](bevy_math::primitives) using [`into`](Into).
 /// It is also possible to create one manually. They can be edited after creation.
 ///
-/// Meshes can be rendered with a [`Mesh2d`](super::Mesh2d) and `MeshMaterial2d`
-/// or [`Mesh3d`](super::Mesh3d) and `MeshMaterial3d` for 2D and 3D respectively.
+/// Meshes can be rendered with a `Mesh2d` and `MeshMaterial2d`
+/// or `Mesh3d` and `MeshMaterial3d` for 2D and 3D respectively.
 ///
 /// A [`Mesh`] in Bevy is equivalent to a "primitive" in the glTF format, for a
 /// glTF Mesh representation, see `GltfMesh`.
@@ -101,7 +101,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// - [`Normals`](Mesh::ATTRIBUTE_NORMAL): Bevy needs to know how light interacts with your mesh.
 ///     [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
 ///     because simple meshes are smooth and they don't require complex light calculations.
-/// - Vertex winding order: by default, `StandardMaterial.cull_mode` is [`Some(Face::Back)`](crate::render_resource::Face),
+/// - Vertex winding order: by default, `StandardMaterial.cull_mode` is `Some(Face::Back)`,
 ///     which means that Bevy would *only* render the "front" of each triangle, which
 ///     is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 #[derive(Asset, Debug, Clone, Reflect)]
@@ -146,7 +146,7 @@ impl Mesh {
     /// one color, for example a logo, and you want to "extend" those borders.
     ///
     /// For different mapping outside of `0..=1` range,
-    /// see [`ImageAddressMode`](crate::texture::ImageAddressMode).
+    /// see [`ImageAddressMode`](bevy_image::ImageAddressMode).
     ///
     /// The format of this attribute is [`VertexFormat::Float32x2`].
     pub const ATTRIBUTE_UV_0: MeshVertexAttribute =
@@ -389,9 +389,7 @@ impl Mesh {
         })
     }
 
-    /// Get this `Mesh`'s [`MeshVertexBufferLayout`], used in [`SpecializedMeshPipeline`].
-    ///
-    /// [`SpecializedMeshPipeline`]: crate::render_resource::SpecializedMeshPipeline
+    /// Get this `Mesh`'s [`MeshVertexBufferLayout`], used in `SpecializedMeshPipeline`.
     pub fn get_mesh_vertex_buffer_layout(
         &self,
         mesh_vertex_buffer_layouts: &mut MeshVertexBufferLayouts,
@@ -1068,7 +1066,7 @@ impl Mesh {
         self.morph_targets.is_some()
     }
 
-    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::mesh::morph::MorphTargetImage) for info.
+    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
     ///
     /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
     pub fn set_morph_targets(&mut self, morph_targets: Handle<Image>) {
@@ -1081,7 +1079,7 @@ impl Mesh {
 
     /// Consumes the mesh and returns a mesh with the given [morph targets].
     ///
-    /// This requires a "morph target image". See [`MorphTargetImage`](crate::mesh::morph::MorphTargetImage) for info.
+    /// This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
     ///
     /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
     ///

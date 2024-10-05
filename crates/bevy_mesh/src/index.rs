@@ -4,7 +4,7 @@ use thiserror::Error;
 use wgpu::IndexFormat;
 
 /// A disjunction of four iterators. This is necessary to have a well-formed type for the output
-/// of [`Mesh::triangles`], which produces iterators of four different types depending on the
+/// of [`super::Mesh::triangles`], which produces iterators of four different types depending on the
 /// branch taken.
 pub(crate) enum FourIterators<A, B, C, D> {
     First(A),
@@ -32,21 +32,21 @@ where
     }
 }
 
-/// An error that occurred while trying to invert the winding of a [`Mesh`].
+/// An error that occurred while trying to invert the winding of a [`super::Mesh`].
 #[derive(Debug, Error)]
 pub enum MeshWindingInvertError {
-    /// This error occurs when you try to invert the winding for a mesh with [`PrimitiveTopology::PointList`].
+    /// This error occurs when you try to invert the winding for a mesh with [`super::PrimitiveTopology::PointList`].
     #[error("Mesh winding invertation does not work for primitive topology `PointList`")]
     WrongTopology,
 
     /// This error occurs when you try to invert the winding for a mesh with
-    /// * [`PrimitiveTopology::TriangleList`], but the indices are not in chunks of 3.
-    /// * [`PrimitiveTopology::LineList`], but the indices are not in chunks of 2.
+    /// * [`super::PrimitiveTopology::TriangleList`], but the indices are not in chunks of 3.
+    /// * [`super::PrimitiveTopology::LineList`], but the indices are not in chunks of 2.
     #[error("Indices weren't in chunks according to topology")]
     AbruptIndicesEnd,
 }
 
-/// An error that occurred while trying to extract a collection of triangles from a [`Mesh`].
+/// An error that occurred while trying to extract a collection of triangles from a [`super::Mesh`].
 #[derive(Debug, Error)]
 pub enum MeshTrianglesError {
     #[error("Source mesh does not have primitive topology TriangleList or TriangleStrip")]
@@ -65,7 +65,7 @@ pub enum MeshTrianglesError {
     BadIndices,
 }
 
-/// An array of indices into the [`VertexAttributeValues`] for a mesh.
+/// An array of indices into the [`super::VertexAttributeValues`] for a mesh.
 ///
 /// It describes the order in which the vertex attributes should be joined into faces.
 #[derive(Debug, Clone, Reflect)]
