@@ -281,6 +281,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 is_synthetic: false,
                 ..
             } => {
+                let keyboard_input = converters::convert_keyboard_input(event, window);
                 if event.state.is_pressed() {
                     pressed_keys
                         .0
@@ -288,8 +289,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 } else {
                     pressed_keys.0.remove(&keyboard_input.key_code);
                 }
-                self.bevy_window_events
-                    .send(converters::convert_keyboard_input(event, window));
+                self.bevy_window_events.send(keyboard_input);
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let physical_position = DVec2::new(position.x, position.y);

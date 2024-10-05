@@ -6,8 +6,11 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
-use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost};
-use bevy_utils::tracing::{error, info, warn};
+use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
+use bevy_utils::{
+    tracing::{error, info, warn},
+    HashMap,
+};
 use bevy_window::{
     ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
     WindowClosing, WindowCreated, WindowFocused, WindowMode, WindowResized, WindowWrapper,
@@ -131,28 +134,38 @@ pub fn create_windows<F: QueryFilter + 'static>(
 pub(crate) fn check_keyboard_focus_lost(
     mut focus_events: EventReader<WindowFocused>,
     mut keyboard_focus: EventWriter<KeyboardFocusLost>,
+    mut keyboard_input: EventWriter<KeyboardInput>,
+    mut q_windows: Query<&mut WinitWindowPressedKeys>,
 ) {
-    let mut focus_lost = false;
+    let mut focus_lost = vec![];
     let mut focus_gained = false;
     for e in focus_events.read() {
         if e.focused {
             focus_gained = true;
         } else {
-            focus_lost = true;
+            focus_lost.push(e.window);
         }
     }
-    if focus_lost & !focus_gained {
-        for (key_code, logical_key) in pressed_keys.0.drain() {
-            self.winit_events.send(KeyboardInput {
-                key_code,
-                logical_key,
-                state: bevy_input::ButtonState::Released,
-                repeat: false,
-                window,
-            });
+
+    if !focus_gained {
+        if !focus_lost.is_empty() {
+            keyboard_focus.send(KeyboardFocusLost);
         }
 
-        keyboard_focus.send(KeyboardFocusLost);
+        for window in focus_lost {
+            let Ok(mut pressed_keys) = q_windows.get_mut(window) else {
+                continue;
+            };
+            for (key_code, logical_key) in pressed_keys.0.drain() {
+                keyboard_input.send(KeyboardInput {
+                    key_code,
+                    logical_key,
+                    state: bevy_input::ButtonState::Released,
+                    repeat: false,
+                    window,
+                });
+            }
+        }
     }
 }
 
