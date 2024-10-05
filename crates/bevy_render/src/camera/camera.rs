@@ -965,10 +965,14 @@ pub fn camera_system<T: CameraProjection + Component>(
                 }
                 camera.computed.target_info = new_computed_target_info;
                 if let Some(size) = camera.logical_viewport_size() {
-                    camera_projection.update(size.x, size.y);
-                    camera.computed.clip_from_view = match &camera.sub_camera_view {
-                        Some(sub_view) => camera_projection.get_clip_from_view_for_sub(sub_view),
-                        None => camera_projection.get_clip_from_view(),
+                    if size.x != 0.0 && size.y != 0.0 {
+                        camera_projection.update(size.x, size.y);
+                        camera.computed.clip_from_view = match &camera.sub_camera_view {
+                            Some(sub_view) => {
+                                camera_projection.get_clip_from_view_for_sub(sub_view)
+                            }
+                            None => camera_projection.get_clip_from_view(),
+                        }
                     }
                 }
             }
