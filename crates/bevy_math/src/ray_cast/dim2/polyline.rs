@@ -2,14 +2,14 @@ use crate::prelude::*;
 
 // TODO: Polylines should probably have their own type for this along with a BVH acceleration structure.
 
-impl<const N: usize> RayCast2d for Polyline2d<N> {
+impl<const N: usize> PrimitiveRayCast2d for Polyline2d<N> {
     #[inline]
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, _solid: bool) -> Option<RayHit2d> {
         local_ray_cast_polyline(&self.vertices, ray, max_distance)
     }
 }
 
-impl RayCast2d for BoxedPolyline2d {
+impl PrimitiveRayCast2d for BoxedPolyline2d {
     #[inline]
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, _solid: bool) -> Option<RayHit2d> {
         local_ray_cast_polyline(&self.vertices, ray, max_distance)

@@ -41,8 +41,10 @@ impl RayHit2d {
     }
 }
 
-/// A trait for intersecting rays with shapes in two-dimensional space.
-pub trait RayCast2d {
+/// A trait for intersecting rays with [primitive shapes] in two-dimensional space.
+///
+/// [primitive shapes]: crate::primitives
+pub trait PrimitiveRayCast2d {
     /// Computes the distance to the closest intersection along the given `ray`, expressed in the local space of `self`.
     /// Returns `None` if no intersection is found or if the distance exceeds the given `max_distance`.
     ///

@@ -3,7 +3,7 @@ use ops::FloatPow;
 use crate::prelude::*;
 
 // This is the same as `Sphere`, but with 3D types.
-impl RayCast3d for Sphere {
+impl PrimitiveRayCast3d for Sphere {
     #[inline]
     fn local_ray_distance(&self, ray: Ray3d, max_distance: f32, solid: bool) -> Option<f32> {
         local_ray_distance_with_sphere(self.radius, ray, solid)

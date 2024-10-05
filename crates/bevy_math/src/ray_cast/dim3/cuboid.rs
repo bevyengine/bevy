@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 // This is the same as `Rectangle`, but with 3D types.
-impl RayCast3d for Cuboid {
+impl PrimitiveRayCast3d for Cuboid {
     #[inline]
     fn local_ray_distance(&self, ray: Ray3d, max_distance: f32, solid: bool) -> Option<f32> {
         // Adapted from Inigo Quilez's algorithm: https://iquilezles.org/articles/intersectors/

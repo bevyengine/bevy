@@ -2,7 +2,7 @@ use ops::FloatPow;
 
 use crate::prelude::*;
 
-impl RayCast2d for CircularSector {
+impl PrimitiveRayCast2d for CircularSector {
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, solid: bool) -> Option<RayHit2d> {
         // First, if the sector is solid, check if the ray origin is inside of it.
         if solid

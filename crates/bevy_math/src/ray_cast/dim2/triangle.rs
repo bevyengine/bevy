@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-impl RayCast2d for Triangle2d {
+impl PrimitiveRayCast2d for Triangle2d {
     #[inline]
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, solid: bool) -> Option<RayHit2d> {
         let [a, b, c] = self.vertices;

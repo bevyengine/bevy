@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 // NOTE: This is largely a copy of the `ConicalFrustum` implementation, but simplified for only one base.
-impl RayCast3d for Cone {
+impl PrimitiveRayCast3d for Cone {
     #[inline]
     fn local_ray_cast(&self, ray: Ray3d, max_distance: f32, solid: bool) -> Option<RayHit3d> {
         // Adapted from:

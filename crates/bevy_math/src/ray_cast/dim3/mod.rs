@@ -36,8 +36,10 @@ impl RayHit3d {
     }
 }
 
-/// A trait for intersecting rays with shapes in three-dimensional space.
-pub trait RayCast3d {
+/// A trait for intersecting rays with [primitive shapes] in three-dimensional space.
+///
+/// [primitive shapes]: crate::primitives
+pub trait PrimitiveRayCast3d {
     /// Computes the distance to the closest intersection along the given `ray`, expressed in the local space of `self`.
     /// Returns `None` if no intersection is found or if the distance exceeds the given `max_distance`.
     ///

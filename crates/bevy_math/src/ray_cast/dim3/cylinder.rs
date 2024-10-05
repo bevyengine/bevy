@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 // NOTE: This is largely a copy of the `ConicalFrustum` implementation, but simplified for only one radius.
-impl RayCast3d for Cylinder {
+impl PrimitiveRayCast3d for Cylinder {
     #[inline]
     fn local_ray_cast(&self, ray: Ray3d, max_distance: f32, solid: bool) -> Option<RayHit3d> {
         // Adapted from:

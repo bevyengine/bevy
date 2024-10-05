@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-impl RayCast3d for Tetrahedron {
+impl PrimitiveRayCast3d for Tetrahedron {
     #[inline]
     fn intersects_local_ray(&self, ray: Ray3d) -> bool {
         // Tetrahedron-ray intersection test using scalar triple products.

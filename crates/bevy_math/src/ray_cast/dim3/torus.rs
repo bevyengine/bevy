@@ -2,7 +2,7 @@ use ops::FloatPow;
 
 use crate::prelude::*;
 
-impl RayCast3d for Torus {
+impl PrimitiveRayCast3d for Torus {
     fn local_ray_distance(&self, ray: Ray3d, max_distance: f32, solid: bool) -> Option<f32> {
         let minor_radius_squared = self.minor_radius * self.minor_radius;
 

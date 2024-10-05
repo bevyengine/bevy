@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-impl RayCast2d for Rhombus {
+impl PrimitiveRayCast2d for Rhombus {
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, solid: bool) -> Option<RayHit2d> {
         // First, if the segment is solid, check if the ray origin is inside of it.
         if solid

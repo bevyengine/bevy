@@ -2,7 +2,7 @@ use ops::FloatPow;
 
 use crate::prelude::*;
 
-impl RayCast2d for Circle {
+impl PrimitiveRayCast2d for Circle {
     #[inline]
     fn local_ray_distance(&self, ray: Ray2d, max_distance: f32, solid: bool) -> Option<f32> {
         local_ray_distance_with_circle(self.radius, ray, solid)

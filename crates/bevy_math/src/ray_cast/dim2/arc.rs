@@ -4,7 +4,7 @@ use ops::FloatPow;
 
 use crate::prelude::*;
 
-impl RayCast2d for Arc2d {
+impl PrimitiveRayCast2d for Arc2d {
     #[inline]
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, _solid: bool) -> Option<RayHit2d> {
         // Adapted from the `Circle` ray casting implementation.

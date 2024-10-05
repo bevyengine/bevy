@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-impl RayCast2d for Ellipse {
+impl PrimitiveRayCast2d for Ellipse {
     #[inline]
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, solid: bool) -> Option<RayHit2d> {
         // Adapted from:

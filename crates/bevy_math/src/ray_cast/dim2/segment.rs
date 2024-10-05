@@ -2,7 +2,7 @@ use ops::FloatPow;
 
 use crate::prelude::*;
 
-impl RayCast2d for Segment2d {
+impl PrimitiveRayCast2d for Segment2d {
     #[inline]
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, _solid: bool) -> Option<RayHit2d> {
         // Direction perpendicular to the line segment.

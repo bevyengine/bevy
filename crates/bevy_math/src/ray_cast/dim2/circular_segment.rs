@@ -2,7 +2,7 @@ use ops::FloatPow;
 
 use crate::prelude::*;
 
-impl RayCast2d for CircularSegment {
+impl PrimitiveRayCast2d for CircularSegment {
     #[inline]
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, solid: bool) -> Option<RayHit2d> {
         let start = self.arc.left_endpoint();

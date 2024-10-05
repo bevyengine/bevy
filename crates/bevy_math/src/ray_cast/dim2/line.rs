@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-impl RayCast2d for Line2d {
+impl PrimitiveRayCast2d for Line2d {
     #[inline]
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, _solid: bool) -> Option<RayHit2d> {
         // Direction perpendicular to the line.

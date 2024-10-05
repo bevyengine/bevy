@@ -2,21 +2,21 @@ use crate::prelude::*;
 
 // TODO: Polygons should probably have their own type for this along with a BVH acceleration structure.
 
-impl<const N: usize> RayCast2d for Polygon<N> {
+impl<const N: usize> PrimitiveRayCast2d for Polygon<N> {
     #[inline]
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, solid: bool) -> Option<RayHit2d> {
         local_ray_cast_polygon(&self.vertices, ray, max_distance, solid)
     }
 }
 
-impl RayCast2d for BoxedPolygon {
+impl PrimitiveRayCast2d for BoxedPolygon {
     #[inline]
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, solid: bool) -> Option<RayHit2d> {
         local_ray_cast_polygon(&self.vertices, ray, max_distance, solid)
     }
 }
 
-impl RayCast2d for RegularPolygon {
+impl PrimitiveRayCast2d for RegularPolygon {
     #[inline]
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, solid: bool) -> Option<RayHit2d> {
         let rot = Rot2::radians(self.external_angle_radians());

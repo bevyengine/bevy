@@ -2,7 +2,7 @@ use ops::FloatPow;
 
 use crate::prelude::*;
 
-impl RayCast2d for Annulus {
+impl PrimitiveRayCast2d for Annulus {
     #[inline]
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, solid: bool) -> Option<RayHit2d> {
         let length_squared = ray.origin.length_squared();

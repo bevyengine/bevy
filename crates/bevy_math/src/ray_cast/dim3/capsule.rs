@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 // This is mostly the same as `Capsule2d`, but with 3D types.
-impl RayCast3d for Capsule3d {
+impl PrimitiveRayCast3d for Capsule3d {
     #[inline]
     fn local_ray_cast(&self, ray: Ray3d, max_distance: f32, solid: bool) -> Option<RayHit3d> {
         // Adapted from Inigo Quilez's ray-capsule intersection algorithm: https://iquilezles.org/articles/intersectors/

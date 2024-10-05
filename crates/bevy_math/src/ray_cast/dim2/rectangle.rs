@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-impl RayCast2d for Rectangle {
+impl PrimitiveRayCast2d for Rectangle {
     #[inline]
     fn local_ray_distance(&self, ray: Ray2d, max_distance: f32, solid: bool) -> Option<f32> {
         // Adapted from Inigo Quilez's algorithm: https://iquilezles.org/articles/intersectors/
