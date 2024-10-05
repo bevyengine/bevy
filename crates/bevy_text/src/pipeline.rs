@@ -455,15 +455,13 @@ fn get_attrs<'a>(
 
 /// Calculate the size of the text area for the given buffer.
 fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
-    let width = buffer
+    let (width, height) = buffer
         .layout_runs()
-        .map(|run| run.line_w)
-        .reduce(f32::max)
-        .unwrap_or(0.0);
-    let line_height = buffer.metrics().line_height.ceil();
-    let height = buffer.layout_runs().count() as f32 * line_height;
+        .map(|run| (run.line_w, run.line_height))
+        .reduce(|(w1, h1), (w2, h2)| (w1.max(w2), h1.max(h2)))
+        .unwrap_or((0.0, 0.0));
 
-    Vec2::new(width.ceil(), height).ceil()
+    Vec2::new(width, height).ceil()
 }
 
 /// Discards stale data cached in `FontSystem`.
