@@ -65,11 +65,9 @@ fn setup_instructions(mut commands: Commands) {
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn((
-        Camera2dBundle {
-            camera: Camera {
-                hdr: true, // HDR is required for the bloom effect
-                ..default()
-            },
+        Camera2d,
+        Camera {
+            hdr: true, // HDR is required for the bloom effect
             ..default()
         },
         Bloom::NATURAL,

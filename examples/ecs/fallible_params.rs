@@ -58,7 +58,7 @@ struct Player {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn 2D camera.
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Spawn player.
     let texture = asset_server.load("textures/simplespace/ship_C.png");

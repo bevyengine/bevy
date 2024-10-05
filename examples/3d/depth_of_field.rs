@@ -70,16 +70,16 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: Res<AppSettings>) {
     // Spawn the camera. Enable HDR and bloom, as that highlights the depth of
     // field effect.
-    let mut camera = commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 4.5, 8.25).looking_at(Vec3::ZERO, Vec3::Y),
-        camera: Camera {
+    let mut camera = commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 4.5, 8.25).looking_at(Vec3::ZERO, Vec3::Y),
+        Camera {
             hdr: true,
             ..default()
         },
-        tonemapping: Tonemapping::TonyMcMapface,
-        ..default()
-    });
-    camera.insert(Bloom::NATURAL);
+        Tonemapping::TonyMcMapface,
+        Bloom::NATURAL,
+    ));
 
     // Insert the depth of field settings.
     if let Some(depth_of_field) = Option::<DepthOfField>::from(*app_settings) {

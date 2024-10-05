@@ -17,7 +17,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // spawn the container with default z-index.
     // the default z-index value is `ZIndex::Local(0)`.
