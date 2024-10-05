@@ -13,16 +13,21 @@ use bevy_reflect::prelude::*;
 /// occupied by this entity, with faces orthogonal to its local axis.
 ///
 /// This component is notably used during "frustum culling", a process to determine
-/// if an entity should be rendered by a `Camera` if its bounding box intersects
-/// with the camera's `Frustum`.
+/// if an entity should be rendered by a [`Camera`] if its bounding box intersects
+/// with the camera's [`Frustum`].
 ///
-/// It will be added automatically by the systems in `CalculateBounds` to entities that:
-/// - could be subject to frustum culling, for example with a `Mesh3d`
+/// It will be added automatically by the systems in [`CalculateBounds`] to entities that:
+/// - could be subject to frustum culling, for example with a [`Mesh3d`]
 ///     or `Sprite` component,
-/// - don't have the `NoFrustumCulling` component.
+/// - don't have the [`NoFrustumCulling`] component.
 ///
 /// It won't be updated automatically if the space occupied by the entity changes,
-/// for example if the vertex positions of a `Mesh3d` are updated.
+/// for example if the vertex positions of a [`Mesh3d`] are updated.
+///
+/// [`Camera`]: crate::camera::Camera
+/// [`NoFrustumCulling`]: crate::view::visibility::NoFrustumCulling
+/// [`CalculateBounds`]: crate::view::visibility::VisibilitySystems::CalculateBounds
+/// [`Mesh3d`]: crate::mesh::Mesh
 #[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq)]
 pub struct Aabb {
@@ -51,7 +56,7 @@ impl Aabb {
     ///
     /// ```
     /// # use bevy_math::{Vec3, Vec3A};
-    /// # use bevy_mesh::bounding::Aabb;
+    /// # use bevy_render::primitives::Aabb;
     /// let bb = Aabb::enclosing([Vec3::X, Vec3::Z * 2.0, Vec3::Y * -0.5]).unwrap();
     /// assert_eq!(bb.min(), Vec3A::new(0.0, -0.5, 0.0));
     /// assert_eq!(bb.max(), Vec3A::new(1.0, 0.0, 2.0));
@@ -187,18 +192,22 @@ impl HalfSpace {
 /// Half spaces are ordered left, right, top, bottom, near, far. The normal vectors
 /// of the half-spaces point towards the interior of the frustum.
 ///
-/// A frustum component is used on an entity with a `Camera` component to
+/// A frustum component is used on an entity with a [`Camera`] component to
 /// determine which entities will be considered for rendering by this camera.
 /// All entities with an [`Aabb`] component that are not contained by (or crossing
 /// the boundary of) the frustum will not be rendered, and not be used in rendering computations.
 ///
 /// This process is called frustum culling, and entities can opt out of it using
-/// the `NoFrustumCulling` component.
+/// the [`NoFrustumCulling`] component.
 ///
 /// The frustum component is typically added automatically for cameras, either `Camera2d` or `Camera3d`.
-/// It is usually updated automatically by `update_frusta` from the
-/// `CameraProjection` component and [`GlobalTransform`] of the camera entity.
+/// It is usually updated automatically by [`update_frusta`] from the
+/// [`CameraProjection`] component and [`GlobalTransform`] of the camera entity.
 ///
+/// [`Camera`]: crate::camera::Camera
+/// [`NoFrustumCulling`]: crate::view::visibility::NoFrustumCulling
+/// [`update_frusta`]: crate::view::visibility::update_frusta
+/// [`CameraProjection`]: crate::camera::CameraProjection
 /// [`GlobalTransform`]: bevy_transform::components::GlobalTransform
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component, Default, Debug)]

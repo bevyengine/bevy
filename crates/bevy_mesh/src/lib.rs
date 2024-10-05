@@ -5,7 +5,6 @@
 extern crate alloc;
 extern crate core;
 
-pub mod bounding;
 mod conversions;
 mod index;
 mod mesh;

@@ -2,11 +2,10 @@ use bevy_transform::components::Transform;
 pub use wgpu::PrimitiveTopology;
 
 use super::{
-    bounding::Aabb, face_normal, generate_tangents_for_mesh, scale_normal, FourIterators,
-    GenerateTangentsError, Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute,
-    MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
-    MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
-    VertexFormatSize,
+    face_normal, generate_tangents_for_mesh, scale_normal, FourIterators, GenerateTangentsError,
+    Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId,
+    MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts,
+    MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout, VertexFormatSize,
 };
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, Handle, RenderAssetUsages};
@@ -1045,20 +1044,6 @@ impl Mesh {
                 *tangent = scaled_tangent.normalize_or_zero().to_array();
             });
         }
-    }
-
-    /// Compute the Axis-Aligned Bounding Box of the mesh vertices in model space
-    ///
-    /// Returns `None` if `self` doesn't have [`Mesh::ATTRIBUTE_POSITION`] of
-    /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
-    pub fn compute_aabb(&self) -> Option<Aabb> {
-        let Some(VertexAttributeValues::Float32x3(values)) =
-            self.attribute(Mesh::ATTRIBUTE_POSITION)
-        else {
-            return None;
-        };
-
-        Aabb::enclosing(values.iter().map(|p| Vec3::from_slice(p)))
     }
 
     /// Whether this mesh has morph targets.
