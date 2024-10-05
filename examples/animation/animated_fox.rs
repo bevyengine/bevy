@@ -39,6 +39,7 @@ struct Animations {
 struct OnStep;
 
 impl OnStep {
+    // The observer is not required to be defined in an impl block
     fn observer(
         trigger: Trigger<Self>,
         particle: Res<ParticleAssets>,
