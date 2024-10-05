@@ -94,7 +94,7 @@ impl<R> OneToOneEventDetails<R> {
 
     /// Get the [`Entity`] related to the `primary` [`Entity`].
     pub const fn secondary(&self) -> Entity {
-        self.primary
+        self.secondary
     }
 }
 

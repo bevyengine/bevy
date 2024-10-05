@@ -92,7 +92,7 @@ impl<R> OneToManyEventDetails<R> {
 
     /// Get the [`Entity`] that has the [`OneToManyOne`](crate::OneToManyOne) component.
     pub const fn one(&self) -> Entity {
-        self.many
+        self.one
     }
 }
 
