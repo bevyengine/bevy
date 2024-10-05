@@ -12,12 +12,12 @@ pub enum OneToManyEvent<R> {
 }
 
 impl<R> OneToManyEvent<R> {
-    /// Create a new [`Added`](OneToOneEvent::Added) [`Event`]
+    /// Create a new [`Added`](OneToManyEvent::Added) [`Event`]
     pub const fn added(many: Entity, one: Entity) -> Self {
         Self::Added(OneToManyEventDetails::new(many, one))
     }
 
-    /// Create a new [`Removed`](OneToOneEvent::Removed) [`Event`]
+    /// Create a new [`Removed`](OneToManyEvent::Removed) [`Event`]
     pub const fn removed(many: Entity, one: Entity) -> Self {
         Self::Removed(OneToManyEventDetails::new(many, one))
     }
