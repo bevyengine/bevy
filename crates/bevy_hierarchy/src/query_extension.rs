@@ -378,16 +378,16 @@ mod tests {
     fn descendant_iter() {
         let world = &mut World::new();
 
-        let [a, b, c, d] = core::array::from_fn(|i| world.spawn(A(i)).id());
+        let [a0, a1, a2, a3] = core::array::from_fn(|i| world.spawn(A(i)).id());
 
-        world.entity_mut(a).add_children(&[b, c]);
-        world.entity_mut(c).add_children(&[d]);
+        world.entity_mut(a0).add_children(&[a1, a2]);
+        world.entity_mut(a2).add_children(&[a3]);
 
         let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
         let (children_query, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query
-            .iter_many(children_query.iter_descendants(a))
+            .iter_many(children_query.iter_descendants(a0))
             .collect();
 
         assert_eq!([&A(1), &A(2), &A(3)], result.as_slice());
@@ -397,15 +397,15 @@ mod tests {
     fn ancestor_iter() {
         let world = &mut World::new();
 
-        let [a, b, c] = core::array::from_fn(|i| world.spawn(A(i)).id());
+        let [a0, a1, a2] = core::array::from_fn(|i| world.spawn(A(i)).id());
 
-        world.entity_mut(a).add_children(&[b]);
-        world.entity_mut(b).add_children(&[c]);
+        world.entity_mut(a0).add_children(&[a1]);
+        world.entity_mut(a1).add_children(&[a2]);
 
         let mut system_state = SystemState::<(Query<&Parent>, Query<&A>)>::new(world);
         let (parent_query, a_query) = system_state.get(world);
 
-        let result: Vec<_> = a_query.iter_many(parent_query.iter_ancestors(c)).collect();
+        let result: Vec<_> = a_query.iter_many(parent_query.iter_ancestors(a2)).collect();
 
         assert_eq!([&A(1), &A(0)], result.as_slice());
     }
@@ -414,32 +414,32 @@ mod tests {
     fn root_parent() {
         let world = &mut World::new();
 
-        let [a, b, c] = core::array::from_fn(|i| world.spawn(A(i)).id());
+        let [a0, a1, a2] = core::array::from_fn(|i| world.spawn(A(i)).id());
 
-        world.entity_mut(a).add_children(&[b]);
-        world.entity_mut(b).add_children(&[c]);
+        world.entity_mut(a0).add_children(&[a1]);
+        world.entity_mut(a1).add_children(&[a2]);
 
         let mut system_state = SystemState::<Query<&Parent>>::new(world);
         let parent_query = system_state.get(world);
 
-        assert_eq!(a, parent_query.root_parent(c));
-        assert_eq!(a, parent_query.root_parent(b));
-        assert_eq!(a, parent_query.root_parent(a));
+        assert_eq!(a0, parent_query.root_parent(a2));
+        assert_eq!(a0, parent_query.root_parent(a1));
+        assert_eq!(a0, parent_query.root_parent(a0));
     }
 
     #[test]
     fn leaf_iter() {
         let world = &mut World::new();
 
-        let [a, b, c, d] = core::array::from_fn(|i| world.spawn(A(i)).id());
+        let [a0, a1, a2, a3] = core::array::from_fn(|i| world.spawn(A(i)).id());
 
-        world.entity_mut(a).add_children(&[b, c]);
-        world.entity_mut(c).add_children(&[d]);
+        world.entity_mut(a0).add_children(&[a1, a2]);
+        world.entity_mut(a2).add_children(&[a3]);
 
         let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
         let (children_query, a_query) = system_state.get(world);
 
-        let result: Vec<_> = a_query.iter_many(children_query.iter_leaves(a)).collect();
+        let result: Vec<_> = a_query.iter_many(children_query.iter_leaves(a0)).collect();
 
         assert_eq!([&A(1), &A(3)], result.as_slice());
     }
@@ -448,16 +448,16 @@ mod tests {
     fn siblings() {
         let world = &mut World::new();
 
-        let [a, b, c, d, e] = core::array::from_fn(|i| world.spawn(A(i)).id());
+        let [a0, a1, a2, a3, a4] = core::array::from_fn(|i| world.spawn(A(i)).id());
 
-        world.entity_mut(a).add_children(&[b, c, d]);
-        world.entity_mut(c).add_children(&[e]);
+        world.entity_mut(a0).add_children(&[a1, a2, a3]);
+        world.entity_mut(a2).add_children(&[a4]);
 
         let mut system_state = SystemState::<(Query<(&Parent, &Children)>, Query<&A>)>::new(world);
         let (hierarchy_query, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query
-            .iter_many(hierarchy_query.iter_siblings(b))
+            .iter_many(hierarchy_query.iter_siblings(a1))
             .collect();
 
         assert_eq!([&A(2), &A(3)], result.as_slice());
