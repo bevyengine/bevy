@@ -83,7 +83,7 @@ fn setup(
     );
 
     // camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }
 
 #[derive(Component, Default)]

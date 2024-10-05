@@ -116,7 +116,7 @@ fn log_system() {
 struct LogViewerRoot;
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     commands.spawn((
         NodeBundle {

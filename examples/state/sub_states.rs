@@ -151,7 +151,7 @@ mod ui {
     pub const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn(Camera2dBundle::default());
+        commands.spawn(Camera2d);
     }
 
     pub fn setup_menu(mut commands: Commands) {

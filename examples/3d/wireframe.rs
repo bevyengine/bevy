@@ -93,10 +93,10 @@ fn setup(
     commands.spawn((PointLight::default(), Transform::from_xyz(2.0, 4.0, 2.0)));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // Text used to show controls
     commands.spawn(

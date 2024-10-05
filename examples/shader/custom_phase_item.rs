@@ -212,10 +212,10 @@ fn setup(mut commands: Commands) {
         .insert(CustomRenderedEntity);
 
     // Spawn the camera.
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 /// Creates the [`CustomPhaseItemBuffers`] resource.
