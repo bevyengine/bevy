@@ -5,6 +5,7 @@ use bevy_color::{Laba, LinearRgba, Oklaba, Srgba, Xyza};
 use bevy_math::*;
 use bevy_reflect::Reflect;
 use bevy_transform::prelude::Transform;
+use bevy_utils::default;
 
 /// An individual input for [`Animatable::blend`].
 pub struct BlendInput<T> {
@@ -185,6 +186,121 @@ impl Animatable for Quat {
             value = Self::interpolate(&value, &input.value, input.weight);
         }
         value
+    }
+}
+
+#[derive(Default, Debug, Clone, Reflect)]
+pub(crate) struct TransformParts {
+    translation: Option<Vec3>,
+    rotation: Option<Quat>,
+    scale: Option<Vec3>,
+}
+
+impl TransformParts {
+    pub(crate) fn apply_to_transform(self, transform: &mut Transform) {
+        if let Some(translation) = self.translation {
+            transform.translation = translation;
+        }
+        if let Some(rotation) = self.rotation {
+            transform.rotation = rotation;
+        }
+        if let Some(scale) = self.scale {
+            transform.scale = scale;
+        }
+    }
+
+    #[inline]
+    pub(crate) fn from_translation(translation: Vec3) -> Self {
+        Self {
+            translation: Some(translation),
+            ..default()
+        }
+    }
+
+    #[inline]
+    pub(crate) fn from_rotation(rotation: Quat) -> Self {
+        Self {
+            rotation: Some(rotation),
+            ..default()
+        }
+    }
+
+    #[inline]
+    pub(crate) fn from_scale(scale: Vec3) -> Self {
+        Self {
+            scale: Some(scale),
+            ..default()
+        }
+    }
+
+    #[inline]
+    pub(crate) fn from_transform(transform: Transform) -> Self {
+        Self {
+            translation: Some(transform.translation),
+            rotation: Some(transform.rotation),
+            scale: Some(transform.scale),
+        }
+    }
+}
+
+fn interpolate_option<A: Animatable + Copy>(a: Option<&A>, b: Option<&A>, time: f32) -> Option<A> {
+    match (a, b) {
+        (None, None) => None,
+        (Some(a), None) => Some(*a),
+        (None, Some(b)) => Some(*b),
+        (Some(a), Some(b)) => Some(A::interpolate(a, b, time)),
+    }
+}
+
+impl Animatable for TransformParts {
+    fn interpolate(a: &Self, b: &Self, time: f32) -> Self {
+        TransformParts {
+            translation: interpolate_option(a.translation.as_ref(), b.translation.as_ref(), time),
+            rotation: interpolate_option(a.rotation.as_ref(), b.rotation.as_ref(), time),
+            scale: interpolate_option(a.scale.as_ref(), b.scale.as_ref(), time),
+        }
+    }
+
+    fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
+        let mut accum = TransformParts::default();
+        for BlendInput {
+            weight,
+            value,
+            additive,
+        } in inputs
+        {
+            if additive {
+                let Self {
+                    translation,
+                    rotation,
+                    scale,
+                } = value;
+                if let Some(translation) = translation {
+                    let weighted_translation = translation * weight;
+                    match accum.translation {
+                        Some(ref mut v) => *v += weighted_translation,
+                        None => accum.translation = Some(weighted_translation),
+                    }
+                }
+                if let Some(rotation) = rotation {
+                    let weighted_rotation = Quat::slerp(Quat::IDENTITY, rotation, weight);
+                    match accum.rotation {
+                        Some(ref mut r) => *r = weighted_rotation * *r,
+                        None => accum.rotation = Some(weighted_rotation),
+                    }
+                }
+                if let Some(scale) = scale {
+                    let weighted_scale = scale * weight;
+                    match accum.scale {
+                        Some(ref mut s) => *s += weighted_scale,
+                        None => accum.scale = Some(weighted_scale),
+                    }
+                }
+            } else {
+                accum = Self::interpolate(&accum, &value, weight);
+            }
+        }
+        accum
     }
 }
 

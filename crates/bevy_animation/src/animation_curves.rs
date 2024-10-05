@@ -96,6 +96,7 @@ use bevy_render::mesh::morph::MorphWeights;
 use bevy_transform::prelude::Transform;
 
 use crate::{
+    animatable::TransformParts,
     graph::AnimationNodeIndex,
     prelude::{Animatable, BlendInput},
     AnimationEntityMut, AnimationEvaluationError,
@@ -830,71 +831,39 @@ struct TransformCurveEvaluator {
     evaluator: BasicAnimationCurveEvaluator<TransformParts>,
 }
 
-#[derive(Default, Debug, Clone, Reflect)]
-struct TransformParts {
-    translation: Option<Vec3>,
-    rotation: Option<Quat>,
-    scale: Option<Vec3>,
-}
-
-fn interpolate_option<A: Animatable + Copy>(a: Option<&A>, b: Option<&A>, time: f32) -> Option<A> {
-    match (a, b) {
-        (None, None) => None,
-        (Some(a), None) => Some(*a),
-        (None, Some(b)) => Some(*b),
-        (Some(a), Some(b)) => Some(A::interpolate(a, b, time)),
-    }
-}
-
-impl Animatable for TransformParts {
-    fn interpolate(a: &Self, b: &Self, time: f32) -> Self {
-        TransformParts {
-            translation: interpolate_option(a.translation.as_ref(), b.translation.as_ref(), time),
-            rotation: interpolate_option(a.rotation.as_ref(), b.rotation.as_ref(), time),
-            scale: interpolate_option(a.scale.as_ref(), b.scale.as_ref(), time),
-        }
+impl AnimationCurveEvaluator for TransformCurveEvaluator {
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.combine(graph_node, /*additive=*/ false)
     }
 
-    fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
-        let mut accum = TransformParts::default();
-        for BlendInput {
-            weight,
-            value,
-            additive,
-        } in inputs
-        {
-            if additive {
-                let Self {
-                    translation,
-                    rotation,
-                    scale,
-                } = value;
-                if let Some(translation) = translation {
-                    let weighted_translation = translation * weight;
-                    match accum.translation {
-                        Some(mut v) => v += weighted_translation,
-                        None => accum.translation = Some(weighted_translation),
-                    }
-                }
-                if let Some(rotation) = rotation {
-                    let weighted_rotation = Quat::slerp(Quat::IDENTITY, rotation, weight);
-                    match accum.rotation {
-                        Some(mut r) => r = weighted_rotation * r,
-                        None => accum.rotation = Some(weighted_rotation),
-                    }
-                }
-                if let Some(scale) = scale {
-                    let weighted_scale = scale * weight;
-                    match accum.scale {
-                        Some(mut s) => s += weighted_scale,
-                        None => accum.scale = Some(weighted_scale),
-                    }
-                }
-            } else {
-                accum = Self::interpolate(&accum, &value, weight);
-            }
-        }
-        accum
+    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.combine(graph_node, /*additive=*/ true)
+    }
+
+    fn push_blend_register(
+        &mut self,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.push_blend_register(weight, graph_node)
+    }
+
+    fn commit<'a>(
+        &mut self,
+        transform: Option<Mut<'a, Transform>>,
+        _: AnimationEntityMut<'a>,
+    ) -> Result<(), AnimationEvaluationError> {
+        let mut component = transform.ok_or_else(|| {
+            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
+        })?;
+        let parts = self
+            .evaluator
+            .stack
+            .pop()
+            .ok_or_else(inconsistent::<TransformCurveEvaluator>)?
+            .value;
+        parts.apply_to_transform(&mut component);
+        Ok(())
     }
 }
 
