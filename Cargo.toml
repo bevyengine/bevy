@@ -3270,6 +3270,17 @@ category = "Math"
 wasm = true
 
 [[example]]
+name = "ray_cast_2d"
+path = "examples/math/ray_cast_2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ray_cast_2d]
+name = "Rendering Primitives"
+description = "Shows off ray casting for primitive shapes in 2D"
+category = "Math"
+wasm = true
+
+[[example]]
 name = "render_primitives"
 path = "examples/math/render_primitives.rs"
 doc-scrape-examples = true
