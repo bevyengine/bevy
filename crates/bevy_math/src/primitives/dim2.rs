@@ -1644,7 +1644,7 @@ impl<const N: usize> ConvexPolygon<N> {
     ///
     /// # Errors
     ///
-    /// Returns a [`ConvexPolygonError::NotConvex`] if the `vertices` do not form a convex polygon.
+    /// Returns [`ConvexPolygonError::Concave`] if the `vertices` do not form a convex polygon.
     pub fn new(vertices: [Vec2; N]) -> Result<Self, ConvexPolygonError> {
         let polygon = Self::new_unchecked(vertices);
         let ref_winding_order = polygon.triangle_winding_order(N - 1, 0, 1);
