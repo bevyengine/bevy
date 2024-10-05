@@ -2437,7 +2437,7 @@ impl TargetCamera {
 /// # use bevy_ui::prelude::*;
 /// # use bevy_ecs::prelude::Commands;
 /// # use bevy_render::camera::{Camera, RenderTarget};
-/// # use bevy_core_pipeline::prelude::Camera2dBundle;
+/// # use bevy_core_pipeline::prelude::Camera2d;
 /// # use bevy_window::{Window, WindowRef};
 ///
 /// fn spawn_camera(mut commands: Commands) {
@@ -2446,11 +2446,9 @@ impl TargetCamera {
 ///         ..Default::default()
 ///     }).id();
 ///     commands.spawn((
-///         Camera2dBundle {
-///             camera: Camera {
-///                 target: RenderTarget::Window(WindowRef::Entity(another_window)),
-///                 ..Default::default()
-///             },
+///         Camera2d,
+///         Camera {
+///             target: RenderTarget::Window(WindowRef::Entity(another_window)),
 ///             ..Default::default()
 ///         },
 ///         // We add the Marker here so all Ui will spawn in
@@ -2502,7 +2500,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 ///
 /// fn spawn_camera(mut commands: Commands) {
 ///     commands.spawn((
-///         Camera2dBundle::default(),
+///         Camera2d,
 ///         // This will cause all Ui in this camera to be rendered without
 ///         // anti-aliasing
 ///         UiAntiAlias::Off,

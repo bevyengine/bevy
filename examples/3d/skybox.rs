@@ -71,10 +71,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let skybox_handle = asset_server.load(CUBEMAPS[0].0);
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         CameraController::default(),
         Skybox {
             image: skybox_handle.clone(),

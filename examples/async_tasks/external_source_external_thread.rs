@@ -23,7 +23,7 @@ struct StreamReceiver(Receiver<u32>);
 struct StreamEvent(u32);
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let (tx, rx) = bounded::<u32>(10);
     std::thread::spawn(move || {

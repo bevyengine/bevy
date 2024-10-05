@@ -26,7 +26,7 @@ const LINE_HEIGHT: f32 = 21.;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
-    commands.spawn((Camera2dBundle::default(), IsDefaultUiCamera));
+    commands.spawn((Camera2d, IsDefaultUiCamera));
 
     // root node
     commands
