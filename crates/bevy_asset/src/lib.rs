@@ -176,6 +176,7 @@ mod loader;
 mod loader_builders;
 mod path;
 mod reflect;
+mod render_asset;
 mod server;
 
 pub use assets::*;
@@ -192,6 +193,7 @@ pub use loader_builders::{
 };
 pub use path::*;
 pub use reflect::*;
+pub use render_asset::*;
 pub use server::*;
 
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.

@@ -92,7 +92,7 @@ fn system_b(mut query: Query<&mut Text>) {
 }
 
 fn setup_ui(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.spawn(
         TextBundle::from_sections([
             TextSection::new(

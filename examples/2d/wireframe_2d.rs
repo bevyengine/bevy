@@ -85,7 +85,7 @@ fn setup(
     ));
 
     // Camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Text used to show controls
     commands.spawn(

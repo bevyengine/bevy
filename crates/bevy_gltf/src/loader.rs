@@ -9,7 +9,7 @@ use bevy_asset::{
 };
 use bevy_color::{Color, LinearRgba};
 use bevy_core::Name;
-use bevy_core_pipeline::prelude::Camera3dBundle;
+use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     world::World,
@@ -1413,15 +1413,15 @@ fn load_node(
                     Projection::Perspective(perspective_projection)
                 }
             };
-            node.insert(Camera3dBundle {
+            node.insert((
+                Camera3d::default(),
                 projection,
                 transform,
-                camera: Camera {
+                Camera {
                     is_active: !*active_camera_found,
                     ..Default::default()
                 },
-                ..Default::default()
-            });
+            ));
 
             *active_camera_found = true;
         }

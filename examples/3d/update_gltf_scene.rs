@@ -24,11 +24,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
     ));
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-0.5, 0.9, 1.5)
-                .looking_at(Vec3::new(-0.5, 0.3, 0.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(-0.5, 0.9, 1.5).looking_at(Vec3::new(-0.5, 0.3, 0.0), Vec3::Y),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),

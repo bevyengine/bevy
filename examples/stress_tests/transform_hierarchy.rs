@@ -272,10 +272,7 @@ fn set_translation(translation: &mut Vec3, a: f32) {
 fn setup(mut commands: Commands, cfg: Res<Cfg>) {
     warn!(include_str!("warning_string.txt"));
 
-    let mut cam = Camera2dBundle::default();
-
-    cam.transform.translation.z = 100.0;
-    commands.spawn(cam);
+    commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 100.0)));
 
     let result = match cfg.test_case {
         TestCase::Tree {

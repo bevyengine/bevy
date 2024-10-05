@@ -20,7 +20,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // Camera so we can see UI
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     commands
         .spawn(NodeBundle {
