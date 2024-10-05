@@ -1,11 +1,13 @@
 [
     {
         "reflect_deserialized_asset::Load": (
-            image: "textures/Ryfjallet_cubemap.png",
+            image: "textures/landscape.png",
         ),
     },
     {
-        "reflect_deserialized_asset::Invert": (),
+        "reflect_deserialized_asset::Brighten": (
+            amount: 10,
+        ),
     },
     {
         "reflect_deserialized_asset::Blur": (
