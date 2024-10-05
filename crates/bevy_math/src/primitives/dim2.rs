@@ -1624,17 +1624,16 @@ impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
 pub enum ConvexPolygonError {
     /// The created polygon is not convex.
     #[error("The created polygon is not convex")]
-    NotConvex,
+    Concave,
 }
 
 impl<const N: usize> ConvexPolygon<N> {
 
-    fn compute_cross_product_for(&self, a_index: usize, b_index: usize, c_index: usize) -> f32 {
+    fn triangle_winding_order(&self, a_index: usize, b_index: usize, c_index: usize) -> WindingOrder {
         let a = self.vertices[a_index];
         let b = self.vertices[b_index];
         let c = self.vertices[c_index];
-        
-        (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
+        Triangle2d::new(a, b, c).winding_order()
     }
 
     /// Create a [`ConvexPolygon`] from its `vertices``.
@@ -1644,11 +1643,11 @@ impl<const N: usize> ConvexPolygon<N> {
     /// Returns a [`ConvexPolygonError::NotConvex`] if the `vertices` do not form a convex polygon.
     pub fn new(vertices: [Vec2; N]) -> Result<Self, ConvexPolygonError> {
         let polygon = Self::new_unchecked(vertices);
-        let ref_cross_product_sign = polygon.compute_cross_product_for(N - 1, 0, 1).signum();
+        let ref_winding_order = polygon.triangle_winding_order(N - 1, 0, 1);
         for i in 1..N {
-            let cross_product = polygon.compute_cross_product_for(i - 1, i, (i + 1) % N);
-            if cross_product.signum() != ref_cross_product_sign {
-                return Err(ConvexPolygonError::NotConvex);
+            let winding_order = polygon.triangle_winding_order(i - 1, i, (i + 1) % N);
+            if winding_order != ref_winding_order {
+                return Err(ConvexPolygonError::Concave);
             }
         }
         Ok(polygon)

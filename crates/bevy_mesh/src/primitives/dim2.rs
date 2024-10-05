@@ -415,8 +415,8 @@ impl<const N: usize> Meshable for ConvexPolygon<N> {
 
 impl<const N: usize> MeshBuilder for ConvexPolygonMeshBuilder<N> {
     fn build(&self) -> Mesh {
-        let mut indices = Vec::with_capacity(self.vertices.len() - 2);
-        let mut positions = Vec::with_capacity(self.vertices.len());
+        let mut indices = Vec::with_capacity((N - 2) * 3);
+        let mut positions = Vec::with_capacity(N);
 
         for vertex in self.vertices {
             positions.push([vertex.x, vertex.y, 0.0]);
