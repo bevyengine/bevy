@@ -7,8 +7,8 @@ use super::{Extrudable, MeshBuilder, Meshable};
 use bevy_math::{
     ops,
     primitives::{
-        Annulus, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon,
-        Ellipse, Rectangle, RegularPolygon, Rhombus, Triangle2d, Triangle3d, WindingOrder,
+        Annulus, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon, Ellipse,
+        Rectangle, RegularPolygon, Rhombus, Triangle2d, Triangle3d, WindingOrder,
     },
     FloatExt, Vec2,
 };
@@ -400,7 +400,7 @@ impl From<CircularSegment> for Mesh {
 
 /// A builder used for creating a [`Mesh`] with a [`ConvexPolygon`] shape.
 pub struct ConvexPolygonMeshBuilder<const N: usize> {
-    pub vertices: [Vec2; N]
+    pub vertices: [Vec2; N],
 }
 
 impl<const N: usize> Meshable for ConvexPolygon<N> {

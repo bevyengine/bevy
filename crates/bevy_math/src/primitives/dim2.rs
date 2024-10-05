@@ -1628,8 +1628,12 @@ pub enum ConvexPolygonError {
 }
 
 impl<const N: usize> ConvexPolygon<N> {
-
-    fn triangle_winding_order(&self, a_index: usize, b_index: usize, c_index: usize) -> WindingOrder {
+    fn triangle_winding_order(
+        &self,
+        a_index: usize,
+        b_index: usize,
+        c_index: usize,
+    ) -> WindingOrder {
         let a = self.vertices[a_index];
         let b = self.vertices[b_index];
         let c = self.vertices[c_index];
@@ -1654,7 +1658,7 @@ impl<const N: usize> ConvexPolygon<N> {
     }
 
     /// Create a [`ConvexPolygon`] from its `vertices``, without checks.
-    /// Use this version only if you know that the `vertices` make up a convex polygon. 
+    /// Use this version only if you know that the `vertices` make up a convex polygon.
     #[inline(always)]
     pub fn new_unchecked(vertices: [Vec2; N]) -> Self {
         Self { vertices }
