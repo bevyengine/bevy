@@ -65,6 +65,7 @@
 //!     - [`TranslationCurve`], which uses `Vec3` output to animate [`Transform::translation`]
 //!     - [`RotationCurve`], which uses `Quat` output to animate [`Transform::rotation`]
 //!     - [`ScaleCurve`], which uses `Vec3` output to animate [`Transform::scale`]
+//!     - [`TransformCurve`], which uses `Transform` output to animate `Transform` directly
 //!
 //! ## Animatable properties
 //!
