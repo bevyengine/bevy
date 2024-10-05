@@ -74,6 +74,32 @@ impl ImageOperation for Load {
     }
 }
 
+/// Adjusts the contrast of the image.
+#[derive(Debug, Clone, Reflect)]
+#[reflect(ImageOperation)]
+struct AdjustContrast {
+    amount: f32,
+}
+
+impl ImageOperation for AdjustContrast {
+    fn apply(&self, ctx: &mut ImageOperationContext<'_>) {
+        ctx.current = ctx.current.adjust_contrast(self.amount);
+    }
+}
+
+/// Adjusts the brightness of the image.
+#[derive(Debug, Clone, Reflect)]
+#[reflect(ImageOperation)]
+struct Brighten {
+    amount: i32,
+}
+
+impl ImageOperation for Brighten {
+    fn apply(&self, ctx: &mut ImageOperationContext<'_>) {
+        ctx.current = ctx.current.brighten(self.amount);
+    }
+}
+
 /// Inverts all pixels in the image.
 #[derive(Debug, Clone, Reflect)]
 #[reflect(ImageOperation)]
@@ -99,7 +125,74 @@ impl ImageOperation for Blur {
     }
 }
 
-// Deserialization logic
+// All types that we want to be able to deserialize must be present in the type
+// registry.
+fn register_op_types(app: &mut App) {
+    app.register_type::<Load>()
+        .register_type::<AdjustContrast>()
+        .register_type::<Brighten>()
+        .register_type::<Invert>()
+        .register_type::<Blur>();
+}
+
+// Asset loader implementation
+
+#[derive(Debug)]
+struct ImagePipelineLoader {
+    type_registry: TypeRegistryArc,
+}
+
+#[derive(Debug, Error)]
+enum ImagePipelineLoaderError {
+    #[error("failed to read bytes")]
+    ReadBytes(#[from] io::Error),
+    #[error("failed to make RON deserializer")]
+    MakeRonDeserializer(#[from] ron::error::SpannedError),
+    #[error("failed to parse RON: {0:?}")]
+    ParseRon(#[from] ron::Error),
+}
+
+impl FromWorld for ImagePipelineLoader {
+    fn from_world(world: &mut World) -> Self {
+        let type_registry = world.resource::<AppTypeRegistry>();
+        Self {
+            type_registry: type_registry.0.clone(),
+        }
+    }
+}
+
+impl AssetLoader for ImagePipelineLoader {
+    type Asset = ImagePipeline;
+    type Settings = ();
+    type Error = ImagePipelineLoaderError;
+
+    fn extensions(&self) -> &[&str] {
+        &["imgpipeline.ron"]
+    }
+
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &Self::Settings,
+        load_context: &mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+
+        let mut ron_deserializer = ron::Deserializer::from_bytes(&bytes)?;
+        // Put this into its own block so that the `read()` lock isn't held for
+        // the entire scope.
+        let pipeline = {
+            ImagePipelineDeserializer {
+                type_registry: &self.type_registry.read(),
+                load_context,
+            }
+            .deserialize(&mut ron_deserializer)
+        }?;
+
+        Ok(pipeline)
+    }
+}
 
 /// Deserializes an [`ImagePipeline`].
 struct ImagePipelineDeserializer<'a, 'b> {
@@ -265,77 +358,18 @@ impl<'de> DeserializeSeed<'de> for ImagePipelineDeserializer<'_, '_> {
     }
 }
 
-// Asset loader implementation
-
-#[derive(Debug)]
-struct ImagePipelineLoader {
-    type_registry: TypeRegistryArc,
-}
-
-#[derive(Debug, Error)]
-enum ImagePipelineLoaderError {
-    #[error("failed to read bytes")]
-    ReadBytes(#[from] io::Error),
-    #[error("failed to make RON deserializer")]
-    MakeRonDeserializer(#[from] ron::error::SpannedError),
-    #[error("failed to parse RON: {0:?}")]
-    ParseRon(#[from] ron::Error),
-}
-
-impl FromWorld for ImagePipelineLoader {
-    fn from_world(world: &mut World) -> Self {
-        let type_registry = world.resource::<AppTypeRegistry>();
-        Self {
-            type_registry: type_registry.0.clone(),
-        }
-    }
-}
-
-impl AssetLoader for ImagePipelineLoader {
-    type Asset = ImagePipeline;
-    type Settings = ();
-    type Error = ImagePipelineLoaderError;
-
-    fn extensions(&self) -> &[&str] {
-        &["imgpipeline.ron"]
-    }
-
-    async fn load(
-        &self,
-        reader: &mut dyn Reader,
-        _settings: &Self::Settings,
-        load_context: &mut LoadContext<'_>,
-    ) -> Result<Self::Asset, Self::Error> {
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes).await?;
-
-        let mut ron_deserializer = ron::Deserializer::from_bytes(&bytes)?;
-        // Put this into its own block so that the `read()` lock isn't held for
-        // the entire scope.
-        let pipeline = {
-            ImagePipelineDeserializer {
-                type_registry: &self.type_registry.read(),
-                load_context,
-            }
-            .deserialize(&mut ron_deserializer)
-        }?;
-
-        Ok(pipeline)
-    }
-}
-
 // App logic
 
 fn main() -> AppExit {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins)
         .init_asset::<ImagePipeline>()
         .init_asset_loader::<ImagePipelineLoader>()
-        .init_resource::<DemoImagePipeline>()
-        .register_type::<Load>()
-        .register_type::<Invert>()
-        .register_type::<Blur>()
-        .add_systems(Startup, setup)
+        .init_resource::<DemoImagePipeline>();
+
+    register_op_types(&mut app);
+
+    app.add_systems(Startup, setup)
         .add_systems(Update, make_demo_image)
         .run()
 }
