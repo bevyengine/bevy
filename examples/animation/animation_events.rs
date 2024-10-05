@@ -26,7 +26,7 @@ struct MessageEvent {
 }
 
 // AnimationEvent can also be derived, but doing so will
-// trigger it as an observer event which runs in PostUpdate.
+// trigger it as an observer event which is triggered in PostUpdate.
 // We need to set the message text before that so it is
 // updated before rendering without a one frame delay.
 impl AnimationEvent for MessageEvent {
