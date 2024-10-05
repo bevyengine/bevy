@@ -51,8 +51,7 @@ impl<R> core::fmt::Debug for OneToOneEvent<R> {
 impl<R> PartialEq for OneToOneEvent<R> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Added(l0), Self::Added(r0)) => l0 == r0,
-            (Self::Removed(l0), Self::Removed(r0)) => l0 == r0,
+            (Self::Added(l0), Self::Added(r0)) | (Self::Removed(l0), Self::Removed(r0)) => l0 == r0,
             _ => false,
         }
     }
