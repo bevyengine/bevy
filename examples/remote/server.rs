@@ -2,32 +2,15 @@
 
 use bevy::{
     prelude::*,
-    remote::{
-        http::{Headers, RemoteHttpPlugin},
-        RemotePlugin,
-    },
+    remote::{http::RemoteHttpPlugin, RemotePlugin},
 };
-use hyper::header::HeaderValue;
 use serde::{Deserialize, Serialize};
 
 fn main() {
-    let cors_headers = Headers::new()
-        .add(
-            hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN,
-            HeaderValue::from_static("*"),
-        )
-        .add(
-            hyper::header::ACCESS_CONTROL_ALLOW_HEADERS,
-            HeaderValue::from_static("Authorization, Content-Type"),
-        )
-        .add(
-            hyper::header::ACCESS_CONTROL_ALLOW_METHODS,
-            HeaderValue::from_static("POST"),
-        );
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(RemotePlugin::default())
-        .add_plugins(RemoteHttpPlugin::default().with_headers(cors_headers))
+        .add_plugins(RemoteHttpPlugin::default())
         .add_systems(Startup, setup)
         .register_type::<Cube>()
         .run();

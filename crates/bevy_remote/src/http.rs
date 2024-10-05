@@ -17,9 +17,9 @@ use bevy_ecs::system::{Res, Resource};
 use bevy_tasks::IoTaskPool;
 use core::net::{IpAddr, Ipv4Addr};
 use http_body_util::{BodyExt as _, Full};
+pub use hyper::header::{HeaderName, HeaderValue};
 use hyper::{
     body::{Bytes, Incoming},
-    header::{HeaderName, HeaderValue},
     server::conn::http1,
     service, Request, Response,
 };
@@ -76,6 +76,25 @@ impl Default for Headers {
 /// The defaults are:
 /// - [`DEFAULT_ADDR`] : 127.0.0.1.
 /// - [`DEFAULT_PORT`] : 15702.
+///
+/// /// # Example
+///
+/// ```ignore
+///
+/// // Create CORS headers
+/// let cors_headers = Headers::new()
+///     .add(HeaderName::from_static("Access-Control-Allow-Origin"), HeaderValue::from_static("*"))
+///     .add(HeaderName::from_static("Access-Control-Allow-Headers"), HeaderValue::from_static("Content-Type, Authorization"));
+///
+/// // Create the Bevy app and add the RemoteHttpPlugin with CORS headers
+/// fn main() {
+///     App::new()
+///     .add_plugins(DefaultPlugins)
+///     .add_plugins(RemoteHttpPlugin::default()
+///         .with_headers(cors_headers))
+///     .run();
+/// }
+/// ```
 pub struct RemoteHttpPlugin {
     /// The address that Bevy will bind to.
     address: IpAddr,
@@ -111,17 +130,32 @@ impl RemoteHttpPlugin {
         self.address = address.into();
         self
     }
-
     /// Set the remote port that the server will listen on.
     #[must_use]
     pub fn with_port(mut self, port: u16) -> Self {
         self.port = port;
         self
     }
-    /// Set the extra headers that the response will include in.
+    /// Set the extra headers that the response will include.
     #[must_use]
     pub fn with_headers(mut self, headers: Headers) -> Self {
         self.headers = headers;
+        self
+    }
+    /// Add a single header to the response headers.
+    #[must_use]
+    pub fn with_header(
+        mut self,
+        name: impl TryInto<HeaderName>,
+        value: impl TryInto<HeaderValue>,
+    ) -> Self {
+        let Ok(header_name) = name.try_into() else {
+            panic!("Invalid header name")
+        };
+        let Ok(header_value) = value.try_into() else {
+            panic!("Invalid header value")
+        };
+        self.headers = self.headers.add(header_name, header_value);
         self
     }
 }
@@ -131,21 +165,21 @@ impl RemoteHttpPlugin {
 /// Currently, changing this while the application is running has no effect; this merely
 /// reflects the IP address that is set during the setup of the [`RemoteHttpPlugin`].
 #[derive(Debug, Resource)]
-pub struct HostAddress(pub IpAddr);
+struct HostAddress(pub IpAddr);
 
 /// A resource containing the port number that Bevy will listen on.
 ///
 /// Currently, changing this while the application is running has no effect; this merely
 /// reflects the host that is set during the setup of the [`RemoteHttpPlugin`].
 #[derive(Debug, Resource)]
-pub struct HostPort(pub u16);
+struct HostPort(pub u16);
 
 /// A resource containing the headers that Bevy will include in its HTTP responses.
 ///
 /// Currently, changing this while the application is running has no effect; this merely
 /// reflects the host that is set during the setup of the [`RemoteHttpPlugin`].
 #[derive(Debug, Resource)]
-pub struct HostHeaders(pub Headers);
+struct HostHeaders(pub Headers);
 
 /// A system that starts up the Bevy Remote Protocol HTTP server.
 fn start_http_server(
