@@ -1,8 +1,6 @@
-use super::{Mesh, Mesh3d};
-use bevy_app::{Plugin, PostUpdate};
+use super::Mesh;
 use bevy_asset::{Handle, RenderAssetUsages};
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::Children;
 use bevy_image::Image;
 use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
@@ -18,17 +16,6 @@ const MAX_COMPONENTS: u32 = MAX_TEXTURE_WIDTH * MAX_TEXTURE_WIDTH;
 
 /// Max target count available for [morph targets](MorphWeights).
 pub const MAX_MORPH_WEIGHTS: usize = 64;
-
-/// [Inherit weights](inherit_weights) from glTF mesh parent entity to direct
-/// bevy mesh child entities (ie: glTF primitive).
-pub struct MorphPlugin;
-impl Plugin for MorphPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
-        app.register_type::<MorphWeights>()
-            .register_type::<MeshMorphWeights>()
-            .add_systems(PostUpdate, inherit_weights);
-    }
-}
 
 #[derive(Error, Clone, Debug)]
 pub enum MorphBuildError {
@@ -188,22 +175,11 @@ impl MeshMorphWeights {
     pub fn weights_mut(&mut self) -> &mut [f32] {
         &mut self.weights
     }
-}
-
-/// Bevy meshes are gltf primitives, [`MorphWeights`] on the bevy node entity
-/// should be inherited by children meshes.
-///
-/// Only direct children are updated, to fulfill the expectations of glTF spec.
-pub fn inherit_weights(
-    morph_nodes: Query<(&Children, &MorphWeights), (Without<Mesh3d>, Changed<MorphWeights>)>,
-    mut morph_primitives: Query<&mut MeshMorphWeights, With<Mesh3d>>,
-) {
-    for (children, parent_weights) in &morph_nodes {
-        let mut iter = morph_primitives.iter_many_mut(children);
-        while let Some(mut child_weight) = iter.fetch_next() {
-            child_weight.weights.clear();
-            child_weight.weights.extend(&parent_weights.weights);
-        }
+    pub fn clear_weights(&mut self) {
+        self.weights.clear();
+    }
+    pub fn extend_weights(&mut self, weights: &[f32]) {
+        self.weights.extend(weights);
     }
 }
 

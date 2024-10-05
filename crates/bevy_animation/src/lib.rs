@@ -1075,7 +1075,7 @@ impl Plugin for AnimationPlugin {
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
                     animate_targets
-                        .after(bevy_render::mesh::morph::inherit_weights)
+                        .after(bevy_render::mesh::inherit_weights)
                         .ambiguous_with_all(),
                     expire_completed_transitions,
                 )

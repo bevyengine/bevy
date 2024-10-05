@@ -111,7 +111,7 @@ impl MeshVertexBufferLayout {
 #[derive(Error, Debug)]
 #[error("Mesh is missing requested attribute: {name} ({id:?}, pipeline type: {pipeline_type:?})")]
 pub struct MissingVertexAttributeError {
-    pub(crate) pipeline_type: Option<&'static str>,
+    pub pipeline_type: Option<&'static str>,
     id: MeshVertexAttributeId,
     name: &'static str,
 }

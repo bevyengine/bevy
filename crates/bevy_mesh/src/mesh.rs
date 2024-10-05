@@ -1230,10 +1230,8 @@ impl core::ops::Mul<Mesh> for Transform {
 #[cfg(test)]
 mod tests {
     use super::Mesh;
-    use crate::{
-        mesh::{Indices, MeshWindingInvertError, VertexAttributeValues},
-        render_asset::RenderAssetUsages,
-    };
+    use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
+    use bevy_asset::RenderAssetUsages;
     use bevy_math::Vec3;
     use bevy_transform::components::Transform;
     use wgpu::PrimitiveTopology;

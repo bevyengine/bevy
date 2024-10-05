@@ -4,7 +4,7 @@ use bevy_math::{
 };
 
 use super::{MeshBuilder, Meshable};
-use crate::mesh::{Indices, Mesh, VertexAttributeValues};
+use crate::{Indices, Mesh, VertexAttributeValues};
 
 /// A type representing a segment of the perimeter of an extrudable mesh.
 pub enum PerimeterSegment {
