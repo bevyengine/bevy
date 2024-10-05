@@ -951,7 +951,10 @@ fn trigger_untargeted_animation_events(
         for (index, active_animation) in player.active_animations.iter() {
             let Some(clip) = graph
                 .get(*index)
-                .and_then(|node| node.clip.as_ref())
+                .and_then(|node| match &node.node_type {
+                    AnimationNodeType::Clip(handle) => Some(handle),
+                    AnimationNodeType::Blend | AnimationNodeType::Add => None,
+                })
                 .and_then(|id| clips.get(id))
             else {
                 continue;

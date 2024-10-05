@@ -143,8 +143,11 @@ fn setup_scene_once_loaded(
         clips: &'a mut Assets<AnimationClip>,
     ) -> &'a mut AnimationClip {
         let node = graph.get(node).unwrap();
-        let clip = node.clip.as_ref().and_then(|id| clips.get_mut(id)).unwrap();
-        clip
+        let clip = match &node.node_type {
+            AnimationNodeType::Clip(handle) => clips.get_mut(handle),
+            _ => unreachable!(),
+        };
+        clip.unwrap()
     }
 
     for (entity, mut player) in &mut players {
