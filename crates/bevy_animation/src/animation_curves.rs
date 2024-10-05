@@ -96,7 +96,9 @@ use bevy_render::mesh::morph::MorphWeights;
 use bevy_transform::prelude::Transform;
 
 use crate::{
-    graph::AnimationNodeIndex, prelude::Animatable, AnimationEntityMut, AnimationEvaluationError,
+    graph::AnimationNodeIndex,
+    prelude::{Animatable, BlendInput},
+    AnimationEntityMut, AnimationEvaluationError,
 };
 
 /// A value on a component that Bevy can animate.
@@ -104,20 +106,20 @@ use crate::{
 /// You can implement this trait on a unit struct in order to support animating
 /// custom components other than transforms and morph weights. Use that type in
 /// conjunction with [`AnimatableCurve`] (and perhaps [`AnimatableKeyframeCurve`]
-/// to define the animation itself). For example, in order to animate font size of a
-/// text section from 24 pt. to 80 pt., you might use:
+/// to define the animation itself).
+/// For example, in order to animate field of view, you might use:
 ///
 ///     # use bevy_animation::prelude::AnimatableProperty;
 ///     # use bevy_reflect::Reflect;
-///     # use bevy_text::Text;
+///     # use bevy_render::camera::PerspectiveProjection;
 ///     #[derive(Reflect)]
-///     struct FontSizeProperty;
+///     struct FieldOfViewProperty;
 ///
-///     impl AnimatableProperty for FontSizeProperty {
-///         type Component = Text;
+///     impl AnimatableProperty for FieldOfViewProperty {
+///         type Component = PerspectiveProjection;
 ///         type Property = f32;
 ///         fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-///             Some(&mut component.sections.get_mut(0)?.style.font_size)
+///             Some(&mut component.fov)
 ///         }
 ///     }
 ///
@@ -127,15 +129,15 @@ use crate::{
 ///     # use bevy_animation::prelude::{AnimatableProperty, AnimatableKeyframeCurve, AnimatableCurve};
 ///     # use bevy_core::Name;
 ///     # use bevy_reflect::Reflect;
-///     # use bevy_text::Text;
+///     # use bevy_render::camera::PerspectiveProjection;
 ///     # let animation_target_id = AnimationTargetId::from(&Name::new("Test"));
 ///     # #[derive(Reflect)]
-///     # struct FontSizeProperty;
-///     # impl AnimatableProperty for FontSizeProperty {
-///     #     type Component = Text;
+///     # struct FieldOfViewProperty;
+///     # impl AnimatableProperty for FieldOfViewProperty {
+///     #     type Component = PerspectiveProjection;
 ///     #     type Property = f32;
 ///     #     fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-///     #         Some(&mut component.sections.get_mut(0)?.style.font_size)
+///     #         Some(&mut component.fov)
 ///     #     }
 ///     # }
 ///     let mut animation_clip = AnimationClip::default();
@@ -143,18 +145,18 @@ use crate::{
 ///         animation_target_id,
 ///         AnimatableKeyframeCurve::new(
 ///             [
-///                 (0.0, 24.0),
-///                 (1.0, 80.0),
+///                 (0.0, core::f32::consts::PI / 4.0),
+///                 (1.0, core::f32::consts::PI / 3.0),
 ///             ]
 ///         )
-///         .map(AnimatableCurve::<FontSizeProperty, _>::from_curve)
+///         .map(AnimatableCurve::<FieldOfViewProperty, _>::from_curve)
 ///         .expect("Failed to create font size curve")
 ///     );
 ///
 /// Here, the use of [`AnimatableKeyframeCurve`] creates a curve out of the given keyframe time-value
 /// pairs, using the [`Animatable`] implementation of `f32` to interpolate between them. The
-/// invocation of [`AnimatableCurve::from_curve`] with `FontSizeProperty` indicates that the `f32`
-/// output from that curve is to be used to animate the font size of a `Text` component (as
+/// invocation of [`AnimatableCurve::from_curve`] with `FieldOfViewProperty` indicates that the `f32`
+/// output from that curve is to be used to animate the font size of a `PerspectiveProjection` component (as
 /// configured above).
 ///
 /// [`AnimationClip`]: crate::AnimationClip
@@ -297,7 +299,11 @@ where
     P: AnimatableProperty,
 {
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.blend(graph_node)
+        self.evaluator.combine(graph_node, /*additive=*/ false)
+    }
+
+    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.combine(graph_node, /*additive=*/ true)
     }
 
     fn push_blend_register(
@@ -393,7 +399,11 @@ where
 
 impl AnimationCurveEvaluator for TranslationCurveEvaluator {
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.blend(graph_node)
+        self.evaluator.combine(graph_node, /*additive=*/ false)
+    }
+
+    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.combine(graph_node, /*additive=*/ true)
     }
 
     fn push_blend_register(
@@ -487,7 +497,11 @@ where
 
 impl AnimationCurveEvaluator for RotationCurveEvaluator {
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.blend(graph_node)
+        self.evaluator.combine(graph_node, /*additive=*/ false)
+    }
+
+    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.combine(graph_node, /*additive=*/ true)
     }
 
     fn push_blend_register(
@@ -581,7 +595,11 @@ where
 
 impl AnimationCurveEvaluator for ScaleCurveEvaluator {
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.blend(graph_node)
+        self.evaluator.combine(graph_node, /*additive=*/ false)
+    }
+
+    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.combine(graph_node, /*additive=*/ true)
     }
 
     fn push_blend_register(
@@ -708,8 +726,12 @@ where
     }
 }
 
-impl AnimationCurveEvaluator for WeightsCurveEvaluator {
-    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+impl WeightsCurveEvaluator {
+    fn combine(
+        &mut self,
+        graph_node: AnimationNodeIndex,
+        additive: bool,
+    ) -> Result<(), AnimationEvaluationError> {
         let Some(&(_, top_graph_node)) = self.stack_blend_weights_and_graph_nodes.last() else {
             return Ok(());
         };
@@ -736,12 +758,26 @@ impl AnimationCurveEvaluator for WeightsCurveEvaluator {
                     .iter_mut()
                     .zip(stack_iter)
                 {
-                    *dest = f32::interpolate(dest, &src, weight_to_blend / *current_weight);
+                    if additive {
+                        *dest += src * weight_to_blend;
+                    } else {
+                        *dest = f32::interpolate(dest, &src, weight_to_blend / *current_weight);
+                    }
                 }
             }
         }
 
         Ok(())
+    }
+}
+
+impl AnimationCurveEvaluator for WeightsCurveEvaluator {
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.combine(graph_node, /*additive=*/ false)
+    }
+
+    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.combine(graph_node, /*additive=*/ true)
     }
 
     fn push_blend_register(
@@ -826,7 +862,11 @@ impl<A> BasicAnimationCurveEvaluator<A>
 where
     A: Animatable,
 {
-    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+    fn combine(
+        &mut self,
+        graph_node: AnimationNodeIndex,
+        additive: bool,
+    ) -> Result<(), AnimationEvaluationError> {
         let Some(top) = self.stack.last() else {
             return Ok(());
         };
@@ -840,15 +880,36 @@ where
             graph_node: _,
         } = self.stack.pop().unwrap();
 
-        match self.blend_register {
+        match self.blend_register.take() {
             None => self.blend_register = Some((value_to_blend, weight_to_blend)),
-            Some((ref mut current_value, ref mut current_weight)) => {
-                *current_weight += weight_to_blend;
-                *current_value = A::interpolate(
-                    current_value,
-                    &value_to_blend,
-                    weight_to_blend / *current_weight,
-                );
+            Some((mut current_value, mut current_weight)) => {
+                current_weight += weight_to_blend;
+
+                if additive {
+                    current_value = A::blend(
+                        [
+                            BlendInput {
+                                weight: 1.0,
+                                value: current_value,
+                                additive: true,
+                            },
+                            BlendInput {
+                                weight: weight_to_blend,
+                                value: value_to_blend,
+                                additive: true,
+                            },
+                        ]
+                        .into_iter(),
+                    );
+                } else {
+                    current_value = A::interpolate(
+                        &current_value,
+                        &value_to_blend,
+                        weight_to_blend / current_weight,
+                    );
+                }
+
+                self.blend_register = Some((current_value, current_weight));
             }
         }
 
@@ -967,6 +1028,22 @@ pub trait AnimationCurveEvaluator: Reflect {
     /// 4. Return success.
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError>;
 
+    /// Additively blends the top element of the stack with the blend register.
+    ///
+    /// The semantics of this method are as follows:
+    ///
+    /// 1. Pop the top element of the stack. Call its value vₘ and its weight
+    ///    wₘ. If the stack was empty, return success.
+    ///
+    /// 2. If the blend register is empty, set the blend register value to vₘ
+    ///    and the blend register weight to wₘ; then, return success.
+    ///
+    /// 3. If the blend register is nonempty, call its current value vₙ.
+    ///    Then, set the value of the blend register to vₙ + vₘwₘ.
+    ///
+    /// 4. Return success.
+    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError>;
+
     /// Pushes the current value of the blend register onto the stack.
     ///
     /// If the blend register is empty, this method does nothing successfully.
@@ -1021,14 +1098,14 @@ where
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
+    fn sample_clamped(&self, t: f32) -> T {
+        // `UnevenCore::sample_with` is implicitly clamped.
         self.core.sample_with(t, <T as Animatable>::interpolate)
     }
 
     #[inline]
-    fn sample_clamped(&self, t: f32) -> T {
-        // Sampling by keyframes is automatically clamped to the keyframe bounds.
-        self.sample_unchecked(t)
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.sample_clamped(t)
     }
 }
 

@@ -562,13 +562,13 @@ Alternatively, you can install Android Studio.
 To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
 ```sh
-cargo ndk -t <target_name> build -o <project_name>/app/src/main/jniLibs
+cargo ndk -t <target_name> -o <project_name>/app/src/main/jniLibs build
 ```
 
 For example, to compile to a 64-bit ARM platform:
 
 ```sh
-cargo ndk -t arm64-v8a build -o android_example/app/src/main/jniLibs
+cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
 ```
 
 Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them.
