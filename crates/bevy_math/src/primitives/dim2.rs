@@ -1640,7 +1640,7 @@ impl<const N: usize> ConvexPolygon<N> {
         Triangle2d::new(a, b, c).winding_order()
     }
 
-    /// Create a [`ConvexPolygon`] from its `vertices``.
+    /// Create a [`ConvexPolygon`] from its `vertices`.
     ///
     /// # Errors
     ///
@@ -1657,7 +1657,7 @@ impl<const N: usize> ConvexPolygon<N> {
         Ok(polygon)
     }
 
-    /// Create a [`ConvexPolygon`] from its `vertices``, without checks.
+    /// Create a [`ConvexPolygon`] from its `vertices`, without checks.
     /// Use this version only if you know that the `vertices` make up a convex polygon.
     #[inline(always)]
     pub fn new_unchecked(vertices: [Vec2; N]) -> Self {
