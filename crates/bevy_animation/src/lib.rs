@@ -23,6 +23,7 @@ use core::{
     hash::{Hash, Hasher},
     iter,
 };
+use graph::AnimationNodeType;
 use prelude::AnimationCurveEvaluator;
 
 use crate::graph::ThreadedAnimationGraphs;
@@ -44,7 +45,6 @@ use bevy_reflect::{
 };
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
-use bevy_ui::UiSystem;
 use bevy_utils::{
     hashbrown::HashMap,
     tracing::{trace, warn},
@@ -479,8 +479,6 @@ pub enum AnimationEvaluationError {
 pub struct ActiveAnimation {
     /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
     weight: f32,
-    /// The mask groups that are masked out (i.e. won't be animated) this frame,
-    /// taking the `AnimationGraph` into account.
     repeat: RepeatAnimation,
     speed: f32,
     /// Total time the animation has been played.
@@ -869,7 +867,7 @@ pub fn advance_animations(
                 if let Some(active_animation) = active_animations.get_mut(&node_index) {
                     // Tick the animation if necessary.
                     if !active_animation.paused {
-                        if let Some(ref clip_handle) = node.clip {
+                        if let AnimationNodeType::Clip(ref clip_handle) = node.node_type {
                             if let Some(clip) = animation_clips.get(clip_handle) {
                                 active_animation.update(delta_seconds, clip.duration);
                             }
@@ -952,8 +950,8 @@ pub fn animate_targets(
                     continue;
                 };
 
-                match animation_graph_node.clip {
-                    None => {
+                match animation_graph_node.node_type {
+                    AnimationNodeType::Blend | AnimationNodeType::Add => {
                         // This is a blend node.
                         for edge_index in threaded_animation_graph.sorted_edge_ranges
                             [animation_graph_node_index.index()]
@@ -974,7 +972,7 @@ pub fn animate_targets(
                         }
                     }
 
-                    Some(ref animation_clip_handle) => {
+                    AnimationNodeType::Clip(ref animation_clip_handle) => {
                         // This is a clip node.
                         let Some(active_animation) = animation_player
                             .active_animations
@@ -1043,6 +1041,10 @@ pub fn animate_targets(
         });
 }
 
+/// Animation system set
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct Animation;
+
 /// Adds animation support to an app
 #[derive(Default)]
 pub struct AnimationPlugin;
@@ -1078,8 +1080,8 @@ impl Plugin for AnimationPlugin {
                     expire_completed_transitions,
                 )
                     .chain()
-                    .before(TransformSystem::TransformPropagate)
-                    .before(UiSystem::Prepare),
+                    .in_set(Animation)
+                    .before(TransformSystem::TransformPropagate),
             );
     }
 }

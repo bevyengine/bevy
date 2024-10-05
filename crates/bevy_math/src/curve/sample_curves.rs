@@ -94,8 +94,14 @@ where
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
+    fn sample_clamped(&self, t: f32) -> T {
+        // `EvenCore::sample_with` is implicitly clamped.
         self.core.sample_with(t, &self.interpolation)
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.sample_clamped(t)
     }
 }
 
@@ -143,9 +149,15 @@ where
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
+    fn sample_clamped(&self, t: f32) -> T {
+        // `EvenCore::sample_with` is implicitly clamped.
         self.core
             .sample_with(t, <T as StableInterpolate>::interpolate_stable)
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.sample_clamped(t)
     }
 }
 
@@ -242,8 +254,14 @@ where
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
+    fn sample_clamped(&self, t: f32) -> T {
+        // `UnevenCore::sample_with` is implicitly clamped.
         self.core.sample_with(t, &self.interpolation)
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.sample_clamped(t)
     }
 }
 
@@ -301,9 +319,15 @@ where
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
+    fn sample_clamped(&self, t: f32) -> T {
+        // `UnevenCore::sample_with` is implicitly clamped.
         self.core
             .sample_with(t, <T as StableInterpolate>::interpolate_stable)
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.sample_clamped(t)
     }
 }
 

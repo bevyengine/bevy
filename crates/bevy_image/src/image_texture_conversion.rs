@@ -1,7 +1,5 @@
-use crate::{
-    render_asset::RenderAssetUsages,
-    texture::{Image, TextureFormatPixelInfo},
-};
+use crate::{Image, TextureFormatPixelInfo};
+use bevy_asset::RenderAssetUsages;
 use image::{DynamicImage, ImageBuffer};
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};

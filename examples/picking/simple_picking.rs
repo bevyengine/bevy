@@ -18,19 +18,16 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands
-        .spawn((
-            TextBundle {
-                text: Text::from_section("Click Me to get a box", TextStyle::default()),
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    top: Val::Percent(12.0),
-                    left: Val::Percent(12.0),
-                    ..default()
-                },
-                ..Default::default()
+        .spawn(TextBundle {
+            text: Text::from_section("Click Me to get a box", TextStyle::default()),
+            style: Style {
+                position_type: PositionType::Absolute,
+                top: Val::Percent(12.0),
+                left: Val::Percent(12.0),
+                ..default()
             },
-            Pickable::default(),
-        ))
+            ..Default::default()
+        })
         .observe(
             |_click: Trigger<Pointer<Click>>,
              mut commands: Commands,
@@ -47,26 +44,18 @@ fn setup(
         )
         .observe(|evt: Trigger<Pointer<Out>>, mut texts: Query<&mut Text>| {
             let mut text = texts.get_mut(evt.entity()).unwrap();
-            let first = text.sections.first_mut().unwrap();
-            first.style.color = WHITE.into();
+            text.sections[0].style.color = WHITE.into();
         })
         .observe(|evt: Trigger<Pointer<Over>>, mut texts: Query<&mut Text>| {
             let mut text = texts.get_mut(evt.entity()).unwrap();
-            let first = text.sections.first_mut().unwrap();
-            first.style.color = BLUE.into();
+            text.sections[0].style.color = BLUE.into();
         });
     // circular base
-    commands
-        .spawn((
-            Mesh3d(meshes.add(Circle::new(4.0))),
-            MeshMaterial3d(materials.add(Color::WHITE)),
-            Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-            Pickable::default(),
-        ))
-        .observe(|click: Trigger<Pointer<Click>>| {
-            let click = click.event();
-            println!("{click:?}");
-        });
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(4.0))),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
     // light
     commands.spawn((
         PointLight {
@@ -76,8 +65,8 @@ fn setup(
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }

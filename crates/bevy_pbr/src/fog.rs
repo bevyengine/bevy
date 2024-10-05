@@ -29,10 +29,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// # fn system(mut commands: Commands) {
 /// commands.spawn((
 ///     // Setup your camera as usual
-///     Camera3dBundle {
-///         // ... camera options
-/// #       ..Default::default()
-///     },
+///     Camera3d::default(),
 ///     // Add fog to the same entity
 ///     DistanceFog {
 ///         color: Color::WHITE,

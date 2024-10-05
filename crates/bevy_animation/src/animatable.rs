@@ -149,7 +149,8 @@ impl Animatable for Transform {
             if input.additive {
                 translation += input.weight * Vec3A::from(input.value.translation);
                 scale += input.weight * Vec3A::from(input.value.scale);
-                rotation = rotation.slerp(input.value.rotation, input.weight);
+                rotation =
+                    Quat::slerp(Quat::IDENTITY, input.value.rotation, input.weight) * rotation;
             } else {
                 translation = Vec3A::interpolate(
                     &translation,
@@ -181,8 +182,17 @@ impl Animatable for Quat {
     #[inline]
     fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
         let mut value = Self::IDENTITY;
-        for input in inputs {
-            value = Self::interpolate(&value, &input.value, input.weight);
+        for BlendInput {
+            weight,
+            value: incoming_value,
+            additive,
+        } in inputs
+        {
+            if additive {
+                value = Self::slerp(Self::IDENTITY, incoming_value, weight) * value;
+            } else {
+                value = Self::interpolate(&value, &incoming_value, weight);
+            }
         }
         value
     }

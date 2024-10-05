@@ -68,14 +68,11 @@ fn setup(
     {
         let camera = commands
             .spawn((
-                Camera3dBundle {
-                    transform: Transform::from_translation(*camera_pos)
-                        .looking_at(Vec3::ZERO, Vec3::Y),
-                    camera: Camera {
-                        // Renders cameras with different priorities to prevent ambiguities
-                        order: index as isize,
-                        ..default()
-                    },
+                Camera3d::default(),
+                Transform::from_translation(*camera_pos).looking_at(Vec3::ZERO, Vec3::Y),
+                Camera {
+                    // Renders cameras with different priorities to prevent ambiguities
+                    order: index as isize,
                     ..default()
                 },
                 CameraPosition {

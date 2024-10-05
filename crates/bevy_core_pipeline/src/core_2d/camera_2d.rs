@@ -1,3 +1,5 @@
+#![expect(deprecated)]
+
 use crate::{
     core_2d::graph::Core2d,
     tonemapping::{DebandDither, Tonemapping},
@@ -17,12 +19,25 @@ use bevy_render::{
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
+/// A 2D camera component. Enables the 2D render graph for a [`Camera`].
 #[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component, Default)]
+#[require(
+    Camera,
+    DebandDither,
+    CameraRenderGraph(|| CameraRenderGraph::new(Core2d)),
+    OrthographicProjection(OrthographicProjection::default_2d),
+    Frustum(|| OrthographicProjection::default_2d().compute_frustum(&GlobalTransform::from(Transform::default()))),
+    Tonemapping(|| Tonemapping::None),
+)]
 pub struct Camera2d;
 
 #[derive(Bundle, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Camera2d` component instead. Inserting it will now also insert the other components required by it automatically."
+)]
 pub struct Camera2dBundle {
     pub camera: Camera,
     pub camera_render_graph: CameraRenderGraph,

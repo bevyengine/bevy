@@ -117,14 +117,14 @@ fn setup(
     }
 
     // camera
-    commands.spawn(Camera3dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
             hdr: true,
             ..default()
         },
-        transform: Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+        Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     commands.spawn(
         TextBundle::from_section(INSTRUCTIONS, TextStyle::default()).with_style(Style {

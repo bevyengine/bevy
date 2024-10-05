@@ -114,15 +114,12 @@ fn setup(
 
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
-            projection: OrthographicProjection {
-                scaling_mode: ScalingMode::WindowSize(100.0),
-                ..OrthographicProjection::default_3d()
-            }
-            .into(),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
+        Projection::from(OrthographicProjection {
+            scaling_mode: ScalingMode::WindowSize(100.0),
+            ..OrthographicProjection::default_3d()
+        }),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
