@@ -432,7 +432,7 @@ fn spawn_tree(
         };
 
         commands
-            .get_or_spawn(ents[parent_idx])
+            .entity(ents[parent_idx])
             .add_child(child_entity);
 
         ents.push(child_entity);
