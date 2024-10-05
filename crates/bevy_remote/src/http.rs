@@ -165,19 +165,17 @@ impl RemoteHttpPlugin {
 /// Currently, changing this while the application is running has no effect; this merely
 /// reflects the IP address that is set during the setup of the [`RemoteHttpPlugin`].
 #[derive(Debug, Resource)]
-struct HostAddress(pub IpAddr);
+pub struct HostAddress(pub IpAddr);
 
 /// A resource containing the port number that Bevy will listen on.
 ///
 /// Currently, changing this while the application is running has no effect; this merely
 /// reflects the host that is set during the setup of the [`RemoteHttpPlugin`].
 #[derive(Debug, Resource)]
-struct HostPort(pub u16);
+pub struct HostPort(pub u16);
 
 /// A resource containing the headers that Bevy will include in its HTTP responses.
 ///
-/// Currently, changing this while the application is running has no effect; this merely
-/// reflects the host that is set during the setup of the [`RemoteHttpPlugin`].
 #[derive(Debug, Resource)]
 struct HostHeaders(pub Headers);
 
