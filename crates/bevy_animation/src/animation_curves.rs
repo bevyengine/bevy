@@ -825,10 +825,9 @@ impl AnimationCurveEvaluator for WeightsCurveEvaluator {
     }
 }
 
-#[derive(Default, Debug, Reflect)]
+#[derive(Default, Reflect)]
 struct TransformCurveEvaluator {
-    stack: Vec<TransformStackElement>,
-    blend_register: Option<(TransformParts, f32)>,
+    evaluator: BasicAnimationCurveEvaluator<TransformParts>,
 }
 
 #[derive(Default, Debug, Clone, Reflect)]
@@ -864,45 +863,38 @@ impl Animatable for TransformParts {
             additive,
         } in inputs
         {
-            let TransformParts {
-                translation,
-                rotation,
-                scale,
-            } = value;
             if additive {
+                let Self {
+                    translation,
+                    rotation,
+                    scale,
+                } = value;
+                if let Some(translation) = translation {
+                    let weighted_translation = translation * weight;
+                    match accum.translation {
+                        Some(mut v) => v += weighted_translation,
+                        None => accum.translation = Some(weighted_translation),
+                    }
+                }
+                if let Some(rotation) = rotation {
+                    let weighted_rotation = Quat::slerp(Quat::IDENTITY, rotation, weight);
+                    match accum.rotation {
+                        Some(mut r) => r = weighted_rotation * r,
+                        None => accum.rotation = Some(weighted_rotation),
+                    }
+                }
+                if let Some(scale) = scale {
+                    let weighted_scale = scale * weight;
+                    match accum.scale {
+                        Some(mut s) => s += weighted_scale,
+                        None => accum.scale = Some(weighted_scale),
+                    }
+                }
             } else {
+                accum = Self::interpolate(&accum, &value, weight);
             }
         }
-    }
-}
-
-#[derive(Default, Debug, Reflect)]
-struct TransformStackElement {
-    value: TransformParts,
-    weight: f32,
-    graph_node: AnimationNodeIndex,
-}
-
-impl TransformCurveEvaluator {
-    fn combine(
-        &mut self,
-        graph_node: AnimationNodeIndex,
-        additive: bool,
-    ) -> Result<(), AnimationEvaluationError> {
-        let Some(top) = self.stack.last() else {
-            return Ok(());
-        };
-        if top.graph_node != graph_node {
-            return Ok(());
-        }
-
-        let TransformStackElement {
-            value: value_to_blend,
-            weight: weight_to_blend,
-            graph_node: _,
-        } = self.stack.pop().unwrap();
-
-        Ok(())
+        accum
     }
 }
 
