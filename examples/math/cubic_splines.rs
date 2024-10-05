@@ -66,7 +66,7 @@ fn setup(mut commands: Commands) {
     commands.insert_resource(MousePosition::default());
     commands.insert_resource(MouseEditMove::default());
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // The instructions and modes are rendered on the left-hand side in a column.
     let instructions_text = "Click and drag to add control points and their tangents\n\

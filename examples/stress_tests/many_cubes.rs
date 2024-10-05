@@ -175,7 +175,7 @@ fn setup(
             }
 
             // camera
-            let mut camera = commands.spawn(Camera3dBundle::default());
+            let mut camera = commands.spawn(Camera3d::default());
             if args.gpu_culling {
                 camera.insert(GpuCulling);
             }
@@ -230,10 +230,7 @@ fn setup(
             }
             // camera
             let center = 0.5 * scale * Vec3::new(WIDTH as f32, HEIGHT as f32, WIDTH as f32);
-            commands.spawn(Camera3dBundle {
-                transform: Transform::from_translation(center),
-                ..default()
-            });
+            commands.spawn((Camera3d::default(), Transform::from_translation(center)));
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
                 Mesh3d(mesh_assets.add(Cuboid::from_size(2.0 * 1.1 * center))),

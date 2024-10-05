@@ -19,7 +19,7 @@ struct Counter(i32);
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Ghost UI root
     commands.spawn(GhostNode).with_children(|ghost_root| {

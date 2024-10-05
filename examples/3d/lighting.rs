@@ -244,11 +244,11 @@ fn setup(
     );
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        exposure: Exposure::from_physical_camera(**parameters),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Exposure::from_physical_camera(**parameters),
+    ));
 }
 
 fn update_exposure(

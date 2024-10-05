@@ -338,16 +338,14 @@ fn setup(
 
     // A camera:
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true, // HDR is required for bloom
-                clear_color: ClearColorConfig::Custom(SKY_COLOR),
-                ..default()
-            },
-            tonemapping: Tonemapping::TonyMcMapface,
-            transform: Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Camera3d::default(),
+        Camera {
+            hdr: true, // HDR is required for bloom
+            clear_color: ClearColorConfig::Custom(SKY_COLOR),
             ..default()
         },
+        Tonemapping::TonyMcMapface,
+        Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         Bloom::NATURAL,
         CameraRig {
             yaw: 0.56,
