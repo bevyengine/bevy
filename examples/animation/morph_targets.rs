@@ -53,10 +53,10 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
         DirectionalLight::default(),
         Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
     ));
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(3.0, 2.1, 10.2).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(3.0, 2.1, 10.2).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 /// Plays an [`AnimationClip`] from the loaded [`Gltf`] on the [`AnimationPlayer`] created by the spawned scene.

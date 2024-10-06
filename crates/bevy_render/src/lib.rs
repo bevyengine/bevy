@@ -60,7 +60,7 @@ pub mod prelude {
         },
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
-        texture::{image_texture_conversion::IntoDynamicImageError, Image, ImagePlugin},
+        texture::{Image, ImagePlugin, IntoDynamicImageError},
         view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
         ExtractSchedule,
     };

@@ -130,7 +130,7 @@ struct PreviousPhysicalTranslation(Vec3);
 
 /// Spawn the player sprite and a 2D camera.
 fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.spawn((
         Name::new("Player"),
         Sprite(asset_server.load("branding/icon.png")),

@@ -188,7 +188,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // Camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Sound
     let ball_collision_sound = asset_server.load("sounds/breakout_collision.ogg");

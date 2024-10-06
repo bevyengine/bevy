@@ -42,7 +42,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
     let text_justification = JustifyText::Center;
     // 2d camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     // Demonstrate changing translation
     commands.spawn((
         Text2dBundle {

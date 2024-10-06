@@ -35,7 +35,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // The color spaces `Oklaba`, `Laba`, `LinearRgba`, `Srgba` and `Xyza` all are either perceptually or physically linear.
     // This property allows us to define curves, e.g. bezier curves through these spaces.

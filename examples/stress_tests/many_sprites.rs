@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
 
     // Spawns the camera
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Builds and spawns the sprites
     let mut sprites = vec![];

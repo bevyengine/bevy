@@ -5,21 +5,22 @@ use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
 
-use crate::{
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
-    render_resource::{Sampler, Texture, TextureView},
-    renderer::{RenderDevice, RenderQueue},
-    texture::BevyDefault,
-};
-use bevy_asset::Asset;
-use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
+use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_math::{AspectRatio, UVec2, Vec2};
 use bevy_reflect::prelude::*;
-use core::hash::Hash;
+use bevy_reflect::Reflect;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
+pub trait BevyDefault {
+    fn bevy_default() -> Self;
+}
+
+impl BevyDefault for TextureFormat {
+    fn bevy_default() -> Self {
+        TextureFormat::Rgba8UnormSrgb
+    }
+}
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
@@ -180,11 +181,11 @@ pub struct Image {
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
-/// [`ImageSampler::Default`], will read the sampler from the [`ImagePlugin`](super::ImagePlugin) at setup.
+/// [`ImageSampler::Default`], will read the sampler from the `ImagePlugin` at setup.
 /// Setting this to [`ImageSampler::Descriptor`] will override the global default descriptor for this [`Image`].
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub enum ImageSampler {
-    /// Default image sampler, derived from the [`ImagePlugin`](super::ImagePlugin) setup.
+    /// Default image sampler, derived from the `ImagePlugin` setup.
     #[default]
     Default,
     /// Custom sampler for this image which will override global default.
@@ -221,14 +222,6 @@ impl ImageSampler {
         }
     }
 }
-
-/// A rendering resource for the default image sampler which is set during renderer
-/// initialization.
-///
-/// The [`ImagePlugin`](super::ImagePlugin) can be set during app initialization to change the default
-/// image sampler.
-#[derive(Resource, Debug, Clone, Deref, DerefMut)]
-pub struct DefaultImageSampler(pub(crate) Sampler);
 
 /// How edges should be handled in texture addressing.
 ///
@@ -323,9 +316,9 @@ pub enum ImageSamplerBorderColor {
     Zero,
 }
 
-/// Indicates to an [`ImageLoader`](super::ImageLoader) how an [`Image`] should be sampled.
+/// Indicates to an `ImageLoader` how an [`Image`] should be sampled.
 ///
-/// As this type is part of the [`ImageLoaderSettings`](super::ImageLoaderSettings),
+/// As this type is part of the `ImageLoaderSettings`,
 /// it will be serialized to an image asset `.meta` file which might require a migration in case of
 /// a breaking change.
 ///
@@ -377,7 +370,7 @@ impl Default for ImageSamplerDescriptor {
 }
 
 impl ImageSamplerDescriptor {
-    /// Returns a sampler descriptor with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
+    /// Returns a sampler descriptor with [`Linear`](ImageFilterMode::Linear) min and mag filters
     #[inline]
     pub fn linear() -> ImageSamplerDescriptor {
         ImageSamplerDescriptor {
@@ -388,7 +381,7 @@ impl ImageSamplerDescriptor {
         }
     }
 
-    /// Returns a sampler descriptor with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
+    /// Returns a sampler descriptor with [`Nearest`](ImageFilterMode::Nearest) min and mag filters
     #[inline]
     pub fn nearest() -> ImageSamplerDescriptor {
         ImageSamplerDescriptor {
@@ -921,75 +914,6 @@ impl TextureFormatPixelInfo for TextureFormat {
             (1, 1) => info.block_copy_size(None).unwrap() as usize,
             _ => panic!("Using pixel_size for compressed textures is invalid"),
         }
-    }
-}
-
-/// The GPU-representation of an [`Image`].
-/// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`], and the texture's size.
-#[derive(Debug, Clone)]
-pub struct GpuImage {
-    pub texture: Texture,
-    pub texture_view: TextureView,
-    pub texture_format: TextureFormat,
-    pub sampler: Sampler,
-    pub size: UVec2,
-    pub mip_level_count: u32,
-}
-
-impl RenderAsset for GpuImage {
-    type SourceAsset = Image;
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<RenderQueue>,
-        SRes<DefaultImageSampler>,
-    );
-
-    #[inline]
-    fn asset_usage(image: &Self::SourceAsset) -> RenderAssetUsages {
-        image.asset_usage
-    }
-
-    #[inline]
-    fn byte_len(image: &Self::SourceAsset) -> Option<usize> {
-        Some(image.data.len())
-    }
-
-    /// Converts the extracted image into a [`GpuImage`].
-    fn prepare_asset(
-        image: Self::SourceAsset,
-        (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        let texture = render_device.create_texture_with_data(
-            render_queue,
-            &image.texture_descriptor,
-            // TODO: Is this correct? Do we need to use `MipMajor` if it's a ktx2 file?
-            wgpu::util::TextureDataOrder::default(),
-            &image.data,
-        );
-
-        let size = image.size();
-        let texture_view = texture.create_view(
-            image
-                .texture_view_descriptor
-                .or_else(|| Some(TextureViewDescriptor::default()))
-                .as_ref()
-                .unwrap(),
-        );
-        let sampler = match image.sampler {
-            ImageSampler::Default => (***default_sampler).clone(),
-            ImageSampler::Descriptor(descriptor) => {
-                render_device.create_sampler(&descriptor.as_wgpu())
-            }
-        };
-
-        Ok(GpuImage {
-            texture,
-            texture_view,
-            texture_format: image.texture_descriptor.format,
-            sampler,
-            size,
-            mip_level_count: image.texture_descriptor.mip_level_count,
-        })
     }
 }
 

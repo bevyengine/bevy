@@ -75,7 +75,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         },
         Transform::from_scale(Vec3::splat(DISPLAY_FACTOR as f32)),
     ));
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     commands.insert_resource(GameOfLifeImages {
         texture_a: image0,

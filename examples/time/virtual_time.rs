@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
     // of the other sprite which moves based on `Real` (unscaled) time
     time.set_relative_speed(2.);
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let virtual_color = GOLD.into();
     let sprite_scale = Vec2::splat(0.5).extend(1.);

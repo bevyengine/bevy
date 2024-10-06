@@ -55,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let enemy_b_handle = asset_server.load("textures/simplespace/enemy_B.png");
 
     // 2D orthographic camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let horizontal_margin = BOUNDS.x / 4.0;
     let vertical_margin = BOUNDS.y / 4.0;

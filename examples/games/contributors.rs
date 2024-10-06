@@ -126,7 +126,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),

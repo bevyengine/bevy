@@ -103,7 +103,7 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // Spawn a 2D camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Spawn the text instructions
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");

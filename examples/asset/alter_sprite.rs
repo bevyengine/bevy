@@ -49,7 +49,7 @@ struct Left;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let bird_left = Bird::Normal;
     let bird_right = Bird::Normal;
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let texture_left = asset_server.load_with_settings(
         bird_left.get_texture_path(),
