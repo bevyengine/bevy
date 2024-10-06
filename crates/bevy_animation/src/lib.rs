@@ -1144,7 +1144,9 @@ pub fn animate_targets(
                         };
 
                         // Trigger all animation events that occurred this tick, if any.
-                        if let Some(triggered_events) = TriggeredEvents::from_animation(
+                        if active_animation.paused {
+                            // Don't trigger events when paused.
+                        } else if let Some(triggered_events) = TriggeredEvents::from_animation(
                             AnimationEventTarget::Node(target_id),
                             clip,
                             active_animation,
