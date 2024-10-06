@@ -7,6 +7,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{PartialReflect, TypePath};
 
+/// A composition [World](world) objects.
 /// To spawn a scene, you can use either:
 /// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)
 /// * adding the [`SceneRoot`](crate::components::SceneRoot) component to an entity.
