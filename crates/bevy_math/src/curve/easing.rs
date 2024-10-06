@@ -1,6 +1,8 @@
 //! Module containing different [`Easing`] curves to control the transition between two values and
 //! the [`EasingCurve`] struct to make use of them.
 
+use interpolation::{Ease, EaseFunction};
+
 use crate::{
     ops::{self, FloatPow},
     VectorSpace,
@@ -84,6 +86,51 @@ where
 }
 
 impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
+    /// A [`Curve`] mapping the [unit interval] to itself.
+    ///
+    /// [unit interval]: `Interval::UNIT`
+    pub fn ease(function: EaseFunction) -> Self {
+        Self {
+            start: 0.0,
+            end: 1.0,
+            easing: FunctionCurve::new(
+                Interval::UNIT,
+                match function {
+                    EaseFunction::QuadraticIn => Ease::quadratic_in,
+                    EaseFunction::QuadraticOut => Ease::quadratic_out,
+                    EaseFunction::QuadraticInOut => Ease::quadratic_in_out,
+                    EaseFunction::CubicIn => Ease::cubic_in,
+                    EaseFunction::CubicOut => Ease::cubic_out,
+                    EaseFunction::CubicInOut => Ease::cubic_in_out,
+                    EaseFunction::QuarticIn => Ease::quartic_in,
+                    EaseFunction::QuarticOut => Ease::quartic_out,
+                    EaseFunction::QuarticInOut => Ease::quartic_in_out,
+                    EaseFunction::QuinticIn => Ease::quintic_in,
+                    EaseFunction::QuinticOut => Ease::quintic_out,
+                    EaseFunction::QuinticInOut => Ease::quintic_in_out,
+                    EaseFunction::SineIn => Ease::sine_in,
+                    EaseFunction::SineOut => Ease::sine_out,
+                    EaseFunction::SineInOut => Ease::sine_in_out,
+                    EaseFunction::CircularIn => Ease::circular_in,
+                    EaseFunction::CircularOut => Ease::circular_out,
+                    EaseFunction::CircularInOut => Ease::circular_in_out,
+                    EaseFunction::ExponentialIn => Ease::exponential_in,
+                    EaseFunction::ExponentialOut => Ease::exponential_out,
+                    EaseFunction::ExponentialInOut => Ease::exponential_in_out,
+                    EaseFunction::ElasticIn => Ease::elastic_in,
+                    EaseFunction::ElasticOut => Ease::elastic_out,
+                    EaseFunction::ElasticInOut => Ease::elastic_in_out,
+                    EaseFunction::BackIn => Ease::back_in,
+                    EaseFunction::BackOut => Ease::back_out,
+                    EaseFunction::BackInOut => Ease::back_in_out,
+                    EaseFunction::BounceIn => Ease::bounce_in,
+                    EaseFunction::BounceOut => Ease::bounce_out,
+                    EaseFunction::BounceInOut => Ease::bounce_in_out,
+                },
+            ),
+        }
+    }
+
     /// A [`Curve`] mapping the [unit interval] to itself.
     ///
     /// Quadratic easing functions can have exactly one critical point. This is a point on the function
