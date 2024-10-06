@@ -133,8 +133,7 @@ impl NormalizedWindowRef {
 )]
 #[reflect(Component, Default, Debug)]
 pub struct Window {
-    /// The cursor options of this window. Cursor icons are set with the `Cursor` component on the
-    /// window entity.
+    /// The cursor options of this window. See `bevy_render` on how to change the cursor to a custom or system one.
     pub cursor_options: CursorOptions,
     /// What presentation mode to give the window.
     pub present_mode: PresentMode,
@@ -556,16 +555,6 @@ impl WindowResizeConstraints {
 )]
 #[reflect(Debug, Default)]
 pub struct CursorOptions {
-    /// Whether the cursor is visible or not.
-    ///
-    /// ## Platform-specific
-    ///
-    /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window.
-    ///     To stop the cursor from leaving the window, change [`CursorOptions::grab_mode`] to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
-    /// - **`macOS`**: The cursor is hidden only when the window is focused.
-    /// - **`iOS`** and **`Android`** do not have cursors
-    pub visible: bool,
-
     /// Whether or not the cursor is locked by or confined within the window.
     ///
     /// ## Platform-specific
@@ -588,7 +577,6 @@ pub struct CursorOptions {
 impl Default for CursorOptions {
     fn default() -> Self {
         CursorOptions {
-            visible: true,
             grab_mode: CursorGrabMode::None,
             hit_test: true,
         }

@@ -120,6 +120,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
         }
 
         window_created_events.send(WindowCreated { window: entity });
+        commands.trigger(WindowCreated { window: entity });
     }
 }
 
@@ -386,10 +387,6 @@ pub(crate) fn changed_windows(
 
         if window.cursor_options.grab_mode != cache.window.cursor_options.grab_mode {
             crate::winit_windows::attempt_grab(winit_window, window.cursor_options.grab_mode);
-        }
-
-        if window.cursor_options.visible != cache.window.cursor_options.visible {
-            winit_window.set_cursor_visible(window.cursor_options.visible);
         }
 
         if window.cursor_options.hit_test != cache.window.cursor_options.hit_test {

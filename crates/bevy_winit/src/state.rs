@@ -153,6 +153,8 @@ pub struct CustomCursorCache(pub HashMap<CustomCursorCacheKey, winit::window::Cu
 /// A source for a cursor. Is created in `bevy_render` and consumed by the winit event loop.
 #[derive(Debug)]
 pub enum CursorSource {
+    /// A hidden cursor, used to hide the cursor in `winit_window`
+    Hidden,
     /// A custom cursor was identified to be cached, no reason to recreate it.
     CustomCached(CustomCursorCacheKey),
     /// A custom cursor was not cached, so it needs to be created by the winit event loop.
@@ -792,22 +794,28 @@ impl<T: Event> WinitAppRunnerState<T> {
                 continue;
             };
 
-            let final_cursor: winit::window::Cursor = match pending_cursor {
+            let final_cursor: Option<winit::window::Cursor> = match pending_cursor {
+                CursorSource::Hidden => None,
                 CursorSource::CustomCached(cache_key) => {
                     let Some(cached_cursor) = cursor_cache.0.get(&cache_key) else {
                         error!("Cursor should have been cached, but was not found");
                         continue;
                     };
-                    cached_cursor.clone().into()
+                    Some(cached_cursor.clone().into())
                 }
                 CursorSource::Custom((cache_key, cursor)) => {
                     let custom_cursor = event_loop.create_custom_cursor(cursor);
                     cursor_cache.0.insert(cache_key, custom_cursor.clone());
-                    custom_cursor.into()
+                    Some(custom_cursor.into())
                 }
-                CursorSource::System(system_cursor) => system_cursor.into(),
+                CursorSource::System(system_cursor) => Some(system_cursor.into()),
             };
-            winit_window.set_cursor(final_cursor);
+            if let Some(final_cursor) = final_cursor {
+                winit_window.set_cursor_visible(true);
+                winit_window.set_cursor(final_cursor);
+            } else {
+                winit_window.set_cursor_visible(false);
+            }
         }
     }
 }

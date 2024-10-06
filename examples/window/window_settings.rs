@@ -135,11 +135,21 @@ fn change_title(mut windows: Query<&mut Window>, time: Res<Time>) {
     );
 }
 
-fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<ButtonInput<KeyCode>>) {
+fn toggle_cursor(
+    mut windows: Query<(&mut Window, &mut CursorIcon)>,
+    input: Res<ButtonInput<KeyCode>>,
+) {
     if input.just_pressed(KeyCode::Space) {
-        let mut window = windows.single_mut();
+        let (mut window, mut cursor_icon) = windows.single_mut();
 
-        window.cursor_options.visible = !window.cursor_options.visible;
+        // Usually cursors will get read from some sort of resource or a map
+        // right now  we just want to toggle the cursor, causing us to have to
+        // recreate the `CursorIcon` enum for the entity, see below in
+        // `cycle_cursor_icon` for an example on how to do this.
+        *cursor_icon = match *cursor_icon {
+            CursorIcon::Hidden => CursorIcon::default(),
+            _ => CursorIcon::Hidden,
+        };
         window.cursor_options.grab_mode = match window.cursor_options.grab_mode {
             CursorGrabMode::None => CursorGrabMode::Locked,
             CursorGrabMode::Locked | CursorGrabMode::Confined => CursorGrabMode::None,
@@ -166,6 +176,7 @@ struct CursorIcons(Vec<CursorIcon>);
 
 fn init_cursor_icons(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(CursorIcons(vec![
+        CursorIcon::Hidden,
         SystemCursorIcon::Default.into(),
         SystemCursorIcon::Pointer.into(),
         SystemCursorIcon::Wait.into(),
