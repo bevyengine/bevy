@@ -164,20 +164,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
     where
         D::ReadOnly: WorldQuery<Item<'w> = (Option<&'w Parent>, Option<&'w Children>)>,
     {
-        self.get(entity).into_iter().flat_map(move |(parent, _)| {
-            parent.into_iter().flat_map(move |parent| {
-                self.get(parent.get())
-                    .into_iter()
-                    .flat_map(move |(_, children)| {
-                        children
-                            .into_iter()
-                            .flat_map(move |children| {
-                                children.iter().filter(move |child| **child != entity)
-                            })
-                            .copied()
-                    })
-            })
-        })
+        self.get(entity)
+            .ok()
+            .and_then(|(maybe_parent, _)| maybe_parent.map(Parent::get))
+            .and_then(|parent| self.get(parent).ok())
+            .and_then(|(_, maybe_children)| maybe_children)
+            .into_iter()
+            .flat_map(move |children| children.iter().filter(move |child| **child != entity))
+            .copied()
     }
 
     fn iter_descendants(&'w self, entity: Entity) -> DescendantIter<'w, 's, D, F>
