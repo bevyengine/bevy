@@ -9,10 +9,12 @@ use bevy_ecs::{
 use bevy_input::keyboard::KeyboardFocusLost;
 use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
-    ClosingWindow, Monitor, MonitorSelection, PrimaryMonitor, RawHandleWrapper, VideoMode, Window,
-    WindowClosed, WindowClosing, WindowCreated, WindowFocused, WindowMode, WindowResized,
-    WindowWrapper,
+    ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
+    WindowClosing, WindowCreated, WindowFocused, WindowMode, WindowResized, WindowWrapper,
 };
+
+#[cfg(target_os = "macos")]
+use bevy_window::MonitorSelection;
 
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
