@@ -189,6 +189,9 @@ impl Animatable for Quat {
     }
 }
 
+/// Basically `Transform`, but with every part optional. Note that this is the true
+/// output of `Transform` animation, since individual parts may be unconstrained
+/// if they lack an animation curve to control them.
 #[derive(Default, Debug, Clone, Reflect)]
 pub(crate) struct TransformParts {
     translation: Option<Vec3>,
