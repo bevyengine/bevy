@@ -370,7 +370,7 @@ impl Window {
     /// Calling this will attempt to start a drag-move of the window.
     ///
     /// There is no guarantee that this will work unless the left mouse button was
-    /// pressed immediatly before this function was called.
+    /// pressed immediately before this function was called.
     pub fn start_drag_move(&mut self) {
         self.internal.drag_move_request = true;
     }
@@ -378,7 +378,7 @@ impl Window {
     /// Calling this will attempt to start a drag-resize of the window.
     ///
     /// There is no guarantee that this will work unless the left mouse button was
-    /// pressed immediatly before this function was called.
+    /// pressed immediately before this function was called.
     pub fn start_drag_resize(&mut self, direction: ResizeDirection) {
         self.internal.drag_resize_request = Some(direction);
     }
