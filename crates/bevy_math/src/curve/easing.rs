@@ -302,6 +302,8 @@ impl ElasticCurve {
 ///
 /// [unit interval]: `Interval::UNIT`
 #[derive(Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub enum EaseFunction {
     /// `f(t) = t²`
     QuadraticIn,
