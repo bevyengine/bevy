@@ -612,6 +612,42 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(insert_or_spawn_batch(bundles_iter));
     }
 
+    #[track_caller]
+    pub fn insert_batch<I, B>(&mut self, bundles_iter: I)
+    where
+        I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+        B: Bundle,
+    {
+        self.queue(insert_batch(bundles_iter));
+    }
+
+    #[track_caller]
+    pub fn insert_batch_if_new<I, B>(&mut self, bundles_iter: I)
+    where
+        I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+        B: Bundle,
+    {
+        self.queue(insert_batch_if_new(bundles_iter));
+    }
+
+    #[track_caller]
+    pub fn try_insert_batch<I, B>(&mut self, bundles_iter: I)
+    where
+        I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+        B: Bundle,
+    {
+        self.queue(try_insert_batch(bundles_iter));
+    }
+
+    #[track_caller]
+    pub fn try_insert_batch_if_new<I, B>(&mut self, bundles_iter: I)
+    where
+        I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+        B: Bundle,
+    {
+        self.queue(try_insert_batch_if_new(bundles_iter));
+    }
+
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
     ///
     /// The inferred value is determined by the [`FromWorld`] trait of the resource.
@@ -1719,6 +1755,78 @@ where
                 invalid_entities
             );
         }
+    }
+}
+
+#[track_caller]
+fn insert_batch<I, B>(bundles_iter: I) -> impl Command
+where
+    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+    B: Bundle,
+{
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
+    move |world: &mut World| {
+        world.insert_batch_with_caller(
+            bundles_iter,
+            InsertMode::Replace,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
+    }
+}
+
+#[track_caller]
+fn insert_batch_if_new<I, B>(bundles_iter: I) -> impl Command
+where
+    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+    B: Bundle,
+{
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
+    move |world: &mut World| {
+        world.insert_batch_with_caller(
+            bundles_iter,
+            InsertMode::Keep,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
+    }
+}
+
+#[track_caller]
+fn try_insert_batch<I, B>(bundles_iter: I) -> impl Command
+where
+    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+    B: Bundle,
+{
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
+    move |world: &mut World| {
+        world.try_insert_batch_with_caller(
+            bundles_iter,
+            InsertMode::Replace,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
+    }
+}
+
+#[track_caller]
+fn try_insert_batch_if_new<I, B>(bundles_iter: I) -> impl Command
+where
+    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+    B: Bundle,
+{
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
+    move |world: &mut World| {
+        world.try_insert_batch_with_caller(
+            bundles_iter,
+            InsertMode::Keep,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
     }
 }
 

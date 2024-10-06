@@ -1717,6 +1717,84 @@ mod tests {
         );
     }
 
+
+    #[test]
+    fn insert_batch() {
+        let mut world = World::default();
+        let e0 = world.spawn(A(0)).id();
+        let e1 = world.spawn(B(0)).id();
+
+        let values = vec![(e0, (B(0), C)), (e1, (B(1), C))];
+
+        world.insert_batch(values);
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(0)),
+            "first entity's existing component was preserved"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "first entity received correct B component"
+        );
+        assert_eq!(
+            world.get::<B>(e1),
+            Some(&B(1)),
+            "second entity's existing component was replaced"
+        );
+        assert_eq!(
+            world.get::<C>(e0),
+            Some(&C),
+            "first entity received C component"
+        );
+        assert_eq!(
+            world.get::<C>(e1),
+            Some(&C),
+            "second entity received C component"
+        );
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Tried to 'insert_batch' with entity that did not exist"
+    )]
+    fn insert_batch_invalid() {
+        let mut world = World::default();
+        let e0 = world.spawn(A(0)).id();
+        let e1 = Entity::from_raw(1);
+
+        let values = vec![(e0, (B(0), C)), (e1, (B(1), C))];
+
+        world.insert_batch(values);
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(0)),
+            "first entity's existing component was preserved"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "first entity received correct B component"
+        );
+        assert_eq!(
+            world.get::<B>(e1),
+            Some(&B(1)),
+            "second entity's existing component was replaced"
+        );
+        assert_eq!(
+            world.get::<C>(e0),
+            Some(&C),
+            "first entity received C component"
+        );
+        assert_eq!(
+            world.get::<C>(e1),
+            Some(&C),
+            "second entity received C component"
+        );
+    }
+
     #[test]
     fn insert_or_spawn_batch() {
         let mut world = World::default();
