@@ -87,6 +87,51 @@ where
 impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
     /// A [`Curve`] mapping the [unit interval] to itself.
     ///
+    /// [unit interval]: `Interval::UNIT`
+    pub fn ease(function: EaseFunction) -> Self {
+        Self {
+            start: 0.0,
+            end: 1.0,
+            easing: FunctionCurve::new(
+                Interval::UNIT,
+                match function {
+                    EaseFunction::QuadraticIn => Ease::quadratic_in,
+                    EaseFunction::QuadraticOut => Ease::quadratic_out,
+                    EaseFunction::QuadraticInOut => Ease::quadratic_in_out,
+                    EaseFunction::CubicIn => Ease::cubic_in,
+                    EaseFunction::CubicOut => Ease::cubic_out,
+                    EaseFunction::CubicInOut => Ease::cubic_in_out,
+                    EaseFunction::QuarticIn => Ease::quartic_in,
+                    EaseFunction::QuarticOut => Ease::quartic_out,
+                    EaseFunction::QuarticInOut => Ease::quartic_in_out,
+                    EaseFunction::QuinticIn => Ease::quintic_in,
+                    EaseFunction::QuinticOut => Ease::quintic_out,
+                    EaseFunction::QuinticInOut => Ease::quintic_in_out,
+                    EaseFunction::SineIn => Ease::sine_in,
+                    EaseFunction::SineOut => Ease::sine_out,
+                    EaseFunction::SineInOut => Ease::sine_in_out,
+                    EaseFunction::CircularIn => Ease::circular_in,
+                    EaseFunction::CircularOut => Ease::circular_out,
+                    EaseFunction::CircularInOut => Ease::circular_in_out,
+                    EaseFunction::ExponentialIn => Ease::exponential_in,
+                    EaseFunction::ExponentialOut => Ease::exponential_out,
+                    EaseFunction::ExponentialInOut => Ease::exponential_in_out,
+                    EaseFunction::ElasticIn => Ease::elastic_in,
+                    EaseFunction::ElasticOut => Ease::elastic_out,
+                    EaseFunction::ElasticInOut => Ease::elastic_in_out,
+                    EaseFunction::BackIn => Ease::back_in,
+                    EaseFunction::BackOut => Ease::back_out,
+                    EaseFunction::BackInOut => Ease::back_in_out,
+                    EaseFunction::BounceIn => Ease::bounce_in,
+                    EaseFunction::BounceOut => Ease::bounce_out,
+                    EaseFunction::BounceInOut => Ease::bounce_in_out,
+                },
+            ),
+        }
+    }
+
+    /// A [`Curve`] mapping the [unit interval] to itself.
+    ///
     /// Quadratic easing functions can have exactly one critical point. This is a point on the function
     /// such that `f′(t) = 0`. This means that there won't be any sudden jumps at this point leading to
     /// smooth transitions. A common choice is to place that point at `t = 0` or [`t = 1`].
@@ -374,46 +419,4 @@ pub enum EaseFunction {
     BounceOut,
     /// Behaves as `EaseFunction::BounceIn` for t < 0.5 and as `EaseFunction::BounceOut` for t >= 0.5
     BounceInOut,
-}
-
-impl Easing<f32> for EaseFunction {}
-impl Curve<f32> for EaseFunction {
-    fn domain(&self) -> Interval {
-        Interval::UNIT
-    }
-
-    fn sample_unchecked(&self, t: f32) -> f32 {
-        match self {
-            EaseFunction::QuadraticIn => t.calc(interpolation::EaseFunction::QuadraticIn),
-            EaseFunction::QuadraticOut => t.calc(interpolation::EaseFunction::QuadraticOut),
-            EaseFunction::QuadraticInOut => t.calc(interpolation::EaseFunction::QuadraticInOut),
-            EaseFunction::CubicIn => t.calc(interpolation::EaseFunction::CubicIn),
-            EaseFunction::CubicOut => t.calc(interpolation::EaseFunction::CubicOut),
-            EaseFunction::CubicInOut => t.calc(interpolation::EaseFunction::CubicInOut),
-            EaseFunction::QuarticIn => t.calc(interpolation::EaseFunction::QuarticIn),
-            EaseFunction::QuarticOut => t.calc(interpolation::EaseFunction::QuarticOut),
-            EaseFunction::QuarticInOut => t.calc(interpolation::EaseFunction::QuarticInOut),
-            EaseFunction::QuinticIn => t.calc(interpolation::EaseFunction::QuinticIn),
-            EaseFunction::QuinticOut => t.calc(interpolation::EaseFunction::QuinticOut),
-            EaseFunction::QuinticInOut => t.calc(interpolation::EaseFunction::QuinticInOut),
-            EaseFunction::SineIn => t.calc(interpolation::EaseFunction::SineIn),
-            EaseFunction::SineOut => t.calc(interpolation::EaseFunction::SineOut),
-            EaseFunction::SineInOut => t.calc(interpolation::EaseFunction::SineInOut),
-            EaseFunction::CircularIn => t.calc(interpolation::EaseFunction::CircularIn),
-            EaseFunction::CircularOut => t.calc(interpolation::EaseFunction::CircularOut),
-            EaseFunction::CircularInOut => t.calc(interpolation::EaseFunction::CircularInOut),
-            EaseFunction::ExponentialIn => t.calc(interpolation::EaseFunction::ExponentialIn),
-            EaseFunction::ExponentialOut => t.calc(interpolation::EaseFunction::ExponentialOut),
-            EaseFunction::ExponentialInOut => t.calc(interpolation::EaseFunction::ExponentialInOut),
-            EaseFunction::ElasticIn => t.calc(interpolation::EaseFunction::ElasticIn),
-            EaseFunction::ElasticOut => t.calc(interpolation::EaseFunction::ElasticOut),
-            EaseFunction::ElasticInOut => t.calc(interpolation::EaseFunction::ElasticInOut),
-            EaseFunction::BackIn => t.calc(interpolation::EaseFunction::BackIn),
-            EaseFunction::BackOut => t.calc(interpolation::EaseFunction::BackOut),
-            EaseFunction::BackInOut => t.calc(interpolation::EaseFunction::BackInOut),
-            EaseFunction::BounceIn => t.calc(interpolation::EaseFunction::BounceIn),
-            EaseFunction::BounceOut => t.calc(interpolation::EaseFunction::BounceOut),
-            EaseFunction::BounceInOut => t.calc(interpolation::EaseFunction::BounceInOut),
-        }
-    }
 }
