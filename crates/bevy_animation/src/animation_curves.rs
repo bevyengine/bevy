@@ -776,47 +776,6 @@ impl AnimationCurveEvaluator for TransformCurveEvaluator {
     }
 }
 
-#[derive(Default, Reflect)]
-struct TransformCurveEvaluator {
-    evaluator: BasicAnimationCurveEvaluator<TransformParts>,
-}
-
-impl AnimationCurveEvaluator for TransformCurveEvaluator {
-    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.combine(graph_node, /*additive=*/ false)
-    }
-
-    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.combine(graph_node, /*additive=*/ true)
-    }
-
-    fn push_blend_register(
-        &mut self,
-        weight: f32,
-        graph_node: AnimationNodeIndex,
-    ) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.push_blend_register(weight, graph_node)
-    }
-
-    fn commit<'a>(
-        &mut self,
-        transform: Option<Mut<'a, Transform>>,
-        _: AnimationEntityMut<'a>,
-    ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
-        })?;
-        let parts = self
-            .evaluator
-            .stack
-            .pop()
-            .ok_or_else(inconsistent::<TransformCurveEvaluator>)?
-            .value;
-        parts.apply_to_transform(&mut component);
-        Ok(())
-    }
-}
-
 #[derive(Reflect)]
 struct BasicAnimationCurveEvaluator<A>
 where
