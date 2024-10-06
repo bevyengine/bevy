@@ -1,7 +1,5 @@
-use crate::{
-    mesh::{Indices, Mesh, MeshBuilder, Meshable},
-    render_asset::RenderAssetUsages,
-};
+use crate::{Indices, Mesh, MeshBuilder, Meshable};
+use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::ConicalFrustum, Vec3};
 use wgpu::PrimitiveTopology;
 

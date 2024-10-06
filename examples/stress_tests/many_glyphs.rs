@@ -44,7 +44,7 @@ fn main() {
 fn setup(mut commands: Commands) {
     warn!(include_str!("warning_string.txt"));
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     let mut text = Text {
         sections: vec![TextSection {
             value: "0123456789".repeat(10_000),

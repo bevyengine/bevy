@@ -18,7 +18,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.spawn(TextBundle {
         text: Text::from_section("Press P to panic", TextStyle::default()),
         style: Style {

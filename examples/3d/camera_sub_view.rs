@@ -72,8 +72,9 @@ fn setup(
     ));
 
     // Main perspective Camera
-    commands.spawn(Camera3dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
             viewport: Option::from(Viewport {
                 physical_size: UVec2::new(LARGE_SIZE, LARGE_SIZE),
                 physical_position: UVec2::new(PADDING, PADDING * 2 + SMALL_SIZE),
@@ -82,12 +83,12 @@ fn setup(
             ..default()
         },
         transform,
-        ..default()
-    });
+    ));
 
     // Perspective camera left half
-    commands.spawn(Camera3dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
             viewport: Option::from(Viewport {
                 physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
                 physical_position: UVec2::new(PADDING, PADDING),
@@ -109,37 +110,35 @@ fn setup(
             ..default()
         },
         transform,
-        ..default()
-    });
+    ));
 
     // Perspective camera moving
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                viewport: Option::from(Viewport {
-                    physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
-                    physical_position: UVec2::new(PADDING * 2 + SMALL_SIZE, PADDING),
-                    ..default()
-                }),
-                sub_camera_view: Some(SubCameraView {
-                    // Set the sub view camera to a fifth of the full view and
-                    // move it in another system
-                    full_size: UVec2::new(500, 500),
-                    offset: Vec2::ZERO,
-                    size: UVec2::new(100, 100),
-                }),
-                order: 2,
+        Camera3d::default(),
+        Camera {
+            viewport: Option::from(Viewport {
+                physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
+                physical_position: UVec2::new(PADDING * 2 + SMALL_SIZE, PADDING),
                 ..default()
-            },
-            transform,
+            }),
+            sub_camera_view: Some(SubCameraView {
+                // Set the sub view camera to a fifth of the full view and
+                // move it in another system
+                full_size: UVec2::new(500, 500),
+                offset: Vec2::ZERO,
+                size: UVec2::new(100, 100),
+            }),
+            order: 2,
             ..default()
         },
+        transform,
         MovingCameraMarker,
     ));
 
     // Perspective camera control
-    commands.spawn(Camera3dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
             viewport: Option::from(Viewport {
                 physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
                 physical_position: UVec2::new(PADDING * 3 + SMALL_SIZE * 2, PADDING),
@@ -156,17 +155,16 @@ fn setup(
             ..default()
         },
         transform,
-        ..default()
-    });
+    ));
 
     // Main orthographic camera
-    commands.spawn(Camera3dBundle {
-        projection: OrthographicProjection {
+    commands.spawn((
+        Camera3d::default(),
+        Projection::from(OrthographicProjection {
             scaling_mode: ScalingMode::FixedVertical(6.0),
             ..OrthographicProjection::default_3d()
-        }
-        .into(),
-        camera: Camera {
+        }),
+        Camera {
             viewport: Option::from(Viewport {
                 physical_size: UVec2::new(LARGE_SIZE, LARGE_SIZE),
                 physical_position: UVec2::new(PADDING * 2 + LARGE_SIZE, PADDING * 2 + SMALL_SIZE),
@@ -176,17 +174,16 @@ fn setup(
             ..default()
         },
         transform,
-        ..default()
-    });
+    ));
 
     // Orthographic camera left half
-    commands.spawn(Camera3dBundle {
-        projection: OrthographicProjection {
+    commands.spawn((
+        Camera3d::default(),
+        Projection::from(OrthographicProjection {
             scaling_mode: ScalingMode::FixedVertical(6.0),
             ..OrthographicProjection::default_3d()
-        }
-        .into(),
-        camera: Camera {
+        }),
+        Camera {
             viewport: Option::from(Viewport {
                 physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
                 physical_position: UVec2::new(PADDING * 5 + SMALL_SIZE * 4, PADDING),
@@ -206,47 +203,43 @@ fn setup(
             ..default()
         },
         transform,
-        ..default()
-    });
+    ));
 
     // Orthographic camera moving
     commands.spawn((
-        Camera3dBundle {
-            projection: OrthographicProjection {
-                scaling_mode: ScalingMode::FixedVertical(6.0),
-                ..OrthographicProjection::default_3d()
-            }
-            .into(),
-            camera: Camera {
-                viewport: Option::from(Viewport {
-                    physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
-                    physical_position: UVec2::new(PADDING * 6 + SMALL_SIZE * 5, PADDING),
-                    ..default()
-                }),
-                sub_camera_view: Some(SubCameraView {
-                    // Set the sub view camera to a fifth of the full view and
-                    // move it in another system
-                    full_size: UVec2::new(500, 500),
-                    offset: Vec2::ZERO,
-                    size: UVec2::new(100, 100),
-                }),
-                order: 6,
+        Camera3d::default(),
+        Projection::from(OrthographicProjection {
+            scaling_mode: ScalingMode::FixedVertical(6.0),
+            ..OrthographicProjection::default_3d()
+        }),
+        Camera {
+            viewport: Option::from(Viewport {
+                physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
+                physical_position: UVec2::new(PADDING * 6 + SMALL_SIZE * 5, PADDING),
                 ..default()
-            },
-            transform,
+            }),
+            sub_camera_view: Some(SubCameraView {
+                // Set the sub view camera to a fifth of the full view and
+                // move it in another system
+                full_size: UVec2::new(500, 500),
+                offset: Vec2::ZERO,
+                size: UVec2::new(100, 100),
+            }),
+            order: 6,
             ..default()
         },
+        transform,
         MovingCameraMarker,
     ));
 
     // Orthographic camera control
-    commands.spawn(Camera3dBundle {
-        projection: OrthographicProjection {
+    commands.spawn((
+        Camera3d::default(),
+        Projection::from(OrthographicProjection {
             scaling_mode: ScalingMode::FixedVertical(6.0),
             ..OrthographicProjection::default_3d()
-        }
-        .into(),
-        camera: Camera {
+        }),
+        Camera {
             viewport: Option::from(Viewport {
                 physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
                 physical_position: UVec2::new(PADDING * 7 + SMALL_SIZE * 6, PADDING),
@@ -263,8 +256,7 @@ fn setup(
             ..default()
         },
         transform,
-        ..default()
-    });
+    ));
 }
 
 fn move_camera_view(

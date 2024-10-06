@@ -89,11 +89,11 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     }
 
     // Spawn the camera.
-    commands.spawn(Camera3dBundle {
+    commands.spawn((
+        Camera3d::default(),
         // Move the camera back a bit to see all the triangles
-        transform: Transform::from_xyz(0.0, 0.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+        Transform::from_xyz(0.0, 0.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 // When writing custom rendering code it's generally recommended to use a plugin.
