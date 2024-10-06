@@ -18,6 +18,7 @@ use bevy_utils::{
     Duration, HashMap,
 };
 use thiserror::Error;
+use uuid::Uuid;
 
 /// A gamepad event.
 ///
@@ -364,6 +365,7 @@ pub enum ButtonSettingsError {
 /// }
 /// ```
 #[derive(Component, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 #[require(GamepadSettings)]
 pub struct Gamepad {
     info: GamepadInfo,
@@ -374,8 +376,11 @@ pub struct Gamepad {
 }
 
 impl Gamepad {
-    /// Creates a gamepad with the given metadata
-    fn new(info: GamepadInfo) -> Self {
+    /// Creates a gamepad with the given metadata.
+    ///
+    /// Ordinarily, you shouldn't call this, but it can be useful for test
+    /// mocking.
+    pub fn new(info: GamepadInfo) -> Self {
         let mut analog = Axis::default();
         for button in GamepadButton::all().iter().copied() {
             analog.set(button.into(), 0.0);
@@ -397,6 +402,27 @@ impl Gamepad {
     /// For example on Windows the name may be "HID-compliant game controller".
     pub fn name(&self) -> &str {
         self.info.name.as_str()
+    }
+
+    /// The UUID of the game pad.
+    ///
+    /// Bevy will try to reuse IDs for game controllers across invocations of
+    /// the app. Therefore, this ID can be used to track the gamepad across
+    /// runs.
+    pub fn uuid(&self) -> &Uuid {
+        &self.info.uuid
+    }
+
+    /// Returns the USB vendor ID as assigned by the USB-IF, if available.
+    pub fn vendor_id(&self) -> Option<u16> {
+        self.info.vendor_id
+    }
+
+    /// Returns the USB product ID as assigned by the [vendor], if available.
+    ///
+    /// [vendor]: Self::vendor_id
+    pub fn product_id(&self) -> Option<u16> {
+        self.info.product_id
     }
 
     /// Returns the analog data of the provided [`GamepadAxis`] or [`GamepadButton`].
@@ -505,6 +531,34 @@ impl Gamepad {
             .into_iter()
             .all(|button_type| self.just_released(button_type))
     }
+
+    /// Returns an iterator over all digital [button]s that are pressed.
+    ///
+    /// [button]: GamepadButton
+    pub fn get_pressed(&self) -> impl Iterator<Item = &GamepadButton> {
+        self.digital.get_pressed()
+    }
+
+    /// Returns an iterator over all digital [button]s that were just pressed.
+    ///
+    /// [button]: GamepadButton
+    pub fn get_just_pressed(&self) -> impl Iterator<Item = &GamepadButton> {
+        self.digital.get_just_pressed()
+    }
+
+    /// Returns an iterator over all digital [button]s that were just released.
+    ///
+    /// [button]: GamepadButton
+    pub fn get_just_released(&self) -> impl Iterator<Item = &GamepadButton> {
+        self.digital.get_just_released()
+    }
+
+    /// Returns an iterator over all analog [axes].
+    ///
+    /// [axes]: GamepadInput
+    pub fn get_analog_axes(&self) -> impl Iterator<Item = &GamepadInput> {
+        self.analog.all_axes()
+    }
 }
 
 /// Metadata associated with a [`Gamepad`].
@@ -522,6 +576,21 @@ pub struct GamepadInfo {
     ///
     /// For example on Windows the name may be "HID-compliant game controller".
     pub name: String,
+
+    /// The UUID of the game pad.
+    ///
+    /// Bevy will try to reuse IDs for game controllers across invocations of
+    /// the app. Therefore, this ID can be used to track the gamepad across
+    /// runs.
+    pub uuid: Uuid,
+
+    /// The USB vendor ID as assigned by the USB-IF, if available.
+    pub vendor_id: Option<u16>,
+
+    /// The USB product ID as assigned by the [vendor], if available.
+    ///
+    /// [vendor]: Self::vendor_id
+    pub product_id: Option<u16>,
 }
 
 /// Represents gamepad input types that are mapped in the range [0.0, 1.0].
@@ -665,6 +734,7 @@ impl GamepadAxis {
 /// Encapsulation over [`GamepadAxis`] and [`GamepadButton`]
 // This is done so Gamepad can share a single Axis<T> and simplifies the API by having only one get/get_unclamped method
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub enum GamepadInput {
     /// A [`GamepadAxis`]
     Axis(GamepadAxis),
@@ -1620,6 +1690,7 @@ mod tests {
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
     use bevy_ecs::schedule::IntoSystemConfigs;
+    use uuid::Uuid;
 
     fn test_button_axis_settings_filter(
         settings: ButtonAxisSettings,
@@ -1988,6 +2059,9 @@ mod tests {
                     gamepad,
                     Connected(GamepadInfo {
                         name: String::from("Gamepad test"),
+                        uuid: Uuid::parse_str("6d860618-c538-4d51-b0a5-0959b9f8c670").unwrap(),
+                        vendor_id: None,
+                        product_id: None,
                     }),
                 ));
             gamepad

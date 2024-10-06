@@ -51,6 +51,8 @@ use mouse::{
 };
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
+#[cfg(feature = "bevy_reflect")]
+use gamepad::Gamepad;
 use gamepad::{
     gamepad_connection_system, gamepad_event_processing_system, GamepadAxisChangedEvent,
     GamepadButtonChangedEvent, GamepadButtonStateChangedEvent, GamepadConnection,
@@ -134,6 +136,7 @@ impl Plugin for InputPlugin {
                 .register_type::<RawGamepadEvent>()
                 .register_type::<RawGamepadAxisChangedEvent>()
                 .register_type::<RawGamepadButtonChangedEvent>()
+                .register_type::<Gamepad>()
                 .register_type::<GamepadConnectionEvent>()
                 .register_type::<GamepadButtonChangedEvent>()
                 .register_type::<GamepadAxisChangedEvent>()

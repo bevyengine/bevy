@@ -4,12 +4,16 @@ use bevy_ecs::system::Resource;
 use bevy_utils::HashMap;
 use core::hash::Hash;
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+
 /// Stores the position data of the input devices of type `T`.
 ///
 /// The values are stored as `f32`s, using [`Axis::set`].
 /// Use [`Axis::get`] to retrieve the value clamped between [`Axis::MIN`] and [`Axis::MAX`]
 /// inclusive, or unclamped using [`Axis::get_unclamped`].
 #[derive(Debug, Resource)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct Axis<T> {
     /// The position data of the input devices.
     axis_data: HashMap<T, f32>,
@@ -69,6 +73,11 @@ where
     /// Removes the position data of the `input_device`, returning the position data if the input device was previously set.
     pub fn remove(&mut self, input_device: T) -> Option<f32> {
         self.axis_data.remove(&input_device)
+    }
+
+    /// Returns an iterator over all axes.
+    pub fn all_axes(&self) -> impl Iterator<Item = &T> {
+        self.axis_data.keys()
     }
 }
 

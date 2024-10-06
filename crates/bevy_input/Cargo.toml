@@ -38,6 +38,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
 serde = { version = "1", features = ["derive"], optional = true }
 thiserror = "1.0"
 smol_str = "0.2"
+uuid = "1"
 
 [lints]
 workspace = true
