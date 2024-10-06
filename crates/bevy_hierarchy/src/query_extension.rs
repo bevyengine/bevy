@@ -1,5 +1,3 @@
-use core::marker::PhantomData;
-
 use alloc::collections::VecDeque;
 
 use bevy_ecs::{
@@ -36,7 +34,7 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// Only entities which have no children are considered leaves.
     /// This will not include the entity itself, and will not include any entities which are not descendants of the entity,
     /// even if they are leaves in the same hierarchical tree.
-    fn iter_leaves(&'w self, entity: Entity) -> LeafIter<'w, 's, D, F>
+    fn iter_leaves(&'w self, entity: Entity) -> impl Iterator<Item = Entity> + 'w
     where
         D::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
 
@@ -122,11 +120,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
         }
     }
 
-    fn iter_leaves(&'w self, entity: Entity) -> LeafIter<'w, 's, D, F>
+    fn iter_leaves(&'w self, entity: Entity) -> impl Iterator<Item = Entity>
     where
         <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
     {
-        LeafIter::new(self, entity)
+        self.iter_descendants(entity).filter(|entity| {
+            self.get(*entity)
+                // These are leaf nodes if they have the `Children` component but it's empty
+                .map(|children| children.is_empty())
+                // Or if they don't have the `Children` component at all
+                .unwrap_or(true)
+        })
     }
 
     fn iter_siblings(&'w self, entity: Entity) -> impl Iterator<Item = Entity>
@@ -155,51 +159,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
         D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
     {
         AncestorIter::new(self, entity)
-    }
-}
-
-/// An [`Iterator`] of [`Entity`]s over the leaf descendants of an [`Entity`].
-pub struct LeafIter<'w, 's, D: QueryData, F: QueryFilter>
-where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
-{
-    vecdeque: VecDeque<Entity>,
-    // PERF: if this ends up resulting in too much memory being allocated, we can store the query instead
-    // like in IterDescendants
-    _phantom: PhantomData<(&'w D, &'s F)>,
-}
-
-impl<'w, 's, D: QueryData, F: QueryFilter> LeafIter<'w, 's, D, F>
-where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
-{
-    /// Returns a new [`LeafIter`].
-    pub fn new(children_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
-        let leaf_children = children_query.iter_descendants(entity).filter(|entity| {
-            children_query
-                .get(*entity)
-                // These are leaf nodes if they have the `Children` component but it's empty
-                .map(|children| children.is_empty())
-                // Or if they don't have the `Children` component at all
-                .unwrap_or(true)
-        });
-
-        LeafIter {
-            vecdeque: leaf_children.collect(),
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for LeafIter<'w, 's, D, F>
-where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
-{
-    type Item = Entity;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let entity: Entity = self.vecdeque.pop_front()?;
-        Some(entity)
     }
 }
 
