@@ -914,7 +914,7 @@ pub enum CursorGrabMode {
 }
 
 /// Defines the orientation in which a window resize will be performed.
-#[derive(Debug, Copy, Clone, PartialEq, Reflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
