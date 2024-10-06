@@ -32,14 +32,12 @@ fn despawn_dead_enemies(
     }
 }
 
-fn hurt_enemies(mut enemies: Query<&mut Enemy>) {
-    for mut enemy in &mut enemies {
-        enemy.hit_points -= 1;
-    }
+fn hurt_enemies(mut enemies: Query<&mut Enemy>){
+    enemies.iter_mut().for_each(|mut enemy| enemy.hit_points -= 1);
 }
 
-fn spawn_enemy(mut commands: Commands, keyboard_input: Res<ButtonInput<KeyCode>>) {
-    if keyboard_input.just_pressed(KeyCode::Space) {
+fn spawn_enemy(mut commands: Commands, keyboard_input: Res<Input<KeyCode>>) {
+    if input.just_pressed(KeyCode::Space) {
         commands.spawn(Enemy {
             hit_points: 5,
             score_value: 3,
