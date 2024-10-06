@@ -832,13 +832,12 @@ where
         match self.blend_register.take() {
             None => self.blend_register = Some((value_to_blend, weight_to_blend)),
             Some((mut current_value, mut current_weight)) => {
-                current_weight += weight_to_blend;
-
+                
                 if additive {
                     current_value = A::blend(
                         [
                             BlendInput {
-                                weight: 1.0,
+                                weight: current_weight,
                                 value: current_value,
                                 additive: true,
                             },
@@ -847,9 +846,10 @@ where
                                 value: value_to_blend,
                                 additive: true,
                             },
-                        ]
-                        .into_iter(),
-                    );
+                            ]
+                            .into_iter(),
+                        );
+                    current_weight += weight_to_blend;
                 } else {
                     current_value = A::interpolate(
                         &current_value,

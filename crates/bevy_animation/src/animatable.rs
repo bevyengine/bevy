@@ -390,3 +390,34 @@ where
     let p1p2p3 = T::interpolate(&p1p2, &p2p3, t);
     T::interpolate(&p0p1p2, &p1p2p3, t)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Animatable;
+    use super::TransformParts;
+    use crate::prelude::BlendInput;
+    use bevy_math::vec3;
+    use bevy_transform::components::Transform;
+
+    #[test]
+    fn add_parts() {
+        let parts = TransformParts::from_transform(Transform::from_xyz(1.0, 2.0, 3.0));
+        let incoming = TransformParts::from_translation(vec3(1.0, 1.0, 1.0));
+        let blend = TransformParts::blend(
+            [
+                BlendInput {
+                    weight: 1.0,
+                    value: parts,
+                    additive: true,
+                },
+                BlendInput {
+                    weight: 0.1,
+                    value: incoming,
+                    additive: true,
+                },
+            ]
+            .into_iter(),
+        );
+        println!("Blend: {:?}", blend);
+    }
+}
