@@ -132,6 +132,7 @@ default = [
   "webgl2",
   "sysinfo_plugin",
   "android-game-activity",
+  "custom_cursor",
 ]
 
 # Provides an implementation for picking sprites
@@ -416,6 +417,9 @@ track_change_detection = ["bevy_internal/track_change_detection"]
 
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
+
+# Enable winit custom cursor support
+custom_cursor = ["bevy_internal/custom_cursor"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
