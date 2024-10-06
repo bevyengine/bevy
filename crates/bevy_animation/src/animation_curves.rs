@@ -198,8 +198,7 @@ pub struct AnimatableCurve<P, C> {
 ///
 /// You shouldn't ordinarily need to instantiate one of these manually. Bevy
 /// will automatically do so when you use an [`AnimatableCurve`] instance.
-#[derive(Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
+#[derive(Reflect)]
 pub struct AnimatableCurveEvaluator<P>
 where
     P: AnimatableProperty,
@@ -548,8 +547,7 @@ where
 #[reflect(from_reflect = false)]
 pub struct WeightsCurve<C>(pub C);
 
-#[derive(Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
+#[derive(Reflect)]
 struct WeightsCurveEvaluator {
     /// The values of the stack, in which each element is a list of morph target
     /// weights.
@@ -778,8 +776,48 @@ impl AnimationCurveEvaluator for TransformCurveEvaluator {
     }
 }
 
-#[derive(Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
+#[derive(Default, Reflect)]
+struct TransformCurveEvaluator {
+    evaluator: BasicAnimationCurveEvaluator<TransformParts>,
+}
+
+impl AnimationCurveEvaluator for TransformCurveEvaluator {
+    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.combine(graph_node, /*additive=*/ false)
+    }
+
+    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.combine(graph_node, /*additive=*/ true)
+    }
+
+    fn push_blend_register(
+        &mut self,
+        weight: f32,
+        graph_node: AnimationNodeIndex,
+    ) -> Result<(), AnimationEvaluationError> {
+        self.evaluator.push_blend_register(weight, graph_node)
+    }
+
+    fn commit<'a>(
+        &mut self,
+        transform: Option<Mut<'a, Transform>>,
+        _: AnimationEntityMut<'a>,
+    ) -> Result<(), AnimationEvaluationError> {
+        let mut component = transform.ok_or_else(|| {
+            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
+        })?;
+        let parts = self
+            .evaluator
+            .stack
+            .pop()
+            .ok_or_else(inconsistent::<TransformCurveEvaluator>)?
+            .value;
+        parts.apply_to_transform(&mut component);
+        Ok(())
+    }
+}
+
+#[derive(Reflect)]
 struct BasicAnimationCurveEvaluator<A>
 where
     A: Animatable,
@@ -788,8 +826,7 @@ where
     blend_register: Option<(A, f32)>,
 }
 
-#[derive(Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
+#[derive(Reflect)]
 struct BasicAnimationCurveEvaluatorStackElement<A>
 where
     A: Animatable,

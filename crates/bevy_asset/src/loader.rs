@@ -367,7 +367,7 @@ impl<'a> LoadContext<'a> {
     ///         (i.to_string(), labeled.finish(Image::default(), None))
     ///     }));
     /// }
-
+    ///
     /// for handle in handles {
     ///     let (label, loaded_asset) = handle.join().unwrap();
     ///     load_context.add_loaded_labeled_asset(label, loaded_asset);

@@ -19,7 +19,7 @@ use bevy_utils::{Parallel, TypeIdMap};
 
 use crate::{
     camera::{Camera, CameraProjection},
-    mesh::{Mesh, Mesh3d},
+    mesh::{Mesh, Mesh3d, MeshAabb},
     primitives::{Aabb, Frustum, Sphere},
 };
 

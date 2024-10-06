@@ -151,16 +151,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
 /// Spawns the camera, with the initial shadow filtering method.
 fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-12.912 * 0.7, 4.466 * 0.7, -10.624 * 0.7)
-                .with_rotation(Quat::from_euler(
-                    EulerRot::YXZ,
-                    -134.76 / 180.0 * PI,
-                    -0.175,
-                    0.0,
-                )),
-            ..default()
-        })
+        .spawn((
+            Camera3d::default(),
+            Transform::from_xyz(-12.912 * 0.7, 4.466 * 0.7, -10.624 * 0.7).with_rotation(
+                Quat::from_euler(EulerRot::YXZ, -134.76 / 180.0 * PI, -0.175, 0.0),
+            ),
+        ))
         .insert(ShadowFilteringMethod::Gaussian)
         // `TemporalJitter` is needed for TAA. Note that it does nothing without
         // `TemporalAntiAliasSettings`.

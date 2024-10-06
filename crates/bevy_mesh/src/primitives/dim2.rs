@@ -1,9 +1,7 @@
 use core::f32::consts::FRAC_PI_2;
 
-use crate::{
-    mesh::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment},
-    render_asset::RenderAssetUsages,
-};
+use crate::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment};
+use bevy_asset::RenderAssetUsages;
 
 use super::{Extrudable, MeshBuilder, Meshable};
 use bevy_math::{
@@ -1009,7 +1007,7 @@ mod tests {
     use bevy_math::{prelude::Annulus, primitives::RegularPolygon, FloatOrd};
     use bevy_utils::HashSet;
 
-    use crate::mesh::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
+    use crate::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
 
     fn count_distinct_positions(points: &[[f32; 3]]) -> usize {
         let mut map = HashSet::new();
