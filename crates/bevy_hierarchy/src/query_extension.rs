@@ -34,6 +34,8 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// Only entities which have no children are considered leaves.
     /// This will not include the entity itself, and will not include any entities which are not descendants of the entity,
     /// even if they are leaves in the same hierarchical tree.
+    ///
+    /// Traverses the hierarchy breadth-first.
     fn iter_leaves(&'w self, entity: Entity) -> impl Iterator<Item = Entity> + 'w
     where
         D::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
