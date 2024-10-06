@@ -223,6 +223,9 @@ reflect_functions = [
   "bevy_ecs/reflect_functions",
 ]
 
+# Enable winit custom cursor support
+custom_cursor = ["bevy_winit/custom_cursor"]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.15.0-dev" }
