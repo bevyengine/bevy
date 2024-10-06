@@ -92,7 +92,7 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
     ///
     /// It uses the function `f(t) = t²`
     ///
-    /// [unit domain]: `Interval::UNIT`
+    /// [unit interval]: `Interval::UNIT`
     /// [`t = 1`]: `Self::quadratic_ease_out`
     pub fn quadratic_ease_in() -> Self {
         Self {
@@ -110,7 +110,7 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
     ///
     /// It uses the function `f(t) = 1 - (1 - t)²`
     ///
-    /// [unit domain]: `Interval::UNIT`
+    /// [unit interval]: `Interval::UNIT`
     /// [`t = 0`]: `Self::quadratic_ease_in`
     pub fn quadratic_ease_out() -> Self {
         fn f(t: f32) -> f32 {
@@ -132,7 +132,7 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
     ///
     /// It uses the function `f(t) = t² * (3 - 2t)`
     ///
-    /// [unit domain]: `Interval::UNIT`
+    /// [unit interval]: `Interval::UNIT`
     /// [sigmoid function]: https://en.wikipedia.org/wiki/Sigmoid_function
     /// [smoothstep function]: https://en.wikipedia.org/wiki/Smoothstep
     pub fn smoothstep() -> Self {
@@ -150,7 +150,7 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
     ///
     /// It uses the function `f(t) = t`
     ///
-    /// [unit domain]: `Interval::UNIT`
+    /// [unit interval]: `Interval::UNIT`
     pub fn identity() -> Self {
         Self {
             start: 0.0,
