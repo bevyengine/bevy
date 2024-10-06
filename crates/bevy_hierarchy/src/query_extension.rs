@@ -139,7 +139,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
     where
         <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
     {
-        self.iter_descendants(entity).filter(|entity| {
+        self.iter_descendants_depth_first(entity).filter(|entity| {
             self.get(*entity)
                 // These are leaf nodes if they have the `Children` component but it's empty
                 .map(|children| children.is_empty())
@@ -404,14 +404,14 @@ mod tests {
         let [a0, a1, a2, a3] = core::array::from_fn(|i| world.spawn(A(i)).id());
 
         world.entity_mut(a0).add_children(&[a1, a2]);
-        world.entity_mut(a2).add_children(&[a3]);
+        world.entity_mut(a1).add_children(&[a3]);
 
         let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
         let (children_query, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query.iter_many(children_query.iter_leaves(a0)).collect();
 
-        assert_eq!([&A(1), &A(3)], result.as_slice());
+        assert_eq!([&A(3), &A(2)], result.as_slice());
     }
 
     #[test]
