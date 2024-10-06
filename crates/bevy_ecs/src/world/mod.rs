@@ -1248,14 +1248,7 @@ impl World {
         let entity_location = {
             let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
             // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-            unsafe {
-                bundle_spawner.spawn_non_existent(
-                    entity,
-                    bundle,
-                    #[cfg(feature = "track_change_detection")]
-                    Location::caller(),
-                )
-            }
+            unsafe { bundle_spawner.spawn_non_existent(entity, bundle, Location::caller()) }
         };
 
         // SAFETY: entity and location are valid, as they were just created above
@@ -1306,12 +1299,7 @@ impl World {
         I: IntoIterator,
         I::Item: Bundle,
     {
-        SpawnBatchIter::new(
-            self,
-            iter.into_iter(),
-            #[cfg(feature = "track_change_detection")]
-            Location::caller(),
-        )
+        SpawnBatchIter::new(self, iter.into_iter(), Location::caller())
     }
 
     /// Retrieves a reference to the given `entity`'s [`Component`] of the given type.
@@ -2125,11 +2113,7 @@ impl World {
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
     {
-        self.insert_or_spawn_batch_with_caller(
-            iter,
-            #[cfg(feature = "track_change_detection")]
-            Location::caller(),
-        )
+        self.insert_or_spawn_batch_with_caller(iter, Location::caller())
     }
 
     /// Split into a new function so we can pass the calling location into the function when using
@@ -2138,7 +2122,7 @@ impl World {
     pub(crate) fn insert_or_spawn_batch_with_caller<I, B>(
         &mut self,
         iter: I,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        caller: &'static Location,
     ) -> Result<(), Vec<Entity>>
     where
         I: IntoIterator,
@@ -2188,7 +2172,6 @@ impl World {
                                     location,
                                     bundle,
                                     InsertMode::Replace,
-                                    #[cfg(feature = "track_change_detection")]
                                     caller,
                                 )
                             };
@@ -2210,7 +2193,6 @@ impl World {
                                     location,
                                     bundle,
                                     InsertMode::Replace,
-                                    #[cfg(feature = "track_change_detection")]
                                     caller,
                                 )
                             };
@@ -2222,27 +2204,13 @@ impl World {
                 AllocAtWithoutReplacement::DidNotExist => {
                     if let SpawnOrInsert::Spawn(ref mut spawner) = spawn_or_insert {
                         // SAFETY: `entity` is allocated (but non existent), bundle matches inserter
-                        unsafe {
-                            spawner.spawn_non_existent(
-                                entity,
-                                bundle,
-                                #[cfg(feature = "track_change_detection")]
-                                caller,
-                            )
-                        };
+                        unsafe { spawner.spawn_non_existent(entity, bundle, caller) };
                     } else {
                         // SAFETY: we initialized this bundle_id in `init_info`
                         let mut spawner =
                             unsafe { BundleSpawner::new_with_id(self, bundle_id, change_tick) };
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                        unsafe {
-                            spawner.spawn_non_existent(
-                                entity,
-                                bundle,
-                                #[cfg(feature = "track_change_detection")]
-                                caller,
-                            )
-                        };
+                        unsafe { spawner.spawn_non_existent(entity, bundle, caller) };
                         spawn_or_insert = SpawnOrInsert::Spawn(spawner);
                     }
                 }

@@ -14,6 +14,7 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::{HashMap, HashSet};
+use core::panic::Location;
 use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
 use thiserror::Error;
 
@@ -1149,12 +1150,7 @@ impl<'w> EntityWorldMut<'w> {
     /// This will overwrite any previous value(s) of the same component type.
     #[track_caller]
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        self.insert_with_caller(
-            bundle,
-            InsertMode::Replace,
-            #[cfg(feature = "track_change_detection")]
-            core::panic::Location::caller(),
-        )
+        self.insert_with_caller(bundle, InsertMode::Replace, Location::caller())
     }
 
     /// Adds a [`Bundle`] of components to the entity without overwriting.
@@ -1163,12 +1159,7 @@ impl<'w> EntityWorldMut<'w> {
     /// unchanged.
     #[track_caller]
     pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        self.insert_with_caller(
-            bundle,
-            InsertMode::Keep,
-            #[cfg(feature = "track_change_detection")]
-            core::panic::Location::caller(),
-        )
+        self.insert_with_caller(bundle, InsertMode::Keep, Location::caller())
     }
 
     /// Split into a new function so we can pass the calling location into the function when using
@@ -1178,7 +1169,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         bundle: T,
         mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
+        caller: &'static Location,
     ) -> &mut Self {
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
@@ -1186,7 +1177,7 @@ impl<'w> EntityWorldMut<'w> {
         self.location =
             // SAFETY: location matches current entity. `T` matches `bundle_info`
             unsafe {
-                bundle_inserter.insert(self.entity, self.location, bundle, mode, #[cfg(feature = "track_change_detection")] caller)
+                bundle_inserter.insert(self.entity, self.location, bundle, mode, caller)
             };
         self
     }
@@ -1206,6 +1197,18 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         component_id: ComponentId,
         component: OwningPtr<'_>,
+    ) -> &mut Self {
+        self.insert_by_id_with_caller(component_id, component, Location::caller())
+    }
+
+    /// # Safety
+    /// See [`EntityWorldMut::insert_by_id`]
+    #[inline]
+    pub(crate) unsafe fn insert_by_id_with_caller(
+        &mut self,
+        component_id: ComponentId,
+        component: OwningPtr<'_>,
+        caller: &'static Location<'static>,
     ) -> &mut Self {
         let change_tick = self.world.change_tick();
         let bundle_id = self
@@ -1227,6 +1230,7 @@ impl<'w> EntityWorldMut<'w> {
             self.location,
             Some(component).into_iter(),
             Some(storage_type).iter().cloned(),
+            caller,
         );
         self
     }
@@ -1269,6 +1273,7 @@ impl<'w> EntityWorldMut<'w> {
             self.location,
             iter_components,
             (*storage_types).iter().cloned(),
+            Location::caller(),
         );
         *self.world.bundles.get_storages_unchecked(bundle_id) = core::mem::take(&mut storage_types);
         self
@@ -1280,6 +1285,7 @@ impl<'w> EntityWorldMut<'w> {
     /// remove any of them.
     // TODO: BundleRemover?
     #[must_use]
+    #[track_caller]
     pub fn take<T: Bundle>(&mut self) -> Option<T> {
         let world = &mut self.world;
         let storages = &mut world.storages;
@@ -1325,6 +1331,7 @@ impl<'w> EntityWorldMut<'w> {
                 old_archetype,
                 entity,
                 bundle_info,
+                Location::caller(),
             );
         }
 
@@ -1462,7 +1469,11 @@ impl<'w> EntityWorldMut<'w> {
     /// # Safety
     /// - A `BundleInfo` with the corresponding `BundleId` must have been initialized.
     #[allow(clippy::too_many_arguments)]
-    unsafe fn remove_bundle(&mut self, bundle: BundleId) -> EntityLocation {
+    unsafe fn remove_bundle(
+        &mut self,
+        bundle: BundleId,
+        caller: &'static Location<'static>,
+    ) -> EntityLocation {
         let entity = self.entity;
         let world = &mut self.world;
         let location = self.location;
@@ -1505,6 +1516,7 @@ impl<'w> EntityWorldMut<'w> {
                 old_archetype,
                 entity,
                 bundle_info,
+                caller,
             );
         }
 
@@ -1548,12 +1560,20 @@ impl<'w> EntityWorldMut<'w> {
     /// See [`EntityCommands::remove`](crate::system::EntityCommands::remove) for more details.
     // TODO: BundleRemover?
     pub fn remove<T: Bundle>(&mut self) -> &mut Self {
+        self.remove_with_caller::<T>(Location::caller())
+    }
+
+    #[inline]
+    pub(crate) fn remove_with_caller<T: Bundle>(
+        &mut self,
+        caller: &'static Location<'static>,
+    ) -> &mut Self {
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
         let bundle_info = self.world.bundles.register_info::<T>(components, storages);
 
         // SAFETY: the `BundleInfo` is initialized above
-        self.location = unsafe { self.remove_bundle(bundle_info) };
+        self.location = unsafe { self.remove_bundle(bundle_info, caller) };
 
         self
     }
@@ -1575,7 +1595,16 @@ impl<'w> EntityWorldMut<'w> {
     /// Removes any components except those in the [`Bundle`] (and its Required Components) from the entity.
     ///
     /// See [`EntityCommands::retain`](crate::system::EntityCommands::retain) for more details.
+    #[track_caller]
     pub fn retain<T: Bundle>(&mut self) -> &mut Self {
+        self.retain_with_caller::<T>(Location::caller())
+    }
+
+    #[inline]
+    pub(crate) fn retain_with_caller<T: Bundle>(
+        &mut self,
+        caller: &'static Location<'static>,
+    ) -> &mut Self {
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
@@ -1594,7 +1623,7 @@ impl<'w> EntityWorldMut<'w> {
         let remove_bundle = self.world.bundles.init_dynamic_info(components, to_remove);
 
         // SAFETY: the `BundleInfo` for the components to remove is initialized above
-        self.location = unsafe { self.remove_bundle(remove_bundle) };
+        self.location = unsafe { self.remove_bundle(remove_bundle, caller) };
         self
     }
 
@@ -1605,7 +1634,17 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// Panics if the provided [`ComponentId`] does not exist in the [`World`].
+    #[track_caller]
     pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
+        self.remove_by_id_with_caller(component_id, Location::caller())
+    }
+
+    #[inline]
+    pub(crate) fn remove_by_id_with_caller(
+        &mut self,
+        component_id: ComponentId,
+        caller: &'static Location<'static>,
+    ) -> &mut Self {
         let components = &mut self.world.components;
 
         let bundle_id = self
@@ -1614,13 +1653,19 @@ impl<'w> EntityWorldMut<'w> {
             .init_component_info(components, component_id);
 
         // SAFETY: the `BundleInfo` for this `component_id` is initialized above
-        self.location = unsafe { self.remove_bundle(bundle_id) };
+        self.location = unsafe { self.remove_bundle(bundle_id, caller) };
 
         self
     }
 
     /// Removes all components associated with the entity.
+    #[track_caller]
     pub fn clear(&mut self) -> &mut Self {
+        self.clear_with_caller(Location::caller())
+    }
+
+    #[inline]
+    pub(crate) fn clear_with_caller(&mut self, caller: &'static Location<'static>) -> &mut Self {
         let component_ids: Vec<ComponentId> = self.archetype().components().collect();
         let components = &mut self.world.components;
 
@@ -1630,7 +1675,7 @@ impl<'w> EntityWorldMut<'w> {
             .init_dynamic_info(components, component_ids.as_slice());
 
         // SAFETY: the `BundleInfo` for this `component_id` is initialized above
-        self.location = unsafe { self.remove_bundle(bundle_id) };
+        self.location = unsafe { self.remove_bundle(bundle_id, caller) };
 
         self
     }
@@ -1638,6 +1683,7 @@ impl<'w> EntityWorldMut<'w> {
     /// Despawns the current entity.
     ///
     /// See [`World::despawn`] for more details.
+    #[track_caller]
     pub fn despawn(self) {
         let world = self.world;
         let archetype = &world.archetypes[self.location.archetype_id];
@@ -1651,13 +1697,33 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: All components in the archetype exist in world
         unsafe {
-            deferred_world.trigger_on_replace(archetype, self.entity, archetype.components());
+            deferred_world.trigger_on_replace(
+                archetype,
+                self.entity,
+                archetype.components(),
+                Location::caller(),
+            );
             if archetype.has_replace_observer() {
-                deferred_world.trigger_observers(ON_REPLACE, self.entity, archetype.components());
+                deferred_world.trigger_observers(
+                    ON_REPLACE,
+                    self.entity,
+                    archetype.components(),
+                    Location::caller(),
+                );
             }
-            deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
+            deferred_world.trigger_on_remove(
+                archetype,
+                self.entity,
+                archetype.components(),
+                Location::caller(),
+            );
             if archetype.has_remove_observer() {
-                deferred_world.trigger_observers(ON_REMOVE, self.entity, archetype.components());
+                deferred_world.trigger_observers(
+                    ON_REMOVE,
+                    self.entity,
+                    archetype.components(),
+                    Location::caller(),
+                );
             }
         }
 
@@ -1871,18 +1937,35 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
     archetype: &Archetype,
     entity: Entity,
     bundle_info: &BundleInfo,
+    caller: &'static Location<'static>,
 ) {
-    deferred_world.trigger_on_replace(archetype, entity, bundle_info.iter_explicit_components());
+    deferred_world.trigger_on_replace(
+        archetype,
+        entity,
+        bundle_info.iter_explicit_components(),
+        caller,
+    );
     if archetype.has_replace_observer() {
         deferred_world.trigger_observers(
             ON_REPLACE,
             entity,
             bundle_info.iter_explicit_components(),
+            caller,
         );
     }
-    deferred_world.trigger_on_remove(archetype, entity, bundle_info.iter_explicit_components());
+    deferred_world.trigger_on_remove(
+        archetype,
+        entity,
+        bundle_info.iter_explicit_components(),
+        caller,
+    );
     if archetype.has_remove_observer() {
-        deferred_world.trigger_observers(ON_REMOVE, entity, bundle_info.iter_explicit_components());
+        deferred_world.trigger_observers(
+            ON_REMOVE,
+            entity,
+            bundle_info.iter_explicit_components(),
+            caller,
+        );
     }
 }
 
@@ -2982,7 +3065,6 @@ where
 /// - [`OwningPtr`] and [`StorageType`] iterators must correspond to the
 ///     [`BundleInfo`] used to construct [`BundleInserter`]
 /// - [`Entity`] must correspond to [`EntityLocation`]
-#[track_caller]
 unsafe fn insert_dynamic_bundle<
     'a,
     I: Iterator<Item = OwningPtr<'a>>,
@@ -2993,6 +3075,7 @@ unsafe fn insert_dynamic_bundle<
     location: EntityLocation,
     components: I,
     storage_types: S,
+    caller: &'static Location<'static>,
 ) -> EntityLocation {
     struct DynamicInsertBundle<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> {
         components: I,
@@ -3011,16 +3094,7 @@ unsafe fn insert_dynamic_bundle<
     };
 
     // SAFETY: location matches current entity.
-    unsafe {
-        bundle_inserter.insert(
-            entity,
-            location,
-            bundle,
-            InsertMode::Replace,
-            #[cfg(feature = "track_change_detection")]
-            core::panic::Location::caller(),
-        )
-    }
+    unsafe { bundle_inserter.insert(entity, location, bundle, InsertMode::Replace, caller) }
 }
 
 /// Removes a bundle from the given archetype and returns the resulting archetype (or None if the

@@ -814,20 +814,30 @@ impl<'w, 's> Commands<'w, 's> {
     /// isn't scoped to specific targets.
     ///
     /// [`Trigger`]: crate::observer::Trigger
+    #[track_caller]
     pub fn trigger(&mut self, event: impl Event) {
-        self.queue(TriggerEvent { event, targets: () });
+        self.queue(TriggerEvent {
+            event,
+            targets: (),
+            caller: Location::caller(),
+        });
     }
 
     /// Sends a [`Trigger`] for the given targets. This will run any [`Observer`] of the `event` that
     /// watches those targets.
     ///
     /// [`Trigger`]: crate::observer::Trigger
+    #[track_caller]
     pub fn trigger_targets(
         &mut self,
         event: impl Event,
         targets: impl TriggerTargets + Send + Sync + 'static,
     ) {
-        self.queue(TriggerEvent { event, targets });
+        self.queue(TriggerEvent {
+            event,
+            targets,
+            caller: Location::caller(),
+        });
     }
 
     /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.
@@ -1303,6 +1313,7 @@ impl EntityCommands<'_> {
     /// }
     /// # bevy_ecs::system::assert_is_system(add_health_system);
     /// ```
+    #[track_caller]
     pub fn try_insert_if_new_and<F>(&mut self, bundle: impl Bundle, condition: F) -> &mut Self
     where
         F: FnOnce() -> bool,
@@ -1323,6 +1334,7 @@ impl EntityCommands<'_> {
     /// # Note
     ///
     /// Unlike [`Self::insert_if_new`], this will not panic if the associated entity does not exist.
+    #[track_caller]
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
         self.queue(try_insert(bundle, InsertMode::Keep))
     }
@@ -1362,11 +1374,12 @@ impl EntityCommands<'_> {
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
+    #[track_caller]
     pub fn remove<T>(&mut self) -> &mut Self
     where
         T: Bundle,
     {
-        self.queue(remove::<T>)
+        self.queue(remove::<T>())
     }
 
     /// Removes all components in the [`Bundle`] components and remove all required components for each component in the [`Bundle`] from entity.
@@ -1398,11 +1411,13 @@ impl EntityCommands<'_> {
     }
 
     /// Removes a component from the entity.
+    #[track_caller]
     pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
         self.queue(remove_by_id(component_id))
     }
 
     /// Removes all components associated with the entity.
+    #[track_caller]
     pub fn clear(&mut self) -> &mut Self {
         self.queue(clear())
     }
@@ -1509,7 +1524,7 @@ impl EntityCommands<'_> {
     where
         T: Bundle,
     {
-        self.queue(retain::<T>)
+        self.queue(retain::<T>())
     }
 
     /// Logs the components of the entity at the info level.
@@ -1683,15 +1698,9 @@ where
     I: IntoIterator<Item = B> + Send + Sync + 'static,
     B: Bundle,
 {
-    #[cfg(feature = "track_change_detection")]
     let caller = Location::caller();
     move |world: &mut World| {
-        SpawnBatchIter::new(
-            world,
-            bundles_iter.into_iter(),
-            #[cfg(feature = "track_change_detection")]
-            caller,
-        );
+        SpawnBatchIter::new(world, bundles_iter.into_iter(), caller);
     }
 }
 
@@ -1705,14 +1714,10 @@ where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
 {
-    #[cfg(feature = "track_change_detection")]
     let caller = Location::caller();
     move |world: &mut World| {
-        if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
-            bundles_iter,
-            #[cfg(feature = "track_change_detection")]
-            caller,
-        ) {
+        if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(bundles_iter, caller)
+        {
             error!(
                 "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
                 core::any::type_name::<B>(),
@@ -1758,12 +1763,7 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
     let caller = Location::caller();
     move |entity: Entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
-            entity.insert_with_caller(
-                bundle,
-                mode,
-                #[cfg(feature = "track_change_detection")]
-                caller,
-            );
+            entity.insert_with_caller(bundle, mode, caller);
         } else {
             panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
         }
@@ -1777,12 +1777,7 @@ fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityC
     move |entity: Entity, world: &mut World| {
         let value = T::from_world(world);
         if let Some(mut entity) = world.get_entity_mut(entity) {
-            entity.insert_with_caller(
-                value,
-                mode,
-                #[cfg(feature = "track_change_detection")]
-                caller,
-            );
+            entity.insert_with_caller(value, mode, caller);
         } else {
             panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
         }
@@ -1793,16 +1788,10 @@ fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityC
 /// Does nothing if the entity does not exist.
 #[track_caller]
 fn try_insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
-    #[cfg(feature = "track_change_detection")]
     let caller = Location::caller();
     move |entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
-            entity.insert_with_caller(
-                bundle,
-                mode,
-                #[cfg(feature = "track_change_detection")]
-                caller,
-            );
+            entity.insert_with_caller(bundle, mode, caller);
         }
     }
 }
@@ -1813,18 +1802,20 @@ fn try_insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
 ///
 /// - The returned `EntityCommand` must be queued for the world where `component_id` was created.
 /// - `T` must be the type represented by `component_id`.
+#[track_caller]
 unsafe fn insert_by_id<T: Send + 'static>(
     component_id: ComponentId,
     value: T,
     on_none_entity: impl FnOnce(Entity) + Send + 'static,
 ) -> impl EntityCommand {
+    let caller = Location::caller();
     move |entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             // SAFETY:
             // - `component_id` safety is ensured by the caller
             // - `ptr` is valid within the `make` block;
             OwningPtr::make(value, |ptr| unsafe {
-                entity.insert_by_id(component_id, ptr);
+                entity.insert_by_id_with_caller(component_id, ptr, caller);
             });
         } else {
             on_none_entity(entity);
@@ -1836,9 +1827,13 @@ unsafe fn insert_by_id<T: Send + 'static>(
 ///
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
-fn remove<T: Bundle>(entity: Entity, world: &mut World) {
-    if let Some(mut entity) = world.get_entity_mut(entity) {
-        entity.remove::<T>();
+#[track_caller]
+fn remove<T: Bundle>() -> impl EntityCommand {
+    let caller = Location::caller();
+    move |entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            entity.remove_with_caller::<T>(caller);
+        }
     }
 }
 
@@ -1846,10 +1841,12 @@ fn remove<T: Bundle>(entity: Entity, world: &mut World) {
 /// # Panics
 ///
 /// Panics if the provided [`ComponentId`] does not exist in the [`World`].
+#[track_caller]
 fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
+    let caller = Location::caller();
     move |entity: Entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
-            entity.remove_by_id(component_id);
+            entity.remove_by_id_with_caller(component_id, caller);
         }
     }
 }
@@ -1862,10 +1859,12 @@ fn remove_with_requires<T: Bundle>(entity: Entity, world: &mut World) {
 }
 
 /// An [`EntityCommand`] that removes all components associated with a provided entity.
+#[track_caller]
 fn clear() -> impl EntityCommand {
+    let caller = Location::caller();
     move |entity: Entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
-            entity.clear();
+            entity.clear_with_caller(caller);
         }
     }
 }
@@ -1874,9 +1873,13 @@ fn clear() -> impl EntityCommand {
 ///
 /// For a [`Bundle`] type `T`, this will remove all components except those in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
-fn retain<T: Bundle>(entity: Entity, world: &mut World) {
-    if let Some(mut entity_mut) = world.get_entity_mut(entity) {
-        entity_mut.retain::<T>();
+#[track_caller]
+fn retain<T: Bundle>() -> impl EntityCommand {
+    let caller = Location::caller();
+    move |entity: Entity, world: &mut World| {
+        if let Some(mut entity_mut) = world.get_entity_mut(entity) {
+            entity_mut.retain_with_caller::<T>(caller);
+        }
     }
 }
 

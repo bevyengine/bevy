@@ -22,7 +22,6 @@ use crate::{
 };
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::{all_tuples, HashMap, HashSet, TypeIdMap};
-#[cfg(feature = "track_change_detection")]
 use core::panic::Location;
 use core::{any::TypeId, ptr::NonNull};
 
@@ -890,7 +889,7 @@ impl<'w> BundleInserter<'w> {
         location: EntityLocation,
         bundle: T,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        caller: &'static Location<'static>,
     ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
         let add_bundle = self.add_bundle.as_ref();
@@ -904,12 +903,18 @@ impl<'w> BundleInserter<'w> {
             let mut deferred_world = self.world.into_deferred();
 
             if insert_mode == InsertMode::Replace {
-                deferred_world.trigger_on_replace(archetype, entity, add_bundle.iter_existing());
+                deferred_world.trigger_on_replace(
+                    archetype,
+                    entity,
+                    add_bundle.iter_existing(),
+                    caller,
+                );
                 if archetype.has_replace_observer() {
                     deferred_world.trigger_observers(
                         ON_REPLACE,
                         entity,
                         add_bundle.iter_existing(),
+                        caller,
                     );
                 }
             }
@@ -1077,9 +1082,9 @@ impl<'w> BundleInserter<'w> {
         // SAFETY: All components in the bundle are guaranteed to exist in the World
         // as they must be initialized before creating the BundleInfo.
         unsafe {
-            deferred_world.trigger_on_add(new_archetype, entity, add_bundle.iter_added());
+            deferred_world.trigger_on_add(new_archetype, entity, add_bundle.iter_added(), caller);
             if new_archetype.has_add_observer() {
-                deferred_world.trigger_observers(ON_ADD, entity, add_bundle.iter_added());
+                deferred_world.trigger_observers(ON_ADD, entity, add_bundle.iter_added(), caller);
             }
             match insert_mode {
                 InsertMode::Replace => {
@@ -1088,12 +1093,14 @@ impl<'w> BundleInserter<'w> {
                         new_archetype,
                         entity,
                         add_bundle.iter_inserted(),
+                        caller,
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
                             ON_INSERT,
                             entity,
                             add_bundle.iter_inserted(),
+                            caller,
                         );
                     }
                 }
@@ -1104,12 +1111,14 @@ impl<'w> BundleInserter<'w> {
                         new_archetype,
                         entity,
                         add_bundle.iter_added(),
+                        caller,
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
                             ON_INSERT,
                             entity,
                             add_bundle.iter_added(),
+                            caller,
                         );
                     }
                 }
@@ -1189,7 +1198,7 @@ impl<'w> BundleSpawner<'w> {
         &mut self,
         entity: Entity,
         bundle: T,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        caller: &'static Location<'static>,
     ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
@@ -1232,24 +1241,28 @@ impl<'w> BundleSpawner<'w> {
                 archetype,
                 entity,
                 bundle_info.iter_contributed_components(),
+                caller,
             );
             if archetype.has_add_observer() {
                 deferred_world.trigger_observers(
                     ON_ADD,
                     entity,
                     bundle_info.iter_contributed_components(),
+                    caller,
                 );
             }
             deferred_world.trigger_on_insert(
                 archetype,
                 entity,
                 bundle_info.iter_contributed_components(),
+                caller,
             );
             if archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
                     ON_INSERT,
                     entity,
                     bundle_info.iter_contributed_components(),
+                    caller,
                 );
             }
         };
@@ -1263,17 +1276,12 @@ impl<'w> BundleSpawner<'w> {
     pub unsafe fn spawn<T: Bundle>(
         &mut self,
         bundle: T,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        caller: &'static Location<'static>,
     ) -> Entity {
         let entity = self.entities().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
         unsafe {
-            self.spawn_non_existent(
-                entity,
-                bundle,
-                #[cfg(feature = "track_change_detection")]
-                caller,
-            );
+            self.spawn_non_existent(entity, bundle, caller);
         }
         entity
     }
@@ -1484,6 +1492,7 @@ fn initialize_dynamic_bundle(
 mod tests {
     use crate as bevy_ecs;
     use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
+    use core::panic::Location;
 
     #[derive(Component)]
     struct A;
@@ -1492,19 +1501,24 @@ mod tests {
     #[component(on_add = a_on_add, on_insert = a_on_insert, on_replace = a_on_replace, on_remove = a_on_remove)]
     struct AMacroHooks;
 
-    fn a_on_add(mut world: DeferredWorld, _: Entity, _: ComponentId) {
+    fn a_on_add(
+        mut world: DeferredWorld,
+        _: Entity,
+        _: ComponentId,
+        _: &'static Location<'static>,
+    ) {
         world.resource_mut::<R>().assert_order(0);
     }
 
-    fn a_on_insert<T1, T2>(mut world: DeferredWorld, _: T1, _: T2) {
+    fn a_on_insert<T1, T2>(mut world: DeferredWorld, _: T1, _: T2, _: &'static Location<'static>) {
         world.resource_mut::<R>().assert_order(1);
     }
 
-    fn a_on_replace<T1, T2>(mut world: DeferredWorld, _: T1, _: T2) {
+    fn a_on_replace<T1, T2>(mut world: DeferredWorld, _: T1, _: T2, _: &'static Location<'static>) {
         world.resource_mut::<R>().assert_order(2);
     }
 
-    fn a_on_remove<T1, T2>(mut world: DeferredWorld, _: T1, _: T2) {
+    fn a_on_remove<T1, T2>(mut world: DeferredWorld, _: T1, _: T2, _: &'static Location<'static>) {
         world.resource_mut::<R>().assert_order(3);
     }
 
@@ -1537,10 +1551,10 @@ mod tests {
         world.init_resource::<R>();
         world
             .register_component_hooks::<A>()
-            .on_add(|mut world, _, _| world.resource_mut::<R>().assert_order(0))
-            .on_insert(|mut world, _, _| world.resource_mut::<R>().assert_order(1))
-            .on_replace(|mut world, _, _| world.resource_mut::<R>().assert_order(2))
-            .on_remove(|mut world, _, _| world.resource_mut::<R>().assert_order(3));
+            .on_add(|mut world, _, _, _| world.resource_mut::<R>().assert_order(0))
+            .on_insert(|mut world, _, _, _| world.resource_mut::<R>().assert_order(1))
+            .on_replace(|mut world, _, _, _| world.resource_mut::<R>().assert_order(2))
+            .on_remove(|mut world, _, _, _| world.resource_mut::<R>().assert_order(3));
 
         let entity = world.spawn(A).id();
         world.despawn(entity);
@@ -1564,10 +1578,10 @@ mod tests {
         world.init_resource::<R>();
         world
             .register_component_hooks::<A>()
-            .on_add(|mut world, _, _| world.resource_mut::<R>().assert_order(0))
-            .on_insert(|mut world, _, _| world.resource_mut::<R>().assert_order(1))
-            .on_replace(|mut world, _, _| world.resource_mut::<R>().assert_order(2))
-            .on_remove(|mut world, _, _| world.resource_mut::<R>().assert_order(3));
+            .on_add(|mut world, _, _, _| world.resource_mut::<R>().assert_order(0))
+            .on_insert(|mut world, _, _, _| world.resource_mut::<R>().assert_order(1))
+            .on_replace(|mut world, _, _, _| world.resource_mut::<R>().assert_order(2))
+            .on_remove(|mut world, _, _, _| world.resource_mut::<R>().assert_order(3));
 
         let mut entity = world.spawn_empty();
         entity.insert(A);
@@ -1581,8 +1595,8 @@ mod tests {
         let mut world = World::new();
         world
             .register_component_hooks::<A>()
-            .on_replace(|mut world, _, _| world.resource_mut::<R>().assert_order(0))
-            .on_insert(|mut world, _, _| {
+            .on_replace(|mut world, _, _, _| world.resource_mut::<R>().assert_order(0))
+            .on_insert(|mut world, _, _, _| {
                 if let Some(mut r) = world.get_resource_mut::<R>() {
                     r.assert_order(1);
                 }
@@ -1603,22 +1617,22 @@ mod tests {
         world.init_resource::<R>();
         world
             .register_component_hooks::<A>()
-            .on_add(|mut world, entity, _| {
+            .on_add(|mut world, entity, _, _| {
                 world.resource_mut::<R>().assert_order(0);
                 world.commands().entity(entity).insert(B);
             })
-            .on_remove(|mut world, entity, _| {
+            .on_remove(|mut world, entity, _, _| {
                 world.resource_mut::<R>().assert_order(2);
                 world.commands().entity(entity).remove::<B>();
             });
 
         world
             .register_component_hooks::<B>()
-            .on_add(|mut world, entity, _| {
+            .on_add(|mut world, entity, _, _| {
                 world.resource_mut::<R>().assert_order(1);
                 world.commands().entity(entity).remove::<A>();
             })
-            .on_remove(|mut world, _, _| {
+            .on_remove(|mut world, _, _, _| {
                 world.resource_mut::<R>().assert_order(3);
             });
 
@@ -1635,27 +1649,27 @@ mod tests {
         world.init_resource::<R>();
         world
             .register_component_hooks::<A>()
-            .on_add(|mut world, entity, _| {
+            .on_add(|mut world, entity, _, _| {
                 world.resource_mut::<R>().assert_order(0);
                 world.commands().entity(entity).insert(B).insert(C);
             });
 
         world
             .register_component_hooks::<B>()
-            .on_add(|mut world, entity, _| {
+            .on_add(|mut world, entity, _, _| {
                 world.resource_mut::<R>().assert_order(1);
                 world.commands().entity(entity).insert(D);
             });
 
         world
             .register_component_hooks::<C>()
-            .on_add(|mut world, _, _| {
+            .on_add(|mut world, _, _, _| {
                 world.resource_mut::<R>().assert_order(3);
             });
 
         world
             .register_component_hooks::<D>()
-            .on_add(|mut world, _, _| {
+            .on_add(|mut world, _, _, _| {
                 world.resource_mut::<R>().assert_order(2);
             });
 

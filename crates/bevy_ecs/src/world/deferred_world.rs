@@ -1,4 +1,5 @@
 use core::ops::Deref;
+use core::panic::Location;
 
 use crate::{
     archetype::Archetype,
@@ -283,13 +284,19 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
+        caller: &'static Location<'static>,
     ) {
         if archetype.has_add_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
                 let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_add {
-                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                    hook(
+                        DeferredWorld { world: self.world },
+                        entity,
+                        component_id,
+                        caller,
+                    );
                 }
             }
         }
@@ -305,13 +312,19 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
+        caller: &'static Location<'static>,
     ) {
         if archetype.has_insert_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
                 let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_insert {
-                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                    hook(
+                        DeferredWorld { world: self.world },
+                        entity,
+                        component_id,
+                        caller,
+                    );
                 }
             }
         }
@@ -327,13 +340,19 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
+        caller: &'static Location<'static>,
     ) {
         if archetype.has_replace_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
                 let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_replace {
-                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                    hook(
+                        DeferredWorld { world: self.world },
+                        entity,
+                        component_id,
+                        caller,
+                    );
                 }
             }
         }
@@ -349,13 +368,19 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
+        caller: &'static Location<'static>,
     ) {
         if archetype.has_remove_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
                 let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_remove {
-                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                    hook(
+                        DeferredWorld { world: self.world },
+                        entity,
+                        component_id,
+                        caller,
+                    );
                 }
             }
         }
@@ -371,6 +396,7 @@ impl<'w> DeferredWorld<'w> {
         event: ComponentId,
         entity: Entity,
         components: impl Iterator<Item = ComponentId>,
+        caller: &'static Location<'static>,
     ) {
         Observers::invoke::<_>(
             self.reborrow(),
@@ -379,6 +405,7 @@ impl<'w> DeferredWorld<'w> {
             components,
             &mut (),
             &mut false,
+            caller,
         );
     }
 
@@ -394,6 +421,7 @@ impl<'w> DeferredWorld<'w> {
         components: &[ComponentId],
         data: &mut E,
         mut propagate: bool,
+        caller: &'static Location<'static>,
     ) where
         T: Traversal,
     {
@@ -405,6 +433,7 @@ impl<'w> DeferredWorld<'w> {
                 components.iter().copied(),
                 data,
                 &mut propagate,
+                caller,
             );
             if !propagate {
                 break;
