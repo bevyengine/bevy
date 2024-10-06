@@ -951,6 +951,10 @@ fn trigger_untargeted_animation_events(
         };
 
         for (index, active_animation) in player.active_animations.iter() {
+            if active_animation.paused {
+                continue;
+            }
+
             let Some(clip) = graph
                 .get(*index)
                 .and_then(|node| match &node.node_type {
