@@ -27,7 +27,7 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// Returns the topmost ancestor of the given `entity`.
     ///
     /// This may be the entity itself if it has no parent.
-    fn root_parent(&'w self, entity: Entity) -> Entity
+    fn root_ancestor(&'w self, entity: Entity) -> Entity
     where
         D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>;
 
@@ -111,13 +111,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
             .map_or(&[] as &[Entity], |children| children)
     }
 
-    fn root_parent(&'w self, entity: Entity) -> Entity
+    fn root_ancestor(&'w self, entity: Entity) -> Entity
     where
         <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
     {
         // Recursively search up the tree until we're out of parents
         match self.get(entity) {
-            Ok(parent) => self.root_parent(parent.get()),
+            Ok(parent) => self.root_ancestor(parent.get()),
             Err(_) => entity,
         }
     }
@@ -333,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn root_parent() {
+    fn root_ancestor() {
         let world = &mut World::new();
 
         let [a0, a1, a2] = core::array::from_fn(|i| world.spawn(A(i)).id());
@@ -344,9 +344,9 @@ mod tests {
         let mut system_state = SystemState::<Query<&Parent>>::new(world);
         let parent_query = system_state.get(world);
 
-        assert_eq!(a0, parent_query.root_parent(a2));
-        assert_eq!(a0, parent_query.root_parent(a1));
-        assert_eq!(a0, parent_query.root_parent(a0));
+        assert_eq!(a0, parent_query.root_ancestor(a2));
+        assert_eq!(a0, parent_query.root_ancestor(a1));
+        assert_eq!(a0, parent_query.root_ancestor(a0));
     }
 
     #[test]
