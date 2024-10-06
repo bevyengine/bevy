@@ -1,5 +1,3 @@
-use core::marker::PhantomData;
-
 use alloc::collections::VecDeque;
 
 use bevy_ecs::{
@@ -20,14 +18,14 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// Returns a slice over the [`Children`] of the given `entity`.
     ///
     /// This may be empty if the `entity` has no children.
-    fn children(&'w self, entity: Entity) -> impl Iterator<Item = Entity> + 'w
+    fn children(&'w self, entity: Entity) -> &'w [Entity]
     where
         D::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
 
     /// Returns the topmost ancestor of the given `entity`.
     ///
     /// This may be the entity itself if it has no parent.
-    fn root_parent(&'w self, entity: Entity) -> Entity
+    fn root_ancestor(&'w self, entity: Entity) -> Entity
     where
         D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>;
 
@@ -36,7 +34,9 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// Only entities which have no children are considered leaves.
     /// This will not include the entity itself, and will not include any entities which are not descendants of the entity,
     /// even if they are leaves in the same hierarchical tree.
-    fn iter_leaves(&'w self, entity: Entity) -> LeafIter<'w, 's, D, F>
+    ///
+    /// Traverses the hierarchy breadth-first.
+    fn iter_leaves(&'w self, entity: Entity) -> impl Iterator<Item = Entity> + 'w
     where
         D::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
 
@@ -103,81 +103,50 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
         self.get(entity).map(Parent::get).ok()
     }
 
-    fn children(&'w self, entity: Entity) -> impl Iterator<Item = Entity>
+    fn children(&'w self, entity: Entity) -> &'w [Entity]
     where
         <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
     {
-        // We must return the same type from both branches of the match
-        // So we've defined a throwaway enum to wrap the two types
-        enum MaybeChildrenIter {
-            Children { cursor: usize, vec: Vec<Entity> },
-            None,
-        }
-
-        impl Iterator for MaybeChildrenIter {
-            type Item = Entity;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                match self {
-                    MaybeChildrenIter::Children { cursor, vec } => {
-                        if *cursor < vec.len() {
-                            let entity = vec[*cursor];
-                            *cursor += 1;
-                            Some(entity)
-                        } else {
-                            None
-                        }
-                    }
-                    MaybeChildrenIter::None => None,
-                }
-            }
-        }
-
-        match self.get(entity) {
-            Ok(children) => MaybeChildrenIter::Children {
-                cursor: 0,
-                vec: children.to_vec(),
-            },
-            Err(_) => MaybeChildrenIter::None,
-        }
+        self.get(entity)
+            .map_or(&[] as &[Entity], |children| children)
     }
 
-    fn root_parent(&'w self, entity: Entity) -> Entity
+    fn root_ancestor(&'w self, entity: Entity) -> Entity
     where
         <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
     {
         // Recursively search up the tree until we're out of parents
         match self.get(entity) {
-            Ok(parent) => self.root_parent(parent.get()),
+            Ok(parent) => self.root_ancestor(parent.get()),
             Err(_) => entity,
         }
     }
 
-    fn iter_leaves(&'w self, entity: Entity) -> LeafIter<'w, 's, D, F>
+    fn iter_leaves(&'w self, entity: Entity) -> impl Iterator<Item = Entity>
     where
         <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
     {
-        LeafIter::new(self, entity)
+        self.iter_descendants(entity).filter(|entity| {
+            self.get(*entity)
+                // These are leaf nodes if they have the `Children` component but it's empty
+                .map(|children| children.is_empty())
+                // Or if they don't have the `Children` component at all
+                .unwrap_or(true)
+        })
     }
 
     fn iter_siblings(&'w self, entity: Entity) -> impl Iterator<Item = Entity>
     where
         D::ReadOnly: WorldQuery<Item<'w> = (Option<&'w Parent>, Option<&'w Children>)>,
     {
-        self.get(entity).into_iter().flat_map(move |(parent, _)| {
-            parent.into_iter().flat_map(move |parent| {
-                self.get(parent.get())
-                    .into_iter()
-                    .flat_map(move |(_, children)| {
-                        children
-                            .into_iter()
-                            .flat_map(move |children| {
-                                children.iter().filter(move |child| **child != entity)
-                            })
-                            .copied()
-                    })
-            })
-        })
+        self.get(entity)
+            .ok()
+            .and_then(|(maybe_parent, _)| maybe_parent.map(Parent::get))
+            .and_then(|parent| self.get(parent).ok())
+            .and_then(|(_, maybe_children)| maybe_children)
+            .into_iter()
+            .flat_map(move |children| children.iter().filter(move |child| **child != entity))
+            .copied()
     }
 
     fn iter_descendants(&'w self, entity: Entity) -> DescendantIter<'w, 's, D, F>
@@ -192,51 +161,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
         D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
     {
         AncestorIter::new(self, entity)
-    }
-}
-
-/// An [`Iterator`] of [`Entity`]s over the leaf descendants of an [`Entity`].
-pub struct LeafIter<'w, 's, D: QueryData, F: QueryFilter>
-where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
-{
-    vecdeque: VecDeque<Entity>,
-    // PERF: if this ends up resulting in too much memory being allocated, we can store the query instead
-    // like in IterDescendants
-    _phantom: PhantomData<(&'w D, &'s F)>,
-}
-
-impl<'w, 's, D: QueryData, F: QueryFilter> LeafIter<'w, 's, D, F>
-where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
-{
-    /// Returns a new [`LeafIter`].
-    pub fn new(children_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
-        let leaf_children = children_query.iter_descendants(entity).filter(|entity| {
-            children_query
-                .get(*entity)
-                // These are leaf nodes if they have the `Children` component but it's empty
-                .map(|children| children.is_empty())
-                // Or if they don't have the `Children` component at all
-                .unwrap_or(true)
-        });
-
-        LeafIter {
-            vecdeque: leaf_children.collect(),
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for LeafIter<'w, 's, D, F>
-where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
-{
-    type Item = Entity;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let entity: Entity = self.vecdeque.pop_front()?;
-        Some(entity)
     }
 }
 
@@ -370,7 +294,7 @@ mod tests {
     }
 
     #[test]
-    fn root_parent() {
+    fn root_ancestor() {
         let world = &mut World::new();
 
         let [a0, a1, a2] = core::array::from_fn(|i| world.spawn(A(i)).id());
@@ -381,9 +305,9 @@ mod tests {
         let mut system_state = SystemState::<Query<&Parent>>::new(world);
         let parent_query = system_state.get(world);
 
-        assert_eq!(a0, parent_query.root_parent(a2));
-        assert_eq!(a0, parent_query.root_parent(a1));
-        assert_eq!(a0, parent_query.root_parent(a0));
+        assert_eq!(a0, parent_query.root_ancestor(a2));
+        assert_eq!(a0, parent_query.root_ancestor(a1));
+        assert_eq!(a0, parent_query.root_ancestor(a0));
     }
 
     #[test]
