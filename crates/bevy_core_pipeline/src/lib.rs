@@ -75,6 +75,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;
 use bevy_render::prelude::Shader;
+#[cfg(not(feature = "webgl"))]
 use oit::OrderIndependentTransparencyPlugin;
 
 #[derive(Default)]
@@ -108,6 +109,8 @@ impl Plugin for CorePipelinePlugin {
                 DepthOfFieldPlugin,
                 SmaaPlugin,
                 PostProcessingPlugin,
+                // DownlevelFlags::FRAGMENT_WRITABLE_STORAGE is required for OIT
+                #[cfg(not(feature = "webgl"))]
                 OrderIndependentTransparencyPlugin,
             ));
     }
