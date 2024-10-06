@@ -31,13 +31,14 @@ fn main() {
 
 /// Used to mark a joint to be animated in the [`joint_animation`] system.
 #[derive(Component)]
-struct AnimatedJoint;
+struct AnimatedJoint(isize);
 
 /// Construct a mesh and a skeleton with 2 joints for that mesh,
 ///   and mark the second joint to be animated.
 /// It is similar to the scene defined in `models/SimpleSkin/SimpleSkin.gltf`
 fn setup(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
@@ -45,7 +46,7 @@ fn setup(
     // Create a camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(2.5, 2.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // Create inverse bindpose matrices for a skeleton consists of 2 joints
@@ -73,6 +74,23 @@ fn setup(
             [1.0, 1.5, 0.0],
             [0.0, 2.0, 0.0],
             [1.0, 2.0, 0.0],
+        ],
+    )
+    // Add UV coordinates that map the left half of the texture since its a 1 x
+    // 2 rectangle.
+    .with_inserted_attribute(
+        Mesh::ATTRIBUTE_UV_0,
+        vec![
+            [0.0, 0.00],
+            [0.5, 0.00],
+            [0.0, 0.25],
+            [0.5, 0.25],
+            [0.0, 0.50],
+            [0.5, 0.50],
+            [0.0, 0.75],
+            [0.5, 0.75],
+            [0.0, 1.00],
+            [0.5, 1.00],
         ],
     )
     // Set mesh vertex normals
@@ -130,9 +148,13 @@ fn setup(
     for i in -5..5 {
         // Create joint entities
         let joint_0 = commands
-            .spawn(Transform::from_xyz(i as f32 * 1.5, 0.0, i as f32 * 0.1))
+            .spawn(Transform::from_xyz(
+                i as f32 * 1.5,
+                0.0,
+                -(i as f32 * 0.01).abs(),
+            ))
             .id();
-        let joint_1 = commands.spawn((AnimatedJoint, Transform::IDENTITY)).id();
+        let joint_1 = commands.spawn((AnimatedJoint(i), Transform::IDENTITY)).id();
 
         // Set joint_1 as a child of joint_0.
         commands.entity(joint_0).add_children(&[joint_1]);
@@ -143,11 +165,15 @@ fn setup(
         // Create skinned mesh renderer. Note that its transform doesn't affect the position of the mesh.
         commands.spawn((
             Mesh3d(mesh.clone()),
-            MeshMaterial3d(materials.add(Color::srgb(
-                rng.gen_range(0.0..1.0),
-                rng.gen_range(0.0..1.0),
-                rng.gen_range(0.0..1.0),
-            ))),
+            MeshMaterial3d(materials.add(StandardMaterial {
+                base_color: Color::srgb(
+                    rng.gen_range(0.0..1.0),
+                    rng.gen_range(0.0..1.0),
+                    rng.gen_range(0.0..1.0),
+                ),
+                base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
+                ..default()
+            })),
             SkinnedMesh {
                 inverse_bindposes: inverse_bindposes.clone(),
                 joints: joint_entities,
@@ -157,8 +183,42 @@ fn setup(
 }
 
 /// Animate the joint marked with [`AnimatedJoint`] component.
-fn joint_animation(time: Res<Time>, mut query: Query<&mut Transform, With<AnimatedJoint>>) {
-    for mut transform in &mut query {
-        transform.rotation = Quat::from_rotation_z(FRAC_PI_2 * ops::sin(time.elapsed_seconds()));
+fn joint_animation(
+    time: Res<Time>,
+    mut query: Query<(&mut Transform, &AnimatedJoint)>,
+    mut gizmos: Gizmos,
+) {
+    for (mut transform, animated_joint) in &mut query {
+        match animated_joint.0 {
+            -5 => {
+                transform.rotation = Quat::from_rotation_x(FRAC_PI_2 * time.elapsed_seconds().sin())
+            }
+            -4 => {
+                transform.rotation = Quat::from_rotation_y(FRAC_PI_2 * time.elapsed_seconds().sin())
+            }
+            -3 => {
+                transform.rotation = Quat::from_rotation_z(FRAC_PI_2 * time.elapsed_seconds().sin())
+            }
+            -2 => transform.scale.x = time.elapsed_seconds().sin() + 1.0,
+            -1 => transform.scale.y = time.elapsed_seconds().sin() + 1.0,
+            0 => {
+                transform.translation.x = 0.5 * time.elapsed_seconds().sin();
+                transform.translation.y = time.elapsed_seconds().cos();
+            }
+            1 => {
+                transform.translation.y = time.elapsed_seconds().sin();
+                transform.translation.z = time.elapsed_seconds().cos();
+            }
+            2 => transform.translation.x = time.elapsed_seconds().sin(),
+            3 => {
+                transform.translation.y = time.elapsed_seconds().sin();
+                transform.scale.x = time.elapsed_seconds().sin() + 1.0;
+            }
+            _ => (),
+        }
+        // Show transform
+        let mut axis = *transform;
+        axis.translation.x += animated_joint.0 as f32 * 1.5;
+        gizmos.axes(axis, 1.0);
     }
 }
