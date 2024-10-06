@@ -41,7 +41,7 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     where
         D::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
 
-/// Returns an [`Iterator`] of [`Entity`]s over the `entity`s immediate siblings, who share the same parent.
+    /// Returns an [`Iterator`] of [`Entity`]s over the `entity`s immediate siblings, who share the same parent.
     ///
     /// The entity itself is not included in the iterator.
     fn iter_siblings(&'w self, entity: Entity) -> impl Iterator<Item = Entity>
