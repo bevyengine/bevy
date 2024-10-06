@@ -17,7 +17,7 @@ use bevy_ecs::system::{Res, Resource};
 use bevy_tasks::IoTaskPool;
 use core::net::{IpAddr, Ipv4Addr};
 use http_body_util::{BodyExt as _, Full};
-pub use hyper::header::{HeaderName, HeaderValue};
+use hyper::header::{HeaderName, HeaderValue};
 use hyper::{
     body::{Bytes, Incoming},
     server::conn::http1,
@@ -55,9 +55,19 @@ impl Headers {
         }
     }
 
-    /// Add a key value pair to the `Headers` instance.
-    pub fn add(mut self, key: HeaderName, value: HeaderValue) -> Self {
-        self.headers.insert(key, value);
+    /// Insert a key value pair to the `Headers` instance.
+    pub fn insert(
+        mut self,
+        name: impl TryInto<HeaderName>,
+        value: impl TryInto<HeaderValue>,
+    ) -> Self {
+        let Ok(header_name) = name.try_into() else {
+            panic!("Invalid header name")
+        };
+        let Ok(header_value) = value.try_into() else {
+            panic!("Invalid header value")
+        };
+        self.headers.insert(header_name, header_value);
         self
     }
 }
@@ -77,24 +87,6 @@ impl Default for Headers {
 /// - [`DEFAULT_ADDR`] : 127.0.0.1.
 /// - [`DEFAULT_PORT`] : 15702.
 ///
-/// /// # Example
-///
-/// ```ignore
-///
-/// // Create CORS headers
-/// let cors_headers = Headers::new()
-///     .add(HeaderName::from_static("Access-Control-Allow-Origin"), HeaderValue::from_static("*"))
-///     .add(HeaderName::from_static("Access-Control-Allow-Headers"), HeaderValue::from_static("Content-Type, Authorization"));
-///
-/// // Create the Bevy app and add the RemoteHttpPlugin with CORS headers
-/// fn main() {
-///     App::new()
-///     .add_plugins(DefaultPlugins)
-///     .add_plugins(RemoteHttpPlugin::default()
-///         .with_headers(cors_headers))
-///     .run();
-/// }
-/// ```
 pub struct RemoteHttpPlugin {
     /// The address that Bevy will bind to.
     address: IpAddr,
@@ -137,6 +129,26 @@ impl RemoteHttpPlugin {
         self
     }
     /// Set the extra headers that the response will include.
+    ///
+    /// ////// /// # Example
+    ///
+    /// ```ignore
+    ///
+    /// // Create CORS headers
+    /// let cors_headers = Headers::new()
+    ///        .insert("Access-Control-Allow-Origin", "*")
+    ///        .insert("Access-Control-Allow-Headers", "Content-Type");
+    ///
+    /// // Create the Bevy app and add the RemoteHttpPlugin with CORS headers
+    /// fn main() {
+    ///     App::new()
+    ///     .add_plugins(DefaultPlugins)
+    ///     .add_plugins(RemotePlugin::default())
+    ///     .add_plugins(RemoteHttpPlugin::default()
+    ///         .with_headers(cors_headers))
+    ///     .run();
+    /// }
+    /// ```
     #[must_use]
     pub fn with_headers(mut self, headers: Headers) -> Self {
         self.headers = headers;
@@ -149,13 +161,7 @@ impl RemoteHttpPlugin {
         name: impl TryInto<HeaderName>,
         value: impl TryInto<HeaderValue>,
     ) -> Self {
-        let Ok(header_name) = name.try_into() else {
-            panic!("Invalid header name")
-        };
-        let Ok(header_value) = value.try_into() else {
-            panic!("Invalid header value")
-        };
-        self.headers = self.headers.add(header_name, header_value);
+        self.headers = self.headers.insert(name, value);
         self
     }
 }
