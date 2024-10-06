@@ -20,7 +20,7 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// Returns a slice over the [`Children`] of the given `entity`.
     ///
     /// This may be empty if the `entity` has no children.
-    fn children(&'w self, entity: Entity) -> impl Iterator<Item = Entity> + 'w
+    fn children(&'w self, entity: Entity) -> &'w [Entity]
     where
         D::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
 
@@ -103,43 +103,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
         self.get(entity).map(Parent::get).ok()
     }
 
-    fn children(&'w self, entity: Entity) -> impl Iterator<Item = Entity>
+    fn children(&'w self, entity: Entity) -> &'w [Entity]
     where
         <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
     {
-        // We must return the same type from both branches of the match
-        // So we've defined a throwaway enum to wrap the two types
-        enum MaybeChildrenIter {
-            Children { cursor: usize, vec: Vec<Entity> },
-            None,
-        }
-
-        impl Iterator for MaybeChildrenIter {
-            type Item = Entity;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                match self {
-                    MaybeChildrenIter::Children { cursor, vec } => {
-                        if *cursor < vec.len() {
-                            let entity = vec[*cursor];
-                            *cursor += 1;
-                            Some(entity)
-                        } else {
-                            None
-                        }
-                    }
-                    MaybeChildrenIter::None => None,
-                }
-            }
-        }
-
-        match self.get(entity) {
-            Ok(children) => MaybeChildrenIter::Children {
-                cursor: 0,
-                vec: children.to_vec(),
-            },
-            Err(_) => MaybeChildrenIter::None,
-        }
+        self.get(entity)
+            .map_or(&[] as &[Entity], |children| children)
     }
 
     fn root_parent(&'w self, entity: Entity) -> Entity
