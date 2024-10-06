@@ -10,14 +10,14 @@ use bevy_ecs::{
     system::SystemState,
     world::FromWorld,
 };
+#[cfg(feature = "custom_cursor")]
+use bevy_image::Image;
 use bevy_input::{
     gestures::*,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
 use bevy_log::{error, trace, warn};
 use bevy_math::{ivec2, DVec2, Vec2};
-#[cfg(feature = "custom_cursor")]
-use bevy_render::texture::Image;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 #[cfg(feature = "custom_cursor")]

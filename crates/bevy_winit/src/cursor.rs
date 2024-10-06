@@ -17,10 +17,11 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res},
     world::{OnRemove, Ref},
 };
+use bevy_image::Image;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{render_resource::TextureFormat, texture::Image};
 use bevy_utils::{tracing::warn, HashSet};
 use bevy_window::{SystemCursorIcon, Window};
+use wgpu_types::TextureFormat;
 
 pub(crate) struct CursorPlugin;
 
