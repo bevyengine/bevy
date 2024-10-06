@@ -10,9 +10,7 @@ use bevy_ecs::{
     traversal::Traversal,
     world::{DeferredWorld, FromWorld, World},
 };
-use core::fmt::Debug;
-use core::marker::PhantomData;
-use core::ops::Deref;
+use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 
 use super::{OneToManyEvent, OneToManyMany};
 

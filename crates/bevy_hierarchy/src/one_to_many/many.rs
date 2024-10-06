@@ -9,9 +9,7 @@ use bevy_ecs::{
     event::Events,
     world::{DeferredWorld, World},
 };
-use core::fmt::Debug;
-use core::marker::PhantomData;
-use core::ops::Deref;
+use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 use smallvec::SmallVec;
 
 use super::{OneToManyEvent, OneToManyOne};

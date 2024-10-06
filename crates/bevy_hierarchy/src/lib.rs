@@ -62,8 +62,8 @@ pub use one_to_many::{OneToManyEvent, OneToManyMany, OneToManyOne};
 mod family;
 pub use family::*;
 
-mod hierarchy;
-pub use hierarchy::*;
+mod despawn_recursive;
+pub use despawn_recursive::*;
 
 mod child_builder;
 pub use child_builder::*;
@@ -79,7 +79,7 @@ pub use query_extension::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{child_builder::*, family::*, hierarchy::*, query_extension::*};
+    pub use crate::{child_builder::*, despawn_recursive::*, family::*, query_extension::*};
 
     #[doc(hidden)]
     #[cfg(feature = "bevy_app")]
