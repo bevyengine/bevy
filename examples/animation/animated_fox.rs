@@ -277,7 +277,6 @@ fn simulate_particles(
                 .velocity
                 .smooth_nudge(&Vec3::ZERO, 4.0, time.delta_seconds());
         }
-        if transform.scale.length_squared() < 0.01 {}
     }
 }
 
