@@ -1189,6 +1189,17 @@ hidden = true
 
 # Animation
 [[example]]
+name = "animation_events"
+path = "examples/animation/animation_events.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animation_events]
+name = "Animation Events"
+description = "Demonstrate how to use animation events"
+category = "Animation"
+wasm = true
+
+[[example]]
 name = "animated_fox"
 path = "examples/animation/animated_fox.rs"
 doc-scrape-examples = true
