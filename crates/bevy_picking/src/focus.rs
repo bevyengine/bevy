@@ -136,7 +136,7 @@ fn build_over_map(
             .or_insert_with(BTreeMap::new);
         for (entity, pick_data) in entities_under_pointer.picks.iter() {
             let layer = entities_under_pointer.order;
-            let hits = layer_map.entry(FloatOrd(layer)).or_insert_with(Vec::new);
+            let hits = layer_map.entry(FloatOrd(layer)).or_default();
             hits.push((*entity, pick_data.clone()));
         }
     }
@@ -159,7 +159,7 @@ fn build_hover_map(
     hover_map: &mut HoverMap,
 ) {
     for pointer_id in pointers.iter() {
-        let pointer_entity_set = hover_map.entry(*pointer_id).or_insert_with(HashMap::new);
+        let pointer_entity_set = hover_map.entry(*pointer_id).or_default();
         if let Some(layer_map) = over_map.get(pointer_id) {
             // Note we reverse here to start from the highest layer first.
             for (entity, pick_data) in layer_map.values().rev().flatten() {
