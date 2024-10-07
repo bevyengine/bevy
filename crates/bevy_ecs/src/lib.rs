@@ -1700,6 +1700,114 @@ mod tests {
     }
 
     #[test]
+    fn insert_batch() {
+        let mut world = World::default();
+        let e0 = world.spawn(A(0)).id();
+        let e1 = world.spawn(B(0)).id();
+
+        let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
+
+        world.insert_batch(values);
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(1)),
+            "first entity's A component should have been replaced"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "first entity should have received B component"
+        );
+        assert_eq!(
+            world.get::<A>(e1),
+            Some(&A(0)),
+            "second entity should have received A component"
+        );
+        assert_eq!(
+            world.get::<B>(e1),
+            Some(&B(1)),
+            "second entity's B component should have been replaced"
+        );
+    }
+
+    #[test]
+    fn insert_batch_if_new() {
+        let mut world = World::default();
+        let e0 = world.spawn(A(0)).id();
+        let e1 = world.spawn(B(0)).id();
+
+        let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
+
+        world.insert_batch_if_new(values);
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(0)),
+            "first entity's A component should not have been replaced"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "first entity should have received B component"
+        );
+        assert_eq!(
+            world.get::<A>(e1),
+            Some(&A(0)),
+            "second entity should have received A component"
+        );
+        assert_eq!(
+            world.get::<B>(e1),
+            Some(&B(0)),
+            "second entity's B component should not have been replaced"
+        );
+    }
+
+    #[test]
+    fn try_insert_batch() {
+        let mut world = World::default();
+        let e0 = world.spawn(A(0)).id();
+        let e1 = Entity::from_raw(1);
+
+        let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
+
+        world.try_insert_batch(values);
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(1)),
+            "first entity's A component should have been replaced"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "first entity should have received B component"
+        );
+    }
+
+    #[test]
+    fn try_insert_batch_if_new() {
+        let mut world = World::default();
+        let e0 = world.spawn(A(0)).id();
+        let e1 = Entity::from_raw(1);
+
+        let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
+
+        world.try_insert_batch_if_new(values);
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(0)),
+            "first entity's A component should not have been replaced"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "first entity should have received B component"
+        );
+    }
+    
+    #[test]
     fn required_components() {
         #[derive(Component)]
         #[require(Y)]
