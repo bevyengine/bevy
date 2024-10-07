@@ -5,8 +5,8 @@ use bevy::{
     core::FrameCount,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    render::view::cursor::{CursorIcon, CustomCursor},
     window::{CursorGrabMode, PresentMode, SystemCursorIcon, WindowLevel, WindowTheme},
+    winit::cursor::{CursorIcon, CustomCursor},
 };
 
 fn main() {

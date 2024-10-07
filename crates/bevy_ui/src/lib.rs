@@ -152,7 +152,9 @@ impl Plugin for UiPlugin {
                 PostUpdate,
                 (
                     CameraUpdateSystem,
-                    UiSystem::Prepare.before(UiSystem::Stack),
+                    UiSystem::Prepare
+                        .before(UiSystem::Stack)
+                        .after(bevy_animation::Animation),
                     UiSystem::Layout,
                     UiSystem::PostLayout,
                 )

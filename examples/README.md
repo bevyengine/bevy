@@ -109,6 +109,7 @@ Example | Description
 [2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method
 [2D Wireframe](../examples/2d/wireframe_2d.rs) | Showcases wireframes for 2d meshes
 [Arc 2D Meshes](../examples/2d/mesh2d_arcs.rs) | Demonstrates UV-mapping of the circular segment and sector primitives
+[CPU Drawing](../examples/2d/cpu_draw.rs) | Manually read/write the pixels of a texture
 [Custom glTF vertex attribute 2D](../examples/2d/custom_gltf_vertex_attribute.rs) | Renders a glTF mesh in 2D with a custom vertex attribute
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
@@ -193,11 +194,13 @@ Example | Description
 [Animated Fox](../examples/animation/animated_fox.rs) | Plays an animation from a skinned glTF
 [Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
 [Animated UI](../examples/animation/animated_ui.rs) | Shows how to use animation clips to animate UI properties
+[Animation Events](../examples/animation/animation_events.rs) | Demonstrate how to use animation events
 [Animation Graph](../examples/animation/animation_graph.rs) | Blends multiple animations together with a graph
 [Animation Masks](../examples/animation/animation_masks.rs) | Demonstrates animation masks
 [Color animation](../examples/animation/color_animation.rs) | Demonstrates how to animate colors using mixing and splines in different color spaces
 [Cubic Curve](../examples/animation/cubic_curve.rs) | Bezier curve example showing a cube following a cubic curve
 [Custom Skinned Mesh](../examples/animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code
+[Easing Functions](../examples/animation/easing_functions.rs) | Showcases the built-in easing functions
 [Morph Targets](../examples/animation/morph_targets.rs) | Plays an animation from a glTF file with meshes with morph targets
 [glTF Skinned Mesh](../examples/animation/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file
 
@@ -561,13 +564,13 @@ Alternatively, you can install Android Studio.
 To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
 ```sh
-cargo ndk -t <target_name> build -o <project_name>/app/src/main/jniLibs
+cargo ndk -t <target_name> -o <project_name>/app/src/main/jniLibs build
 ```
 
 For example, to compile to a 64-bit ARM platform:
 
 ```sh
-cargo ndk -t arm64-v8a build -o android_example/app/src/main/jniLibs
+cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
 ```
 
 Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them.

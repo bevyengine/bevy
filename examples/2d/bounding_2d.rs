@@ -206,7 +206,7 @@ const OFFSET_X: f32 = 125.;
 const OFFSET_Y: f32 = 75.;
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.spawn((
         SpatialBundle {
             transform: Transform::from_xyz(-OFFSET_X, OFFSET_Y, 0.),

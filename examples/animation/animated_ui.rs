@@ -144,7 +144,7 @@ fn setup(
     animation_player.play(animation_node_index).repeat();
 
     // Add a camera.
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Build the UI. We have a parent node that covers the whole screen and
     // contains the `AnimationPlayer`, as well as a child node that contains the

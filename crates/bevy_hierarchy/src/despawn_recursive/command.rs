@@ -38,8 +38,8 @@ use bevy_utils::tracing::debug;
 /// # commands.queue(command);
 /// # world.flush();
 /// #
-/// # assert!(world.get_entity(child).is_none());
-/// # assert!(world.get_entity(parent).is_none());
+/// # assert!(world.get_entity(child).is_err());
+/// # assert!(world.get_entity(parent).is_err());
 /// ```
 #[derive(Debug)]
 pub struct DespawnRecursive<C> {
@@ -112,6 +112,7 @@ fn visit_recursive_depth_first<const INCLUSIVE: bool, C: Component + VisitEntiti
 ) {
     if let Some(component) = world
         .get_entity_mut(entity)
+        .ok()
         .as_mut()
         .and_then(EntityWorldMut::take::<C>)
     {

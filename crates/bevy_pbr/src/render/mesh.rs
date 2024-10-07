@@ -163,7 +163,7 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        set_mesh_motion_vector_flags.before(RenderSet::Queue),
+                        set_mesh_motion_vector_flags.in_set(RenderSet::PrepareAssets),
                         prepare_skins.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
@@ -208,7 +208,11 @@ impl Plugin for MeshRenderPlugin {
                                 .after(prepare_view_targets),
                             collect_meshes_for_gpu_building
                                 .in_set(RenderSet::PrepareAssets)
-                                .after(allocator::allocate_and_free_meshes),
+                                .after(allocator::allocate_and_free_meshes)
+                                // This must be before
+                                // `set_mesh_motion_vector_flags` so it doesn't
+                                // overwrite those flags.
+                                .before(set_mesh_motion_vector_flags),
                         ),
                     );
             } else {
@@ -1842,11 +1846,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("TONEMAP_IN_SHADER".into());
             shader_defs.push(ShaderDefVal::UInt(
                 "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
-                23,
+                TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
             ));
             shader_defs.push(ShaderDefVal::UInt(
                 "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
-                24,
+                TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
             ));
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);

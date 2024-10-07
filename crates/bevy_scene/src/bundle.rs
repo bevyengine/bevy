@@ -180,7 +180,7 @@ mod tests {
         app.update();
 
         // the scene entity does not exist anymore
-        assert!(app.world().get_entity(scene_entity).is_none());
+        assert!(app.world().get_entity(scene_entity).is_err());
 
         // the root entity does not have any children anymore
         assert!(app.world().entity(entity).get::<Children>().is_none());

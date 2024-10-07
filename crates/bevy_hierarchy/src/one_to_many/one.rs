@@ -47,9 +47,10 @@ impl<R: 'static> OneToManyOne<R> {
         world.commands().queue(move |world: &mut World| {
             let b = world
                 .get_entity(a_id)
+                .ok()
                 .and_then(|a| a.get::<Self>())
                 .map(|a_relationship| a_relationship.entity)
-                .and_then(|b_id| world.get_entity_mut(b_id));
+                .and_then(|b_id| world.get_entity_mut(b_id).ok());
 
             let Some(mut b) = b else { return };
 
@@ -83,16 +84,18 @@ impl<R: 'static> OneToManyOne<R> {
         world.commands().queue(move |world: &mut World| {
             let a_points_to_b = world
                 .get_entity(a_id)
+                .ok()
                 .and_then(|a| a.get::<Self>())
                 .is_some_and(|a_relationship| a_relationship.entity == b_id);
 
             let b_points_to_a = world
                 .get_entity(b_id)
+                .ok()
                 .and_then(|b| b.get::<OneToManyMany<R>>())
                 .is_some_and(|b_relationship| b_relationship.contains(&a_id));
 
             if b_points_to_a && !a_points_to_b {
-                if let Some(mut b) = world.get_entity_mut(b_id) {
+                if let Ok(mut b) = world.get_entity_mut(b_id) {
                     if let Some(mut component) = b.get_mut::<OneToManyMany<R>>() {
                         component.entities_mut().retain(|&mut e| e != a_id);
 

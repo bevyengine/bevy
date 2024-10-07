@@ -60,7 +60,7 @@ pub struct RemoveChildren {
 impl Command for RemoveChildren {
     fn apply(self, world: &mut World) {
         for child in self.children {
-            let Some(mut child) = world.get_entity_mut(child) else {
+            let Ok(mut child) = world.get_entity_mut(child) else {
                 continue;
             };
             if child
@@ -81,7 +81,7 @@ pub struct ClearChildren {
 
 impl Command for ClearChildren {
     fn apply(self, world: &mut World) {
-        if let Some(mut parent) = world.get_entity_mut(self.parent) {
+        if let Ok(mut parent) = world.get_entity_mut(self.parent) {
             parent.remove::<Children>();
         }
     }
@@ -95,14 +95,14 @@ pub struct ReplaceChildren {
 
 impl Command for ReplaceChildren {
     fn apply(self, world: &mut World) {
-        if let Some(mut parent) = world.get_entity_mut(self.parent) {
+        if let Ok(mut parent) = world.get_entity_mut(self.parent) {
             parent.remove::<Children>();
         }
 
         world.flush();
 
         for child in self.children {
-            if let Some(mut child) = world.get_entity_mut(child) {
+            if let Ok(mut child) = world.get_entity_mut(child) {
                 child.insert(Parent::new(self.parent));
             }
         }
@@ -465,7 +465,7 @@ impl BuildChildren for EntityWorldMut<'_> {
         }
 
         self.world_scope(|world| {
-            if let Some(mut child) = world.get_entity_mut(child) {
+            if let Ok(mut child) = world.get_entity_mut(child) {
                 child.insert(Parent::new(parent));
             }
         });
@@ -486,7 +486,7 @@ impl BuildChildren for EntityWorldMut<'_> {
         }
         self.world_scope(move |world| {
             for &child in children {
-                if let Some(mut child) = world.get_entity_mut(child) {
+                if let Ok(mut child) = world.get_entity_mut(child) {
                     child.insert(Parent::new(parent));
                 }
             }
@@ -526,7 +526,7 @@ impl BuildChildren for EntityWorldMut<'_> {
 
         self.world_scope(move |world| {
             for &child in children {
-                if let Some(mut child) = world.get_entity_mut(child) {
+                if let Ok(mut child) = world.get_entity_mut(child) {
                     if child.get::<Parent>().is_some_and(|p| p.get() == parent) {
                         child.remove::<Parent>();
                     }
@@ -563,7 +563,7 @@ impl BuildChildren for EntityWorldMut<'_> {
         let parent = self.id();
 
         self.world_scope(|world| {
-            if let Some(mut parent) = world.get_entity_mut(parent) {
+            if let Ok(mut parent) = world.get_entity_mut(parent) {
                 parent.remove::<Children>();
             }
         });

@@ -47,6 +47,7 @@ impl<R: 'static> OneToManyMany<R> {
         world.commands().queue(move |world: &mut World| {
             let b_ids_len = world
                 .get_entity(a_id)
+                .ok()
                 .and_then(|a| a.get::<Self>())
                 .map(|a_relationship| a_relationship.entities.len());
 
@@ -55,9 +56,10 @@ impl<R: 'static> OneToManyMany<R> {
             for b_id_index in 0..b_ids_len {
                 let b = world
                     .get_entity(a_id)
+                    .ok()
                     .and_then(|a| a.get::<Self>())
                     .map(|a_relationship| a_relationship.entities[b_id_index])
-                    .and_then(|b_id| world.get_entity_mut(b_id));
+                    .and_then(|b_id| world.get_entity_mut(b_id).ok());
 
                 let Some(mut b) = b else { return };
 
@@ -90,16 +92,18 @@ impl<R: 'static> OneToManyMany<R> {
             for b_id in b_ids {
                 let a_points_to_b = world
                     .get_entity(a_id)
+                    .ok()
                     .and_then(|a| a.get::<Self>())
                     .is_some_and(|a_relationship| a_relationship.entities.contains(&b_id));
 
                 let b_points_to_a = world
                     .get_entity(b_id)
+                    .ok()
                     .and_then(|b| b.get::<OneToManyOne<R>>())
                     .is_some_and(|b_relationship| b_relationship.get() == a_id);
 
                 if b_points_to_a && !a_points_to_b {
-                    if let Some(mut b) = world.get_entity_mut(b_id) {
+                    if let Ok(mut b) = world.get_entity_mut(b_id) {
                         b.remove::<OneToManyOne<R>>();
                     }
 

@@ -464,7 +464,7 @@ mod tests {
     use taffy::TraversePartialTree;
 
     use bevy_asset::{AssetEvent, Assets};
-    use bevy_core_pipeline::core_2d::Camera2dBundle;
+    use bevy_core_pipeline::core_2d::Camera2d;
     use bevy_ecs::{
         entity::Entity,
         event::Events,
@@ -537,7 +537,7 @@ mod tests {
             },
             PrimaryWindow,
         ));
-        world.spawn(Camera2dBundle::default());
+        world.spawn(Camera2d);
 
         let mut ui_schedule = Schedule::default();
         ui_schedule.add_systems(
@@ -644,7 +644,7 @@ mod tests {
         assert!(ui_surface.camera_entity_to_taffy.is_empty());
 
         // respawn camera
-        let camera_entity = world.spawn(Camera2dBundle::default()).id();
+        let camera_entity = world.spawn(Camera2d).id();
 
         let ui_entity = world
             .spawn((NodeBundle::default(), TargetCamera(camera_entity)))
@@ -970,13 +970,13 @@ mod tests {
 
         let (mut world, mut ui_schedule) = setup_ui_test_world();
 
-        world.spawn(Camera2dBundle {
-            camera: Camera {
+        world.spawn((
+            Camera2d,
+            Camera {
                 order: 1,
                 ..default()
             },
-            ..default()
-        });
+        ));
 
         world.spawn((
             NodeBundle {

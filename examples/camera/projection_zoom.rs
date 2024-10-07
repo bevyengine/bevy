@@ -52,17 +52,12 @@ fn setup(
 
     commands.spawn((
         Name::new("Camera"),
-        Camera3dBundle {
-            projection: OrthographicProjection {
-                scaling_mode: ScalingMode::FixedVertical(
-                    camera_settings.orthographic_zoom_range.start,
-                ),
-                ..OrthographicProjection::default_3d()
-            }
-            .into(),
-            transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Projection::from(OrthographicProjection {
+            scaling_mode: ScalingMode::FixedVertical(camera_settings.orthographic_zoom_range.start),
+            ..OrthographicProjection::default_3d()
+        }),
+        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     commands.spawn((
