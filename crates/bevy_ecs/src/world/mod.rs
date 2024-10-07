@@ -2409,8 +2409,7 @@ impl World {
     /// This is faster than doing equivalent operations one-by-one.
     ///
     /// This is the same as [`World::insert_batch`], but in case of duplicate
-    /// components will leave the old values instead of replacing them with new
-    /// ones.
+    /// components it will leave the old values instead of replacing them with new ones.
     ///
     /// # Panics
     ///
@@ -2434,6 +2433,8 @@ impl World {
 
     /// Split into a new function so we can pass the calling location into the function when using
     /// as a command.
+    ///
+    /// This is called by [`World::insert_batch`] and [`World::insert_batch_if_new`]
     #[inline]
     pub(crate) fn insert_batch_with_caller<I, B>(
         &mut self,
@@ -2534,8 +2535,7 @@ impl World {
     /// This is faster than doing equivalent operations one-by-one.
     ///
     /// This is the same as [`World::try_insert_batch`], but in case of duplicate
-    /// components will leave the old values instead of replacing them with new
-    /// ones.
+    /// components it will leave the old values instead of replacing them with new ones.
     ///
     /// This function silently fails by ignoring any entities that do not exist.
     ///
@@ -2557,6 +2557,8 @@ impl World {
 
     /// Split into a new function so we can pass the calling location into the function when using
     /// as a command.
+    ///
+    /// This is called by [`World::try_insert_batch`] and [`World::try_insert_batch_if_new`]
     #[inline]
     pub(crate) fn try_insert_batch_with_caller<I, B>(
         &mut self,
