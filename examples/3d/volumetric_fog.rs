@@ -63,17 +63,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 
     // Spawn the camera.
     commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-1.7, 1.5, 4.5)
-                .looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
-            camera: Camera {
+        .spawn((
+            Camera3d::default(),
+            Camera {
                 hdr: true,
                 ..default()
             },
-            ..default()
-        })
-        .insert(Tonemapping::TonyMcMapface)
-        .insert(Bloom::default())
+            Transform::from_xyz(-1.7, 1.5, 4.5).looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
+            Tonemapping::TonyMcMapface,
+            Bloom::default(),
+        ))
         .insert(Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 1000.0,

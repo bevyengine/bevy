@@ -67,7 +67,7 @@ pub fn ui_picking(
     primary_window: Query<Entity, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     ui_stack: Res<UiStack>,
-    mut node_query: Query<NodeQuery>,
+    node_query: Query<NodeQuery>,
     mut output: EventWriter<PointerHits>,
 ) {
     // For each camera, the pointer and its position
@@ -119,7 +119,7 @@ pub fn ui_picking(
         // reverse the iterator to traverse the tree from closest nodes to furthest
         .rev()
     {
-        let Ok(node) = node_query.get_mut(*node_entity) else {
+        let Ok(node) = node_query.get(*node_entity) else {
             continue;
         };
 
@@ -183,11 +183,10 @@ pub fn ui_picking(
     for ((camera, pointer), hovered_nodes) in hit_nodes.iter() {
         // As soon as a node with a `Block` focus policy is detected, the iteration will stop on it
         // because it "captures" the interaction.
-        let mut iter = node_query.iter_many_mut(hovered_nodes.iter());
         let mut picks = Vec::new();
         let mut depth = 0.0;
 
-        while let Some(node) = iter.fetch_next() {
+        for node in node_query.iter_many(hovered_nodes) {
             let Some(camera_entity) = node
                 .target_camera
                 .map(TargetCamera::entity)

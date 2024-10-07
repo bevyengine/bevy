@@ -325,8 +325,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`Commands::spawn`]. This method should generally only be used for sharing entities across
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
     /// by default).
+    #[deprecated(since = "0.15.0", note = "use Commands::spawn instead")]
     pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands {
         self.queue(move |world: &mut World| {
+            #[allow(deprecated)]
             world.get_or_spawn(entity);
         });
         EntityCommands {
@@ -1369,6 +1371,34 @@ impl EntityCommands<'_> {
         self.queue(remove::<T>)
     }
 
+    /// Removes all components in the [`Bundle`] components and remove all required components for each component in the [`Bundle`] from entity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// #[require(B)]
+    /// struct A;
+    /// #[derive(Component, Default)]
+    /// struct B;
+    ///
+    /// #[derive(Resource)]
+    /// struct PlayerEntity { entity: Entity }
+    ///
+    /// fn remove_with_requires_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands
+    ///         .entity(player.entity)
+    ///         // Remove both A and B components from the entity, because B is required by A
+    ///         .remove_with_requires::<A>();
+    /// }
+    /// # bevy_ecs::system::assert_is_system(remove_with_requires_system);
+    /// ```
+    pub fn remove_with_requires<T: Bundle>(&mut self) -> &mut Self {
+        self.queue(remove_with_requires::<T>)
+    }
+
     /// Removes a component from the entity.
     pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
         self.queue(remove_by_id(component_id))
@@ -1729,7 +1759,7 @@ fn try_despawn() -> impl EntityCommand {
 fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
     let caller = Location::caller();
     move |entity: Entity, world: &mut World| {
-        if let Some(mut entity) = world.get_entity_mut(entity) {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
                 bundle,
                 mode,
@@ -1748,7 +1778,7 @@ fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityC
     let caller = Location::caller();
     move |entity: Entity, world: &mut World| {
         let value = T::from_world(world);
-        if let Some(mut entity) = world.get_entity_mut(entity) {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
                 value,
                 mode,
@@ -1767,8 +1797,8 @@ fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityC
 fn try_insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     #[cfg(feature = "track_change_detection")]
     let caller = Location::caller();
-    move |entity, world: &mut World| {
-        if let Some(mut entity) = world.get_entity_mut(entity) {
+    move |entity: Entity, world: &mut World| {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
                 bundle,
                 mode,
@@ -1790,8 +1820,8 @@ unsafe fn insert_by_id<T: Send + 'static>(
     value: T,
     on_none_entity: impl FnOnce(Entity) + Send + 'static,
 ) -> impl EntityCommand {
-    move |entity, world: &mut World| {
-        if let Some(mut entity) = world.get_entity_mut(entity) {
+    move |entity: Entity, world: &mut World| {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
             // SAFETY:
             // - `component_id` safety is ensured by the caller
             // - `ptr` is valid within the `make` block;
@@ -1809,7 +1839,7 @@ unsafe fn insert_by_id<T: Send + 'static>(
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn remove<T: Bundle>(entity: Entity, world: &mut World) {
-    if let Some(mut entity) = world.get_entity_mut(entity) {
+    if let Ok(mut entity) = world.get_entity_mut(entity) {
         entity.remove::<T>();
     }
 }
@@ -1820,16 +1850,23 @@ fn remove<T: Bundle>(entity: Entity, world: &mut World) {
 /// Panics if the provided [`ComponentId`] does not exist in the [`World`].
 fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
     move |entity: Entity, world: &mut World| {
-        if let Some(mut entity) = world.get_entity_mut(entity) {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.remove_by_id(component_id);
         }
+    }
+}
+
+/// An [`EntityCommand`] that remove all components in the bundle and remove all required components for each component in the bundle.
+fn remove_with_requires<T: Bundle>(entity: Entity, world: &mut World) {
+    if let Ok(mut entity) = world.get_entity_mut(entity) {
+        entity.remove_with_requires::<T>();
     }
 }
 
 /// An [`EntityCommand`] that removes all components associated with a provided entity.
 fn clear() -> impl EntityCommand {
     move |entity: Entity, world: &mut World| {
-        if let Some(mut entity) = world.get_entity_mut(entity) {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.clear();
         }
     }
@@ -1840,7 +1877,7 @@ fn clear() -> impl EntityCommand {
 /// For a [`Bundle`] type `T`, this will remove all components except those in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn retain<T: Bundle>(entity: Entity, world: &mut World) {
-    if let Some(mut entity_mut) = world.get_entity_mut(entity) {
+    if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
         entity_mut.retain::<T>();
     }
 }
@@ -1884,8 +1921,8 @@ fn log_components(entity: Entity, world: &mut World) {
 fn observe<E: Event, B: Bundle, M>(
     observer: impl IntoObserverSystem<E, B, M>,
 ) -> impl EntityCommand {
-    move |entity, world: &mut World| {
-        if let Some(mut entity) = world.get_entity_mut(entity) {
+    move |entity: Entity, world: &mut World| {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.observe_entity(observer);
         }
     }
@@ -2188,6 +2225,42 @@ mod tests {
         queue.apply(&mut world);
         assert!(!world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
+    }
+
+    #[test]
+    fn remove_component_with_required_components() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component)]
+        struct Z;
+
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        let e = {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.spawn((X, Z)).id()
+        };
+        queue.apply(&mut world);
+
+        assert!(world.get::<Y>(e).is_some());
+        assert!(world.get::<X>(e).is_some());
+        assert!(world.get::<Z>(e).is_some());
+
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(e).remove_with_requires::<X>();
+        }
+        queue.apply(&mut world);
+
+        assert!(world.get::<Y>(e).is_none());
+        assert!(world.get::<X>(e).is_none());
+
+        assert!(world.get::<Z>(e).is_some());
     }
 
     fn is_send<T: Send>() {}

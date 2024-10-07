@@ -420,6 +420,10 @@ impl AssetServer {
         infos: &mut AssetInfos,
         guard: G,
     ) {
+        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        drop(infos);
+
         let owned_handle = handle.clone();
         let server = self.clone();
         let task = IoTaskPool::get().spawn(async move {
@@ -469,6 +473,11 @@ impl AssetServer {
             HandleLoadingMode::Request,
             meta_transform,
         );
+
+        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        drop(infos);
+
         if !should_load {
             return handle;
         }
@@ -778,6 +787,11 @@ impl AssetServer {
         let mut infos = self.data.infos.write();
         let handle =
             infos.create_loading_handle_untyped(TypeId::of::<A>(), core::any::type_name::<A>());
+
+        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        drop(infos);
+
         let id = handle.id();
 
         let event_sender = self.data.asset_event_sender.clone();

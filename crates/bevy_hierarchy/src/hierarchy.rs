@@ -312,7 +312,7 @@ mod tests {
         // The parent's Children component should be removed.
         assert!(world.entity(parent).get::<Children>().is_none());
         // The child should be despawned.
-        assert!(world.get_entity(child).is_none());
+        assert!(world.get_entity(child).is_err());
     }
 
     #[test]
@@ -340,6 +340,6 @@ mod tests {
         assert!(children.is_some());
         assert_eq!(children.unwrap().len(), 2_usize);
         // The original child should be despawned.
-        assert!(world.get_entity(child).is_none());
+        assert!(world.get_entity(child).is_err());
     }
 }

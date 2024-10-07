@@ -10,7 +10,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.spawn(SpriteBundle {
         texture: asset_server.load("branding/bevy_bird_dark.png"),
         ..default()

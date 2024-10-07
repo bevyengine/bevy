@@ -132,6 +132,7 @@ default = [
   "webgl2",
   "sysinfo_plugin",
   "android-game-activity",
+  "custom_cursor",
 ]
 
 # Provides an implementation for picking sprites
@@ -346,7 +347,7 @@ android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
 # Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in
 detailed_trace = ["bevy_internal/detailed_trace"]
 
-# Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.
+# Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.
 tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "zstd"]
 
 # Include SMAA Look Up Tables KTX2 Files
@@ -416,6 +417,9 @@ track_change_detection = ["bevy_internal/track_change_detection"]
 
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
+
+# Enable winit custom cursor support
+custom_cursor = ["bevy_internal/custom_cursor"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
@@ -571,6 +575,17 @@ doc-scrape-examples = true
 [package.metadata.example.custom_gltf_vertex_attribute]
 name = "Custom glTF vertex attribute 2D"
 description = "Renders a glTF mesh in 2D with a custom vertex attribute"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "cpu_draw"
+path = "examples/2d/cpu_draw.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.cpu_draw]
+name = "CPU Drawing"
+description = "Manually read/write the pixels of a texture"
 category = "2D Rendering"
 wasm = true
 
@@ -1188,6 +1203,17 @@ doc-scrape-examples = true
 hidden = true
 
 # Animation
+[[example]]
+name = "animation_events"
+path = "examples/animation/animation_events.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animation_events]
+name = "Animation Events"
+description = "Demonstrate how to use animation events"
+category = "Animation"
+wasm = true
+
 [[example]]
 name = "animated_fox"
 path = "examples/animation/animated_fox.rs"
