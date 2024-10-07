@@ -22,6 +22,9 @@ fn setup(mut commands: Commands) {
     };
 
     for (i, functions) in [
+        easing::EaseFunction::SineIn,
+        easing::EaseFunction::SineOut,
+        easing::EaseFunction::SineInOut,
         easing::EaseFunction::QuadraticIn,
         easing::EaseFunction::QuadraticOut,
         easing::EaseFunction::QuadraticInOut,
@@ -40,9 +43,6 @@ fn setup(mut commands: Commands) {
         easing::EaseFunction::ExponentialIn,
         easing::EaseFunction::ExponentialOut,
         easing::EaseFunction::ExponentialInOut,
-        easing::EaseFunction::SineIn,
-        easing::EaseFunction::SineOut,
-        easing::EaseFunction::SineInOut,
         easing::EaseFunction::ElasticIn,
         easing::EaseFunction::ElasticOut,
         easing::EaseFunction::ElasticInOut,
