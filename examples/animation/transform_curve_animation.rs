@@ -1,5 +1,8 @@
 //! Create and play an animation defined by a `Transform`-valued curve.
 
+// We use `std` versions of trigonometry functions which are disallowed within Bevy itself.
+#![allow(clippy::disallowed_methods)]
+
 use bevy::{
     animation::{AnimationTarget, AnimationTargetId},
     math::vec3,
