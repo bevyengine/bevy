@@ -117,17 +117,21 @@ pub trait System: Send + Sync + 'static {
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool;
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        input: &SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> bool;
 
     /// Safe version of [`System::validate_param_unsafe`].
     /// that runs on exclusive, single-threaded `world` pointer.
-    fn validate_param(&mut self, world: &World) -> bool {
+    fn validate_param(&mut self, input: &SystemIn<'_, Self>, world: &World) -> bool {
         let world_cell = world.as_unsafe_world_cell_readonly();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
         // - We have exclusive access to the entire world.
         // - `update_archetype_component_access` has been called.
-        unsafe { self.validate_param_unsafe(world_cell) }
+        unsafe { self.validate_param_unsafe(input, world_cell) }
     }
 
     /// Initialize the system.
@@ -348,7 +352,7 @@ impl RunSystemOnce for &mut World {
     {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        if system.validate_param(self) {
+        if system.validate_param(&input, self) {
             Ok(system.run(input, self))
         } else {
             Err(RunSystemError::InvalidParams(system.name()))

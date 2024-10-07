@@ -88,7 +88,7 @@ use super::{IntoSystem, ReadOnlySystem, System};
     label = "invalid system combination",
     note = "the inputs and outputs of `{A}` and `{B}` are not compatible with this combiner"
 )]
-pub trait Combine<A: System, B: System> {
+pub trait Combine<A: System<In = Self::In>, B: System<In = Self::In>> {
     /// The [input](System::In) type for a [`CombinatorSystem`].
     type In: SystemInput;
 
@@ -137,8 +137,8 @@ impl<Func, A, B> CombinatorSystem<Func, A, B> {
 impl<A, B, Func> System for CombinatorSystem<Func, A, B>
 where
     Func: Combine<A, B> + 'static,
-    A: System,
-    B: System,
+    A: System<In = Func::In>,
+    B: System<In = Func::In>,
 {
     type In = Func::In;
     type Out = Func::Out;
@@ -212,9 +212,15 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        input: &SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> bool {
         // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world) }
+        unsafe {
+            self.a.validate_param_unsafe(input, world) && self.b.validate_param_unsafe(input, world)
+        }
     }
 
     fn initialize(&mut self, world: &mut World) {
@@ -259,8 +265,8 @@ where
 unsafe impl<Func, A, B> ReadOnlySystem for CombinatorSystem<Func, A, B>
 where
     Func: Combine<A, B> + 'static,
-    A: ReadOnlySystem,
-    B: ReadOnlySystem,
+    A: ReadOnlySystem<In = Func::In>,
+    B: ReadOnlySystem<In = Func::In>,
 {
 }
 
@@ -431,13 +437,21 @@ where
         self.b.queue_deferred(world);
     }
 
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        input: &SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> bool {
         // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world) }
+        unsafe {
+            // TODO
+            self.a.validate_param_unsafe(input, world) /* && self.b.validate_param_unsafe(input, world) */
+        }
     }
 
-    fn validate_param(&mut self, world: &World) -> bool {
-        self.a.validate_param(world) && self.b.validate_param(world)
+    fn validate_param(&mut self, input: &SystemIn<'_, Self>, world: &World) -> bool {
+        // TODO
+        self.a.validate_param(input, world) /* && self.b.validate_param(input, world) */
     }
 
     fn initialize(&mut self, world: &mut World) {

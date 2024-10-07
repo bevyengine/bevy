@@ -374,7 +374,7 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     // - system is the same type erased system from above
     unsafe {
         (*system).update_archetype_component_access(world);
-        if (*system).validate_param_unsafe(world) {
+        if (*system).validate_param_unsafe(&trigger, world) {
             (*system).run_unsafe(trigger, world);
             (*system).queue_deferred(world.into_deferred());
         }

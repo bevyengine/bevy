@@ -4,7 +4,8 @@ use crate::{
     prelude::QueryBuilder,
     query::{QueryData, QueryFilter, QueryState},
     system::{
-        DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam,
+        DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemInput, SystemMeta,
+        SystemParam,
     },
     world::{
         FilteredResources, FilteredResourcesBuilder, FilteredResourcesMut,
@@ -116,7 +117,7 @@ pub unsafe trait SystemParamBuilder<P: SystemParam>: Sized {
 
     /// Create a [`SystemState`] from a [`SystemParamBuilder`].
     /// To create a system, call [`SystemState::build_system`] on the result.
-    fn build_state(self, world: &mut World) -> SystemState<P> {
+    fn build_state<In: SystemInput>(self, world: &mut World) -> SystemState<P, In> {
         SystemState::from_builder(world, self)
     }
 }

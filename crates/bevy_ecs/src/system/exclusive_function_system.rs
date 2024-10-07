@@ -4,8 +4,9 @@ use crate::{
     query::Access,
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
-        System, SystemIn, SystemInput, SystemMeta,
+        check_system_change_tick, ExclusiveSystemInput, ExclusiveSystemParam,
+        ExclusiveSystemParamItem, IntoSystem, System, SystemIn, SystemInput, SystemInputItem,
+        SystemMeta, SYSTEM_INPUT_NOT_FOUND, SYSTEM_PARAM_NOT_FOUND,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -25,6 +26,7 @@ where
     F: ExclusiveSystemParamFunction<Marker>,
 {
     func: F,
+    input_state: Option<<F::In as SystemInput>::State>,
     param_state: Option<<F::Param as ExclusiveSystemParam>::State>,
     system_meta: SystemMeta,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
@@ -57,14 +59,13 @@ where
     fn into_system(func: Self) -> Self::System {
         ExclusiveFunctionSystem {
             func,
+            input_state: None,
             param_state: None,
             system_meta: SystemMeta::new::<F>(),
             marker: PhantomData,
         }
     }
 }
-
-const PARAM_MESSAGE: &str = "System's param_state was not found. Did you forget to initialize this system before running it?";
 
 impl<Marker, F> System for ExclusiveFunctionSystem<Marker, F>
 where
@@ -122,8 +123,13 @@ where
             #[cfg(feature = "trace")]
             let _span_guard = self.system_meta.system_span.enter();
 
+            let input = F::In::get_einput(
+                input,
+                self.input_state.as_mut().expect(SYSTEM_INPUT_NOT_FOUND),
+                &self.system_meta,
+            );
             let params = F::Param::get_param(
-                self.param_state.as_mut().expect(PARAM_MESSAGE),
+                self.param_state.as_mut().expect(SYSTEM_PARAM_NOT_FOUND),
                 &self.system_meta,
             );
             let out = self.func.run(world, input, params);
@@ -150,7 +156,11 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, _world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        _input: &SystemIn<'_, Self>,
+        _world: UnsafeWorldCell,
+    ) -> bool {
         // All exclusive system params are always available.
         true
     }
@@ -196,7 +206,7 @@ where
 )]
 pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
     /// The input type to this system. See [`System::In`].
-    type In: SystemInput;
+    type In: ExclusiveSystemInput;
 
     /// The return type of this system. See [`System::Out`].
     type Out;
@@ -208,7 +218,7 @@ pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
     fn run(
         &mut self,
         world: &mut World,
-        input: <Self::In as SystemInput>::Inner<'_>,
+        input: SystemInputItem<Self::In>,
         param_value: ExclusiveSystemParamItem<Self::Param>,
     ) -> Self::Out;
 }
@@ -255,26 +265,26 @@ macro_rules! impl_exclusive_system_function {
             Func: Send + Sync + 'static,
             for <'a> &'a mut Func:
                 FnMut(In, &mut World, $($param),*) -> Out +
-                FnMut(In::Param<'_>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
-            In: SystemInput + 'static,
+                FnMut(SystemInputItem<In>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
+            In: ExclusiveSystemInput + 'static,
             Out: 'static,
         {
             type In = In;
             type Out = Out;
             type Param = ($($param,)*);
             #[inline]
-            fn run(&mut self, world: &mut World, input: In::Inner<'_>, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
+            fn run(&mut self, world: &mut World, input: SystemInputItem<Self::In>, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
-                fn call_inner<In: SystemInput, Out, $($param,)*>(
-                    mut f: impl FnMut(In::Param<'_>, &mut World, $($param,)*) -> Out,
-                    input: In::Inner<'_>,
+                fn call_inner<In: ExclusiveSystemInput, Out, $($param,)*>(
+                    mut f: impl FnMut(SystemInputItem<In>, &mut World, $($param,)*) -> Out,
+                    input: SystemInputItem<In>,
                     world: &mut World,
                     $($param: $param,)*
                 ) -> Out {
-                    f(In::wrap(input), world, $($param,)*)
+                    f(input, world, $($param,)*)
                 }
                 let ($($param,)*) = param_value;
                 call_inner(self, input, world, $($param),*)
