@@ -1288,12 +1288,12 @@ category = "Animation"
 wasm = true
 
 [[example]]
-name = "transform_curve"
-path = "examples/animation/transform_curve.rs"
+name = "transform_curve_animation"
+path = "examples/animation/transform_curve_animation.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.transform_curve]
-name = "Transform Curve"
+[package.metadata.example.transform_curve_animation]
+name = "Transform Curve Animation"
 description = "Direct animation of an entity's Transform using curves"
 category = "Animation"
 wasm = true

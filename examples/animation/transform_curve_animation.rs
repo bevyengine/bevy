@@ -1,4 +1,4 @@
-//! Create and play an animation defined by a curve valued in `Transform`.
+//! Create and play an animation defined by a `Transform`-valued curve.
 
 use bevy::{
     animation::{AnimationTarget, AnimationTargetId},
