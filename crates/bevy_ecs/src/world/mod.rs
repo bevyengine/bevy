@@ -2270,7 +2270,7 @@ impl World {
     ///
     /// This function will panic if any of the associated entities do not exist.
     ///
-    /// To avoid a panic in this case, use [`World::try_insert_batch`] instead.
+    /// For the non-panicking version, see [`World::try_insert_batch`].
     #[track_caller]
     pub fn insert_batch<I, B>(&mut self, iter: I)
     where
@@ -2297,7 +2297,7 @@ impl World {
     ///
     /// This function will panic if any of the associated entities do not exist.
     ///
-    /// To avoid a panic in this case, use [`World::try_insert_batch_if_new`] instead.
+    /// For the non-panicking version, see [`World::try_insert_batch_if_new`].
     #[track_caller]
     pub fn insert_batch_if_new<I, B>(&mut self, iter: I)
     where
@@ -2363,6 +2363,15 @@ impl World {
         };
     }
 
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs, 
+    /// adds the [`Bundle`] of components to each [`Entity`].
+    /// 
+    /// This will overwrite any previous value(s) of components shared by the [`Bundle`].
+    /// See [`World::try_insert_batch_if_new`] to keep the old value(s) instead.
+    /// 
+    /// This function silently fails by ignoring any entities that do not exist.
+    /// 
+    /// For the panicking version, see [`World::insert_batch`].
     #[track_caller]
     pub fn try_insert_batch<I, B>(&mut self, iter: I)
     where
@@ -2377,7 +2386,16 @@ impl World {
             Location::caller(),
         )
     }
-
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs, 
+    /// adds the [`Bundle`] of components to each [`Entity`] without overwriting.
+    /// 
+    /// This is the same as [`World::try_insert_batch`], but in case of duplicate
+    /// components will leave the old values instead of replacing them with new
+    /// ones.
+    /// 
+    /// This function silently fails by ignoring any entities that do not exist.
+    /// 
+    /// For the panicking version, see [`World::insert_batch_if_new`].
     #[track_caller]
     pub fn try_insert_batch_if_new<I, B>(&mut self, iter: I)
     where
