@@ -2335,28 +2335,55 @@ impl World {
         let bundle_id = self
             .bundles
             .register_info::<B>(&mut self.components, &mut self.storages);
+
+        let mut inserter_with_archetype: Option<(BundleInserter, ArchetypeId)> = None;
+
+        // `insert_or_spawn_batch_with_caller` does this implicitly with a `BundleSpawner`,
+        // but we only need the world cell here
+        let world_cell = self.as_unsafe_world_cell();
         
         for (entity, bundle) in iter {
-            if let Some(location) = self.entities.get(entity) {
-                // SAFETY: we initialized this bundle_id in `register_info`
-                let mut bundle_inserter = unsafe {
-                    BundleInserter::new_with_id(
-                        self, 
-                        location.archetype_id, 
-                        bundle_id, 
-                        change_tick
-                    )
-                };
-                unsafe {
-                    bundle_inserter.insert(
-                        entity,
-                        location,
-                        bundle,
-                        insert_mode,
-                        #[cfg(feature = "track_change_detection")]
-                        caller,
-                    )
-                };
+            if let Some(location) = world_cell.entities().get(entity) {
+                match inserter_with_archetype {
+                    Some((ref mut inserter, archetype)) 
+                        if location.archetype_id == archetype => 
+                    {
+                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                        unsafe {
+                            inserter.insert(
+                                entity,
+                                location,
+                                bundle,
+                                insert_mode,
+                                #[cfg(feature = "track_change_detection")]
+                                caller,
+                            )
+                        };
+                    }
+                    _ => {
+                        // SAFETY: we initialized this bundle_id in `register_info`
+                        let mut inserter = unsafe {
+                            BundleInserter::new_with_id(
+                                world_cell.world_mut(), 
+                                location.archetype_id, 
+                                bundle_id, 
+                                change_tick
+                            )
+                        };
+                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                        unsafe {
+                            inserter.insert(
+                                entity,
+                                location,
+                                bundle,
+                                insert_mode,
+                                #[cfg(feature = "track_change_detection")]
+                                caller,
+                            )   
+                        };
+                        inserter_with_archetype = Some((inserter, location.archetype_id));
+                    }
+                }
             } else {
                 panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), entity);
             };
@@ -2433,29 +2460,57 @@ impl World {
         let bundle_id = self
             .bundles
             .register_info::<B>(&mut self.components, &mut self.storages);
+
+        let mut inserter_with_archetype: Option<(BundleInserter, ArchetypeId)> = None;
+
+        // `insert_or_spawn_batch_with_caller` does this implicitly with a `BundleSpawner`,
+        // but we only need the world cell here
+        let world_cell = self.as_unsafe_world_cell();
         
         for (entity, bundle) in iter {
-            if let Some(location) = self.entities.get(entity) {
-                let mut bundle_inserter = unsafe {
-                    BundleInserter::new_with_id(
-                        self, 
-                        location.archetype_id, 
-                        bundle_id, 
-                        change_tick
-                    )
-                };
-                unsafe {
-                    bundle_inserter.insert(
-                        entity,
-                        location,
-                        bundle,
-                        insert_mode,
-                        #[cfg(feature = "track_change_detection")]
-                        caller,
-                    )
-                };
-            };
-        };
+            if let Some(location) = world_cell.entities().get(entity) {
+                match inserter_with_archetype {
+                    Some((ref mut inserter, archetype)) 
+                        if location.archetype_id == archetype => 
+                    {
+                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                        unsafe {
+                            inserter.insert(
+                                entity,
+                                location,
+                                bundle,
+                                insert_mode,
+                                #[cfg(feature = "track_change_detection")]
+                                caller,
+                            )
+                        };
+                    }
+                    _ => {
+                        // SAFETY: we initialized this bundle_id in `register_info`
+                        let mut inserter = unsafe {
+                            BundleInserter::new_with_id(
+                                world_cell.world_mut(), 
+                                location.archetype_id, 
+                                bundle_id, 
+                                change_tick
+                            )
+                        };
+                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                        unsafe {
+                            inserter.insert(
+                                entity,
+                                location,
+                                bundle,
+                                insert_mode,
+                                #[cfg(feature = "track_change_detection")]
+                                caller,
+                            )   
+                        };
+                        inserter_with_archetype = Some((inserter, location.archetype_id));
+                    }
+                }
+            }
+        }
     }
 
     /// Temporarily removes the requested resource from this [`World`], runs custom user code,
