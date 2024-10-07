@@ -57,10 +57,11 @@ impl DerefMut for LineGizmoAsset {
 ///
 ///     commands.spawn(LineGizmo {
 ///         handle: linegizmos.add(linegizmo),
-///         config: GizmoConfig {
-///             line_width: 3.,
+///         config: LineGizmoConfig {
+///             width: 4.,
 ///             ..default()
 ///         },
+///         ..default()
 ///     });
 /// }
 /// ```
