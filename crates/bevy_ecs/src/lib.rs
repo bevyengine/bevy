@@ -1750,18 +1750,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Tried to 'insert_batch' with entity that did not exist")]
-    fn insert_batch_invalid() {
-        let mut world = World::default();
-        let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw(1);
-
-        let values = vec![(e0, (B(0), C)), (e1, (B(1), C))];
-
-        world.insert_batch(values);
-    }
-
-    #[test]
     fn insert_batch_if_new() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();

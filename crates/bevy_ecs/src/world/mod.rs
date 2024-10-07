@@ -2283,7 +2283,7 @@ impl World {
             InsertMode::Replace,
             #[cfg(feature = "track_change_detection")]
             Location::caller(),
-        )
+        );
     }
 
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
@@ -2311,7 +2311,7 @@ impl World {
             InsertMode::Keep,
             #[cfg(feature = "track_change_detection")]
             Location::caller(),
-        )
+        );
     }
 
     /// Split into a new function so we can pass the calling location into the function when using
@@ -2409,7 +2409,7 @@ impl World {
             InsertMode::Replace,
             #[cfg(feature = "track_change_detection")]
             Location::caller(),
-        )
+        );
     }
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
     /// adds the `Bundle` of components to each `Entity` without overwriting.
@@ -2434,7 +2434,7 @@ impl World {
             InsertMode::Keep,
             #[cfg(feature = "track_change_detection")]
             Location::caller(),
-        )
+        );
     }
 
     /// Split into a new function so we can pass the calling location into the function when using
