@@ -6,7 +6,7 @@
 //! |:-------------|:---------------------|
 //! | Space        | Trigger screen shake |
 
-use bevy::{prelude::*, render::camera::{Viewport, SubCameraView}, sprite::MeshMaterial2d};
+use bevy::{prelude::*, render::camera::SubCameraView, sprite::MeshMaterial2d};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -16,7 +16,7 @@ const TRAUMA_INCREMENT: f32 = 1.0; // Increment of trauma per frame when holding
 
 // screen_shake parameters, maximum addition by frame not actual maximum overall values
 const MAX_ANGLE: f32 = 0.5;
-const MAX_OFFSET: f32 = 0.5;
+const MAX_OFFSET: f32 = 500.0;
 
 #[derive(Component)]
 struct Player;
@@ -76,27 +76,14 @@ fn setup_instructions(mut commands: Commands) {
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn((
-        Camera2d::default(),
+        Camera2d,
         Camera {
-            viewport: Option::from(Viewport {
-                physical_size: UVec2::new(3000, 2100),
-                physical_position: UVec2::new(0, 0),
-                ..default()
-            }),
             sub_camera_view: Some(SubCameraView {
-                // Set the sub view camera to the right half of the full image
-                //
-                // The values of `full_size` and `size` do not have to be the
-                // exact values of your physical viewport. The important part is
-                // the ratio between them.
                 full_size: UVec2::new(1000, 700),
-                // The `offset` is also relative to the values in `full_size`
-                // and `size`
                 offset: Vec2::new(0.0, 0.0),
                 size: UVec2::new(1000, 700),
-                //..default()
             }),
-            order:1,
+            order: 1,
             ..default()
         },
     ));
