@@ -19,7 +19,7 @@ impl Component for ObservedBy {
             };
             for e in observed_by {
                 let (total_entities, despawned_watched_entities) = {
-                    let Some(mut entity_mut) = world.get_entity_mut(e) else {
+                    let Ok(mut entity_mut) = world.get_entity_mut(e) else {
                         continue;
                     };
                     let Some(mut state) = entity_mut.get_mut::<ObserverState>() else {
