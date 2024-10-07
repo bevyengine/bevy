@@ -36,16 +36,13 @@ fn setup(
     // Create and save a handle to the mesh.
     let cube_mesh_handle: Handle<Mesh> = meshes.add(create_cube_mesh());
 
-    // Render the mesh with the custom texture using a PbrBundle, add the marker.
+    // Render the mesh with the custom texture, and add the marker.
     commands.spawn((
-        PbrBundle {
-            mesh: cube_mesh_handle,
-            material: materials.add(StandardMaterial {
-                base_color_texture: Some(custom_texture_handle),
-                ..default()
-            }),
+        Mesh3d(cube_mesh_handle),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color_texture: Some(custom_texture_handle),
             ..default()
-        },
+        })),
         CustomUV,
     ));
 
@@ -54,10 +51,7 @@ fn setup(
         Transform::from_xyz(1.8, 1.8, 1.8).looking_at(Vec3::ZERO, Vec3::Y);
 
     // Camera in 3D space.
-    commands.spawn(Camera3dBundle {
-        transform: camera_and_light_transform,
-        ..default()
-    });
+    commands.spawn((Camera3d::default(), camera_and_light_transform));
 
     // Light up the scene.
     commands.spawn((PointLight::default(), camera_and_light_transform));
@@ -81,7 +75,7 @@ fn setup(
 // check out examples/input/ for more examples about user input.
 fn input_handler(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mesh_query: Query<&Handle<Mesh>, With<CustomUV>>,
+    mesh_query: Query<&Mesh3d, With<CustomUV>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut query: Query<&mut Transform, With<CustomUV>>,
     time: Res<Time>,

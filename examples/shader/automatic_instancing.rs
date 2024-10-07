@@ -17,10 +17,10 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 8.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 48.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
     // light
     commands.spawn((
         PointLight {
@@ -38,14 +38,13 @@ fn setup(
     for x in -5..5 {
         for y in -5..5 {
             for z in -5..5 {
-                commands.spawn(PbrBundle {
+                commands.spawn((
                     // For automatic instancing to take effect you need to
                     // use the same mesh handle and material handle for each instance
-                    mesh: mesh.clone(),
-                    material: material.clone(),
-                    transform: Transform::from_xyz(x as f32, y as f32, z as f32),
-                    ..default()
-                });
+                    Mesh3d(mesh.clone()),
+                    MeshMaterial3d(material.clone()),
+                    Transform::from_xyz(x as f32, y as f32, z as f32),
+                ));
             }
         }
     }

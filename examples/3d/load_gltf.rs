@@ -17,11 +17,8 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -46,11 +43,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         }
         .build(),
     ));
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+    )));
 }
 
 fn animate_light_direction(

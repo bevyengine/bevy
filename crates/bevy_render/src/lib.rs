@@ -54,10 +54,13 @@ pub mod prelude {
             Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
         },
-        mesh::{morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh},
+        mesh::{
+            morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d,
+            Mesh3d,
+        },
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
-        texture::{image_texture_conversion::IntoDynamicImageError, Image, ImagePlugin},
+        texture::{Image, ImagePlugin, IntoDynamicImageError},
         view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
         ExtractSchedule,
     };
@@ -81,7 +84,7 @@ use world_sync::{
 use crate::gpu_readback::GpuReadbackPlugin;
 use crate::{
     camera::CameraPlugin,
-    mesh::{morph::MorphPlugin, MeshPlugin, RenderMesh},
+    mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance, WgpuWrapper},

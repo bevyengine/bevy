@@ -71,7 +71,7 @@ struct ExplodeMines {
 struct Explode;
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.spawn(
         TextBundle::from_section(
             "Click on a \"Mine\" to trigger it.\n\
@@ -149,7 +149,7 @@ fn on_remove_mine(
 fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands) {
     // If a triggered event is targeting a specific entity you can access it with `.entity()`
     let id = trigger.entity();
-    let Some(entity) = commands.get_entity(id) else {
+    let Some(mut entity) = commands.get_entity(id) else {
         return;
     };
     info!("Boom! {:?} exploded.", id.index());

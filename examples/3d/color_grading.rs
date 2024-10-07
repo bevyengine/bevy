@@ -352,16 +352,13 @@ fn add_text<'a>(
 
 fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading: ColorGrading) {
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-            color_grading,
+        Camera3d::default(),
+        Camera {
+            hdr: true,
             ..default()
         },
+        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        color_grading,
         DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
@@ -381,21 +378,18 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
 
 fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
     // Spawn the main scene.
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
-        ),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
+    )));
 
     // Spawn the flight helmet.
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-        transform: Transform::from_xyz(0.5, 0.0, -0.5)
-            .with_rotation(Quat::from_rotation_y(-0.15 * PI)),
-        ..default()
-    });
+    commands.spawn((
+        SceneRoot(
+            asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+        ),
+        Transform::from_xyz(0.5, 0.0, -0.5).with_rotation(Quat::from_rotation_y(-0.15 * PI)),
+    ));
 
     // Spawn the light.
     commands.spawn((

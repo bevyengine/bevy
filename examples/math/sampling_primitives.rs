@@ -282,17 +282,16 @@ fn setup(
     commands.insert_resource(RandomSource(seeded_rng));
 
     // Make a plane for establishing space.
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::srgb(0.3, 0.5, 0.3),
             perceptual_roughness: 0.95,
             metallic: 0.0,
             ..default()
-        }),
-        transform: Transform::from_xyz(0.0, -2.5, 0.0),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, -2.5, 0.0),
+    ));
 
     let shape_material = materials.add(StandardMaterial {
         base_color: Color::srgba(0.2, 0.1, 0.6, 0.3),
@@ -305,12 +304,11 @@ fn setup(
     // Spawn shapes to be sampled
     for (shape, translation) in shapes.0.iter() {
         // The sampled shape shown transparently:
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(shape.mesh()),
-            material: shape_material.clone(),
-            transform: Transform::from_translation(*translation),
-            ..default()
-        });
+        commands.spawn((
+            Mesh3d(meshes.add(shape.mesh())),
+            MeshMaterial3d(shape_material.clone()),
+            Transform::from_translation(*translation),
+        ));
 
         // Lights which work as the bulk lighting of the fireflies:
         commands.spawn((
@@ -340,16 +338,14 @@ fn setup(
 
     // A camera:
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true, // HDR is required for bloom
-                clear_color: ClearColorConfig::Custom(SKY_COLOR),
-                ..default()
-            },
-            tonemapping: Tonemapping::TonyMcMapface,
-            transform: Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Camera3d::default(),
+        Camera {
+            hdr: true, // HDR is required for bloom
+            clear_color: ClearColorConfig::Custom(SKY_COLOR),
             ..default()
         },
+        Tonemapping::TonyMcMapface,
+        Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         Bloom::NATURAL,
         CameraRig {
             yaw: 0.56,
@@ -596,15 +592,12 @@ fn spawn_points(
 
         // Spawn a sphere at the random location:
         commands.spawn((
-            PbrBundle {
-                mesh: sample_mesh.0.clone(),
-                material: match *mode {
-                    SamplingMode::Interior => sample_material.interior.clone(),
-                    SamplingMode::Boundary => sample_material.boundary.clone(),
-                },
-                transform: Transform::from_translation(sample).with_scale(Vec3::ZERO),
-                ..default()
-            },
+            Mesh3d(sample_mesh.0.clone()),
+            MeshMaterial3d(match *mode {
+                SamplingMode::Interior => sample_material.interior.clone(),
+                SamplingMode::Boundary => sample_material.boundary.clone(),
+            }),
+            Transform::from_translation(sample).with_scale(Vec3::ZERO),
             SamplePoint,
             SpawningPoint { progress: 0.0 },
         ));

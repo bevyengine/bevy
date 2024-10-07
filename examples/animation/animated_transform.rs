@@ -26,10 +26,10 @@ fn setup(
     mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     // Camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // Light
     commands.spawn((
@@ -134,11 +134,8 @@ fn setup(
     // First entity is the planet
     let planet_entity = commands
         .spawn((
-            PbrBundle {
-                mesh: meshes.add(Sphere::default()),
-                material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-                ..default()
-            },
+            Mesh3d(meshes.add(Sphere::default())),
+            MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
             // Add the animation graph and player
             planet,
             graphs.add(graph),
@@ -164,12 +161,9 @@ fn setup(
             .with_children(|p| {
                 // The satellite, placed at a distance of the planet
                 p.spawn((
-                    PbrBundle {
-                        transform: Transform::from_xyz(1.5, 0.0, 0.0),
-                        mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-                        material: materials.add(Color::srgb(0.3, 0.9, 0.3)),
-                        ..default()
-                    },
+                    Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
+                    MeshMaterial3d(materials.add(Color::srgb(0.3, 0.9, 0.3))),
+                    Transform::from_xyz(1.5, 0.0, 0.0),
                     AnimationTarget {
                         id: satellite_animation_target_id,
                         player: planet_entity,

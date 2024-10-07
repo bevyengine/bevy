@@ -13,7 +13,7 @@
 use bevy::{
     core_pipeline::{
         bloom::Bloom,
-        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+        experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
     },
     pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
@@ -49,17 +49,13 @@ fn setup(
 ) {
     // Spawn camera with temporal anti-aliasing and a VolumetricFog configuration.
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 2.0, 0.0)
-                .looking_at(Vec3::new(-5.0, 3.5, -6.0), Vec3::Y),
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            msaa: Msaa::Off,
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 2.0, 0.0).looking_at(Vec3::new(-5.0, 3.5, -6.0), Vec3::Y),
+        Camera {
+            hdr: true,
             ..default()
         },
-        TemporalAntiAliasBundle::default(),
+        TemporalAntiAliasing::default(),
         Bloom::default(),
         VolumetricFog {
             ambient_intensity: 0.0,
@@ -79,24 +75,22 @@ fn setup(
     ));
 
     // Spawn ground mesh.
-    commands.spawn(PbrBundle {
-        transform: Transform::from_xyz(0.0, -0.5, 0.0),
-        mesh: meshes.add(Cuboid::new(64.0, 1.0, 64.0)),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(64.0, 1.0, 64.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::BLACK,
             perceptual_roughness: 1.0,
             ..default()
-        }),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, -0.5, 0.0),
+    ));
 
     // Spawn pillar standing between the camera and the sun.
-    commands.spawn(PbrBundle {
-        transform: Transform::from_xyz(-10.0, 4.5, -11.0),
-        mesh: meshes.add(Cuboid::new(2.0, 9.0, 2.0)),
-        material: materials.add(Color::BLACK),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(2.0, 9.0, 2.0))),
+        MeshMaterial3d(materials.add(Color::BLACK)),
+        Transform::from_xyz(-10.0, 4.5, -11.0),
+    ));
 
     // Load a repeating 3d noise texture. Make sure to set ImageAddressMode to Repeat
     // so that the texture wraps around as the density texture offset is moved along.

@@ -131,6 +131,8 @@ default = [
   "default_font",
   "webgl2",
   "sysinfo_plugin",
+  "android-game-activity",
+  "custom_cursor",
 ]
 
 # Provides an implementation for picking sprites
@@ -327,6 +329,12 @@ wayland = ["bevy_internal/wayland"]
 # X11 display server support
 x11 = ["bevy_internal/x11"]
 
+# Android NativeActivity support. Legacy, should be avoided for most new Android games.
+android-native-activity = ["bevy_internal/android-native-activity"]
+
+# Android GameActivity support. Default, choose between this and `android-native-activity`.
+android-game-activity = ["bevy_internal/android-game-activity"]
+
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
@@ -339,7 +347,7 @@ android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
 # Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in
 detailed_trace = ["bevy_internal/detailed_trace"]
 
-# Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.
+# Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.
 tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "zstd"]
 
 # Include SMAA Look Up Tables KTX2 Files
@@ -409,6 +417,9 @@ track_change_detection = ["bevy_internal/track_change_detection"]
 
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
+
+# Enable winit custom cursor support
+custom_cursor = ["bevy_internal/custom_cursor"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
@@ -1181,6 +1192,17 @@ doc-scrape-examples = true
 hidden = true
 
 # Animation
+[[example]]
+name = "animation_events"
+path = "examples/animation/animation_events.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animation_events]
+name = "Animation Events"
+description = "Demonstrate how to use animation events"
+category = "Animation"
+wasm = true
+
 [[example]]
 name = "animated_fox"
 path = "examples/animation/animated_fox.rs"
@@ -2962,6 +2984,17 @@ doc-scrape-examples = true
 [package.metadata.example.text_wrap_debug]
 name = "Text Wrap Debug"
 description = "Demonstrates text wrapping"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ghost_nodes"
+path = "examples/ui/ghost_nodes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ghost_nodes]
+name = "Ghost Nodes"
+description = "Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy"
 category = "UI (User Interface)"
 wasm = true
 

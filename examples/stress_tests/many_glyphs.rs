@@ -9,7 +9,7 @@ use bevy::{
     color::palettes::basic::RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::{BreakLineOn, TextBounds},
+    text::{LineBreak, TextBounds},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -44,7 +44,7 @@ fn main() {
 fn setup(mut commands: Commands) {
     warn!(include_str!("warning_string.txt"));
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     let mut text = Text {
         sections: vec![TextSection {
             value: "0123456789".repeat(10_000),
@@ -54,7 +54,7 @@ fn setup(mut commands: Commands) {
             },
         }],
         justify: JustifyText::Left,
-        linebreak_behavior: BreakLineOn::AnyCharacter,
+        linebreak: LineBreak::AnyCharacter,
         ..default()
     };
 

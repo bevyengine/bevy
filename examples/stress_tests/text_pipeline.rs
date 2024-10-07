@@ -6,7 +6,7 @@ use bevy::{
     color::palettes::basic::{BLUE, YELLOW},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::{BreakLineOn, TextBounds},
+    text::{LineBreak, TextBounds},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -38,7 +38,7 @@ fn main() {
 fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     warn!(include_str!("warning_string.txt"));
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     let sections = (1..=50)
         .flat_map(|i| {
             [
@@ -65,7 +65,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         text: Text {
             sections,
             justify: JustifyText::Center,
-            linebreak_behavior: BreakLineOn::AnyCharacter,
+            linebreak: LineBreak::AnyCharacter,
             ..default()
         },
         ..Default::default()

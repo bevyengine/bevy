@@ -99,6 +99,10 @@ async-io = ["bevy_tasks/async-io"]
 wayland = ["bevy_winit/wayland"]
 x11 = ["bevy_winit/x11"]
 
+# Android activity support (choose one)
+android-native-activity = ["bevy_winit/android-native-activity"]
+android-game-activity = ["bevy_winit/android-game-activity"]
+
 # Transmission textures in `StandardMaterial`:
 pbr_transmission_textures = [
   "bevy_pbr?/pbr_transmission_textures",
@@ -218,6 +222,9 @@ reflect_functions = [
   "bevy_app/reflect_functions",
   "bevy_ecs/reflect_functions",
 ]
+
+# Enable winit custom cursor support
+custom_cursor = ["bevy_winit/custom_cursor"]
 
 [dependencies]
 # bevy

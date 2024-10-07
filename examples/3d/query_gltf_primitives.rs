@@ -54,11 +54,8 @@ fn find_top_material_and_mesh(
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.6, 1.6, 11.3)
-                .looking_at(Vec3::new(0.0, 0.0, 3.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0.6, 1.6, 11.3).looking_at(Vec3::new(0.0, 0.0, 3.0), Vec3::Y),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -83,13 +80,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         }
         .build(),
     ));
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/GltfPrimitives/gltf_primitives.glb")),
-        transform: Transform {
+    commands.spawn((
+        SceneRoot(asset_server.load(
+            GltfAssetLabel::Scene(0).from_asset("models/GltfPrimitives/gltf_primitives.glb"),
+        )),
+        Transform {
             rotation: Quat::from_rotation_y(-90.0 / 180.0 * PI),
             ..default()
         },
-        ..default()
-    });
+    ));
 }

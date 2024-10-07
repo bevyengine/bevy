@@ -59,15 +59,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 /// Spawns the camera, including the [`ChromaticAberration`] component.
 fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        Camera3d::default(),
+        Camera {
+            hdr: true,
             ..default()
         },
+        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
@@ -93,21 +90,18 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 /// variety of colors.
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     // Spawn the main scene.
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
-        ),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
+    )));
 
     // Spawn the flight helmet.
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-        transform: Transform::from_xyz(0.5, 0.0, -0.5)
-            .with_rotation(Quat::from_rotation_y(-0.15 * PI)),
-        ..default()
-    });
+    commands.spawn((
+        SceneRoot(
+            asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+        ),
+        Transform::from_xyz(0.5, 0.0, -0.5).with_rotation(Quat::from_rotation_y(-0.15 * PI)),
+    ));
 
     // Spawn the light.
     commands.spawn((

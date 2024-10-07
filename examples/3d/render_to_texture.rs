@@ -66,12 +66,9 @@ fn setup(
 
     // The cube that will be rendered to the texture.
     commands.spawn((
-        PbrBundle {
-            mesh: cube_handle,
-            material: cube_material_handle,
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
-            ..default()
-        },
+        Mesh3d(cube_handle),
+        MeshMaterial3d(cube_material_handle),
+        Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
         FirstPassCube,
         first_pass_layer.clone(),
     ));
@@ -87,16 +84,13 @@ fn setup(
     ));
 
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                target: image_handle.clone().into(),
-                clear_color: Color::WHITE.into(),
-                ..default()
-            },
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-                .looking_at(Vec3::ZERO, Vec3::Y),
+        Camera3d::default(),
+        Camera {
+            target: image_handle.clone().into(),
+            clear_color: Color::WHITE.into(),
             ..default()
         },
+        Transform::from_translation(Vec3::new(0.0, 0.0, 15.0)).looking_at(Vec3::ZERO, Vec3::Y),
         first_pass_layer,
     ));
 
@@ -113,21 +107,17 @@ fn setup(
 
     // Main pass cube, with material containing the rendered first pass texture.
     commands.spawn((
-        PbrBundle {
-            mesh: cube_handle,
-            material: material_handle,
-            transform: Transform::from_xyz(0.0, 0.0, 1.5)
-                .with_rotation(Quat::from_rotation_x(-PI / 5.0)),
-            ..default()
-        },
+        Mesh3d(cube_handle),
+        MeshMaterial3d(material_handle),
+        Transform::from_xyz(0.0, 0.0, 1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
         MainPassCube,
     ));
 
     // The main pass camera.
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 /// Rotates the inner cube (first pass)

@@ -4,7 +4,7 @@ use bevy::{
     color::palettes::css::RED,
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
     math::vec3,
-    pbr::{FogVolumeBundle, VolumetricFog, VolumetricLight},
+    pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
 };
 
@@ -57,27 +57,22 @@ fn main() {
 /// Initializes the scene.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: Res<AppSettings>) {
     // Spawn the glTF scene.
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0)
-                .from_asset("models/VolumetricFogExample/VolumetricFogExample.glb"),
-        ),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/VolumetricFogExample/VolumetricFogExample.glb"),
+    )));
 
     // Spawn the camera.
     commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-1.7, 1.5, 4.5)
-                .looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
-            camera: Camera {
+        .spawn((
+            Camera3d::default(),
+            Camera {
                 hdr: true,
                 ..default()
             },
-            ..default()
-        })
-        .insert(Tonemapping::TonyMcMapface)
-        .insert(Bloom::default())
+            Transform::from_xyz(-1.7, 1.5, 4.5).looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
+            Tonemapping::TonyMcMapface,
+            Bloom::default(),
+        ))
         .insert(Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 1000.0,
@@ -122,10 +117,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     ));
 
     // Add the fog volume.
-    commands.spawn(FogVolumeBundle {
-        transform: Transform::from_scale(Vec3::splat(35.0)),
-        ..default()
-    });
+    commands.spawn((
+        FogVolume::default(),
+        Transform::from_scale(Vec3::splat(35.0)),
+    ));
 
     // Add the help text.
     commands.spawn(
