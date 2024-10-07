@@ -812,6 +812,7 @@ where
             );
         } else {
             self.world_id = Some(world.id());
+            self.input_state = Some(F::In::init_state(world, &mut self.system_meta));
             self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
         }
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
