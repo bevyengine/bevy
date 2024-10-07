@@ -590,7 +590,8 @@ pub fn extract_camera_prepass_phase(
         live_entities.insert(entity);
 
         commands
-            .get_or_spawn(entity)
+            .get_entity(entity)
+            .expect("Camera entity wasn't synced.")
             .insert_if(DepthPrepass, || depth_prepass)
             .insert_if(NormalPrepass, || normal_prepass)
             .insert_if(MotionVectorPrepass, || motion_vector_prepass)

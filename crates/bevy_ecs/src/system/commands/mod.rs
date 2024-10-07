@@ -325,8 +325,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// [`Commands::spawn`]. This method should generally only be used for sharing entities across
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
     /// by default).
+    #[deprecated(since = "0.15.0", note = "use Commands::spawn instead")]
     pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands {
         self.queue(move |world: &mut World| {
+            #[allow(deprecated)]
             world.get_or_spawn(entity);
         });
         EntityCommands {
