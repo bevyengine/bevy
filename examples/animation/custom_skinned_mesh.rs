@@ -151,6 +151,8 @@ fn setup(
             .spawn(Transform::from_xyz(
                 i as f32 * 1.5,
                 0.0,
+                // Move quads back a small amount to avoid Z-fighting and not
+                // obscure the transform gizmos.
                 -(i as f32 * 0.01).abs(),
             ))
             .id();
