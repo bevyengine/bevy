@@ -1286,8 +1286,8 @@ path = "examples/animation/ease_functions.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.ease_functions]
-name = "Ease Functions"
-description = "Showcase of the built-in ease functions"
+name = "Easing Functions"
+description = "Showcases the built-in easing functions"
 category = "Animation"
 wasm = true
 
