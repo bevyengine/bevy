@@ -9,7 +9,7 @@ use core::fmt::{self, Debug};
 use core::marker::PhantomData;
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{utility::GenericTypePathCell, Reflect, TypePath};
+use bevy_reflect::{utility::GenericTypePathCell, FromReflect, Reflect, TypePath};
 
 #[cfg(feature = "bevy_reflect")]
 mod paths {
@@ -430,7 +430,12 @@ where
 /// produced by [`Curve::graph`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    derive(FromReflect),
+    reflect(from_reflect = false)
+)]
 pub struct GraphCurve<T, C> {
     pub(crate) base: C,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
