@@ -1300,6 +1300,17 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "easing_functions"
+path = "examples/animation/easing_functions.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.easing_functions]
+name = "Easing Functions"
+description = "Showcases the built-in easing functions"
+category = "Animation"
+wasm = true
+
+[[example]]
 name = "custom_skinned_mesh"
 path = "examples/animation/custom_skinned_mesh.rs"
 doc-scrape-examples = true
