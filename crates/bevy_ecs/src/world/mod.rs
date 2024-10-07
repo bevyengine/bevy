@@ -2259,10 +2259,10 @@ impl World {
         }
     }
 
-    /// For a given batch of ([`Entity`], [`Bundle`]) pairs, 
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
     /// adds the `Bundle` of components to each `Entity`.
     /// This is faster than doing equivalent operations one-by-one.
-    /// 
+    ///
     /// This will overwrite any previous values of components shared by the `Bundle`.
     /// See [`World::insert_batch_if_new`] to keep the old values instead.
     ///
@@ -2286,10 +2286,10 @@ impl World {
         )
     }
 
-    /// For a given batch of ([`Entity`], [`Bundle`]) pairs, 
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
     /// adds the `Bundle` of components to each `Entity` without overwriting.
     /// This is faster than doing equivalent operations one-by-one.
-    /// 
+    ///
     /// This is the same as [`World::insert_batch`], but in case of duplicate
     /// components will leave the old values instead of replacing them with new
     /// ones.
@@ -2322,8 +2322,7 @@ impl World {
         iter: I,
         insert_mode: InsertMode,
         #[cfg(feature = "track_change_detection")] caller: &'static Location,
-    )
-    where
+    ) where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
@@ -2341,13 +2340,11 @@ impl World {
         // `insert_or_spawn_batch_with_caller` does this implicitly with a `BundleSpawner`,
         // but we only need the world cell here
         let world_cell = self.as_unsafe_world_cell();
-        
+
         for (entity, bundle) in iter {
             if let Some(location) = world_cell.entities().get(entity) {
                 match inserter_with_archetype {
-                    Some((ref mut inserter, archetype)) 
-                        if location.archetype_id == archetype => 
-                    {
+                    Some((ref mut inserter, archetype)) if location.archetype_id == archetype => {
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                         unsafe {
                             inserter.insert(
@@ -2364,10 +2361,10 @@ impl World {
                         // SAFETY: we initialized this bundle_id in `register_info`
                         let mut inserter = unsafe {
                             BundleInserter::new_with_id(
-                                world_cell.world_mut(), 
-                                location.archetype_id, 
-                                bundle_id, 
-                                change_tick
+                                world_cell.world_mut(),
+                                location.archetype_id,
+                                bundle_id,
+                                change_tick,
                             )
                         };
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
@@ -2379,7 +2376,7 @@ impl World {
                                 insert_mode,
                                 #[cfg(feature = "track_change_detection")]
                                 caller,
-                            )   
+                            )
                         };
                         inserter_with_archetype = Some((inserter, location.archetype_id));
                     }
@@ -2390,15 +2387,15 @@ impl World {
         }
     }
 
-    /// For a given batch of ([`Entity`], [`Bundle`]) pairs, 
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
     /// adds the `Bundle` of components to each `Entity`.
     /// This is faster than doing equivalent operations one-by-one.
-    /// 
+    ///
     /// This will overwrite any previous values of components shared by the `Bundle`.
     /// See [`World::try_insert_batch_if_new`] to keep the old values instead.
-    /// 
+    ///
     /// This function silently fails by ignoring any entities that do not exist.
-    /// 
+    ///
     /// For the panicking version, see [`World::insert_batch`].
     #[track_caller]
     pub fn try_insert_batch<I, B>(&mut self, iter: I)
@@ -2414,16 +2411,16 @@ impl World {
             Location::caller(),
         )
     }
-    /// For a given batch of ([`Entity`], [`Bundle`]) pairs, 
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
     /// adds the `Bundle` of components to each `Entity` without overwriting.
     /// This is faster than doing equivalent operations one-by-one.
-    /// 
+    ///
     /// This is the same as [`World::try_insert_batch`], but in case of duplicate
     /// components will leave the old values instead of replacing them with new
     /// ones.
-    /// 
+    ///
     /// This function silently fails by ignoring any entities that do not exist.
-    /// 
+    ///
     /// For the panicking version, see [`World::insert_batch_if_new`].
     #[track_caller]
     pub fn try_insert_batch_if_new<I, B>(&mut self, iter: I)
@@ -2448,8 +2445,7 @@ impl World {
         iter: I,
         insert_mode: InsertMode,
         #[cfg(feature = "track_change_detection")] caller: &'static Location,
-    )
-    where
+    ) where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
@@ -2467,13 +2463,11 @@ impl World {
         // `insert_or_spawn_batch_with_caller` does this implicitly with a `BundleSpawner`,
         // but we only need the world cell here
         let world_cell = self.as_unsafe_world_cell();
-        
+
         for (entity, bundle) in iter {
             if let Some(location) = world_cell.entities().get(entity) {
                 match inserter_with_archetype {
-                    Some((ref mut inserter, archetype)) 
-                        if location.archetype_id == archetype => 
-                    {
+                    Some((ref mut inserter, archetype)) if location.archetype_id == archetype => {
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                         unsafe {
                             inserter.insert(
@@ -2490,10 +2484,10 @@ impl World {
                         // SAFETY: we initialized this bundle_id in `register_info`
                         let mut inserter = unsafe {
                             BundleInserter::new_with_id(
-                                world_cell.world_mut(), 
-                                location.archetype_id, 
-                                bundle_id, 
-                                change_tick
+                                world_cell.world_mut(),
+                                location.archetype_id,
+                                bundle_id,
+                                change_tick,
                             )
                         };
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
@@ -2505,7 +2499,7 @@ impl World {
                                 insert_mode,
                                 #[cfg(feature = "track_change_detection")]
                                 caller,
-                            )   
+                            )
                         };
                         inserter_with_archetype = Some((inserter, location.archetype_id));
                     }

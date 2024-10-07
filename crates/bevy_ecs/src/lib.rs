@@ -1717,7 +1717,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn insert_batch() {
         let mut world = World::default();
@@ -1751,9 +1750,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Tried to 'insert_batch' with entity that did not exist"
-    )]
+    #[should_panic(expected = "Tried to 'insert_batch' with entity that did not exist")]
     fn insert_batch_invalid() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
@@ -1817,7 +1814,6 @@ mod tests {
             "first entity should have received B component"
         );
     }
-
 
     #[test]
     fn try_insert_batch_if_new() {
