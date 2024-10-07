@@ -31,7 +31,11 @@ impl Easing<f32> for ElasticCurve {}
 /// [unit interval]: `Interval::UNIT`
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(bevy_reflect::Reflect, bevy_reflect::FromReflect),
+    reflect(from_reflect = false)
+)]
 pub struct EasingCurve<T, E>
 where
     T: VectorSpace,
