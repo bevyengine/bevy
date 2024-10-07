@@ -1806,7 +1806,7 @@ mod tests {
             "first entity should have received B component"
         );
     }
-    
+
     #[test]
     fn required_components() {
         #[derive(Component)]
