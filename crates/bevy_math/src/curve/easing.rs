@@ -1,5 +1,7 @@
-//! Module containing different [`Easing`] curves to control the transition between two values and
+//! Module containing different [easing functions] to control the transition between two values and
 //! the [`EasingCurve`] struct to make use of them.
+//!
+//! [easing functions]: EaseFunction
 
 use crate::{Dir2, Dir3, Dir3A, Quat, Rot2, VectorSpace};
 use interpolation::Ease as IEase;

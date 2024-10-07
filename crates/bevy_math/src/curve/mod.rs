@@ -11,6 +11,7 @@ pub mod sample_curves;
 
 // bevy_math::curve re-exports all commonly-needed curve-related items.
 pub use adaptors::*;
+pub use easing::*;
 pub use interval::{interval, Interval};
 pub use sample_curves::*;
 
