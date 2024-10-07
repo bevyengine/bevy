@@ -565,15 +565,22 @@ where
         let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
             .downcast_mut::<TransformCurveEvaluator>()
             .unwrap();
-        let value = TransformParts::from_transform(self.0.sample_clamped(t));
-        curve_evaluator
-            .evaluator
-            .stack
-            .push(BasicAnimationCurveEvaluatorStackElement {
-                value,
-                weight,
-                graph_node,
-            });
+        let parts = TransformParts::from_transform(self.0.sample_clamped(t));
+        let stack = &mut curve_evaluator.evaluator.stack;
+        let last_node = stack.last().map(|el| el.graph_node);
+        match last_node {
+            // See `TranslationCurve::apply` implementation for details.
+            Some(index) if index == graph_node => {
+                stack.last_mut().unwrap().value = parts;
+            }
+            _ => {
+                stack.push(BasicAnimationCurveEvaluatorStackElement {
+                    value: parts,
+                    weight,
+                    graph_node,
+                });
+            }
+        }
         Ok(())
     }
 }
