@@ -118,7 +118,7 @@ fn setup(
     // For this camera, the projection is perspective, and the aspect ratio of
     // the sub view (2x1) is different to the aspect ratio of the full view
     // (2x2). The aspect ratio of the sub view matches the aspect ratio of
-    // the viewport and should show an unstreched image of the top half of the
+    // the viewport and should show an unstretched image of the top half of the
     // full perspective image.
     commands.spawn((
         Camera3d::default(),
@@ -209,7 +209,7 @@ fn setup(
     // For this camera, the projection is orthographic, and the aspect ratio of
     // the sub view (2x1) is different to the aspect ratio of the full view
     // (2x2). The aspect ratio of the sub view matches the aspect ratio of
-    // the viewport and should show an unstreched image of the top half of the
+    // the viewport and should show an unstretched image of the top half of the
     // full orthographic image.
     commands.spawn((
         Camera3d::default(),
