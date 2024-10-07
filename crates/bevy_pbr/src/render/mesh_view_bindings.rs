@@ -358,7 +358,7 @@ fn layout_entries(
     ));
 
     // OIT
-    if layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
+    if cfg!(not(feature = "webgl")) && layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
         entries = entries.extend_with_indices((
             // oit_layers
             (31, storage_buffer_sized(false, None)),
