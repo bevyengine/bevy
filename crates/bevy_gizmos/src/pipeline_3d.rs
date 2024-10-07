@@ -465,7 +465,7 @@ fn queue_line_joint_gizmos_3d(
                 continue;
             };
 
-            if line_gizmo.strip_vertex_count < 3 || line_gizmo.joints == GizmoLineJoint::None {
+            if line_gizmo.strip_vertex_count < 3 || config.line_joints == GizmoLineJoint::None {
                 continue;
             }
 
@@ -475,7 +475,7 @@ fn queue_line_joint_gizmos_3d(
                 LineJointGizmoPipelineKey {
                     view_key,
                     perspective: config.line_perspective,
-                    joints: line_gizmo.joints,
+                    joints: config.line_joints,
                 },
             );
 

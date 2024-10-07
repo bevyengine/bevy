@@ -165,12 +165,12 @@ fn update_config(
 
     let (config, light_config) = config_store.config_mut::<LightGizmoConfigGroup>();
     if keyboard.pressed(KeyCode::ArrowRight) {
-        config.line_width += 5. * time.delta_seconds();
-        config.line_width = config.line_width.clamp(0., 50.);
+        config.line.width += 5. * time.delta_seconds();
+        config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        config.line_width -= 5. * time.delta_seconds();
-        config.line_width = config.line_width.clamp(0., 50.);
+        config.line.width -= 5. * time.delta_seconds();
+        config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::KeyA) {
         config.enabled ^= true;

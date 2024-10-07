@@ -398,7 +398,7 @@ fn queue_line_joint_gizmos_2d(
                 continue;
             };
 
-            if line_gizmo.strip_vertex_count < 3 || line_gizmo.joints == GizmoLineJoint::None {
+            if line_gizmo.strip_vertex_count < 3 || config.line_joints == GizmoLineJoint::None {
                 continue;
             }
 
@@ -407,7 +407,7 @@ fn queue_line_joint_gizmos_2d(
                 &pipeline,
                 LineJointGizmoPipelineKey {
                     mesh_key,
-                    joints: line_gizmo.joints,
+                    joints: config.line_joints,
                 },
             );
             transparent_phase.add(Transparent2d {

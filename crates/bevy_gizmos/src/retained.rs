@@ -11,15 +11,12 @@ use bevy_transform::components::Transform;
 use {
     crate::{config::GizmoLineJoint, LineGizmoUniform},
     bevy_ecs::system::{Commands, Local, Query},
-    bevy_render::{
-        world_sync::{RenderEntity, SyncToRenderWorld},
-        Extract,
-    },
+    bevy_render::{view::RenderLayers, Extract},
     bevy_transform::components::GlobalTransform,
 };
 
 use crate::{
-    config::{ErasedGizmoConfigGroup, GizmoConfig},
+    config::{ErasedGizmoConfigGroup, LineGizmoConfig},
     gizmos::GizmoBuffer,
     LineGizmoAsset,
 };
@@ -71,52 +68,63 @@ impl DerefMut for LineGizmoAsset {
 /// [`Gizmos`]: crate::gizmos::Gizmos
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[require(Transform)]
-#[cfg_attr(feature = "bevy_render", require(SyncToRenderWorld))]
 pub struct LineGizmo {
     /// The handle to the line to draw.
     pub handle: Handle<LineGizmoAsset>,
     /// The configuration for this gizmo.
-    pub config: GizmoConfig,
+    pub config: LineGizmoConfig,
+    /// How closer to the camera than real geometry the line should be.
+    ///
+    /// In 2D this setting has no effect and is effectively always -1.
+    ///
+    /// Value between -1 and 1 (inclusive).
+    /// * 0 means that there is no change to the line position when rendering
+    /// * 1 means it is furthest away from camera as possible
+    /// * -1 means that it will always render in front of other things.
+    ///
+    /// This is typically useful if you are drawing wireframes on top of polygons
+    /// and your wireframe is z-fighting (flickering on/off) with your main model.
+    /// You would set this value to a negative number close to 0.
+    pub depth_bias: f32,
 }
 
 #[cfg(feature = "bevy_render")]
 pub(crate) fn extract_linegizmos(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(&RenderEntity, &LineGizmo, &GlobalTransform)>>,
+    query: Extract<Query<(&LineGizmo, &GlobalTransform, Option<&RenderLayers>)>>,
 ) {
     use bevy_math::Affine3;
+    use bevy_render::world_sync::TemporaryRenderEntity;
 
     let mut values = Vec::with_capacity(*previous_len);
-    for (render_entity, linegizmo, transform) in &query {
-        if !linegizmo.config.enabled {
-            continue;
-        }
-        let joints_resolution =
-            if let GizmoLineJoint::Round(resolution) = linegizmo.config.line_joints {
-                resolution
-            } else {
-                0
-            };
+    for (linegizmo, transform, render_layers) in &query {
+        let joints_resolution = if let GizmoLineJoint::Round(resolution) = linegizmo.config.joints {
+            resolution
+        } else {
+            0
+        };
 
-        // TODO Add transform to LineGizmoUniform
         values.push((
-            render_entity.id(),
-            (
-                LineGizmoUniform {
-                    world_from_local: Affine3::from(&transform.affine()).to_transpose(),
-                    line_width: linegizmo.config.line_width,
-                    depth_bias: linegizmo.config.depth_bias,
-                    joints_resolution,
-                    #[cfg(feature = "webgl")]
-                    _padding: Default::default(),
-                },
-                linegizmo.handle.clone_weak(),
-                #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
-                crate::config::GizmoMeshConfig::from(&linegizmo.config),
-            ),
+            LineGizmoUniform {
+                world_from_local: Affine3::from(&transform.affine()).to_transpose(),
+                line_width: linegizmo.config.width,
+                depth_bias: linegizmo.depth_bias,
+                joints_resolution,
+                #[cfg(feature = "webgl")]
+                _padding: Default::default(),
+            },
+            linegizmo.handle.clone_weak(),
+            #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
+            crate::config::GizmoMeshConfig {
+                line_perspective: linegizmo.config.perspective,
+                line_style: linegizmo.config.style,
+                line_joints: linegizmo.config.joints,
+                render_layers: render_layers.cloned().unwrap_or_default(),
+            },
+            TemporaryRenderEntity,
         ));
     }
     *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
+    commands.spawn_batch(values);
 }

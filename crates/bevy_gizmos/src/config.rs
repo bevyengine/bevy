@@ -144,21 +144,9 @@ pub struct GizmoConfig {
     ///
     /// Defaults to `true`.
     pub enabled: bool,
-    /// Line width specified in pixels.
-    ///
-    /// If `line_perspective` is `true` then this is the size in pixels at the camera's near plane.
-    ///
-    /// Defaults to `2.0`.
-    pub line_width: f32,
-    /// Apply perspective to gizmo lines.
-    ///
-    /// This setting only affects 3D, non-orthographic cameras.
-    ///
-    /// Defaults to `false`.
-    pub line_perspective: bool,
-    /// Determine the style of gizmo lines.
-    pub line_style: GizmoLineStyle,
-    /// How closer to the camera than real geometry the line should be.
+    /// Line settings.
+    pub line: LineGizmoConfig,
+    /// How closer to the camera than real geometry the gizmos should be.
     ///
     /// In 2D this setting has no effect and is effectively always -1.
     ///
@@ -176,23 +164,48 @@ pub struct GizmoConfig {
     /// Gizmos will only be rendered to cameras with intersecting layers.
     #[cfg(feature = "bevy_render")]
     pub render_layers: bevy_render::view::RenderLayers,
-
-    /// Describe how lines should join
-    pub line_joints: GizmoLineJoint,
 }
 
 impl Default for GizmoConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            line_width: 2.,
-            line_perspective: false,
-            line_style: GizmoLineStyle::Solid,
+            line: Default::default(),
             depth_bias: 0.,
             #[cfg(feature = "bevy_render")]
             render_layers: Default::default(),
+        }
+    }
+}
 
-            line_joints: GizmoLineJoint::None,
+/// A struct that stores configuration for gizmos.
+#[derive(Clone, Reflect, Debug)]
+pub struct LineGizmoConfig {
+    /// Line width specified in pixels.
+    ///
+    /// If `perspective` is `true` then this is the size in pixels at the camera's near plane.
+    ///
+    /// Defaults to `2.0`.
+    pub width: f32,
+    /// Apply perspective to gizmo lines.
+    ///
+    /// This setting only affects 3D, non-orthographic cameras.
+    ///
+    /// Defaults to `false`.
+    pub perspective: bool,
+    /// Determine the style of gizmo lines.
+    pub style: GizmoLineStyle,
+    /// Describe how lines should join.
+    pub joints: GizmoLineJoint,
+}
+
+impl Default for LineGizmoConfig {
+    fn default() -> Self {
+        Self {
+            width: 2.,
+            perspective: false,
+            style: GizmoLineStyle::Solid,
+            joints: GizmoLineJoint::None,
         }
     }
 }
@@ -205,6 +218,7 @@ impl Default for GizmoConfig {
 pub(crate) struct GizmoMeshConfig {
     pub line_perspective: bool,
     pub line_style: GizmoLineStyle,
+    pub line_joints: GizmoLineJoint,
     pub render_layers: bevy_render::view::RenderLayers,
 }
 
@@ -215,9 +229,10 @@ pub(crate) struct GizmoMeshConfig {
 impl From<&GizmoConfig> for GizmoMeshConfig {
     fn from(item: &GizmoConfig) -> Self {
         GizmoMeshConfig {
-            line_perspective: item.line_perspective,
-            line_style: item.line_style,
+            line_perspective: item.line.perspective,
+            line_style: item.line.style,
             render_layers: item.render_layers.clone(),
+            line_joints: item.line.joints,
         }
     }
 }

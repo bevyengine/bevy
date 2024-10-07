@@ -206,7 +206,7 @@ fn outline_roots(
     let line_width = outline
         .gizmo_config
         .get_config_dyn(&UiGizmosDebug.type_id())
-        .map_or(2., |(config, _)| config.line_width)
+        .map_or(2., |(config, _)| config.line.width)
         / window_scale;
     let mut draw = InsetGizmo::new(draw, cam.debug_camera, line_width);
     for (entity, trans, node, view_visibility, maybe_target_camera) in &roots {

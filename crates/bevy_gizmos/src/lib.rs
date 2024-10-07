@@ -63,7 +63,7 @@ pub mod prelude {
     pub use crate::{
         config::{
             DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore,
-            GizmoLineJoint, GizmoLineStyle,
+            GizmoLineJoint, GizmoLineStyle, LineGizmoConfig,
         },
         gizmos::Gizmos,
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
@@ -88,7 +88,7 @@ use crate::{config::ErasedGizmoConfigGroup, gizmos::GizmoBuffer};
 
 #[cfg(feature = "bevy_render")]
 use {
-    crate::retained::extract_linegizmos,
+    crate::{config::GizmoMeshConfig, retained::extract_linegizmos},
     bevy_ecs::{
         component::Component,
         query::ROQueryItem,
@@ -378,9 +378,7 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
     mut line_gizmos: ResMut<Assets<LineGizmoAsset>>,
     mut handles: ResMut<LineGizmoHandles>,
     mut storage: ResMut<GizmoStorage<Config, ()>>,
-    config_store: Res<GizmoConfigStore>,
 ) {
-    let (config, _) = config_store.config::<Config>();
     if storage.list_positions.is_empty() && storage.strip_positions.is_empty() {
         handles.handles.insert(TypeId::of::<Config>(), None);
     } else if let Some(handle) = handles.handles.get_mut(&TypeId::of::<Config>()) {
@@ -391,7 +389,6 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
             linegizmo.buffer.list_colors = mem::take(&mut storage.list_colors);
             linegizmo.buffer.strip_positions = mem::take(&mut storage.strip_positions);
             linegizmo.buffer.strip_colors = mem::take(&mut storage.strip_colors);
-            linegizmo.joints = config.line_joints;
         } else {
             let linegizmo = LineGizmoAsset {
                 config_ty: TypeId::of::<Config>(),
@@ -403,7 +400,6 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
                     strip_colors: mem::take(&mut storage.strip_colors),
                     marker: PhantomData,
                 },
-                joints: config.line_joints,
             };
 
             *handle = Some(line_gizmos.add(linegizmo));
@@ -432,7 +428,7 @@ fn extract_gizmo_data(
             continue;
         };
 
-        let joints_resolution = if let GizmoLineJoint::Round(resolution) = config.line_joints {
+        let joints_resolution = if let GizmoLineJoint::Round(resolution) = config.line.joints {
             resolution
         } else {
             0
@@ -441,15 +437,15 @@ fn extract_gizmo_data(
         commands.spawn((
             LineGizmoUniform {
                 world_from_local: Affine3::from(&Affine3A::IDENTITY).to_transpose(),
-                line_width: config.line_width,
+                line_width: config.line.width,
                 depth_bias: config.depth_bias,
                 joints_resolution,
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
-            (*handle).clone_weak(),
+            handle.clone_weak(),
             #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
-            config::GizmoMeshConfig::from(config),
+            GizmoMeshConfig::from(config),
             TemporaryRenderEntity,
         ));
     }
@@ -475,8 +471,6 @@ struct LineGizmoUniform {
 pub struct LineGizmoAsset {
     /// vertex buffers.
     buffer: GizmoBuffer<ErasedGizmoConfigGroup, ()>,
-    /// Whether this gizmo should draw line joints on line-strips.
-    joints: GizmoLineJoint,
     config_ty: TypeId,
 }
 
@@ -485,7 +479,6 @@ impl LineGizmoAsset {
     pub fn new() -> Self {
         LineGizmoAsset {
             buffer: GizmoBuffer::default(),
-            joints: GizmoLineJoint::default(),
             config_ty: TypeId::of::<ErasedGizmoConfigGroup>(),
         }
     }
@@ -511,7 +504,6 @@ struct GpuLineGizmo {
     strip_position_buffer: Buffer,
     strip_color_buffer: Buffer,
     strip_vertex_count: u32,
-    joints: GizmoLineJoint,
 }
 
 #[cfg(feature = "bevy_render")]
@@ -554,7 +546,6 @@ impl RenderAsset for GpuLineGizmo {
             strip_position_buffer,
             strip_color_buffer,
             strip_vertex_count: gizmo.buffer.strip_positions.len() as u32,
-            joints: gizmo.joints,
         })
     }
 }
@@ -683,17 +674,17 @@ struct DrawLineJointGizmo;
 impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
-    type ItemQuery = Read<Handle<LineGizmoAsset>>;
+    type ItemQuery = (Read<Handle<LineGizmoAsset>>, Read<GizmoMeshConfig>);
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
-        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        entity: Option<ROQueryItem<'w, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(handle) = handle else {
+        let Some((handle, gizmo_mesh_config)) = entity else {
             return RenderCommandResult::Skip;
         };
         let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
@@ -701,10 +692,6 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
         };
 
         if line_gizmo.strip_vertex_count <= 2 {
-            return RenderCommandResult::Success;
-        };
-
-        if line_gizmo.joints == GizmoLineJoint::None {
             return RenderCommandResult::Success;
         };
 
@@ -736,7 +723,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
             line_gizmo.strip_vertex_count - 2
         };
 
-        let vertices = match line_gizmo.joints {
+        let vertices = match gizmo_mesh_config.line_joints {
             GizmoLineJoint::None => unreachable!(),
             GizmoLineJoint::Miter => 6,
             GizmoLineJoint::Round(resolution) => resolution * 3,
