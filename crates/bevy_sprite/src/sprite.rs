@@ -3,14 +3,14 @@ use bevy_color::Color;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{texture::Image, view::Visibility};
+use bevy_render::{texture::Image, view::Visibility, world_sync::SyncToRenderWorld};
 use bevy_transform::components::Transform;
 
 use crate::{TextureAtlas, TextureSlicer};
 
 /// Describes a sprite to be rendered to a 2D camera
 #[derive(Component, Debug, Default, Clone, Reflect)]
-#[require(Transform, Visibility)]
+#[require(Transform, Visibility, SyncToRenderWorld)]
 #[reflect(Component, Default, Debug)]
 pub struct Sprite {
     /// The image used to render the sprite
