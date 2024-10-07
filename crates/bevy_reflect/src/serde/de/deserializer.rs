@@ -1,6 +1,6 @@
 #[cfg(feature = "debug_stack")]
 use crate::serde::de::error_utils::TYPE_INFO_STACK;
-use crate::serde::ReflectDeserializeWithRegistry;
+use crate::serde::{ReflectDeserializeWithRegistry, SerializationData};
 use crate::{
     serde::{
         de::{
@@ -305,15 +305,29 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     Ok(Box::new(dynamic_struct))
                 }
                 TypeInfo::TupleStruct(tuple_struct_info) => {
-                    let mut dynamic_tuple_struct = deserializer.deserialize_tuple_struct(
-                        tuple_struct_info.type_path_table().ident().unwrap(),
-                        tuple_struct_info.field_len(),
-                        TupleStructVisitor::new(
-                            tuple_struct_info,
-                            self.registration,
-                            self.registry,
-                        ),
-                    )?;
+                    let mut dynamic_tuple_struct = if tuple_struct_info.field_len() == 1
+                        && self.registration.data::<SerializationData>().is_none()
+                    {
+                        deserializer.deserialize_newtype_struct(
+                            tuple_struct_info.type_path_table().ident().unwrap(),
+                            TupleStructVisitor::new(
+                                tuple_struct_info,
+                                self.registration,
+                                self.registry,
+                            ),
+                        )?
+                    } else {
+                        deserializer.deserialize_tuple_struct(
+                            tuple_struct_info.type_path_table().ident().unwrap(),
+                            tuple_struct_info.field_len(),
+                            TupleStructVisitor::new(
+                                tuple_struct_info,
+                                self.registration,
+                                self.registry,
+                            ),
+                        )?
+                    };
+
                     dynamic_tuple_struct.set_represented_type(Some(self.registration.type_info()));
                     Ok(Box::new(dynamic_tuple_struct))
                 }
