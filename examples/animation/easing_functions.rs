@@ -14,7 +14,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2d::default());
+    commands.spawn(Camera2d);
 
     let text_style = TextStyle {
         font_size: 10.0,
@@ -56,13 +56,13 @@ fn setup(mut commands: Commands) {
     .chunks(3)
     .enumerate()
     {
-        for j in 0..3 {
+        for (j, function) in functions.iter().enumerate() {
             let color = Hsla::hsl(i as f32 / 10.0 * 360.0, 0.8, 0.75).into();
             commands
                 .spawn((
                     Text2dBundle {
                         text: Text::from_section(
-                            format!("{:?}", functions[j]),
+                            format!("{:?}", function),
                             TextStyle {
                                 color,
                                 ..text_style.clone()
@@ -76,7 +76,7 @@ fn setup(mut commands: Commands) {
                         text_anchor: Anchor::TopLeft,
                         ..default()
                     },
-                    SelectedEaseFunction(functions[j], color),
+                    SelectedEaseFunction(*function, color),
                 ))
                 .with_children(|p| {
                     p.spawn(SpriteBundle {
