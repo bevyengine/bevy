@@ -35,7 +35,7 @@ struct MyProcGenImage(Handle<Image>);
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     // spawn a camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // create an image that we are going to draw into
     let mut image = Image::new_fill(

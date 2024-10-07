@@ -6,10 +6,10 @@ use super::dds::*;
 use super::ktx2::*;
 
 use bevy_asset::{Asset, RenderAssetUsages};
-use bevy_color::{Color, ColorToComponents, Oklcha, LinearRgba, Srgba};
+use bevy_color::{Color, ColorToComponents, LinearRgba, Oklcha, Srgba};
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
-use bevy_reflect::Reflect;
 use bevy_reflect::std_traits::ReflectDefault;
+use bevy_reflect::Reflect;
 use core::hash::Hash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
