@@ -4,6 +4,7 @@
 use std::f32::consts::*;
 
 use bevy::{
+    math::ops,
     prelude::*,
     render::{
         mesh::{
@@ -190,28 +191,31 @@ fn joint_animation(
     for (mut transform, animated_joint) in &mut query {
         match animated_joint.0 {
             -5 => {
-                transform.rotation = Quat::from_rotation_x(FRAC_PI_2 * time.elapsed_seconds().sin())
+                transform.rotation =
+                    Quat::from_rotation_x(FRAC_PI_2 * ops::sin(time.elapsed_seconds()))
             }
             -4 => {
-                transform.rotation = Quat::from_rotation_y(FRAC_PI_2 * time.elapsed_seconds().sin())
+                transform.rotation =
+                    Quat::from_rotation_y(FRAC_PI_2 * ops::sin(time.elapsed_seconds()))
             }
             -3 => {
-                transform.rotation = Quat::from_rotation_z(FRAC_PI_2 * time.elapsed_seconds().sin())
+                transform.rotation =
+                    Quat::from_rotation_z(FRAC_PI_2 * ops::sin(time.elapsed_seconds()))
             }
-            -2 => transform.scale.x = time.elapsed_seconds().sin() + 1.0,
-            -1 => transform.scale.y = time.elapsed_seconds().sin() + 1.0,
+            -2 => transform.scale.x = ops::sin(time.elapsed_seconds()) + 1.0,
+            -1 => transform.scale.y = ops::sin(time.elapsed_seconds()) + 1.0,
             0 => {
-                transform.translation.x = 0.5 * time.elapsed_seconds().sin();
-                transform.translation.y = time.elapsed_seconds().cos();
+                transform.translation.x = 0.5 * ops::sin(time.elapsed_seconds());
+                transform.translation.y = ops::cos(time.elapsed_seconds());
             }
             1 => {
-                transform.translation.y = time.elapsed_seconds().sin();
-                transform.translation.z = time.elapsed_seconds().cos();
+                transform.translation.y = ops::sin(time.elapsed_seconds());
+                transform.translation.z = ops::cos(time.elapsed_seconds());
             }
-            2 => transform.translation.x = time.elapsed_seconds().sin(),
+            2 => transform.translation.x = ops::sin(time.elapsed_seconds()),
             3 => {
-                transform.translation.y = time.elapsed_seconds().sin();
-                transform.scale.x = time.elapsed_seconds().sin() + 1.0;
+                transform.translation.y = ops::sin(time.elapsed_seconds());
+                transform.scale.x = ops::sin(time.elapsed_seconds()) + 1.0;
             }
             _ => (),
         }
