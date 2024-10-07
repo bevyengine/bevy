@@ -1,4 +1,4 @@
-//! Ray casting types and functionality.
+//! Ray casting types and functionality for [primitive shapes](crate::primitives).
 
 mod dim2;
 mod dim3;
