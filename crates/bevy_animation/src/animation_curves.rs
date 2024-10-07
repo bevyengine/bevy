@@ -377,13 +377,27 @@ where
         let stack = &mut curve_evaluator.evaluator.stack;
         let last_node = stack.last().map(|el| el.graph_node);
         match last_node {
+            // A couple things to note here:
+            // 1. `apply` is called for all curves on a single node in sequence; i.e.
+            //    the `graph_node` values of stack elements are not interleaved.
+            // 2. Similarly, the weight depends only on the graph node.
+            // With these in mind, what's happening here is that we are joining all
+            // of the `Transform`-targeting curves from a single clip by peeking at
+            // the top of the evaluator stack and seeing if the last curve added was
+            // from this node.
+            // - If it was: append to that stack element instead of creating a new one.
+            // - If it wasn't: this is the first one, so we push a new stack element with
+            //   the expectation that other curves on this node may immediately append
+            //   to it.
+            // This has the effect of unifying the output values of all `Transform`-
+            // targeted curves into a single `TransformParts` on the blend stack.
             Some(index) if index == graph_node => {
-                (*stack.last_mut().unwrap()).value.translation = Some(translation);
+                // stack.last() succeeded => this unwrap always succeeds.
+                stack.last_mut().unwrap().value.translation = Some(translation);
             }
             _ => {
-                let value = TransformParts::from_translation(translation);
                 stack.push(BasicAnimationCurveEvaluatorStackElement {
-                    value,
+                    value: TransformParts::from_translation(translation),
                     weight,
                     graph_node,
                 });
@@ -435,8 +449,9 @@ where
         let stack = &mut curve_evaluator.evaluator.stack;
         let last_node = stack.last().map(|el| el.graph_node);
         match last_node {
+            // See `TranslationCurve::apply` implementation for details.
             Some(index) if index == graph_node => {
-                (*stack.last_mut().unwrap()).value.rotation = Some(rotation);
+                stack.last_mut().unwrap().value.rotation = Some(rotation);
             }
             _ => {
                 let value = TransformParts::from_rotation(rotation);
@@ -493,8 +508,9 @@ where
         let stack = &mut curve_evaluator.evaluator.stack;
         let last_node = stack.last().map(|el| el.graph_node);
         match last_node {
+            // See `TranslationCurve::apply` implementation for details.
             Some(index) if index == graph_node => {
-                (*stack.last_mut().unwrap()).value.scale = Some(scale);
+                stack.last_mut().unwrap().value.scale = Some(scale);
             }
             _ => {
                 let value = TransformParts::from_scale(scale);
