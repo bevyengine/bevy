@@ -5,6 +5,7 @@ use core::ops::{Deref, DerefMut};
 use bevy_asset::Handle;
 use bevy_ecs::component::Component;
 use bevy_reflect::Reflect;
+use bevy_transform::components::Transform;
 
 #[cfg(feature = "bevy_render")]
 use {
@@ -14,6 +15,7 @@ use {
         world_sync::{RenderEntity, SyncToRenderWorld},
         Extract,
     },
+    bevy_transform::components::GlobalTransform,
 };
 
 use crate::{
@@ -68,6 +70,7 @@ impl DerefMut for LineGizmoAsset {
 ///
 /// [`Gizmos`]: crate::gizmos::Gizmos
 #[derive(Component, Clone, Debug, Default, Reflect)]
+#[require(Transform)]
 #[cfg_attr(feature = "bevy_render", require(SyncToRenderWorld))]
 pub struct LineGizmo {
     /// The handle to the line to draw.
@@ -80,10 +83,12 @@ pub struct LineGizmo {
 pub(crate) fn extract_linegizmos(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(&RenderEntity, &LineGizmo)>>,
+    query: Extract<Query<(&RenderEntity, &LineGizmo, &GlobalTransform)>>,
 ) {
+    use bevy_math::Affine3;
+
     let mut values = Vec::with_capacity(*previous_len);
-    for (render_entity, linegizmo) in &query {
+    for (render_entity, linegizmo, transform) in &query {
         if !linegizmo.config.enabled {
             continue;
         }
@@ -99,6 +104,7 @@ pub(crate) fn extract_linegizmos(
             render_entity.id(),
             (
                 LineGizmoUniform {
+                    world_from_local: Affine3::from(&transform.affine()).to_transpose(),
                     line_width: linegizmo.config.line_width,
                     depth_bias: linegizmo.config.depth_bias,
                     joints_resolution,

@@ -4,6 +4,7 @@
 
 
 struct LineGizmoUniform {
+    world_from_local: mat3x4<f32>,
     line_width: f32,
     depth_bias: f32,
     resolution: u32,

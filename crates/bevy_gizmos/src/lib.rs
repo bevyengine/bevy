@@ -81,6 +81,7 @@ use bevy_ecs::{
     schedule::{IntoSystemConfigs, SystemSet},
     system::{Res, ResMut, Resource},
 };
+use bevy_math::Vec4;
 use bevy_reflect::TypePath;
 
 use crate::{config::ErasedGizmoConfigGroup, gizmos::GizmoBuffer};
@@ -416,6 +417,8 @@ fn extract_gizmo_data(
     handles: Extract<Res<LineGizmoHandles>>,
     config: Extract<Res<GizmoConfigStore>>,
 ) {
+    use bevy_math::{Affine3, Affine3A};
+
     for (group_type_id, handle) in &handles.handles {
         let Some((config, _)) = config.get_config_dyn(group_type_id) else {
             continue;
@@ -437,6 +440,7 @@ fn extract_gizmo_data(
 
         commands.spawn((
             LineGizmoUniform {
+                world_from_local: Affine3::from(&Affine3A::IDENTITY).to_transpose(),
                 line_width: config.line_width,
                 depth_bias: config.depth_bias,
                 joints_resolution,
@@ -454,6 +458,7 @@ fn extract_gizmo_data(
 #[cfg(feature = "bevy_render")]
 #[derive(Component, ShaderType, Clone, Copy)]
 struct LineGizmoUniform {
+    world_from_local: [Vec4; 3],
     line_width: f32,
     depth_bias: f32,
     // Only used by gizmo line t if the current configs `line_joints` is set to `GizmoLineJoint::Round(_)`
