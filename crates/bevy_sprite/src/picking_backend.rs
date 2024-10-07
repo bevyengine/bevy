@@ -4,7 +4,7 @@
 
 use core::cmp::Reverse;
 
-use crate::{Sprite, TextureAtlas, TextureAtlasLayout};
+use crate::{Sprite, TextureAtlasLayout};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_ecs::prelude::*;
