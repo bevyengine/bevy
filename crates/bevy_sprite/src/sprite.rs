@@ -72,6 +72,12 @@ impl Sprite {
     }
 }
 
+impl From<Handle<Image>> for Sprite {
+    fn from(image: Handle<Image>) -> Self {
+        Self::from_image(image)
+    }
+}
+
 /// Controls how the image is altered when scaled.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Debug)]
