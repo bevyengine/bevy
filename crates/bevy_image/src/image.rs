@@ -7,10 +7,11 @@ use super::ktx2::*;
 
 use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
-use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
+use bevy_math::{AspectRatio, URect, UVec2, UVec3, Vec2};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use core::hash::Hash;
+use core::{iter::FusedIterator, ops::Range, slice};
 use derive_more::derive::{Display, Error, From};
 use serde::{Deserialize, Serialize};
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
@@ -1081,7 +1082,7 @@ impl Image {
     /// Returns None if the provided coordinates are out of bounds.
     ///
     /// For 2D textures, Z is ignored. For 1D textures, Y and Z are ignored.
-    #[inline(always)]
+    #[inline]
     pub fn pixel_data_offset(&self, coords: UVec3) -> Option<usize> {
         let width = self.texture_descriptor.size.width;
         let height = self.texture_descriptor.size.height;
@@ -1113,7 +1114,7 @@ impl Image {
     }
 
     /// Get a reference to the data bytes where a specific pixel's value is stored
-    #[inline(always)]
+    #[inline]
     pub fn pixel_bytes(&self, coords: UVec3) -> Option<&[u8]> {
         let len = self.texture_descriptor.format.pixel_size();
         self.pixel_data_offset(coords)
@@ -1121,17 +1122,88 @@ impl Image {
     }
 
     /// Get a mutable reference to the data bytes where a specific pixel's value is stored
-    #[inline(always)]
+    #[inline]
     pub fn pixel_bytes_mut(&mut self, coords: UVec3) -> Option<&mut [u8]> {
         let len = self.texture_descriptor.format.pixel_size();
         self.pixel_data_offset(coords)
             .map(|start| &mut self.data[start..(start + len)])
     }
 
+    /// Get an iterator over the row bytes for a specific rect of pixels.
+    #[inline]
+    pub fn rect_bytes(&self, rect: URect, z: u32) -> Option<RectBytes<'_>> {
+        let (data_range, chunk_len, row_range) = self.rect_bytes_inner(rect, z)?;
+        Some(RectBytes {
+            data: self.data[data_range].chunks_exact(chunk_len),
+            range: row_range,
+            format: self.texture_descriptor.format,
+        })
+    }
+
+    /// Get an iterator over the row bytes for a specific rect of pixels.
+    #[inline]
+    pub fn rect_bytes_mut(&mut self, rect: URect, z: u32) -> Option<RectBytesMut<'_>> {
+        let (data_range, chunk_len, row_range) = self.rect_bytes_inner(rect, z)?;
+        Some(RectBytesMut {
+            data: self.data[data_range].chunks_exact_mut(chunk_len),
+            range: row_range,
+            format: self.texture_descriptor.format,
+        })
+    }
+
+    /// Get an iterator over the row bytes for an entire 2D image.
+    #[inline]
+    pub fn as_rect_bytes(&self, z: u32) -> Option<RectBytes<'_>> {
+        self.rect_bytes(
+            URect::new(
+                0,
+                0,
+                self.texture_descriptor.size.width,
+                self.texture_descriptor.size.height,
+            ),
+            z,
+        )
+    }
+
+    /// Get an iterator over the row bytes for an entire 2D image.
+    #[inline]
+    pub fn as_rect_bytes_mut(&mut self, z: u32) -> Option<RectBytesMut<'_>> {
+        self.rect_bytes_mut(
+            URect::new(
+                0,
+                0,
+                self.texture_descriptor.size.width,
+                self.texture_descriptor.size.height,
+            ),
+            z,
+        )
+    }
+
+    /// Common logic between [`Self::rect_bytes`] and [`Self::rect_bytes_mut`].
+    ///
+    /// Returns:
+    ///
+    /// 1. The absolute range in the data for the rect.
+    /// 2. The length of a row in the rect.
+    /// 3. The range within each row for the rect.
+    #[inline]
+    fn rect_bytes_inner(&self, rect: URect, z: u32) -> Option<(Range<usize>, usize, Range<usize>)> {
+        let width = self.texture_descriptor.size.width;
+        let start = self.pixel_data_offset(UVec3::new(0, rect.min.y, z))?;
+        let end = self.pixel_data_offset(UVec3::new(width, rect.max.y, z))?;
+        let pixel_size = self.texture_descriptor.format.pixel_size();
+        let stride = pixel_size * width as usize;
+        Some((
+            start..end,
+            stride,
+            (pixel_size * rect.min.x as usize)..(pixel_size * rect.max.x as usize),
+        ))
+    }
+
     /// Read the color of a specific pixel (1D texture).
     ///
     /// See [`get_color_at`](Self::get_color_at) for more details.
-    #[inline(always)]
+    #[inline]
     pub fn get_color_at_1d(&self, x: u32) -> Result<Color, TextureAccessError> {
         if self.texture_descriptor.dimension != TextureDimension::D1 {
             return Err(TextureAccessError::WrongDimension);
@@ -1163,7 +1235,7 @@ impl Image {
     ///  - non-byte-aligned formats like 10-bit
     ///  - 16-bit float formats
     ///  - signed integer formats
-    #[inline(always)]
+    #[inline]
     pub fn get_color_at(&self, x: u32, y: u32) -> Result<Color, TextureAccessError> {
         if self.texture_descriptor.dimension != TextureDimension::D2 {
             return Err(TextureAccessError::WrongDimension);
@@ -1174,7 +1246,7 @@ impl Image {
     /// Read the color of a specific pixel (3D texture).
     ///
     /// See [`get_color_at`](Self::get_color_at) for more details.
-    #[inline(always)]
+    #[inline]
     pub fn get_color_at_3d(&self, x: u32, y: u32, z: u32) -> Result<Color, TextureAccessError> {
         if self.texture_descriptor.dimension != TextureDimension::D3 {
             return Err(TextureAccessError::WrongDimension);
@@ -1185,7 +1257,7 @@ impl Image {
     /// Change the color of a specific pixel (1D texture).
     ///
     /// See [`set_color_at`](Self::set_color_at) for more details.
-    #[inline(always)]
+    #[inline]
     pub fn set_color_at_1d(&mut self, x: u32, color: Color) -> Result<(), TextureAccessError> {
         if self.texture_descriptor.dimension != TextureDimension::D1 {
             return Err(TextureAccessError::WrongDimension);
@@ -1215,7 +1287,7 @@ impl Image {
     ///  - non-byte-aligned formats like 10-bit
     ///  - 16-bit float formats
     ///  - signed integer formats
-    #[inline(always)]
+    #[inline]
     pub fn set_color_at(&mut self, x: u32, y: u32, color: Color) -> Result<(), TextureAccessError> {
         if self.texture_descriptor.dimension != TextureDimension::D2 {
             return Err(TextureAccessError::WrongDimension);
@@ -1226,7 +1298,7 @@ impl Image {
     /// Change the color of a specific pixel (3D texture).
     ///
     /// See [`set_color_at`](Self::set_color_at) for more details.
-    #[inline(always)]
+    #[inline]
     pub fn set_color_at_3d(
         &mut self,
         x: u32,
@@ -1240,19 +1312,37 @@ impl Image {
         self.set_color_at_internal(UVec3::new(x, y, z), color)
     }
 
-    #[inline(always)]
-    fn get_color_at_internal(&self, coords: UVec3) -> Result<Color, TextureAccessError> {
-        let Some(bytes) = self.pixel_bytes(coords) else {
-            return Err(TextureAccessError::OutOfBounds {
-                x: coords.x,
-                y: coords.y,
-                z: coords.z,
-            });
-        };
+    #[inline]
+    fn supported_color_format(format: TextureFormat) -> bool {
+        matches!(
+            format,
+            TextureFormat::Rgba8UnormSrgb
+                | TextureFormat::Rgba8Unorm
+                | TextureFormat::Rgba8Uint
+                | TextureFormat::Bgra8UnormSrgb
+                | TextureFormat::Bgra8Unorm
+                | TextureFormat::Rgba32Float
+                | TextureFormat::Rgba16Unorm
+                | TextureFormat::Rgba16Uint
+                | TextureFormat::Rgba32Uint
+                | TextureFormat::R8Unorm
+                | TextureFormat::R8Uint
+                | TextureFormat::R16Unorm
+                | TextureFormat::R16Uint
+                | TextureFormat::R32Uint
+                | TextureFormat::R32Float
+                | TextureFormat::Rg8Unorm
+                | TextureFormat::Rg8Uint
+                | TextureFormat::Rg16Unorm
+                | TextureFormat::Rg16Uint
+                | TextureFormat::Rg32Uint
+                | TextureFormat::Rg32Float
+        )
+    }
 
-        // NOTE: GPUs are always Little Endian.
-        // Make sure to respect that when we create color values from bytes.
-        match self.texture_descriptor.format {
+    #[inline]
+    fn load_color(bytes: &[u8], format: TextureFormat) -> Result<Color, TextureAccessError> {
+        match format {
             TextureFormat::Rgba8UnormSrgb => Ok(Color::srgba(
                 bytes[0] as f32 / u8::MAX as f32,
                 bytes[1] as f32 / u8::MAX as f32,
@@ -1361,28 +1451,16 @@ impl Image {
                 let g = f32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
                 Ok(Color::linear_rgb(r, g, 0.0))
             }
-            _ => Err(TextureAccessError::UnsupportedTextureFormat(
-                self.texture_descriptor.format,
-            )),
+            _ => Err(TextureAccessError::UnsupportedTextureFormat(format)),
         }
     }
 
-    #[inline(always)]
-    fn set_color_at_internal(
-        &mut self,
-        coords: UVec3,
+    #[inline]
+    fn store_color(
+        bytes: &mut [u8],
+        format: TextureFormat,
         color: Color,
     ) -> Result<(), TextureAccessError> {
-        let format = self.texture_descriptor.format;
-
-        let Some(bytes) = self.pixel_bytes_mut(coords) else {
-            return Err(TextureAccessError::OutOfBounds {
-                x: coords.x,
-                y: coords.y,
-                z: coords.z,
-            });
-        };
-
         // NOTE: GPUs are always Little Endian.
         // Make sure to respect that when we convert color values to bytes.
         match format {
@@ -1504,14 +1582,181 @@ impl Image {
                 bytes[4..8].copy_from_slice(&f32::to_le_bytes(g));
             }
             _ => {
-                return Err(TextureAccessError::UnsupportedTextureFormat(
-                    self.texture_descriptor.format,
-                ));
+                return Err(TextureAccessError::UnsupportedTextureFormat(format));
             }
         }
         Ok(())
     }
+
+    #[inline]
+    fn get_color_at_internal(&self, coords: UVec3) -> Result<Color, TextureAccessError> {
+        let Some(bytes) = self.pixel_bytes(coords) else {
+            return Err(TextureAccessError::OutOfBounds {
+                x: coords.x,
+                y: coords.y,
+                z: coords.z,
+            });
+        };
+
+        Self::load_color(bytes, self.texture_descriptor.format)
+    }
+
+    #[inline]
+    fn set_color_at_internal(
+        &mut self,
+        coords: UVec3,
+        color: Color,
+    ) -> Result<(), TextureAccessError> {
+        let format = self.texture_descriptor.format;
+
+        let Some(bytes) = self.pixel_bytes_mut(coords) else {
+            return Err(TextureAccessError::OutOfBounds {
+                x: coords.x,
+                y: coords.y,
+                z: coords.z,
+            });
+        };
+
+        Self::store_color(bytes, format, color)
+    }
 }
+
+/// Iterator returned by [`Image::rect_bytes`].
+#[derive(Clone)]
+pub struct RectBytes<'a> {
+    data: slice::ChunksExact<'a, u8>,
+    range: Range<usize>,
+    format: TextureFormat,
+}
+impl RectBytes<'_> {
+    /// Gets the texture format for the rect.
+    pub fn format(&self) -> TextureFormat {
+        self.format
+    }
+}
+impl<'a> Iterator for RectBytes<'a> {
+    type Item = &'a [u8];
+    fn next(&mut self) -> Option<&'a [u8]> {
+        self.data.next().map(|s| &s[self.range.clone()])
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len(), Some(self.len()))
+    }
+}
+impl<'a> DoubleEndedIterator for RectBytes<'a> {
+    fn next_back(&mut self) -> Option<&'a [u8]> {
+        self.data.next_back().map(|s| &s[self.range.clone()])
+    }
+}
+impl<'a> ExactSizeIterator for RectBytes<'a> {
+    fn len(&self) -> usize {
+        self.data.len()
+    }
+}
+impl<'a> FusedIterator for RectBytes<'a> {}
+
+/// Iterator returned by [`Image::rect_bytes_mut`].
+pub struct RectBytesMut<'a> {
+    data: slice::ChunksExactMut<'a, u8>,
+    range: Range<usize>,
+    format: TextureFormat,
+}
+impl RectBytesMut<'_> {
+    /// Gets the texture format for the rect.
+    pub fn format(&self) -> TextureFormat {
+        self.format
+    }
+
+    /// Directly copies the bytes from another rect to this one.
+    ///
+    /// Will fail if the rects are different sizes or formats. Completely
+    /// ignores transparency and will directly overwrite the bytes.
+    pub fn copy_from(self, other: RectBytes<'_>) -> Result<(), TextureCopyError> {
+        let dest = UVec2::new(self.range.len() as u32, self.data.len() as u32);
+        let src = UVec2::new(other.range.len() as u32, other.data.len() as u32);
+        if dest != src {
+            return Err(TextureCopyError::SizeMismatch { dest, src });
+        }
+
+        if self.format != other.format {
+            return Err(TextureCopyError::CannotConvert {
+                src: self.format,
+                dest: other.format,
+            });
+        }
+
+        for (dest, src) in self.zip(other.clone()) {
+            dest.copy_from_slice(src);
+        }
+        Ok(())
+    }
+
+    /// Copies the pixels from another rect to this one by performing color conversion.
+    ///
+    /// Will fail if the rects are different sizes, or if the formats do not
+    /// support color conversion. Completely ignores transparency and will directly
+    /// overwrite the colors.
+    pub fn translate_from(self, other: RectBytes<'_>) -> Result<(), TextureCopyError> {
+        if self.format == other.format {
+            return self.copy_from(other);
+        }
+
+        let dest_len = self.format.pixel_size();
+        let src_len = other.format.pixel_size();
+
+        let dest = UVec2::new((self.range.len() / dest_len) as u32, self.data.len() as u32);
+        let src = UVec2::new(
+            (other.range.len() / src_len) as u32,
+            other.data.len() as u32,
+        );
+
+        if dest != src {
+            return Err(TextureCopyError::SizeMismatch { src, dest });
+        }
+
+        if !Image::supported_color_format(self.format)
+            || !Image::supported_color_format(other.format)
+        {
+            return Err(TextureCopyError::CannotConvert {
+                src: other.format,
+                dest: self.format,
+            });
+        }
+
+        let dest_fmt = self.format;
+        let src_fmt = other.format;
+        for (dest, src) in self.zip(other) {
+            let dest = dest.chunks_exact_mut(dest_len);
+            let src = src.chunks_exact(src_len);
+            for (dest, src) in dest.zip(src) {
+                let src = Image::load_color(src, src_fmt).unwrap();
+                Image::store_color(dest, dest_fmt, src).unwrap();
+            }
+        }
+
+        Ok(())
+    }
+}
+impl<'a> Iterator for RectBytesMut<'a> {
+    type Item = &'a mut [u8];
+    fn next(&mut self) -> Option<&'a mut [u8]> {
+        self.data.next().map(|s| &mut s[self.range.clone()])
+    }
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len(), Some(self.len()))
+    }
+}
+impl<'a> DoubleEndedIterator for RectBytesMut<'a> {
+    fn next_back(&mut self) -> Option<&'a mut [u8]> {
+        self.data.next_back().map(|s| &mut s[self.range.clone()])
+    }
+}
+impl<'a> ExactSizeIterator for RectBytesMut<'a> {
+    fn len(&self) -> usize {
+        self.data.len()
+    }
+}
+impl<'a> FusedIterator for RectBytesMut<'a> {}
 
 #[derive(Clone, Copy, Debug)]
 pub enum DataFormat {
@@ -1544,6 +1789,18 @@ pub enum TextureAccessError {
     UnsupportedTextureFormat(TextureFormat),
     #[display("attempt to access texture with different dimension")]
     WrongDimension,
+}
+
+/// An error that occurs when copying between texture rects.
+#[derive(Error, Display, Debug)]
+pub enum TextureCopyError {
+    #[display("cannot copy rect of size {src:?} to rect of size {dest:?}")]
+    SizeMismatch { src: UVec2, dest: UVec2 },
+    #[display("cannot convert from format {src:?} to format {dest:?}")]
+    CannotConvert {
+        src: TextureFormat,
+        dest: TextureFormat,
+    },
 }
 
 /// An error that occurs when loading a texture
