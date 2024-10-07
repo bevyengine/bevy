@@ -1281,11 +1281,11 @@ category = "Animation"
 wasm = true
 
 [[example]]
-name = "ease_functions"
-path = "examples/animation/ease_functions.rs"
+name = "easing_functions"
+path = "examples/animation/easing_functions.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.ease_functions]
+[package.metadata.example.easing_functions]
 name = "Easing Functions"
 description = "Showcases the built-in easing functions"
 category = "Animation"

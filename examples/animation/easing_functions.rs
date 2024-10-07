@@ -153,11 +153,11 @@ fn display_curves(
         let f = easing::EasingCurve::ease(*function);
         gizmos.linestrip_2d(
             (0..(samples + 1)).map(|i| {
+                let t = i as f32 / samples as f32;
+                let sampled = f.sample(t).unwrap();
                 Vec2::new(
-                    i as f32 / samples as f32 * size + transform.translation.x,
-                    f.sample(i as f32 / samples as f32).unwrap() * size
-                        + transform.translation.y
-                        + 15.0,
+                    t * size + transform.translation.x,
+                    sampled * size + transform.translation.y + 15.0,
                 )
             }),
             *color,
