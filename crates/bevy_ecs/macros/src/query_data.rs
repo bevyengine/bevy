@@ -3,7 +3,7 @@ use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, Attribute, Data,
+    parse_macro_input, parse_quote, punctuated::Punctuated, token, token::Comma, Attribute, Data,
     DataStruct, DeriveInput, Field, Index, Meta,
 };
 
@@ -47,7 +47,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         let result = attr.parse_nested_meta(|meta| {
             if meta.path.is_ident(MUTABLE_ATTRIBUTE_NAME) {
                 attributes.is_mutable = true;
-                if !meta.input.is_empty() {
+                if meta.input.peek(token::Paren) {
                     Err(meta.error(format_args!("`{MUTABLE_ATTRIBUTE_NAME}` does not take any arguments")))
                 } else {
                     Ok(())
