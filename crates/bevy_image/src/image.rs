@@ -6,7 +6,7 @@ use super::dds::*;
 use super::ktx2::*;
 
 use bevy_asset::{Asset, RenderAssetUsages};
-use bevy_color::{Color, ColorToComponents, LinearRgba, Oklcha, Srgba};
+use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
@@ -1192,30 +1192,34 @@ impl Image {
                 bytes[12..16].copy_from_slice(&u32::to_le_bytes(a));
             }
             TextureFormat::R8Unorm | TextureFormat::R8Uint => {
-                // Convert to grayscale perceptually
-                let [r, _, _, _] =
-                    LinearRgba::from(Oklcha::from(color).with_chroma(0.0)).to_f32_array();
+                // Convert to grayscale with minimal loss if color is already gray
+                let linear = LinearRgba::from(color);
+                let luminance = Xyza::from(linear).y;
+                let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
                 bytes[0] = (r * u8::MAX as f32) as u8;
             }
             TextureFormat::R16Unorm | TextureFormat::R16Uint => {
-                // Convert to grayscale perceptually
-                let [r, _, _, _] =
-                    LinearRgba::from(Oklcha::from(color).with_chroma(0.0)).to_f32_array();
+                // Convert to grayscale with minimal loss if color is already gray
+                let linear = LinearRgba::from(color);
+                let luminance = Xyza::from(linear).y;
+                let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
                 let r = (r * u16::MAX as f32) as u16;
                 bytes[0..2].copy_from_slice(&u16::to_le_bytes(r));
             }
             TextureFormat::R32Uint => {
-                // Convert to grayscale perceptually
-                let [r, _, _, _] =
-                    LinearRgba::from(Oklcha::from(color).with_chroma(0.0)).to_f32_array();
+                // Convert to grayscale with minimal loss if color is already gray
+                let linear = LinearRgba::from(color);
+                let luminance = Xyza::from(linear).y;
+                let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
                 // go via f64 to avoid imprecision
                 let r = (r as f64 * u32::MAX as f64) as u32;
                 bytes[0..4].copy_from_slice(&u32::to_le_bytes(r));
             }
             TextureFormat::R32Float => {
-                // Convert to grayscale perceptually
-                let [r, _, _, _] =
-                    LinearRgba::from(Oklcha::from(color).with_chroma(0.0)).to_f32_array();
+                // Convert to grayscale with minimal loss if color is already gray
+                let linear = LinearRgba::from(color);
+                let luminance = Xyza::from(linear).y;
+                let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
                 bytes[0..4].copy_from_slice(&f32::to_le_bytes(r));
             }
             TextureFormat::Rg8Unorm | TextureFormat::Rg8Uint => {
