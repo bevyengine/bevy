@@ -1,7 +1,7 @@
-use crate::{ExtractedSprite, ImageScaleMode, Sprite, TextureAtlas, TextureAtlasLayout};
+use crate::{ExtractedSprite, ImageScaleMode, Sprite, TextureAtlasLayout};
 
 use super::TextureSlice;
-use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::prelude::*;
 use bevy_math::{Rect, Vec2};
 use bevy_render::texture::Image;
