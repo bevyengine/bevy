@@ -1,7 +1,7 @@
 //! Module containing different [`Easing`] curves to control the transition between two values and
 //! the [`EasingCurve`] struct to make use of them.
 
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
+use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
 
 use crate::{
     ops::{self, FloatPow},
