@@ -269,6 +269,7 @@ Example | Description
 [Camera Orbit](../examples/camera/camera_orbit.rs) | Shows how to orbit a static scene using pitch, yaw, and roll.
 [First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV)
 [Projection Zoom](../examples/camera/projection_zoom.rs) | Shows how to zoom orthographic and perspective projection cameras.
+[Screen Shake](../examples/camera/2d_screen_shake.rs) | A simple 2D screen shake effect
 
 ## Dev tools
 
