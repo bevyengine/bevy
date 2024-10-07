@@ -5,6 +5,7 @@ use crate::{
     ops::{self, FloatPow},
     VectorSpace,
 };
+use interpolation::Ease;
 
 use super::{Curve, FunctionCurve, Interval};
 
@@ -86,13 +87,58 @@ where
 impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
     /// A [`Curve`] mapping the [unit interval] to itself.
     ///
+    /// [unit interval]: `Interval::UNIT`
+    pub fn ease(function: EaseFunction) -> Self {
+        Self {
+            start: 0.0,
+            end: 1.0,
+            easing: FunctionCurve::new(
+                Interval::UNIT,
+                match function {
+                    EaseFunction::QuadraticIn => Ease::quadratic_in,
+                    EaseFunction::QuadraticOut => Ease::quadratic_out,
+                    EaseFunction::QuadraticInOut => Ease::quadratic_in_out,
+                    EaseFunction::CubicIn => Ease::cubic_in,
+                    EaseFunction::CubicOut => Ease::cubic_out,
+                    EaseFunction::CubicInOut => Ease::cubic_in_out,
+                    EaseFunction::QuarticIn => Ease::quartic_in,
+                    EaseFunction::QuarticOut => Ease::quartic_out,
+                    EaseFunction::QuarticInOut => Ease::quartic_in_out,
+                    EaseFunction::QuinticIn => Ease::quintic_in,
+                    EaseFunction::QuinticOut => Ease::quintic_out,
+                    EaseFunction::QuinticInOut => Ease::quintic_in_out,
+                    EaseFunction::SineIn => Ease::sine_in,
+                    EaseFunction::SineOut => Ease::sine_out,
+                    EaseFunction::SineInOut => Ease::sine_in_out,
+                    EaseFunction::CircularIn => Ease::circular_in,
+                    EaseFunction::CircularOut => Ease::circular_out,
+                    EaseFunction::CircularInOut => Ease::circular_in_out,
+                    EaseFunction::ExponentialIn => Ease::exponential_in,
+                    EaseFunction::ExponentialOut => Ease::exponential_out,
+                    EaseFunction::ExponentialInOut => Ease::exponential_in_out,
+                    EaseFunction::ElasticIn => Ease::elastic_in,
+                    EaseFunction::ElasticOut => Ease::elastic_out,
+                    EaseFunction::ElasticInOut => Ease::elastic_in_out,
+                    EaseFunction::BackIn => Ease::back_in,
+                    EaseFunction::BackOut => Ease::back_out,
+                    EaseFunction::BackInOut => Ease::back_in_out,
+                    EaseFunction::BounceIn => Ease::bounce_in,
+                    EaseFunction::BounceOut => Ease::bounce_out,
+                    EaseFunction::BounceInOut => Ease::bounce_in_out,
+                },
+            ),
+        }
+    }
+
+    /// A [`Curve`] mapping the [unit interval] to itself.
+    ///
     /// Quadratic easing functions can have exactly one critical point. This is a point on the function
     /// such that `f′(t) = 0`. This means that there won't be any sudden jumps at this point leading to
     /// smooth transitions. A common choice is to place that point at `t = 0` or [`t = 1`].
     ///
     /// It uses the function `f(t) = t²`
     ///
-    /// [unit domain]: `Interval::UNIT`
+    /// [unit interval]: `Interval::UNIT`
     /// [`t = 1`]: `Self::quadratic_ease_out`
     pub fn quadratic_ease_in() -> Self {
         Self {
@@ -110,7 +156,7 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
     ///
     /// It uses the function `f(t) = 1 - (1 - t)²`
     ///
-    /// [unit domain]: `Interval::UNIT`
+    /// [unit interval]: `Interval::UNIT`
     /// [`t = 0`]: `Self::quadratic_ease_in`
     pub fn quadratic_ease_out() -> Self {
         fn f(t: f32) -> f32 {
@@ -132,7 +178,7 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
     ///
     /// It uses the function `f(t) = t² * (3 - 2t)`
     ///
-    /// [unit domain]: `Interval::UNIT`
+    /// [unit interval]: `Interval::UNIT`
     /// [sigmoid function]: https://en.wikipedia.org/wiki/Sigmoid_function
     /// [smoothstep function]: https://en.wikipedia.org/wiki/Smoothstep
     pub fn smoothstep() -> Self {
@@ -150,7 +196,7 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
     ///
     /// It uses the function `f(t) = t`
     ///
-    /// [unit domain]: `Interval::UNIT`
+    /// [unit interval]: `Interval::UNIT`
     pub fn identity() -> Self {
         Self {
             start: 0.0,
@@ -207,7 +253,7 @@ where
 
 /// A [`Curve`] mapping the [unit interval] to itself.
 ///
-/// This leads to a cruve with sudden jumps at the step points and segments with constant values
+/// This leads to a curve with sudden jumps at the step points and segments with constant values
 /// everywhere else.
 ///
 /// It uses the function `f(n,t) = round(t * n) / n`
@@ -219,7 +265,7 @@ where
 /// - for `n >= 2` the curve has a start segment and an end segment of length `1 / (2 * n)` and in
 ///   between there are `n - 1` segments of length `1 / n`
 ///
-/// [unit domain]: `Interval::UNIT`
+/// [unit interval]: `Interval::UNIT`
 /// [`constant_curve(Interval::UNIT, 0.0)`]: `crate::curve::constant_curve`
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -265,7 +311,7 @@ impl StepCurve {
 ///
 /// parametrized by `omega`
 ///
-/// [unit domain]: `Interval::UNIT`
+/// [unit interval]: `Interval::UNIT`
 /// [smoothstep function]: https://en.wikipedia.org/wiki/Smoothstep
 /// [spring-mass-system]: https://notes.yvt.jp/Graphics/Easing-Functions/#elastic-easing
 #[derive(Clone, Debug)]
@@ -295,4 +341,82 @@ impl ElasticCurve {
     pub fn new(omega: f32) -> Self {
         Self { omega }
     }
+}
+
+/// Curve functions over the [unit interval], commonly used for easing transitions.
+///
+/// [unit interval]: `Interval::UNIT`
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+pub enum EaseFunction {
+    /// `f(t) = t²`
+    QuadraticIn,
+    /// `f(t) = -(t * (t - 2.0))`
+    QuadraticOut,
+    /// Behaves as `EaseFunction::QuadraticIn` for t < 0.5 and as `EaseFunction::QuadraticOut` for t >= 0.5
+    QuadraticInOut,
+
+    /// `f(t) = t³`
+    CubicIn,
+    /// `f(t) = (t - 1.0)³ + 1.0`
+    CubicOut,
+    /// Behaves as `EaseFunction::CubicIn` for t < 0.5 and as `EaseFunction::CubicOut` for t >= 0.5
+    CubicInOut,
+
+    /// `f(t) = t⁴`
+    QuarticIn,
+    /// `f(t) = (t - 1.0)³ * (1.0 - t) + 1.0`
+    QuarticOut,
+    /// Behaves as `EaseFunction::QuarticIn` for t < 0.5 and as `EaseFunction::QuarticOut` for t >= 0.5
+    QuarticInOut,
+
+    /// `f(t) = t⁵`
+    QuinticIn,
+    /// `f(t) = (t - 1.0)⁵ + 1.0`
+    QuinticOut,
+    /// Behaves as `EaseFunction::QuinticIn` for t < 0.5 and as `EaseFunction::QuinticOut` for t >= 0.5
+    QuinticInOut,
+
+    /// `f(t) = sin((t - 1.0) * π / 2.0) + 1.0`
+    SineIn,
+    /// `f(t) = sin(t * π / 2.0)`
+    SineOut,
+    /// Behaves as `EaseFunction::SineIn` for t < 0.5 and as `EaseFunction::SineOut` for t >= 0.5
+    SineInOut,
+
+    /// `f(t) = 1.0 - sqrt(1.0 - t²)`
+    CircularIn,
+    /// `f(t) = sqrt((2.0 - t) * t)`
+    CircularOut,
+    /// Behaves as `EaseFunction::CircularIn` for t < 0.5 and as `EaseFunction::CircularOut` for t >= 0.5
+    CircularInOut,
+
+    /// `f(t) = 2.0.powf(10.0 * (t - 1.0))`
+    ExponentialIn,
+    /// `f(t) = 1.0 - 2.0.powf(-10.0 * t)`
+    ExponentialOut,
+    /// Behaves as `EaseFunction::ExponentialIn` for t < 0.5 and as `EaseFunction::ExponentialOut` for t >= 0.5
+    ExponentialInOut,
+
+    /// `f(t) = sin(13.0 * π / 2.0 * t) * 2.0.powf(10.0 * (t - 1.0))`
+    ElasticIn,
+    /// `f(t) = sin(-13.0 * π / 2.0 * (t + 1.0)) * 2.0.powf(-10.0 * t) + 1.0`
+    ElasticOut,
+    /// Behaves as `EaseFunction::ElasticIn` for t < 0.5 and as `EaseFunction::ElasticOut` for t >= 0.5
+    ElasticInOut,
+
+    /// `f(t) = t³ - t * sin(t * π)`
+    BackIn,
+    /// `f(t) = 1.0 - (1.0 - t)³ - t * sin((1.0 - t) * π))`
+    BackOut,
+    /// Behaves as `EaseFunction::BackIn` for t < 0.5 and as `EaseFunction::BackOut` for t >= 0.5
+    BackInOut,
+
+    /// bouncy at the start!
+    BounceIn,
+    /// bouncy at the end!
+    BounceOut,
+    /// Behaves as `EaseFunction::BounceIn` for t < 0.5 and as `EaseFunction::BounceOut` for t >= 0.5
+    BounceInOut,
 }

@@ -148,7 +148,7 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
         for record in pending.drain(..) {
             match record {
                 EntityRecord::Added(e) => {
-                    if let Some(mut entity) = world.get_entity_mut(e) {
+                    if let Ok(mut entity) = world.get_entity_mut(e) {
                         match entity.entry::<RenderEntity>() {
                             bevy_ecs::world::Entry::Occupied(_) => {
                                 panic!("Attempting to synchronize an entity that has already been synchronized!");
@@ -162,7 +162,7 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                     }
                 }
                 EntityRecord::Removed(e) => {
-                    if let Some(ec) = render_world.get_entity_mut(e) {
+                    if let Ok(ec) = render_world.get_entity_mut(e) {
                         ec.despawn();
                     };
                 }

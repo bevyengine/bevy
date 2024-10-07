@@ -71,7 +71,7 @@ struct ExplodeMines {
 struct Explode;
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.spawn(
         TextBundle::from_section(
             "Click on a \"Mine\" to trigger it.\n\

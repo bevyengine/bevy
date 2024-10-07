@@ -775,7 +775,7 @@ mod tests {
         assert!(dst_world
             .query_filtered::<&MyEntityRef, With<Foo>>()
             .iter(&dst_world)
-            .all(|r| world.get_entity(r.0).is_none()));
+            .all(|r| world.get_entity(r.0).is_err()));
     }
 
     #[test]

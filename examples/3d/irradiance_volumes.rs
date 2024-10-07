@@ -231,16 +231,15 @@ fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
 }
 
 fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
-    commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        })
-        .insert(Skybox {
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
+        Skybox {
             image: assets.skybox.clone(),
             brightness: 150.0,
             ..default()
-        });
+        },
+    ));
 }
 
 fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {

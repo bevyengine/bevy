@@ -798,7 +798,7 @@ pub fn process_remote_list_watching_request(
 fn get_entity(world: &World, entity: Entity) -> Result<EntityRef<'_>, BrpError> {
     world
         .get_entity(entity)
-        .ok_or_else(|| BrpError::entity_not_found(entity))
+        .map_err(|_| BrpError::entity_not_found(entity))
 }
 
 /// Mutably retrieves an entity from the [`World`], returning an error if the
@@ -806,7 +806,7 @@ fn get_entity(world: &World, entity: Entity) -> Result<EntityRef<'_>, BrpError> 
 fn get_entity_mut(world: &mut World, entity: Entity) -> Result<EntityWorldMut<'_>, BrpError> {
     world
         .get_entity_mut(entity)
-        .ok_or_else(|| BrpError::entity_not_found(entity))
+        .map_err(|_| BrpError::entity_not_found(entity))
 }
 
 /// Returns the [`TypeId`] and [`ComponentId`] of the components with the given
