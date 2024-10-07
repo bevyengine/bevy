@@ -3,7 +3,7 @@
 use bevy::{prelude::*, sprite::Anchor};
 
 #[derive(Component)]
-struct SelectedEaseFunction(easing::EaseFunction, Color);
+struct SelectedEaseFunction(EaseFunction, Color);
 
 fn main() {
     App::new()
@@ -22,36 +22,36 @@ fn setup(mut commands: Commands) {
     };
 
     for (i, functions) in [
-        easing::EaseFunction::SineIn,
-        easing::EaseFunction::SineOut,
-        easing::EaseFunction::SineInOut,
-        easing::EaseFunction::QuadraticIn,
-        easing::EaseFunction::QuadraticOut,
-        easing::EaseFunction::QuadraticInOut,
-        easing::EaseFunction::CubicIn,
-        easing::EaseFunction::CubicOut,
-        easing::EaseFunction::CubicInOut,
-        easing::EaseFunction::QuarticIn,
-        easing::EaseFunction::QuarticOut,
-        easing::EaseFunction::QuarticInOut,
-        easing::EaseFunction::QuinticIn,
-        easing::EaseFunction::QuinticOut,
-        easing::EaseFunction::QuinticInOut,
-        easing::EaseFunction::CircularIn,
-        easing::EaseFunction::CircularOut,
-        easing::EaseFunction::CircularInOut,
-        easing::EaseFunction::ExponentialIn,
-        easing::EaseFunction::ExponentialOut,
-        easing::EaseFunction::ExponentialInOut,
-        easing::EaseFunction::ElasticIn,
-        easing::EaseFunction::ElasticOut,
-        easing::EaseFunction::ElasticInOut,
-        easing::EaseFunction::BackIn,
-        easing::EaseFunction::BackOut,
-        easing::EaseFunction::BackInOut,
-        easing::EaseFunction::BounceIn,
-        easing::EaseFunction::BounceOut,
-        easing::EaseFunction::BounceInOut,
+        EaseFunction::SineIn,
+        EaseFunction::SineOut,
+        EaseFunction::SineInOut,
+        EaseFunction::QuadraticIn,
+        EaseFunction::QuadraticOut,
+        EaseFunction::QuadraticInOut,
+        EaseFunction::CubicIn,
+        EaseFunction::CubicOut,
+        EaseFunction::CubicInOut,
+        EaseFunction::QuarticIn,
+        EaseFunction::QuarticOut,
+        EaseFunction::QuarticInOut,
+        EaseFunction::QuinticIn,
+        EaseFunction::QuinticOut,
+        EaseFunction::QuinticInOut,
+        EaseFunction::CircularIn,
+        EaseFunction::CircularOut,
+        EaseFunction::CircularInOut,
+        EaseFunction::ExponentialIn,
+        EaseFunction::ExponentialOut,
+        EaseFunction::ExponentialInOut,
+        EaseFunction::ElasticIn,
+        EaseFunction::ElasticOut,
+        EaseFunction::ElasticInOut,
+        EaseFunction::BackIn,
+        EaseFunction::BackOut,
+        EaseFunction::BackInOut,
+        EaseFunction::BounceIn,
+        EaseFunction::BounceOut,
+        EaseFunction::BounceInOut,
     ]
     .chunks(3)
     .enumerate()
