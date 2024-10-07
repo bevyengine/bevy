@@ -1,78 +1,89 @@
 //! Module containing different [`Easing`] curves to control the transition between two values and
 //! the [`EasingCurve`] struct to make use of them.
 
-use crate::{
-    ops::{self, FloatPow},
-    Dir2, Dir3, Dir3A, Quat, Rot2, VectorSpace,
-};
-use interpolation::Ease;
+use crate::{Dir2, Dir3, Dir3A, Quat, Rot2, VectorSpace};
+use interpolation::Ease as IEase;
 
 use super::{function_curve, Curve, Interval};
-pub trait LegallyDistinctEase: Sized {
+pub trait Ease: Sized {
     fn interpolating_curve(start: &Self, end: &Self) -> impl Curve<Self>;
-    fn interpolating_curve_extrapolated(start: &Self, end: &Self) -> impl Curve<Self>;
+    fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self>;
 }
 
-impl<V: VectorSpace> LegallyDistinctEase for V {
+impl<V: VectorSpace> Ease for V {
     fn interpolating_curve(start: &Self, end: &Self) -> impl Curve<Self> {
         function_curve(Interval::UNIT, |t| V::lerp(*start, *end, t))
     }
 
-    fn interpolating_curve_extrapolated(start: &Self, end: &Self) -> impl Curve<Self> {
+    fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
         function_curve(Interval::EVERYWHERE, |t| V::lerp(*start, *end, t))
     }
 }
 
-impl LegallyDistinctEase for Rot2 {
+impl Ease for Rot2 {
     fn interpolating_curve(start: &Self, end: &Self) -> impl Curve<Self> {
         function_curve(Interval::UNIT, |t| Rot2::slerp(*start, *end, t))
     }
 
-    fn interpolating_curve_extrapolated(start: &Self, end: &Self) -> impl Curve<Self> {
+    fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
         function_curve(Interval::EVERYWHERE, |t| Rot2::slerp(*start, *end, t))
     }
 }
 
-impl LegallyDistinctEase for Quat {
+impl Ease for Quat {
     fn interpolating_curve(start: &Self, end: &Self) -> impl Curve<Self> {
         function_curve(Interval::UNIT, |t| Quat::slerp(*start, *end, t))
     }
 
-    fn interpolating_curve_extrapolated(start: &Self, end: &Self) -> impl Curve<Self> {
+    fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
         // TODO: Check this actually extrapolates correctly.
         function_curve(Interval::EVERYWHERE, |t| Quat::slerp(*start, *end, t))
     }
 }
 
-impl LegallyDistinctEase for Dir2 {
+impl Ease for Dir2 {
     fn interpolating_curve(start: &Self, end: &Self) -> impl Curve<Self> {
         function_curve(Interval::UNIT, |t| Dir2::slerp(*start, *end, t))
     }
 
-    fn interpolating_curve_extrapolated(start: &Self, end: &Self) -> impl Curve<Self> {
+    fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
         function_curve(Interval::EVERYWHERE, |t| Dir2::slerp(*start, *end, t))
     }
 }
 
-impl LegallyDistinctEase for Dir3 {
+impl Ease for Dir3 {
     fn interpolating_curve(start: &Self, end: &Self) -> impl Curve<Self> {
         function_curve(Interval::UNIT, |t| Dir3::slerp(*start, *end, t))
     }
 
-    fn interpolating_curve_extrapolated(start: &Self, end: &Self) -> impl Curve<Self> {
+    fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
         // TODO: Check this actually extrapolates correctly.
         function_curve(Interval::EVERYWHERE, |t| Dir3::slerp(*start, *end, t))
     }
 }
 
-impl LegallyDistinctEase for Dir3A {
+impl Ease for Dir3A {
     fn interpolating_curve(start: &Self, end: &Self) -> impl Curve<Self> {
         function_curve(Interval::UNIT, |t| Dir3A::slerp(*start, *end, t))
     }
 
-    fn interpolating_curve_extrapolated(start: &Self, end: &Self) -> impl Curve<Self> {
+    fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
         // TODO: Check this actually extrapolates correctly.
         function_curve(Interval::EVERYWHERE, |t| Dir3A::slerp(*start, *end, t))
+    }
+}
+
+/// Given a `start` and `end` value, create a curve parametrized over [the unit interval]
+/// that connects them, using the given [ease function] to determine the form of the
+/// curve in between.
+///
+/// [the unit interval]: Interval::UNIT
+/// [ease function]: EaseFunction
+pub fn easing_curve<T: Ease>(start: T, end: T, ease_fn: EaseFunction) -> EasingCurve<T> {
+    EasingCurve {
+        start,
+        end,
+        ease_fn,
     }
 }
 
@@ -91,16 +102,16 @@ impl LegallyDistinctEase for Dir3A {
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct EasingCurve<T>
 where
-    T: LegallyDistinctEase,
+    T: Ease,
 {
     start: T,
     end: T,
-    easing: EaseFunction,
+    ease_fn: EaseFunction,
 }
 
 impl<T> Curve<T> for EasingCurve<T>
 where
-    T: LegallyDistinctEase,
+    T: Ease,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -109,101 +120,8 @@ where
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
-        let f = self.easing.to_fn();
-        let remapped_t = f(t);
-        T::interpolating_curve_extrapolated(&self.start, &self.end).sample_unchecked(remapped_t)
-    }
-}
-
-/// A [`Curve`] mapping the [unit interval] to itself.
-///
-/// This leads to a curve with sudden jumps at the step points and segments with constant values
-/// everywhere else.
-///
-/// It uses the function `f(n,t) = round(t * n) / n`
-///
-/// parametrized by `n`, the number of jumps
-///
-/// - for `n == 0` this is equal to [`constant_curve(Interval::UNIT, 0.0)`]
-/// - for `n == 1` this makes a single jump at `t = 0.5`, splitting the interval evenly
-/// - for `n >= 2` the curve has a start segment and an end segment of length `1 / (2 * n)` and in
-///   between there are `n - 1` segments of length `1 / n`
-///
-/// [unit interval]: `Interval::UNIT`
-/// [`constant_curve(Interval::UNIT, 0.0)`]: `crate::curve::constant_curve`
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct StepCurve {
-    num_steps: usize,
-}
-
-impl Curve<f32> for StepCurve {
-    #[inline]
-    fn domain(&self) -> Interval {
-        Interval::UNIT
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> f32 {
-        if t != 0.0 || t != 1.0 {
-            (t * self.num_steps as f32).round() / self.num_steps.max(1) as f32
-        } else {
-            t
-        }
-    }
-}
-
-impl StepCurve {
-    /// Create a new [`StepCurve`] over the [unit interval] which makes the given amount of steps.
-    ///
-    /// [unit interval]: `Interval::UNIT`
-    pub fn new(num_steps: usize) -> Self {
-        Self { num_steps }
-    }
-}
-
-/// A [`Curve`] over the [unit interval].
-///
-/// This class of easing functions is derived as an approximation of a [spring-mass-system]
-/// solution.
-///
-/// - For `ω → 0` the curve converges to the [smoothstep function]
-/// - For `ω → ∞` the curve gets increasingly more bouncy
-///
-/// It uses the function `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`
-///
-/// parametrized by `omega`
-///
-/// [unit interval]: `Interval::UNIT`
-/// [smoothstep function]: https://en.wikipedia.org/wiki/Smoothstep
-/// [spring-mass-system]: https://notes.yvt.jp/Graphics/Easing-Functions/#elastic-easing
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct ElasticCurve {
-    omega: f32,
-}
-
-impl Curve<f32> for ElasticCurve {
-    #[inline]
-    fn domain(&self) -> Interval {
-        Interval::UNIT
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> f32 {
-        1.0 - (1.0 - t).squared()
-            * (2.0 * ops::sin(self.omega * t) / self.omega + ops::cos(self.omega * t))
-    }
-}
-
-impl ElasticCurve {
-    /// Create a new [`ElasticCurve`] over the [unit interval] with the given parameter `omega`.
-    ///
-    /// [unit interval]: `Interval::UNIT`
-    pub fn new(omega: f32) -> Self {
-        Self { omega }
+        let remapped_t = self.ease_fn.eval(t);
+        T::interpolating_curve_unbounded(&self.start, &self.end).sample_unchecked(remapped_t)
     }
 }
 
@@ -214,6 +132,9 @@ impl ElasticCurve {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub enum EaseFunction {
+    /// `f(t) = t`
+    Linear,
+
     /// `f(t) = t²`
     QuadraticIn,
     /// `f(t) = -(t * (t - 2.0))`
@@ -283,12 +204,23 @@ pub enum EaseFunction {
     BounceOut,
     /// Behaves as `EaseFunction::BounceIn` for t < 0.5 and as `EaseFunction::BounceOut` for t >= 0.5
     BounceInOut,
+
+    /// `n` steps connecting the start and the end
+    Steps(usize),
+
+    /// `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`, parametrized by `omega`
+    Elastic(f32),
 }
 
 mod easing_functions {
     use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
 
     use crate::{ops, FloatPow};
+
+    #[inline]
+    pub(crate) fn linear(t: f32) -> f32 {
+        t
+    }
 
     #[inline]
     pub(crate) fn sine_in(t: f32) -> f32 {
@@ -341,41 +273,54 @@ mod easing_functions {
             ops::powf(2.0, -20.0 * t + 10.0) * ops::sin((t * 20.0 - 11.125) * c) / 2.0 + 1.0
         }
     }
+
+    #[inline]
+    pub(crate) fn steps(num_steps: usize, t: f32) -> f32 {
+        (t * num_steps as f32).round() / num_steps.max(1) as f32
+    }
+
+    #[inline]
+    pub(crate) fn elastic(omega: f32, t: f32) -> f32 {
+        1.0 - (1.0 - t).squared() * (2.0 * ops::sin(omega * t) / omega + ops::cos(omega * t))
+    }
 }
 
 impl EaseFunction {
-    fn to_fn(self) -> fn(f32) -> f32 {
+    fn eval(&self, t: f32) -> f32 {
         match self {
-            EaseFunction::QuadraticIn => Ease::quadratic_in,
-            EaseFunction::QuadraticOut => Ease::quadratic_out,
-            EaseFunction::QuadraticInOut => Ease::quadratic_in_out,
-            EaseFunction::CubicIn => Ease::cubic_in,
-            EaseFunction::CubicOut => Ease::cubic_out,
-            EaseFunction::CubicInOut => Ease::cubic_in_out,
-            EaseFunction::QuarticIn => Ease::quartic_in,
-            EaseFunction::QuarticOut => Ease::quartic_out,
-            EaseFunction::QuarticInOut => Ease::quartic_in_out,
-            EaseFunction::QuinticIn => Ease::quintic_in,
-            EaseFunction::QuinticOut => Ease::quintic_out,
-            EaseFunction::QuinticInOut => Ease::quintic_in_out,
-            EaseFunction::SineIn => easing_functions::sine_in,
-            EaseFunction::SineOut => easing_functions::sine_out,
-            EaseFunction::SineInOut => Ease::sine_in_out,
-            EaseFunction::CircularIn => Ease::circular_in,
-            EaseFunction::CircularOut => Ease::circular_out,
-            EaseFunction::CircularInOut => Ease::circular_in_out,
-            EaseFunction::ExponentialIn => Ease::exponential_in,
-            EaseFunction::ExponentialOut => Ease::exponential_out,
-            EaseFunction::ExponentialInOut => Ease::exponential_in_out,
-            EaseFunction::ElasticIn => easing_functions::elastic_in,
-            EaseFunction::ElasticOut => easing_functions::elastic_out,
-            EaseFunction::ElasticInOut => easing_functions::elastic_in_out,
-            EaseFunction::BackIn => easing_functions::back_in,
-            EaseFunction::BackOut => easing_functions::back_out,
-            EaseFunction::BackInOut => easing_functions::back_in_out,
-            EaseFunction::BounceIn => Ease::bounce_in,
-            EaseFunction::BounceOut => Ease::bounce_out,
-            EaseFunction::BounceInOut => Ease::bounce_in_out,
+            EaseFunction::Linear => easing_functions::linear(t),
+            EaseFunction::QuadraticIn => IEase::quadratic_in(t),
+            EaseFunction::QuadraticOut => IEase::quadratic_out(t),
+            EaseFunction::QuadraticInOut => IEase::quadratic_in_out(t),
+            EaseFunction::CubicIn => IEase::cubic_in(t),
+            EaseFunction::CubicOut => IEase::cubic_out(t),
+            EaseFunction::CubicInOut => IEase::cubic_in_out(t),
+            EaseFunction::QuarticIn => IEase::quartic_in(t),
+            EaseFunction::QuarticOut => IEase::quartic_out(t),
+            EaseFunction::QuarticInOut => IEase::quartic_in_out(t),
+            EaseFunction::QuinticIn => IEase::quintic_in(t),
+            EaseFunction::QuinticOut => IEase::quintic_out(t),
+            EaseFunction::QuinticInOut => IEase::quintic_in_out(t),
+            EaseFunction::SineIn => easing_functions::sine_in(t),
+            EaseFunction::SineOut => easing_functions::sine_out(t),
+            EaseFunction::SineInOut => IEase::sine_in_out(t),
+            EaseFunction::CircularIn => IEase::circular_in(t),
+            EaseFunction::CircularOut => IEase::circular_out(t),
+            EaseFunction::CircularInOut => IEase::circular_in_out(t),
+            EaseFunction::ExponentialIn => IEase::exponential_in(t),
+            EaseFunction::ExponentialOut => IEase::exponential_out(t),
+            EaseFunction::ExponentialInOut => IEase::exponential_in_out(t),
+            EaseFunction::ElasticIn => easing_functions::elastic_in(t),
+            EaseFunction::ElasticOut => easing_functions::elastic_out(t),
+            EaseFunction::ElasticInOut => easing_functions::elastic_in_out(t),
+            EaseFunction::BackIn => easing_functions::back_in(t),
+            EaseFunction::BackOut => easing_functions::back_out(t),
+            EaseFunction::BackInOut => easing_functions::back_in_out(t),
+            EaseFunction::BounceIn => IEase::bounce_in(t),
+            EaseFunction::BounceOut => IEase::bounce_out(t),
+            EaseFunction::BounceInOut => IEase::bounce_in_out(t),
+            EaseFunction::Steps(num_steps) => easing_functions::steps(*num_steps, t),
+            EaseFunction::Elastic(omega) => easing_functions::elastic(*omega, t),
         }
     }
 }
