@@ -47,11 +47,17 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         let result = attr.parse_nested_meta(|meta| {
             if meta.path.is_ident(MUTABLE_ATTRIBUTE_NAME) {
                 attributes.is_mutable = true;
-                Ok(())
+                if !meta.input.is_empty() {
+                    Err(meta.error(format_args!("`{MUTABLE_ATTRIBUTE_NAME}` does not take any arguments")))
+                } else {
+                    Ok(())
+                }
             } else if meta.path.is_ident(DERIVE_ATTRIBUTE_NAME) {
                 meta.parse_nested_meta(|meta| {
                     attributes.derive_args.push(Meta::Path(meta.path));
                     Ok(())
+                }).map_err(|_| {
+                    meta.error(format_args!("`{DERIVE_ATTRIBUTE_NAME}` requires at least one argument"))
                 })
             } else {
                 Err(meta.error(format_args!("invalid attribute, expected `{MUTABLE_ATTRIBUTE_NAME}` or `{DERIVE_ATTRIBUTE_NAME}`")))

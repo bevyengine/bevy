@@ -19,14 +19,14 @@ struct MutableInvalidAttribute {
 
 #[derive(QueryData)]
 #[query_data(mutable(foo))]
-//~^ ERROR: expected `,`
+//~^ ERROR: `mutable` does not take any arguments
 struct MutableInvalidAttributeParameters {
     a: &'static mut Foo,
 }
 
 #[derive(QueryData)]
 #[query_data(derive)]
-//~^ ERROR: unexpected end of input, expected parentheses
+//~^ ERROR: `derive` requires at least one argument
 struct MutableMissingAttributeParameters {
     a: &'static mut Foo,
 }
