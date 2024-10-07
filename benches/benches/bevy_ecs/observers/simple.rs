@@ -29,7 +29,7 @@ pub fn observe_simple(criterion: &mut Criterion) {
         let mut world = World::new();
         let mut entities = vec![];
         for _ in 0..10000 {
-            entities.push(world.spawn_empty().observe(empty_listener_base).id());
+            entities.push(world.spawn_empty().observe_entity(empty_listener_base).id());
         }
         entities.shuffle(&mut deterministic_rand());
         bencher.iter(|| {

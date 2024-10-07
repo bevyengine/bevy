@@ -171,11 +171,8 @@ pub(crate) mod test_setup {
         mut event: EventWriter<RequestRedraw>,
     ) {
         commands.spawn((
-            PbrBundle {
-                mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-                material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-                ..default()
-            },
+            Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
+            MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
             Rotator,
         ));
 
@@ -183,10 +180,10 @@ pub(crate) mod test_setup {
             DirectionalLight::default(),
             Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
         ));
-        commands.spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        });
+        commands.spawn((
+            Camera3d::default(),
+            Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ));
         event.send(RequestRedraw);
         commands.spawn((
             TextBundle::from_sections([

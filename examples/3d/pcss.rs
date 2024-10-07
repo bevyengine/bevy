@@ -151,16 +151,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
 /// Spawns the camera, with the initial shadow filtering method.
 fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-12.912 * 0.7, 4.466 * 0.7, -10.624 * 0.7)
-                .with_rotation(Quat::from_euler(
-                    EulerRot::YXZ,
-                    -134.76 / 180.0 * PI,
-                    -0.175,
-                    0.0,
-                )),
-            ..default()
-        })
+        .spawn((
+            Camera3d::default(),
+            Transform::from_xyz(-12.912 * 0.7, 4.466 * 0.7, -10.624 * 0.7).with_rotation(
+                Quat::from_euler(EulerRot::YXZ, -134.76 / 180.0 * PI, -0.175, 0.0),
+            ),
+        ))
         .insert(ShadowFilteringMethod::Gaussian)
         // `TemporalJitter` is needed for TAA. Note that it does nothing without
         // `TemporalAntiAliasSettings`.
@@ -205,10 +201,9 @@ fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
 
 /// Loads and spawns the glTF palm tree scene.
 fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/PalmTree/PalmTree.gltf#Scene0"),
-        ..default()
-    });
+    commands.spawn(SceneRoot(
+        asset_server.load("models/PalmTree/PalmTree.gltf#Scene0"),
+    ));
 }
 
 /// Spawns all the buttons at the bottom of the screen.
@@ -293,8 +288,8 @@ fn handle_light_type_change(
         app_status.light_type = light_type;
 
         for light in lights.iter_mut() {
-            let light_commands = commands
-                .entity(light)
+            let mut light_commands = commands.entity(light);
+            light_commands
                 .remove::<DirectionalLight>()
                 .remove::<PointLight>()
                 .remove::<SpotLight>();

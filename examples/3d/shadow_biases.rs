@@ -73,20 +73,17 @@ fn setup(
 
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-1.0, 1.0, 1.0)
-                .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(-1.0, 1.0, 1.0).looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
         CameraController::default(),
         ShadowFilteringMethod::Hardware2x2,
     ));
 
     for z_i32 in (-spawn_plane_depth as i32..=0).step_by(2) {
-        commands.spawn(PbrBundle {
-            mesh: sphere_handle.clone(),
-            material: white_handle.clone(),
-            transform: Transform::from_xyz(
+        commands.spawn((
+            Mesh3d(sphere_handle.clone()),
+            MeshMaterial3d(white_handle.clone()),
+            Transform::from_xyz(
                 0.0,
                 if z_i32 % 4 == 0 {
                     spawn_height
@@ -95,17 +92,15 @@ fn setup(
                 },
                 z_i32 as f32,
             ),
-            ..default()
-        });
+        ));
     }
 
     // ground plane
     let plane_size = 2.0 * spawn_plane_depth;
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(plane_size, plane_size)),
-        material: white_handle,
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(plane_size, plane_size))),
+        MeshMaterial3d(white_handle),
+    ));
 
     let style = TextStyle::default();
 

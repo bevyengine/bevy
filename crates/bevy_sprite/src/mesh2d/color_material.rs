@@ -1,13 +1,20 @@
-use crate::{AlphaMode2d, Material2d, Material2dPlugin, MaterialMesh2dBundle};
+#![expect(deprecated)]
+
+use crate::{
+    clear_material_2d_instances, extract_default_materials_2d, AlphaMode2d, Material2d,
+    Material2dPlugin, MaterialMesh2dBundle,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Alpha, Color, ColorToComponents, LinearRgba};
+use bevy_ecs::schedule::IntoSystemConfigs;
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::*,
     texture::{GpuImage, Image},
+    ExtractSchedule, RenderApp,
 };
 
 pub const COLOR_MATERIAL_SHADER_HANDLE: Handle<Shader> =
@@ -28,19 +35,30 @@ impl Plugin for ColorMaterialPlugin {
         app.add_plugins(Material2dPlugin::<ColorMaterial>::default())
             .register_asset_reflect::<ColorMaterial>();
 
+        // Initialize the default material.
         app.world_mut()
             .resource_mut::<Assets<ColorMaterial>>()
             .insert(
                 &Handle::<ColorMaterial>::default(),
                 ColorMaterial {
-                    color: Color::srgb(1.0, 0.0, 1.0),
+                    color: Color::WHITE,
                     ..Default::default()
                 },
             );
+
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        // Extract default materials for entities with no material.
+        render_app.add_systems(
+            ExtractSchedule,
+            extract_default_materials_2d.after(clear_material_2d_instances::<ColorMaterial>),
+        );
     }
 }
 
-/// A [2d material](Material2d) that renders [2d meshes](crate::Mesh2dHandle) with a texture tinted by a uniform color
+/// A [2d material](Material2d) that renders [2d meshes](crate::Mesh2d) with a texture tinted by a uniform color
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[reflect(Default, Debug)]
 #[uniform(0, ColorMaterialUniform)]
@@ -158,5 +176,9 @@ impl Material2d for ColorMaterial {
     }
 }
 
-/// A component bundle for entities with a [`Mesh2dHandle`](crate::Mesh2dHandle) and a [`ColorMaterial`].
+/// A component bundle for entities with a [`Mesh2d`](crate::Mesh2d) and a [`ColorMaterial`].
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Mesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."
+)]
 pub type ColorMesh2dBundle = MaterialMesh2dBundle<ColorMaterial>;

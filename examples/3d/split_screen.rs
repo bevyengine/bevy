@@ -22,16 +22,14 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
 
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
-        ..default()
-    });
+    commands.spawn(SceneRoot(
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
+    ));
 
     // Light
     commands.spawn((
@@ -70,14 +68,11 @@ fn setup(
     {
         let camera = commands
             .spawn((
-                Camera3dBundle {
-                    transform: Transform::from_translation(*camera_pos)
-                        .looking_at(Vec3::ZERO, Vec3::Y),
-                    camera: Camera {
-                        // Renders cameras with different priorities to prevent ambiguities
-                        order: index as isize,
-                        ..default()
-                    },
+                Camera3d::default(),
+                Transform::from_translation(*camera_pos).looking_at(Vec3::ZERO, Vec3::Y),
+                Camera {
+                    // Renders cameras with different priorities to prevent ambiguities
+                    order: index as isize,
                     ..default()
                 },
                 CameraPosition {

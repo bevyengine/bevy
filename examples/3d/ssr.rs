@@ -9,7 +9,6 @@ use bevy::{
     math::{vec3, vec4},
     pbr::{
         DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
-        ScreenSpaceReflectionsBundle,
     },
     prelude::*,
     render::{
@@ -149,30 +148,29 @@ fn spawn_cube(
     standard_materials: &mut Assets<StandardMaterial>,
 ) {
     commands
-        .spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-            material: standard_materials.add(StandardMaterial {
+        .spawn((
+            Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+            MeshMaterial3d(standard_materials.add(StandardMaterial {
                 base_color: Color::from(WHITE),
                 base_color_texture: Some(asset_server.load("branding/icon.png")),
                 ..default()
-            }),
-            transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..default()
-        })
+            })),
+            Transform::from_xyz(0.0, 0.5, 0.0),
+        ))
         .insert(CubeModel);
 }
 
 // Spawns the flight helmet.
 fn spawn_flight_helmet(commands: &mut Commands, asset_server: &AssetServer) {
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server
+    commands.spawn((
+        SceneRoot(
+            asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-            transform: Transform::from_scale(Vec3::splat(2.5)),
-            ..default()
-        })
-        .insert(FlightHelmetModel)
-        .insert(Visibility::Hidden);
+        ),
+        Transform::from_scale(Vec3::splat(2.5)),
+        FlightHelmetModel,
+        Visibility::Hidden,
+    ));
 }
 
 // Spawns the water plane.
@@ -182,9 +180,9 @@ fn spawn_water(
     meshes: &mut Assets<Mesh>,
     water_materials: &mut Assets<ExtendedMaterial<StandardMaterial, Water>>,
 ) {
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0))),
-        material: water_materials.add(ExtendedMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0)))),
+        MeshMaterial3d(water_materials.add(ExtendedMaterial {
             base: StandardMaterial {
                 base_color: BLACK.into(),
                 perceptual_roughness: 0.0,
@@ -215,10 +213,9 @@ fn spawn_water(
                     octave_strengths: vec4(0.16, 0.18, 0.093, 0.044),
                 },
             },
-        }),
-        transform: Transform::from_scale(Vec3::splat(100.0)),
-        ..default()
-    });
+        })),
+        Transform::from_scale(Vec3::splat(100.0)),
+    ));
 }
 
 // Spawns the camera.
@@ -228,16 +225,15 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     // rendering by adding depth and deferred prepasses. Turn on FXAA to make
     // the scene look a little nicer. Finally, add screen space reflections.
     commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_translation(vec3(-1.25, 2.25, 4.5))
-                .looking_at(Vec3::ZERO, Vec3::Y),
-            camera: Camera {
+        .spawn((
+            Camera3d::default(),
+            Transform::from_translation(vec3(-1.25, 2.25, 4.5)).looking_at(Vec3::ZERO, Vec3::Y),
+            Camera {
                 hdr: true,
                 ..default()
             },
-            msaa: Msaa::Off,
-            ..default()
-        })
+            Msaa::Off,
+        ))
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -249,7 +245,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
             brightness: 5000.0,
             ..default()
         })
-        .insert(ScreenSpaceReflectionsBundle::default())
+        .insert(ScreenSpaceReflections::default())
         .insert(Fxaa::default());
 }
 

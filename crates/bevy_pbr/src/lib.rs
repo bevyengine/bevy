@@ -34,6 +34,7 @@ mod light;
 mod light_probe;
 mod lightmap;
 mod material;
+mod mesh_material;
 mod parallax;
 mod pbr_material;
 mod prepass;
@@ -53,6 +54,7 @@ pub use light::*;
 pub use light_probe::*;
 pub use lightmap::*;
 pub use material::*;
+pub use mesh_material::*;
 pub use parallax::*;
 pub use pbr_material::*;
 pub use prepass::*;
@@ -83,6 +85,7 @@ pub mod prelude {
             LightProbe,
         },
         material::{Material, MaterialPlugin},
+        mesh_material::MeshMaterial3d,
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
         ssao::ScreenSpaceAmbientOcclusionPlugin,
@@ -154,6 +157,9 @@ pub const PBR_DEFERRED_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128
 pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(2659010996143919192);
 const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(2325134235233421);
+
+const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 23;
+const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 24;
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -411,13 +417,13 @@ impl Plugin for PbrPlugin {
             app.add_plugins(DeferredPbrLightingPlugin);
         }
 
+        // Initialize the default material.
         app.world_mut()
             .resource_mut::<Assets<StandardMaterial>>()
             .insert(
                 &Handle::<StandardMaterial>::default(),
                 StandardMaterial {
-                    base_color: Color::srgb(1.0, 0.0, 0.5),
-                    unlit: true,
+                    base_color: Color::WHITE,
                     ..Default::default()
                 },
             );
@@ -428,7 +434,14 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .add_systems(ExtractSchedule, (extract_clusters, extract_lights))
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_clusters,
+                    extract_lights,
+                    extract_default_materials.after(clear_material_instances::<StandardMaterial>),
+                ),
+            )
             .add_systems(
                 Render,
                 (

@@ -29,7 +29,7 @@ fn move_sprite(
 
 /// Set up a scene that tests all sprite anchor types.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let len = 128.0;
     let sprite_size = Vec2::splat(len / 2.0);

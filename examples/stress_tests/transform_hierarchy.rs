@@ -272,10 +272,7 @@ fn set_translation(translation: &mut Vec3, a: f32) {
 fn setup(mut commands: Commands, cfg: Res<Cfg>) {
     warn!(include_str!("warning_string.txt"));
 
-    let mut cam = Camera2dBundle::default();
-
-    cam.transform.translation.z = 100.0;
-    commands.spawn(cam);
+    commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 100.0)));
 
     let result = match cfg.test_case {
         TestCase::Tree {
@@ -413,7 +410,7 @@ fn spawn_tree(
                 && (depth >= update_filter.min_depth && depth <= update_filter.max_depth);
 
             if update {
-                cmd = cmd.insert(UpdateValue(sep));
+                cmd.insert(UpdateValue(sep));
                 result.active_nodes += 1;
             }
 
@@ -426,7 +423,7 @@ fn spawn_tree(
             };
 
             // only insert the components necessary for the transform propagation
-            cmd = cmd.insert(transform);
+            cmd.insert(transform);
 
             cmd.id()
         };

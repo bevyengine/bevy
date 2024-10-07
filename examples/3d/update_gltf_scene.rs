@@ -24,11 +24,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
     ));
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-0.5, 0.9, 1.5)
-                .looking_at(Vec3::new(-0.5, 0.3, 0.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(-0.5, 0.9, 1.5).looking_at(Vec3::new(-0.5, 0.3, 0.0), Vec3::Y),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -38,20 +35,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     // Spawn the scene as a child of this entity at the given transform
-    commands.spawn(SceneBundle {
-        transform: Transform::from_xyz(-1.0, 0.0, 0.0),
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-        ..default()
-    });
+    commands.spawn((
+        Transform::from_xyz(-1.0, 0.0, 0.0),
+        SceneRoot(
+            asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+        ),
+    ));
 
     // Spawn a second scene, and add a tag component to be able to target it later
     commands.spawn((
-        SceneBundle {
-            scene: asset_server
+        SceneRoot(
+            asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-            ..default()
-        },
+        ),
         MovedScene,
     ));
 }

@@ -12,10 +12,9 @@ fn main() {
 
 fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // add entities to the world
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/torus/torus.gltf")),
-        ..default()
-    });
+    commands.spawn(SceneRoot(
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/torus/torus.gltf")),
+    ));
     // light
     commands.spawn((
         DirectionalLight::default(),
@@ -23,10 +22,10 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     let first_window_camera = commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        })
+        .spawn((
+            Camera3d::default(),
+            Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ))
         .id();
 
     // Spawn a second window
@@ -38,14 +37,14 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         .id();
 
     let second_window_camera = commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-            camera: Camera {
+        .spawn((
+            Camera3d::default(),
+            Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Camera {
                 target: RenderTarget::Window(WindowRef::Entity(second_window)),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .id();
 
     // Since we are using multiple cameras, we need to specify which camera UI should be rendered to
