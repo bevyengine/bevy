@@ -951,6 +951,10 @@ fn trigger_untargeted_animation_events(
         };
 
         for (index, active_animation) in player.active_animations.iter() {
+            if active_animation.paused {
+                continue;
+            }
+
             let Some(clip) = graph
                 .get(*index)
                 .and_then(|node| match &node.node_type {
@@ -1098,7 +1102,7 @@ pub fn animate_targets(
                 };
 
                 match animation_graph_node.node_type {
-                    AnimationNodeType::Blend | AnimationNodeType::Add => {
+                    AnimationNodeType::Blend => {
                         // This is a blend node.
                         for edge_index in threaded_animation_graph.sorted_edge_ranges
                             [animation_graph_node_index.index()]
@@ -1107,6 +1111,27 @@ pub fn animate_targets(
                             if let Err(err) = evaluation_state.blend_all(
                                 threaded_animation_graph.sorted_edges[edge_index as usize],
                             ) {
+                                warn!("Failed to blend animation: {:?}", err);
+                            }
+                        }
+
+                        if let Err(err) = evaluation_state.push_blend_register_all(
+                            animation_graph_node.weight,
+                            animation_graph_node_index,
+                        ) {
+                            warn!("Animation blending failed: {:?}", err);
+                        }
+                    }
+
+                    AnimationNodeType::Add => {
+                        // This is an additive blend node.
+                        for edge_index in threaded_animation_graph.sorted_edge_ranges
+                            [animation_graph_node_index.index()]
+                        .clone()
+                        {
+                            if let Err(err) = evaluation_state
+                                .add_all(threaded_animation_graph.sorted_edges[edge_index as usize])
+                            {
                                 warn!("Failed to blend animation: {:?}", err);
                             }
                         }
@@ -1143,25 +1168,27 @@ pub fn animate_targets(
                             continue;
                         };
 
-                        // Trigger all animation events that occurred this tick, if any.
-                        if let Some(triggered_events) = TriggeredEvents::from_animation(
-                            AnimationEventTarget::Node(target_id),
-                            clip,
-                            active_animation,
-                        ) {
-                            if !triggered_events.is_empty() {
-                                par_commands.command_scope(move |mut commands| {
-                                    for TimedAnimationEvent { time, event } in
-                                        triggered_events.iter()
-                                    {
-                                        commands.queue(trigger_animation_event(
-                                            entity,
-                                            *time,
-                                            active_animation.weight,
-                                            event.clone().0,
-                                        ));
-                                    }
-                                });
+                        if !active_animation.paused {
+                            // Trigger all animation events that occurred this tick, if any.
+                            if let Some(triggered_events) = TriggeredEvents::from_animation(
+                                AnimationEventTarget::Node(target_id),
+                                clip,
+                                active_animation,
+                            ) {
+                                if !triggered_events.is_empty() {
+                                    par_commands.command_scope(move |mut commands| {
+                                        for TimedAnimationEvent { time, event } in
+                                            triggered_events.iter()
+                                        {
+                                            commands.queue(trigger_animation_event(
+                                                entity,
+                                                *time,
+                                                active_animation.weight,
+                                                event.clone().0,
+                                            ));
+                                        }
+                                    });
+                                }
                             }
                         }
 
@@ -1169,7 +1196,7 @@ pub fn animate_targets(
                             continue;
                         };
 
-                        let weight = active_animation.weight;
+                        let weight = active_animation.weight * animation_graph_node.weight;
                         let seek_time = active_animation.seek_time;
 
                         for curve in curves {
@@ -1244,7 +1271,7 @@ impl Plugin for AnimationPlugin {
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
                     animate_targets
-                        .after(bevy_render::mesh::morph::inherit_weights)
+                        .after(bevy_render::mesh::inherit_weights)
                         .ambiguous_with_all(),
                     trigger_untargeted_animation_events,
                     expire_completed_transitions,
@@ -1313,6 +1340,20 @@ impl AnimationEvaluationState {
                 .get_mut(curve_evaluator_type)
                 .unwrap()
                 .blend(node_index)?;
+        }
+        Ok(())
+    }
+
+    /// Calls [`AnimationCurveEvaluator::add`] on all curve evaluator types
+    /// that we've been building up for a single target.
+    ///
+    /// The given `node_index` is the node that we're evaluating.
+    fn add_all(&mut self, node_index: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        for curve_evaluator_type in self.current_curve_evaluator_types.keys() {
+            self.curve_evaluators
+                .get_mut(curve_evaluator_type)
+                .unwrap()
+                .add(node_index)?;
         }
         Ok(())
     }

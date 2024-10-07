@@ -1,5 +1,12 @@
+//! Components to customize winit cursor
+
+use crate::{
+    converters::convert_system_cursor_icon,
+    state::{CursorSource, CustomCursorCache, CustomCursorCacheKey, PendingCursor},
+    WinitCustomCursor,
+};
 use bevy_app::{App, Last, Plugin};
-use bevy_asset::{AssetId, Assets, Handle};
+use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
@@ -10,18 +17,13 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res},
     world::{OnRemove, Ref},
 };
+use bevy_image::Image;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::{tracing::warn, HashSet};
 use bevy_window::{SystemCursorIcon, Window};
-use bevy_winit::{
-    convert_system_cursor_icon, CursorSource, CustomCursorCache, CustomCursorCacheKey,
-    PendingCursor,
-};
-use wgpu::TextureFormat;
+use wgpu_types::TextureFormat;
 
-use crate::prelude::Image;
-
-pub struct CursorPlugin;
+pub(crate) struct CursorPlugin;
 
 impl Plugin for CursorPlugin {
     fn build(&self, app: &mut App) {
@@ -85,7 +87,7 @@ pub enum CustomCursor {
     },
 }
 
-pub fn update_cursors(
+fn update_cursors(
     mut commands: Commands,
     windows: Query<(Entity, Ref<CursorIcon>), With<Window>>,
     cursor_cache: Res<CustomCursorCache>,
@@ -99,12 +101,7 @@ pub fn update_cursors(
 
         let cursor_source = match cursor.as_ref() {
             CursorIcon::Custom(CustomCursor::Image { handle, hotspot }) => {
-                let cache_key = match handle.id() {
-                    AssetId::Index { index, .. } => {
-                        CustomCursorCacheKey::AssetIndex(index.to_bits())
-                    }
-                    AssetId::Uuid { uuid } => CustomCursorCacheKey::AssetUuid(uuid.as_u128()),
-                };
+                let cache_key = CustomCursorCacheKey::Asset(handle.id());
 
                 if cursor_cache.0.contains_key(&cache_key) {
                     CursorSource::CustomCached(cache_key)
@@ -123,7 +120,7 @@ pub fn update_cursors(
 
                     let width = image.texture_descriptor.size.width;
                     let height = image.texture_descriptor.size.height;
-                    let source = match bevy_winit::WinitCustomCursor::from_rgba(
+                    let source = match WinitCustomCursor::from_rgba(
                         rgba,
                         width as u16,
                         height as u16,
@@ -147,9 +144,8 @@ pub fn update_cursors(
                 if cursor_cache.0.contains_key(&cache_key) {
                     CursorSource::CustomCached(cache_key)
                 } else {
-                    use bevy_winit::CustomCursorExtWebSys;
-                    let source =
-                        bevy_winit::WinitCustomCursor::from_url(url.clone(), hotspot.0, hotspot.1);
+                    use crate::CustomCursorExtWebSys;
+                    let source = WinitCustomCursor::from_url(url.clone(), hotspot.0, hotspot.1);
                     CursorSource::Custom((cache_key, source))
                 }
             }
@@ -165,7 +161,7 @@ pub fn update_cursors(
 }
 
 /// Resets the cursor to the default icon when `CursorIcon` is removed.
-pub fn on_remove_cursor_icon(trigger: Trigger<OnRemove, CursorIcon>, mut commands: Commands) {
+fn on_remove_cursor_icon(trigger: Trigger<OnRemove, CursorIcon>, mut commands: Commands) {
     // Use `try_insert` to avoid panic if the window is being destroyed.
     commands
         .entity(trigger.entity())

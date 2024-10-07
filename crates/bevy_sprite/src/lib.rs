@@ -53,7 +53,7 @@ use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    mesh::{Mesh, Mesh2d},
+    mesh::{Mesh, Mesh2d, MeshAabb},
     primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
