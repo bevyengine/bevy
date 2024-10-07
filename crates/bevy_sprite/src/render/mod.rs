@@ -391,7 +391,7 @@ pub fn extract_sprites(
         if let Some(slices) = slices {
             extracted_sprites.sprites.extend(
                 slices
-                    .extract_sprites(transform, original_entity, sprite, &sprite.image)
+                    .extract_sprites(transform, original_entity, sprite)
                     .map(|e| (commands.spawn(TemporaryRenderEntity).id(), e)),
             );
         } else {

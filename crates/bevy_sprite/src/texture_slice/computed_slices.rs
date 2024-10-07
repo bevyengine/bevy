@@ -29,7 +29,6 @@ impl ComputedTextureSlices {
         transform: &'a GlobalTransform,
         original_entity: Entity,
         sprite: &'a Sprite,
-        handle: &'a Handle<Image>,
     ) -> impl ExactSizeIterator<Item = ExtractedSprite> + 'a {
         let mut flip = Vec2::ONE;
         let [mut flip_x, mut flip_y] = [false; 2];
@@ -52,7 +51,7 @@ impl ComputedTextureSlices {
                 custom_size: Some(slice.draw_size),
                 flip_x,
                 flip_y,
-                image_handle_id: handle.id(),
+                image_handle_id: sprite.image.id(),
                 anchor: Self::redepend_anchor_from_sprite_to_slice(sprite, slice),
             }
         })
@@ -88,12 +87,10 @@ impl ComputedTextureSlices {
 fn compute_sprite_slices(
     sprite: &Sprite,
     scale_mode: &ImageScaleMode,
-    image_handle: &Handle<Image>,
     images: &Assets<Image>,
-    atlas: Option<&TextureAtlas>,
     atlas_layouts: &Assets<TextureAtlasLayout>,
 ) -> Option<ComputedTextureSlices> {
-    let (image_size, texture_rect) = match atlas {
+    let (image_size, texture_rect) = match &sprite.atlas {
         Some(a) => {
             let layout = atlas_layouts.get(&a.layout)?;
             (
@@ -102,7 +99,7 @@ fn compute_sprite_slices(
             )
         }
         None => {
-            let image = images.get(image_handle)?;
+            let image = images.get(&sprite.image)?;
             let size = Vec2::new(
                 image.texture_descriptor.size.width as f32,
                 image.texture_descriptor.size.height as f32,
@@ -157,14 +154,7 @@ pub(crate) fn compute_slices_on_asset_event(
         if !added_handles.contains(&sprite.image.id()) {
             continue;
         }
-        if let Some(slices) = compute_sprite_slices(
-            sprite,
-            scale_mode,
-            &sprite.image,
-            &images,
-            sprite.atlas.as_ref(),
-            &atlas_layouts,
-        ) {
+        if let Some(slices) = compute_sprite_slices(sprite, scale_mode, &images, &atlas_layouts) {
             commands.entity(entity).insert(slices);
         }
     }
@@ -182,14 +172,7 @@ pub(crate) fn compute_slices_on_sprite_change(
     >,
 ) {
     for (entity, scale_mode, sprite) in &changed_sprites {
-        if let Some(slices) = compute_sprite_slices(
-            sprite,
-            scale_mode,
-            &sprite.image,
-            &images,
-            sprite.atlas.as_ref(),
-            &atlas_layouts,
-        ) {
+        if let Some(slices) = compute_sprite_slices(sprite, scale_mode, &images, &atlas_layouts) {
             commands.entity(entity).insert(slices);
         }
     }
