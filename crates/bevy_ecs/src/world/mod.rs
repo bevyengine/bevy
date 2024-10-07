@@ -2260,11 +2260,11 @@ impl World {
     }
 
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs, 
-    /// adds the [`Bundle`] of components to each [`Entity`].
+    /// adds the `Bundle` of components to each `Entity`.
     /// This is faster than doing equivalent operations one-by-one.
     /// 
-    /// This will overwrite any previous value(s) of components shared by the [`Bundle`].
-    /// See [`World::insert_batch_if_new`] to keep the old value(s) instead.
+    /// This will overwrite any previous values of components shared by the `Bundle`.
+    /// See [`World::insert_batch_if_new`] to keep the old values instead.
     ///
     /// # Panics
     ///
@@ -2287,7 +2287,8 @@ impl World {
     }
 
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs, 
-    /// adds the [`Bundle`] of components to each [`Entity`] without overwriting.
+    /// adds the `Bundle` of components to each `Entity` without overwriting.
+    /// This is faster than doing equivalent operations one-by-one.
     /// 
     /// This is the same as [`World::insert_batch`], but in case of duplicate
     /// components will leave the old values instead of replacing them with new
@@ -2320,8 +2321,7 @@ impl World {
         &mut self,
         iter: I,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] 
-        caller: &'static Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
     )
     where
         I: IntoIterator,
@@ -2386,15 +2386,16 @@ impl World {
                 }
             } else {
                 panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), entity);
-            };
-        };
+            }
+        }
     }
 
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs, 
-    /// adds the [`Bundle`] of components to each [`Entity`].
+    /// adds the `Bundle` of components to each `Entity`.
+    /// This is faster than doing equivalent operations one-by-one.
     /// 
-    /// This will overwrite any previous value(s) of components shared by the [`Bundle`].
-    /// See [`World::try_insert_batch_if_new`] to keep the old value(s) instead.
+    /// This will overwrite any previous values of components shared by the `Bundle`.
+    /// See [`World::try_insert_batch_if_new`] to keep the old values instead.
     /// 
     /// This function silently fails by ignoring any entities that do not exist.
     /// 
@@ -2414,7 +2415,8 @@ impl World {
         )
     }
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs, 
-    /// adds the [`Bundle`] of components to each [`Entity`] without overwriting.
+    /// adds the `Bundle` of components to each `Entity` without overwriting.
+    /// This is faster than doing equivalent operations one-by-one.
     /// 
     /// This is the same as [`World::try_insert_batch`], but in case of duplicate
     /// components will leave the old values instead of replacing them with new
@@ -2445,8 +2447,7 @@ impl World {
         &mut self,
         iter: I,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] 
-        caller: &'static Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
     )
     where
         I: IntoIterator,
