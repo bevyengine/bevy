@@ -5,7 +5,7 @@
 //! for more details.
 
 use bevy::prelude::*;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 use bevy::window::CompositeAlphaMode;
 
 fn main() {
@@ -18,6 +18,8 @@ fn main() {
                 decorations: false,
                 #[cfg(target_os = "macos")]
                 composite_alpha_mode: CompositeAlphaMode::PostMultiplied,
+                #[cfg(target_os = "linux")]
+                composite_alpha_mode: CompositeAlphaMode::PreMultiplied,
                 ..default()
             }),
             ..default()

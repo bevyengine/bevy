@@ -951,6 +951,10 @@ fn trigger_untargeted_animation_events(
         };
 
         for (index, active_animation) in player.active_animations.iter() {
+            if active_animation.paused {
+                continue;
+            }
+
             let Some(clip) = graph
                 .get(*index)
                 .and_then(|node| match &node.node_type {
@@ -1143,25 +1147,27 @@ pub fn animate_targets(
                             continue;
                         };
 
-                        // Trigger all animation events that occurred this tick, if any.
-                        if let Some(triggered_events) = TriggeredEvents::from_animation(
-                            AnimationEventTarget::Node(target_id),
-                            clip,
-                            active_animation,
-                        ) {
-                            if !triggered_events.is_empty() {
-                                par_commands.command_scope(move |mut commands| {
-                                    for TimedAnimationEvent { time, event } in
-                                        triggered_events.iter()
-                                    {
-                                        commands.queue(trigger_animation_event(
-                                            entity,
-                                            *time,
-                                            active_animation.weight,
-                                            event.clone().0,
-                                        ));
-                                    }
-                                });
+                        if !active_animation.paused {
+                            // Trigger all animation events that occurred this tick, if any.
+                            if let Some(triggered_events) = TriggeredEvents::from_animation(
+                                AnimationEventTarget::Node(target_id),
+                                clip,
+                                active_animation,
+                            ) {
+                                if !triggered_events.is_empty() {
+                                    par_commands.command_scope(move |mut commands| {
+                                        for TimedAnimationEvent { time, event } in
+                                            triggered_events.iter()
+                                        {
+                                            commands.queue(trigger_animation_event(
+                                                entity,
+                                                *time,
+                                                active_animation.weight,
+                                                event.clone().0,
+                                            ));
+                                        }
+                                    });
+                                }
                             }
                         }
 
