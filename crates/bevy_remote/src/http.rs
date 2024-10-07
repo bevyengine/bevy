@@ -32,8 +32,8 @@ use hyper::{
 };
 use serde_json::Value;
 use smol_hyper::rt::{FuturesIo, SmolTimer};
-use std::net::{TcpListener, TcpStream};
 use std::collections::HashMap;
+use std::net::{TcpListener, TcpStream};
 
 /// The default port that Bevy will listen on.
 ///
@@ -315,7 +315,6 @@ async fn process_request_batch(
         }
     };
 
- 
     let mut response = match result {
         BrpHttpResponse::Complete(serialized) => {
             let mut response = Response::new(BrpHttpBody::Complete(Full::new(Bytes::from(
