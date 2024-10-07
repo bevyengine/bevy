@@ -207,7 +207,7 @@ where
 
 /// A [`Curve`] mapping the [unit interval] to itself.
 ///
-/// This leads to a cruve with sudden jumps at the step points and segments with constant values
+/// This leads to a curve with sudden jumps at the step points and segments with constant values
 /// everywhere else.
 ///
 /// It uses the function `f(n,t) = round(t * n) / n`
