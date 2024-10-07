@@ -84,6 +84,64 @@ where
     }
 }
 
+mod easing_functions {
+    use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
+
+    use crate::{ops, FloatPow};
+
+    #[inline]
+    pub(crate) fn sine_in(t: f32) -> f32 {
+        1.0 - ops::cos(t * FRAC_PI_2)
+    }
+    #[inline]
+    pub(crate) fn sine_out(t: f32) -> f32 {
+        ops::sin(t * FRAC_PI_2)
+    }
+
+    #[inline]
+    pub(crate) fn back_in(t: f32) -> f32 {
+        let c = 1.70158;
+
+        (c + 1.0) * t.cubed() - c * t.squared()
+    }
+    #[inline]
+    pub(crate) fn back_out(t: f32) -> f32 {
+        let c = 1.70158;
+
+        1.0 + (c + 1.0) * (t - 1.0).cubed() + c * (t - 1.0).squared()
+    }
+    #[inline]
+    pub(crate) fn back_in_out(t: f32) -> f32 {
+        let c1 = 1.70158;
+        let c2 = c1 + 1.525;
+
+        if t < 0.5 {
+            (2.0 * t).squared() * ((c2 + 1.0) * 2.0 * t - c2) / 2.0
+        } else {
+            ((2.0 * t - 2.0).squared() * ((c2 + 1.0) * (2.0 * t - 2.0) + c2) + 2.0) / 2.0
+        }
+    }
+
+    #[inline]
+    pub(crate) fn elastic_in(t: f32) -> f32 {
+        -ops::powf(2.0, 10.0 * t - 10.0) * ops::sin((t * 10.0 - 10.75) * 2.0 * FRAC_PI_3)
+    }
+    #[inline]
+    pub(crate) fn elastic_out(t: f32) -> f32 {
+        ops::powf(2.0, -10.0 * t) * ops::sin((t * 10.0 - 0.75) * 2.0 * FRAC_PI_3) + 1.0
+    }
+    #[inline]
+    pub(crate) fn elastic_in_out(t: f32) -> f32 {
+        let c = (2.0 * PI) / 4.5;
+
+        if t < 0.5 {
+            -ops::powf(2.0, 20.0 * t - 10.0) * ops::sin((t * 20.0 - 11.125) * c) / 2.0
+        } else {
+            ops::powf(2.0, -20.0 * t + 10.0) * ops::sin((t * 20.0 - 11.125) * c) / 2.0 + 1.0
+        }
+    }
+}
+
 impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
     /// A [`Curve`] mapping the [unit interval] to itself.
     ///
@@ -107,8 +165,8 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
                     EaseFunction::QuinticIn => Ease::quintic_in,
                     EaseFunction::QuinticOut => Ease::quintic_out,
                     EaseFunction::QuinticInOut => Ease::quintic_in_out,
-                    EaseFunction::SineIn => Ease::sine_in,
-                    EaseFunction::SineOut => Ease::sine_out,
+                    EaseFunction::SineIn => easing_functions::sine_in,
+                    EaseFunction::SineOut => easing_functions::sine_out,
                     EaseFunction::SineInOut => Ease::sine_in_out,
                     EaseFunction::CircularIn => Ease::circular_in,
                     EaseFunction::CircularOut => Ease::circular_out,
@@ -116,12 +174,12 @@ impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
                     EaseFunction::ExponentialIn => Ease::exponential_in,
                     EaseFunction::ExponentialOut => Ease::exponential_out,
                     EaseFunction::ExponentialInOut => Ease::exponential_in_out,
-                    EaseFunction::ElasticIn => Ease::elastic_in,
-                    EaseFunction::ElasticOut => Ease::elastic_out,
-                    EaseFunction::ElasticInOut => Ease::elastic_in_out,
-                    EaseFunction::BackIn => Ease::back_in,
-                    EaseFunction::BackOut => Ease::back_out,
-                    EaseFunction::BackInOut => Ease::back_in_out,
+                    EaseFunction::ElasticIn => easing_functions::elastic_in,
+                    EaseFunction::ElasticOut => easing_functions::elastic_out,
+                    EaseFunction::ElasticInOut => easing_functions::elastic_in_out,
+                    EaseFunction::BackIn => easing_functions::back_in,
+                    EaseFunction::BackOut => easing_functions::back_out,
+                    EaseFunction::BackInOut => easing_functions::back_in_out,
                     EaseFunction::BounceIn => Ease::bounce_in,
                     EaseFunction::BounceOut => Ease::bounce_out,
                     EaseFunction::BounceInOut => Ease::bounce_in_out,
@@ -378,7 +436,7 @@ pub enum EaseFunction {
     /// Behaves as `EaseFunction::QuinticIn` for t < 0.5 and as `EaseFunction::QuinticOut` for t >= 0.5
     QuinticInOut,
 
-    /// `f(t) = sin((t - 1.0) * π / 2.0) + 1.0`
+    /// `f(t) = 1.0 - cos(t * π / 2.0)`
     SineIn,
     /// `f(t) = sin(t * π / 2.0)`
     SineOut,
@@ -392,23 +450,23 @@ pub enum EaseFunction {
     /// Behaves as `EaseFunction::CircularIn` for t < 0.5 and as `EaseFunction::CircularOut` for t >= 0.5
     CircularInOut,
 
-    /// `f(t) = 2.0.powf(10.0 * (t - 1.0))`
+    /// `f(t) = 2.0^(10.0 * (t - 1.0))`
     ExponentialIn,
-    /// `f(t) = 1.0 - 2.0.powf(-10.0 * t)`
+    /// `f(t) = 1.0 - 2.0^(-10.0 * t)`
     ExponentialOut,
     /// Behaves as `EaseFunction::ExponentialIn` for t < 0.5 and as `EaseFunction::ExponentialOut` for t >= 0.5
     ExponentialInOut,
 
-    /// `f(t) = sin(13.0 * π / 2.0 * t) * 2.0.powf(10.0 * (t - 1.0))`
+    /// `f(t) = -2.0^(10.0 * t - 10.0) * sin((t * 10.0 - 10.75) * 2.0 * π / 3.0)`
     ElasticIn,
-    /// `f(t) = sin(-13.0 * π / 2.0 * (t + 1.0)) * 2.0.powf(-10.0 * t) + 1.0`
+    /// `f(t) = 2.0^(-10.0 * t) * sin((t * 10.0 - 0.75) * 2.0 * π / 3.0) + 1.0`
     ElasticOut,
     /// Behaves as `EaseFunction::ElasticIn` for t < 0.5 and as `EaseFunction::ElasticOut` for t >= 0.5
     ElasticInOut,
 
-    /// `f(t) = t³ - t * sin(t * π)`
+    /// `f(t) = 2.70158 * t³ - 1.70158 * t²`
     BackIn,
-    /// `f(t) = 1.0 - (1.0 - t)³ - t * sin((1.0 - t) * π))`
+    /// `f(t) = 1.0 +  2.70158 * (t - 1.0)³ - 1.70158 * (t - 1.0)²`
     BackOut,
     /// Behaves as `EaseFunction::BackIn` for t < 0.5 and as `EaseFunction::BackOut` for t >= 0.5
     BackInOut,
