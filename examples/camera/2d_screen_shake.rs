@@ -6,13 +6,13 @@
 //! |:-------------|:---------------------|
 //! | Space        | Trigger screen shake |
 
-use bevy::{prelude::*, render::camera::SubCameraView, sprite::MeshMaterial2d};
+use bevy::{prelude::*, render::camera::{Viewport, SubCameraView}, sprite::MeshMaterial2d};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 const CAMERA_DECAY_RATE: f32 = 0.9; // Adjust this for smoother or snappier decay
-const TRAUMA_DECAY_SPEED: f32 = 0.7; // How fast trauma decays
-const TRAUMA_INCREMENT: f32 = 2.0; // Increment of trauma per frame when holding space
+const TRAUMA_DECAY_SPEED: f32 = 0.5; // How fast trauma decays
+const TRAUMA_INCREMENT: f32 = 1.0; // Increment of trauma per frame when holding space
 
 // screen_shake parameters, maximum addition by frame not actual maximum overall values
 const MAX_ANGLE: f32 = 0.5;
@@ -75,13 +75,31 @@ fn setup_instructions(mut commands: Commands) {
 }
 
 fn setup_camera(mut commands: Commands) {
-    commands.spawn((Camera2dBundle {
-        camera: Camera {
-            sub_camera_view: Some(SubCameraView { ..default() }),
+    commands.spawn((
+        Camera2d::default(),
+        Camera {
+            viewport: Option::from(Viewport {
+                physical_size: UVec2::new(3000, 2100),
+                physical_position: UVec2::new(0, 0),
+                ..default()
+            }),
+            sub_camera_view: Some(SubCameraView {
+                // Set the sub view camera to the right half of the full image
+                //
+                // The values of `full_size` and `size` do not have to be the
+                // exact values of your physical viewport. The important part is
+                // the ratio between them.
+                full_size: UVec2::new(1000, 700),
+                // The `offset` is also relative to the values in `full_size`
+                // and `size`
+                offset: Vec2::new(0.0, 0.0),
+                size: UVec2::new(1000, 700),
+                //..default()
+            }),
+            order:1,
             ..default()
         },
-        ..default()
-    },));
+    ));
 }
 
 #[derive(Resource, Clone)]
@@ -138,7 +156,7 @@ fn screen_shake(
     let angle = (screen_shake.max_angle * shake).to_radians() * rng.gen_range(-1.0..1.0);
     let offset_x = screen_shake.max_offset * shake * rng.gen_range(-1.0..1.0);
     let offset_y = screen_shake.max_offset * shake * rng.gen_range(-1.0..1.0);
-
+    eprintln!("{} {}", offset_x, offset_y);
     if shake > 0.0 {
         for (mut camera, mut transform) in query.iter_mut() {
             // Position
