@@ -1190,7 +1190,7 @@ pub fn animate_targets(
                             continue;
                         };
 
-                        let weight = active_animation.weight;
+                        let weight = active_animation.weight * animation_graph_node.weight;
                         let seek_time = active_animation.seek_time;
 
                         for curve in curves {
@@ -1341,7 +1341,7 @@ impl AnimationEvaluationState {
     /// Calls [`AnimationCurveEvaluator::add`] on all curve evaluator types
     /// that we've been building up for a single target.
     ///
-    /// The given `node_index` is the node that we're evaluating
+    /// The given `node_index` is the node that we're evaluating.
     fn add_all(&mut self, node_index: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
         for curve_evaluator_type in self.current_curve_evaluator_types.keys() {
             self.curve_evaluators

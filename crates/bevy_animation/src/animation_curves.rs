@@ -373,15 +373,22 @@ where
         let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
             .downcast_mut::<TransformCurveEvaluator>()
             .unwrap();
-        let value = TransformParts::from_translation(self.0.sample_clamped(t));
-        curve_evaluator
-            .evaluator
-            .stack
-            .push(BasicAnimationCurveEvaluatorStackElement {
-                value,
-                weight,
-                graph_node,
-            });
+        let translation = self.0.sample_clamped(t);
+        let stack = &mut curve_evaluator.evaluator.stack;
+        let last_node = stack.last().map(|el| el.graph_node);
+        match last_node {
+            Some(index) if index == graph_node => {
+                (*stack.last_mut().unwrap()).value.translation = Some(translation);
+            }
+            _ => {
+                let value = TransformParts::from_translation(translation);
+                stack.push(BasicAnimationCurveEvaluatorStackElement {
+                    value,
+                    weight,
+                    graph_node,
+                });
+            }
+        }
         Ok(())
     }
 }
@@ -424,15 +431,22 @@ where
         let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
             .downcast_mut::<TransformCurveEvaluator>()
             .unwrap();
-        let value = TransformParts::from_rotation(self.0.sample_clamped(t));
-        curve_evaluator
-            .evaluator
-            .stack
-            .push(BasicAnimationCurveEvaluatorStackElement {
-                value,
-                weight,
-                graph_node,
-            });
+        let rotation = self.0.sample_clamped(t);
+        let stack = &mut curve_evaluator.evaluator.stack;
+        let last_node = stack.last().map(|el| el.graph_node);
+        match last_node {
+            Some(index) if index == graph_node => {
+                (*stack.last_mut().unwrap()).value.rotation = Some(rotation);
+            }
+            _ => {
+                let value = TransformParts::from_rotation(rotation);
+                stack.push(BasicAnimationCurveEvaluatorStackElement {
+                    value,
+                    weight,
+                    graph_node,
+                });
+            }
+        }
         Ok(())
     }
 }
@@ -475,15 +489,22 @@ where
         let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
             .downcast_mut::<TransformCurveEvaluator>()
             .unwrap();
-        let value = TransformParts::from_scale(self.0.sample_clamped(t));
-        curve_evaluator
-            .evaluator
-            .stack
-            .push(BasicAnimationCurveEvaluatorStackElement {
-                value,
-                weight,
-                graph_node,
-            });
+        let scale = self.0.sample_clamped(t);
+        let stack = &mut curve_evaluator.evaluator.stack;
+        let last_node = stack.last().map(|el| el.graph_node);
+        match last_node {
+            Some(index) if index == graph_node => {
+                (*stack.last_mut().unwrap()).value.scale = Some(scale);
+            }
+            _ => {
+                let value = TransformParts::from_scale(scale);
+                stack.push(BasicAnimationCurveEvaluatorStackElement {
+                    value,
+                    weight,
+                    graph_node,
+                });
+            }
+        }
         Ok(())
     }
 }
@@ -832,12 +853,16 @@ where
         match self.blend_register.take() {
             None => self.blend_register = Some((value_to_blend, weight_to_blend)),
             Some((mut current_value, mut current_weight)) => {
-                
+                current_weight += weight_to_blend;
                 if additive {
+                    // println!(
+                    //     "Performed additive blending with weight {:?}",
+                    //     weight_to_blend
+                    // );
                     current_value = A::blend(
                         [
                             BlendInput {
-                                weight: current_weight,
+                                weight: 1.0,
                                 value: current_value,
                                 additive: true,
                             },
@@ -846,10 +871,9 @@ where
                                 value: value_to_blend,
                                 additive: true,
                             },
-                            ]
-                            .into_iter(),
-                        );
-                    current_weight += weight_to_blend;
+                        ]
+                        .into_iter(),
+                    );
                 } else {
                     current_value = A::interpolate(
                         &current_value,
@@ -857,7 +881,6 @@ where
                         weight_to_blend / current_weight,
                     );
                 }
-
                 self.blend_register = Some((current_value, current_weight));
             }
         }

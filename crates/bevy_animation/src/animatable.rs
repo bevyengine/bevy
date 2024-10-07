@@ -204,9 +204,9 @@ impl Animatable for Quat {
 /// if they lack an animation curve to control them.
 #[derive(Default, Debug, Clone, Reflect)]
 pub(crate) struct TransformParts {
-    translation: Option<Vec3>,
-    rotation: Option<Quat>,
-    scale: Option<Vec3>,
+    pub(crate) translation: Option<Vec3>,
+    pub(crate) rotation: Option<Quat>,
+    pub(crate) scale: Option<Vec3>,
 }
 
 impl TransformParts {

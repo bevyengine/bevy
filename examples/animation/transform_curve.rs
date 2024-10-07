@@ -76,9 +76,13 @@ impl AnimationInfo {
 
         // Build the animation graph:
         let mut animation_graph = AnimationGraph::new();
-        let blend_node = animation_graph.add_additive_blend(1.0, animation_graph.root);
-        node_indices.push(animation_graph.add_clip(main_clip_handle, 1.0, blend_node));
-        node_indices.push(animation_graph.add_clip(additive_clip_handle, 0.01, blend_node));
+        let additive_blend_node = animation_graph.add_additive_blend(1.0, animation_graph.root);
+        node_indices.push(animation_graph.add_clip(main_clip_handle, 1.0, additive_blend_node));
+        node_indices.push(animation_graph.add_clip(
+            additive_clip_handle,
+            0.05,
+            additive_blend_node,
+        ));
 
         let animation_graph_handle = animation_graphs.add(animation_graph);
 
