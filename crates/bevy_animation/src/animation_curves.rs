@@ -855,10 +855,6 @@ where
             Some((mut current_value, mut current_weight)) => {
                 current_weight += weight_to_blend;
                 if additive {
-                    // println!(
-                    //     "Performed additive blending with weight {:?}",
-                    //     weight_to_blend
-                    // );
                     current_value = A::blend(
                         [
                             BlendInput {
