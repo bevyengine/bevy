@@ -695,6 +695,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
             return RenderCommandResult::Success;
         };
 
+        if gizmo_mesh_config.line_joints == GizmoLineJoint::None {
+            return RenderCommandResult::Success;
+        };
+
         let instances = {
             let item_size = VertexFormat::Float32x3.size();
             // position_a
