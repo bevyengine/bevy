@@ -78,10 +78,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let handle = images.add(image);
 
     // create a sprite entity using our image
-    commands.spawn(SpriteBundle {
-        texture: handle.clone(),
-        ..Default::default()
-    });
+    commands.spawn(Sprite(handle.clone()));
 
     commands.insert_resource(MyProcGenImage(handle));
 }
