@@ -74,9 +74,6 @@ pub enum Shape2d {
 }
 
 fn setup(mut commands: Commands) {
-    // Spawn camera
-    commands.spawn(Camera2d);
-
     let shapes = [
         Shape2d::Circle(Circle::new(50.0)),
         Shape2d::Arc(Arc2d::new(50.0, 1.25)),
@@ -128,6 +125,23 @@ fn setup(mut commands: Commands) {
     commands.spawn((shapes[12].clone(), Transform::from_xyz(-200.0, -250.0, 0.0)));
     commands.spawn((shapes[13].clone(), Transform::from_xyz(200.0, -250.0, 0.0)));
     commands.spawn((shapes[14].clone(), Transform::from_xyz(300.0, 250.0, 0.0)));
+
+    // Spawn camera
+    commands.spawn(Camera2d);
+
+    // Spawn instructions
+    commands.spawn(
+        TextBundle::from_section(
+            "Move the cursor to move the ray.\nLeft mouse button to rotate the ray counterclockwise.\nRight mouse button to rotate the ray clockwise.",
+            TextStyle::default(),
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        }),
+    );
 }
 
 /// Spawns a shape at a given column and row.
@@ -234,28 +248,6 @@ fn draw_shapes(query: Query<(&Shape2d, &GlobalTransform)>, mut gizmos: Gizmos) {
 impl Primitive2d for Shape2d {}
 
 impl PrimitiveRayCast2d for Shape2d {
-    fn local_ray_distance(&self, ray: Ray2d, max_distance: f32, solid: bool) -> Option<f32> {
-        use Shape2d::*;
-
-        match self {
-            Circle(circle) => circle.local_ray_distance(ray, max_distance, solid),
-            Arc(arc) => arc.local_ray_distance(ray, max_distance, solid),
-            CircularSector(sector) => sector.local_ray_distance(ray, max_distance, solid),
-            CircularSegment(segment) => segment.local_ray_distance(ray, max_distance, solid),
-            Ellipse(ellipse) => ellipse.local_ray_distance(ray, max_distance, solid),
-            Annulus(annulus) => annulus.local_ray_distance(ray, max_distance, solid),
-            Rectangle(rectangle) => rectangle.local_ray_distance(ray, max_distance, solid),
-            Rhombus(rhombus) => rhombus.local_ray_distance(ray, max_distance, solid),
-            Line(line) => line.local_ray_distance(ray, max_distance, solid),
-            Segment(segment) => segment.local_ray_distance(ray, max_distance, solid),
-            Polyline(polyline) => polyline.local_ray_distance(ray, max_distance, solid),
-            Polygon(polygon) => polygon.local_ray_distance(ray, max_distance, solid),
-            RegularPolygon(polygon) => polygon.local_ray_distance(ray, max_distance, solid),
-            Triangle(triangle) => triangle.local_ray_distance(ray, max_distance, solid),
-            Capsule(capsule) => capsule.local_ray_distance(ray, max_distance, solid),
-        }
-    }
-
     fn local_ray_cast(&self, ray: Ray2d, max_distance: f32, solid: bool) -> Option<RayHit2d> {
         use Shape2d::*;
 
