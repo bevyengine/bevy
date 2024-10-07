@@ -1281,6 +1281,17 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "ease_functions"
+path = "examples/animation/ease_functions.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ease_functions]
+name = "Ease Functions"
+description = "Showcase of the built-in ease functions"
+category = "Animation"
+wasm = true
+
+[[example]]
 name = "custom_skinned_mesh"
 path = "examples/animation/custom_skinned_mesh.rs"
 doc-scrape-examples = true
