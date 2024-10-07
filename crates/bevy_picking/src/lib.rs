@@ -236,42 +236,6 @@ impl Default for Pickable {
     }
 }
 
-/// Components needed to build a pointer. Multiple pointers can be active at once, with each pointer
-/// being an entity.
-///
-/// `Mouse` and `Touch` pointers are automatically spawned as needed. Use this bundle if you are
-/// spawning a custom `PointerId::Custom` pointer, either for testing, as a software controlled
-/// pointer, or if you are replacing the default touch and mouse inputs.
-#[derive(Bundle)]
-pub struct PointerBundle {
-    /// The pointer's unique [`PointerId`](pointer::PointerId).
-    pub id: pointer::PointerId,
-    /// Tracks the pointer's location.
-    pub location: pointer::PointerLocation,
-    /// Tracks the pointer's button press state.
-    pub click: pointer::PointerPress,
-    /// The interaction state of any hovered entities.
-    pub interaction: pointer::PointerInteraction,
-}
-
-impl PointerBundle {
-    /// Create a new pointer with the provided [`PointerId`](pointer::PointerId).
-    pub fn new(id: pointer::PointerId) -> Self {
-        PointerBundle {
-            id,
-            location: pointer::PointerLocation::default(),
-            click: pointer::PointerPress::default(),
-            interaction: pointer::PointerInteraction::default(),
-        }
-    }
-
-    /// Sets the location of the pointer bundle
-    pub fn with_location(mut self, location: pointer::Location) -> Self {
-        self.location.location = Some(location);
-        self
-    }
-}
-
 /// Groups the stages of the picking process under shared labels.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum PickSet {
