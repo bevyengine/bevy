@@ -8,7 +8,7 @@
 //! # use bevy_asset::Assets;
 //! # use bevy_ecs::prelude::ResMut;
 //! # use bevy_math::prelude::Circle;
-//! # use bevy_render::prelude::*;
+//! # use bevy_mesh::*;
 //! #
 //! # fn setup(mut meshes: ResMut<Assets<Mesh>>) {
 //! // Create circle mesh with default configuration

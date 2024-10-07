@@ -109,6 +109,7 @@ Example | Description
 [2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method
 [2D Wireframe](../examples/2d/wireframe_2d.rs) | Showcases wireframes for 2d meshes
 [Arc 2D Meshes](../examples/2d/mesh2d_arcs.rs) | Demonstrates UV-mapping of the circular segment and sector primitives
+[CPU Drawing](../examples/2d/cpu_draw.rs) | Manually read/write the pixels of a texture
 [Custom glTF vertex attribute 2D](../examples/2d/custom_gltf_vertex_attribute.rs) | Renders a glTF mesh in 2D with a custom vertex attribute
 [Manual Mesh 2D](../examples/2d/mesh2d_manual.rs) | Renders a custom mesh "manually" with "mid-level" renderer apis
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
@@ -193,6 +194,7 @@ Example | Description
 [Animated Fox](../examples/animation/animated_fox.rs) | Plays an animation from a skinned glTF
 [Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
 [Animated UI](../examples/animation/animated_ui.rs) | Shows how to use animation clips to animate UI properties
+[Animation Events](../examples/animation/animation_events.rs) | Demonstrate how to use animation events
 [Animation Graph](../examples/animation/animation_graph.rs) | Blends multiple animations together with a graph
 [Animation Masks](../examples/animation/animation_masks.rs) | Demonstrates animation masks
 [Color animation](../examples/animation/color_animation.rs) | Demonstrates how to animate colors using mixing and splines in different color spaces

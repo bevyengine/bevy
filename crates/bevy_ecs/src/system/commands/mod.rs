@@ -1759,7 +1759,7 @@ fn try_despawn() -> impl EntityCommand {
 fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
     let caller = Location::caller();
     move |entity: Entity, world: &mut World| {
-        if let Some(mut entity) = world.get_entity_mut(entity) {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
                 bundle,
                 mode,
@@ -1778,7 +1778,7 @@ fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityC
     let caller = Location::caller();
     move |entity: Entity, world: &mut World| {
         let value = T::from_world(world);
-        if let Some(mut entity) = world.get_entity_mut(entity) {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
                 value,
                 mode,
@@ -1797,8 +1797,8 @@ fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityC
 fn try_insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     #[cfg(feature = "track_change_detection")]
     let caller = Location::caller();
-    move |entity, world: &mut World| {
-        if let Some(mut entity) = world.get_entity_mut(entity) {
+    move |entity: Entity, world: &mut World| {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
                 bundle,
                 mode,
@@ -1820,8 +1820,8 @@ unsafe fn insert_by_id<T: Send + 'static>(
     value: T,
     on_none_entity: impl FnOnce(Entity) + Send + 'static,
 ) -> impl EntityCommand {
-    move |entity, world: &mut World| {
-        if let Some(mut entity) = world.get_entity_mut(entity) {
+    move |entity: Entity, world: &mut World| {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
             // SAFETY:
             // - `component_id` safety is ensured by the caller
             // - `ptr` is valid within the `make` block;
@@ -1839,7 +1839,7 @@ unsafe fn insert_by_id<T: Send + 'static>(
 /// For a [`Bundle`] type `T`, this will remove any components in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn remove<T: Bundle>(entity: Entity, world: &mut World) {
-    if let Some(mut entity) = world.get_entity_mut(entity) {
+    if let Ok(mut entity) = world.get_entity_mut(entity) {
         entity.remove::<T>();
     }
 }
@@ -1850,7 +1850,7 @@ fn remove<T: Bundle>(entity: Entity, world: &mut World) {
 /// Panics if the provided [`ComponentId`] does not exist in the [`World`].
 fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
     move |entity: Entity, world: &mut World| {
-        if let Some(mut entity) = world.get_entity_mut(entity) {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.remove_by_id(component_id);
         }
     }
@@ -1858,7 +1858,7 @@ fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
 
 /// An [`EntityCommand`] that remove all components in the bundle and remove all required components for each component in the bundle.
 fn remove_with_requires<T: Bundle>(entity: Entity, world: &mut World) {
-    if let Some(mut entity) = world.get_entity_mut(entity) {
+    if let Ok(mut entity) = world.get_entity_mut(entity) {
         entity.remove_with_requires::<T>();
     }
 }
@@ -1866,7 +1866,7 @@ fn remove_with_requires<T: Bundle>(entity: Entity, world: &mut World) {
 /// An [`EntityCommand`] that removes all components associated with a provided entity.
 fn clear() -> impl EntityCommand {
     move |entity: Entity, world: &mut World| {
-        if let Some(mut entity) = world.get_entity_mut(entity) {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.clear();
         }
     }
@@ -1877,7 +1877,7 @@ fn clear() -> impl EntityCommand {
 /// For a [`Bundle`] type `T`, this will remove all components except those in the bundle.
 /// Any components in the bundle that aren't found on the entity will be ignored.
 fn retain<T: Bundle>(entity: Entity, world: &mut World) {
-    if let Some(mut entity_mut) = world.get_entity_mut(entity) {
+    if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
         entity_mut.retain::<T>();
     }
 }
@@ -1921,8 +1921,8 @@ fn log_components(entity: Entity, world: &mut World) {
 fn observe<E: Event, B: Bundle, M>(
     observer: impl IntoObserverSystem<E, B, M>,
 ) -> impl EntityCommand {
-    move |entity, world: &mut World| {
-        if let Some(mut entity) = world.get_entity_mut(entity) {
+    move |entity: Entity, world: &mut World| {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
             entity.observe_entity(observer);
         }
     }

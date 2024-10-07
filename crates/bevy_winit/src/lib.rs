@@ -23,8 +23,6 @@ use bevy_a11y::AccessibilityRequested;
 use bevy_app::{App, Last, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_window::{exit_on_all_closed, Window, WindowCreated};
-pub use converters::convert_system_cursor_icon;
-pub use state::{CursorSource, CustomCursorCache, CustomCursorCacheKey, PendingCursor};
 use system::{changed_windows, check_keyboard_focus_lost, despawn_windows};
 pub use system::{create_monitors, create_windows};
 #[cfg(all(target_family = "wasm", target_os = "unknown"))]
@@ -44,6 +42,8 @@ use crate::{
 
 pub mod accessibility;
 mod converters;
+#[cfg(feature = "custom_cursor")]
+pub mod cursor;
 mod state;
 mod system;
 mod winit_config;
@@ -131,6 +131,8 @@ impl<T: Event> Plugin for WinitPlugin<T> {
             );
 
         app.add_plugins(AccessKitPlugin);
+        #[cfg(feature = "custom_cursor")]
+        app.add_plugins(cursor::CursorPlugin);
 
         let event_loop = event_loop_builder
             .build()
