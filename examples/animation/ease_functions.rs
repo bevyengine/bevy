@@ -1,4 +1,4 @@
-//! Demonstrates the builtin easing functions.
+//! Demonstrates the behavior of the built-in easing functions.
 
 use bevy::{prelude::*, sprite::Anchor};
 
