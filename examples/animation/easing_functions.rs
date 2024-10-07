@@ -150,7 +150,7 @@ fn display_curves(
         );
 
         // Draw the curve
-        let f = easing::EasingCurve::ease(*function);
+        let f = easing::easing_curve(0.0, 1.0, *function);
         gizmos.linestrip_2d(
             (0..(samples + 1)).map(|i| {
                 let t = i as f32 / samples as f32;

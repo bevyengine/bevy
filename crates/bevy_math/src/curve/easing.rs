@@ -5,36 +5,39 @@ use crate::{Dir2, Dir3, Dir3A, Quat, Rot2, VectorSpace};
 use interpolation::Ease as IEase;
 
 use super::{function_curve, Curve, Interval};
+
+// TODO: Think about merging `Ease` with `StableInterpolate`
+
+/// A type whose values can be eased between.
+///
+/// This requires the construction of an interpolation curve that actually extends
+/// beyond the curve segment that connects two values, because an easing curve may
+/// extrapolate before the starting value and after the ending value. This is
+/// especially common in easing functions that mimic elastic or springlike behavior.
 pub trait Ease: Sized {
-    fn interpolating_curve(start: &Self, end: &Self) -> impl Curve<Self>;
+    /// Given `start` and `end` values, produce a curve with [unlimited domain]
+    /// that:
+    /// - takes a value equivalent to `start` at `t = 0`
+    /// - takes a value equivalent to `end` at `t = 1`
+    /// - has constant speed everywhere, including outside of `[0, 1]`
+    ///
+    /// [unlimited domain]: Interval::EVERYWHERE
     fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self>;
 }
 
 impl<V: VectorSpace> Ease for V {
-    fn interpolating_curve(start: &Self, end: &Self) -> impl Curve<Self> {
-        function_curve(Interval::UNIT, |t| V::lerp(*start, *end, t))
-    }
-
     fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
         function_curve(Interval::EVERYWHERE, |t| V::lerp(*start, *end, t))
     }
 }
 
 impl Ease for Rot2 {
-    fn interpolating_curve(start: &Self, end: &Self) -> impl Curve<Self> {
-        function_curve(Interval::UNIT, |t| Rot2::slerp(*start, *end, t))
-    }
-
     fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
         function_curve(Interval::EVERYWHERE, |t| Rot2::slerp(*start, *end, t))
     }
 }
 
 impl Ease for Quat {
-    fn interpolating_curve(start: &Self, end: &Self) -> impl Curve<Self> {
-        function_curve(Interval::UNIT, |t| Quat::slerp(*start, *end, t))
-    }
-
     fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
         // TODO: Check this actually extrapolates correctly.
         function_curve(Interval::EVERYWHERE, |t| Quat::slerp(*start, *end, t))
@@ -42,20 +45,12 @@ impl Ease for Quat {
 }
 
 impl Ease for Dir2 {
-    fn interpolating_curve(start: &Self, end: &Self) -> impl Curve<Self> {
-        function_curve(Interval::UNIT, |t| Dir2::slerp(*start, *end, t))
-    }
-
     fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
         function_curve(Interval::EVERYWHERE, |t| Dir2::slerp(*start, *end, t))
     }
 }
 
 impl Ease for Dir3 {
-    fn interpolating_curve(start: &Self, end: &Self) -> impl Curve<Self> {
-        function_curve(Interval::UNIT, |t| Dir3::slerp(*start, *end, t))
-    }
-
     fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
         // TODO: Check this actually extrapolates correctly.
         function_curve(Interval::EVERYWHERE, |t| Dir3::slerp(*start, *end, t))
@@ -63,10 +58,6 @@ impl Ease for Dir3 {
 }
 
 impl Ease for Dir3A {
-    fn interpolating_curve(start: &Self, end: &Self) -> impl Curve<Self> {
-        function_curve(Interval::UNIT, |t| Dir3A::slerp(*start, *end, t))
-    }
-
     fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
         // TODO: Check this actually extrapolates correctly.
         function_curve(Interval::EVERYWHERE, |t| Dir3A::slerp(*start, *end, t))
