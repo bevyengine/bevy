@@ -119,7 +119,7 @@ fn torus_ray_distance(
         z = 2.0 * q_sqrt * ops::cos(ops::acos(r / (q * q_sqrt)) / 3.0);
     } else {
         // 2 intersections
-        let q_sqrt = (h.sqrt() + r.abs()).cubed();
+        let q_sqrt = ops::cbrt(h.sqrt() + r.abs());
         z = r.signum() * (q_sqrt + q / q_sqrt).abs();
     }
 

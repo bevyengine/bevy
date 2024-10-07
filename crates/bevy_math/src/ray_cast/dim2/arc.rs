@@ -30,7 +30,7 @@ impl PrimitiveRayCast2d for Arc2d {
         if t2 > 0.0 && t2 <= max_distance {
             // The ray hit the outside of the arc.
             let p2 = ray.get_point(t2);
-            let arc_bottom_y = ops::sin(self.radius * (FRAC_PI_2 + self.half_angle));
+            let arc_bottom_y = self.radius * ops::sin(FRAC_PI_2 + self.half_angle);
             if p2.y >= arc_bottom_y {
                 let normal = Dir2::new_unchecked(p2 / self.radius);
                 return Some(RayHit2d::new(t2, normal));
@@ -41,7 +41,7 @@ impl PrimitiveRayCast2d for Arc2d {
         if t1 <= max_distance {
             // The ray hit the inside of the arc.
             let p1 = ray.get_point(t1);
-            let arc_bottom_y = ops::sin(self.radius * (FRAC_PI_2 + self.half_angle));
+            let arc_bottom_y = self.radius * ops::sin(FRAC_PI_2 + self.half_angle);
             if p1.y >= arc_bottom_y {
                 let normal = Dir2::new_unchecked(-p1 / self.radius);
                 return Some(RayHit2d::new(t1, normal));

@@ -9,10 +9,9 @@ impl PrimitiveRayCast2d for CircularSegment {
         let end = self.arc.right_endpoint();
 
         // First, if the segment is solid, check if the ray origin is inside of it.
-        if solid
-            && ray.origin.length_squared() < self.radius().squared()
-            && ray.origin.y >= start.y.min(end.y)
-        {
+        let is_inside = ray.origin.length_squared() < self.radius().squared()
+            && ray.origin.y >= start.y.min(end.y);
+        if solid && is_inside {
             return Some(RayHit2d::new(0.0, -ray.direction));
         }
 
@@ -24,6 +23,12 @@ impl PrimitiveRayCast2d for CircularSegment {
 
         // Check if the segment connecting the arc's endpoints is intersecting the ray.
         let segment = Segment2d::new(Dir2::new(end - start).unwrap(), 2.0 * self.radius());
+
+        if !is_inside && ray.origin.y >= start.y.min(end.y) {
+            // The ray is above the segment and cannot intersect with the segment.
+            return closest;
+        }
+
         if let Some(intersection) = segment.ray_cast(
             Isometry2d::from_translation(start.midpoint(end)),
             ray,
