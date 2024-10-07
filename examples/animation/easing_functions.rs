@@ -79,24 +79,14 @@ fn setup(mut commands: Commands) {
                     SelectedEaseFunction(*function, color),
                 ))
                 .with_children(|p| {
-                    p.spawn(SpriteBundle {
-                        sprite: Sprite {
-                            custom_size: Some(Vec2::new(5.0, 5.0)),
-                            color,
-                            ..default()
-                        },
-                        transform: Transform::from_xyz(110.0, 15.0, 0.0),
-                        ..default()
-                    });
-                    p.spawn(SpriteBundle {
-                        sprite: Sprite {
-                            custom_size: Some(Vec2::new(4.0, 4.0)),
-                            color,
-                            ..default()
-                        },
-                        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-                        ..default()
-                    });
+                    p.spawn((
+                        Sprite::from_color(color, Vec2::splat(5.0)),
+                        Transform::from_xyz(110.0, 15.0, 0.0),
+                    ));
+                    p.spawn((
+                        Sprite::from_color(color, Vec2::splat(4.0)),
+                        Transform::from_xyz(0.0, 0.0, 0.0),
+                    ));
                 });
         }
     }
