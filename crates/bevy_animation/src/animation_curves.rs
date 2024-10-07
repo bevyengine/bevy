@@ -379,8 +379,10 @@ where
         match last_node {
             // A couple things to note here:
             // 1. `apply` is called for all curves on a single node in sequence; i.e.
-            //    the `graph_node` values of stack elements are not interleaved.
+            //    the `graph_node` values of stack elements from one node are not
+            //    interleaved.
             // 2. Similarly, the weight depends only on the graph node.
+            //
             // With these in mind, what's happening here is that we are joining all
             // of the `Transform`-targeting curves from a single clip by peeking at
             // the top of the evaluator stack and seeing if the last curve added was

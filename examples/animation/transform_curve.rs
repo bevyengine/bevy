@@ -30,7 +30,7 @@ struct AnimationInfo {
 }
 
 impl AnimationInfo {
-    // Programmatically creates the UI animation.
+    // Programmatically creates the ship animation.
     fn create(
         animation_graphs: &mut Assets<AnimationGraph>,
         animation_clips: &mut Assets<AnimationClip>,
@@ -42,11 +42,14 @@ impl AnimationInfo {
         // Allocate an animation clip.
         let mut main_clip = AnimationClip::default();
 
+        // This curve describes the position of the ship over time.
         let wobbly_circle_curve =
             function_curve(Interval::new(0.0, std::f32::consts::TAU).unwrap(), |t| {
                 vec3(t.sin() * 5.0, t.sin() * 1.5, t.cos() * 5.0)
             });
 
+        // This curve uses the position of the ship to make its inward wing point toward
+        // the center of the platform that we'll position.
         let transform_curve = wobbly_circle_curve.map(|position| {
             Transform::from_translation(position).aligned_by(
                 Dir3::NEG_X,
@@ -58,13 +61,20 @@ impl AnimationInfo {
 
         main_clip.add_curve_to_target(animation_target_id, TransformCurve(transform_curve));
 
-        // Set up an additional additive clip to blend with the first.
+        // Set up an additional radial wobble to additively blend onto the ship's trajectory,
+        // mimicking some kind of turbulence.
         let mut additive_clip = AnimationClip::default();
 
-        let turbulence_curve =
+        // This curve describes the change in the ship's radius relative to its center.
+        let radial_displacement_curve =
             function_curve(Interval::new(0.0, std::f32::consts::TAU).unwrap(), |t| {
-                vec3(f32::cos(20.0 * t), 0.0, f32::sin(20.0 * t))
+                f32::cos(15.0 * t)
             });
+
+        // This curve assigns the radius from the previous curve as an actual radius
+        let turbulence_curve = radial_displacement_curve
+            .graph()
+            .map(|(t, radius)| vec3(t.sin() * radius, 0.0, t.cos() * radius));
 
         additive_clip.add_curve_to_target(animation_target_id, TranslationCurve(turbulence_curve));
 
@@ -74,15 +84,14 @@ impl AnimationInfo {
 
         let mut node_indices = vec![];
 
-        // Build the animation graph:
+        // Start building the animation graph.
         let mut animation_graph = AnimationGraph::new();
+
+        // The first child of the additive blend node describes the base animation, and the second
+        // is blended additively on top of it with its given weight.
         let additive_blend_node = animation_graph.add_additive_blend(1.0, animation_graph.root);
         node_indices.push(animation_graph.add_clip(main_clip_handle, 1.0, additive_blend_node));
-        node_indices.push(animation_graph.add_clip(
-            additive_clip_handle,
-            0.05,
-            additive_blend_node,
-        ));
+        node_indices.push(animation_graph.add_clip(additive_clip_handle, 0.1, additive_blend_node));
 
         let animation_graph_handle = animation_graphs.add(animation_graph);
 
