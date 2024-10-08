@@ -974,6 +974,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "order_independent_transparency"
+path = "examples/3d/order_independent_transparency.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.order_independent_transparency]
+name = "Order Independent Transparency"
+description = "Demonstrates how to use OIT"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "tonemapping"
 path = "examples/3d/tonemapping.rs"
 doc-scrape-examples = true
@@ -3475,6 +3486,18 @@ name = "Camera Orbit"
 description = "Shows how to orbit a static scene using pitch, yaw, and roll."
 category = "Camera"
 wasm = true
+
+[[example]]
+name = "2d_screen_shake"
+path = "examples/camera/2d_screen_shake.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.2d_screen_shake]
+name = "Screen Shake"
+description = "A simple 2D screen shake effect"
+category = "Camera"
+wasm = true
+
 
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"

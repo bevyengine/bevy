@@ -3,6 +3,7 @@ use core::{array, num::NonZero};
 
 use bevy_core_pipeline::{
     core_3d::ViewTransmissionTexture,
+    oit::{OitBuffers, OrderIndependentTransparencySettings},
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -12,6 +13,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    query::Has,
     system::{Commands, Query, Res, Resource},
     world::{FromWorld, World},
 };
@@ -71,6 +73,7 @@ bitflags::bitflags! {
         const NORMAL_PREPASS              = 1 << 2;
         const MOTION_VECTOR_PREPASS       = 1 << 3;
         const DEFERRED_PREPASS            = 1 << 4;
+        const OIT_ENABLED                 = 1 << 5;
     }
 }
 
@@ -83,7 +86,7 @@ impl MeshPipelineViewLayoutKey {
         use MeshPipelineViewLayoutKey as Key;
 
         format!(
-            "mesh_view_layout{}{}{}{}{}",
+            "mesh_view_layout{}{}{}{}{}{}",
             self.contains(Key::MULTISAMPLED)
                 .then_some("_multisampled")
                 .unwrap_or_default(),
@@ -98,6 +101,9 @@ impl MeshPipelineViewLayoutKey {
                 .unwrap_or_default(),
             self.contains(Key::DEFERRED_PREPASS)
                 .then_some("_deferred")
+                .unwrap_or_default(),
+            self.contains(Key::OIT_ENABLED)
+                .then_some("_oit")
                 .unwrap_or_default(),
         )
     }
@@ -121,6 +127,9 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         }
         if value.contains(MeshPipelineKey::DEFERRED_PREPASS) {
             result |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
+        }
+        if value.contains(MeshPipelineKey::OIT_ENABLED) {
+            result |= MeshPipelineViewLayoutKey::OIT_ENABLED;
         }
 
         result
@@ -348,6 +357,18 @@ fn layout_entries(
         (30, sampler(SamplerBindingType::Filtering)),
     ));
 
+    // OIT
+    if cfg!(not(feature = "webgl")) && layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
+        entries = entries.extend_with_indices((
+            // oit_layers
+            (31, storage_buffer_sized(false, None)),
+            // oit_layer_ids,
+            (32, storage_buffer_sized(false, None)),
+            // oit_layer_count
+            (33, uniform_buffer::<i32>(true)),
+        ));
+    }
+
     entries.to_vec()
 }
 
@@ -453,8 +474,7 @@ pub fn prepare_mesh_view_bind_groups(
     render_device: Res<RenderDevice>,
     mesh_pipeline: Res<MeshPipeline>,
     shadow_samplers: Res<ShadowSamplers>,
-    light_meta: Res<LightMeta>,
-    global_light_meta: Res<GlobalClusterableObjectMeta>,
+    (light_meta, global_light_meta): (Res<LightMeta>, Res<GlobalClusterableObjectMeta>),
     fog_meta: Res<FogMeta>,
     (view_uniforms, environment_map_uniform): (Res<ViewUniforms>, Res<EnvironmentMapUniformBuffer>),
     views: Query<(
@@ -468,6 +488,7 @@ pub fn prepare_mesh_view_bind_groups(
         &Tonemapping,
         Option<&RenderViewLightProbes<EnvironmentMapLight>>,
         Option<&RenderViewLightProbes<IrradianceVolume>>,
+        Has<OrderIndependentTransparencySettings>,
     )>,
     (images, mut fallback_images, fallback_image, fallback_image_zero): (
         Res<RenderAssets<GpuImage>>,
@@ -480,6 +501,7 @@ pub fn prepare_mesh_view_bind_groups(
     light_probes_buffer: Res<LightProbesBuffer>,
     visibility_ranges: Res<RenderVisibilityRanges>,
     ssr_buffer: Res<ScreenSpaceReflectionsBuffer>,
+    oit_buffers: Res<OitBuffers>,
 ) {
     if let (
         Some(view_binding),
@@ -513,6 +535,7 @@ pub fn prepare_mesh_view_bind_groups(
             tonemapping,
             render_view_environment_maps,
             render_view_irradiance_volumes,
+            has_oit,
         ) in &views
         {
             let fallback_ssao = fallback_images
@@ -523,10 +546,13 @@ pub fn prepare_mesh_view_bind_groups(
                 .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
                 .unwrap_or(&fallback_ssao);
 
-            let layout = &mesh_pipeline.get_view_layout(
-                MeshPipelineViewLayoutKey::from(*msaa)
-                    | MeshPipelineViewLayoutKey::from(prepass_textures),
-            );
+            let mut layout_key = MeshPipelineViewLayoutKey::from(*msaa)
+                | MeshPipelineViewLayoutKey::from(prepass_textures);
+            if has_oit {
+                layout_key |= MeshPipelineViewLayoutKey::OIT_ENABLED;
+            }
+
+            let layout = &mesh_pipeline.get_view_layout(layout_key);
 
             let mut entries = DynamicBindGroupEntries::new_with_indices((
                 (0, view_binding.clone()),
@@ -644,6 +670,24 @@ pub fn prepare_mesh_view_bind_groups(
 
             entries =
                 entries.extend_with_indices(((29, transmission_view), (30, transmission_sampler)));
+
+            if has_oit {
+                if let (
+                    Some(oit_layers_binding),
+                    Some(oit_layer_ids_binding),
+                    Some(oit_layers_count_uniforms_binding),
+                ) = (
+                    oit_buffers.layers.binding(),
+                    oit_buffers.layer_ids.binding(),
+                    oit_buffers.layers_count_uniforms.binding(),
+                ) {
+                    entries = entries.extend_with_indices((
+                        (31, oit_layers_binding.clone()),
+                        (32, oit_layer_ids_binding.clone()),
+                        (33, oit_layers_count_uniforms_binding.clone()),
+                    ));
+                }
+            }
 
             commands.entity(entity).insert(MeshViewBindGroup {
                 value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),

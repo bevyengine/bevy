@@ -364,6 +364,7 @@ pub enum ButtonSettingsError {
 /// }
 /// ```
 #[derive(Component, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 #[require(GamepadSettings)]
 pub struct Gamepad {
     info: GamepadInfo,
@@ -374,7 +375,7 @@ pub struct Gamepad {
 }
 
 impl Gamepad {
-    /// Creates a gamepad with the given metadata
+    /// Creates a gamepad with the given metadata.
     fn new(info: GamepadInfo) -> Self {
         let mut analog = Axis::default();
         for button in GamepadButton::all().iter().copied() {
@@ -397,6 +398,18 @@ impl Gamepad {
     /// For example on Windows the name may be "HID-compliant game controller".
     pub fn name(&self) -> &str {
         self.info.name.as_str()
+    }
+
+    /// Returns the USB vendor ID as assigned by the USB-IF, if available.
+    pub fn vendor_id(&self) -> Option<u16> {
+        self.info.vendor_id
+    }
+
+    /// Returns the USB product ID as assigned by the [vendor], if available.
+    ///
+    /// [vendor]: Self::vendor_id
+    pub fn product_id(&self) -> Option<u16> {
+        self.info.product_id
     }
 
     /// Returns the analog data of the provided [`GamepadAxis`] or [`GamepadButton`].
@@ -505,8 +518,39 @@ impl Gamepad {
             .into_iter()
             .all(|button_type| self.just_released(button_type))
     }
+
+    /// Returns an iterator over all digital [button]s that are pressed.
+    ///
+    /// [button]: GamepadButton
+    pub fn get_pressed(&self) -> impl Iterator<Item = &GamepadButton> {
+        self.digital.get_pressed()
+    }
+
+    /// Returns an iterator over all digital [button]s that were just pressed.
+    ///
+    /// [button]: GamepadButton
+    pub fn get_just_pressed(&self) -> impl Iterator<Item = &GamepadButton> {
+        self.digital.get_just_pressed()
+    }
+
+    /// Returns an iterator over all digital [button]s that were just released.
+    ///
+    /// [button]: GamepadButton
+    pub fn get_just_released(&self) -> impl Iterator<Item = &GamepadButton> {
+        self.digital.get_just_released()
+    }
+
+    /// Returns an iterator over all analog [axes].
+    ///
+    /// [axes]: GamepadInput
+    pub fn get_analog_axes(&self) -> impl Iterator<Item = &GamepadInput> {
+        self.analog.all_axes()
+    }
 }
 
+// Note that we don't expose `gilrs::Gamepad::uuid` due to
+// https://gitlab.com/gilrs-project/gilrs/-/issues/153.
+//
 /// Metadata associated with a [`Gamepad`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
@@ -522,6 +566,14 @@ pub struct GamepadInfo {
     ///
     /// For example on Windows the name may be "HID-compliant game controller".
     pub name: String,
+
+    /// The USB vendor ID as assigned by the USB-IF, if available.
+    pub vendor_id: Option<u16>,
+
+    /// The USB product ID as assigned by the [vendor], if available.
+    ///
+    /// [vendor]: Self::vendor_id
+    pub product_id: Option<u16>,
 }
 
 /// Represents gamepad input types that are mapped in the range [0.0, 1.0].
@@ -665,6 +717,7 @@ impl GamepadAxis {
 /// Encapsulation over [`GamepadAxis`] and [`GamepadButton`]
 // This is done so Gamepad can share a single Axis<T> and simplifies the API by having only one get/get_unclamped method
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub enum GamepadInput {
     /// A [`GamepadAxis`]
     Axis(GamepadAxis),
@@ -1988,6 +2041,8 @@ mod tests {
                     gamepad,
                     Connected(GamepadInfo {
                         name: String::from("Gamepad test"),
+                        vendor_id: None,
+                        product_id: None,
                     }),
                 ));
             gamepad
