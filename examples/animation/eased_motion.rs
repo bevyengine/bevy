@@ -1,4 +1,4 @@
-//! Demonstrates the application of easing curves to animating a transition.
+//! Demonstrates the application of easing curves to animate a transition.
 
 use std::f32::consts::FRAC_PI_2;
 
