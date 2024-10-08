@@ -39,7 +39,7 @@ use bevy_render::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
         ViewVisibility, VisibleEntities,
     },
-    world_sync::{RenderEntity, TemporaryRenderEntity},
+    sync_world::{RenderEntity, TemporaryRenderEntity},
     Extract,
 };
 use bevy_transform::components::GlobalTransform;

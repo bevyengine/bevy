@@ -4,7 +4,7 @@ use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     texture::Image,
     view::{InheritedVisibility, ViewVisibility, Visibility},
-    world_sync::SyncToRenderWorld,
+    sync_world::SyncToRenderWorld,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 

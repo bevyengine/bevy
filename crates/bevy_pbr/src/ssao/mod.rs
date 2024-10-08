@@ -32,7 +32,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
-    world_sync::RenderEntity,
+    sync_world::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{

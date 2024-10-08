@@ -16,7 +16,7 @@ use bevy_render::{
     mesh::Mesh3d,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
     view::{InheritedVisibility, ViewVisibility, Visibility},
-    world_sync::SyncToRenderWorld,
+    sync_world::SyncToRenderWorld,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 

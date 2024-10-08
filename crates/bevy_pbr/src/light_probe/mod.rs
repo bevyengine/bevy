@@ -23,7 +23,7 @@ use bevy_render::{
     settings::WgpuFeatures,
     texture::{FallbackImage, GpuImage, Image},
     view::ExtractedView,
-    world_sync::RenderEntity,
+    sync_world::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};

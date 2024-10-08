@@ -11,7 +11,7 @@ use crate::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers, Visibility,
         VisibleEntities,
     },
-    world_sync::{RenderEntity, SyncToRenderWorld},
+    sync_world::{RenderEntity, SyncToRenderWorld},
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};

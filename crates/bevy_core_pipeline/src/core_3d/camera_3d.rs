@@ -12,7 +12,7 @@ use bevy_render::{
     primitives::Frustum,
     render_resource::{LoadOp, TextureUsages},
     view::{ColorGrading, Msaa, VisibleEntities},
-    world_sync::SyncToRenderWorld,
+    sync_world::SyncToRenderWorld,
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};

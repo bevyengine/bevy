@@ -6,7 +6,7 @@ use crate::{
     renderer::{render_system, RenderDevice},
     storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
     texture::{GpuImage, TextureFormatPixelInfo},
-    world_sync::MainEntity,
+    sync_world::MainEntity,
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use async_channel::{Receiver, Sender};

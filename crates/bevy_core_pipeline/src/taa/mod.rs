@@ -34,7 +34,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
-    world_sync::RenderEntity,
+    sync_world::RenderEntity,
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use bevy_utils::tracing::warn;

@@ -51,7 +51,7 @@ use bevy_render::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
     },
-    world_sync::RenderEntity,
+    sync_world::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{info_once, prelude::default, warn_once};

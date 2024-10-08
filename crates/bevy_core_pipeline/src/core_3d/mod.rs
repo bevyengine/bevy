@@ -91,7 +91,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{BevyDefault, ColorAttachment, Image, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
-    world_sync::RenderEntity,
+    sync_world::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::warn, HashMap};

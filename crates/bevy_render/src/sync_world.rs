@@ -24,7 +24,7 @@ use bevy_reflect::Reflect;
 /// It operates in its own separate ECS [`World`], so the renderer logic can run in parallel with the main world logic.
 /// This is called "Pipelined Rendering", see [`PipelinedRenderingPlugin`] for more information.
 ///
-/// [`WorldSyncPlugin`] is the first thing that runs every frame and it maintains an entity-to-entity mapping
+/// [`SyncWorldPlugin`] is the first thing that runs every frame and it maintains an entity-to-entity mapping
 /// between the main world and the render world.
 /// It does so by spawning and despawning entities in the render world, to match spawned and despawned entities in the main world.
 /// The link between synced entities is maintained by the [`RenderEntity`] and [`MainEntity`] components.
@@ -73,16 +73,16 @@ use bevy_reflect::Reflect;
 /// The render world probably cares about a `Position` component, but not a `Velocity` component.
 /// The extraction happens in its own step, independently from, and after synchronization.
 ///
-/// Moreover, [`WorldSyncPlugin`] only synchronizes *entities*. [`RenderAsset`](crate::render_asset::RenderAsset)s like meshes and textures are handled
+/// Moreover, [`SyncWorldPlugin`] only synchronizes *entities*. [`RenderAsset`](crate::render_asset::RenderAsset)s like meshes and textures are handled
 /// differently.
 ///
 /// [`PipelinedRenderingPlugin`]: crate::pipelined_rendering::PipelinedRenderingPlugin
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 #[derive(Default)]
-pub struct WorldSyncPlugin;
+pub struct SyncWorldPlugin;
 
-impl Plugin for WorldSyncPlugin {
+impl Plugin for SyncWorldPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity>();
         app.observe(
@@ -243,7 +243,7 @@ mod tests {
     struct RenderDataComponent;
 
     #[test]
-    fn world_sync() {
+    fn sync_world() {
         let mut main_world = World::new();
         let mut render_world = World::new();
         main_world.init_resource::<PendingSyncEntity>();

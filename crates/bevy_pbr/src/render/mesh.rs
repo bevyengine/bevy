@@ -33,12 +33,12 @@ use bevy_render::{
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
+    sync_world::RenderEntity,
     texture::{BevyDefault, DefaultImageSampler, ImageSampler, TextureFormatPixelInfo},
     view::{
         prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
         ViewVisibility, VisibilityRange,
     },
-    world_sync::RenderEntity,
     Extract,
 };
 use bevy_transform::components::GlobalTransform;

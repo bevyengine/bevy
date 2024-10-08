@@ -18,7 +18,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image, TRANSPARENT_IMAGE_HANDLE},
     view::*,
-    world_sync::{RenderEntity, TemporaryRenderEntity},
+    sync_world::{RenderEntity, TemporaryRenderEntity},
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_sprite::{

@@ -20,7 +20,7 @@ use bevy_render::{
         UniformBuffer,
     },
     renderer::{RenderDevice, RenderQueue},
-    world_sync::RenderEntity,
+    sync_world::RenderEntity,
     Extract,
 };
 use bevy_utils::{hashbrown::HashSet, tracing::warn};

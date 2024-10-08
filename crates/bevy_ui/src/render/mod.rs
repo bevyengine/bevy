@@ -34,7 +34,7 @@ use bevy_render::{
     render_phase::{PhaseItem, PhaseItemExtraIndex},
     texture::GpuImage,
     view::ViewVisibility,
-    world_sync::{RenderEntity, TemporaryRenderEntity},
+    sync_world::{RenderEntity, TemporaryRenderEntity},
     ExtractSchedule, Render,
 };
 use bevy_sprite::TextureAtlasLayout;

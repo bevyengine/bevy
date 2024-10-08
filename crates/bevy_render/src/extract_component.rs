@@ -2,8 +2,8 @@ use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     sync_component::SyncComponentPlugin,
+    sync_world::RenderEntity,
     view::ViewVisibility,
-    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
@@ -208,7 +208,7 @@ impl<T: Asset> ExtractComponent for Handle<T> {
     }
 }
 
-/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::world_sync::SyncToRenderWorld`].
+/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
 fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
@@ -224,7 +224,7 @@ fn extract_components<C: ExtractComponent>(
     commands.insert_or_spawn_batch(values);
 }
 
-/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::world_sync::SyncToRenderWorld`].
+/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,

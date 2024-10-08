@@ -20,7 +20,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
     view::*,
-    world_sync::{RenderEntity, TemporaryRenderEntity},
+    sync_world::{RenderEntity, TemporaryRenderEntity},
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;

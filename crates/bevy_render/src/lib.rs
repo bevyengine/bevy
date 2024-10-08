@@ -39,9 +39,9 @@ pub mod settings;
 mod spatial_bundle;
 pub mod storage;
 pub mod sync_component;
+pub mod sync_world;
 pub mod texture;
 pub mod view;
-pub mod world_sync;
 
 /// The render prelude.
 ///
@@ -78,8 +78,8 @@ use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
-use world_sync::{
-    despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, WorldSyncPlugin,
+use sync_world::{
+    despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, SyncWorldPlugin,
 };
 
 use crate::gpu_readback::GpuReadbackPlugin;
@@ -372,7 +372,7 @@ impl Plugin for RenderPlugin {
             GlobalsPlugin,
             MorphPlugin,
             BatchingPlugin,
-            WorldSyncPlugin,
+            SyncWorldPlugin,
             StoragePlugin,
             GpuReadbackPlugin::default(),
         ));

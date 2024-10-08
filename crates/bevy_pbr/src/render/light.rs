@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::lifetimeless::Read,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::world_sync::RenderEntity;
+use bevy_render::sync_world::RenderEntity;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
