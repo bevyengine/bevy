@@ -100,6 +100,7 @@ pub struct UiShadowsBatch {
     pub camera: Entity,
 }
 
+/// Contains the vertices and bind groups to be sent to the GPU
 #[derive(Resource)]
 pub struct BoxShadowMeta {
     vertices: RawBufferVec<BoxShadowVertex>,
@@ -216,6 +217,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
     }
 }
 
+/// Description of a shadow to be sorted and queued for rendering
 pub struct ExtractedBoxShadow {
     pub stack_index: u32,
     pub transform: Mat4,
@@ -228,6 +230,7 @@ pub struct ExtractedBoxShadow {
     pub size: Vec2,
 }
 
+/// List of extracted shadows to be sorted and queued for rendering
 #[derive(Resource, Default)]
 pub struct ExtractedBoxShadows {
     pub box_shadows: SparseSet<Entity, ExtractedBoxShadow>,
@@ -285,26 +288,25 @@ pub fn extract_shadows(
             Val::VMax(percent) => percent / 100. * ui_logical_viewport_size.max_element(),
         };
 
+        let spread_radius = resolve_val(box_shadow.spread_radius, uinode.size().x);
+        let shadow_size = uinode.size() + spread_radius;
+        if shadow_size.cmple(Vec2::ZERO).any() {
+            continue;
+        }
+
         let blur = resolve_val(box_shadow.blur_radius, uinode.size().y);
         let offset = vec2(
             resolve_val(box_shadow.x_offset, uinode.size().x),
             resolve_val(box_shadow.y_offset, uinode.size().y),
         );
-        let spread_radius = resolve_val(box_shadow.spread_radius, uinode.size().x);
 
-        let size = uinode.size() + spread_radius;
-
-        if size.cmple(Vec2::ZERO).any() {
-            continue;
-        }
-
-        let p = (uinode.size() / size).min_element();
+        let shadow_scale = (uinode.size() / shadow_size).min_element();
 
         let radius = ResolvedBorderRadius {
-            top_left: uinode.border_radius.top_left * p,
-            top_right: uinode.border_radius.top_left * p,
-            bottom_left: uinode.border_radius.top_left * p,
-            bottom_right: uinode.border_radius.top_left * p,
+            top_left: uinode.border_radius.top_left * shadow_scale,
+            top_right: uinode.border_radius.top_left * shadow_scale,
+            bottom_left: uinode.border_radius.top_left * shadow_scale,
+            bottom_right: uinode.border_radius.top_left * shadow_scale,
         };
 
         extracted_box_shadows.box_shadows.insert(
@@ -315,13 +317,13 @@ pub fn extract_shadows(
                 color: box_shadow.color.into(),
                 rect: Rect {
                     min: Vec2::ZERO,
-                    max: size + 6. * blur,
+                    max: shadow_size + 6. * blur,
                 },
                 clip: clip.map(|clip| clip.clip),
                 camera_entity: camera_entity.id(),
                 radius,
                 blur,
-                size,
+                size: shadow_size,
             },
         );
     }
@@ -403,11 +405,6 @@ pub fn prepare_shadows(
             while item_index < ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 if let Some(box_shadow) = extracted_shadows.box_shadows.get(item.entity) {
-                    // let mut existing_batch = batches.last_mut();
-                    // batch_item_index = item_index;
-
-                    // batches.
-
                     let uinode_rect = box_shadow.rect;
 
                     let rect_size = uinode_rect.size().extend(1.0);
@@ -500,6 +497,7 @@ pub fn prepare_shadows(
                     vertices_index += 6;
                     indices_index += 4;
 
+                    // shadows are sent to the gpu non-batched
                     *ui_phase.items[item_index].batch_range_mut() =
                         item_index as u32..item_index as u32 + 1;
                 }
