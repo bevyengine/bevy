@@ -193,7 +193,7 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                     let Some(mut render_entity) = world.get_mut::<RenderEntity>(main_entity) else {
                         continue;
                     };
-                    if let Some(render_world_entity) = render_world.get_entity_mut(render_entity.id()) {
+                    if let Ok(render_world_entity) = render_world.get_entity_mut(render_entity.id()) {
                         // In order to handle components that extract to derived components, we clear the entity
                         // and let the extraction system re-add the components.
                         render_world_entity.despawn();
