@@ -261,7 +261,7 @@ mod render_entities_world_query_impls {
             fetch: &mut Self::Fetch<'w>,
             entity: Entity,
             table_row: TableRow,
-        ) -> Entity {
+        ) -> Self::Item<'w> {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
             let component =
                 unsafe { <&RenderEntity as WorldQuery>::fetch(fetch, entity, table_row) };
