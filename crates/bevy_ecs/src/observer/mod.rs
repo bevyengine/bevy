@@ -32,7 +32,7 @@ pub struct Trigger<'world, 'input, E, B: Bundle = (), D: QueryData + 'static = (
     event: &'input mut E,
     propagate: &'input mut bool,
     trigger: ObserverTrigger,
-    data: D::Item<'world>,
+    data: Option<D::Item<'world>>,
     _marker: PhantomData<B>,
 }
 
@@ -43,13 +43,16 @@ impl<'i, E, B: Bundle> Trigger<'static, 'i, E, B, ()> {
             event,
             propagate,
             trigger,
-            data: (),
+            data: None,
             _marker: PhantomData,
         }
     }
 
     /// Creates a new trigger with the given event and observer information, and target query data.
-    pub fn with_data<'w, D: QueryData>(self, data: D::Item<'w>) -> Trigger<'w, 'i, E, B, D> {
+    pub fn with_data<'w, D: QueryData>(
+        self,
+        data: Option<D::Item<'w>>,
+    ) -> Trigger<'w, 'i, E, B, D> {
         Trigger {
             event: self.event,
             propagate: self.propagate,
@@ -82,8 +85,8 @@ impl<'w, E, B: Bundle, D: QueryData> Trigger<'w, '_, E, B, D> {
     }
 
     /// Returns a reference to the query data associated with the trigger.
-    pub fn data(&mut self) -> &mut D::Item<'w> {
-        &mut self.data
+    pub fn data(&mut self) -> Option<&mut D::Item<'w>> {
+        self.data.as_mut()
     }
 
     /// Returns the [`Entity`] that triggered the observer, could be [`Entity::PLACEHOLDER`].

@@ -4,6 +4,7 @@ use crate::{
     archetype::Archetype,
     bundle::Bundle,
     component::Tick,
+    entity::Entity,
     prelude::Trigger,
     query::{QueryData, QueryState},
     system::{init_query_param, System, SystemMeta},
@@ -425,6 +426,10 @@ unsafe impl<E: 'static, B: Bundle, D: QueryData + 'static> SystemInput
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
+        if input.entity() == Entity::PLACEHOLDER {
+            return true;
+        }
+
         state.validate_world(world.id());
         // SAFETY: We registered access to the components in `init_state`.
         let result = unsafe {
@@ -435,11 +440,12 @@ unsafe impl<E: 'static, B: Bundle, D: QueryData + 'static> SystemInput
                 world.change_tick(),
             )
         };
-        let is_valid = result.is_ok();
-        if !is_valid {
-            // TODO warn
-        }
-        is_valid
+        result
+            .inspect_err(|e| {
+                // TODO system warn
+                eprintln!("{}", e);
+            })
+            .is_ok()
     }
 
     unsafe fn get_input<'world, 'state, 'input>(
@@ -453,14 +459,7 @@ unsafe impl<E: 'static, B: Bundle, D: QueryData + 'static> SystemInput
 
         // SAFETY: We registered access to the components in `init_state`.
         let data = unsafe { state.get_unchecked(world, entity) };
-
-        input.with_data(data.unwrap_or_else(|_| {
-            panic!(
-                "Entity {:?} was triggered, but doesn't have the required components: {}",
-                entity,
-                core::any::type_name::<D>()
-            )
-        }))
+        input.with_data(data.ok())
     }
 }
 
