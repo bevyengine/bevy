@@ -209,7 +209,7 @@ pub fn extract_uinode_background_colors(
             &BackgroundColor,
         )>,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
+    mapping: Extract<Query<RenderEntity>>,
 ) {
     for (uinode, transform, view_visibility, clip, camera, background_color) in &uinode_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
@@ -217,7 +217,7 @@ pub fn extract_uinode_background_colors(
             continue;
         };
 
-        let Ok(&camera_entity) = mapping.get(camera_entity) else {
+        let Ok(camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -241,7 +241,7 @@ pub fn extract_uinode_background_colors(
                 atlas_scaling: None,
                 flip_x: false,
                 flip_y: false,
-                camera_entity: camera_entity.id(),
+                camera_entity,
                 border: uinode.border(),
                 border_radius: uinode.border_radius(),
                 node_type: NodeType::Rect,
@@ -270,7 +270,7 @@ pub fn extract_uinode_images(
             Without<ImageScaleMode>,
         >,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
+    mapping: Extract<Query<RenderEntity>>,
 ) {
     for (uinode, transform, view_visibility, clip, camera, image, atlas) in &uinode_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
@@ -329,7 +329,7 @@ pub fn extract_uinode_images(
                 atlas_scaling,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
-                camera_entity: render_camera_entity.id(),
+                camera_entity: render_camera_entity,
                 border: uinode.border,
                 border_radius: uinode.border_radius,
                 node_type: NodeType::Rect,
@@ -352,7 +352,7 @@ pub fn extract_uinode_borders(
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
+    mapping: Extract<Query<RenderEntity>>,
 ) {
     let image = AssetId::<Image>::default();
 
@@ -372,7 +372,7 @@ pub fn extract_uinode_borders(
             continue;
         };
 
-        let Ok(&camera_entity) = mapping.get(camera_entity) else {
+        let Ok(camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -402,7 +402,7 @@ pub fn extract_uinode_borders(
                         clip: maybe_clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
-                        camera_entity: camera_entity.id(),
+                        camera_entity,
                         border_radius: uinode.border_radius(),
                         border: uinode.border(),
                         node_type: NodeType::Border,
@@ -428,7 +428,7 @@ pub fn extract_uinode_borders(
                     clip: maybe_clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
-                    camera_entity: camera_entity.id(),
+                    camera_entity,
                     border: BorderRect::square(uinode.outline_width()),
                     border_radius: uinode.outline_radius(),
                     node_type: NodeType::Border,
@@ -460,7 +460,7 @@ pub fn extract_default_ui_camera_view(
     query: Extract<
         Query<
             (
-                &RenderEntity,
+                RenderEntity,
                 &Camera,
                 Option<&UiAntiAlias>,
                 Option<&UiBoxShadowSamples>,
@@ -491,7 +491,6 @@ pub fn extract_default_ui_camera_view(
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
         ) {
-            let entity = entity.id();
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
                 0.0,
@@ -562,7 +561,7 @@ pub fn extract_uinode_text(
             &TextLayoutInfo,
         )>,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
+    mapping: Extract<Query<RenderEntity>>,
 ) {
     let default_ui_camera = default_ui_camera.get();
     for (uinode, global_transform, view_visibility, clip, camera, text, text_layout_info) in
@@ -585,7 +584,7 @@ pub fn extract_uinode_text(
             * ui_scale.0;
         let inverse_scale_factor = scale_factor.recip();
 
-        let Ok(&camera_entity) = mapping.get(camera_entity) else {
+        let Ok(camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
         // Align the text to the nearest physical pixel:
@@ -636,7 +635,7 @@ pub fn extract_uinode_text(
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
-                    camera_entity: camera_entity.id(),
+                    camera_entity,
                     border: BorderRect::ZERO,
                     border_radius: ResolvedBorderRadius::ZERO,
                     node_type: NodeType::Rect,

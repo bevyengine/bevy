@@ -373,7 +373,7 @@ pub fn extract_sprites(
     sprite_query: Extract<
         Query<(
             Entity,
-            &RenderEntity,
+            RenderEntity,
             &ViewVisibility,
             &Sprite,
             &GlobalTransform,
@@ -414,7 +414,7 @@ pub fn extract_sprites(
 
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.insert(
-                entity.id(),
+                entity,
                 ExtractedSprite {
                     color: sprite.color.into(),
                     transform: *transform,

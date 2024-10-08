@@ -259,7 +259,7 @@ pub fn extract_ui_texture_slices(
             Option<&TextureAtlas>,
         )>,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
+    mapping: Extract<Query<RenderEntity>>,
 ) {
     for (uinode, transform, view_visibility, clip, camera, image, image_scale_mode, atlas) in
         &slicers_query
@@ -269,7 +269,7 @@ pub fn extract_ui_texture_slices(
             continue;
         };
 
-        let Ok(&camera_entity) = mapping.get(camera_entity) else {
+        let Ok(camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -308,7 +308,7 @@ pub fn extract_ui_texture_slices(
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: image.texture.id(),
-                camera_entity: camera_entity.id(),
+                camera_entity,
                 image_scale_mode: image_scale_mode.clone(),
                 atlas_rect,
                 flip_x: image.flip_x,

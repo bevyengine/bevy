@@ -1057,7 +1057,7 @@ unsafe impl QueryData for &Archetype {
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for &Archetype {}
 
-#[doc(hidden)]
+/// The [`WorldQuery::Fetch`] type for `& T`.
 pub struct ReadFetch<'w, T: Component> {
     components: StorageSwitch<
         T,
@@ -1415,7 +1415,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
 /// SAFETY: access is read only
 unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
 
-#[doc(hidden)]
+/// The [`WorldQuery::Fetch`] type for `&mut T`.
 pub struct WriteFetch<'w, T: Component> {
     components: StorageSwitch<
         T,
