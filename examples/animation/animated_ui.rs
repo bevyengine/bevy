@@ -165,7 +165,7 @@ fn setup(
             ..default()
         })
         .insert(animation_player)
-        .insert(animation_graph)
+        .insert(AnimationGraphHandle(animation_graph))
         .with_children(|builder| {
             // Build the text node.
             let player = builder.parent_entity();
