@@ -60,7 +60,7 @@ where
             Shader::from_wgsl
         );
         app.init_asset::<M>().add_plugins((
-            ExtractComponentPlugin::<Handle<M>>::extract_visible(),
+            ExtractComponentPlugin::<UiMaterialHandle<M>>::extract_visible(),
             RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
         ));
 
@@ -364,7 +364,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             (
                 &Node,
                 &GlobalTransform,
-                &Handle<M>,
+                &UiMaterialHandle<M>,
                 &ViewVisibility,
                 Option<&CalculatedClip>,
                 Option<&TargetCamera>,
