@@ -1,11 +1,13 @@
 //! An example of registering an extra asset source, and loading assets from it.
 //! This asset source exists in addition to the default asset source.
 
-use bevy::asset::{
-    io::{AssetSourceBuilder, AssetSourceId},
-    AssetPath,
+use bevy::{
+    asset::{
+        io::{AssetSourceBuilder, AssetSourceId},
+        AssetPath,
+    },
+    prelude::*,
 };
-use bevy::prelude::*;
 use std::path::Path;
 
 fn main() {
@@ -26,7 +28,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Now we can load the asset using our new asset source.
     //

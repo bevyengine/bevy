@@ -13,7 +13,7 @@
 
 use bevy::{
     core_pipeline::{
-        auto_exposure::{AutoExposureCompensationCurve, AutoExposurePlugin, AutoExposureSettings},
+        auto_exposure::{AutoExposure, AutoExposureCompensationCurve, AutoExposurePlugin},
         Skybox,
     },
     math::{cubic_splines::LinearSpline, primitives::Plane3d, vec2},
@@ -39,21 +39,19 @@ fn setup(
     let metering_mask = asset_server.load("textures/basic_metering_mask.png");
 
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(1.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Camera3d::default(),
+        Camera {
+            hdr: true,
             ..default()
         },
-        AutoExposureSettings {
+        Transform::from_xyz(1.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        AutoExposure {
             metering_mask: metering_mask.clone(),
             ..default()
         },
         Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            brightness: bevy::pbr::light_consts::lux::DIRECT_SUNLIGHT,
+            brightness: light_consts::lux::DIRECT_SUNLIGHT,
             ..default()
         },
     ));
@@ -88,20 +86,18 @@ fn setup(
 
             let height = Vec3::Y * level as f32;
 
-            commands.spawn(PbrBundle {
-                mesh: plane.clone(),
-                material: materials.add(StandardMaterial {
+            commands.spawn((
+                Mesh3d(plane.clone()),
+                MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: Color::srgb(
                         0.5 + side.x * 0.5,
                         0.75 - level as f32 * 0.25,
                         0.5 + side.z * 0.5,
                     ),
                     ..default()
-                }),
-                transform: Transform::from_translation(side * 2.0 + height)
-                    .looking_at(height, Vec3::Y),
-                ..default()
-            });
+                })),
+                Transform::from_translation(side * 2.0 + height),
+            ));
         }
     }
 
@@ -110,14 +106,13 @@ fn setup(
         brightness: 0.0,
     });
 
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 2000.0,
             ..default()
         },
-        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..default()
-    });
+        Transform::from_xyz(0.0, 0.0, 0.0),
+    ));
 
     commands.spawn(ImageBundle {
         image: UiImage {
@@ -150,8 +145,8 @@ fn setup(
     commands.spawn((
         TextBundle::from_section("", text_style).with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            right: Val::Px(10.0),
+            top: Val::Px(12.0),
+            right: Val::Px(12.0),
             ..default()
         }),
         ExampleDisplay,
@@ -168,7 +163,7 @@ struct ExampleResources {
 }
 
 fn example_control_system(
-    mut camera: Query<(&mut Transform, &mut AutoExposureSettings), With<Camera3d>>,
+    mut camera: Query<(&mut Transform, &mut AutoExposure), With<Camera3d>>,
     mut display: Query<&mut Text, With<ExampleDisplay>>,
     mut mask_image: Query<&mut Style, With<UiImage>>,
     time: Res<Time>,

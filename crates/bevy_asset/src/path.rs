@@ -1,13 +1,13 @@
 use crate::io::AssetSourceId;
+use atomicow::CowArc;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_utils::CowArc;
-use serde::{de::Visitor, Deserialize, Serialize};
-use std::{
+use core::{
     fmt::{Debug, Display},
     hash::Hash,
     ops::Deref,
-    path::{Path, PathBuf},
 };
+use serde::{de::Visitor, Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 /// Represents a path to an asset in a "virtual filesystem".
@@ -48,7 +48,8 @@ use thiserror::Error;
 /// clones internal owned [`AssetPaths`](AssetPath).
 /// This also means that you should use [`AssetPath::parse`] in cases where `&str` is the explicit type.
 #[derive(Eq, PartialEq, Hash, Clone, Default, Reflect)]
-#[reflect_value(Debug, PartialEq, Hash, Serialize, Deserialize)]
+#[reflect(opaque)]
+#[reflect(Debug, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     source: AssetSourceId<'a>,
     path: CowArc<'a, Path>,
@@ -56,13 +57,13 @@ pub struct AssetPath<'a> {
 }
 
 impl<'a> Debug for AssetPath<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         Display::fmt(self, f)
     }
 }
 
 impl<'a> Display for AssetPath<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if let AssetSourceId::Name(name) = self.source() {
             write!(f, "{name}://")?;
         }
@@ -475,14 +476,43 @@ impl<'a> AssetPath<'a> {
     }
 }
 
-impl From<&'static str> for AssetPath<'static> {
+impl AssetPath<'static> {
+    /// Indicates this [`AssetPath`] should have a static lifetime.
     #[inline]
-    fn from(asset_path: &'static str) -> Self {
+    pub fn as_static(self) -> Self {
+        let Self {
+            source,
+            path,
+            label,
+        } = self;
+
+        let source = source.as_static();
+        let path = path.as_static();
+        let label = label.map(CowArc::as_static);
+
+        Self {
+            source,
+            path,
+            label,
+        }
+    }
+
+    /// Constructs an [`AssetPath`] with a static lifetime.
+    #[inline]
+    pub fn from_static(value: impl Into<Self>) -> Self {
+        value.into().as_static()
+    }
+}
+
+impl<'a> From<&'a str> for AssetPath<'a> {
+    #[inline]
+    fn from(asset_path: &'a str) -> Self {
         let (source, path, label) = Self::parse_internal(asset_path).unwrap();
+
         AssetPath {
             source: source.into(),
-            path: CowArc::Static(path),
-            label: label.map(CowArc::Static),
+            path: CowArc::Borrowed(path),
+            label: label.map(CowArc::Borrowed),
         }
     }
 }
@@ -501,12 +531,12 @@ impl From<String> for AssetPath<'static> {
     }
 }
 
-impl From<&'static Path> for AssetPath<'static> {
+impl<'a> From<&'a Path> for AssetPath<'a> {
     #[inline]
-    fn from(path: &'static Path) -> Self {
+    fn from(path: &'a Path) -> Self {
         Self {
             source: AssetSourceId::Default,
-            path: CowArc::Static(path),
+            path: CowArc::Borrowed(path),
             label: None,
         }
     }
@@ -558,7 +588,7 @@ struct AssetPathVisitor;
 impl<'de> Visitor<'de> for AssetPathVisitor {
     type Value = AssetPath<'static>;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("string AssetPath")
     }
 

@@ -7,8 +7,6 @@
 //! into Bevy—render nodes are another, lower-level method—but it does allow
 //! for better reuse of parts of Bevy's built-in mesh rendering logic.
 
-use std::mem;
-
 use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{
@@ -214,10 +212,10 @@ fn setup(mut commands: Commands) {
         .insert(CustomRenderedEntity);
 
     // Spawn the camera.
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 /// Creates the [`CustomPhaseItemBuffers`] resource.
@@ -302,7 +300,7 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
                 shader_defs: vec![],
                 entry_point: "vertex".into(),
                 buffers: vec![VertexBufferLayout {
-                    array_stride: mem::size_of::<Vertex>() as u64,
+                    array_stride: size_of::<Vertex>() as u64,
                     step_mode: VertexStepMode::Vertex,
                     // This needs to match the layout of [`Vertex`].
                     attributes: vec![

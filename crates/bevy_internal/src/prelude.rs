@@ -2,7 +2,8 @@
 pub use crate::{
     app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*, input::prelude::*,
     log::prelude::*, math::prelude::*, reflect::prelude::*, time::prelude::*,
-    transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins, MinimalPlugins,
+    transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins, HeadlessPlugins,
+    MinimalPlugins,
 };
 
 pub use bevy_derive::{bevy_main, Deref, DerefMut};
@@ -66,3 +67,7 @@ pub use crate::state::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_gltf")]
 pub use crate::gltf::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_picking")]
+pub use crate::picking::prelude::*;

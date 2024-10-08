@@ -84,7 +84,7 @@ fn text_update_system(
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
         .spawn(NodeBundle {
             background_color: Color::NONE.into(),
@@ -100,7 +100,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
                 "a",
                 TextStyle {
                     font: font_handle,
-                    font_size: 60.0,
+                    font_size: 50.0,
                     color: YELLOW.into(),
                 },
             ));

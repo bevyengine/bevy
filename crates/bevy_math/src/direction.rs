@@ -36,8 +36,8 @@ impl InvalidDirectionError {
     }
 }
 
-impl std::fmt::Display for InvalidDirectionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for InvalidDirectionError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "Direction can not be zero (or very close to zero), or non-finite."
@@ -169,6 +169,15 @@ impl Dir2 {
         Self::new(Vec2::new(x, y))
     }
 
+    /// Create a direction from its `x` and `y` components, assuming the resulting vector is normalized.
+    ///
+    /// # Warning
+    ///
+    /// The vector produced from `x` and `y` must be normalized, i.e its length must be `1.0`.
+    pub fn from_xy_unchecked(x: f32, y: f32) -> Self {
+        Self::new_unchecked(Vec2::new(x, y))
+    }
+
     /// Returns the inner [`Vec2`]
     pub const fn as_vec2(&self) -> Vec2 {
         self.0
@@ -199,7 +208,7 @@ impl Dir2 {
     /// ```
     #[inline]
     pub fn slerp(self, rhs: Self, s: f32) -> Self {
-        let angle = self.angle_between(rhs.0);
+        let angle = self.angle_to(rhs.0);
         Rot2::radians(angle * s) * self
     }
 
@@ -269,35 +278,35 @@ impl From<Dir2> for Vec2 {
     }
 }
 
-impl std::ops::Deref for Dir2 {
+impl core::ops::Deref for Dir2 {
     type Target = Vec2;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl std::ops::Neg for Dir2 {
+impl core::ops::Neg for Dir2 {
     type Output = Self;
     fn neg(self) -> Self::Output {
         Self(-self.0)
     }
 }
 
-impl std::ops::Mul<f32> for Dir2 {
+impl core::ops::Mul<f32> for Dir2 {
     type Output = Vec2;
     fn mul(self, rhs: f32) -> Self::Output {
         self.0 * rhs
     }
 }
 
-impl std::ops::Mul<Dir2> for f32 {
+impl core::ops::Mul<Dir2> for f32 {
     type Output = Vec2;
     fn mul(self, rhs: Dir2) -> Self::Output {
         self * rhs.0
     }
 }
 
-impl std::ops::Mul<Dir2> for Rot2 {
+impl core::ops::Mul<Dir2> for Rot2 {
     type Output = Dir2;
 
     /// Rotates the [`Dir2`] using a [`Rot2`].
@@ -419,6 +428,15 @@ impl Dir3 {
         Self::new(Vec3::new(x, y, z))
     }
 
+    /// Create a direction from its `x`, `y`, and `z` components, assuming the resulting vector is normalized.
+    ///
+    /// # Warning
+    ///
+    /// The vector produced from `x`, `y`, and `z` must be normalized, i.e its length must be `1.0`.
+    pub fn from_xyz_unchecked(x: f32, y: f32, z: f32) -> Self {
+        Self::new_unchecked(Vec3::new(x, y, z))
+    }
+
     /// Returns the inner [`Vec3`]
     pub const fn as_vec3(&self) -> Vec3 {
         self.0
@@ -522,35 +540,35 @@ impl From<Dir3> for Vec3 {
     }
 }
 
-impl std::ops::Deref for Dir3 {
+impl core::ops::Deref for Dir3 {
     type Target = Vec3;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl std::ops::Neg for Dir3 {
+impl core::ops::Neg for Dir3 {
     type Output = Self;
     fn neg(self) -> Self::Output {
         Self(-self.0)
     }
 }
 
-impl std::ops::Mul<f32> for Dir3 {
+impl core::ops::Mul<f32> for Dir3 {
     type Output = Vec3;
     fn mul(self, rhs: f32) -> Self::Output {
         self.0 * rhs
     }
 }
 
-impl std::ops::Mul<Dir3> for f32 {
+impl core::ops::Mul<Dir3> for f32 {
     type Output = Vec3;
     fn mul(self, rhs: Dir3) -> Self::Output {
         self * rhs.0
     }
 }
 
-impl std::ops::Mul<Dir3> for Quat {
+impl core::ops::Mul<Dir3> for Quat {
     type Output = Dir3;
 
     /// Rotates the [`Dir3`] using a [`Quat`].
@@ -675,6 +693,15 @@ impl Dir3A {
         Self::new(Vec3A::new(x, y, z))
     }
 
+    /// Create a direction from its `x`, `y`, and `z` components, assuming the resulting vector is normalized.
+    ///
+    /// # Warning
+    ///
+    /// The vector produced from `x`, `y`, and `z` must be normalized, i.e its length must be `1.0`.
+    pub fn from_xyz_unchecked(x: f32, y: f32, z: f32) -> Self {
+        Self::new_unchecked(Vec3A::new(x, y, z))
+    }
+
     /// Returns the inner [`Vec3A`]
     pub const fn as_vec3a(&self) -> Vec3A {
         self.0
@@ -754,35 +781,35 @@ impl From<Dir3A> for Vec3A {
     }
 }
 
-impl std::ops::Deref for Dir3A {
+impl core::ops::Deref for Dir3A {
     type Target = Vec3A;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl std::ops::Neg for Dir3A {
+impl core::ops::Neg for Dir3A {
     type Output = Self;
     fn neg(self) -> Self::Output {
         Self(-self.0)
     }
 }
 
-impl std::ops::Mul<f32> for Dir3A {
+impl core::ops::Mul<f32> for Dir3A {
     type Output = Vec3A;
     fn mul(self, rhs: f32) -> Self::Output {
         self.0 * rhs
     }
 }
 
-impl std::ops::Mul<Dir3A> for f32 {
+impl core::ops::Mul<Dir3A> for f32 {
     type Output = Vec3A;
     fn mul(self, rhs: Dir3A) -> Self::Output {
         self * rhs.0
     }
 }
 
-impl std::ops::Mul<Dir3A> for Quat {
+impl core::ops::Mul<Dir3A> for Quat {
     type Output = Dir3A;
 
     /// Rotates the [`Dir3A`] using a [`Quat`].
@@ -833,6 +860,8 @@ impl approx::UlpsEq for Dir3A {
 
 #[cfg(test)]
 mod tests {
+    use crate::ops;
+
     use super::*;
     use approx::assert_relative_eq;
 
@@ -889,7 +918,7 @@ mod tests {
     #[test]
     fn dir2_renorm() {
         // Evil denormalized Rot2
-        let (sin, cos) = 1.0_f32.sin_cos();
+        let (sin, cos) = ops::sin_cos(1.0_f32);
         let rot2 = Rot2::from_sin_cos(sin * (1.0 + 1e-5), cos * (1.0 + 1e-5));
         let mut dir_a = Dir2::X;
         let mut dir_b = Dir2::X;
@@ -934,7 +963,7 @@ mod tests {
 
         // Test rotation
         assert!(
-            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Dir3::X)
+            (Quat::from_rotation_z(core::f32::consts::FRAC_PI_2) * Dir3::X)
                 .abs_diff_eq(Vec3::Y, 10e-6)
         );
     }
@@ -1005,7 +1034,7 @@ mod tests {
 
         // Test rotation
         assert!(
-            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Dir3A::X)
+            (Quat::from_rotation_z(core::f32::consts::FRAC_PI_2) * Dir3A::X)
                 .abs_diff_eq(Vec3A::Y, 10e-6)
         );
     }

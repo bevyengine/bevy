@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem};
+use core::{marker::PhantomData, mem};
 
 use bevy_ecs::{
     event::{Event, EventReader, EventWriter},

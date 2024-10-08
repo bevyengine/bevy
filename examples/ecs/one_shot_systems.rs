@@ -40,13 +40,13 @@ struct A;
 struct B;
 
 fn setup_with_commands(mut commands: Commands) {
-    let system_id = commands.register_one_shot_system(system_a);
+    let system_id = commands.register_system(system_a);
     commands.spawn((Callback(system_id), A));
 }
 
 fn setup_with_world(world: &mut World) {
     // We can run it once manually
-    world.run_system_once(system_b);
+    world.run_system_once(system_b).unwrap();
     // Or with a Callback
     let system_id = world.register_system(system_b);
     world.spawn((Callback(system_id), B));
@@ -92,7 +92,7 @@ fn system_b(mut query: Query<&mut Text>) {
 }
 
 fn setup_ui(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.spawn(
         TextBundle::from_sections([
             TextSection::new(

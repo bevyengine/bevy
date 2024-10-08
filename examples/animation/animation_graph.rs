@@ -3,9 +3,6 @@
 //! The animation graph is shown on screen. You can change the weights of the
 //! playing animations by clicking and dragging left or right within the nodes.
 
-#[cfg(not(target_arch = "wasm32"))]
-use std::{fs::File, path::Path};
-
 use bevy::{
     animation::animate_targets,
     color::palettes::{
@@ -17,12 +14,13 @@ use bevy::{
 };
 
 use argh::FromArgs;
+
 #[cfg(not(target_arch = "wasm32"))]
-use bevy::asset::io::file::FileAssetReader;
-#[cfg(not(target_arch = "wasm32"))]
-use bevy::tasks::IoTaskPool;
-#[cfg(not(target_arch = "wasm32"))]
-use ron::ser::PrettyConfig;
+use {
+    bevy::{asset::io::file::FileAssetReader, tasks::IoTaskPool},
+    ron::ser::PrettyConfig,
+    std::{fs::File, path::Path},
+};
 
 /// Where to find the serialized animation graph.
 static ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
@@ -49,24 +47,24 @@ static NODE_RECTS: [NodeRect; 5] = [
     NodeRect::new(10.00, 10.00, 97.64, 48.41),
     NodeRect::new(10.00, 78.41, 97.64, 48.41),
     NodeRect::new(286.08, 78.41, 97.64, 48.41),
-    NodeRect::new(148.04, 44.20, 97.64, 48.41),
+    NodeRect::new(148.04, 112.61, 97.64, 48.41), // was 44.20
     NodeRect::new(10.00, 146.82, 97.64, 48.41),
 ];
 
 /// The positions of the horizontal lines in the UI.
 static HORIZONTAL_LINES: [Line; 6] = [
-    Line::new(107.64, 34.21, 20.20),
+    Line::new(107.64, 34.21, 158.24),
     Line::new(107.64, 102.61, 20.20),
-    Line::new(107.64, 171.02, 158.24),
-    Line::new(127.84, 68.41, 20.20),
-    Line::new(245.68, 68.41, 20.20),
+    Line::new(107.64, 171.02, 20.20),
+    Line::new(127.84, 136.82, 20.20),
+    Line::new(245.68, 136.82, 20.20),
     Line::new(265.88, 102.61, 20.20),
 ];
 
 /// The positions of the vertical lines in the UI.
 static VERTICAL_LINES: [Line; 2] = [
-    Line::new(127.83, 34.21, 68.40),
-    Line::new(265.88, 68.41, 102.61),
+    Line::new(127.83, 102.61, 68.40),
+    Line::new(265.88, 34.21, 102.61),
 ];
 
 /// Initializes the app.
@@ -220,35 +218,34 @@ fn setup_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-10.0, 5.0, 13.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-10.0, 5.0, 13.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+    ));
 
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 10_000_000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(-4.0, 8.0, 13.0),
-        ..default()
-    });
+        Transform::from_xyz(-4.0, 8.0, 13.0),
+    ));
 
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
-        transform: Transform::from_scale(Vec3::splat(0.07)),
-        ..default()
-    });
+    commands.spawn((
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
+        ),
+        Transform::from_scale(Vec3::splat(0.07)),
+    ));
 
     // Ground
 
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Circle::new(7.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(7.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
 }
 
 /// Places the help text at the top left of the window.

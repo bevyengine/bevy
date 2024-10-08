@@ -5,10 +5,10 @@ use crate::{
     storage::{Column, TableRow},
 };
 use bevy_ptr::{OwningPtr, Ptr};
-use nonmax::NonMaxUsize;
 #[cfg(feature = "track_change_detection")]
-use std::panic::Location;
-use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
+use core::panic::Location;
+use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
+use nonmax::NonMaxUsize;
 
 type EntityIndex = u32;
 
@@ -304,7 +304,7 @@ impl ComponentSparseSet {
     pub fn get_changed_by(
         &self,
         entity: Entity,
-    ) -> Option<&UnsafeCell<&'static core::panic::Location<'static>>> {
+    ) -> Option<&UnsafeCell<&'static Location<'static>>> {
         let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.as_usize()]);

@@ -15,8 +15,9 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera2d,
+        Camera {
             // Cursor position will take the viewport offset into account
             viewport: Some(Viewport {
                 physical_position: [200, 100].into(),
@@ -25,8 +26,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             }),
             ..default()
         },
-        ..default()
-    });
+    ));
 
     commands
         .spawn(NodeBundle {
@@ -59,7 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     "(0.0, 0.0)",
                     TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
+                        font_size: 33.0,
                         color: Color::srgb(0.9, 0.9, 0.9),
                     },
                 ),

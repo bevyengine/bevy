@@ -1,7 +1,6 @@
 //! Illustrates parallel queries with `ParallelIterator`.
 
-use bevy::ecs::batching::BatchingStrategy;
-use bevy::prelude::*;
+use bevy::{ecs::batching::BatchingStrategy, prelude::*};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -9,7 +8,7 @@ use rand_chacha::ChaCha8Rng;
 struct Velocity(Vec2);
 
 fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     let texture = asset_server.load("branding/icon.png");
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.

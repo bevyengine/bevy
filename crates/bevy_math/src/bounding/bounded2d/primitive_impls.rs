@@ -1,6 +1,7 @@
 //! Contains [`Bounded2d`] implementations for [geometric primitives](crate::primitives).
 
 use crate::{
+    ops,
     primitives::{
         Annulus, Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector,
         CircularSegment, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon,
@@ -8,7 +9,7 @@ use crate::{
     },
     Dir2, Isometry2d, Mat2, Rot2, Vec2,
 };
-use std::f32::consts::{FRAC_PI_2, PI, TAU};
+use core::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use smallvec::SmallVec;
 
@@ -154,7 +155,7 @@ impl Bounded2d for Ellipse {
         let (ux, uy) = (hw * alpha_cos, hw * alpha_sin);
         let (vx, vy) = (hh * beta_cos, hh * beta_sin);
 
-        let half_size = Vec2::new(ux.hypot(vx), uy.hypot(vy));
+        let half_size = Vec2::new(ops::hypot(ux, vx), ops::hypot(uy, vy));
 
         Aabb2d::new(isometry.translation, half_size)
     }
@@ -396,13 +397,14 @@ impl Bounded2d for Capsule2d {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_6, TAU};
+    use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_6, TAU};
 
     use approx::assert_abs_diff_eq;
     use glam::Vec2;
 
     use crate::{
         bounding::Bounded2d,
+        ops::{self, FloatPow},
         primitives::{
             Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
             Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
@@ -505,7 +507,7 @@ mod tests {
                 // The exact coordinates here are not obvious, but can be computed by constructing
                 // an altitude from the midpoint of the chord to the y-axis and using the right triangle
                 // similarity theorem.
-                bounding_circle_center: Vec2::new(-apothem / 2.0, apothem.powi(2)),
+                bounding_circle_center: Vec2::new(-apothem / 2.0, apothem.squared()),
                 bounding_circle_radius: 0.5,
             },
             // Test case: handling of axis-aligned extrema
@@ -761,7 +763,7 @@ mod tests {
     fn rhombus() {
         let rhombus = Rhombus::new(2.0, 1.0);
         let translation = Vec2::new(2.0, 1.0);
-        let rotation = Rot2::radians(std::f32::consts::FRAC_PI_4);
+        let rotation = Rot2::radians(FRAC_PI_4);
         let isometry = Isometry2d::new(translation, rotation);
 
         let aabb = rhombus.aabb_2d(isometry);
@@ -844,7 +846,7 @@ mod tests {
 
         let bounding_circle = segment.bounding_circle(isometry);
         assert_eq!(bounding_circle.center, translation);
-        assert_eq!(bounding_circle.radius(), 1.0_f32.hypot(0.5));
+        assert_eq!(bounding_circle.radius(), ops::hypot(1.0, 0.5));
     }
 
     #[test]
@@ -864,7 +866,7 @@ mod tests {
 
         let bounding_circle = polyline.bounding_circle(isometry);
         assert_eq!(bounding_circle.center, translation);
-        assert_eq!(bounding_circle.radius(), std::f32::consts::SQRT_2);
+        assert_eq!(bounding_circle.radius(), core::f32::consts::SQRT_2);
     }
 
     #[test]
@@ -910,17 +912,14 @@ mod tests {
         let rectangle = Rectangle::new(2.0, 1.0);
         let translation = Vec2::new(2.0, 1.0);
 
-        let aabb = rectangle.aabb_2d(Isometry2d::new(
-            translation,
-            Rot2::radians(std::f32::consts::FRAC_PI_4),
-        ));
+        let aabb = rectangle.aabb_2d(Isometry2d::new(translation, Rot2::radians(FRAC_PI_4)));
         let expected_half_size = Vec2::splat(1.0606601);
         assert_eq!(aabb.min, translation - expected_half_size);
         assert_eq!(aabb.max, translation + expected_half_size);
 
         let bounding_circle = rectangle.bounding_circle(Isometry2d::from_translation(translation));
         assert_eq!(bounding_circle.center, translation);
-        assert_eq!(bounding_circle.radius(), 1.0_f32.hypot(0.5));
+        assert_eq!(bounding_circle.radius(), ops::hypot(1.0, 0.5));
     }
 
     #[test]
@@ -940,7 +939,7 @@ mod tests {
 
         let bounding_circle = polygon.bounding_circle(isometry);
         assert_eq!(bounding_circle.center, translation);
-        assert_eq!(bounding_circle.radius(), std::f32::consts::SQRT_2);
+        assert_eq!(bounding_circle.radius(), core::f32::consts::SQRT_2);
     }
 
     #[test]

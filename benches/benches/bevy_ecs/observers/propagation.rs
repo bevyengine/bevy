@@ -1,14 +1,10 @@
 use bevy_ecs::{
-    component::Component,
-    entity::Entity,
-    event::{Event, EventWriter},
-    observer::Trigger,
-    world::World,
+    component::Component, entity::Entity, event::Event, observer::Trigger, world::World,
 };
-use bevy_hierarchy::{BuildChildren, Children, Parent};
+use bevy_hierarchy::{BuildChildren, Parent};
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use rand::{prelude::SliceRandom, SeedableRng};
+use criterion::{black_box, Criterion};
+use rand::SeedableRng;
 use rand::{seq::IteratorRandom, Rng};
 use rand_chacha::ChaCha8Rng;
 
@@ -22,8 +18,8 @@ fn deterministic_rand() -> ChaCha8Rng {
 
 pub fn event_propagation(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("event_propagation");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
 
     group.bench_function("single_event_type", |bencher| {
         let mut world = World::new();
@@ -71,7 +67,7 @@ pub fn event_propagation(criterion: &mut Criterion) {
 struct TestEvent<const N: usize> {}
 
 impl<const N: usize> Event for TestEvent<N> {
-    type Traversal = Parent;
+    type Traversal = &'static Parent;
     const AUTO_PROPAGATE: bool = true;
 }
 
@@ -110,15 +106,15 @@ fn add_listeners_to_hierarchy<const DENSITY: usize, const N: usize>(
     world: &mut World,
 ) {
     for e in roots.iter() {
-        world.entity_mut(*e).observe(empty_listener::<N>);
+        world.entity_mut(*e).observe_entity(empty_listener::<N>);
     }
     for e in leaves.iter() {
-        world.entity_mut(*e).observe(empty_listener::<N>);
+        world.entity_mut(*e).observe_entity(empty_listener::<N>);
     }
     let mut rng = deterministic_rand();
     for e in nodes.iter() {
         if rng.gen_bool(DENSITY as f64 / 100.0) {
-            world.entity_mut(*e).observe(empty_listener::<N>);
+            world.entity_mut(*e).observe_entity(empty_listener::<N>);
         }
     }
 }

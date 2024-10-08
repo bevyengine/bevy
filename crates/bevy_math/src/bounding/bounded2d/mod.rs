@@ -3,7 +3,7 @@ mod primitive_impls;
 use super::{BoundingVolume, IntersectsVolume};
 use crate::{
     prelude::{Mat2, Rot2, Vec2},
-    Isometry2d,
+    FloatPow, Isometry2d,
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -251,7 +251,7 @@ impl IntersectsVolume<BoundingCircle> for Aabb2d {
     fn intersects(&self, circle: &BoundingCircle) -> bool {
         let closest_point = self.closest_point(circle.center);
         let distance_squared = circle.center.distance_squared(closest_point);
-        let radius_squared = circle.radius().powi(2);
+        let radius_squared = circle.radius().squared();
         distance_squared <= radius_squared
     }
 }
@@ -261,7 +261,7 @@ mod aabb2d_tests {
     use super::Aabb2d;
     use crate::{
         bounding::{BoundingCircle, BoundingVolume, IntersectsVolume},
-        Vec2,
+        ops, Vec2,
     };
 
     #[test]
@@ -384,8 +384,8 @@ mod aabb2d_tests {
             min: Vec2::new(-2.0, -2.0),
             max: Vec2::new(2.0, 2.0),
         };
-        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), std::f32::consts::FRAC_PI_4);
-        let half_length = 2_f32.hypot(2.0);
+        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), core::f32::consts::FRAC_PI_4);
+        let half_length = ops::hypot(2.0, 2.0);
         assert_eq!(
             transformed.min,
             Vec2::new(2.0 - half_length, -half_length - 2.0)
@@ -529,13 +529,13 @@ impl BoundingVolume for BoundingCircle {
 
     #[inline(always)]
     fn visible_area(&self) -> f32 {
-        std::f32::consts::PI * self.radius() * self.radius()
+        core::f32::consts::PI * self.radius() * self.radius()
     }
 
     #[inline(always)]
     fn contains(&self, other: &Self) -> bool {
         let diff = self.radius() - other.radius();
-        self.center.distance_squared(other.center) <= diff.powi(2).copysign(diff)
+        self.center.distance_squared(other.center) <= diff.squared().copysign(diff)
     }
 
     #[inline(always)]
@@ -593,7 +593,7 @@ impl IntersectsVolume<Self> for BoundingCircle {
     #[inline(always)]
     fn intersects(&self, other: &Self) -> bool {
         let center_distance_squared = self.center.distance_squared(other.center);
-        let radius_sum_squared = (self.radius() + other.radius()).powi(2);
+        let radius_sum_squared = (self.radius() + other.radius()).squared();
         center_distance_squared <= radius_sum_squared
     }
 }
@@ -701,10 +701,10 @@ mod bounding_circle_tests {
     #[test]
     fn transform() {
         let a = BoundingCircle::new(Vec2::ONE, 5.0);
-        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), std::f32::consts::FRAC_PI_4);
+        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), core::f32::consts::FRAC_PI_4);
         assert_eq!(
             transformed.center,
-            Vec2::new(2.0, std::f32::consts::SQRT_2 - 2.0)
+            Vec2::new(2.0, core::f32::consts::SQRT_2 - 2.0)
         );
         assert_eq!(transformed.radius(), 5.0);
     }

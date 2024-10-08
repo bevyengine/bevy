@@ -1,6 +1,7 @@
 //! Demonstrates UV mappings of the [`CircularSector`] and [`CircularSegment`] primitives.
 //!
 //! Also draws the bounding boxes and circles of the primitives.
+
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
@@ -11,7 +12,6 @@ use bevy::{
     },
     prelude::*,
     render::mesh::{CircularMeshUvMode, CircularSectorMeshBuilder, CircularSegmentMeshBuilder},
-    sprite::MaterialMesh2dBundle,
 };
 
 fn main() {
@@ -39,13 +39,13 @@ fn setup(
 ) {
     let material = materials.add(asset_server.load("branding/icon.png"));
 
-    commands.spawn(Camera2dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera2d,
+        Camera {
             clear_color: ClearColorConfig::Custom(DARK_SLATE_GREY.into()),
             ..default()
         },
-        ..default()
-    });
+    ));
 
     const UPPER_Y: f32 = 50.0;
     const LOWER_Y: f32 = -50.0;
@@ -67,14 +67,11 @@ fn setup(
                 angle: sector_angle,
             });
         commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: meshes.add(sector_mesh).into(),
-                material: material.clone(),
-                transform: Transform {
-                    translation: Vec3::new(FIRST_X + OFFSET * i as f32, 2.0 * UPPER_Y, 0.0),
-                    rotation: Quat::from_rotation_z(sector_angle),
-                    ..default()
-                },
+            Mesh2d(meshes.add(sector_mesh)),
+            MeshMaterial2d(material.clone()),
+            Transform {
+                translation: Vec3::new(FIRST_X + OFFSET * i as f32, 2.0 * UPPER_Y, 0.0),
+                rotation: Quat::from_rotation_z(sector_angle),
                 ..default()
             },
             DrawBounds(sector),
@@ -94,14 +91,11 @@ fn setup(
                 angle: -segment_angle,
             });
         commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: meshes.add(segment_mesh).into(),
-                material: material.clone(),
-                transform: Transform {
-                    translation: Vec3::new(FIRST_X + OFFSET * i as f32, LOWER_Y, 0.0),
-                    rotation: Quat::from_rotation_z(segment_angle),
-                    ..default()
-                },
+            Mesh2d(meshes.add(segment_mesh)),
+            MeshMaterial2d(material.clone()),
+            Transform {
+                translation: Vec3::new(FIRST_X + OFFSET * i as f32, LOWER_Y, 0.0),
+                rotation: Quat::from_rotation_z(segment_angle),
                 ..default()
             },
             DrawBounds(segment),
@@ -120,9 +114,17 @@ fn draw_bounds<Shape: Bounded2d + Send + Sync + 'static>(
         let isometry = Isometry2d::new(translation, Rot2::radians(rotation));
 
         let aabb = shape.0.aabb_2d(isometry);
-        gizmos.rect_2d(aabb.center(), 0.0, aabb.half_size() * 2.0, RED);
+        gizmos.rect_2d(
+            Isometry2d::from_translation(aabb.center()),
+            aabb.half_size() * 2.0,
+            RED,
+        );
 
         let bounding_circle = shape.0.bounding_circle(isometry);
-        gizmos.circle_2d(bounding_circle.center, bounding_circle.radius(), BLUE);
+        gizmos.circle_2d(
+            Isometry2d::from_translation(bounding_circle.center),
+            bounding_circle.radius(),
+            BLUE,
+        );
     }
 }

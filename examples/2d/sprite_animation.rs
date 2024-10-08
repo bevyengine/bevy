@@ -4,8 +4,7 @@
 
 use std::time::Duration;
 
-use bevy::input::common_conditions::input_just_pressed;
-use bevy::prelude::*;
+use bevy::{input::common_conditions::input_just_pressed, prelude::*};
 
 fn main() {
     App::new()
@@ -91,7 +90,7 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // load the sprite sheet using the `AssetServer`
     let texture = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");

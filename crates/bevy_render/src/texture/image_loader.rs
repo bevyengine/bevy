@@ -17,35 +17,6 @@ pub struct ImageLoader {
     supported_compressed_formats: CompressedImageFormats,
 }
 
-pub(crate) const IMG_FILE_EXTENSIONS: &[&str] = &[
-    #[cfg(feature = "basis-universal")]
-    "basis",
-    #[cfg(feature = "bmp")]
-    "bmp",
-    #[cfg(feature = "png")]
-    "png",
-    #[cfg(feature = "dds")]
-    "dds",
-    #[cfg(feature = "tga")]
-    "tga",
-    #[cfg(feature = "jpeg")]
-    "jpg",
-    #[cfg(feature = "jpeg")]
-    "jpeg",
-    #[cfg(feature = "ktx2")]
-    "ktx2",
-    #[cfg(feature = "webp")]
-    "webp",
-    #[cfg(feature = "pnm")]
-    "pam",
-    #[cfg(feature = "pnm")]
-    "pbm",
-    #[cfg(feature = "pnm")]
-    "pgm",
-    #[cfg(feature = "pnm")]
-    "ppm",
-];
-
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub enum ImageFormatSetting {
     #[default]
@@ -86,11 +57,11 @@ impl AssetLoader for ImageLoader {
     type Asset = Image;
     type Settings = ImageLoaderSettings;
     type Error = ImageLoaderError;
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn Reader,
-        settings: &'a ImageLoaderSettings,
-        load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        settings: &ImageLoaderSettings,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -131,7 +102,7 @@ impl AssetLoader for ImageLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        IMG_FILE_EXTENSIONS
+        ImageFormat::SUPPORTED_FILE_EXTENSIONS
     }
 }
 
@@ -154,8 +125,8 @@ pub struct FileTextureError {
     error: TextureError,
     path: String,
 }
-impl std::fmt::Display for FileTextureError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl core::fmt::Display for FileTextureError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             f,
             "Error reading image file {}: {}, this is an error in `bevy_render`.",

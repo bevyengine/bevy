@@ -1,8 +1,12 @@
 //! Provides types for building cubic splines for rendering curves and use with animation easing.
 
-use std::{fmt::Debug, iter::once};
+use core::{fmt::Debug, iter::once};
 
-use crate::{Vec2, VectorSpace};
+use crate::{
+    curve::{Curve, Interval},
+    ops::FloatPow,
+    Vec2, VectorSpace,
+};
 
 use itertools::Itertools;
 use thiserror::Error;
@@ -701,10 +705,10 @@ impl<P: VectorSpace> CubicNurbs<P> {
         }
         let last_knots_value = control_points - 3;
         Some(
-            std::iter::repeat(0.0)
+            core::iter::repeat(0.0)
                 .take(4)
                 .chain((1..last_knots_value).map(|v| v as f32))
-                .chain(std::iter::repeat(last_knots_value as f32).take(4))
+                .chain(core::iter::repeat(last_knots_value as f32).take(4))
                 .collect(),
         )
     }
@@ -731,12 +735,12 @@ impl<P: VectorSpace> CubicNurbs<P> {
         // t[5] := t_i+2
         // t[6] := t_i+3
 
-        let m00 = (t[4] - t[3]).powi(2) / ((t[4] - t[2]) * (t[4] - t[1]));
-        let m02 = (t[3] - t[2]).powi(2) / ((t[5] - t[2]) * (t[4] - t[2]));
+        let m00 = (t[4] - t[3]).squared() / ((t[4] - t[2]) * (t[4] - t[1]));
+        let m02 = (t[3] - t[2]).squared() / ((t[5] - t[2]) * (t[4] - t[2]));
         let m12 = (3.0 * (t[4] - t[3]) * (t[3] - t[2])) / ((t[5] - t[2]) * (t[4] - t[2]));
-        let m22 = 3.0 * (t[4] - t[3]).powi(2) / ((t[5] - t[2]) * (t[4] - t[2]));
-        let m33 = (t[4] - t[3]).powi(2) / ((t[6] - t[3]) * (t[5] - t[3]));
-        let m32 = -m22 / 3.0 - m33 - (t[4] - t[3]).powi(2) / ((t[5] - t[3]) * (t[5] - t[2]));
+        let m22 = 3.0 * (t[4] - t[3]).squared() / ((t[5] - t[2]) * (t[4] - t[2]));
+        let m33 = (t[4] - t[3]).squared() / ((t[6] - t[3]) * (t[5] - t[3]));
+        let m32 = -m22 / 3.0 - m33 - (t[4] - t[3]).squared() / ((t[5] - t[3]) * (t[5] - t[2]));
         [
             [m00, 1.0 - m00 - m02, m02, 0.0],
             [-3.0 * m00, 3.0 * m00 - m12, m12, 0.0],
@@ -895,10 +899,13 @@ pub trait CyclicCubicGenerator<P: VectorSpace> {
 }
 
 /// A segment of a cubic curve, used to hold precomputed coefficients for fast interpolation.
-/// Can be evaluated as a parametric curve over the domain `[0, 1)`.
+/// It is a [`Curve`] with domain `[0, 1]`.
 ///
-/// Segments can be chained together to form a longer compound curve.
+/// Segments can be chained together to form a longer [compound curve].
+///
+/// [compound curve]: CubicCurve
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct CubicSegment<P: VectorSpace> {
     /// Polynomial coefficients for the segment.
@@ -1055,12 +1062,25 @@ impl CubicSegment<Vec2> {
     }
 }
 
-/// A collection of [`CubicSegment`]s chained into a single parametric curve. Has domain `[0, N)`
-/// where `N` is the number of attached segments.
+impl<P: VectorSpace> Curve<P> for CubicSegment<P> {
+    #[inline]
+    fn domain(&self) -> Interval {
+        Interval::UNIT
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> P {
+        self.position(t)
+    }
+}
+
+/// A collection of [`CubicSegment`]s chained into a single parametric curve. It is a [`Curve`]
+/// with domain `[0, N]`, where `N` is its number of segments.
 ///
 /// Use any struct that implements the [`CubicGenerator`] trait to create a new curve, such as
 /// [`CubicBezier`].
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicCurve<P: VectorSpace> {
     /// The segments comprising the curve. This must always be nonempty.
@@ -1179,6 +1199,20 @@ impl<P: VectorSpace> CubicCurve<P> {
     }
 }
 
+impl<P: VectorSpace> Curve<P> for CubicCurve<P> {
+    #[inline]
+    fn domain(&self) -> Interval {
+        // The non-emptiness invariant guarantees the success of this.
+        Interval::new(0.0, self.segments.len() as f32)
+            .expect("CubicCurve is invalid because it has no segments")
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> P {
+        self.position(t)
+    }
+}
+
 impl<P: VectorSpace> Extend<CubicSegment<P>> for CubicCurve<P> {
     fn extend<T: IntoIterator<Item = CubicSegment<P>>>(&mut self, iter: T) {
         self.segments.extend(iter);
@@ -1205,10 +1239,14 @@ pub trait RationalGenerator<P: VectorSpace> {
 }
 
 /// A segment of a rational cubic curve, used to hold precomputed coefficients for fast interpolation.
-/// Can be evaluated as a parametric curve over the domain `[0, knot_span)`.
+/// It is a [`Curve`] with domain `[0, 1]`.
 ///
-/// Segments can be chained together to form a longer compound curve.
+/// Note that the `knot_span` is used only by [compound curves] constructed by chaining these
+/// together.
+///
+/// [compound curves]: RationalCurve
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct RationalSegment<P: VectorSpace> {
     /// The coefficients matrix of the cubic curve.
@@ -1220,7 +1258,7 @@ pub struct RationalSegment<P: VectorSpace> {
 }
 
 impl<P: VectorSpace> RationalSegment<P> {
-    /// Instantaneous position of a point at parametric value `t` in `[0, knot_span)`.
+    /// Instantaneous position of a point at parametric value `t` in `[0, 1]`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
         let [a, b, c, d] = self.coeff;
@@ -1232,7 +1270,7 @@ impl<P: VectorSpace> RationalSegment<P> {
         numerator / denominator
     }
 
-    /// Instantaneous velocity of a point at parametric value `t` in `[0, knot_span)`.
+    /// Instantaneous velocity of a point at parametric value `t` in `[0, 1]`.
     #[inline]
     pub fn velocity(&self, t: f32) -> P {
         // A derivation for the following equations can be found in "Matrix representation for NURBS
@@ -1254,10 +1292,10 @@ impl<P: VectorSpace> RationalSegment<P> {
         // Position = N/D therefore
         // Velocity = (N/D)' = N'/D - N * D'/D^2 = (N' * D - N * D')/D^2
         numerator_derivative / denominator
-            - numerator * (denominator_derivative / denominator.powi(2))
+            - numerator * (denominator_derivative / denominator.squared())
     }
 
-    /// Instantaneous acceleration of a point at parametric value `t` in `[0, knot_span)`.
+    /// Instantaneous acceleration of a point at parametric value `t` in `[0, 1]`.
     #[inline]
     pub fn acceleration(&self, t: f32) -> P {
         // A derivation for the following equations can be found in "Matrix representation for NURBS
@@ -1288,10 +1326,10 @@ impl<P: VectorSpace> RationalSegment<P> {
         // Velocity = (N/D)' = N'/D - N * D'/D^2 = (N' * D - N * D')/D^2
         // Acceleration = (N/D)'' = ((N' * D - N * D')/D^2)' = N''/D + N' * (-2D'/D^2) + N * (-D''/D^2 + 2D'^2/D^3)
         numerator_second_derivative / denominator
-            + numerator_derivative * (-2.0 * denominator_derivative / denominator.powi(2))
+            + numerator_derivative * (-2.0 * denominator_derivative / denominator.squared())
             + numerator
-                * (-denominator_second_derivative / denominator.powi(2)
-                    + 2.0 * denominator_derivative.powi(2) / denominator.powi(3))
+                * (-denominator_second_derivative / denominator.squared()
+                    + 2.0 * denominator_derivative.squared() / denominator.cubed())
     }
 
     /// Calculate polynomial coefficients for the cubic polynomials using a characteristic matrix.
@@ -1332,11 +1370,25 @@ impl<P: VectorSpace> RationalSegment<P> {
     }
 }
 
-/// A collection of [`RationalSegment`]s chained into a single parametric curve.
+impl<P: VectorSpace> Curve<P> for RationalSegment<P> {
+    #[inline]
+    fn domain(&self) -> Interval {
+        Interval::UNIT
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> P {
+        self.position(t)
+    }
+}
+
+/// A collection of [`RationalSegment`]s chained into a single parametric curve. It is a [`Curve`]
+/// with domain `[0, N]`, where `N` is the number of segments.
 ///
 /// Use any struct that implements the [`RationalGenerator`] trait to create a new curve, such as
 /// [`CubicNurbs`], or convert [`CubicCurve`] using `into/from`.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct RationalCurve<P: VectorSpace> {
     /// The segments comprising the curve. This must always be nonempty.
@@ -1357,7 +1409,7 @@ impl<P: VectorSpace> RationalCurve<P> {
 
     /// Compute the position of a point on the curve at the parametric value `t`.
     ///
-    /// Note that `t` varies from `0..=(n_points - 3)`.
+    /// Note that `t` varies from `0` to `self.length()`.
     #[inline]
     pub fn position(&self, t: f32) -> P {
         let (segment, t) = self.segment(t);
@@ -1367,7 +1419,7 @@ impl<P: VectorSpace> RationalCurve<P> {
     /// Compute the first derivative with respect to t at `t`. This is the instantaneous velocity of
     /// a point on the curve at `t`.
     ///
-    /// Note that `t` varies from `0..=(n_points - 3)`.
+    /// Note that `t` varies from `0` to `self.length()`.
     #[inline]
     pub fn velocity(&self, t: f32) -> P {
         let (segment, t) = self.segment(t);
@@ -1377,7 +1429,7 @@ impl<P: VectorSpace> RationalCurve<P> {
     /// Compute the second derivative with respect to t at `t`. This is the instantaneous
     /// acceleration of a point on the curve at `t`.
     ///
-    /// Note that `t` varies from `0..=(n_points - 3)`.
+    /// Note that `t` varies from `0` to `self.length()`.
     #[inline]
     pub fn acceleration(&self, t: f32) -> P {
         let (segment, t) = self.segment(t);
@@ -1405,8 +1457,8 @@ impl<P: VectorSpace> RationalCurve<P> {
     /// An iterator that returns values of `t` uniformly spaced over `0..=subdivisions`.
     #[inline]
     fn iter_uniformly(&self, subdivisions: usize) -> impl Iterator<Item = f32> {
-        let domain = self.domain();
-        let step = domain / subdivisions as f32;
+        let length = self.length();
+        let step = length / subdivisions as f32;
         (0..=subdivisions).map(move |i| i as f32 * step)
     }
 
@@ -1456,7 +1508,7 @@ impl<P: VectorSpace> RationalCurve<P> {
             for segment in self.segments.iter() {
                 if t < segment.knot_span {
                     // The division here makes t a normalized parameter in [0, 1] that can be properly
-                    // evaluated against a cubic curve segment. See equations 6 & 16 from "Matrix representation
+                    // evaluated against a rational curve segment. See equations 6 & 16 from "Matrix representation
                     // of NURBS curves and surfaces" by Choi et al. or equation 3 from "General Matrix
                     // Representations for B-Splines" by Qin.
                     return (segment, t / segment.knot_span);
@@ -1469,8 +1521,22 @@ impl<P: VectorSpace> RationalCurve<P> {
 
     /// Returns the length of the domain of the parametric curve.
     #[inline]
-    pub fn domain(&self) -> f32 {
+    pub fn length(&self) -> f32 {
         self.segments.iter().map(|segment| segment.knot_span).sum()
+    }
+}
+
+impl<P: VectorSpace> Curve<P> for RationalCurve<P> {
+    #[inline]
+    fn domain(&self) -> Interval {
+        // The non-emptiness invariant guarantees the success of this.
+        Interval::new(0.0, self.length())
+            .expect("RationalCurve is invalid because it has zero length")
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> P {
+        self.position(t)
     }
 }
 
@@ -1512,9 +1578,12 @@ impl<P: VectorSpace> From<CubicCurve<P>> for RationalCurve<P> {
 mod tests {
     use glam::{vec2, Vec2};
 
-    use crate::cubic_splines::{
-        CubicBSpline, CubicBezier, CubicGenerator, CubicNurbs, CubicSegment, RationalCurve,
-        RationalGenerator,
+    use crate::{
+        cubic_splines::{
+            CubicBSpline, CubicBezier, CubicGenerator, CubicNurbs, CubicSegment, RationalCurve,
+            RationalGenerator,
+        },
+        ops::{self, FloatPow},
     };
 
     /// How close two floats can be and still be considered equal
@@ -1540,10 +1609,10 @@ mod tests {
     /// Manual, hardcoded function for computing the position along a cubic bezier.
     fn cubic_manual(t: f32, points: [Vec2; 4]) -> Vec2 {
         let p = points;
-        p[0] * (1.0 - t).powi(3)
-            + 3.0 * p[1] * t * (1.0 - t).powi(2)
-            + 3.0 * p[2] * t.powi(2) * (1.0 - t)
-            + p[3] * t.powi(3)
+        p[0] * (1.0 - t).cubed()
+            + 3.0 * p[1] * t * (1.0 - t).squared()
+            + 3.0 * p[2] * t.squared() * (1.0 - t)
+            + p[3] * t.cubed()
     }
 
     /// Basic cubic Bezier easing test to verify the shape of the curve.
@@ -1664,7 +1733,7 @@ mod tests {
     /// Test that a nurbs curve can approximate a portion of a circle.
     #[test]
     fn nurbs_circular_arc() {
-        use std::f32::consts::FRAC_PI_2;
+        use core::f32::consts::FRAC_PI_2;
         const EPSILON: f32 = 0.0000001;
 
         // The following NURBS parameters were determined by constraining the first two
@@ -1674,8 +1743,8 @@ mod tests {
         // subjecting ones self to a lot of tedious matrix algebra.
 
         let alpha = FRAC_PI_2;
-        let leg = 2.0 * f32::sin(alpha / 2.0) / (1.0 + 2.0 * f32::cos(alpha / 2.0));
-        let weight = (1.0 + 2.0 * f32::cos(alpha / 2.0)) / 3.0;
+        let leg = 2.0 * ops::sin(alpha / 2.0) / (1.0 + 2.0 * ops::cos(alpha / 2.0));
+        let weight = (1.0 + 2.0 * ops::cos(alpha / 2.0)) / 3.0;
         let points = [
             vec2(1.0, 0.0),
             vec2(1.0, leg),

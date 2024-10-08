@@ -143,8 +143,8 @@ fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &Col
                 flex_direction: FlexDirection::Column,
                 position_type: PositionType::Absolute,
                 row_gap: Val::Px(6.0),
-                left: Val::Px(10.0),
-                bottom: Val::Px(10.0),
+                left: Val::Px(12.0),
+                bottom: Val::Px(12.0),
                 ..default()
             },
             ..default()
@@ -318,8 +318,8 @@ fn add_help_text(
         .spawn(TextBundle {
             style: Style {
                 position_type: PositionType::Absolute,
-                left: Val::Px(10.0),
-                top: Val::Px(10.0),
+                left: Val::Px(12.0),
+                top: Val::Px(12.0),
                 ..default()
             },
             ..TextBundle::from_section(
@@ -344,7 +344,7 @@ fn add_text<'a>(
         label,
         TextStyle {
             font: font.clone(),
-            font_size: 18.0,
+            font_size: 15.0,
             color,
         },
     ))
@@ -352,17 +352,14 @@ fn add_text<'a>(
 
 fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading: ColorGrading) {
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-            color_grading,
+        Camera3d::default(),
+        Camera {
+            hdr: true,
             ..default()
         },
-        FogSettings {
+        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        color_grading,
+        DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
@@ -381,43 +378,34 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
 
 fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
     // Spawn the main scene.
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
-        ),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
+    )));
 
     // Spawn the flight helmet.
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-        transform: Transform::from_xyz(0.5, 0.0, -0.5)
-            .with_rotation(Quat::from_rotation_y(-0.15 * PI)),
-        ..default()
-    });
+    commands.spawn((
+        SceneRoot(
+            asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+        ),
+        Transform::from_xyz(0.5, 0.0, -0.5).with_rotation(Quat::from_rotation_y(-0.15 * PI)),
+    ));
 
     // Spawn the light.
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: 15000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI * -0.15,
-            PI * -0.15,
-        )),
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+        CascadeShadowConfigBuilder {
             maximum_distance: 3.0,
             first_cascade_far_bound: 0.9,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 }
 
 impl Display for SelectedGlobalColorGradingOption {
@@ -459,9 +447,9 @@ impl Display for SelectedSectionColorGradingOption {
 impl Display for SelectedColorGradingOption {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            SelectedColorGradingOption::Global(option) => write!(f, "\"{}\"", option),
+            SelectedColorGradingOption::Global(option) => write!(f, "\"{option}\""),
             SelectedColorGradingOption::Section(section, option) => {
-                write!(f, "\"{}\" for \"{}\"", option, section)
+                write!(f, "\"{option}\" for \"{section}\"")
             }
         }
     }
@@ -633,7 +621,7 @@ fn update_ui_state(
 
 /// Creates the help text at the top left of the window.
 fn create_help_text(currently_selected_option: &SelectedColorGradingOption) -> String {
-    format!("Press Left/Right to adjust {}", currently_selected_option)
+    format!("Press Left/Right to adjust {currently_selected_option}")
 }
 
 /// Processes keyboard input to change the value of the currently-selected color

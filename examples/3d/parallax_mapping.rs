@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use bevy::{prelude::*, render::texture::ImageLoaderSettings};
+use bevy::{math::ops, prelude::*, render::texture::ImageLoaderSettings};
 
 fn main() {
     App::new()
@@ -139,7 +139,7 @@ fn update_parallax_layers(
     } else {
         return;
     }
-    let layer_count = target_layers.0.exp2();
+    let layer_count = ops::exp2(target_layers.0);
     let mut text = text.single_mut();
     text.sections[1].value = format!("Layers: {layer_count:.0}\n");
 
@@ -212,45 +212,41 @@ fn setup(
 
     // Camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
         CameraController,
     ));
 
     // light
     commands
-        .spawn(PointLightBundle {
-            transform: Transform::from_xyz(2.0, 1.0, -1.1),
-            point_light: PointLight {
+        .spawn((
+            PointLight {
                 shadows_enabled: true,
                 ..default()
             },
-            ..default()
-        })
+            Transform::from_xyz(2.0, 1.0, -1.1),
+        ))
         .with_children(|commands| {
             // represent the light source as a sphere
             let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
-            commands.spawn(PbrBundle { mesh, ..default() });
+            commands.spawn((Mesh3d(mesh), MeshMaterial3d(materials.add(Color::WHITE))));
         });
 
     // Plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(10.0, 10.0)),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
             // standard material derived from dark green, but
             // with roughness and reflectance set.
             perceptual_roughness: 0.45,
             reflectance: 0.18,
             ..Color::srgb_u8(0, 80, 0).into()
-        }),
-        transform: Transform::from_xyz(0.0, -1.0, 0.0),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, -1.0, 0.0),
+    ));
 
     let parallax_depth_scale = TargetDepth::default().0;
-    let max_parallax_layer_count = TargetLayers::default().0.exp2();
+    let max_parallax_layer_count = ops::exp2(TargetLayers::default().0);
     let parallax_mapping_method = CurrentMethod::default();
     let parallax_material = materials.add(StandardMaterial {
         perceptual_roughness: 0.4,
@@ -265,17 +261,16 @@ fn setup(
         ..default()
     });
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(
+        Mesh3d(
+            meshes.add(
                 // NOTE: for normal maps and depth maps to work, the mesh
                 // needs tangents generated.
                 Mesh::from(Cuboid::default())
                     .with_generated_tangents()
                     .unwrap(),
             ),
-            material: parallax_material.clone_weak(),
-            ..default()
-        },
+        ),
+        MeshMaterial3d(parallax_material.clone()),
         Spin { speed: 0.3 },
     ));
 
@@ -287,12 +282,9 @@ fn setup(
 
     let background_cube_bundle = |translation| {
         (
-            PbrBundle {
-                transform: Transform::from_translation(translation),
-                mesh: background_cube.clone(),
-                material: parallax_material.clone(),
-                ..default()
-            },
+            Mesh3d(background_cube.clone()),
+            MeshMaterial3d(parallax_material.clone()),
+            Transform::from_translation(translation),
             Spin { speed: -0.1 },
         )
     };

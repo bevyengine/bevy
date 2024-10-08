@@ -13,12 +13,13 @@
 
 use std::sync::mpsc;
 
-use bevy::log::BoxedLayer;
 use bevy::{
-    log::tracing_subscriber::{self, Layer},
+    log::{
+        tracing_subscriber::{self, Layer},
+        BoxedLayer,
+    },
     prelude::*,
-    utils::tracing,
-    utils::tracing::Subscriber,
+    utils::{tracing, tracing::Subscriber},
 };
 
 /// A basic message. This is what we will be sending from the [`CaptureLayer`] to [`CapturedLogEvents`] non-send resource.
@@ -115,7 +116,7 @@ fn log_system() {
 struct LogViewerRoot;
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     commands.spawn((
         NodeBundle {

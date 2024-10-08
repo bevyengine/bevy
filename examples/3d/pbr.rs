@@ -1,6 +1,6 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
-use bevy::{asset::LoadState, prelude::*};
+use bevy::{asset::LoadState, prelude::*, render::camera::ScalingMode};
 
 fn main() {
     App::new()
@@ -24,48 +24,45 @@ fn setup(
             let x01 = (x + 5) as f32 / 10.0;
             let y01 = (y + 2) as f32 / 4.0;
             // sphere
-            commands.spawn(PbrBundle {
-                mesh: sphere_mesh.clone(),
-                material: materials.add(StandardMaterial {
+            commands.spawn((
+                Mesh3d(sphere_mesh.clone()),
+                MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: Srgba::hex("#ffd891").unwrap().into(),
                     // vary key PBR parameters on a grid of spheres to show the effect
                     metallic: y01,
                     perceptual_roughness: x01,
                     ..default()
-                }),
-                transform: Transform::from_xyz(x as f32, y as f32 + 0.5, 0.0),
-                ..default()
-            });
+                })),
+                Transform::from_xyz(x as f32, y as f32 + 0.5, 0.0),
+            ));
         }
     }
     // unlit sphere
-    commands.spawn(PbrBundle {
-        mesh: sphere_mesh,
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(sphere_mesh),
+        MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Srgba::hex("#ffd891").unwrap().into(),
             // vary key PBR parameters on a grid of spheres to show the effect
             unlit: true,
             ..default()
-        }),
-        transform: Transform::from_xyz(-5.0, -2.5, 0.0),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(-5.0, -2.5, 0.0),
+    ));
 
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(50.0, 50.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: 1_500.,
             ..default()
         },
-        ..default()
-    });
+        Transform::from_xyz(50.0, 50.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // labels
     commands.spawn(
         TextBundle::from_section(
             "Perceptual Roughness",
             TextStyle {
-                font_size: 36.0,
+                font_size: 30.0,
                 ..default()
             },
         )
@@ -81,7 +78,7 @@ fn setup(
         text: Text::from_section(
             "Metallic",
             TextStyle {
-                font_size: 36.0,
+                font_size: 30.0,
                 ..default()
             },
         ),
@@ -102,7 +99,7 @@ fn setup(
         TextBundle::from_section(
             "Loading Environment Map...",
             TextStyle {
-                font_size: 36.0,
+                font_size: 30.0,
                 ..default()
             },
         )
@@ -117,15 +114,12 @@ fn setup(
 
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
-            projection: OrthographicProjection {
-                scale: 0.01,
-                ..default()
-            }
-            .into(),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
+        Projection::from(OrthographicProjection {
+            scaling_mode: ScalingMode::WindowSize(100.0),
+            ..OrthographicProjection::default_3d()
+        }),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),

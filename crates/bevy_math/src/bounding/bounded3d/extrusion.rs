@@ -1,13 +1,16 @@
-use std::f32::consts::FRAC_PI_2;
+use core::f32::consts::FRAC_PI_2;
 
 use glam::{Vec2, Vec3A, Vec3Swizzles};
 
-use crate::bounding::{BoundingCircle, BoundingVolume};
-use crate::primitives::{
-    BoxedPolygon, BoxedPolyline2d, Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d,
-    Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+use crate::{
+    bounding::{BoundingCircle, BoundingVolume},
+    ops,
+    primitives::{
+        BoxedPolygon, BoxedPolyline2d, Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d,
+        Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+    },
+    Isometry2d, Isometry3d, Quat, Rot2,
 };
-use crate::{Isometry2d, Isometry3d, Quat, Rot2};
 
 use crate::{bounding::Bounded2d, primitives::Circle};
 
@@ -231,8 +234,8 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
             center,
             circle: Circle { radius },
         } = self.bounding_circle(Isometry2d::IDENTITY);
-        let radius = radius.hypot(half_depth);
-        let center = isometry.translation + isometry.rotation * Vec3A::from(center.extend(0.));
+        let radius = ops::hypot(radius, half_depth);
+        let center = isometry * Vec3A::from(center.extend(0.));
 
         BoundingSphere::new(center, radius)
     }
@@ -240,12 +243,13 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::FRAC_PI_4;
+    use core::f32::consts::FRAC_PI_4;
 
     use glam::{EulerRot, Quat, Vec2, Vec3, Vec3A};
 
     use crate::{
         bounding::{Bounded3d, BoundingVolume},
+        ops,
         primitives::{
             Capsule2d, Circle, Ellipse, Extrusion, Line2d, Polygon, Polyline2d, Rectangle,
             RegularPolygon, Segment2d, Triangle2d,
@@ -265,7 +269,7 @@ mod tests {
 
         let bounding_sphere = cylinder.bounding_sphere(isometry);
         assert_eq!(bounding_sphere.center, translation.into());
-        assert_eq!(bounding_sphere.radius(), 1f32.hypot(0.5));
+        assert_eq!(bounding_sphere.radius(), ops::hypot(1.0, 0.5));
     }
 
     #[test]
@@ -309,7 +313,7 @@ mod tests {
     fn rectangle() {
         let extrusion = Extrusion::new(Rectangle::new(2.0, 1.0), 4.0);
         let translation = Vec3::new(3., 4., 5.);
-        let rotation = Quat::from_rotation_z(std::f32::consts::FRAC_PI_4);
+        let rotation = Quat::from_rotation_z(FRAC_PI_4);
         let isometry = Isometry3d::new(translation, rotation);
 
         let aabb = extrusion.aabb_3d(isometry);

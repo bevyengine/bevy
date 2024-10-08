@@ -6,7 +6,7 @@ use bevy::{
     color::palettes::basic::{BLUE, YELLOW},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::{BreakLineOn, TextBounds},
+    text::{LineBreak, TextBounds},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -38,7 +38,7 @@ fn main() {
 fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     warn!(include_str!("warning_string.txt"));
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     let sections = (1..=50)
         .flat_map(|i| {
             [
@@ -65,7 +65,8 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         text: Text {
             sections,
             justify: JustifyText::Center,
-            linebreak_behavior: BreakLineOn::AnyCharacter,
+            linebreak: LineBreak::AnyCharacter,
+            ..default()
         },
         ..Default::default()
     });
@@ -73,7 +74,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 // changing the bounds of the text will cause a recomputation
 fn update_text_bounds(time: Res<Time>, mut text_bounds_query: Query<&mut TextBounds>) {
-    let width = (1. + time.elapsed_seconds().sin()) * 600.0;
+    let width = (1. + ops::sin(time.elapsed_seconds())) * 600.0;
     for mut text_bounds in text_bounds_query.iter_mut() {
         text_bounds.width = Some(width);
     }
