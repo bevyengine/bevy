@@ -198,35 +198,14 @@ mod render_entities_world_query_impls {
         archetype::Archetype,
         component::{ComponentId, Components, Tick},
         entity::Entity,
-        ptr::ThinSlicePtr,
         query::{FilteredAccess, QueryData, ReadFetch, ReadOnlyQueryData, WorldQuery},
         storage::{Table, TableRow},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
-    use bevy_utils::syncunsafecell::UnsafeCell;
-
-    /// A [`WorldQuery::Fetch`] type that stores the state needed to read a component from a [`Table`].
-    ///
-    /// This type is a table-specialized variant of the private `ReadFetch` from [`bevy_ecs`].
-    ///
-    /// # Warning
-    ///
-    /// It is only sound to use this type as a `Fetch` if the component uses [`StorageType::Table`](bevy_ecs::component::StorageType::Table).
-    #[derive(Clone)]
-    struct TableFetch<'w, T> {
-        table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
-    }
-
-    impl<'w, T> TableFetch<'w, T> {
-        fn extract(&mut self) {
-            todo!()
-        }
-    }
-
     unsafe impl WorldQuery for RenderEntity {
         type Item<'w> = Entity;
-        type Fetch<'w> = TableFetch<'w, RenderEntity>;
+        type Fetch<'w> = ReadFetch<'w, RenderEntity>;
         type State = ComponentId;
 
         fn shrink<'wlong: 'wshort, 'wshort>(item: Entity) -> Entity {
@@ -241,13 +220,14 @@ mod render_entities_world_query_impls {
 
         #[inline]
         unsafe fn init_fetch<'w>(
-            _world: UnsafeWorldCell<'w>,
-            _component_id: &ComponentId,
-            _last_run: Tick,
-            _this_run: Tick,
-        ) -> TableFetch<'w, RenderEntity> {
-            TableFetch {
-                table_components: None,
+            world: UnsafeWorldCell<'w>,
+            component_id: &ComponentId,
+            last_run: Tick,
+            this_run: Tick,
+        ) -> ReadFetch<'w, RenderEntity> {
+            // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
+            unsafe {
+                <&RenderEntity as WorldQuery>::init_fetch(world, component_id, last_run, this_run)
             }
         }
 
@@ -255,44 +235,36 @@ mod render_entities_world_query_impls {
 
         #[inline]
         unsafe fn set_archetype<'w>(
-            fetch: &mut TableFetch<'w, RenderEntity>,
+            fetch: &mut ReadFetch<'w, RenderEntity>,
             component_id: &ComponentId,
-            _archetype: &'w Archetype,
+            archetype: &'w Archetype,
             table: &'w Table,
         ) {
-            if Self::IS_DENSE {
-                // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
-                unsafe {
-                    Self::set_table(fetch, component_id, table);
-                }
+            // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
+            unsafe {
+                <&RenderEntity as WorldQuery>::set_archetype(fetch, component_id, archetype, table)
             }
         }
 
         #[inline]
         unsafe fn set_table<'w>(
-            fetch: &mut TableFetch<'w, RenderEntity>,
+            fetch: &mut ReadFetch<'w, RenderEntity>,
             &component_id: &ComponentId,
             table: &'w Table,
         ) {
-            // SAFETY: T::STORAGE_TYPE is always StorageType::Table for `RenderEntity`.
-            unsafe {
-                fetch.table_components =
-                    Some(table.get_data_slice_for(component_id).unwrap().into());
-            }
+            // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
+            unsafe { <&RenderEntity as WorldQuery>::set_table(fetch, &component_id, table) }
         }
 
         #[inline(always)]
         unsafe fn fetch<'w>(
             fetch: &mut Self::Fetch<'w>,
-            _entity: Entity,
+            entity: Entity,
             table_row: TableRow,
         ) -> Entity {
-            let table = fetch.table_components.unwrap();
-            // SAFETY: Caller ensures `table_row` is in range.
-            let unsafe_cell = unsafe { table.get(table_row.as_usize()) };
-            let pointer = unsafe_cell.get();
-            // SAFETY: TODO, please help me figure out if this is sound
-            let component = unsafe { &*pointer };
+            // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
+            let component =
+                unsafe { <&RenderEntity as WorldQuery>::fetch(fetch, entity, table_row) };
             component.id()
         }
 
@@ -300,27 +272,22 @@ mod render_entities_world_query_impls {
             &component_id: &ComponentId,
             access: &mut FilteredAccess<ComponentId>,
         ) {
-            assert!(
-            !access.access().has_component_write(component_id),
-            "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-            core::any::type_name::<RenderEntity>(),
-        );
-            access.add_component_read(component_id);
+            <&RenderEntity as WorldQuery>::update_component_access(&component_id, access)
         }
 
         fn init_state(world: &mut World) -> ComponentId {
-            world.register_component::<RenderEntity>()
+            <&RenderEntity as WorldQuery>::init_state(world)
         }
 
         fn get_state(components: &Components) -> Option<Self::State> {
-            components.component_id::<RenderEntity>()
+            <&RenderEntity as WorldQuery>::get_state(components)
         }
 
         fn matches_component_set(
             &state: &ComponentId,
             set_contains_id: &impl Fn(ComponentId) -> bool,
         ) -> bool {
-            set_contains_id(state)
+            <&RenderEntity as WorldQuery>::matches_component_set(&state, set_contains_id)
         }
     }
 
