@@ -244,7 +244,7 @@ pub fn extract_uinode_background_colors(
             continue;
         };
 
-        let Ok(&camera_entity) = mapping.get(camera_entity) else {
+        let Ok(&render_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -265,7 +265,7 @@ pub fn extract_uinode_background_colors(
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
 
-                camera_entity: camera_entity.id(),
+                camera_entity: render_camera_entity.id(),
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
                     transform: transform.compute_matrix(),
@@ -406,7 +406,7 @@ pub fn extract_uinode_borders(
             continue;
         };
 
-        let Ok(&camera_entity) = mapping.get(camera_entity) else {
+        let Ok(&render_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -432,7 +432,7 @@ pub fn extract_uinode_borders(
                         },
                         image,
                         clip: maybe_clip.map(|clip| clip.clip),
-                        camera_entity: camera_entity.id(),
+                        camera_entity: render_camera_entity.id(),
                         item: ExtractedUiItem::Node {
                             atlas_scaling: None,
                             transform: global_transform.compute_matrix(),
@@ -460,7 +460,7 @@ pub fn extract_uinode_borders(
                     },
                     image,
                     clip: maybe_clip.map(|clip| clip.clip),
-                    camera_entity: camera_entity.id(),
+                    camera_entity: render_camera_entity.id(),
                     item: ExtractedUiItem::Node {
                         transform: global_transform.compute_matrix(),
                         atlas_scaling: None,
@@ -581,6 +581,7 @@ pub fn extract_default_ui_camera_view(
 }
 
 #[cfg(feature = "bevy_text")]
+#[allow(clippy::too_many_arguments)]
 pub fn extract_text_sections(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -625,7 +626,7 @@ pub fn extract_text_sections(
             * ui_scale.0;
         let inverse_scale_factor = scale_factor.recip();
 
-        let Ok(&camera_entity) = mapping.get(camera_entity) else {
+        let Ok(&render_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
         // Align the text to the nearest physical pixel:
@@ -684,7 +685,7 @@ pub fn extract_text_sections(
                         color: LinearRgba::from(text.sections[*section_index].style.color),
                         image: atlas_info.texture.id(),
                         clip: clip.map(|clip| clip.clip),
-                        camera_entity: camera_entity.id(),
+                        camera_entity: render_camera_entity.id(),
                         rect,
                         item: ExtractedUiItem::Glyphs {
                             atlas_scaling: Vec2::splat(inverse_scale_factor),
@@ -1009,14 +1010,14 @@ pub fn prepare_uinodes(
                                     .map(|scaling| image.size.as_vec2() * scaling)
                                     .unwrap_or(uinode_rect.max);
                                 if *flip_x {
-                                    std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
+                                    core::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
                                     positions_diff[0].x *= -1.;
                                     positions_diff[1].x *= -1.;
                                     positions_diff[2].x *= -1.;
                                     positions_diff[3].x *= -1.;
                                 }
                                 if *flip_y {
-                                    std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
+                                    core::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
                                     positions_diff[0].y *= -1.;
                                     positions_diff[1].y *= -1.;
                                     positions_diff[2].y *= -1.;
