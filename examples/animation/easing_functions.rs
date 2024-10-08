@@ -52,12 +52,15 @@ fn setup(mut commands: Commands) {
         EaseFunction::BounceIn,
         EaseFunction::BounceOut,
         EaseFunction::BounceInOut,
+        EaseFunction::Linear,
+        EaseFunction::Steps(4),
+        EaseFunction::Elastic(50.0),
     ]
     .chunks(3)
     .enumerate()
     {
         for (j, function) in functions.iter().enumerate() {
-            let color = Hsla::hsl(i as f32 / 10.0 * 360.0, 0.8, 0.75).into();
+            let color = Hsla::hsl(i as f32 / 11.0 * 360.0, 0.8, 0.75).into();
             commands
                 .spawn((
                     Text2dBundle {
@@ -69,7 +72,7 @@ fn setup(mut commands: Commands) {
                             },
                         ),
                         transform: Transform::from_xyz(
-                            i as f32 * 125.0 - 1280.0 / 2.0 + 25.0,
+                            i as f32 * 113.0 - 1280.0 / 2.0 + 25.0,
                             -100.0 - ((j as f32 * 250.0) - 300.0),
                             0.0,
                         ),
@@ -118,7 +121,7 @@ fn display_curves(
     time: Res<Time>,
 ) {
     let samples = 100;
-    let size = 100.0;
+    let size = 95.0;
     let duration = 2.5;
     let time_margin = 0.5;
 
