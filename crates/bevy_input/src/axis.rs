@@ -79,6 +79,11 @@ where
     pub fn all_axes(&self) -> impl Iterator<Item = &T> {
         self.axis_data.keys()
     }
+
+    /// Returns an iterator over all axes and their values.
+    pub fn all_axes_and_values(&self) -> impl Iterator<Item = (&T, f32)> {
+        self.axis_data.iter().map(|(axis, value)| (axis, *value))
+    }
 }
 
 #[cfg(test)]

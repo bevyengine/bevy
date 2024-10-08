@@ -12,7 +12,6 @@ use bevy_input::gamepad::{
     RawGamepadButtonChangedEvent, RawGamepadEvent,
 };
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
-use uuid::Uuid;
 
 pub fn gilrs_event_startup_system(
     mut commands: Commands,
@@ -29,7 +28,6 @@ pub fn gilrs_event_startup_system(
 
         let info = GamepadInfo {
             name: gamepad.name().into(),
-            uuid: Uuid::from_bytes(gamepad.uuid()),
             vendor_id: gamepad.vendor_id(),
             product_id: gamepad.product_id(),
         };
@@ -66,7 +64,6 @@ pub fn gilrs_event_system(
 
                 let info = GamepadInfo {
                     name: pad.name().into(),
-                    uuid: Uuid::from_bytes(pad.uuid()),
                     vendor_id: pad.vendor_id(),
                     product_id: pad.product_id(),
                 };
