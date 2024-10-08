@@ -1,7 +1,13 @@
 use core::hash::Hash;
 
-use bevy_asset::Asset;
-use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
+use bevy_asset::{Asset, AssetId, Handle};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::component::Component;
+use bevy_reflect::Reflect;
+use bevy_render::{
+    extract_component::ExtractComponent,
+    render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
+};
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
@@ -56,10 +62,10 @@ use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, Shader
 ///             width: Val::Percent(100.0),
 ///             ..Default::default()
 ///         },
-///         material: materials.add(CustomMaterial {
+///         material: UiMaterialHandle(materials.add(CustomMaterial {
 ///             color: LinearRgba::RED,
 ///             color_texture: asset_server.load("some_image.png"),
-///         }),
+///         })),
 ///         ..Default::default()
 ///     });
 /// }
@@ -143,5 +149,33 @@ where
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.hdr.hash(state);
         self.bind_group_data.hash(state);
+    }
+}
+
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, ExtractComponent)]
+#[reflect(Component, Default)]
+pub struct UiMaterialHandle<M: UiMaterial>(pub Handle<M>);
+
+impl<M: UiMaterial> Default for UiMaterialHandle<M> {
+    fn default() -> Self {
+        Self(Handle::default())
+    }
+}
+
+impl<M: UiMaterial> From<Handle<M>> for UiMaterialHandle<M> {
+    fn from(handle: Handle<M>) -> Self {
+        Self(handle)
+    }
+}
+
+impl<M: UiMaterial> From<UiMaterialHandle<M>> for AssetId<M> {
+    fn from(material: UiMaterialHandle<M>) -> Self {
+        material.id()
+    }
+}
+
+impl<M: UiMaterial> From<&UiMaterialHandle<M>> for AssetId<M> {
+    fn from(material: &UiMaterialHandle<M>) -> Self {
+        material.id()
     }
 }
