@@ -1,3 +1,7 @@
+use crate::{
+    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+    oit::OrderIndependentTransparencySettings,
+};
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::Deref;
@@ -19,10 +23,6 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::tracing::warn;
-use crate::{
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
-    oit::OrderIndependentTransparencySettings,
-};
 
 use super::OitBuffers;
 
