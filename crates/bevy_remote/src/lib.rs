@@ -305,6 +305,7 @@ use bevy_app::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
+    schedule::IntoSystemConfigs,
     system::{Commands, In, IntoSystem, ResMut, Resource, System, SystemId},
     world::World,
 };
