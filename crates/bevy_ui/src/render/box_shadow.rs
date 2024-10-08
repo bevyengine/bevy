@@ -19,6 +19,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
     view::*,
+    world_sync::{RenderEntity, TemporaryRenderEntity},
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -248,10 +249,15 @@ pub fn extract_shadows(
             Option<&TargetCamera>,
         )>,
     >,
+    mapping: Extract<Query<&RenderEntity>>,
 ) {
     for (uinode, transform, view_visibility, box_shadow, clip, camera) in &box_shadow_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
+            continue;
+        };
+
+        let Ok(&camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -261,7 +267,7 @@ pub fn extract_shadows(
         }
 
         let ui_logical_viewport_size = camera_query
-            .get(camera_entity)
+            .get(camera_entity.id())
             .ok()
             .and_then(|(_, c)| c.logical_viewport_size())
             .unwrap_or(Vec2::ZERO)
@@ -305,7 +311,7 @@ pub fn extract_shadows(
         };
 
         extracted_box_shadows.box_shadows.insert(
-            commands.spawn_empty().id(),
+            commands.spawn(TemporaryRenderEntity).id(),
             ExtractedBoxShadow {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix() * Mat4::from_translation(offset.extend(0.)),
@@ -315,7 +321,7 @@ pub fn extract_shadows(
                     max: size + 6. * blur,
                 },
                 clip: clip.map(|clip| clip.clip),
-                camera_entity,
+                camera_entity: camera_entity.id(),
                 radius,
                 blur,
                 size,
