@@ -29,18 +29,15 @@ pub fn sprite_picking(
     primary_window: Query<Entity, With<PrimaryWindow>>,
     images: Res<Assets<Image>>,
     texture_atlas_layout: Res<Assets<TextureAtlasLayout>>,
-    sprite_query: Query<
-        (
-            Entity,
-            Option<&Sprite>,
-            Option<&TextureAtlas>,
-            Option<&Handle<Image>>,
-            &GlobalTransform,
-            Option<&Pickable>,
-            &ViewVisibility,
-        ),
-        Or<(With<Sprite>, With<TextureAtlas>)>,
-    >,
+    sprite_query: Query<(
+        Entity,
+        &Sprite,
+        Option<&TextureAtlas>,
+        &Handle<Image>,
+        &GlobalTransform,
+        Option<&PickingBehavior>,
+        &ViewVisibility,
+    )>,
     mut output: EventWriter<PointerHits>,
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
@@ -81,30 +78,24 @@ pub fn sprite_picking(
             .copied()
             .filter(|(.., visibility)| visibility.get())
             .filter_map(
-                |(entity, sprite, atlas, image, sprite_transform, pickable, ..)| {
+                |(entity, sprite, atlas, image, sprite_transform, picking_behavior, ..)| {
                     if blocked {
                         return None;
                     }
 
                     // Hit box in sprite coordinate system
-                    let (extents, anchor) = if let Some((sprite, atlas)) = sprite.zip(atlas) {
-                        let extents = sprite.custom_size.or_else(|| {
-                            texture_atlas_layout
-                                .get(&atlas.layout)
-                                .map(|f| f.textures[atlas.index].size().as_vec2())
-                        })?;
-                        let anchor = sprite.anchor.as_vec();
-                        (extents, anchor)
-                    } else if let Some((sprite, image)) = sprite.zip(image) {
-                        let extents = sprite
-                            .custom_size
-                            .or_else(|| images.get(image).map(|f| f.size().as_vec2()))?;
-                        let anchor = sprite.anchor.as_vec();
-                        (extents, anchor)
-                    } else {
-                        return None;
+                    let extents = match (sprite.custom_size, atlas) {
+                        (Some(custom_size), _) => custom_size,
+                        (None, None) => images.get(image)?.size().as_vec2(),
+                        (None, Some(atlas)) => texture_atlas_layout
+                            .get(&atlas.layout)
+                            .and_then(|layout| layout.textures.get(atlas.index))
+                            // Dropped atlas layouts and indexes out of bounds are rendered as a sprite
+                            .map_or(images.get(image)?.size().as_vec2(), |rect| {
+                                rect.size().as_vec2()
+                            }),
                     };
-
+                    let anchor = sprite.anchor.as_vec();
                     let center = -anchor * extents;
                     let rect = Rect::from_center_half_size(center, extents / 2.0);
 
@@ -138,7 +129,7 @@ pub fn sprite_picking(
                     let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
 
                     blocked = is_cursor_in_sprite
-                        && pickable.map(|p| p.should_block_lower) != Some(false);
+                        && picking_behavior.map(|p| p.should_block_lower) != Some(false);
 
                     is_cursor_in_sprite.then(|| {
                         let hit_pos_world =

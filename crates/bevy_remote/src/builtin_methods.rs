@@ -6,9 +6,11 @@ use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
+    event::EventCursor,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent},
-    system::In,
+    removal_detection::RemovedComponentEntity,
+    system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
 use bevy_hierarchy::BuildChildren as _;
@@ -18,7 +20,7 @@ use bevy_reflect::{
 };
 use bevy_utils::HashMap;
 use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use crate::{error_codes, BrpError, BrpResult};
 
@@ -46,6 +48,12 @@ pub const BRP_REPARENT_METHOD: &str = "bevy/reparent";
 /// The method path for a `bevy/list` request.
 pub const BRP_LIST_METHOD: &str = "bevy/list";
 
+/// The method path for a `bevy/get+watch` request.
+pub const BRP_GET_AND_WATCH_METHOD: &str = "bevy/get+watch";
+
+/// The method path for a `bevy/list+watch` request.
+pub const BRP_LIST_AND_WATCH_METHOD: &str = "bevy/list+watch";
+
 /// `bevy/get`: Retrieves one or more components from the entity with the given
 /// ID.
 ///
@@ -64,6 +72,11 @@ pub struct BrpGetParams {
     ///
     /// [full paths]: bevy_reflect::TypePath::type_path
     pub components: Vec<String>,
+
+    /// An optional flag to fail when encountering an invalid component rather
+    /// than skipping it. Defaults to false.
+    #[serde(default)]
+    pub strict: bool,
 }
 
 /// `bevy/query`: Performs a query over components in the ECS, returning entities
@@ -228,10 +241,55 @@ pub struct BrpSpawnResponse {
 }
 
 /// The response to a `bevy/get` request.
-pub type BrpGetResponse = HashMap<String, Value>;
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum BrpGetResponse {
+    /// The non-strict response that reports errors separately without failing the entire request.
+    Lenient {
+        /// A map of successful components with their values.
+        components: HashMap<String, Value>,
+        /// A map of unsuccessful components with their errors.
+        errors: HashMap<String, Value>,
+    },
+    /// The strict response that will fail if any components are not present or aren't
+    /// reflect-able.
+    Strict(HashMap<String, Value>),
+}
+
+/// A single response from a `bevy/get+watch` request.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum BrpGetWatchingResponse {
+    /// The non-strict response that reports errors separately without failing the entire request.
+    Lenient {
+        /// A map of successful components with their values that were added or changes in the last
+        /// tick.
+        components: HashMap<String, Value>,
+        /// An array of components that were been removed in the last tick.
+        removed: Vec<String>,
+        /// A map of unsuccessful components with their errors.
+        errors: HashMap<String, Value>,
+    },
+    /// The strict response that will fail if any components are not present or aren't
+    /// reflect-able.
+    Strict {
+        /// A map of successful components with their values that were added or changes in the last
+        /// tick.
+        components: HashMap<String, Value>,
+        /// An array of components that were been removed in the last tick.
+        removed: Vec<String>,
+    },
+}
 
 /// The response to a `bevy/list` request.
 pub type BrpListResponse = Vec<String>;
+
+/// A single response from a `bevy/list+watch` request.
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+pub struct BrpListWatchingResponse {
+    added: Vec<String>,
+    removed: Vec<String>,
+}
 
 /// The response to a `bevy/query` request.
 pub type BrpQueryResponse = Vec<BrpQueryRow>;
@@ -273,44 +331,191 @@ fn parse_some<T: for<'de> Deserialize<'de>>(value: Option<Value>) -> Result<T, B
 
 /// Handles a `bevy/get` request coming from a client.
 pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) -> BrpResult {
-    let BrpGetParams { entity, components } = parse_some(params)?;
+    let BrpGetParams {
+        entity,
+        components,
+        strict,
+    } = parse_some(params)?;
 
     let app_type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = app_type_registry.read();
     let entity_ref = get_entity(world, entity)?;
 
-    let mut response = BrpGetResponse::default();
+    let response =
+        reflect_components_to_response(components, strict, entity, entity_ref, &type_registry)?;
+    serde_json::to_value(response).map_err(BrpError::internal)
+}
 
-    for component_path in components {
-        let reflect_component = get_reflect_component(&type_registry, &component_path)
-            .map_err(BrpError::component_error)?;
+/// Handles a `bevy/get+watch` request coming from a client.
+pub fn process_remote_get_watching_request(
+    In(params): In<Option<Value>>,
+    world: &World,
+    mut removal_cursors: Local<HashMap<ComponentId, EventCursor<RemovedComponentEntity>>>,
+) -> BrpResult<Option<Value>> {
+    let BrpGetParams {
+        entity,
+        components,
+        strict,
+    } = parse_some(params)?;
 
-        // Retrieve the reflected value for the given specified component on the given entity.
-        let Some(reflected) = reflect_component.reflect(entity_ref) else {
-            return Err(BrpError::component_not_present(&component_path, entity));
-        };
+    let app_type_registry = world.resource::<AppTypeRegistry>();
+    let type_registry = app_type_registry.read();
+    let entity_ref = get_entity(world, entity)?;
 
-        // Each component value serializes to a map with a single entry.
-        let reflect_serializer =
-            ReflectSerializer::new(reflected.as_partial_reflect(), &type_registry);
-        let Value::Object(serialized_object) =
-            serde_json::to_value(&reflect_serializer).map_err(|err| BrpError {
-                code: error_codes::COMPONENT_ERROR,
-                message: err.to_string(),
-                data: None,
-            })?
+    let mut changed = Vec::new();
+    let mut removed = Vec::new();
+    let mut errors = HashMap::new();
+
+    'component_loop: for component_path in components {
+        let Ok(type_registration) =
+            get_component_type_registration(&type_registry, &component_path)
         else {
-            return Err(BrpError {
-                code: error_codes::COMPONENT_ERROR,
-                message: format!("Component `{}` could not be serialized", component_path),
-                data: None,
-            });
+            let err =
+                BrpError::component_error(format!("Unknown component type: `{component_path}`"));
+            if strict {
+                return Err(err);
+            }
+            errors.insert(
+                component_path,
+                serde_json::to_value(err).map_err(BrpError::internal)?,
+            );
+            continue;
+        };
+        let Some(component_id) = world.components().get_id(type_registration.type_id()) else {
+            let err = BrpError::component_error(format!("Unknown component: `{component_path}`"));
+            if strict {
+                return Err(err);
+            }
+            errors.insert(
+                component_path,
+                serde_json::to_value(err).map_err(BrpError::internal)?,
+            );
+            continue;
         };
 
-        response.extend(serialized_object.into_iter());
+        if let Some(ticks) = entity_ref.get_change_ticks_by_id(component_id) {
+            if ticks.is_changed(world.last_change_tick(), world.read_change_tick()) {
+                changed.push(component_path);
+                continue;
+            }
+        };
+
+        let Some(events) = world.removed_components().get(component_id) else {
+            continue;
+        };
+        let cursor = removal_cursors
+            .entry(component_id)
+            .or_insert_with(|| events.get_cursor());
+        for event in cursor.read(events) {
+            if Entity::from(event.clone()) == entity {
+                removed.push(component_path);
+                continue 'component_loop;
+            }
+        }
     }
 
-    serde_json::to_value(response).map_err(BrpError::internal)
+    if changed.is_empty() && removed.is_empty() {
+        return Ok(None);
+    }
+
+    let response =
+        reflect_components_to_response(changed, strict, entity, entity_ref, &type_registry)?;
+
+    let response = match response {
+        BrpGetResponse::Lenient {
+            components,
+            errors: mut errs,
+        } => BrpGetWatchingResponse::Lenient {
+            components,
+            removed,
+            errors: {
+                errs.extend(errors);
+                errs
+            },
+        },
+        BrpGetResponse::Strict(components) => BrpGetWatchingResponse::Strict {
+            components,
+            removed,
+        },
+    };
+
+    Ok(Some(
+        serde_json::to_value(response).map_err(BrpError::internal)?,
+    ))
+}
+
+/// Reflect a list of components on an entity into a [`BrpGetResponse`].
+fn reflect_components_to_response(
+    components: Vec<String>,
+    strict: bool,
+    entity: Entity,
+    entity_ref: EntityRef,
+    type_registry: &TypeRegistry,
+) -> BrpResult<BrpGetResponse> {
+    let mut response = if strict {
+        BrpGetResponse::Strict(Default::default())
+    } else {
+        BrpGetResponse::Lenient {
+            components: Default::default(),
+            errors: Default::default(),
+        }
+    };
+
+    for component_path in components {
+        match reflect_component(&component_path, entity, entity_ref, type_registry) {
+            Ok(serialized_object) => match response {
+                BrpGetResponse::Strict(ref mut components)
+                | BrpGetResponse::Lenient {
+                    ref mut components, ..
+                } => {
+                    components.extend(serialized_object.into_iter());
+                }
+            },
+            Err(err) => match response {
+                BrpGetResponse::Strict(_) => return Err(err),
+                BrpGetResponse::Lenient { ref mut errors, .. } => {
+                    let err_value = serde_json::to_value(err).map_err(BrpError::internal)?;
+                    errors.insert(component_path, err_value);
+                }
+            },
+        }
+    }
+
+    Ok(response)
+}
+
+/// Reflect a single component on an entity with the given component path.
+fn reflect_component(
+    component_path: &str,
+    entity: Entity,
+    entity_ref: EntityRef,
+    type_registry: &TypeRegistry,
+) -> BrpResult<Map<String, Value>> {
+    let reflect_component =
+        get_reflect_component(type_registry, component_path).map_err(BrpError::component_error)?;
+
+    // Retrieve the reflected value for the given specified component on the given entity.
+    let Some(reflected) = reflect_component.reflect(entity_ref) else {
+        return Err(BrpError::component_not_present(component_path, entity));
+    };
+
+    // Each component value serializes to a map with a single entry.
+    let reflect_serializer = ReflectSerializer::new(reflected.as_partial_reflect(), type_registry);
+    let Value::Object(serialized_object) =
+        serde_json::to_value(&reflect_serializer).map_err(|err| BrpError {
+            code: error_codes::COMPONENT_ERROR,
+            message: err.to_string(),
+            data: None,
+        })?
+    else {
+        return Err(BrpError {
+            code: error_codes::COMPONENT_ERROR,
+            message: format!("Component `{}` could not be serialized", component_path),
+            data: None,
+        });
+    };
+
+    Ok(serialized_object)
 }
 
 /// Handles a `bevy/query` request coming from a client.
@@ -542,12 +747,58 @@ pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World)
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
+/// Handles a `bevy/list` request (list all components) coming from a client.
+pub fn process_remote_list_watching_request(
+    In(params): In<Option<Value>>,
+    world: &World,
+    mut removal_cursors: Local<HashMap<ComponentId, EventCursor<RemovedComponentEntity>>>,
+) -> BrpResult<Option<Value>> {
+    let BrpListParams { entity } = parse_some(params)?;
+    let entity_ref = get_entity(world, entity)?;
+    let mut response = BrpListWatchingResponse::default();
+
+    for component_id in entity_ref.archetype().components() {
+        let ticks = entity_ref
+            .get_change_ticks_by_id(component_id)
+            .ok_or(BrpError::internal("Failed to get ticks"))?;
+
+        if ticks.is_added(world.last_change_tick(), world.read_change_tick()) {
+            let Some(component_info) = world.components().get_info(component_id) else {
+                continue;
+            };
+            response.added.push(component_info.name().to_owned());
+        }
+    }
+
+    for (component_id, events) in world.removed_components().iter() {
+        let cursor = removal_cursors
+            .entry(*component_id)
+            .or_insert_with(|| events.get_cursor());
+        for event in cursor.read(events) {
+            if Entity::from(event.clone()) == entity {
+                let Some(component_info) = world.components().get_info(*component_id) else {
+                    continue;
+                };
+                response.removed.push(component_info.name().to_owned());
+            }
+        }
+    }
+
+    if response.added.is_empty() && response.removed.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(
+            serde_json::to_value(response).map_err(BrpError::internal)?,
+        ))
+    }
+}
+
 /// Immutably retrieves an entity from the [`World`], returning an error if the
 /// entity isn't present.
 fn get_entity(world: &World, entity: Entity) -> Result<EntityRef<'_>, BrpError> {
     world
         .get_entity(entity)
-        .ok_or_else(|| BrpError::entity_not_found(entity))
+        .map_err(|_| BrpError::entity_not_found(entity))
 }
 
 /// Mutably retrieves an entity from the [`World`], returning an error if the
@@ -555,7 +806,7 @@ fn get_entity(world: &World, entity: Entity) -> Result<EntityRef<'_>, BrpError> 
 fn get_entity_mut(world: &mut World, entity: Entity) -> Result<EntityWorldMut<'_>, BrpError> {
     world
         .get_entity_mut(entity)
-        .ok_or_else(|| BrpError::entity_not_found(entity))
+        .map_err(|_| BrpError::entity_not_found(entity))
 }
 
 /// Returns the [`TypeId`] and [`ComponentId`] of the components with the given

@@ -176,6 +176,7 @@ mod loader;
 mod loader_builders;
 mod path;
 mod reflect;
+mod render_asset;
 mod server;
 
 pub use assets::*;
@@ -188,10 +189,11 @@ pub use handle::*;
 pub use id::*;
 pub use loader::*;
 pub use loader_builders::{
-    DirectNestedLoader, NestedLoader, UntypedDirectNestedLoader, UntypedNestedLoader,
+    Deferred, DynamicTyped, Immediate, NestedLoader, StaticTyped, UnknownTyped,
 };
 pub use path::*;
 pub use reflect::*;
+pub use render_asset::*;
 pub use server::*;
 
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
@@ -676,11 +678,11 @@ mod tests {
 
         type Error = CoolTextLoaderError;
 
-        async fn load<'a>(
-            &'a self,
-            reader: &'a mut dyn Reader,
-            _settings: &'a Self::Settings,
-            load_context: &'a mut LoadContext<'_>,
+        async fn load(
+            &self,
+            reader: &mut dyn Reader,
+            _settings: &Self::Settings,
+            load_context: &mut LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
             let mut bytes = Vec::new();
             reader.read_to_end(&mut bytes).await?;
@@ -689,7 +691,7 @@ mod tests {
             for dep in ron.embedded_dependencies {
                 let loaded = load_context
                     .loader()
-                    .direct()
+                    .immediate()
                     .load::<CoolText>(&dep)
                     .await
                     .map_err(|_| Self::Error::CannotLoadDependency {

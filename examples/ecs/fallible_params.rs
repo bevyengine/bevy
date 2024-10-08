@@ -2,9 +2,10 @@
 //! from running if their acquiry conditions aren't met.
 //!
 //! Fallible parameters include:
-//! - [`Res<R>`], [`ResMut<R>`] - If resource doesn't exist.
-//! - [`Single<D, F>`] - If there is no or more than one entities matching.
-//! - [`Option<Single<D, F>>`] - If there are more than one entities matching.
+//! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist.
+//! - [`Single<D, F>`] - There must be exactly one matching entity.
+//! - [`Option<Single<D, F>>`] - There must be zero or one matching entity.
+//! - [`Populated<D, F>`] - There must be at least one matching entity.
 
 use bevy::prelude::*;
 use rand::Rng;
@@ -19,9 +20,22 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        // We add all the systems one after another.
-        // We don't need to use run conditions here.
-        .add_systems(Update, (user_input, move_targets, move_pointer).chain())
+        // Systems that fail parameter validation will emit warnings.
+        // The default policy is to emit a warning once per system.
+        // This is good for catching unexpected behavior, but can
+        // lead to spam. You can disable invalid param warnings
+        // per system using the `.never_param_warn()` method.
+        .add_systems(
+            Update,
+            (
+                user_input,
+                move_targets.never_param_warn(),
+                move_pointer.never_param_warn(),
+            )
+                .chain(),
+        )
+        // We will leave this systems with default warning policy.
+        .add_systems(Update, do_nothing_fail_validation)
         .run();
 }
 
@@ -44,7 +58,7 @@ struct Player {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn 2D camera.
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Spawn player.
     let texture = asset_server.load("textures/simplespace/ship_C.png");
@@ -66,9 +80,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-// System that reads user input.
-// If user presses 'A' we spawn a new random enemy.
-// If user presses 'R' we remove a random enemy (if any exist).
+/// System that reads user input.
+/// If user presses 'A' we spawn a new random enemy.
+/// If user presses 'R' we remove a random enemy (if any exist).
 fn user_input(
     mut commands: Commands,
     enemies: Query<Entity, With<Enemy>>,
@@ -105,9 +119,9 @@ fn user_input(
 }
 
 // System that moves the enemies in a circle.
-// TODO: Use [`NonEmptyQuery`] when it exists.
-fn move_targets(mut enemies: Query<(&mut Transform, &mut Enemy)>, time: Res<Time>) {
-    for (mut transform, mut target) in &mut enemies {
+// Only runs if there are enemies.
+fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<Time>) {
+    for (mut transform, mut target) in &mut *enemies {
         target.rotation += target.rotation_speed * time.delta_seconds();
         transform.rotation = Quat::from_rotation_z(target.rotation);
         let offset = transform.right() * target.radius;
@@ -120,9 +134,9 @@ fn move_targets(mut enemies: Query<(&mut Transform, &mut Enemy)>, time: Res<Time
 /// If there is one, player will track it.
 /// If there are too many enemies, the player will cease all action (the system will not run).
 fn move_pointer(
-    // `QuerySingle` ensures the system runs ONLY when exactly one matching entity exists.
+    // `Single` ensures the system runs ONLY when exactly one matching entity exists.
     mut player: Single<(&mut Transform, &Player)>,
-    // `Option<QuerySingle>` ensures that the system runs ONLY when zero or one matching entity exists.
+    // `Option<Single>` ensures that the system runs ONLY when zero or one matching entity exists.
     enemy: Option<Single<&Transform, (With<Enemy>, Without<Player>)>>,
     time: Res<Time>,
 ) {
@@ -145,3 +159,7 @@ fn move_pointer(
         player_transform.rotate_axis(Dir3::Z, player.rotation_speed * time.delta_seconds());
     }
 }
+
+/// This system always fails param validation, because we never
+/// create an entity with both [`Player`] and [`Enemy`] components.
+fn do_nothing_fail_validation(_: Single<(), (With<Player>, With<Enemy>)>) {}

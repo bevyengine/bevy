@@ -1,4 +1,5 @@
 use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
+use thiserror::Error;
 
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
@@ -1603,6 +1604,67 @@ impl<const N: usize> Polygon<N> {
     }
 }
 
+/// A convex polygon with `N` vertices.
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct ConvexPolygon<const N: usize> {
+    /// The vertices of the [`ConvexPolygon`].
+    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
+    pub vertices: [Vec2; N],
+}
+impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
+
+/// An error that happens when creating a [`ConvexPolygon`].
+#[derive(Error, Debug, Clone)]
+pub enum ConvexPolygonError {
+    /// The created polygon is not convex.
+    #[error("The created polygon is not convex")]
+    Concave,
+}
+
+impl<const N: usize> ConvexPolygon<N> {
+    fn triangle_winding_order(
+        &self,
+        a_index: usize,
+        b_index: usize,
+        c_index: usize,
+    ) -> WindingOrder {
+        let a = self.vertices[a_index];
+        let b = self.vertices[b_index];
+        let c = self.vertices[c_index];
+        Triangle2d::new(a, b, c).winding_order()
+    }
+
+    /// Create a [`ConvexPolygon`] from its `vertices`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConvexPolygonError::Concave`] if the `vertices` do not form a convex polygon.
+    pub fn new(vertices: [Vec2; N]) -> Result<Self, ConvexPolygonError> {
+        let polygon = Self::new_unchecked(vertices);
+        let ref_winding_order = polygon.triangle_winding_order(N - 1, 0, 1);
+        for i in 1..N {
+            let winding_order = polygon.triangle_winding_order(i - 1, i, (i + 1) % N);
+            if winding_order != ref_winding_order {
+                return Err(ConvexPolygonError::Concave);
+            }
+        }
+        Ok(polygon)
+    }
+
+    /// Create a [`ConvexPolygon`] from its `vertices`, without checks.
+    /// Use this version only if you know that the `vertices` make up a convex polygon.
+    #[inline(always)]
+    pub fn new_unchecked(vertices: [Vec2; N]) -> Self {
+        Self { vertices }
+    }
+}
+
 /// A polygon with a variable number of vertices, allocated on the heap
 /// in a `Box<[Vec2]>`.
 ///
@@ -1817,6 +1879,28 @@ impl Capsule2d {
             half_length: length / 2.0,
         }
     }
+
+    /// Get the part connecting the semicircular ends of the capsule as a [`Rectangle`]
+    #[inline]
+    pub fn to_inner_rectangle(&self) -> Rectangle {
+        Rectangle::new(self.radius * 2.0, self.half_length * 2.0)
+    }
+}
+
+impl Measured2d for Capsule2d {
+    /// Get the area of the capsule
+    #[inline]
+    fn area(&self) -> f32 {
+        // pi*r^2 + (2r)*l
+        PI * self.radius.squared() + self.to_inner_rectangle().area()
+    }
+
+    /// Get the perimeter of the capsule
+    #[inline]
+    fn perimeter(&self) -> f32 {
+        // 2pi*r + 2l
+        2.0 * PI * self.radius + 4.0 * self.half_length
+    }
 }
 
 #[cfg(test)]
@@ -1890,6 +1974,18 @@ mod tests {
         assert_eq!(circle.diameter(), 6.0, "incorrect diameter");
         assert_eq!(circle.area(), 28.274334, "incorrect area");
         assert_eq!(circle.perimeter(), 18.849556, "incorrect perimeter");
+    }
+
+    #[test]
+    fn capsule_math() {
+        let capsule = Capsule2d::new(2.0, 9.0);
+        assert_eq!(
+            capsule.to_inner_rectangle(),
+            Rectangle::new(4.0, 9.0),
+            "rectangle wasn't created correctly from a capsule"
+        );
+        assert_eq!(capsule.area(), 48.566371, "incorrect area");
+        assert_eq!(capsule.perimeter(), 30.566371, "incorrect perimeter");
     }
 
     #[test]

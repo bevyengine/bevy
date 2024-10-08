@@ -1,3 +1,5 @@
+#[cfg(feature = "bevy_reflect")]
+use crate::reflect::ReflectComponent;
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
@@ -7,6 +9,8 @@ use crate::{
     world::{Command, World},
 };
 use bevy_ecs_macros::{Component, Resource};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 use core::marker::PhantomData;
 use thiserror::Error;
 
@@ -19,6 +23,8 @@ struct RegisteredSystem<I, O> {
 
 /// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
 #[derive(Component)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component))]
 pub struct SystemIdMarker;
 
 /// A system that has been removed from the registry.
@@ -175,7 +181,7 @@ impl World {
         O: 'static,
     {
         match self.get_entity_mut(id.entity) {
-            Some(mut entity) => {
+            Ok(mut entity) => {
                 let registered_system = entity
                     .take::<RegisteredSystem<I, O>>()
                     .ok_or(RegisteredSystemError::SelfRemove(id))?;
@@ -185,7 +191,7 @@ impl World {
                     system: registered_system.system,
                 })
             }
-            None => Err(RegisteredSystemError::SystemIdNotRegistered(id)),
+            Err(_) => Err(RegisteredSystemError::SystemIdNotRegistered(id)),
         }
     }
 
@@ -321,7 +327,7 @@ impl World {
         // lookup
         let mut entity = self
             .get_entity_mut(id.entity)
-            .ok_or(RegisteredSystemError::SystemIdNotRegistered(id))?;
+            .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
 
         // take ownership of system trait object
         let RegisteredSystem {
@@ -344,7 +350,7 @@ impl World {
         };
 
         // return ownership of system trait object (if entity still exists)
-        if let Some(mut entity) = self.get_entity_mut(id.entity) {
+        if let Ok(mut entity) = self.get_entity_mut(id.entity) {
             entity.insert::<RegisteredSystem<I, O>>(RegisteredSystem {
                 initialized,
                 system,
@@ -392,7 +398,7 @@ impl World {
         }
 
         self.resource_scope(|world, mut id: Mut<CachedSystemId<S::System>>| {
-            if let Some(mut entity) = world.get_entity_mut(id.0.entity()) {
+            if let Ok(mut entity) = world.get_entity_mut(id.0.entity()) {
                 if !entity.contains::<RegisteredSystem<I, O>>() {
                     entity.insert(system_bundle(Box::new(IntoSystem::into_system(system))));
                 }
@@ -532,7 +538,7 @@ where
     O: Send + 'static,
 {
     fn apply(self, world: &mut World) {
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+        if let Ok(mut entity) = world.get_entity_mut(self.entity) {
             entity.insert(system_bundle(self.system));
         }
     }

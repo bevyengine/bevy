@@ -26,6 +26,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
 mod focus;
 mod geometry;
+mod ghost_hierarchy;
 mod layout;
 mod render;
 mod stack;
@@ -33,6 +34,7 @@ mod ui_node;
 
 pub use focus::*;
 pub use geometry::*;
+pub use ghost_hierarchy::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
@@ -134,6 +136,7 @@ impl Plugin for UiPlugin {
             .register_type::<Interaction>()
             .register_type::<Node>()
             .register_type::<RelativeCursorPosition>()
+            .register_type::<ScrollPosition>()
             .register_type::<Style>()
             .register_type::<TargetCamera>()
             .register_type::<UiImage>()
@@ -146,11 +149,14 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
             .register_type::<Outline>()
+            .register_type::<UiBoxShadowSamples>()
             .configure_sets(
                 PostUpdate,
                 (
                     CameraUpdateSystem,
-                    UiSystem::Prepare.before(UiSystem::Stack),
+                    UiSystem::Prepare
+                        .before(UiSystem::Stack)
+                        .after(bevy_animation::Animation),
                     UiSystem::Layout,
                     UiSystem::PostLayout,
                 )

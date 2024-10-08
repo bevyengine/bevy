@@ -23,6 +23,7 @@ use bevy_render::{
     settings::WgpuFeatures,
     texture::{FallbackImage, GpuImage, Image},
     view::ExtractedView,
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
@@ -371,7 +372,7 @@ impl Plugin for LightProbePlugin {
 /// Compared to the `ExtractComponentPlugin`, this implementation will create a default instance
 /// if one does not already exist.
 fn gather_environment_map_uniform(
-    view_query: Extract<Query<(Entity, Option<&EnvironmentMapLight>), With<Camera3d>>>,
+    view_query: Extract<Query<(&RenderEntity, Option<&EnvironmentMapLight>), With<Camera3d>>>,
     mut commands: Commands,
 ) {
     for (view_entity, environment_map_light) in view_query.iter() {
@@ -385,7 +386,8 @@ fn gather_environment_map_uniform(
             EnvironmentMapUniform::default()
         };
         commands
-            .get_or_spawn(view_entity)
+            .get_entity(view_entity.id())
+            .expect("Environment map light entity wasn't synced.")
             .insert(environment_map_uniform);
     }
 }
@@ -395,7 +397,9 @@ fn gather_environment_map_uniform(
 fn gather_light_probes<C>(
     image_assets: Res<RenderAssets<GpuImage>>,
     light_probe_query: Extract<Query<(&GlobalTransform, &C), With<LightProbe>>>,
-    view_query: Extract<Query<(Entity, &GlobalTransform, &Frustum, Option<&C>), With<Camera3d>>>,
+    view_query: Extract<
+        Query<(&RenderEntity, &GlobalTransform, &Frustum, Option<&C>), With<Camera3d>>,
+    >,
     mut reflection_probes: Local<Vec<LightProbeInfo<C>>>,
     mut view_reflection_probes: Local<Vec<LightProbeInfo<C>>>,
     mut commands: Commands,
@@ -433,14 +437,17 @@ fn gather_light_probes<C>(
         // Gather up the light probes in the list.
         render_view_light_probes.maybe_gather_light_probes(&view_reflection_probes);
 
+        let entity = view_entity.id();
         // Record the per-view light probes.
         if render_view_light_probes.is_empty() {
             commands
-                .get_or_spawn(view_entity)
+                .get_entity(entity)
+                .expect("View entity wasn't synced.")
                 .remove::<RenderViewLightProbes<C>>();
         } else {
             commands
-                .get_or_spawn(view_entity)
+                .get_entity(entity)
+                .expect("View entity wasn't synced.")
                 .insert(render_view_light_probes);
         }
     }

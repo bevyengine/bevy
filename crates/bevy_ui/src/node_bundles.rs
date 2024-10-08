@@ -15,7 +15,7 @@ use {
     crate::widget::TextFlags,
     bevy_color::Color,
     bevy_text::{
-        BreakLineOn, CosmicBuffer, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle,
+        CosmicBuffer, JustifyText, LineBreak, Text, TextLayoutInfo, TextSection, TextStyle,
     },
 };
 
@@ -198,7 +198,7 @@ impl TextBundle {
     /// Returns this [`TextBundle`] with soft wrapping disabled.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
     pub const fn with_no_wrap(mut self) -> Self {
-        self.text.linebreak_behavior = BreakLineOn::NoWrap;
+        self.text.linebreak = LineBreak::NoWrap;
         self
     }
 }

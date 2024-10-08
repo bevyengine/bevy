@@ -53,28 +53,26 @@ fn setup(
     let mut seeded_rng = ChaCha8Rng::seed_from_u64(19878367467712);
 
     // A camera looking at the origin
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(3., 2.5, 4.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(3., 2.5, 4.).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // A plane that we can sit on top of
-    commands.spawn(PbrBundle {
-        transform: Transform::from_xyz(0., -2., 0.),
-        mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Transform::from_xyz(0., -2., 0.),
+    ));
 
     // A light source
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 7.0, -4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 7.0, -4.0),
+    ));
 
     // Initialize random axes
     let first = seeded_rng.gen();
@@ -83,11 +81,10 @@ fn setup(
 
     // Finally, our ship that is going to rotate
     commands.spawn((
-        SceneBundle {
-            scene: asset_server
+        SceneRoot(
+            asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/ship/craft_speederD.gltf")),
-            ..default()
-        },
+        ),
         Ship {
             target_transform: random_axes_target_alignment(&RandomAxes(first, second)),
             ..default()

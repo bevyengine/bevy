@@ -4,7 +4,7 @@ use bevy::{
     color::palettes::css::RED,
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
     math::vec3,
-    pbr::{FogVolumeBundle, VolumetricFog, VolumetricLight},
+    pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
 };
 
@@ -57,27 +57,22 @@ fn main() {
 /// Initializes the scene.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: Res<AppSettings>) {
     // Spawn the glTF scene.
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0)
-                .from_asset("models/VolumetricFogExample/VolumetricFogExample.glb"),
-        ),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/VolumetricFogExample/VolumetricFogExample.glb"),
+    )));
 
     // Spawn the camera.
     commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-1.7, 1.5, 4.5)
-                .looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
-            camera: Camera {
+        .spawn((
+            Camera3d::default(),
+            Camera {
                 hdr: true,
                 ..default()
             },
-            ..default()
-        })
-        .insert(Tonemapping::TonyMcMapface)
-        .insert(Bloom::default())
+            Transform::from_xyz(-1.7, 1.5, 4.5).looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
+            Tonemapping::TonyMcMapface,
+            Bloom::default(),
+        ))
         .insert(Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 1000.0,
@@ -90,48 +85,42 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
         });
 
     // Add the point light
-    commands
-        .spawn((
-            PointLightBundle {
-                point_light: PointLight {
-                    shadows_enabled: true,
-                    range: 150.0,
-                    color: RED.into(),
-                    intensity: 1000.0,
-                    ..default()
-                },
-                transform: Transform::from_xyz(-0.4, 1.9, 1.0),
-                ..default()
-            },
-            MoveBackAndForthHorizontally {
-                min_x: -1.93,
-                max_x: -0.4,
-                speed: -0.2,
-            },
-        ))
-        .insert(VolumetricLight);
+    commands.spawn((
+        Transform::from_xyz(-0.4, 1.9, 1.0),
+        PointLight {
+            shadows_enabled: true,
+            range: 150.0,
+            color: RED.into(),
+            intensity: 1000.0,
+            ..default()
+        },
+        VolumetricLight,
+        MoveBackAndForthHorizontally {
+            min_x: -1.93,
+            max_x: -0.4,
+            speed: -0.2,
+        },
+    ));
 
     // Add the spot light
-    commands
-        .spawn(SpotLightBundle {
-            transform: Transform::from_xyz(-1.8, 3.9, -2.7).looking_at(Vec3::ZERO, Vec3::Y),
-            spot_light: SpotLight {
-                intensity: 5000.0, // lumens
-                color: Color::WHITE,
-                shadows_enabled: true,
-                inner_angle: 0.76,
-                outer_angle: 0.94,
-                ..default()
-            },
+    commands.spawn((
+        Transform::from_xyz(-1.8, 3.9, -2.7).looking_at(Vec3::ZERO, Vec3::Y),
+        SpotLight {
+            intensity: 5000.0, // lumens
+            color: Color::WHITE,
+            shadows_enabled: true,
+            inner_angle: 0.76,
+            outer_angle: 0.94,
             ..default()
-        })
-        .insert(VolumetricLight);
+        },
+        VolumetricLight,
+    ));
 
     // Add the fog volume.
-    commands.spawn(FogVolumeBundle {
-        transform: Transform::from_scale(Vec3::splat(35.0)),
-        ..default()
-    });
+    commands.spawn((
+        FogVolume::default(),
+        Transform::from_scale(Vec3::splat(35.0)),
+    ));
 
     // Add the help text.
     commands.spawn(

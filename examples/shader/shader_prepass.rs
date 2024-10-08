@@ -48,12 +48,10 @@ fn setup(
 ) {
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
-            msaa: Msaa::Off,
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
+        Msaa::Off,
         // To enable the prepass you need to add the components associated with the ones you need
         // This will write the depth buffer to a texture that you can use in the main pass
         DepthPrepass,
@@ -64,77 +62,66 @@ fn setup(
     ));
 
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: std_materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(std_materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
 
     // A quad that shows the outputs of the prepass
     // To make it easy, we just draw a big quad right in front of the camera.
     // For a real application, this isn't ideal.
     commands.spawn((
-        MaterialMeshBundle {
-            mesh: meshes.add(Rectangle::new(20.0, 20.0)),
-            material: depth_materials.add(PrepassOutputMaterial {
-                settings: ShowPrepassSettings::default(),
-            }),
-            transform: Transform::from_xyz(-0.75, 1.25, 3.0)
-                .looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
-            ..default()
-        },
+        Mesh3d(meshes.add(Rectangle::new(20.0, 20.0))),
+        MeshMaterial3d(depth_materials.add(PrepassOutputMaterial {
+            settings: ShowPrepassSettings::default(),
+        })),
+        Transform::from_xyz(-0.75, 1.25, 3.0).looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
         NotShadowCaster,
     ));
 
     // Opaque cube
     commands.spawn((
-        MaterialMeshBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(CustomMaterial {
-                color: LinearRgba::WHITE,
-                color_texture: Some(asset_server.load("branding/icon.png")),
-                alpha_mode: AlphaMode::Opaque,
-            }),
-            transform: Transform::from_xyz(-1.0, 0.5, 0.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {
+            color: LinearRgba::WHITE,
+            color_texture: Some(asset_server.load("branding/icon.png")),
+            alpha_mode: AlphaMode::Opaque,
+        })),
+        Transform::from_xyz(-1.0, 0.5, 0.0),
         Rotates,
     ));
 
     // Cube with alpha mask
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: std_materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(std_materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Mask(1.0),
             base_color_texture: Some(asset_server.load("branding/icon.png")),
             ..default()
-        }),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 
     // Cube with alpha blending.
     // Transparent materials are ignored by the prepass
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: materials.add(CustomMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {
             color: LinearRgba::WHITE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
-        }),
-        transform: Transform::from_xyz(1.0, 0.5, 0.0),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(1.0, 0.5, 0.0),
+    ));
 
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
     let style = TextStyle::default();
 
@@ -225,7 +212,7 @@ impl Material for PrepassOutputMaterial {
 fn toggle_prepass_view(
     mut prepass_view: Local<u32>,
     keycode: Res<ButtonInput<KeyCode>>,
-    material_handle: Query<&Handle<PrepassOutputMaterial>>,
+    material_handle: Query<&MeshMaterial3d<PrepassOutputMaterial>>,
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
     mut text: Query<&mut Text>,
 ) {

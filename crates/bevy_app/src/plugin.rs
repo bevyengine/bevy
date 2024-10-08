@@ -162,7 +162,8 @@ mod sealed {
     }
 
     macro_rules! impl_plugins_tuples {
-        ($(($param: ident, $plugins: ident)),*) => {
+        ($(#[$meta:meta])* $(($param: ident, $plugins: ident)),*) => {
+            $(#[$meta])*
             impl<$($param, $plugins),*> Plugins<(PluginsTupleMarker, $($param,)*)> for ($($plugins,)*)
             where
                 $($plugins: Plugins<$param>),*
@@ -179,5 +180,12 @@ mod sealed {
         }
     }
 
-    all_tuples!(impl_plugins_tuples, 0, 15, P, S);
+    all_tuples!(
+        #[doc(fake_variadic)]
+        impl_plugins_tuples,
+        0,
+        15,
+        P,
+        S
+    );
 }

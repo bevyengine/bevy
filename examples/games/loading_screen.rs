@@ -141,11 +141,8 @@ fn load_level_1(
 ) {
     // Spawn the camera.
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(155.0, 155.0, 155.0)
-                .looking_at(Vec3::new(0.0, 40.0, 0.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(155.0, 155.0, 155.0).looking_at(Vec3::new(0.0, 40.0, 0.0), Vec3::Y),
         LevelComponents,
     ));
 
@@ -154,24 +151,18 @@ fn load_level_1(
     loading_data.loading_assets.push(fox.clone().into());
     // Spawn the fox.
     commands.spawn((
-        SceneBundle {
-            scene: fox.clone(),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
-        },
+        SceneRoot(fox.clone()),
+        Transform::from_xyz(0.0, 0.0, 0.0),
         LevelComponents,
     ));
 
     // Spawn the light.
     commands.spawn((
-        DirectionalLightBundle {
-            transform: Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                ..default()
-            },
+        DirectionalLight {
+            shadows_enabled: true,
             ..default()
         },
+        Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         LevelComponents,
     ));
 }
@@ -183,11 +174,8 @@ fn load_level_2(
 ) {
     // Spawn the camera.
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(1.0, 1.0, 1.0)
-                .looking_at(Vec3::new(0.0, 0.2, 0.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::new(0.0, 0.2, 0.0), Vec3::Y),
         LevelComponents,
     ));
 
@@ -197,24 +185,15 @@ fn load_level_2(
     loading_data
         .loading_assets
         .push(helmet_scene.clone().into());
-    commands.spawn((
-        SceneBundle {
-            scene: helmet_scene.clone(),
-            ..default()
-        },
-        LevelComponents,
-    ));
+    commands.spawn((SceneRoot(helmet_scene.clone()), LevelComponents));
 
     // Spawn the light.
     commands.spawn((
-        DirectionalLightBundle {
-            transform: Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                ..default()
-            },
+        DirectionalLight {
+            shadows_enabled: true,
             ..default()
         },
+        Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         LevelComponents,
     ));
 }
@@ -272,11 +251,9 @@ fn load_loading_screen(mut commands: Commands) {
 
     // Spawn the UI and Loading screen camera.
     commands.spawn((
-        Camera2dBundle {
-            camera: Camera {
-                order: 1,
-                ..default()
-            },
+        Camera2d,
+        Camera {
+            order: 1,
             ..default()
         },
         LoadingScreen,
