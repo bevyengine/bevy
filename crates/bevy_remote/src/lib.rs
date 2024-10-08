@@ -441,7 +441,8 @@ impl Plugin for RemotePlugin {
                     process_remote_requests,
                     process_ongoing_watching_requests,
                     remove_closed_watching_requests,
-                ),
+                )
+                    .chain(),
             );
     }
 }
@@ -475,7 +476,7 @@ pub type RemoteInstantMethodSystemId = SystemId<In<Option<Value>>, BrpResult>;
 pub type RemoteWatchingMethodSystemId = SystemId<In<Option<Value>>, BrpResult<Option<Value>>>;
 
 /// The [`SystemId`] of a function that can be used as a remote method.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum RemoteMethodSystemId {
     /// A handler that only runs once and returns one response.
     Instant(RemoteInstantMethodSystemId),
@@ -762,10 +763,9 @@ fn process_remote_requests(world: &mut World) {
     while let Ok(message) = world.resource_mut::<BrpReceiver>().try_recv() {
         // Fetch the handler for the method. If there's no such handler
         // registered, return an error.
-        let Some(handler) = world
+        let Some(&handler) = world
             .resource::<RemoteMethods>()
             .get(&message.method)
-            .cloned()
         else {
             let _ = message.sender.force_send(Err(BrpError {
                 code: error_codes::METHOD_NOT_FOUND,
@@ -795,7 +795,7 @@ fn process_remote_requests(world: &mut World) {
                 world
                     .resource_mut::<RemoteWatchingRequests>()
                     .0
-                    .push((message.clone(), id));
+                    .push((message, id));
             }
         }
     }
@@ -835,7 +835,11 @@ fn process_single_ongoing_watching_request(
 }
 
 fn remove_closed_watching_requests(mut requests: ResMut<RemoteWatchingRequests>) {
-    requests
-        .0
-        .retain(|(message, _)| !message.sender.is_closed());
+    for i in (0..requests.0.len()).rev() {
+        let Some((message, _)) = requests.0.get(i) else { unreachable!() };
+
+        if message.sender.is_closed() {
+            requests.0.swap_remove(i);
+        }
+    }
 }
