@@ -411,7 +411,9 @@ fn setup_animation_graph_once_loaded(
 
         // We're doing constructing the animation graph. Add it as an asset.
         let animation_graph = animation_graphs.add(animation_graph);
-        commands.entity(entity).insert(animation_graph);
+        commands
+            .entity(entity)
+            .insert(AnimationGraphHandle(animation_graph));
 
         // Remove animation targets that aren't in any of the mask groups. If we
         // don't do that, those bones will play all animations at once, which is
@@ -436,7 +438,7 @@ fn setup_animation_graph_once_loaded(
 // off.
 fn handle_button_toggles(
     mut interactions: Query<(&Interaction, &mut AnimationControl), Changed<Interaction>>,
-    mut animation_players: Query<&Handle<AnimationGraph>, With<AnimationPlayer>>,
+    mut animation_players: Query<&AnimationGraphHandle, With<AnimationPlayer>>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     mut animation_nodes: Option<ResMut<AnimationNodes>>,
     mut app_state: ResMut<AppState>,

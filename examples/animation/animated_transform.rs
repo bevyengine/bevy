@@ -138,7 +138,7 @@ fn setup(
             MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
             // Add the animation graph and player
             planet,
-            graphs.add(graph),
+            AnimationGraphHandle(graphs.add(graph)),
             player,
         ))
         .id();
