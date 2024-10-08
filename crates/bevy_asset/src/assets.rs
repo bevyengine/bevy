@@ -214,20 +214,6 @@ impl<A: Asset> DenseAssetStorage<A> {
         }
     }
 
-    pub(crate) fn get_mut(&mut self, index: AssetIndex) -> Option<&mut A> {
-        let entry = self.storage.get_mut(index.index as usize)?;
-        match entry {
-            Entry::None => None,
-            Entry::Some { value, generation } => {
-                if *generation == index.generation {
-                    value.as_mut()
-                } else {
-                    None
-                }
-            }
-        }
-    }
-
     pub(crate) fn flush(&mut self) {
         // NOTE: this assumes the allocator index is monotonically increasing.
         let new_len = self
@@ -330,20 +316,6 @@ impl<A: Asset> Assets<A> {
         }
     }
 
-    /// Retrieves an [`Asset`] stored for the given `id` if it exists. If it does not exist, it will be inserted using `insert_fn`.
-    // PERF: Optimize this or remove it
-    pub fn get_or_insert_with(
-        &mut self,
-        id: impl Into<AssetId<A>>,
-        insert_fn: impl FnOnce() -> A,
-    ) -> &mut A {
-        let id: AssetId<A> = id.into();
-        if self.get(id).is_none() {
-            self.insert(id, insert_fn());
-        }
-        self.get_mut(id).unwrap()
-    }
-
     /// Returns `true` if the `id` exists in this collection. Otherwise it returns `false`.
     pub fn contains(&self, id: impl Into<AssetId<A>>) -> bool {
         match id.into() {
@@ -417,21 +389,6 @@ impl<A: Asset> Assets<A> {
             AssetId::Index { index, .. } => self.dense_storage.get(index),
             AssetId::Uuid { uuid } => self.hash_map.get(&uuid),
         }
-    }
-
-    /// Retrieves a mutable reference to the [`Asset`] with the given `id`, if it exists.
-    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
-    #[inline]
-    pub fn get_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
-        let id: AssetId<A> = id.into();
-        let result = match id {
-            AssetId::Index { index, .. } => self.dense_storage.get_mut(index),
-            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
-        };
-        if result.is_some() {
-            self.queued_events.push(AssetEvent::Modified { id });
-        }
-        result
     }
 
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists.
