@@ -75,7 +75,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Camera {
-            viewport: Option::from(Viewport {
+            viewport: Some(Viewport {
                 physical_size: UVec2::new(LARGE_SIZE, LARGE_SIZE),
                 physical_position: UVec2::new(PADDING, PADDING * 2 + SMALL_SIZE),
                 ..default()
@@ -89,7 +89,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Camera {
-            viewport: Option::from(Viewport {
+            viewport: Some(Viewport {
                 physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
                 physical_position: UVec2::new(PADDING, PADDING),
                 ..default()
@@ -116,7 +116,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Camera {
-            viewport: Option::from(Viewport {
+            viewport: Some(Viewport {
                 physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
                 physical_position: UVec2::new(PADDING * 2 + SMALL_SIZE, PADDING),
                 ..default()
@@ -139,7 +139,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Camera {
-            viewport: Option::from(Viewport {
+            viewport: Some(Viewport {
                 physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
                 physical_position: UVec2::new(PADDING * 3 + SMALL_SIZE * 2, PADDING),
                 ..default()
@@ -165,7 +165,7 @@ fn setup(
             ..OrthographicProjection::default_3d()
         }),
         Camera {
-            viewport: Option::from(Viewport {
+            viewport: Some(Viewport {
                 physical_size: UVec2::new(LARGE_SIZE, LARGE_SIZE),
                 physical_position: UVec2::new(PADDING * 2 + LARGE_SIZE, PADDING * 2 + SMALL_SIZE),
                 ..default()
@@ -184,7 +184,7 @@ fn setup(
             ..OrthographicProjection::default_3d()
         }),
         Camera {
-            viewport: Option::from(Viewport {
+            viewport: Some(Viewport {
                 physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
                 physical_position: UVec2::new(PADDING * 5 + SMALL_SIZE * 4, PADDING),
                 ..default()
@@ -213,7 +213,7 @@ fn setup(
             ..OrthographicProjection::default_3d()
         }),
         Camera {
-            viewport: Option::from(Viewport {
+            viewport: Some(Viewport {
                 physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
                 physical_position: UVec2::new(PADDING * 6 + SMALL_SIZE * 5, PADDING),
                 ..default()
@@ -240,7 +240,7 @@ fn setup(
             ..OrthographicProjection::default_3d()
         }),
         Camera {
-            viewport: Option::from(Viewport {
+            viewport: Some(Viewport {
                 physical_size: UVec2::new(SMALL_SIZE, SMALL_SIZE),
                 physical_position: UVec2::new(PADDING * 7 + SMALL_SIZE * 6, PADDING),
                 ..default()
