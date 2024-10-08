@@ -11,8 +11,8 @@ use bevy_render::{
     extract_component::ExtractComponent,
     primitives::Frustum,
     render_resource::{LoadOp, TextureUsages},
+    sync_world::SyncToRenderWorld,
     view::{ColorGrading, Msaa, VisibleEntities},
-    world_sync::SyncToRenderWorld,
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};

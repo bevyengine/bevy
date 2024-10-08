@@ -21,6 +21,7 @@ use bevy_render::{
     render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
     renderer::{RenderDevice, RenderQueue},
     settings::WgpuFeatures,
+    sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage, Image},
     view::{ExtractedView, Visibility},
     world_sync::RenderEntity,

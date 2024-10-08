@@ -43,12 +43,12 @@ fn setup(
                     border: UiRect::all(Val::Px(10.)),
                     ..default()
                 },
-                material: ui_materials.add(CustomUiMaterial {
+                material: UiMaterialHandle(ui_materials.add(CustomUiMaterial {
                     color: LinearRgba::WHITE.to_f32_array().into(),
                     slider: 0.5,
                     color_texture: asset_server.load("branding/banner.png"),
                     border_color: LinearRgba::WHITE.to_f32_array().into(),
-                }),
+                })),
                 ..default()
             });
         });
@@ -82,7 +82,7 @@ impl UiMaterial for CustomUiMaterial {
 // Also updates the color of the image to a rainbow color
 fn animate(
     mut materials: ResMut<Assets<CustomUiMaterial>>,
-    q: Query<&Handle<CustomUiMaterial>>,
+    q: Query<&UiMaterialHandle<CustomUiMaterial>>,
     time: Res<Time>,
 ) {
     let duration = 2.0;

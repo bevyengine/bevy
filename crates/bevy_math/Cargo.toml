@@ -21,7 +21,6 @@ rand = { version = "0.8", features = [
 ], default-features = false, optional = true }
 rand_distr = { version = "0.4.3", optional = true }
 smallvec = { version = "1.11" }
-interpolation = "0.3"
 
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "glam",

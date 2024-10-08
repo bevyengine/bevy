@@ -51,6 +51,7 @@ use bevy_render::{
     mesh::{Mesh, Meshable},
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, SpecializedRenderPipelines},
+    sync_component::SyncComponentPlugin,
     texture::Image,
     view::{InheritedVisibility, ViewVisibility, Visibility},
     ExtractSchedule, Render, RenderApp, RenderSet,
@@ -230,6 +231,8 @@ impl Plugin for VolumetricFogPlugin {
 
         app.register_type::<VolumetricFog>()
             .register_type::<VolumetricLight>();
+
+        app.add_plugins(SyncComponentPlugin::<FogVolume>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
