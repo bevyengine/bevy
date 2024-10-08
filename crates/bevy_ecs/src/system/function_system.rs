@@ -359,7 +359,7 @@ impl<Param: SystemParam, In: SystemInput> SystemState<Param, In> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        let input_state = In::init_state(world, &mut meta);
+        let input_state = In::init_istate(world, &mut meta);
         let param_state = Param::init_state(world, &mut meta);
         Self {
             meta,
@@ -374,7 +374,7 @@ impl<Param: SystemParam, In: SystemInput> SystemState<Param, In> {
     pub(crate) fn from_builder(world: &mut World, builder: impl SystemParamBuilder<Param>) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        let input_state = In::init_state(world, &mut meta);
+        let input_state = In::init_istate(world, &mut meta);
         let param_state = builder.build(world, &mut meta);
         Self {
             meta,
@@ -812,7 +812,7 @@ where
             );
         } else {
             self.world_id = Some(world.id());
-            self.input_state = Some(F::In::init_state(world, &mut self.system_meta));
+            self.input_state = Some(F::In::init_istate(world, &mut self.system_meta));
             self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
         }
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);

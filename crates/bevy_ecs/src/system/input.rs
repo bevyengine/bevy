@@ -51,7 +51,7 @@ pub unsafe trait SystemInput: Sized {
 
     /// Registers any [`World`] access used by this [`SystemInput`]
     /// and creates a new instance of this param's [`State`](SystemInput::State).
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
+    fn init_istate(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
 
     /// For the specified [`Archetype`], registers the components accessed by
     /// this [`SystemInput`] (if applicable).
@@ -162,7 +162,7 @@ unsafe impl SystemInput for () {
     type Item<'world, 'state, 'input> = ();
     type Inner<'input> = ();
 
-    fn init_state(_world: &mut World, _system_metaa: &mut SystemMeta) -> Self::State {}
+    fn init_istate(_world: &mut World, _system_metaa: &mut SystemMeta) -> Self::State {}
 
     unsafe fn get_input<'world, 'state, 'input>(
         _input: Self::Inner<'input>,
@@ -220,7 +220,7 @@ unsafe impl<T: 'static> SystemInput for In<T> {
     type Item<'world, 'state, 'input> = In<T>;
     type Inner<'input> = T;
 
-    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+    fn init_istate(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     unsafe fn get_input<'world, 'state, 'input>(
         input: Self::Inner<'input>,
@@ -297,7 +297,7 @@ unsafe impl<T: ?Sized + 'static> SystemInput for InRef<'_, T> {
     type Item<'world, 'state, 'input> = InRef<'input, T>;
     type Inner<'input> = &'input T;
 
-    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+    fn init_istate(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     unsafe fn get_input<'world, 'state, 'input>(
         input: Self::Inner<'input>,
@@ -366,7 +366,7 @@ unsafe impl<T: ?Sized + 'static> SystemInput for InMut<'_, T> {
 
     type Inner<'input> = &'input mut T;
 
-    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+    fn init_istate(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     unsafe fn get_input<'world, 'state, 'input>(
         input: Self::Inner<'input>,
@@ -414,7 +414,7 @@ unsafe impl<E: 'static, B: Bundle, D: QueryData + 'static> SystemInput
     type Item<'world, 'state, 'input> = Trigger<'world, 'input, E, B, D>;
     type Inner<'input> = Trigger<'static, 'input, E, B, ()>;
 
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+    fn init_istate(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);
         init_query_param(world, system_meta, &state);
         state
@@ -481,8 +481,8 @@ unsafe impl<I: SystemInput> SystemInput for StaticSystemInput<'_, '_, '_, I> {
 
     type Inner<'input> = I::Inner<'input>;
 
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        I::init_state(world, system_meta)
+    fn init_istate(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        I::init_istate(world, system_meta)
     }
 
     unsafe fn validate_input(

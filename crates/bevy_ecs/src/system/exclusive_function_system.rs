@@ -168,7 +168,7 @@ where
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        self.input_state = Some(F::In::init_state(world, &mut self.system_meta));
+        self.input_state = Some(F::In::init_istate(world, &mut self.system_meta));
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
     }
 
