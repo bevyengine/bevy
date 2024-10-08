@@ -2454,19 +2454,58 @@ impl World {
             .bundles
             .register_info::<B>(&mut self.components, &mut self.storages);
 
-        let mut inserter_with_archetype: Option<(BundleInserter, ArchetypeId)> = None;
+        struct InserterArchetypeCache<'w> {
+            inserter: BundleInserter<'w>,
+            archetype_id: ArchetypeId,
+        }
 
-        // `insert_or_spawn_batch_with_caller` does this implicitly with a `BundleSpawner`,
-        // but we only need the world cell here
-        let world_cell = self.as_unsafe_world_cell();
+        let mut batch = iter.into_iter();
 
-        for (entity, bundle) in iter {
-            if let Some(location) = world_cell.entities().get(entity) {
-                match inserter_with_archetype {
-                    Some((ref mut inserter, archetype)) if location.archetype_id == archetype => {
+        if let Some((first_entity, first_bundle)) = batch.next() {
+            if let Some(first_location) = self.entities().get(first_entity) {
+                let mut cache = InserterArchetypeCache {
+                    // SAFETY: we initialized this bundle_id in `register_info`
+                    inserter: unsafe {
+                        BundleInserter::new_with_id(
+                            self,
+                            first_location.archetype_id,
+                            bundle_id,
+                            change_tick,
+                        )
+                    },
+                    archetype_id: first_location.archetype_id,
+                };
+                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                unsafe {
+                    cache.inserter.insert(
+                        first_entity,
+                        first_location,
+                        first_bundle,
+                        insert_mode,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    )
+                };
+
+                for (entity, bundle) in batch {
+                    if let Some(location) = cache.inserter.entities().get(entity) {
+                        if location.archetype_id != cache.archetype_id {
+                            cache = InserterArchetypeCache {
+                                // SAFETY: we initialized this bundle_id in `register_info`
+                                inserter: unsafe {
+                                    BundleInserter::new_with_id(
+                                        self,
+                                        location.archetype_id,
+                                        bundle_id,
+                                        change_tick,
+                                    )
+                                },
+                                archetype_id: location.archetype_id,
+                            }
+                        }
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                         unsafe {
-                            inserter.insert(
+                            cache.inserter.insert(
                                 entity,
                                 location,
                                 bundle,
@@ -2475,33 +2514,12 @@ impl World {
                                 caller,
                             )
                         };
-                    }
-                    _ => {
-                        // SAFETY: we initialized this bundle_id in `register_info`
-                        let mut inserter = unsafe {
-                            BundleInserter::new_with_id(
-                                world_cell.world_mut(),
-                                location.archetype_id,
-                                bundle_id,
-                                change_tick,
-                            )
-                        };
-                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                        unsafe {
-                            inserter.insert(
-                                entity,
-                                location,
-                                bundle,
-                                insert_mode,
-                                #[cfg(feature = "track_change_detection")]
-                                caller,
-                            )
-                        };
-                        inserter_with_archetype = Some((inserter, location.archetype_id));
+                    } else {
+                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), entity);
                     }
                 }
             } else {
-                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), entity);
+                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), first_entity);
             }
         }
     }
@@ -2578,19 +2596,58 @@ impl World {
             .bundles
             .register_info::<B>(&mut self.components, &mut self.storages);
 
-        let mut inserter_with_archetype: Option<(BundleInserter, ArchetypeId)> = None;
+        struct InserterArchetypeCache<'w> {
+            inserter: BundleInserter<'w>,
+            archetype_id: ArchetypeId,
+        }
 
-        // `insert_or_spawn_batch_with_caller` does this implicitly with a `BundleSpawner`,
-        // but we only need the world cell here
-        let world_cell = self.as_unsafe_world_cell();
+        let mut batch = iter.into_iter();
 
-        for (entity, bundle) in iter {
-            if let Some(location) = world_cell.entities().get(entity) {
-                match inserter_with_archetype {
-                    Some((ref mut inserter, archetype)) if location.archetype_id == archetype => {
+        if let Some((first_entity, first_bundle)) = batch.next() {
+            if let Some(first_location) = self.entities().get(first_entity) {
+                let mut cache = InserterArchetypeCache {
+                    // SAFETY: we initialized this bundle_id in `register_info`
+                    inserter: unsafe {
+                        BundleInserter::new_with_id(
+                            self,
+                            first_location.archetype_id,
+                            bundle_id,
+                            change_tick,
+                        )
+                    },
+                    archetype_id: first_location.archetype_id,
+                };
+                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                unsafe {
+                    cache.inserter.insert(
+                        first_entity,
+                        first_location,
+                        first_bundle,
+                        insert_mode,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    )
+                };
+
+                for (entity, bundle) in batch {
+                    if let Some(location) = cache.inserter.entities().get(entity) {
+                        if location.archetype_id != cache.archetype_id {
+                            cache = InserterArchetypeCache {
+                                // SAFETY: we initialized this bundle_id in `register_info`
+                                inserter: unsafe {
+                                    BundleInserter::new_with_id(
+                                        self,
+                                        location.archetype_id,
+                                        bundle_id,
+                                        change_tick,
+                                    )
+                                },
+                                archetype_id: location.archetype_id,
+                            }
+                        }
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                         unsafe {
-                            inserter.insert(
+                            cache.inserter.insert(
                                 entity,
                                 location,
                                 bundle,
@@ -2599,29 +2656,6 @@ impl World {
                                 caller,
                             )
                         };
-                    }
-                    _ => {
-                        // SAFETY: we initialized this bundle_id in `register_info`
-                        let mut inserter = unsafe {
-                            BundleInserter::new_with_id(
-                                world_cell.world_mut(),
-                                location.archetype_id,
-                                bundle_id,
-                                change_tick,
-                            )
-                        };
-                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                        unsafe {
-                            inserter.insert(
-                                entity,
-                                location,
-                                bundle,
-                                insert_mode,
-                                #[cfg(feature = "track_change_detection")]
-                                caller,
-                            )
-                        };
-                        inserter_with_archetype = Some((inserter, location.archetype_id));
                     }
                 }
             }
