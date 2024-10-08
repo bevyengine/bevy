@@ -1,6 +1,6 @@
 //! Demonstrates how to work with Cubic curves.
 
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::{
     animation::{AnimationTarget, AnimationTargetId},
@@ -101,11 +101,11 @@ impl AnimationInfo {
         // Allocate an animation clip.
         let mut animation_clip = AnimationClip::default();
 
-        // Each leg of the animation should take 3 seconds.
+        // Each leg of the translation motion should take 3 seconds.
         let animation_domain = interval(0.0, 3.0).unwrap();
 
-        // This curve is parametrized over [0, 1], so we reparametrize it and then ping-pong,
-        // which makes it spend another 3 seconds on the return journey.
+        // The easing curve is parametrized over [0, 1], so we reparametrize it and
+        // then ping-pong, which makes it spend another 3 seconds on the return journey.
         let translation_curve = easing_curve(
             vec3(-6., 2., 0.),
             vec3(6., 2., 0.),
@@ -116,14 +116,15 @@ impl AnimationInfo {
         .ping_pong()
         .expect("this curve has bounded domain, so this should never fail");
 
+        // Something similar for rotation. The repetition here is an illusion caused
+        // by the symmetry of the cube; it rotates a quarter-circle on the forward
+        // journey and never rotates back.
         let rotation_curve = easing_curve(
             Quat::IDENTITY,
-            Quat::from_rotation_y(PI),
-            EaseFunction::ElasticInOut,
+            Quat::from_rotation_y(FRAC_PI_2),
+            EaseFunction::CircularIn,
         )
-        .reparametrize_linear(animation_domain)
-        .expect("this curve has bounded domain, so this should never fail")
-        .ping_pong()
+        .reparametrize_linear(interval(1.0, 3.0).unwrap())
         .expect("this curve has bounded domain, so this should never fail");
 
         animation_clip
