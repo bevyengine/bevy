@@ -17,35 +17,6 @@ pub struct ImageLoader {
     supported_compressed_formats: CompressedImageFormats,
 }
 
-pub(crate) const IMG_FILE_EXTENSIONS: &[&str] = &[
-    #[cfg(feature = "basis-universal")]
-    "basis",
-    #[cfg(feature = "bmp")]
-    "bmp",
-    #[cfg(feature = "png")]
-    "png",
-    #[cfg(feature = "dds")]
-    "dds",
-    #[cfg(feature = "tga")]
-    "tga",
-    #[cfg(feature = "jpeg")]
-    "jpg",
-    #[cfg(feature = "jpeg")]
-    "jpeg",
-    #[cfg(feature = "ktx2")]
-    "ktx2",
-    #[cfg(feature = "webp")]
-    "webp",
-    #[cfg(feature = "pnm")]
-    "pam",
-    #[cfg(feature = "pnm")]
-    "pbm",
-    #[cfg(feature = "pnm")]
-    "pgm",
-    #[cfg(feature = "pnm")]
-    "ppm",
-];
-
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub enum ImageFormatSetting {
     #[default]
@@ -131,7 +102,7 @@ impl AssetLoader for ImageLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        IMG_FILE_EXTENSIONS
+        ImageFormat::SUPPORTED_FILE_EXTENSIONS
     }
 }
 

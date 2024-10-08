@@ -3,9 +3,8 @@ use bevy_math::{
     Vec2, Vec3,
 };
 
-use crate::mesh::{Indices, Mesh, VertexAttributeValues};
-
 use super::{MeshBuilder, Meshable};
+use crate::{Indices, Mesh, VertexAttributeValues};
 
 /// A type representing a segment of the perimeter of an extrudable mesh.
 pub enum PerimeterSegment {
@@ -68,7 +67,7 @@ impl PerimeterSegment {
     }
 }
 
-/// A trait for required for implementing `Meshable` for `Extrusion<T>`.
+/// A trait required for implementing `Meshable` for `Extrusion<T>`.
 ///
 /// ## Warning
 ///

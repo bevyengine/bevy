@@ -27,7 +27,6 @@ criterion_group!(
     zero_sized_commands,
     medium_sized_commands,
     large_sized_commands,
-    get_or_spawn,
     world_entity,
     world_get,
     world_query_get,

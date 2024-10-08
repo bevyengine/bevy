@@ -127,7 +127,7 @@ impl std::fmt::Display for SplineMode {
 }
 
 /// The current cycling mode, which determines whether the control points should be interpolated
-/// cylically (to make a loop).
+/// cyclically (to make a loop).
 #[derive(Clone, Copy, Resource, Default)]
 enum CyclingMode {
     #[default]

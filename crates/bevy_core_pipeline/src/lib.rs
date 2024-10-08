@@ -19,6 +19,7 @@ pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod motion_blur;
 pub mod msaa_writeback;
+pub mod oit;
 pub mod post_process;
 pub mod prepass;
 mod skybox;
@@ -75,6 +76,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;
 use bevy_render::prelude::Shader;
+use oit::OrderIndependentTransparencyPlugin;
 
 #[derive(Default)]
 pub struct CorePipelinePlugin;
@@ -107,6 +109,7 @@ impl Plugin for CorePipelinePlugin {
                 DepthOfFieldPlugin,
                 SmaaPlugin,
                 PostProcessingPlugin,
+                OrderIndependentTransparencyPlugin,
             ));
     }
 }
