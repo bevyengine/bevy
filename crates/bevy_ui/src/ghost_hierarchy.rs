@@ -44,7 +44,12 @@ impl<'w, 's> UiRootNodes<'w, 's> {
 /// System param that gives access to UI children utilities, skipping over [`GhostNode`].
 #[derive(SystemParam)]
 pub struct UiChildren<'w, 's> {
-    ui_children_query: Query<'w, 's, (Option<&'static Children>, Option<&'static GhostNode>)>,
+    ui_children_query: Query<
+        'w,
+        's,
+        (Option<&'static Children>, Has<GhostNode>),
+        Or<(With<Node>, With<GhostNode>)>,
+    >,
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
     children_query: Query<'w, 's, &'static Children>,
     ghost_nodes_query: Query<'w, 's, Entity, With<GhostNode>>,
@@ -105,7 +110,12 @@ impl<'w, 's> UiChildren<'w, 's> {
 
 pub struct UiChildrenIter<'w, 's> {
     stack: SmallVec<[Entity; 8]>,
-    query: &'s Query<'w, 's, (Option<&'static Children>, Option<&'static GhostNode>)>,
+    query: &'s Query<
+        'w,
+        's,
+        (Option<&'static Children>, Has<GhostNode>),
+        Or<(With<Node>, With<GhostNode>)>,
+    >,
 }
 
 impl<'w, 's> Iterator for UiChildrenIter<'w, 's> {
@@ -113,8 +123,8 @@ impl<'w, 's> Iterator for UiChildrenIter<'w, 's> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let entity = self.stack.pop()?;
-            let (children, ghost_node) = self.query.get(entity).ok()?;
-            if ghost_node.is_none() {
+            let (children, has_ghost_node) = self.query.get(entity).ok()?;
+            if !has_ghost_node {
                 return Some(entity);
             }
             if let Some(children) = children {
