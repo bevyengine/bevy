@@ -198,7 +198,7 @@ pub enum ExtractedUiItem {
     /// A contiguous sequence of text glyphs from the same section
     Glyphs {
         atlas_scaling: Vec2,
-        /// Indices into [`ExtractedUiNodes`]
+        /// Indices into [`ExtractedUiNodes::glyphs`]
         range: Range<usize>,
     },
 }
@@ -264,17 +264,14 @@ pub fn extract_uinode_background_colors(
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
-
                 camera_entity: render_camera_entity.id(),
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
                     transform: transform.compute_matrix(),
                     flip_x: false,
                     flip_y: false,
-
                     border: uinode.border(),
                     border_radius: uinode.border_radius(),
-
                     node_type: NodeType::Rect,
                 },
             },
