@@ -196,10 +196,12 @@ mod tests {
         let n9 = world.spawn((A(9), GhostNode)).id();
         let n10 = world.spawn((A(10), NodeBundle::default())).id();
 
+        let no_ui = world.spawn_empty().id();
+
         world.entity_mut(n1).add_children(&[n2, n3, n4, n6]);
         world.entity_mut(n2).add_children(&[n5]);
 
-        world.entity_mut(n6).add_children(&[n7, n9]);
+        world.entity_mut(n6).add_children(&[n7, no_ui, n9]);
         world.entity_mut(n7).add_children(&[n8]);
         world.entity_mut(n9).add_children(&[n10]);
 
