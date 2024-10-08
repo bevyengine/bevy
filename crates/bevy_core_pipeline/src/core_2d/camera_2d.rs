@@ -6,7 +6,7 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::world_sync::SyncToRenderWorld;
+use bevy_render::sync_world::SyncToRenderWorld;
 use bevy_render::{
     camera::{
         Camera, CameraMainTextureUsages, CameraProjection, CameraRenderGraph,

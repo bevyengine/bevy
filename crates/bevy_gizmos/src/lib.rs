@@ -105,7 +105,7 @@ use {
             ShaderStages, ShaderType, VertexFormat,
         },
         renderer::RenderDevice,
-        world_sync::TemporaryRenderEntity,
+        sync_world::TemporaryRenderEntity,
         Extract, ExtractSchedule, Render, RenderApp, RenderSet,
     },
     bytemuck::cast_slice,

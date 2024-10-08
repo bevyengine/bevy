@@ -6,12 +6,12 @@ use crate::{
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
+    sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers, Visibility,
         VisibleEntities,
     },
-    world_sync::{RenderEntity, SyncToRenderWorld},
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
