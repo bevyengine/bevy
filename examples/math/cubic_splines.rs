@@ -6,7 +6,7 @@ use bevy::{
     ecs::system::Commands,
     gizmos::gizmos::Gizmos,
     input::{mouse::MouseButtonInput, ButtonState},
-    math::{cubic_splines::*, vec2, Isometry2d},
+    math::{cubic_splines::*, vec2},
     prelude::*,
 };
 

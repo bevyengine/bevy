@@ -1,7 +1,6 @@
 //! Demonstrates how to observe life-cycle triggers as well as define custom ones.
 
 use bevy::{
-    math::Isometry2d,
     prelude::*,
     utils::{HashMap, HashSet},
 };
