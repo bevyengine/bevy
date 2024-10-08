@@ -13,9 +13,10 @@ use bevy_reflect::Reflect;
 
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
 ///
-/// [`SyncToRenderWorld`] is automatically added as a required component by
-/// [`ExtractComponentPlugin`] and [`SyncComponentPlugin`], so it doesn't need to be
-/// added manually when spawning or as a required component when either of these are used.
+/// All entities with the [`SyncToRenderWorld`] component are kept in sync. It
+/// is automatically added as a required component by [`ExtractComponentPlugin`]
+/// and [`SyncComponentPlugin`], so it doesn't need to be added manually when
+/// spawning or as a required component when either of these plugins are used.
 ///
 /// # Implementation
 ///
@@ -100,16 +101,22 @@ impl Plugin for WorldSyncPlugin {
         );
     }
 }
-/// Marker component that indicates that its entity needs to be synchronized to the render world
+/// Marker component that indicates that its entity needs to be synchronized to the render world.
+///
+/// This component is automatically added as a required component by [`ExtractComponentPlugin`] and [`SyncComponentPlugin`].
+/// For more information see [`SyncWorldPlugin`].
 ///
 /// NOTE: This component should persist throughout the entity's entire lifecycle.
 /// If this component is removed from its entity, the entity will be despawned.
+///
+/// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
+/// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect[Component]]
 #[component(storage = "SparseSet")]
 pub struct SyncToRenderWorld;
 
-/// Component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity
+/// Component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity.
 ///
 /// Can also be used as a newtype wrapper for render world entities.
 #[derive(Component, Deref, Clone, Debug, Copy)]
@@ -121,7 +128,7 @@ impl RenderEntity {
     }
 }
 
-/// Component added on the render world entities to keep track of the corresponding main world entity
+/// Component added on the render world entities to keep track of the corresponding main world entity.
 ///
 /// Can also be used as a newtype wrapper for main world entities.
 #[derive(Component, Deref, Clone, Debug)]
