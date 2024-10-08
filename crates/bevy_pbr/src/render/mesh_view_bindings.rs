@@ -1,6 +1,4 @@
 use alloc::sync::Arc;
-use core::{array, num::NonZero};
-
 use bevy_core_pipeline::{
     core_3d::ViewTransmissionTexture,
     oit::{OitBuffers, OrderIndependentTransparencySettings},
@@ -29,9 +27,11 @@ use bevy_render::{
         VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
     },
 };
+use core::{array, num::NonZero};
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
 use bevy_render::render_resource::binding_types::texture_cube;
+use bevy_render::renderer::RenderAdapter;
 #[cfg(debug_assertions)]
 use bevy_utils::warn_once;
 use environment_map::EnvironmentMapLight;
@@ -194,6 +194,7 @@ fn layout_entries(
     visibility_ranges_buffer_binding_type: BufferBindingType,
     layout_key: MeshPipelineViewLayoutKey,
     render_device: &RenderDevice,
+    render_adapter: &RenderAdapter,
 ) -> Vec<BindGroupLayoutEntry> {
     let mut entries = DynamicBindGroupLayoutEntries::new_with_indices(
         ShaderStages::FRAGMENT,
@@ -358,15 +359,25 @@ fn layout_entries(
     ));
 
     // OIT
-    if cfg!(not(feature = "webgl")) && layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
-        entries = entries.extend_with_indices((
-            // oit_layers
-            (31, storage_buffer_sized(false, None)),
-            // oit_layer_ids,
-            (32, storage_buffer_sized(false, None)),
-            // oit_layer_count
-            (33, uniform_buffer::<i32>(true)),
-        ));
+    if layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
+        // Check if the GPU supports writable storage buffers in the fragment shader
+        // If not, we can't use OIT, so we skip the OIT bindings.
+        // This is a hack to avoid errors on webgl -- the OIT plugin will warn the user that OIT
+        // is not supported on their platform, so we don't need to do it here.
+        if render_adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(DownlevelFlags::FRAGMENT_WRITABLE_STORAGE)
+        {
+            entries = entries.extend_with_indices((
+                // oit_layers
+                (31, storage_buffer_sized(false, None)),
+                // oit_layer_ids,
+                (32, storage_buffer_sized(false, None)),
+                // oit_layer_count
+                (33, uniform_buffer::<i32>(true)),
+            ));
+        }
     }
 
     entries.to_vec()
@@ -387,6 +398,7 @@ impl FromWorld for MeshPipelineViewLayouts {
         // [`MeshPipelineViewLayoutKey`] flags.
 
         let render_device = world.resource::<RenderDevice>();
+        let render_adapter = world.resource::<RenderAdapter>();
 
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
@@ -400,6 +412,7 @@ impl FromWorld for MeshPipelineViewLayouts {
                 visibility_ranges_buffer_binding_type,
                 key,
                 render_device,
+                render_adapter,
             );
             #[cfg(debug_assertions)]
             let texture_count: usize = entries
@@ -436,6 +449,7 @@ impl MeshPipelineViewLayouts {
 /// [`MeshPipelineViewLayoutKey`] flags.
 pub fn generate_view_layouts(
     render_device: &RenderDevice,
+    render_adapter: &RenderAdapter,
     clustered_forward_buffer_binding_type: BufferBindingType,
     visibility_ranges_buffer_binding_type: BufferBindingType,
 ) -> [MeshPipelineViewLayout; MeshPipelineViewLayoutKey::COUNT] {
@@ -446,6 +460,7 @@ pub fn generate_view_layouts(
             visibility_ranges_buffer_binding_type,
             key,
             render_device,
+            render_adapter,
         );
 
         #[cfg(debug_assertions)]
