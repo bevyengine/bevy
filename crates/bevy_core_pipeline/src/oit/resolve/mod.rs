@@ -15,7 +15,7 @@ use bevy_render::{
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendComponent,
         BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites, DownlevelFlags,
         FragmentState, MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor,
-        Shader, ShaderStages, TextureFormat,
+        Shader, ShaderDefVal, ShaderStages, TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::BevyDefault,
@@ -121,6 +121,7 @@ pub struct OitResolvePipelineId(pub CachedRenderPipelineId);
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct OitResolvePipelineKey {
     hdr: bool,
+    layer_count: u8,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -128,15 +129,25 @@ pub fn queue_oit_resolve_pipeline(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     resolve_pipeline: Res<OitResolvePipeline>,
-    views: Query<(Entity, &ExtractedView), With<OrderIndependentTransparencySettings>>,
+    views: Query<
+        (
+            Entity,
+            &ExtractedView,
+            &OrderIndependentTransparencySettings,
+        ),
+        With<OrderIndependentTransparencySettings>,
+    >,
     // Store the key with the id to make the clean up logic easier.
     // This also means it will always replace the entry if the key changes so nothing to clean up.
     mut cached_pipeline_id: Local<EntityHashMap<(OitResolvePipelineKey, CachedRenderPipelineId)>>,
 ) {
     let mut current_view_entities = EntityHashSet::default();
-    for (e, view) in &views {
+    for (e, view, oit_settings) in &views {
         current_view_entities.insert(e);
-        let key = OitResolvePipelineKey { hdr: view.hdr };
+        let key = OitResolvePipelineKey {
+            hdr: view.hdr,
+            layer_count: oit_settings.layer_count,
+        };
 
         if let Some((cached_key, id)) = cached_pipeline_id.get(&e) {
             if *cached_key == key {
@@ -179,7 +190,10 @@ fn specialize_oit_resolve_pipeline(
         fragment: Some(FragmentState {
             entry_point: "fragment".into(),
             shader: OIT_RESOLVE_SHADER_HANDLE,
-            shader_defs: vec![],
+            shader_defs: vec![ShaderDefVal::UInt(
+                "LAYER_COUNT".into(),
+                key.layer_count as u32,
+            )],
             targets: vec![Some(ColorTargetState {
                 format,
                 blend: Some(BlendState {
