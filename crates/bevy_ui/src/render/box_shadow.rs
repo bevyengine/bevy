@@ -290,12 +290,9 @@ pub fn extract_shadows(
             resolve_val(box_shadow.x_offset, uinode.size().x),
             resolve_val(box_shadow.y_offset, uinode.size().y),
         );
-        let spread = vec2(
-            resolve_val(box_shadow.x_spread, uinode.size().x),
-            resolve_val(box_shadow.y_spread, uinode.size().y),
-        );
+        let spread_radius = resolve_val(box_shadow.spread_radius, uinode.size().x);
 
-        let size = uinode.size() + spread;
+        let size = uinode.size() + spread_radius;
 
         if size.cmple(Vec2::ZERO).any() {
             continue;

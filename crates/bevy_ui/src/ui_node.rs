@@ -2387,10 +2387,11 @@ pub struct BoxShadow {
     pub x_offset: Val,
     /// Vertical offset
     pub y_offset: Val,
-    /// Horizontal difference in size from occluding uninode
-    pub x_spread: Val,
-    /// Vertical difference in size from occluding uninode
-    pub y_spread: Val,
+    /// How much the shadow should spread outward.
+    ///
+    /// Negative values will make the shadow shrink inwards.
+    /// Percentage values are based on the width of the UI node.
+    pub spread_radius: Val,
     /// Blurriness of the shadow
     pub blur_radius: Val,
 }
@@ -2401,8 +2402,7 @@ impl Default for BoxShadow {
             color: Color::BLACK,
             x_offset: Val::Percent(20.),
             y_offset: Val::Percent(20.),
-            x_spread: Val::ZERO,
-            y_spread: Val::ZERO,
+            spread_radius: Val::ZERO,
             blur_radius: Val::Percent(10.),
         }
     }
