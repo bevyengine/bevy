@@ -32,6 +32,7 @@ mod render;
 mod stack;
 mod ui_node;
 
+use box_shadow::UiBoxShadowSamples;
 pub use focus::*;
 pub use geometry::*;
 pub use ghost_hierarchy::*;
@@ -148,6 +149,7 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
             .register_type::<Outline>()
+            .register_type::<UiBoxShadowSamples>()
             .configure_sets(
                 PostUpdate,
                 (

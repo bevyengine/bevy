@@ -13,7 +13,6 @@ use bevy_ecs::{
 use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
-    extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
@@ -40,9 +39,6 @@ impl Plugin for BoxShadowPlugin {
             "box_shadow.wgsl",
             Shader::from_wgsl
         );
-
-        app.init_resource::<BoxShadowSamples>()
-            .add_plugins(ExtractResourcePlugin::<BoxShadowSamples>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -73,10 +69,24 @@ impl Plugin for BoxShadowPlugin {
 
 /// Number of shadow samples.
 /// A larger value will result in higher quality shadows.
-#[derive(Resource, Copy, Clone, Debug, Reflect, ExtractResource)]
-pub struct BoxShadowSamples(pub u32);
+/// Default is 4, values higher than ~10 offer diminishing returns.
+///
+/// ```
+/// use bevy_core_pipeline::prelude::*;
+/// use bevy_ecs::prelude::*;
+/// use bevy_ui::prelude::*;
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     commands.spawn((
+///         Camera2d,
+///         UiBoxShadowSamples(6),
+///     ));
+/// }
+/// ```
+#[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
+pub struct UiBoxShadowSamples(pub u32);
 
-impl Default for BoxShadowSamples {
+impl Default for UiBoxShadowSamples {
     fn default() -> Self {
         Self(4)
     }
@@ -339,14 +349,14 @@ pub fn queue_shadows(
     ui_slicer_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView)>,
+    mut views: Query<(Entity, &ExtractedView, Option<&UiBoxShadowSamples>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
-    samples: Res<BoxShadowSamples>,
 ) {
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
     for (entity, extracted_shadow) in extracted_ui_slicers.box_shadows.iter() {
-        let Ok((view_entity, view)) = views.get_mut(extracted_shadow.camera_entity) else {
+        let Ok((view_entity, view, shadow_samples)) = views.get_mut(extracted_shadow.camera_entity)
+        else {
             continue;
         };
 
@@ -359,7 +369,7 @@ pub fn queue_shadows(
             &ui_slicer_pipeline,
             UiTextureSlicePipelineKey {
                 hdr: view.hdr,
-                samples: samples.0,
+                samples: shadow_samples.map(|samples| samples.0).unwrap_or_default(),
             },
         );
 

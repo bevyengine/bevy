@@ -4,7 +4,7 @@ use argh::FromArgs;
 use bevy::color::palettes::css::DEEP_SKY_BLUE;
 use bevy::color::palettes::css::LIGHT_SKY_BLUE;
 use bevy::prelude::*;
-use bevy::ui::box_shadow::BoxShadowSamples;
+use bevy::ui::box_shadow::UiBoxShadowSamples;
 use bevy::winit::WinitSettings;
 
 #[derive(FromArgs, Resource)]
@@ -16,15 +16,8 @@ struct Args {
 }
 
 fn main() {
-    // `from_env` panics on the web
-    #[cfg(not(target_arch = "wasm32"))]
-    let args: Args = argh::from_env();
-    #[cfg(target_arch = "wasm32")]
-    let args = Args::from_args(&[], &[]).unwrap();
-
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(BoxShadowSamples(args.samples))
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
@@ -32,8 +25,14 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
+    // `from_env` panics on the web
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args = Args::from_args(&[], &[]).unwrap();
+
     // ui camera
-    commands.spawn(Camera2d);
+    commands.spawn((Camera2d, UiBoxShadowSamples(args.samples)));
 
     commands
         .spawn(NodeBundle {

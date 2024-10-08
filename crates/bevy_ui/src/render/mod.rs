@@ -47,7 +47,7 @@ use bevy_text::Text;
 use bevy_text::TextLayoutInfo;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
-use box_shadow::BoxShadowPlugin;
+use box_shadow::{BoxShadowPlugin, UiBoxShadowSamples};
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
 use graph::{NodeUi, SubGraphUi};
@@ -458,14 +458,22 @@ pub fn extract_default_ui_camera_view(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     ui_scale: Extract<Res<UiScale>>,
     query: Extract<
-        Query<(&RenderEntity, &Camera, Option<&UiAntiAlias>), Or<(With<Camera2d>, With<Camera3d>)>>,
+        Query<
+            (
+                &RenderEntity,
+                &Camera,
+                Option<&UiAntiAlias>,
+                Option<&UiBoxShadowSamples>,
+            ),
+            Or<(With<Camera2d>, With<Camera3d>)>,
+        >,
     >,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
 
     let scale = ui_scale.0.recip();
-    for (entity, camera, ui_anti_alias) in &query {
+    for (entity, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             continue;
@@ -521,6 +529,9 @@ pub fn extract_default_ui_camera_view(
             entity_commands.insert(DefaultCameraView(default_camera_view));
             if let Some(ui_anti_alias) = ui_anti_alias {
                 entity_commands.insert(*ui_anti_alias);
+            }
+            if let Some(shadow_samples) = shadow_samples {
+                entity_commands.insert(*shadow_samples);
             }
             transparent_render_phases.insert_or_clear(entity);
 
