@@ -42,18 +42,6 @@ impl Plugin for OitResolvePlugin {
             "oit_resolve.wgsl",
             Shader::from_wgsl
         );
-
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.add_systems(
-            Render,
-            (
-                queue_oit_resolve_pipeline.in_set(RenderSet::Queue),
-                prepare_oit_resolve_bind_group.in_set(RenderSet::PrepareBindGroups),
-            ),
-        );
     }
 
     fn finish(&self, app: &mut bevy_app::App) {
@@ -72,7 +60,15 @@ impl Plugin for OitResolvePlugin {
             return;
         }
 
-        render_app.init_resource::<OitResolvePipeline>();
+        render_app
+            .add_systems(
+                Render,
+                (
+                    queue_oit_resolve_pipeline.in_set(RenderSet::Queue),
+                    prepare_oit_resolve_bind_group.in_set(RenderSet::PrepareBindGroups),
+                ),
+            )
+            .init_resource::<OitResolvePipeline>();
     }
 }
 
