@@ -22,7 +22,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     texture::{FallbackImage, GpuImage, Image},
-    view::ExtractedView,
+    view::{ExtractedView, Visibility},
     world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -66,9 +66,8 @@ pub struct LightProbePlugin;
 /// global illumination to all fragments inside it.
 ///
 /// The light probe range is conceptually a unit cube (1×1×1) centered on the
-/// origin.  The [`bevy_transform::prelude::Transform`] applied to this entity
-/// can scale, rotate, or translate that cube so that it contains all fragments
-/// that should take this light probe into account.
+/// origin. The [`Transform`] applied to this entity can scale, rotate, or translate
+/// that cube so that it contains all fragments that should take this light probe into account.
 ///
 /// Note that a light probe will have no effect unless the entity contains some
 /// kind of illumination, which can either be an [`EnvironmentMapLight`] or an
@@ -104,6 +103,7 @@ pub struct LightProbePlugin;
 /// with other engines should be aware of this terminology difference.
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
+#[require(Transform, Visibility)]
 pub struct LightProbe;
 
 /// A GPU type that stores information about a light probe.
