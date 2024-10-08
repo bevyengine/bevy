@@ -6,7 +6,7 @@ pub mod ui_texture_slice_pipeline;
 
 use crate::{
     BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Node, Outline,
-    ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiImage, UiScale,
+    ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples, UiImage, UiScale,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -47,7 +47,7 @@ use bevy_text::Text;
 use bevy_text::TextLayoutInfo;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
-use box_shadow::{BoxShadowPlugin, UiBoxShadowSamples};
+use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
 use graph::{NodeUi, SubGraphUi};

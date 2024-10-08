@@ -2550,3 +2550,28 @@ pub enum UiAntiAlias {
     /// UI will render without anti-aliasing
     Off,
 }
+
+/// Number of shadow samples.
+/// A larger value will result in higher quality shadows.
+/// Default is 4, values higher than ~10 offer diminishing returns.
+///
+/// ```
+/// use bevy_core_pipeline::prelude::*;
+/// use bevy_ecs::prelude::*;
+/// use bevy_ui::prelude::*;
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     commands.spawn((
+///         Camera2d,
+///         UiBoxShadowSamples(6),
+///     ));
+/// }
+/// ```
+#[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
+pub struct UiBoxShadowSamples(pub u32);
+
+impl Default for UiBoxShadowSamples {
+    fn default() -> Self {
+        Self(4)
+    }
+}

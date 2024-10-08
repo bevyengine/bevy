@@ -1,7 +1,9 @@
 use core::{hash::Hash, ops::Range};
 
+use bevy_app::prelude::*;
 use bevy_asset::*;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_ecs::prelude::*;
 use bevy_ecs::{
     prelude::Component,
     storage::SparseSet,
@@ -11,6 +13,7 @@ use bevy_ecs::{
     },
 };
 use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
+use bevy_render::RenderApp;
 use bevy_render::{
     camera::Camera,
     render_phase::*,
@@ -24,7 +27,12 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-use crate::*;
+use crate::{
+    BoxShadow, CalculatedClip, DefaultUiCamera, Node, RenderUiSystem, ResolvedBorderRadius,
+    TargetCamera, TransparentUi, UiBoxShadowSamples, UiScale, Val,
+};
+
+use super::{QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
 pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17717747047134343426);
 
@@ -64,31 +72,6 @@ impl Plugin for BoxShadowPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<BoxShadowPipeline>();
         }
-    }
-}
-
-/// Number of shadow samples.
-/// A larger value will result in higher quality shadows.
-/// Default is 4, values higher than ~10 offer diminishing returns.
-///
-/// ```
-/// use bevy_core_pipeline::prelude::*;
-/// use bevy_ecs::prelude::*;
-/// use bevy_ui::prelude::*;
-///
-/// fn spawn_camera(mut commands: Commands) {
-///     commands.spawn((
-///         Camera2d,
-///         UiBoxShadowSamples(6),
-///     ));
-/// }
-/// ```
-#[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
-pub struct UiBoxShadowSamples(pub u32);
-
-impl Default for UiBoxShadowSamples {
-    fn default() -> Self {
-        Self(4)
     }
 }
 
