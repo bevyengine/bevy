@@ -218,6 +218,21 @@ impl<A: Asset> DenseAssetStorage<A> {
         }
     }
 
+    /// Gets a mutable borrow to the [`Arc`]d asset.
+    ///
+    /// Returns [`None`] if the asset is missing, or has a different generation.
+    pub(crate) fn get_arc_mut(&mut self, index: AssetIndex) -> Option<&mut Arc<A>> {
+        let entry = self.storage.get_mut(index.index as usize)?;
+        let Entry::Some { value, generation } = entry else {
+            return None;
+        };
+
+        if *generation != index.generation {
+            return None;
+        }
+        value.as_mut()
+    }
+
     pub(crate) fn flush(&mut self) {
         // NOTE: this assumes the allocator index is monotonically increasing.
         let new_len = self
@@ -570,6 +585,26 @@ impl<A: Asset> Assets<A> {
     /// [`asset_events`]: Self::asset_events
     pub(crate) fn asset_events_condition(assets: Res<Self>) -> bool {
         !assets.queued_events.is_empty()
+    }
+}
+
+impl<A: Asset + Clone> Assets<A> {
+    /// Retrieves a mutable reference to the [`Asset`] with the given `id` if it exists.
+    ///
+    /// If the asset is currently aliased (another [`Arc`] or [`Weak`] to this asset exists), the
+    /// asset is cloned.
+    ///
+    /// [`Weak`]: std::sync::Weak
+    pub fn get_cloned_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
+        let id = id.into();
+        let arc = match id {
+            AssetId::Index { index, .. } => self.dense_storage.get_arc_mut(index)?,
+            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid)?,
+        };
+
+        self.queued_events.push(AssetEvent::Modified { id });
+        // This clones the asset if the asset is aliased.
+        Some(Arc::make_mut(arc))
     }
 }
 
