@@ -290,8 +290,8 @@ impl UiSurface {
                 .map_err(LayoutError::TaffyError)
         } else {
             warn!(
-                "Styled child in a non-UI entity hierarchy. You are using an entity \
-with UI components as a child of an entity without UI components, results may be unexpected."
+                "Styled child ({entity}) in a non-UI entity hierarchy. You are using an entity \
+with UI components as a child of an entity without UI components, your UI layout may be broken."
             );
             Err(LayoutError::InvalidHierarchy)
         }
