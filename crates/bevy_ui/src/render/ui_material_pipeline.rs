@@ -372,7 +372,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             Without<BackgroundColor>,
         >,
     >,
-    render_entity_lookup: Extract<Query<&RenderEntity>>,
+    render_entity_lookup: Extract<Query<RenderEntity>>,
 ) {
     // If there is only one camera, we use it as default
     let default_single_camera = default_ui_camera.get();
@@ -382,7 +382,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             continue;
         };
 
-        let Ok(&camera_entity) = render_entity_lookup.get(camera_entity) else {
+        let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
             continue;
         };
 
@@ -415,7 +415,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 },
                 border,
                 clip: clip.map(|clip| clip.clip),
-                camera_entity: camera_entity.id(),
+                camera_entity,
             },
         );
     }

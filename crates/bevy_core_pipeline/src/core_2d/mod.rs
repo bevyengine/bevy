@@ -361,7 +361,7 @@ pub fn extract_core_2d_camera_phases(
     mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut opaque_2d_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
     mut alpha_mask_2d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
-    cameras_2d: Extract<Query<(&RenderEntity, &Camera), With<Camera2d>>>,
+    cameras_2d: Extract<Query<(RenderEntity, &Camera), With<Camera2d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
@@ -370,7 +370,6 @@ pub fn extract_core_2d_camera_phases(
         if !camera.is_active {
             continue;
         }
-        let entity = entity.id();
         transparent_2d_phases.insert_or_clear(entity);
         opaque_2d_phases.insert_or_clear(entity);
         alpha_mask_2d_phases.insert_or_clear(entity);

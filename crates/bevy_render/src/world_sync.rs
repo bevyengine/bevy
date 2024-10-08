@@ -84,9 +84,9 @@ impl Plugin for WorldSyncPlugin {
         app.observe(
             |trigger: Trigger<OnRemove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
-             query: Query<&RenderEntity>| {
+             query: Query<RenderEntity>| {
                 if let Ok(e) = query.get(trigger.entity()) {
-                    pending.push(EntityRecord::Removed(e.id()));
+                    pending.push(EntityRecord::Removed(e));
                 };
             },
         );
@@ -334,9 +334,9 @@ mod tests {
         main_world.observe(
             |trigger: Trigger<OnRemove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
-             query: Query<&RenderEntity>| {
+             query: Query<RenderEntity>| {
                 if let Ok(e) = query.get(trigger.entity()) {
-                    pending.push(EntityRecord::Removed(e.id()));
+                    pending.push(EntityRecord::Removed(e));
                 };
             },
         );

@@ -27,13 +27,13 @@ pub(super) struct ExtractedStateBuffers {
 
 pub(super) fn extract_buffers(
     mut commands: Commands,
-    changed: Extract<Query<(&RenderEntity, &AutoExposure), Changed<AutoExposure>>>,
+    changed: Extract<Query<(RenderEntity, &AutoExposure), Changed<AutoExposure>>>,
     mut removed: Extract<RemovedComponents<AutoExposure>>,
 ) {
     commands.insert_resource(ExtractedStateBuffers {
         changed: changed
             .iter()
-            .map(|(entity, settings)| (entity.id(), settings.clone()))
+            .map(|(entity, settings)| (entity, settings.clone()))
             .collect(),
         removed: removed.read().collect(),
     });

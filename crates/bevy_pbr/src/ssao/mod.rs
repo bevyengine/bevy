@@ -522,7 +522,7 @@ fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<
-            (&RenderEntity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
+            (RenderEntity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
             (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
         >,
     >,
@@ -537,7 +537,7 @@ fn extract_ssao_settings(
         }
         if camera.is_active {
             commands
-                .get_entity(entity.id())
+                .get_entity(entity)
                 .expect("SSAO entity wasn't synced.")
                 .insert(ssao_settings.clone());
         }
