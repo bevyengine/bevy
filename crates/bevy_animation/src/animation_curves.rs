@@ -196,8 +196,7 @@ pub struct AnimatableCurve<P, C> {
 ///
 /// You shouldn't ordinarily need to instantiate one of these manually. Bevy
 /// will automatically do so when you use an [`AnimatableCurve`] instance.
-#[derive(Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
+#[derive(Reflect)]
 pub struct AnimatableCurveEvaluator<P>
 where
     P: AnimatableProperty,
@@ -346,8 +345,7 @@ pub struct TranslationCurve<C>(pub C);
 ///
 /// You shouldn't need to instantiate this manually; Bevy will automatically do
 /// so.
-#[derive(Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
+#[derive(Reflect)]
 pub struct TranslationCurveEvaluator {
     evaluator: BasicAnimationCurveEvaluator<Vec3>,
 }
@@ -444,8 +442,7 @@ pub struct RotationCurve<C>(pub C);
 ///
 /// You shouldn't need to instantiate this manually; Bevy will automatically do
 /// so.
-#[derive(Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
+#[derive(Reflect)]
 pub struct RotationCurveEvaluator {
     evaluator: BasicAnimationCurveEvaluator<Quat>,
 }
@@ -542,8 +539,7 @@ pub struct ScaleCurve<C>(pub C);
 ///
 /// You shouldn't need to instantiate this manually; Bevy will automatically do
 /// so.
-#[derive(Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
+#[derive(Reflect)]
 pub struct ScaleCurveEvaluator {
     evaluator: BasicAnimationCurveEvaluator<Vec3>,
 }
@@ -636,8 +632,7 @@ impl AnimationCurveEvaluator for ScaleCurveEvaluator {
 #[reflect(from_reflect = false)]
 pub struct WeightsCurve<C>(pub C);
 
-#[derive(Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
+#[derive(Reflect)]
 struct WeightsCurveEvaluator {
     /// The values of the stack, in which each element is a list of morph target
     /// weights.
@@ -825,8 +820,7 @@ impl AnimationCurveEvaluator for WeightsCurveEvaluator {
     }
 }
 
-#[derive(Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
+#[derive(Reflect)]
 struct BasicAnimationCurveEvaluator<A>
 where
     A: Animatable,
@@ -835,8 +829,7 @@ where
     blend_register: Option<(A, f32)>,
 }
 
-#[derive(Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
+#[derive(Reflect)]
 struct BasicAnimationCurveEvaluatorStackElement<A>
 where
     A: Animatable,

@@ -127,16 +127,12 @@ fn setup_scene_after_load(
         info!("{}", *scene_handle);
 
         commands.spawn((
-            Camera3dBundle {
-                projection: projection.into(),
-                transform: Transform::from_translation(
-                    Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5),
-                )
+            Camera3d::default(),
+            Projection::from(projection),
+            Transform::from_translation(Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5))
                 .looking_at(Vec3::from(aabb.center), Vec3::Y),
-                camera: Camera {
-                    is_active: false,
-                    ..default()
-                },
+            Camera {
+                is_active: false,
                 ..default()
             },
             EnvironmentMapLight {

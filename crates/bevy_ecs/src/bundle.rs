@@ -55,9 +55,6 @@ use core::{any::TypeId, ptr::NonNull};
 /// would create incoherent behavior.
 /// This would be unexpected if bundles were treated as an abstraction boundary, as
 /// the abstraction would be unmaintainable for these cases.
-/// For example, both `Camera3dBundle` and `Camera2dBundle` contain the `CameraRenderGraph`
-/// component, but specifying different render graphs to use.
-/// If the bundles were both added to the same entity, only one of these two bundles would work.
 ///
 /// For this reason, there is intentionally no [`Query`] to match whether an entity
 /// contains the components of a bundle.

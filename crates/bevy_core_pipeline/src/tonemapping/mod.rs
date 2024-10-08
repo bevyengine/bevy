@@ -263,7 +263,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 error!(
                     "AgX tonemapping requires the `tonemapping_luts` feature.
                     Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
-                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
+                    or use a different `Tonemapping` method for your `Camera2d`/`Camera3d`."
                 );
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
             }
@@ -275,7 +275,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 error!(
                     "TonyMcMapFace tonemapping requires the `tonemapping_luts` feature.
                     Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
-                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
+                    or use a different `Tonemapping` method for your `Camera2d`/`Camera3d`."
                 );
                 shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
             }
@@ -284,7 +284,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 error!(
                     "BlenderFilmic tonemapping requires the `tonemapping_luts` feature.
                     Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
-                    or use a different `Tonemapping` method in your `Camera2dBundle`/`Camera3dBundle`."
+                    or use a different `Tonemapping` method for your `Camera2d`/`Camera3d`."
                 );
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }

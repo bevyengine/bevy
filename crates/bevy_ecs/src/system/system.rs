@@ -271,7 +271,7 @@ where
 /// let entity = world.run_system_once(|mut commands: Commands| {
 ///     commands.spawn_empty().id()
 /// }).unwrap();
-/// # assert!(world.get_entity(entity).is_some());
+/// # assert!(world.get_entity(entity).is_ok());
 /// ```
 ///
 /// ## Immediate Queries

@@ -85,7 +85,7 @@ use world_sync::{
 use crate::gpu_readback::GpuReadbackPlugin;
 use crate::{
     camera::CameraPlugin,
-    mesh::{morph::MorphPlugin, MeshPlugin, RenderMesh},
+    mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance, WgpuWrapper},
