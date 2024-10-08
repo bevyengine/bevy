@@ -13,8 +13,8 @@ use bevy_reflect::Reflect;
 
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
 ///
-/// [`SyncToRenderWorld`] is automatically added as a required components by
-/// [`ExtractComponentPlugin`] and [`SyncComponentPlugin`], so it doesn't need be
+/// [`SyncToRenderWorld`] is automatically added as a required component by
+/// [`ExtractComponentPlugin`] and [`SyncComponentPlugin`], so it doesn't need to be
 /// added manually when spawning or as a required component when either of these are used.
 ///
 /// # Implementation
