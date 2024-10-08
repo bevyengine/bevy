@@ -137,14 +137,14 @@ impl From<Handle<AnimationGraph>> for AnimationGraphHandle {
 }
 
 impl From<AnimationGraphHandle> for AssetId<AnimationGraph> {
-    fn from(material: AnimationGraphHandle) -> Self {
-        material.id()
+    fn from(handle: AnimationGraphHandle) -> Self {
+        handle.id()
     }
 }
 
 impl From<&AnimationGraphHandle> for AssetId<AnimationGraph> {
-    fn from(material: &AnimationGraphHandle) -> Self {
-        material.id()
+    fn from(handle: &AnimationGraphHandle) -> Self {
+        handle.id()
     }
 }
 
