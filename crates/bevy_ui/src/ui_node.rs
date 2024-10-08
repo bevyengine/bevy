@@ -2373,6 +2373,41 @@ impl ResolvedBorderRadius {
     };
 }
 
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct BoxShadow {
+    /// The shadow's color
+    pub color: Color,
+    /// Horizontal offset
+    pub x_offset: Val,
+    /// Vertical offset
+    pub y_offset: Val,
+    /// How much the shadow should spread outward.
+    ///
+    /// Negative values will make the shadow shrink inwards.
+    /// Percentage values are based on the width of the UI node.
+    pub spread_radius: Val,
+    /// Blurriness of the shadow
+    pub blur_radius: Val,
+}
+
+impl Default for BoxShadow {
+    fn default() -> Self {
+        Self {
+            color: Color::BLACK,
+            x_offset: Val::Percent(20.),
+            y_offset: Val::Percent(20.),
+            spread_radius: Val::ZERO,
+            blur_radius: Val::Percent(10.),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::GridPlacement;
@@ -2514,4 +2549,29 @@ pub enum UiAntiAlias {
     On,
     /// UI will render without anti-aliasing
     Off,
+}
+
+/// Number of shadow samples.
+/// A larger value will result in higher quality shadows.
+/// Default is 4, values higher than ~10 offer diminishing returns.
+///
+/// ```
+/// use bevy_core_pipeline::prelude::*;
+/// use bevy_ecs::prelude::*;
+/// use bevy_ui::prelude::*;
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     commands.spawn((
+///         Camera2d,
+///         UiBoxShadowSamples(6),
+///     ));
+/// }
+/// ```
+#[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
+pub struct UiBoxShadowSamples(pub u32);
+
+impl Default for UiBoxShadowSamples {
+    fn default() -> Self {
+        Self(4)
+    }
 }
