@@ -33,7 +33,7 @@ fn main() {
 
 fn setup2(mut commands: Commands) {
     // ui camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     commands
         .spawn(NodeBundle {
@@ -99,7 +99,7 @@ fn setup2(mut commands: Commands) {
 
 fn setup(mut commands: Commands) {
     // ui camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     commands
         .spawn(NodeBundle {
