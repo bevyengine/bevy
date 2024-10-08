@@ -41,10 +41,14 @@ impl Node for CameraDriverNode {
             let mut run_graph = true;
             if let Some(NormalizedRenderTarget::Window(window_ref)) = camera.target {
                 let window_entity = window_ref.entity();
-                if windows.windows.get(&window_entity).is_some() {
+                if windows
+                    .windows
+                    .get(&window_entity)
+                    .is_some_and(|w| w.physical_width > 0 && w.physical_height > 0)
+                {
                     camera_windows.insert(window_entity);
                 } else {
-                    // The window doesn't exist anymore so we don't need to run the graph
+                    // The window doesn't exist anymore or zero-sized so we don't need to run the graph
                     run_graph = false;
                 }
             }

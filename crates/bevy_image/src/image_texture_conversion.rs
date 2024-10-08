@@ -119,10 +119,10 @@ impl Image {
                     let b = pixel[2];
                     let a = 1f32;
 
-                    local_data.extend_from_slice(&r.to_ne_bytes());
-                    local_data.extend_from_slice(&g.to_ne_bytes());
-                    local_data.extend_from_slice(&b.to_ne_bytes());
-                    local_data.extend_from_slice(&a.to_ne_bytes());
+                    local_data.extend_from_slice(&r.to_le_bytes());
+                    local_data.extend_from_slice(&g.to_le_bytes());
+                    local_data.extend_from_slice(&b.to_le_bytes());
+                    local_data.extend_from_slice(&a.to_le_bytes());
                 }
 
                 data = local_data;
