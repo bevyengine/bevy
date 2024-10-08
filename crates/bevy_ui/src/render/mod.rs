@@ -214,6 +214,13 @@ pub struct ExtractedUiNodes {
     pub glyphs: Vec<ExtractedGlyph>,
 }
 
+impl ExtractedUiNodes {
+    pub fn clear(&mut self) {
+        self.uinodes.clear();
+        self.glyphs.clear();
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_background_colors(
     mut commands: Commands,
@@ -1182,6 +1189,5 @@ pub fn prepare_uinodes(
         *previous_len = batches.len();
         commands.insert_or_spawn_batch(batches);
     }
-    extracted_uinodes.uinodes.clear();
-    extracted_uinodes.glyphs.clear();
+    extracted_uinodes.clear();
 }
