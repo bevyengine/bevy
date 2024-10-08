@@ -4,7 +4,6 @@ use argh::FromArgs;
 use bevy::color::palettes::css::DEEP_SKY_BLUE;
 use bevy::color::palettes::css::LIGHT_SKY_BLUE;
 use bevy::prelude::*;
-use bevy::ui::box_shadow::UiBoxShadowSamples;
 use bevy::winit::WinitSettings;
 
 #[derive(FromArgs, Resource)]
