@@ -226,7 +226,7 @@ pub struct ExtractedBoxShadow {
     pub camera_entity: Entity,
     pub color: LinearRgba,
     pub radius: ResolvedBorderRadius,
-    pub blur: f32,
+    pub blur_radius: f32,
     pub size: Vec2,
 }
 
@@ -265,7 +265,7 @@ pub fn extract_shadows(
         };
 
         // Skip invisible images
-        if !view_visibility.get() || box_shadow.color.is_fully_transparent() {
+        if !view_visibility.get() || box_shadow.color.is_fully_transparent() || uinode.is_empty() {
             continue;
         }
 
@@ -288,25 +288,30 @@ pub fn extract_shadows(
             Val::VMax(percent) => percent / 100. * ui_logical_viewport_size.max_element(),
         };
 
-        let spread_radius = resolve_val(box_shadow.spread_radius, uinode.size().x);
-        let shadow_size = uinode.size() + spread_radius;
-        if shadow_size.cmple(Vec2::ZERO).any() {
-            continue;
-        }
+        let spread_x = resolve_val(box_shadow.spread_radius, uinode.size().x);
+        let spread_ratio_x = (spread_x + uinode.size().x) / uinode.size().x;
 
-        let blur = resolve_val(box_shadow.blur_radius, uinode.size().y);
+        let spread = vec2(
+            spread_x,
+            (spread_ratio_x * uinode.size().y) - uinode.size().y,
+        );
+
+        let blur_radius = resolve_val(box_shadow.blur_radius, uinode.size().x);
         let offset = vec2(
             resolve_val(box_shadow.x_offset, uinode.size().x),
             resolve_val(box_shadow.y_offset, uinode.size().y),
         );
 
-        let shadow_scale = (uinode.size() / shadow_size).min_element();
+        let shadow_size = uinode.size() + spread;
+        if shadow_size.cmple(Vec2::ZERO).any() {
+            continue;
+        }
 
         let radius = ResolvedBorderRadius {
-            top_left: uinode.border_radius.top_left * shadow_scale,
-            top_right: uinode.border_radius.top_left * shadow_scale,
-            bottom_left: uinode.border_radius.top_left * shadow_scale,
-            bottom_right: uinode.border_radius.top_left * shadow_scale,
+            top_left: uinode.border_radius.top_left * spread_ratio_x,
+            top_right: uinode.border_radius.top_left * spread_ratio_x,
+            bottom_left: uinode.border_radius.top_left * spread_ratio_x,
+            bottom_right: uinode.border_radius.top_left * spread_ratio_x,
         };
 
         extracted_box_shadows.box_shadows.insert(
@@ -317,12 +322,12 @@ pub fn extract_shadows(
                 color: box_shadow.color.into(),
                 rect: Rect {
                     min: Vec2::ZERO,
-                    max: shadow_size + 6. * blur,
+                    max: shadow_size + 6. * blur_radius,
                 },
                 clip: clip.map(|clip| clip.clip),
                 camera_entity: camera_entity.id(),
                 radius,
-                blur,
+                blur_radius,
                 size: shadow_size,
             },
         );
@@ -477,7 +482,7 @@ pub fn prepare_shadows(
                             vertex_color: box_shadow.color.to_f32_array(),
                             size: box_shadow.size.into(),
                             radius,
-                            blur: box_shadow.blur,
+                            blur: box_shadow.blur_radius,
                             bounds: rect_size.xy().into(),
                         });
                     }
