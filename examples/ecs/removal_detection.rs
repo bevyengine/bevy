@@ -17,7 +17,7 @@ fn main() {
         // This system will remove a component after two seconds.
         .add_systems(Update, remove_component)
         // This observer will react to the removal of the component.
-        .observe(react_on_removal)
+        .add_observer(react_on_removal)
         .run();
 }
 

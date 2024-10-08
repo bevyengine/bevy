@@ -581,7 +581,7 @@ mod tests {
 
     fn observe_trigger(app: &mut App, scene_id: InstanceId, scene_entity: Entity) {
         // Add observer
-        app.world_mut().observe(
+        app.world_mut().add_observer(
             move |trigger: Trigger<SceneInstanceReady>,
                   scene_spawner: Res<SceneSpawner>,
                   mut trigger_count: ResMut<TriggerCount>| {
