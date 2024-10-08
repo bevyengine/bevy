@@ -433,7 +433,7 @@ pub fn extract_uinode_borders(
                             flip_y: false,
                             border: uinode.border(),
                             border_radius: uinode.border_radius(),
-                            node_type: NodeType::Rect,
+                            node_type: NodeType::Border,
                         },
                     },
                 );
@@ -461,7 +461,7 @@ pub fn extract_uinode_borders(
                         flip_y: false,
                         border: BorderRect::square(uinode.outline_width()),
                         border_radius: uinode.outline_radius(),
-                        node_type: NodeType::Rect,
+                        node_type: NodeType::Border,
                     },
                 },
             );
