@@ -83,6 +83,8 @@ use bevy_ecs::{
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
 
+use crate::config::GizmoMeshConfig;
+
 #[cfg(feature = "bevy_render")]
 use {
     bevy_ecs::{
@@ -456,9 +458,13 @@ fn extract_gizmo_data(
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
-            (*handle).clone_weak(),
             #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
-            config::GizmoMeshConfig::from(config),
+            GizmoMeshConfig {
+                line_perspective: config.line_perspective,
+                line_style: config.line_style,
+                render_layers: config.render_layers.clone(),
+                handle: handle.clone(),
+            },
             TemporaryRenderEntity,
         ));
     }
@@ -598,20 +604,20 @@ struct DrawLineGizmo;
 impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
-    type ItemQuery = Read<Handle<LineGizmo>>;
+    type ItemQuery = Read<GizmoMeshConfig>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
-        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        config: Option<ROQueryItem<'w, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(handle) = handle else {
+        let Some(config) = config else {
             return RenderCommandResult::Skip;
         };
-        let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
+        let Some(line_gizmo) = line_gizmos.into_inner().get(&config.handle) else {
             return RenderCommandResult::Skip;
         };
 
@@ -651,20 +657,20 @@ struct DrawLineJointGizmo;
 impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
-    type ItemQuery = Read<Handle<LineGizmo>>;
+    type ItemQuery = Read<GizmoMeshConfig>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
-        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        config: Option<ROQueryItem<'w, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(handle) = handle else {
+        let Some(config) = config else {
             return RenderCommandResult::Skip;
         };
-        let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
+        let Some(line_gizmo) = line_gizmos.into_inner().get(&config.handle) else {
             return RenderCommandResult::Skip;
         };
 

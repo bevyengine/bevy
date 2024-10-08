@@ -537,7 +537,8 @@ fn extract_ssao_settings(
         }
         if camera.is_active {
             commands
-                .get_or_spawn(entity.id())
+                .get_entity(entity.id())
+                .expect("SSAO entity wasn't synced.")
                 .insert(ssao_settings.clone());
         }
     }

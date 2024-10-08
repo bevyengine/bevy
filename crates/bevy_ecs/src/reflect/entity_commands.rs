@@ -221,7 +221,7 @@ fn insert_reflect(
         .get_represented_type_info()
         .expect("component should represent a type.");
     let type_path = type_info.type_path();
-    let Some(mut entity) = world.get_entity_mut(entity) else {
+    let Ok(mut entity) = world.get_entity_mut(entity) else {
         panic!("error[B0003]: Could not insert a reflected component (of type {type_path}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003");
     };
     let Some(type_registration) = type_registry.get(type_info.type_id()) else {
@@ -284,7 +284,7 @@ fn remove_reflect(
     type_registry: &TypeRegistry,
     component_type_path: Cow<'static, str>,
 ) {
-    let Some(mut entity) = world.get_entity_mut(entity) else {
+    let Ok(mut entity) = world.get_entity_mut(entity) else {
         return;
     };
     let Some(type_registration) = type_registry.get_with_type_path(&component_type_path) else {
