@@ -309,9 +309,9 @@ pub fn extract_shadows(
 
         let radius = ResolvedBorderRadius {
             top_left: uinode.border_radius.top_left * spread_ratio_x,
-            top_right: uinode.border_radius.top_left * spread_ratio_x,
-            bottom_left: uinode.border_radius.top_left * spread_ratio_x,
-            bottom_right: uinode.border_radius.top_left * spread_ratio_x,
+            top_right: uinode.border_radius.top_right * spread_ratio_x,
+            bottom_left: uinode.border_radius.bottom_left * spread_ratio_x,
+            bottom_right: uinode.border_radius.bottom_right * spread_ratio_x,
         };
 
         extracted_box_shadows.box_shadows.insert(
