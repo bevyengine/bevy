@@ -2,13 +2,7 @@
 
 use argh::FromArgs;
 use bevy::color::palettes::css::DEEP_SKY_BLUE;
-use bevy::color::palettes::css::LIGHT_CORAL;
-use bevy::color::palettes::css::LIGHT_GRAY;
 use bevy::color::palettes::css::LIGHT_SKY_BLUE;
-use bevy::color::palettes::css::MAROON;
-use bevy::color::palettes::css::NAVY;
-use bevy::color::palettes::css::RED;
-use bevy::math::vec2;
 use bevy::prelude::*;
 use bevy::ui::box_shadow::BoxShadowSamples;
 use bevy::winit::WinitSettings;
