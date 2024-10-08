@@ -363,8 +363,7 @@ fn layout_entries(
         // Check if the GPU supports writable storage buffers in the fragment shader
         // If not, we can't use OIT, so we skip the OIT bindings.
         // This is a hack to avoid errors on webgl -- the OIT plugin will warn the user that OIT
-        // is not supported on their platform, so we don't need to do it here, and the missing
-        // plugin means they'll never be able to set the OIT_ENABLED flag anyway.
+        // is not supported on their platform, so we don't need to do it here.
         if render_adapter
             .get_downlevel_capabilities()
             .flags
