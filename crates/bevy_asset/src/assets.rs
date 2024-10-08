@@ -434,6 +434,33 @@ impl<A: Asset> Assets<A> {
         }
     }
 
+    /// Retrieves a mutable reference to the [`Asset`] with the given `id` if it exists.
+    ///
+    /// If the asset is currently aliased (another [`Arc`] or [`Weak`] to this asset exists),
+    /// returns an error.
+    ///
+    /// [`Weak`]: std::sync::Weak
+    pub fn get_inplace_mut(
+        &mut self,
+        id: impl Into<AssetId<A>>,
+    ) -> Result<&mut A, MutableAssetError> {
+        let id = id.into();
+        let arc = match id {
+            AssetId::Index { index, .. } => self.dense_storage.get_arc_mut(index),
+            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid),
+        };
+
+        let Some(arc) = arc else {
+            return Err(MutableAssetError::Missing);
+        };
+        let Some(asset_mut) = Arc::get_mut(arc) else {
+            return Err(MutableAssetError::Aliased);
+        };
+
+        self.queued_events.push(AssetEvent::Modified { id });
+        Ok(asset_mut)
+    }
+
     /// Removes (and returns) the [`Asset`] with the given `id`, if it exists.
     /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
     pub fn remove(&mut self, id: impl Into<AssetId<A>>) -> Option<Arc<A>> {
@@ -654,6 +681,14 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
 pub struct InvalidGenerationError {
     index: AssetIndex,
     current_generation: u32,
+}
+
+#[derive(Error, Display, Debug)]
+pub enum MutableAssetError {
+    #[display("The asset is not present or has an invalid generation.")]
+    Missing,
+    #[display("The asset Arc is aliased (there is another Arc or Weak to this asset), so it is not safe to mutate.")]
+    Aliased,
 }
 
 #[cfg(test)]
