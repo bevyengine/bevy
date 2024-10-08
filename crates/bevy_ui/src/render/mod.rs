@@ -896,7 +896,7 @@ pub fn prepare_uinodes(
 
                             existing_batch = batches.last_mut();
                         } else {
-                            return;
+                            UnwindContinue();
                         }
                     } else if batch_image_handle == AssetId::default()
                         && extracted_uinode.image != AssetId::default()
@@ -919,7 +919,7 @@ pub fn prepare_uinodes(
                                     )
                                 });
                         } else {
-                            return;
+                            continue;
                         }
                     }
                     match &extracted_uinode.item {
@@ -993,7 +993,7 @@ pub fn prepare_uinodes(
                                     || positions_diff[1].y - positions_diff[2].y
                                         >= transformed_rect_size.y
                                 {
-                                    return;
+                                    continue;
                                 }
                             }
                             let uvs = if flags == shader_flags::UNTEXTURED {
