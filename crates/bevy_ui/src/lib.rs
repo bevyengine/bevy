@@ -136,6 +136,7 @@ impl Plugin for UiPlugin {
             .register_type::<Interaction>()
             .register_type::<Node>()
             .register_type::<RelativeCursorPosition>()
+            .register_type::<ScrollPosition>()
             .register_type::<Style>()
             .register_type::<TargetCamera>()
             .register_type::<UiImage>()
@@ -148,6 +149,7 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
             .register_type::<Outline>()
+            .register_type::<UiBoxShadowSamples>()
             .configure_sets(
                 PostUpdate,
                 (

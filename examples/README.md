@@ -496,6 +496,7 @@ Example | Description
 Example | Description
 --- | ---
 [Borders](../examples/ui/borders.rs) | Demonstrates how to create a node with a border
+[Box Shadow](../examples/ui/box_shadow.rs) | Demonstrates how to create a node with a shadow
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
 [Display and Visibility](../examples/ui/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
