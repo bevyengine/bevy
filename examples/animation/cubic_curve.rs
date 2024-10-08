@@ -38,43 +38,38 @@ fn setup(
 
     // Spawning a cube to experiment on
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::from(ORANGE)),
-            transform: Transform::from_translation(points[0][0]),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::from(ORANGE))),
+        Transform::from_translation(points[0][0]),
         Curve(bezier),
     ));
 
     // Some light to see something
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
             ..default()
         },
-        transform: Transform::from_xyz(8., 16., 8.),
-        ..default()
-    });
+        Transform::from_xyz(8., 16., 8.),
+    ));
 
     // ground plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50., 50.)),
-        material: materials.add(Color::from(SILVER)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50., 50.))),
+        MeshMaterial3d(materials.add(Color::from(SILVER))),
+    ));
 
     // The camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0., 6., 12.).looking_at(Vec3::new(0., 3., 0.), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0., 6., 12.).looking_at(Vec3::new(0., 3., 0.), Vec3::Y),
+    ));
 }
 
 fn animate_cube(time: Res<Time>, mut query: Query<(&mut Transform, &Curve)>, mut gizmos: Gizmos) {
-    let t = (time.elapsed_seconds().sin() + 1.) / 2.;
+    let t = (ops::sin(time.elapsed_seconds()) + 1.) / 2.;
 
     for (mut transform, cubic_curve) in &mut query {
         // Draw the curve

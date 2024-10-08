@@ -94,60 +94,53 @@ fn setup(
     app_status: Res<AppStatus>,
 ) {
     // Spawn a plane.
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.2, 0.1))),
+    ));
 
     // Spawn the two HLODs.
 
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server
+    commands.spawn((
+        SceneRoot(
+            asset_server
                 .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-            ..default()
-        })
-        .insert(MainModel::HighPoly);
+        ),
+        MainModel::HighPoly,
+    ));
 
-    commands
-        .spawn(SceneBundle {
-            scene: asset_server.load(
+    commands.spawn((
+        SceneRoot(
+            asset_server.load(
                 GltfAssetLabel::Scene(0)
                     .from_asset("models/FlightHelmetLowPoly/FlightHelmetLowPoly.gltf"),
             ),
-            ..default()
-        })
-        .insert(MainModel::LowPoly);
+        ),
+        MainModel::LowPoly,
+    ));
 
     // Spawn a light.
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: FULL_DAYLIGHT,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI * -0.15,
-            PI * -0.15,
-        )),
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+        CascadeShadowConfigBuilder {
             maximum_distance: 30.0,
             first_cascade_far_bound: 0.9,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 
     // Spawn a camera.
     commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(0.7, 0.7, 1.0).looking_at(CAMERA_FOCAL_POINT, Vec3::Y),
-            ..default()
-        })
+        .spawn((
+            Camera3d::default(),
+            Transform::from_xyz(0.7, 0.7, 1.0).looking_at(CAMERA_FOCAL_POINT, Vec3::Y),
+        ))
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -176,7 +169,7 @@ fn setup(
 // component as appropriate.
 fn set_visibility_ranges(
     mut commands: Commands,
-    mut new_meshes: Query<Entity, Added<Handle<Mesh>>>,
+    mut new_meshes: Query<Entity, Added<Mesh3d>>,
     parents: Query<(Option<&Parent>, Option<&MainModel>)>,
 ) {
     // Loop over each newly-added mesh.

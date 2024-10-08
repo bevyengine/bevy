@@ -46,7 +46,7 @@ const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }
 
 fn setup_menu(mut commands: Commands) {
@@ -81,7 +81,7 @@ fn setup_menu(mut commands: Commands) {
                     parent.spawn(TextBundle::from_section(
                         "Play",
                         TextStyle {
-                            font_size: 40.0,
+                            font_size: 33.0,
                             color: Color::srgb(0.9, 0.9, 0.9),
                             ..default()
                         },
@@ -156,7 +156,7 @@ fn movement(
 fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     for mut sprite in &mut query {
         let new_color = LinearRgba {
-            blue: (time.elapsed_seconds() * 0.5).sin() + 2.0,
+            blue: ops::sin(time.elapsed_seconds() * 0.5) + 2.0,
             ..LinearRgba::from(sprite.color)
         };
 

@@ -1,8 +1,8 @@
-use crate::serde::ser::error_utils::make_custom_error;
-use crate::serde::{SerializationData, TypedReflectSerializer};
-use crate::{TupleStruct, TypeInfo, TypeRegistry};
-use serde::ser::SerializeTupleStruct;
-use serde::Serialize;
+use crate::{
+    serde::{ser::error_utils::make_custom_error, SerializationData, TypedReflectSerializer},
+    TupleStruct, TypeInfo, TypeRegistry,
+};
+use serde::{ser::SerializeTupleStruct, Serialize};
 
 /// A serializer for [`TupleStruct`] values.
 pub(super) struct TupleStructSerializer<'a> {
@@ -48,6 +48,15 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
             .get(type_info.type_id())
             .and_then(|registration| registration.data::<SerializationData>());
         let ignored_len = serialization_data.map(SerializationData::len).unwrap_or(0);
+
+        if self.tuple_struct.field_len() == 1 && serialization_data.is_none() {
+            let field = self.tuple_struct.field(0).unwrap();
+            return serializer.serialize_newtype_struct(
+                tuple_struct_info.type_path_table().ident().unwrap(),
+                &TypedReflectSerializer::new_internal(field, self.registry),
+            );
+        }
+
         let mut state = serializer.serialize_tuple_struct(
             tuple_struct_info.type_path_table().ident().unwrap(),
             self.tuple_struct.field_len() - ignored_len,

@@ -17,7 +17,7 @@ fn main() {
 
 fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Top-level grid (app frame)
     commands
@@ -147,7 +147,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         "A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely.",
                         TextStyle {
                             font: font.clone(),
-                            font_size: 16.0,
+                            font_size: 13.0,
                             ..default()
                         },
                     ));

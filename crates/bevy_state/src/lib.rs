@@ -59,23 +59,21 @@ pub mod reflect;
 pub mod prelude {
     #[cfg(feature = "bevy_app")]
     #[doc(hidden)]
-    pub use crate::app::AppExtStates;
-    #[doc(hidden)]
-    pub use crate::commands::CommandsStatesExt;
-    #[doc(hidden)]
-    pub use crate::condition::*;
+    pub use crate::{app::AppExtStates, state_scoped_events::StateScopedEventsAppExt};
+
     #[cfg(feature = "bevy_reflect")]
     #[doc(hidden)]
     pub use crate::reflect::{ReflectFreelyMutableState, ReflectState};
+
     #[doc(hidden)]
-    pub use crate::state::{
-        last_transition, ComputedStates, EnterSchedules, ExitSchedules, NextState, OnEnter, OnExit,
-        OnTransition, State, StateSet, StateTransition, StateTransitionEvent, States, SubStates,
-        TransitionSchedules,
+    pub use crate::{
+        commands::CommandsStatesExt,
+        condition::*,
+        state::{
+            last_transition, ComputedStates, EnterSchedules, ExitSchedules, NextState, OnEnter,
+            OnExit, OnTransition, State, StateSet, StateTransition, StateTransitionEvent, States,
+            SubStates, TransitionSchedules,
+        },
+        state_scoped::StateScoped,
     };
-    #[doc(hidden)]
-    pub use crate::state_scoped::StateScoped;
-    #[cfg(feature = "bevy_app")]
-    #[doc(hidden)]
-    pub use crate::state_scoped_events::StateScopedEventsAppExt;
 }

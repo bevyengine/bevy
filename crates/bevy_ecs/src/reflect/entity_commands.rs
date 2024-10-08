@@ -1,15 +1,13 @@
-use crate::prelude::Mut;
-use crate::reflect::AppTypeRegistry;
-use crate::system::{EntityCommands, Resource};
-use crate::world::Command;
 use crate::{
     entity::Entity,
-    reflect::{ReflectBundle, ReflectComponent},
-    world::World,
+    prelude::Mut,
+    reflect::{AppTypeRegistry, ReflectBundle, ReflectComponent},
+    system::{EntityCommands, Resource},
+    world::{Command, World},
 };
+use alloc::borrow::Cow;
 use bevy_reflect::{PartialReflect, TypeRegistry};
-use std::borrow::Cow;
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// An extension trait for [`EntityCommands`] for reflection related functions
 pub trait ReflectCommandExt {
@@ -79,14 +77,13 @@ pub trait ReflectCommandExt {
     ///
     ///     // Or even with BundleA
     ///     prefab.data = boxed_reflect_bundle_a;
-    ///     
+    ///
     ///     // No matter which component or bundle is in the resource and without knowing the exact type, you can
     ///     // use the insert_reflect entity command to insert that component/bundle into an entity.
     ///     commands
     ///         .spawn_empty()
     ///         .insert_reflect(prefab.data.clone_value());
     /// }
-    ///
     /// ```
     fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self;
 
@@ -161,7 +158,6 @@ pub trait ReflectCommandExt {
     ///     commands.entity(prefab.entity)
     ///         .remove_reflect(prefab.data.reflect_type_path().to_owned());
     /// }
-    ///
     /// ```
     fn remove_reflect(&mut self, component_type_name: impl Into<Cow<'static, str>>) -> &mut Self;
     /// Same as [`remove_reflect`](ReflectCommandExt::remove_reflect), but using the `T` resource as type registry instead of
@@ -174,7 +170,7 @@ pub trait ReflectCommandExt {
 
 impl ReflectCommandExt for EntityCommands<'_> {
     fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self {
-        self.commands.add(InsertReflect {
+        self.commands.queue(InsertReflect {
             entity: self.entity,
             component,
         });
@@ -185,7 +181,7 @@ impl ReflectCommandExt for EntityCommands<'_> {
         &mut self,
         component: Box<dyn PartialReflect>,
     ) -> &mut Self {
-        self.commands.add(InsertReflectWithRegistry::<T> {
+        self.commands.queue(InsertReflectWithRegistry::<T> {
             entity: self.entity,
             _t: PhantomData,
             component,
@@ -194,7 +190,7 @@ impl ReflectCommandExt for EntityCommands<'_> {
     }
 
     fn remove_reflect(&mut self, component_type_path: impl Into<Cow<'static, str>>) -> &mut Self {
-        self.commands.add(RemoveReflect {
+        self.commands.queue(RemoveReflect {
             entity: self.entity,
             component_type_path: component_type_path.into(),
         });
@@ -205,7 +201,7 @@ impl ReflectCommandExt for EntityCommands<'_> {
         &mut self,
         component_type_name: impl Into<Cow<'static, str>>,
     ) -> &mut Self {
-        self.commands.add(RemoveReflectWithRegistry::<T> {
+        self.commands.queue(RemoveReflectWithRegistry::<T> {
             entity: self.entity,
             _t: PhantomData,
             component_type_name: component_type_name.into(),
@@ -225,7 +221,7 @@ fn insert_reflect(
         .get_represented_type_info()
         .expect("component should represent a type.");
     let type_path = type_info.type_path();
-    let Some(mut entity) = world.get_entity_mut(entity) else {
+    let Ok(mut entity) = world.get_entity_mut(entity) else {
         panic!("error[B0003]: Could not insert a reflected component (of type {type_path}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003");
     };
     let Some(type_registration) = type_registry.get(type_info.type_id()) else {
@@ -288,7 +284,7 @@ fn remove_reflect(
     type_registry: &TypeRegistry,
     component_type_path: Cow<'static, str>,
 ) {
-    let Some(mut entity) = world.get_entity_mut(entity) else {
+    let Ok(mut entity) = world.get_entity_mut(entity) else {
         return;
     };
     let Some(type_registration) = type_registry.get_with_type_path(&component_type_path) else {
@@ -351,10 +347,15 @@ impl<T: Resource + AsRef<TypeRegistry>> Command for RemoveReflectWithRegistry<T>
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::{AppTypeRegistry, ReflectComponent};
-    use crate::reflect::{ReflectBundle, ReflectCommandExt};
-    use crate::system::{Commands, SystemState};
-    use crate::{self as bevy_ecs, bundle::Bundle, component::Component, world::World};
+    use crate::{
+        self as bevy_ecs,
+        bundle::Bundle,
+        component::Component,
+        prelude::{AppTypeRegistry, ReflectComponent},
+        reflect::{ReflectBundle, ReflectCommandExt},
+        system::{Commands, SystemState},
+        world::World,
+    };
     use bevy_ecs_macros::Resource;
     use bevy_reflect::{PartialReflect, Reflect, TypeRegistry};
 

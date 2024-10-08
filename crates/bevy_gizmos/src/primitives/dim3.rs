@@ -3,14 +3,18 @@
 use super::helpers::*;
 
 use bevy_color::Color;
-use bevy_math::primitives::{
-    BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
-    Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
+use bevy_math::{
+    primitives::{
+        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
+        Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
+    },
+    Dir3, Isometry3d, Quat, UVec2, Vec2, Vec3,
 };
-use bevy_math::{Dir3, Isometry3d, Quat, UVec2, Vec2, Vec3};
 
-use crate::circles::SphereBuilder;
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{
+    circles::SphereBuilder,
+    prelude::{GizmoConfigGroup, Gizmos},
+};
 
 const DEFAULT_RESOLUTION: u32 = 5;
 // length used to simulate infinite lines
@@ -39,7 +43,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -60,7 +67,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = SphereBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = SphereBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -118,7 +128,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Plane3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Plane3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -167,7 +180,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -198,7 +214,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -223,7 +242,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -246,7 +268,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -276,7 +301,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -300,7 +328,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -390,7 +421,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Cylinder3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Cylinder3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -473,7 +507,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Capsule3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Capsule3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -526,11 +563,20 @@ where
                 .short_arc_3d_between(lower_center, start, lower_apex, self.color);
         });
 
-        let upper_lines = upper_points.windows(2).map(|win| (win[0], win[1]));
-        let lower_lines = lower_points.windows(2).map(|win| (win[0], win[1]));
-        upper_lines.chain(lower_lines).for_each(|(start, end)| {
-            self.gizmos.line(start, end, self.color);
-        });
+        let circle_rotation = self
+            .isometry
+            .rotation
+            .mul_quat(Quat::from_rotation_x(core::f32::consts::FRAC_PI_2));
+        self.gizmos.circle(
+            Isometry3d::new(upper_center, circle_rotation),
+            self.radius,
+            self.color,
+        );
+        self.gizmos.circle(
+            Isometry3d::new(lower_center, circle_rotation),
+            self.radius,
+            self.color,
+        );
 
         let connection_lines = upper_points.into_iter().zip(lower_points).skip(1);
         connection_lines.for_each(|(start, end)| {
@@ -601,7 +647,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Cone3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Cone3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -700,7 +749,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = ConicalFrustum3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = ConicalFrustum3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -801,7 +853,10 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Torus3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Torus3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
@@ -874,7 +929,10 @@ where
 // tetrahedron
 
 impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'w, 's, T> {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,

@@ -20,7 +20,7 @@
 //! - The [`PointerHits`] events produced by a backend do **not** need to be sorted or filtered, all
 //!   that is needed is an unordered list of entities and their [`HitData`].
 //!
-//! - Backends do not need to consider the [`Pickable`](crate::Pickable) component, though they may
+//! - Backends do not need to consider the [`PickingBehavior`](crate::PickingBehavior) component, though they may
 //!   use it for optimization purposes. For example, a backend that traverses a spatial hierarchy
 //!   may want to early exit if it intersects an entity that blocks lower entities from being
 //!   picked.
@@ -42,7 +42,7 @@ pub mod prelude {
     pub use super::{ray::RayMap, HitData, PointerHits};
     pub use crate::{
         pointer::{PointerId, PointerLocation},
-        PickSet, Pickable,
+        PickSet, PickingBehavior,
     };
 }
 
@@ -84,7 +84,8 @@ pub struct PointerHits {
 }
 
 impl PointerHits {
-    #[allow(missing_docs)]
+    // FIXME(15321): solve CI failures, then replace with `#[expect()]`.
+    #[allow(missing_docs, reason = "Not all docs are written yet (#3492).")]
     pub fn new(pointer: prelude::PointerId, picks: Vec<(Entity, HitData)>, order: f32) -> Self {
         Self {
             pointer,
@@ -112,7 +113,8 @@ pub struct HitData {
 }
 
 impl HitData {
-    #[allow(missing_docs)]
+    // FIXME(15321): solve CI failures, then replace with `#[expect()]`.
+    #[allow(missing_docs, reason = "Not all docs are written yet (#3492).")]
     pub fn new(camera: Entity, depth: f32, position: Option<Vec3>, normal: Option<Vec3>) -> Self {
         Self {
             camera,

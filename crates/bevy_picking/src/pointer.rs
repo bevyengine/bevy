@@ -17,7 +17,7 @@ use bevy_window::PrimaryWindow;
 
 use uuid::Uuid;
 
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use crate::backend::HitData;
 
@@ -26,7 +26,8 @@ use crate::backend::HitData;
 /// This component is needed because pointers can be spawned and despawned, but they need to have a
 /// stable ID that persists regardless of the Entity they are associated with.
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, Component, Reflect)]
-#[reflect(Component, Default)]
+#[require(PointerLocation, PointerPress, PointerInteraction)]
+#[reflect(Component, Default, Debug, Hash, PartialEq)]
 pub enum PointerId {
     /// The mouse pointer.
     #[default]
@@ -65,7 +66,7 @@ impl PointerId {
 /// Holds a list of entities this pointer is currently interacting with, sorted from nearest to
 /// farthest.
 #[derive(Debug, Default, Clone, Component, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct PointerInteraction {
     pub(crate) sorted_entities: Vec<(Entity, HitData)>,
 }
@@ -93,7 +94,7 @@ pub fn update_pointer_map(pointers: Query<(Entity, &PointerId)>, mut map: ResMut
 
 /// Tracks the state of the pointer's buttons in response to [`PointerInput`] events.
 #[derive(Debug, Default, Clone, Component, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct PointerPress {
     primary: bool,
     secondary: bool,
@@ -155,7 +156,7 @@ impl PointerButton {
 
 /// Component that tracks a pointer's current [`Location`].
 #[derive(Debug, Default, Clone, Component, Reflect, PartialEq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct PointerLocation {
     /// The [`Location`] of the pointer. Note that a location is both the target, and the position
     /// on the target.
@@ -164,6 +165,13 @@ pub struct PointerLocation {
 }
 
 impl PointerLocation {
+    ///Returns a [`PointerLocation`] associated with the given location
+    pub fn new(location: Location) -> Self {
+        Self {
+            location: Some(location),
+        }
+    }
+
     /// Returns `Some(&`[`Location`]`)` if the pointer is active, or `None` if the pointer is
     /// inactive.
     pub fn location(&self) -> Option<&Location> {
@@ -180,6 +188,7 @@ impl PointerLocation {
 ///   render target. It is up to picking backends to associate a Pointer's `Location` with a
 ///   specific `Camera`, if any.
 #[derive(Debug, Clone, Component, Reflect, PartialEq)]
+#[reflect(Component, Debug, PartialEq)]
 pub struct Location {
     /// The [`NormalizedRenderTarget`] associated with the pointer, usually a window.
     pub target: NormalizedRenderTarget,

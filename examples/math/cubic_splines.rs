@@ -66,7 +66,7 @@ fn setup(mut commands: Commands) {
     commands.insert_resource(MousePosition::default());
     commands.insert_resource(MouseEditMove::default());
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // The instructions and modes are rendered on the left-hand side in a column.
     let instructions_text = "Click and drag to add control points and their tangents\n\
@@ -127,7 +127,7 @@ impl std::fmt::Display for SplineMode {
 }
 
 /// The current cycling mode, which determines whether the control points should be interpolated
-/// cylically (to make a loop).
+/// cyclically (to make a loop).
 #[derive(Clone, Copy, Resource, Default)]
 enum CyclingMode {
     #[default]
@@ -296,6 +296,7 @@ fn update_cycling_mode_text(
 // -----------------------------------
 
 /// A small state machine which tracks a click-and-drag motion used to create new control points.
+///
 /// When the user is not doing a click-and-drag motion, the `start` field is `None`. When the user
 /// presses the left mouse button, the location of that press is temporarily stored in the field.
 #[derive(Clone, Default, Resource)]

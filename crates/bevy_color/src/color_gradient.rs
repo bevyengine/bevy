@@ -54,20 +54,27 @@ impl<T> Curve<T> for ColorCurve<T>
 where
     T: Mix + Clone,
 {
+    #[inline]
     fn domain(&self) -> Interval {
         self.core.domain()
     }
 
-    fn sample_unchecked(&self, t: f32) -> T {
+    #[inline]
+    fn sample_clamped(&self, t: f32) -> T {
+        // `EvenCore::sample_with` clamps the input implicitly.
         self.core.sample_with(t, T::mix)
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.sample_clamped(t)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::palettes::basic;
-    use crate::Srgba;
+    use crate::{palettes::basic, Srgba};
 
     #[test]
     fn test_color_curve() {

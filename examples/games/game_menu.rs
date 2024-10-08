@@ -42,7 +42,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }
 
 mod splash {
@@ -179,7 +179,7 @@ mod game {
                             TextBundle::from_section(
                                 "Will be back to the menu shortly...",
                                 TextStyle {
-                                    font_size: 80.0,
+                                    font_size: 67.0,
                                     color: TEXT_COLOR,
                                     ..default()
                                 },
@@ -194,7 +194,7 @@ mod game {
                                 TextSection::new(
                                     format!("quality: {:?}", *display_quality),
                                     TextStyle {
-                                        font_size: 60.0,
+                                        font_size: 50.0,
                                         color: BLUE.into(),
                                         ..default()
                                     },
@@ -202,7 +202,7 @@ mod game {
                                 TextSection::new(
                                     " - ",
                                     TextStyle {
-                                        font_size: 60.0,
+                                        font_size: 50.0,
                                         color: TEXT_COLOR,
                                         ..default()
                                     },
@@ -210,7 +210,7 @@ mod game {
                                 TextSection::new(
                                     format!("volume: {:?}", *volume),
                                     TextStyle {
-                                        font_size: 60.0,
+                                        font_size: 50.0,
                                         color: LIME.into(),
                                         ..default()
                                     },
@@ -401,7 +401,7 @@ mod menu {
             ..default()
         };
         let button_text_style = TextStyle {
-            font_size: 40.0,
+            font_size: 33.0,
             color: TEXT_COLOR,
             ..default()
         };
@@ -437,7 +437,7 @@ mod menu {
                             TextBundle::from_section(
                                 "Bevy Game Menu UI",
                                 TextStyle {
-                                    font_size: 80.0,
+                                    font_size: 67.0,
                                     color: TEXT_COLOR,
                                     ..default()
                                 },
@@ -527,7 +527,7 @@ mod menu {
         };
 
         let button_text_style = TextStyle {
-            font_size: 40.0,
+            font_size: 33.0,
             color: TEXT_COLOR,
             ..default()
         };
@@ -593,7 +593,7 @@ mod menu {
             ..default()
         };
         let button_text_style = TextStyle {
-            font_size: 40.0,
+            font_size: 33.0,
             color: TEXT_COLOR,
             ..default()
         };
@@ -697,7 +697,7 @@ mod menu {
             ..default()
         };
         let button_text_style = TextStyle {
-            font_size: 40.0,
+            font_size: 33.0,
             color: TEXT_COLOR,
             ..default()
         };
@@ -743,7 +743,7 @@ mod menu {
                                     button_text_style.clone(),
                                 ));
                                 for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
-                                    let entity = parent.spawn((
+                                    let mut entity = parent.spawn((
                                         ButtonBundle {
                                             style: Style {
                                                 width: Val::Px(30.0),

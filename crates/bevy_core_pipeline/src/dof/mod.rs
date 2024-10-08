@@ -26,6 +26,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{PhysicalCameraParameters, Projection},
@@ -50,6 +51,7 @@ use bevy_render::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
     },
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{info_once, prelude::default, warn_once};
@@ -808,7 +810,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
 /// Extracts all [`DepthOfField`] components into the render world.
 fn extract_depth_of_field_settings(
     mut commands: Commands,
-    mut query: Extract<Query<(Entity, &DepthOfField, &Projection)>>,
+    mut query: Extract<Query<(&RenderEntity, &DepthOfField, &Projection)>>,
 ) {
     if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
         info_once!(
@@ -818,6 +820,7 @@ fn extract_depth_of_field_settings(
     }
 
     for (entity, depth_of_field, projection) in query.iter_mut() {
+        let entity = entity.id();
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
             continue;
@@ -827,20 +830,24 @@ fn extract_depth_of_field_settings(
             calculate_focal_length(depth_of_field.sensor_height, perspective_projection.fov);
 
         // Convert `DepthOfField` to `DepthOfFieldUniform`.
-        commands.get_or_spawn(entity).insert((
-            *depth_of_field,
-            DepthOfFieldUniform {
-                focal_distance: depth_of_field.focal_distance,
-                focal_length,
-                coc_scale_factor: focal_length * focal_length
-                    / (depth_of_field.sensor_height * depth_of_field.aperture_f_stops),
-                max_circle_of_confusion_diameter: depth_of_field.max_circle_of_confusion_diameter,
-                max_depth: depth_of_field.max_depth,
-                pad_a: 0,
-                pad_b: 0,
-                pad_c: 0,
-            },
-        ));
+        commands
+            .get_entity(entity)
+            .expect("Depth of field entity wasn't synced.")
+            .insert((
+                *depth_of_field,
+                DepthOfFieldUniform {
+                    focal_distance: depth_of_field.focal_distance,
+                    focal_length,
+                    coc_scale_factor: focal_length * focal_length
+                        / (depth_of_field.sensor_height * depth_of_field.aperture_f_stops),
+                    max_circle_of_confusion_diameter: depth_of_field
+                        .max_circle_of_confusion_diameter,
+                    max_depth: depth_of_field.max_depth,
+                    pad_a: 0,
+                    pad_b: 0,
+                    pad_c: 0,
+                },
+            ));
     }
 }
 
@@ -848,7 +855,7 @@ fn extract_depth_of_field_settings(
 ///
 /// See <https://photo.stackexchange.com/a/97218>.
 pub fn calculate_focal_length(sensor_height: f32, fov: f32) -> f32 {
-    0.5 * sensor_height / f32::tan(0.5 * fov)
+    0.5 * sensor_height / ops::tan(0.5 * fov)
 }
 
 impl DepthOfFieldPipelines {

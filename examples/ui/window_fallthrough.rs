@@ -24,7 +24,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     // Text with one section
     commands.spawn((
         // Create a TextBundle that has a Text with a single section.
@@ -33,7 +33,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             "Hit 'P' then scroll/click around!",
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 100.0, // Nice and big so you can see it!
+                font_size: 83.0, // Nice and big so you can see it!
                 ..default()
             },
         )

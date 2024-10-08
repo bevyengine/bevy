@@ -25,7 +25,7 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     // camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     // root node
     commands
         .spawn(NodeBundle {
@@ -56,7 +56,7 @@ fn setup(mut commands: Commands) {
                         TextBundle::from_section(
                             "Example text",
                             TextStyle {
-                                font_size: 30.0,
+                                font_size: 25.0,
                                 ..default()
                             },
                         )

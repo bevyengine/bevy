@@ -28,7 +28,7 @@ struct ResolutionSettings {
 
 // Spawns the camera that draws UI
 fn setup_camera(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }
 
 // Spawns the UI
@@ -48,7 +48,7 @@ fn setup_ui(mut commands: Commands) {
                 TextBundle::from_section(
                     "Resolution",
                     TextStyle {
-                        font_size: 50.0,
+                        font_size: 42.0,
                         ..default()
                     },
                 ),

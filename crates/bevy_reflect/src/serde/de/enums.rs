@@ -1,16 +1,19 @@
-use crate::serde::de::error_utils::make_custom_error;
-use crate::serde::de::helpers::ExpectedValues;
-use crate::serde::de::registration_utils::try_get_registration;
-use crate::serde::de::struct_utils::{visit_struct, visit_struct_seq};
-use crate::serde::de::tuple_utils::{visit_tuple, TupleLikeInfo};
-use crate::serde::TypedReflectDeserializer;
 use crate::{
+    serde::{
+        de::{
+            error_utils::make_custom_error,
+            helpers::ExpectedValues,
+            registration_utils::try_get_registration,
+            struct_utils::{visit_struct, visit_struct_seq},
+            tuple_utils::{visit_tuple, TupleLikeInfo},
+        },
+        TypedReflectDeserializer,
+    },
     DynamicEnum, DynamicStruct, DynamicTuple, DynamicVariant, EnumInfo, StructVariantInfo,
     TupleVariantInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
-use core::fmt::Formatter;
+use core::{fmt, fmt::Formatter};
 use serde::de::{DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor};
-use std::fmt;
 
 /// A [`Visitor`] for deserializing [`Enum`] values.
 ///

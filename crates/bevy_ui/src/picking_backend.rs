@@ -8,9 +8,9 @@
 //! ## Important Note
 //!
 //! This backend completely ignores [`FocusPolicy`](crate::FocusPolicy). The design of `bevy_ui`'s
-//! focus systems and the picking plugin are not compatible. Instead, use the [`Pickable`] component
-//! to customize how an entity responds to picking focus. Nodes without the [`Pickable`] component
-//! will not trigger events.
+//! focus systems and the picking plugin are not compatible. Instead, use the optional [`PickingBehavior`] component
+//! to override how an entity responds to picking focus. Nodes without the [`PickingBehavior`] component
+//! will still trigger events and block items below it from being hovered.
 //!
 //! ## Implementation Notes
 //!
@@ -26,7 +26,7 @@
 use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
-use bevy_math::Vec2;
+use bevy_math::{Rect, Vec2};
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_utils::hashbrown::HashMap;
@@ -36,8 +36,8 @@ use bevy_picking::backend::prelude::*;
 
 /// A plugin that adds picking support for UI nodes.
 #[derive(Clone)]
-pub struct UiPickingBackend;
-impl Plugin for UiPickingBackend {
+pub struct UiPickingBackendPlugin;
+impl Plugin for UiPickingBackendPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PreUpdate, ui_picking.in_set(PickSet::Backend));
     }
@@ -50,7 +50,7 @@ pub struct NodeQuery {
     entity: Entity,
     node: &'static Node,
     global_transform: &'static GlobalTransform,
-    pickable: Option<&'static Pickable>,
+    picking_behavior: Option<&'static PickingBehavior>,
     calculated_clip: Option<&'static CalculatedClip>,
     view_visibility: Option<&'static ViewVisibility>,
     target_camera: Option<&'static TargetCamera>,
@@ -67,7 +67,7 @@ pub fn ui_picking(
     primary_window: Query<Entity, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     ui_stack: Res<UiStack>,
-    mut node_query: Query<NodeQuery>,
+    node_query: Query<NodeQuery>,
     mut output: EventWriter<PointerHits>,
 ) {
     // For each camera, the pointer and its position
@@ -119,7 +119,7 @@ pub fn ui_picking(
         // reverse the iterator to traverse the tree from closest nodes to furthest
         .rev()
     {
-        let Ok(node) = node_query.get_mut(*node_entity) else {
+        let Ok(node) = node_query.get(*node_entity) else {
             continue;
         };
 
@@ -139,7 +139,10 @@ pub fn ui_picking(
             continue;
         };
 
-        let node_rect = node.node.logical_rect(node.global_transform);
+        let node_rect = Rect::from_center_size(
+            node.global_transform.translation().truncate(),
+            node.node.size(),
+        );
 
         // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
         if node_rect.size() == Vec2::ZERO {
@@ -180,11 +183,10 @@ pub fn ui_picking(
     for ((camera, pointer), hovered_nodes) in hit_nodes.iter() {
         // As soon as a node with a `Block` focus policy is detected, the iteration will stop on it
         // because it "captures" the interaction.
-        let mut iter = node_query.iter_many_mut(hovered_nodes.iter());
         let mut picks = Vec::new();
         let mut depth = 0.0;
 
-        while let Some(node) = iter.fetch_next() {
+        for node in node_query.iter_many(hovered_nodes) {
             let Some(camera_entity) = node
                 .target_camera
                 .map(TargetCamera::entity)
@@ -195,13 +197,13 @@ pub fn ui_picking(
 
             picks.push((node.entity, HitData::new(camera_entity, depth, None, None)));
 
-            if let Some(pickable) = node.pickable {
-                // If an entity has a `Pickable` component, we will use that as the source of truth.
-                if pickable.should_block_lower {
+            if let Some(picking_behavior) = node.picking_behavior {
+                // If an entity has a `PickingBehavior` component, we will use that as the source of truth.
+                if picking_behavior.should_block_lower {
                     break;
                 }
             } else {
-                // If the Pickable component doesn't exist, default behavior is to block.
+                // If the PickingBehavior component doesn't exist, default behavior is to block.
                 break;
             }
 

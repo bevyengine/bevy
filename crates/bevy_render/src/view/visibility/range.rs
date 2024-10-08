@@ -1,7 +1,7 @@
 //! Specific distances from the camera in which entities are visible, also known
 //! as *hierarchical levels of detail* or *HLOD*s.
 
-use std::{
+use core::{
     hash::{Hash, Hasher},
     ops::Range,
 };
@@ -11,6 +11,7 @@ use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
     query::{Changed, With},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
     system::{Query, Res, ResMut, Resource},
 };
@@ -23,12 +24,14 @@ use wgpu::{BufferBindingType, BufferUsages};
 
 use crate::{
     camera::Camera,
+    mesh::Mesh3d,
+    primitives::Aabb,
     render_resource::BufferVec,
     renderer::{RenderDevice, RenderQueue},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
-use super::{check_visibility, VisibilitySystems, WithMesh};
+use super::{check_visibility, VisibilitySystems};
 
 /// We need at least 4 storage buffer bindings available to enable the
 /// visibility range buffer.
@@ -55,7 +58,7 @@ impl Plugin for VisibilityRangePlugin {
                 PostUpdate,
                 check_visibility_ranges
                     .in_set(VisibilitySystems::CheckVisibility)
-                    .before(check_visibility::<WithMesh>),
+                    .before(check_visibility::<With<Mesh3d>>),
             );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -109,6 +112,7 @@ impl Plugin for VisibilityRangePlugin {
 /// `start_margin` of the next lower LOD; this is important for the crossfade
 /// effect to function properly.
 #[derive(Component, Clone, PartialEq, Reflect)]
+#[reflect(Component, PartialEq, Hash)]
 pub struct VisibilityRange {
     /// The range of distances, in world units, between which this entity will
     /// smoothly fade into view as the camera zooms out.
@@ -364,7 +368,7 @@ impl VisibleEntityRanges {
 pub fn check_visibility_ranges(
     mut visible_entity_ranges: ResMut<VisibleEntityRanges>,
     view_query: Query<(Entity, &GlobalTransform), With<Camera>>,
-    mut entity_query: Query<(Entity, &GlobalTransform, &VisibilityRange)>,
+    mut entity_query: Query<(Entity, &GlobalTransform, Option<&Aabb>, &VisibilityRange)>,
 ) {
     visible_entity_ranges.clear();
 
@@ -383,12 +387,17 @@ pub fn check_visibility_ranges(
 
     // Check each entity/view pair. Only consider entities with
     // [`VisibilityRange`] components.
-    for (entity, entity_transform, visibility_range) in entity_query.iter_mut() {
+    for (entity, entity_transform, maybe_model_aabb, visibility_range) in entity_query.iter_mut() {
         let mut visibility = 0;
         for (view_index, &(_, view_position)) in views.iter().enumerate() {
-            if visibility_range
-                .is_visible_at_all((view_position - entity_transform.translation_vec3a()).length())
-            {
+            let model_pos = if let Some(model_aabb) = maybe_model_aabb {
+                let world_from_local = entity_transform.affine();
+                world_from_local.transform_point3a(model_aabb.center)
+            } else {
+                entity_transform.translation_vec3a()
+            };
+
+            if visibility_range.is_visible_at_all((view_position - model_pos).length()) {
                 visibility |= 1 << view_index;
             }
         }

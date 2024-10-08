@@ -53,7 +53,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         max_corner_scale: 1.0,
     };
     // ui camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -90,7 +90,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             "Button",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 40.0,
+                                font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),
                             },
                         ));

@@ -77,5 +77,5 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..Default::default()
     });
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }

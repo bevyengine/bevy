@@ -57,6 +57,7 @@ mod pipeline_3d;
 pub mod prelude {
     #[cfg(feature = "bevy_render")]
     pub use crate::aabb::{AabbGizmoConfigGroup, ShowAabbGizmo};
+
     #[doc(hidden)]
     pub use crate::{
         config::{
@@ -72,56 +73,58 @@ pub mod prelude {
     pub use crate::light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
-#[cfg(feature = "bevy_render")]
-use bevy_ecs::{
-    query::ROQueryItem,
-    system::{
-        lifetimeless::{Read, SRes},
-        Commands, SystemParamItem,
-    },
-};
-
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_color::LinearRgba;
-#[cfg(feature = "bevy_render")]
-use bevy_ecs::component::Component;
 use bevy_ecs::{
     schedule::{IntoSystemConfigs, SystemSet},
     system::{Res, ResMut, Resource},
 };
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
+
+use crate::config::GizmoMeshConfig;
+
+#[cfg(feature = "bevy_render")]
+use {
+    bevy_ecs::{
+        component::Component,
+        query::ROQueryItem,
+        system::{
+            lifetimeless::{Read, SRes},
+            Commands, SystemParamItem,
+        },
+    },
+    bevy_render::{
+        extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
+        render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+        render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
+        render_resource::{
+            binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
+            BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader,
+            ShaderStages, ShaderType, VertexFormat,
+        },
+        renderer::RenderDevice,
+        world_sync::TemporaryRenderEntity,
+        Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    },
+    bytemuck::cast_slice,
+};
+
 #[cfg(all(
     feature = "bevy_render",
     any(feature = "bevy_pbr", feature = "bevy_sprite"),
 ))]
 use bevy_render::render_resource::{VertexAttribute, VertexBufferLayout, VertexStepMode};
-#[cfg(feature = "bevy_render")]
-use bevy_render::{
-    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::{
-        binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
-        BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader, ShaderStages,
-        ShaderType, VertexFormat,
-    },
-    renderer::RenderDevice,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
-};
-
 use bevy_time::Fixed;
 use bevy_utils::TypeIdMap;
-#[cfg(feature = "bevy_render")]
-use bytemuck::cast_slice;
 use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoLineJoint,
 };
+use core::{any::TypeId, mem};
 use gizmos::{GizmoStorage, Swap};
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 use light::LightGizmoPlugin;
-use std::{any::TypeId, mem};
 
 #[cfg(feature = "bevy_render")]
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
@@ -455,9 +458,14 @@ fn extract_gizmo_data(
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
-            (*handle).clone_weak(),
             #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
-            config::GizmoMeshConfig::from(config),
+            GizmoMeshConfig {
+                line_perspective: config.line_perspective,
+                line_style: config.line_style,
+                render_layers: config.render_layers.clone(),
+                handle: handle.clone(),
+            },
+            TemporaryRenderEntity,
         ));
     }
 }
@@ -596,20 +604,20 @@ struct DrawLineGizmo;
 impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
-    type ItemQuery = Read<Handle<LineGizmo>>;
+    type ItemQuery = Read<GizmoMeshConfig>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
-        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        config: Option<ROQueryItem<'w, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(handle) = handle else {
+        let Some(config) = config else {
             return RenderCommandResult::Skip;
         };
-        let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
+        let Some(line_gizmo) = line_gizmos.into_inner().get(&config.handle) else {
             return RenderCommandResult::Skip;
         };
 
@@ -649,20 +657,20 @@ struct DrawLineJointGizmo;
 impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
-    type ItemQuery = Read<Handle<LineGizmo>>;
+    type ItemQuery = Read<GizmoMeshConfig>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
-        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        config: Option<ROQueryItem<'w, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(handle) = handle else {
+        let Some(config) = config else {
             return RenderCommandResult::Skip;
         };
-        let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
+        let Some(line_gizmo) = line_gizmos.into_inner().get(&config.handle) else {
             return RenderCommandResult::Skip;
         };
 

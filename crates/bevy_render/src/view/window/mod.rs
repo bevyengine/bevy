@@ -11,8 +11,7 @@ use bevy_utils::{default, tracing::debug, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
 };
-use cursor::CursorPlugin;
-use std::{
+use core::{
     num::NonZero,
     ops::{Deref, DerefMut},
 };
@@ -20,7 +19,6 @@ use wgpu::{
     SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
 };
 
-pub mod cursor;
 pub mod screenshot;
 
 use screenshot::{ScreenshotPlugin, ScreenshotToScreenPipeline};
@@ -29,7 +27,7 @@ pub struct WindowRenderPlugin;
 
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((ScreenshotPlugin, CursorPlugin));
+        app.add_plugins(ScreenshotPlugin);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

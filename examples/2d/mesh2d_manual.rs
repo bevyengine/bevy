@@ -9,10 +9,10 @@ use bevy::{
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     ecs::entity::EntityHashMap,
-    math::FloatOrd,
+    math::{ops, FloatOrd},
     prelude::*,
     render::{
-        mesh::{Indices, MeshVertexAttribute, RenderMesh},
+        mesh::{Indices, RenderMesh},
         render_asset::{RenderAssetUsages, RenderAssets},
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
@@ -30,9 +30,9 @@ use bevy::{
         Extract, Render, RenderApp, RenderSet,
     },
     sprite::{
-        extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dHandle, Mesh2dPipeline,
+        extract_mesh2d, DrawMesh2d, HasMaterial2d, Material2dBindGroupId, Mesh2dPipeline,
         Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
-        SetMesh2dViewBindGroup, WithMesh2d,
+        SetMesh2dViewBindGroup,
     },
 };
 use std::f32::consts::PI;
@@ -80,17 +80,14 @@ fn star(
         // The radius of inner vertices (even indices) is 100. For outer vertices (odd indices) it's 200.
         let r = (1 - i % 2) as f32 * 100.0 + 100.0;
         // Add the vertex position.
-        v_pos.push([r * a.sin(), r * a.cos(), 0.0]);
+        v_pos.push([r * ops::sin(a), r * ops::cos(a), 0.0]);
     }
     // Set the position attribute
     star.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
     // And a RGB color attribute as well
-    let mut v_color: Vec<u32> = vec![LinearRgba::BLACK.as_u32()];
-    v_color.extend_from_slice(&[LinearRgba::from(YELLOW).as_u32(); 10]);
-    star.insert_attribute(
-        MeshVertexAttribute::new("Vertex_Color", 1, VertexFormat::Uint32),
-        v_color,
-    );
+    let mut v_color: Vec<[f32; 4]> = vec![LinearRgba::BLACK.to_f32_array()];
+    v_color.extend_from_slice(&[LinearRgba::from(YELLOW).to_f32_array(); 10]);
+    star.insert_attribute(Mesh::ATTRIBUTE_COLOR, v_color);
 
     // Now, we specify the indices of the vertex that are going to compose the
     // triangles in our star. Vertices in triangles have to be specified in CCW
@@ -111,18 +108,20 @@ fn star(
     commands.spawn((
         // We use a marker component to identify the custom colored meshes
         ColoredMesh2d,
-        // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
-        Mesh2dHandle(meshes.add(star)),
+        // The `Handle<Mesh>` needs to be wrapped in a `Mesh2d` for 2D rendering
+        Mesh2d(meshes.add(star)),
         // This bundle's components are needed for something to be rendered
         SpatialBundle::INHERITED_IDENTITY,
     ));
 
     // Spawn the camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }
 
+// Require `HasMaterial2d` to indicate that no placeholder material should be rendeed.
 /// A marker component for colored 2d meshes
 #[derive(Component, Default)]
+#[require(HasMaterial2d)]
 pub struct ColoredMesh2d;
 
 /// Custom pipeline for 2d meshes with vertex colors
@@ -330,7 +329,7 @@ pub fn extract_colored_mesh2d(
     // When extracting, you must use `Extract` to mark the `SystemParam`s
     // which should be taken from the main world.
     query: Extract<
-        Query<(Entity, &ViewVisibility, &GlobalTransform, &Mesh2dHandle), With<ColoredMesh2d>>,
+        Query<(Entity, &ViewVisibility, &GlobalTransform, &Mesh2d), With<ColoredMesh2d>>,
     >,
     mut render_mesh_instances: ResMut<RenderColoredMesh2dInstances>,
 ) {
@@ -387,7 +386,7 @@ pub fn queue_colored_mesh2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         // Queue all entities visible to that view
-        for visible_entity in visible_entities.iter::<WithMesh2d>() {
+        for visible_entity in visible_entities.iter::<With<Mesh2d>>() {
             if let Some(mesh_instance) = render_mesh_instances.get(visible_entity) {
                 let mesh2d_handle = mesh_instance.mesh_asset_id;
                 let mesh2d_transforms = &mesh_instance.transforms;

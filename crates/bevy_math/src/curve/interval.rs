@@ -1,10 +1,10 @@
 //! The [`Interval`] type for nonempty intervals used by the [`Curve`](super::Curve) trait.
 
-use itertools::Either;
-use std::{
+use core::{
     cmp::{max_by, min_by},
     ops::RangeInclusive,
 };
+use itertools::Either;
 use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
@@ -65,7 +65,7 @@ impl Interval {
         }
     }
 
-    /// The unit interval covering the range between `0.0` and `1.0`.
+    /// An interval of length 1.0, starting at 0.0 and ending at 1.0.
     pub const UNIT: Self = Self {
         start: 0.0,
         end: 1.0,

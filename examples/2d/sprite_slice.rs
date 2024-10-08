@@ -83,7 +83,7 @@ fn spawn_sprites(
             ..default()
         });
         if let Some(scale_mode) = scale_mode {
-            cmd = cmd.insert(scale_mode);
+            cmd.insert(scale_mode);
         }
         cmd.with_children(|builder| {
             builder.spawn(Text2dBundle {
@@ -98,7 +98,7 @@ fn spawn_sprites(
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let style = TextStyle {
         font: font.clone(),

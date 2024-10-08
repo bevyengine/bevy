@@ -172,6 +172,14 @@ fn calculate_tbn_mikktspace(world_normal: vec3<f32>, world_tangent: vec4<f32>) -
     var T: vec3<f32> = world_tangent.xyz;
     var B: vec3<f32> = world_tangent.w * cross(N, T);
 
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    // https://www.jeremyong.com/graphics/2023/12/16/surface-gradient-bump-mapping/#a-note-on-mikktspace-usage
+    let inverse_length_n = 1.0 / length(N);
+    T *= inverse_length_n;
+    B *= inverse_length_n;
+    N *= inverse_length_n;
+#endif
+
     return mat3x3(T, B, N);
 }
 
@@ -447,8 +455,14 @@ fn apply_pbr_lighting(
 
         var shadow: f32 = 1.0;
         if ((in.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = shadows::fetch_spot_shadow(light_id, in.world_position, in.world_normal);
+                && (view_bindings::clusterable_objects.data[light_id].flags &
+                    mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+            shadow = shadows::fetch_spot_shadow(
+                light_id,
+                in.world_position,
+                in.world_normal,
+                view_bindings::clusterable_objects.data[light_id].shadow_map_near_z,
+            );
         }
 
         let light_contrib = lighting::spot_light(light_id, &lighting_input);
@@ -467,7 +481,12 @@ fn apply_pbr_lighting(
         var transmitted_shadow: f32 = 1.0;
         if ((in.flags & (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)) == (MESH_FLAGS_SHADOW_RECEIVER_BIT | MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT)
                 && (view_bindings::clusterable_objects.data[light_id].flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            transmitted_shadow = shadows::fetch_spot_shadow(light_id, diffuse_transmissive_lobe_world_position, -in.world_normal);
+            transmitted_shadow = shadows::fetch_spot_shadow(
+                light_id,
+                diffuse_transmissive_lobe_world_position,
+                -in.world_normal,
+                view_bindings::clusterable_objects.data[light_id].shadow_map_near_z,
+            );
         }
 
         let transmitted_light_contrib =

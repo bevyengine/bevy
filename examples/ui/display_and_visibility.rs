@@ -1,9 +1,9 @@
 //! Demonstrates how Display and Visibility work in the UI.
 
-use bevy::winit::WinitSettings;
 use bevy::{
     color::palettes::css::{DARK_GRAY, YELLOW},
     prelude::*,
+    winit::WinitSettings,
 };
 
 const PALETTE: [&str; 4] = ["27496D", "466B7A", "669DB3", "ADCBE3"];
@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     };
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.spawn(NodeBundle {
         style: Style {
             width: Val::Percent(100.),

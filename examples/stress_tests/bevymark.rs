@@ -13,7 +13,7 @@ use bevy::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
-    sprite::{AlphaMode2d, MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::AlphaMode2d,
     utils::Duration,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -208,7 +208,7 @@ fn scheduled_spawner(
 struct BirdResources {
     textures: Vec<Handle<Image>>,
     materials: Vec<Handle<ColorMaterial>>,
-    quad: Mesh2dHandle,
+    quad: Handle<Mesh>,
     color_rng: ChaCha8Rng,
     material_rng: ChaCha8Rng,
     velocity_rng: ChaCha8Rng,
@@ -246,9 +246,7 @@ fn setup(
     let mut bird_resources = BirdResources {
         textures,
         materials,
-        quad: meshes
-            .add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32)))
-            .into(),
+        quad: meshes.add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32))),
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
         // This isn't strictly required in practical use unless you need your app to be deterministic.
         color_rng: ChaCha8Rng::seed_from_u64(42),
@@ -268,18 +266,20 @@ fn setup(
         )
     };
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                padding: UiRect::all(Val::Px(5.0)),
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    padding: UiRect::all(Val::Px(5.0)),
+                    ..default()
+                },
+                background_color: Color::BLACK.with_alpha(0.75).into(),
                 ..default()
             },
-            z_index: ZIndex::Global(i32::MAX),
-            background_color: Color::BLACK.with_alpha(0.75).into(),
-            ..default()
-        })
+            GlobalZIndex(i32::MAX),
+        ))
         .with_children(|c| {
             c.spawn((
                 TextBundle::from_sections([
@@ -477,12 +477,9 @@ fn spawn_birds(
                             bird_resources.materials[wave % bird_resources.materials.len()].clone()
                         };
                     (
-                        MaterialMesh2dBundle {
-                            mesh: bird_resources.quad.clone(),
-                            material,
-                            transform,
-                            ..default()
-                        },
+                        Mesh2d(bird_resources.quad.clone()),
+                        MeshMaterial2d(material),
+                        transform,
                         Bird { velocity },
                     )
                 })

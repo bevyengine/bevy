@@ -6,6 +6,7 @@ use bevy::{
         bloom::{Bloom, BloomCompositeMode},
         tonemapping::Tonemapping,
     },
+    math::ops,
     prelude::*,
 };
 use std::{
@@ -27,15 +28,13 @@ fn setup_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true, // 1. HDR is required for bloom
-                ..default()
-            },
-            tonemapping: Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
-            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Camera3d::default(),
+        Camera {
+            hdr: true, // 1. HDR is required for bloom
             ..default()
         },
+        Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         // 3. Enable bloom for the camera
         Bloom::NATURAL,
     ));
@@ -76,12 +75,9 @@ fn setup_scene(
             };
 
             commands.spawn((
-                PbrBundle {
-                    mesh: mesh.clone(),
-                    material,
-                    transform: Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0),
-                    ..default()
-                },
+                Mesh3d(mesh.clone()),
+                MeshMaterial3d(material),
+                Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0),
                 Bouncing,
             ));
         }
@@ -219,6 +215,6 @@ struct Bouncing;
 fn bounce_spheres(time: Res<Time>, mut query: Query<&mut Transform, With<Bouncing>>) {
     for mut transform in query.iter_mut() {
         transform.translation.y =
-            (transform.translation.x + transform.translation.z + time.elapsed_seconds()).sin();
+            ops::sin(transform.translation.x + transform.translation.z + time.elapsed_seconds());
     }
 }

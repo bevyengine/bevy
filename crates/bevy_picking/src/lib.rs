@@ -15,7 +15,7 @@
 //! # struct MyComponent;
 //! # let mut world = World::new();
 //! world.spawn(MyComponent)
-//!     .observe(|mut trigger: Trigger<Pointer<Click>>| {
+//!     .observe_entity(|mut trigger: Trigger<Pointer<Click>>| {
 //!         // Get the underlying event type
 //!         let click_event: &Pointer<Click> = trigger.event();
 //!         // Stop the event from bubbling up the entity hierarchjy
@@ -135,8 +135,8 @@
 //! just because a pointer is over an entity, it is not necessarily *hovering* that entity. Although
 //! multiple backends may be reporting that a pointer is hitting an entity, the focus system needs
 //! to determine which entities are actually being hovered by this pointer based on the pick depth,
-//! order of the backend, and the [`Pickable`] state of the entity. In other words, if one entity is
-//! in front of another, usually only the topmost one will be hovered.
+//! order of the backend, and the optional [`PickingBehavior`] component of the entity. In other words,
+//! if one entity is in front of another, usually only the topmost one will be hovered.
 //!
 //! #### Events ([`events`])
 //!
@@ -149,6 +149,8 @@
 //! features.
 
 #![deny(missing_docs)]
+
+extern crate alloc;
 
 pub mod backend;
 pub mod events;
@@ -167,7 +169,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         events::*, input::PointerInputPlugin, pointer::PointerButton, DefaultPickingPlugins,
-        InteractionPlugin, Pickable, PickingPlugin,
+        InteractionPlugin, PickingBehavior, PickingPlugin,
     };
 }
 
@@ -175,8 +177,8 @@ pub mod prelude {
 /// make an entity non-hoverable, or allow items below it to be hovered. See the documentation on
 /// the fields for more details.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default)]
-pub struct Pickable {
+#[reflect(Component, Default, Debug, PartialEq)]
+pub struct PickingBehavior {
     /// Should this entity block entities below it from being picked?
     ///
     /// This is useful if you want picking to continue hitting entities below this one. Normally,
@@ -196,7 +198,7 @@ pub struct Pickable {
     /// element will be marked as hovered. However, if this field is set to `false`, both the UI
     /// element *and* the mesh will be marked as hovered.
     ///
-    /// Entities without the [`Pickable`] component will block by default.
+    /// Entities without the [`PickingBehavior`] component will block by default.
     pub should_block_lower: bool,
 
     /// If this is set to `false` and `should_block_lower` is set to true, this entity will block
@@ -211,11 +213,11 @@ pub struct Pickable {
     /// components mark it as hovered. This can be combined with the other field
     /// [`Self::should_block_lower`], which is orthogonal to this one.
     ///
-    /// Entities without the [`Pickable`] component are hoverable by default.
+    /// Entities without the [`PickingBehavior`] component are hoverable by default.
     pub is_hoverable: bool,
 }
 
-impl Pickable {
+impl PickingBehavior {
     /// This entity will not block entities beneath it, nor will it emit events.
     ///
     /// If a backend reports this entity as being hit, the picking plugin will completely ignore it.
@@ -225,48 +227,12 @@ impl Pickable {
     };
 }
 
-impl Default for Pickable {
+impl Default for PickingBehavior {
     fn default() -> Self {
         Self {
             should_block_lower: true,
             is_hoverable: true,
         }
-    }
-}
-
-/// Components needed to build a pointer. Multiple pointers can be active at once, with each pointer
-/// being an entity.
-///
-/// `Mouse` and `Touch` pointers are automatically spawned as needed. Use this bundle if you are
-/// spawning a custom `PointerId::Custom` pointer, either for testing, as a software controlled
-/// pointer, or if you are replacing the default touch and mouse inputs.
-#[derive(Bundle)]
-pub struct PointerBundle {
-    /// The pointer's unique [`PointerId`](pointer::PointerId).
-    pub id: pointer::PointerId,
-    /// Tracks the pointer's location.
-    pub location: pointer::PointerLocation,
-    /// Tracks the pointer's button press state.
-    pub click: pointer::PointerPress,
-    /// The interaction state of any hovered entities.
-    pub interaction: pointer::PointerInteraction,
-}
-
-impl PointerBundle {
-    /// Create a new pointer with the provided [`PointerId`](pointer::PointerId).
-    pub fn new(id: pointer::PointerId) -> Self {
-        PointerBundle {
-            id,
-            location: pointer::PointerLocation::default(),
-            click: pointer::PointerPress::default(),
-            interaction: pointer::PointerInteraction::default(),
-        }
-    }
-
-    /// Sets the location of the pointer bundle
-    pub fn with_location(mut self, location: pointer::Location) -> Self {
-        self.location.location = Some(location);
-        self
     }
 }
 
@@ -317,7 +283,7 @@ impl Plugin for DefaultPickingPlugins {
 /// This plugin contains several settings, and is added to the wrold as a resource after initialization. You
 /// can configure picking settings at runtime through the resource.
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
-#[reflect(Resource, Default)]
+#[reflect(Resource, Default, Debug)]
 pub struct PickingPlugin {
     /// Enables and disables all picking features.
     pub is_enabled: bool,
@@ -388,7 +354,7 @@ impl Plugin for PickingPlugin {
                     .chain(),
             )
             .register_type::<Self>()
-            .register_type::<Pickable>()
+            .register_type::<PickingBehavior>()
             .register_type::<pointer::PointerId>()
             .register_type::<pointer::PointerLocation>()
             .register_type::<pointer::PointerPress>()

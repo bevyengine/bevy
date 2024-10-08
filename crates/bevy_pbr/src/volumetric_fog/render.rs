@@ -1,6 +1,6 @@
 //! Rendering of fog volumes.
 
-use std::array;
+use core::array;
 
 use bevy_asset::{AssetId, Handle};
 use bevy_color::ColorToComponents as _;
@@ -38,6 +38,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{BevyDefault as _, GpuImage, Image},
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    world_sync::RenderEntity,
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
@@ -270,27 +271,34 @@ impl FromWorld for VolumetricFogPipeline {
 /// from the main world to the render world.
 pub fn extract_volumetric_fog(
     mut commands: Commands,
-    view_targets: Extract<Query<(Entity, &VolumetricFog)>>,
-    fog_volumes: Extract<Query<(Entity, &FogVolume, &GlobalTransform)>>,
-    volumetric_lights: Extract<Query<(Entity, &VolumetricLight)>>,
+    view_targets: Extract<Query<(&RenderEntity, &VolumetricFog)>>,
+    fog_volumes: Extract<Query<(&RenderEntity, &FogVolume, &GlobalTransform)>>,
+    volumetric_lights: Extract<Query<(&RenderEntity, &VolumetricLight)>>,
 ) {
     if volumetric_lights.is_empty() {
         return;
     }
 
     for (entity, volumetric_fog) in view_targets.iter() {
-        commands.get_or_spawn(entity).insert(*volumetric_fog);
+        commands
+            .get_entity(entity.id())
+            .expect("Volumetric fog entity wasn't synced.")
+            .insert(*volumetric_fog);
     }
 
     for (entity, fog_volume, fog_transform) in fog_volumes.iter() {
         commands
-            .get_or_spawn(entity)
+            .get_entity(entity.id())
+            .expect("Fog volume entity wasn't synced.")
             .insert((*fog_volume).clone())
             .insert(*fog_transform);
     }
 
     for (entity, volumetric_light) in volumetric_lights.iter() {
-        commands.get_or_spawn(entity).insert(*volumetric_light);
+        commands
+            .get_entity(entity.id())
+            .expect("Volumetric light entity wasn't synced.")
+            .insert(*volumetric_light);
     }
 }
 
