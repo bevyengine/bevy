@@ -20,10 +20,11 @@ fn gaussian(x: f32, sigma: f32) -> f32 {
     return exp(-(x * x) / (2. * sigma * sigma)) / (sqrt(2. * PI) * sigma);
 }
 
-// Approximates the gauss error function
+// Approximates the Gauss error function: https://en.wikipedia.org/wiki/Error_function
 fn erf(p: vec2<f32>) -> vec2<f32> {
     let s = sign(p);
     let a = abs(p);
+    // fourth degree polynomial approximation for erf
     var result = 1.0 + (0.278393 + (0.230389 + 0.078108 * (a * a)) * a) * a;
     result = result * result;
     return s - s / (result * result);
