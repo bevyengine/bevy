@@ -33,7 +33,6 @@ use bevy_render::{
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    sync_world::RenderEntity,
     texture::{BevyDefault, DefaultImageSampler, ImageSampler, TextureFormatPixelInfo},
     view::{
         prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
@@ -558,11 +557,11 @@ pub enum RenderMeshInstanceGpuQueue {
     /// The version of [`RenderMeshInstanceGpuQueue`] that omits the
     /// [`MeshCullingData`], so that we don't waste space when GPU
     /// culling is disabled.
-    CpuCulling(Vec<(RenderEntity, RenderMeshInstanceGpuBuilder)>),
+    CpuCulling(Vec<(Entity, RenderMeshInstanceGpuBuilder)>),
     /// The version of [`RenderMeshInstanceGpuQueue`] that contains the
     /// [`MeshCullingData`], used when any view has GPU culling
     /// enabled.
-    GpuCulling(Vec<(RenderEntity, RenderMeshInstanceGpuBuilder, MeshCullingData)>),
+    GpuCulling(Vec<(Entity, RenderMeshInstanceGpuBuilder, MeshCullingData)>),
 }
 
 /// The per-thread queues containing mesh instances, populated during the
@@ -740,7 +739,7 @@ impl RenderMeshInstanceGpuQueue {
     /// Adds a new mesh to this queue.
     fn push(
         &mut self,
-        entity: RenderEntity,
+        entity: Entity,
         instance_builder: RenderMeshInstanceGpuBuilder,
         culling_data_builder: Option<MeshCullingData>,
     ) {
@@ -972,7 +971,6 @@ pub fn extract_meshes_for_gpu_building(
     meshes_query: Extract<
         Query<(
             Entity,
-            &RenderEntity,
             &ViewVisibility,
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
@@ -1007,7 +1005,6 @@ pub fn extract_meshes_for_gpu_building(
         |queue,
          (
             entity,
-            render_entity,
             view_visibility,
             transform,
             previous_transform,
@@ -1066,11 +1063,7 @@ pub fn extract_meshes_for_gpu_building(
                 previous_input_index,
             };
 
-            queue.push(
-                *render_entity,
-                gpu_mesh_instance_builder,
-                gpu_mesh_culling_data,
-            );
+            queue.push(entity, gpu_mesh_instance_builder, gpu_mesh_culling_data);
         },
     );
 }
@@ -1143,7 +1136,7 @@ pub fn collect_meshes_for_gpu_building(
             RenderMeshInstanceGpuQueue::CpuCulling(ref mut queue) => {
                 for (entity, mesh_instance_builder) in queue.drain(..) {
                     mesh_instance_builder.add_to(
-                        entity.id(),
+                        entity,
                         &mut *render_mesh_instances,
                         current_input_buffer,
                         &mesh_allocator,
@@ -1153,7 +1146,7 @@ pub fn collect_meshes_for_gpu_building(
             RenderMeshInstanceGpuQueue::GpuCulling(ref mut queue) => {
                 for (entity, mesh_instance_builder, mesh_culling_builder) in queue.drain(..) {
                     let instance_data_index = mesh_instance_builder.add_to(
-                        entity.id(),
+                        entity,
                         &mut *render_mesh_instances,
                         current_input_buffer,
                         &mesh_allocator,
