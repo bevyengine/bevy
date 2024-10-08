@@ -7,7 +7,7 @@ impl PrimitiveRayCast2d for Ellipse {
         // - The `Circle` ray casting implementation
         // - Inigo Quilez's ray-ellipse intersection algorithm: https://www.shadertoy.com/view/NdccWH
 
-        // If the ellipse is just a circle, use the ray casting implemention from `Circle`.
+        // If the ellipse is just a circle, use the ray casting implementation from `Circle`.
         if self.half_size.x == self.half_size.y {
             return Circle::new(self.half_size.x).local_ray_cast(ray, max_distance, solid);
         }
