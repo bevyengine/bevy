@@ -44,7 +44,7 @@
 //!
 //! [several pre-filtered environment maps]: https://github.com/KhronosGroup/glTF-Sample-Environments
 
-#![allow(deprecated)]
+#![expect(deprecated)]
 
 use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{
