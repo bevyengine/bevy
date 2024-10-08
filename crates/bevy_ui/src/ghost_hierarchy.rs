@@ -123,12 +123,13 @@ impl<'w, 's> Iterator for UiChildrenIter<'w, 's> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let entity = self.stack.pop()?;
-            let (children, has_ghost_node) = self.query.get(entity).ok()?;
-            if !has_ghost_node {
-                return Some(entity);
-            }
-            if let Some(children) = children {
-                self.stack.extend(children.iter().rev().copied());
+            if let Ok((children, has_ghost_node)) = self.query.get(entity) {
+                if !has_ghost_node {
+                    return Some(entity);
+                }
+                if let Some(children) = children {
+                    self.stack.extend(children.iter().rev().copied());
+                }
             }
         }
     }
