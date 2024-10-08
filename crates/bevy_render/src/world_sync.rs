@@ -199,7 +199,7 @@ mod render_entities_world_query_impls {
         component::{ComponentId, Components, Tick},
         entity::Entity,
         ptr::ThinSlicePtr,
-        query::{FilteredAccess, QueryData, ReadOnlyQueryData, WorldQuery},
+        query::{FilteredAccess, QueryData, ReadFetch, ReadOnlyQueryData, WorldQuery},
         storage::{Table, TableRow},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
