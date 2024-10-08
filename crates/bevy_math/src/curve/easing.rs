@@ -24,45 +24,51 @@ pub trait Ease: Sized {
     /// - has constant speed everywhere, including outside of `[0, 1]`
     ///
     /// [unlimited domain]: Interval::EVERYWHERE
-    fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self>;
+    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self>;
 }
 
 impl<V: VectorSpace> Ease for V {
-    fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
-        function_curve(Interval::EVERYWHERE, |t| V::lerp(*start, *end, t))
+    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+        function_curve(Interval::EVERYWHERE, move |t| V::lerp(start, end, t))
     }
 }
 
 impl Ease for Rot2 {
-    fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
-        function_curve(Interval::EVERYWHERE, |t| Rot2::slerp(*start, *end, t))
+    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+        function_curve(Interval::EVERYWHERE, move |t| Rot2::slerp(start, end, t))
     }
 }
 
 impl Ease for Quat {
-    fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
-        // TODO: Check this actually extrapolates correctly.
-        function_curve(Interval::EVERYWHERE, |t| Quat::slerp(*start, *end, t))
+    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+        let dot = start.dot(end);
+        let end_adjusted = if dot < 0.0 { -end } else { end };
+        let difference = end_adjusted * start.inverse();
+        let (axis, angle) = difference.to_axis_angle();
+        function_curve(Interval::EVERYWHERE, move |s| {
+            Quat::from_axis_angle(axis, angle * s) * start
+        })
     }
 }
 
 impl Ease for Dir2 {
-    fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
-        function_curve(Interval::EVERYWHERE, |t| Dir2::slerp(*start, *end, t))
+    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+        function_curve(Interval::EVERYWHERE, move |t| Dir2::slerp(start, end, t))
     }
 }
 
 impl Ease for Dir3 {
-    fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
-        // TODO: Check this actually extrapolates correctly.
-        function_curve(Interval::EVERYWHERE, |t| Dir3::slerp(*start, *end, t))
+    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+        let difference_quat = Quat::from_rotation_arc(start.as_vec3(), end.as_vec3());
+        Quat::interpolating_curve_unbounded(Quat::IDENTITY, difference_quat).map(move |q| q * start)
     }
 }
 
 impl Ease for Dir3A {
-    fn interpolating_curve_unbounded(start: &Self, end: &Self) -> impl Curve<Self> {
-        // TODO: Check this actually extrapolates correctly.
-        function_curve(Interval::EVERYWHERE, |t| Dir3A::slerp(*start, *end, t))
+    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+        let difference_quat =
+            Quat::from_rotation_arc(start.as_vec3a().into(), end.as_vec3a().into());
+        Quat::interpolating_curve_unbounded(Quat::IDENTITY, difference_quat).map(move |q| q * start)
     }
 }
 
@@ -72,7 +78,7 @@ impl Ease for Dir3A {
 ///
 /// [the unit interval]: Interval::UNIT
 /// [ease function]: EaseFunction
-pub fn easing_curve<T: Ease>(start: T, end: T, ease_fn: EaseFunction) -> EasingCurve<T> {
+pub fn easing_curve<T: Ease + Clone>(start: T, end: T, ease_fn: EaseFunction) -> EasingCurve<T> {
     EasingCurve {
         start,
         end,
@@ -93,10 +99,7 @@ pub fn easing_curve<T: Ease>(start: T, end: T, ease_fn: EaseFunction) -> EasingC
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct EasingCurve<T>
-where
-    T: Ease,
-{
+pub struct EasingCurve<T> {
     start: T,
     end: T,
     ease_fn: EaseFunction,
@@ -104,7 +107,7 @@ where
 
 impl<T> Curve<T> for EasingCurve<T>
 where
-    T: Ease,
+    T: Ease + Clone,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -114,7 +117,8 @@ where
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
         let remapped_t = self.ease_fn.eval(t);
-        T::interpolating_curve_unbounded(&self.start, &self.end).sample_unchecked(remapped_t)
+        T::interpolating_curve_unbounded(self.start.clone(), self.end.clone())
+            .sample_unchecked(remapped_t)
     }
 }
 

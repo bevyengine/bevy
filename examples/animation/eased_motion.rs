@@ -1,6 +1,6 @@
-//! Demonstrates how to work with Cubic curves.
+//! Demonstrates the application of easing curves to animating a transition.
 
-use std::f32::consts::{FRAC_PI_2, PI};
+use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
     animation::{AnimationTarget, AnimationTargetId},
@@ -38,7 +38,7 @@ fn setup(
     // A cube together with the components needed to animate it
     let cube_entity = commands
         .spawn((
-            Mesh3d(meshes.add(Cuboid::default())),
+            Mesh3d(meshes.add(Cuboid::from_length(2.0))),
             MeshMaterial3d(materials.add(Color::from(ORANGE))),
             Transform::from_translation(vec3(-6., 2., 0.)),
             animation_target_name,
@@ -117,14 +117,14 @@ impl AnimationInfo {
         .expect("this curve has bounded domain, so this should never fail");
 
         // Something similar for rotation. The repetition here is an illusion caused
-        // by the symmetry of the cube; it rotates a quarter-circle on the forward
-        // journey and never rotates back.
+        // by the symmetry of the cube; it rotates on the forward journey and never
+        // rotates back.
         let rotation_curve = easing_curve(
             Quat::IDENTITY,
             Quat::from_rotation_y(FRAC_PI_2),
-            EaseFunction::CircularIn,
+            EaseFunction::ElasticInOut,
         )
-        .reparametrize_linear(interval(1.0, 3.0).unwrap())
+        .reparametrize_linear(interval(0.0, 4.0).unwrap())
         .expect("this curve has bounded domain, so this should never fail");
 
         animation_clip
