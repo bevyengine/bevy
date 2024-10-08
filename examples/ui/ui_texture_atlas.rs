@@ -23,7 +23,7 @@ fn setup(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     // Camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let text_style = TextStyle::default();
 

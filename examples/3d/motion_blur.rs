@@ -18,7 +18,7 @@ fn main() {
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn((
-        Camera3dBundle::default(),
+        Camera3d::default(),
         // Add the `MotionBlur` component to a camera to enable motion blur.
         // Motion blur requires the depth and motion vector prepass, which this bundle adds.
         // Configure the amount and quality of motion blur per-camera using this component.
@@ -135,35 +135,35 @@ fn spawn_cars(
 
     for i in 0..N_CARS {
         let color = colors[i % colors.len()].clone();
-        let mut entity = commands
+        commands
             .spawn((
                 Mesh3d(box_mesh.clone()),
                 MeshMaterial3d(color.clone()),
                 Transform::from_scale(Vec3::splat(0.5)),
                 Moves(i as f32 * 2.0),
             ))
-            .insert_if(CameraTracked, || i == 0);
-        entity.with_children(|parent| {
-            parent.spawn((
-                Mesh3d(box_mesh.clone()),
-                MeshMaterial3d(color),
-                Transform::from_xyz(0.0, 0.08, 0.03).with_scale(Vec3::new(1.0, 1.0, 0.5)),
-            ));
-            let mut spawn_wheel = |x: f32, z: f32| {
+            .insert_if(CameraTracked, || i == 0)
+            .with_children(|parent| {
                 parent.spawn((
-                    Mesh3d(cylinder.clone()),
-                    MeshMaterial3d(wheel_matl.clone()),
-                    Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
-                        .with_scale(Vec3::new(0.15, 0.04, 0.15))
-                        .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
-                    Rotates,
+                    Mesh3d(box_mesh.clone()),
+                    MeshMaterial3d(color),
+                    Transform::from_xyz(0.0, 0.08, 0.03).with_scale(Vec3::new(1.0, 1.0, 0.5)),
                 ));
-            };
-            spawn_wheel(1.0, 1.0);
-            spawn_wheel(1.0, -1.0);
-            spawn_wheel(-1.0, 1.0);
-            spawn_wheel(-1.0, -1.0);
-        });
+                let mut spawn_wheel = |x: f32, z: f32| {
+                    parent.spawn((
+                        Mesh3d(cylinder.clone()),
+                        MeshMaterial3d(wheel_matl.clone()),
+                        Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
+                            .with_scale(Vec3::new(0.15, 0.04, 0.15))
+                            .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
+                        Rotates,
+                    ));
+                };
+                spawn_wheel(1.0, 1.0);
+                spawn_wheel(1.0, -1.0);
+                spawn_wheel(-1.0, 1.0);
+                spawn_wheel(-1.0, -1.0);
+            });
     }
 }
 

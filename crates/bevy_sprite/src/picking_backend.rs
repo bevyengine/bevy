@@ -35,7 +35,7 @@ pub fn sprite_picking(
         Option<&TextureAtlas>,
         &Handle<Image>,
         &GlobalTransform,
-        Option<&Pickable>,
+        Option<&PickingBehavior>,
         &ViewVisibility,
     )>,
     mut output: EventWriter<PointerHits>,
@@ -78,7 +78,7 @@ pub fn sprite_picking(
             .copied()
             .filter(|(.., visibility)| visibility.get())
             .filter_map(
-                |(entity, sprite, atlas, image, sprite_transform, pickable, ..)| {
+                |(entity, sprite, atlas, image, sprite_transform, picking_behavior, ..)| {
                     if blocked {
                         return None;
                     }
@@ -129,7 +129,7 @@ pub fn sprite_picking(
                     let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
 
                     blocked = is_cursor_in_sprite
-                        && pickable.map(|p| p.should_block_lower) != Some(false);
+                        && picking_behavior.map(|p| p.should_block_lower) != Some(false);
 
                     is_cursor_in_sprite.then(|| {
                         let hit_pos_world =

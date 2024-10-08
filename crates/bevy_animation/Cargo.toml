@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
+bevy_animation_derive = { path = "derive", version = "0.15.0-dev" }
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.15.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.15.0-dev" }
@@ -27,13 +28,8 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.15.0-dev" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev" }
-bevy_ui = { path = "../bevy_ui", version = "0.15.0-dev", features = [
-  "bevy_text",
-] }
-bevy_text = { path = "../bevy_text", version = "0.15.0-dev" }
 
 # other
-fixedbitset = "0.5"
 petgraph = { version = "0.6", features = ["serde-1"] }
 ron = "0.8"
 serde = "1"
@@ -41,6 +37,7 @@ blake3 = { version = "1.0" }
 thiserror = "1"
 thread_local = "1"
 uuid = { version = "1.7", features = ["v4"] }
+smallvec = "1"
 
 [lints]
 workspace = true

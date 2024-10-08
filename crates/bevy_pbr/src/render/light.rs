@@ -403,27 +403,30 @@ pub fn extract_lights(
             }
         }
 
-        commands.get_or_spawn(entity.id()).insert((
-            ExtractedDirectionalLight {
-                color: directional_light.color.into(),
-                illuminance: directional_light.illuminance,
-                transform: *transform,
-                volumetric: volumetric_light.is_some(),
-                soft_shadow_size: directional_light.soft_shadow_size,
-                shadows_enabled: directional_light.shadows_enabled,
-                shadow_depth_bias: directional_light.shadow_depth_bias,
-                // The factor of SQRT_2 is for the worst-case diagonal offset
-                shadow_normal_bias: directional_light.shadow_normal_bias
-                    * core::f32::consts::SQRT_2,
-                cascade_shadow_config: cascade_config.clone(),
-                cascades: extracted_cascades,
-                frusta: extracted_frusta,
-                render_layers: maybe_layers.unwrap_or_default().clone(),
-            },
-            CascadesVisibleEntities {
-                entities: cascade_visible_entities,
-            },
-        ));
+        commands
+            .get_entity(entity.id())
+            .expect("Light entity wasn't synced.")
+            .insert((
+                ExtractedDirectionalLight {
+                    color: directional_light.color.into(),
+                    illuminance: directional_light.illuminance,
+                    transform: *transform,
+                    volumetric: volumetric_light.is_some(),
+                    soft_shadow_size: directional_light.soft_shadow_size,
+                    shadows_enabled: directional_light.shadows_enabled,
+                    shadow_depth_bias: directional_light.shadow_depth_bias,
+                    // The factor of SQRT_2 is for the worst-case diagonal offset
+                    shadow_normal_bias: directional_light.shadow_normal_bias
+                        * core::f32::consts::SQRT_2,
+                    cascade_shadow_config: cascade_config.clone(),
+                    cascades: extracted_cascades,
+                    frusta: extracted_frusta,
+                    render_layers: maybe_layers.unwrap_or_default().clone(),
+                },
+                CascadesVisibleEntities {
+                    entities: cascade_visible_entities,
+                },
+            ));
     }
 }
 
@@ -435,9 +438,9 @@ pub(crate) fn add_light_view_entities(
     trigger: Trigger<OnAdd, (ExtractedDirectionalLight, ExtractedPointLight)>,
     mut commands: Commands,
 ) {
-    commands
-        .get_entity(trigger.entity())
-        .map(|v| v.insert(LightViewEntities::default()));
+    if let Some(mut v) = commands.get_entity(trigger.entity()) {
+        v.insert(LightViewEntities::default());
+    }
 }
 
 pub(crate) fn remove_light_view_entities(
@@ -447,7 +450,7 @@ pub(crate) fn remove_light_view_entities(
 ) {
     if let Ok(entities) = query.get(trigger.entity()) {
         for e in entities.0.iter().copied() {
-            if let Some(v) = commands.get_entity(e) {
+            if let Some(mut v) = commands.get_entity(e) {
                 v.despawn();
             }
         }

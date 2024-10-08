@@ -3,9 +3,8 @@
 use crate::{
     widget::{Button, UiImageSize},
     BackgroundColor, BorderColor, BorderRadius, ContentSize, FocusPolicy, Interaction, Node,
-    ScrollPosition, Style, UiImage, UiMaterial, ZIndex,
+    ScrollPosition, Style, UiImage, UiMaterial, UiMaterialHandle, ZIndex,
 };
-use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -294,7 +293,7 @@ pub struct MaterialNodeBundle<M: UiMaterial> {
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The [`UiMaterial`] used to render the node.
-    pub material: Handle<M>,
+    pub material: UiMaterialHandle<M>,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node

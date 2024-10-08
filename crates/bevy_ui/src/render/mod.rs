@@ -1,3 +1,4 @@
+pub mod box_shadow;
 mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
@@ -5,7 +6,7 @@ pub mod ui_texture_slice_pipeline;
 
 use crate::{
     BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Node, Outline,
-    ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiImage, UiScale,
+    ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples, UiImage, UiScale,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -46,6 +47,7 @@ use bevy_text::Text;
 use bevy_text::TextLayoutInfo;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
+use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
 use graph::{NodeUi, SubGraphUi};
@@ -70,6 +72,7 @@ pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(130128470471
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
+    ExtractBoxShadows,
     ExtractBackgrounds,
     ExtractImages,
     ExtractTextureSlice,
@@ -96,6 +99,7 @@ pub fn build_ui_render(app: &mut App) {
         .configure_sets(
             ExtractSchedule,
             (
+                RenderUiSystem::ExtractBoxShadows,
                 RenderUiSystem::ExtractBackgrounds,
                 RenderUiSystem::ExtractImages,
                 RenderUiSystem::ExtractTextureSlice,
@@ -146,6 +150,7 @@ pub fn build_ui_render(app: &mut App) {
     }
 
     app.add_plugins(UiTextureSlicerPlugin);
+    app.add_plugins(BoxShadowPlugin);
 }
 
 fn get_ui_graph(render_app: &mut SubApp) -> RenderGraph {
@@ -409,7 +414,7 @@ pub fn extract_uinode_borders(
         if let Some(outline) = maybe_outline {
             let outline_size = uinode.outlined_node_size();
             extracted_uinodes.uinodes.insert(
-                commands.spawn_empty().id(),
+                commands.spawn(TemporaryRenderEntity).id(),
                 ExtractedUiNode {
                     stack_index: uinode.stack_index,
                     transform: global_transform.compute_matrix(),
@@ -453,14 +458,22 @@ pub fn extract_default_ui_camera_view(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     ui_scale: Extract<Res<UiScale>>,
     query: Extract<
-        Query<(&RenderEntity, &Camera, Option<&UiAntiAlias>), Or<(With<Camera2d>, With<Camera3d>)>>,
+        Query<
+            (
+                &RenderEntity,
+                &Camera,
+                Option<&UiAntiAlias>,
+                Option<&UiBoxShadowSamples>,
+            ),
+            Or<(With<Camera2d>, With<Camera3d>)>,
+        >,
     >,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
 
     let scale = ui_scale.0.recip();
-    for (entity, camera, ui_anti_alias) in &query {
+    for (entity, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             continue;
@@ -510,11 +523,15 @@ pub fn extract_default_ui_camera_view(
                     TemporaryRenderEntity,
                 ))
                 .id();
-            let entity_commands = commands
-                .get_or_spawn(entity)
-                .insert(DefaultCameraView(default_camera_view));
+            let mut entity_commands = commands
+                .get_entity(entity)
+                .expect("Camera entity wasn't synced.");
+            entity_commands.insert(DefaultCameraView(default_camera_view));
             if let Some(ui_anti_alias) = ui_anti_alias {
                 entity_commands.insert(*ui_anti_alias);
+            }
+            if let Some(shadow_samples) = shadow_samples {
+                entity_commands.insert(*shadow_samples);
             }
             transparent_render_phases.insert_or_clear(entity);
 

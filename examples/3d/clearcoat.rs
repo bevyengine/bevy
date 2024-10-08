@@ -23,9 +23,8 @@ use bevy::{
     color::palettes::css::{BLUE, GOLD, WHITE},
     core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
     math::vec3,
-    pbr::{CascadeShadowConfig, Cascades, CascadesVisibleEntities},
     prelude::*,
-    render::{primitives::CascadesFrusta, texture::ImageLoaderSettings},
+    render::texture::ImageLoaderSettings,
 };
 
 /// The size of each sphere.
@@ -184,37 +183,25 @@ fn spawn_scratched_gold_ball(
 
 /// Spawns a light.
 fn spawn_light(commands: &mut Commands) {
-    commands.spawn((
-        PointLight {
-            color: WHITE.into(),
-            intensity: 100000.0,
-            ..default()
-        },
-        // Add the cascades objects used by the `DirectionalLight`, since the
-        // user can toggle between a point light and a directional light.
-        CascadesFrusta::default(),
-        Cascades::default(),
-        CascadeShadowConfig::default(),
-        CascadesVisibleEntities::default(),
-    ));
+    commands.spawn(create_point_light());
 }
 
 /// Spawns a camera with associated skybox and environment map.
 fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands
-        .spawn(Camera3dBundle {
-            camera: Camera {
+        .spawn((
+            Camera3d::default(),
+            Camera {
                 hdr: true,
                 ..default()
             },
-            projection: Projection::Perspective(PerspectiveProjection {
+            Projection::Perspective(PerspectiveProjection {
                 fov: 27.0 / 180.0 * PI,
                 ..default()
             }),
-            transform: Transform::from_xyz(0.0, 0.0, 10.0),
-            tonemapping: AcesFitted,
-            ..default()
-        })
+            Transform::from_xyz(0.0, 0.0, 10.0),
+            AcesFitted,
+        ))
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),

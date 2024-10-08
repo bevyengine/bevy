@@ -87,7 +87,7 @@ pub fn update_hits(
     backend_settings: Res<MeshPickingBackendSettings>,
     ray_map: Res<RayMap>,
     picking_cameras: Query<(&Camera, Option<&RayCastPickable>, Option<&RenderLayers>)>,
-    pickables: Query<&Pickable>,
+    pickables: Query<&PickingBehavior>,
     marked_targets: Query<&RayCastPickable>,
     layers: Query<&RenderLayers>,
     mut ray_cast: MeshRayCast,

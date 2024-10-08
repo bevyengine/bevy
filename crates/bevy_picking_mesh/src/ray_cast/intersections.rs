@@ -107,7 +107,7 @@ pub fn ray_mesh_intersection(
 
     let mesh_space_ray = Ray3d::new(
         world_to_mesh.transform_point3(ray.origin),
-        world_to_mesh.transform_vector3(*ray.direction),
+        Dir3::new(world_to_mesh.transform_vector3(*ray.direction)).ok()?,
     );
 
     if let Some(indices) = indices {
@@ -315,7 +315,7 @@ mod tests {
     #[test]
     fn ray_cast_triangle_mt() {
         let triangle = [V0.into(), V1.into(), V2.into()];
-        let ray = Ray3d::new(Vec3::ZERO, Vec3::X);
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
         let result = ray_triangle_intersection(&ray, &triangle, Backfaces::Include);
         assert!(result.unwrap().distance - 1.0 <= f32::EPSILON);
     }
@@ -323,7 +323,7 @@ mod tests {
     #[test]
     fn ray_cast_triangle_mt_culling() {
         let triangle = [V2.into(), V1.into(), V0.into()];
-        let ray = Ray3d::new(Vec3::ZERO, Vec3::X);
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
         let result = ray_triangle_intersection(&ray, &triangle, Backfaces::Cull);
         assert!(result.is_none());
     }

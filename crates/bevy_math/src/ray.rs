@@ -25,16 +25,9 @@ pub struct Ray2d {
 
 impl Ray2d {
     /// Create a new `Ray2d` from a given origin and direction
-    ///
-    /// # Panics
-    ///
-    /// Panics if the given `direction` is zero (or very close to zero), or non-finite.
     #[inline]
-    pub fn new(origin: Vec2, direction: Vec2) -> Self {
-        Self {
-            origin,
-            direction: Dir2::new(direction).expect("ray direction must be nonzero and finite"),
-        }
+    pub const fn new(origin: Vec2, direction: Dir2) -> Self {
+        Self { origin, direction }
     }
 
     /// Get a point at a given distance along the ray
@@ -74,16 +67,9 @@ pub struct Ray3d {
 
 impl Ray3d {
     /// Create a new `Ray3d` from a given origin and direction
-    ///
-    /// # Panics
-    ///
-    /// Panics if the given `direction` is zero (or very close to zero), or non-finite.
     #[inline]
-    pub fn new(origin: Vec3, direction: Vec3) -> Self {
-        Self {
-            origin,
-            direction: Dir3::new(direction).expect("ray direction must be nonzero and finite"),
-        }
+    pub const fn new(origin: Vec3, direction: Dir3) -> Self {
+        Self { origin, direction }
     }
 
     /// Get a point at a given distance along the ray
@@ -112,7 +98,7 @@ mod tests {
 
     #[test]
     fn intersect_plane_2d() {
-        let ray = Ray2d::new(Vec2::ZERO, Vec2::Y);
+        let ray = Ray2d::new(Vec2::ZERO, Dir2::Y);
 
         // Orthogonal, and test that an inverse plane_normal has the same result
         assert_eq!(
@@ -152,7 +138,7 @@ mod tests {
 
     #[test]
     fn intersect_plane_3d() {
-        let ray = Ray3d::new(Vec3::ZERO, Vec3::Z);
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::Z);
 
         // Orthogonal, and test that an inverse plane_normal has the same result
         assert_eq!(
