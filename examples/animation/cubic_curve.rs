@@ -33,7 +33,7 @@ fn setup(
     let mut animation_player = AnimationPlayer::default();
     animation_player.play(animation_node_index).repeat();
 
-    // Spawning a cube to experiment on
+    // A cube together with the components needed to animate it
     let cube_entity = commands
         .spawn((
             Mesh3d(meshes.add(Cuboid::default())),
@@ -61,7 +61,7 @@ fn setup(
         Transform::from_xyz(8., 16., 8.),
     ));
 
-    // ground plane
+    // Ground plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(50., 50.))),
         MeshMaterial3d(materials.add(Color::from(SILVER))),
