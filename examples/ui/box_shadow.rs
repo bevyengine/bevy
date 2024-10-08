@@ -55,6 +55,50 @@ fn setup(mut commands: Commands) {
             let example_nodes = [
                 (
                     Vec2::splat(100.),
+                    Vec2::ZERO,
+                    10.,
+                    0.,
+                    BorderRadius::bottom_right(Val::Px(25.)),
+                ),
+                (
+                    Vec2::new(100., 50.),
+                    Vec2::ZERO,
+                    10.,
+                    0.,
+                    BorderRadius::ZERO,
+                ),
+                (
+                    Vec2::new(100., 100.),
+                    Vec2::ZERO,
+                    10.,
+                    0.,
+                    BorderRadius::MAX,
+                ),
+                (Vec2::new(100., 25.), Vec2::ZERO, 10., 0., BorderRadius::MAX),
+                (
+                    Vec2::splat(100.),
+                    Vec2::ZERO,
+                    10.,
+                    0.,
+                    BorderRadius::bottom_right(Val::Px(25.)),
+                ),
+                (
+                    Vec2::new(100., 50.),
+                    Vec2::ZERO,
+                    0.,
+                    10.,
+                    BorderRadius::ZERO,
+                ),
+                (
+                    Vec2::new(100., 100.),
+                    Vec2::ZERO,
+                    0.,
+                    10.,
+                    BorderRadius::bottom_right(Val::Px(25.)),
+                ),
+                (Vec2::new(100., 25.), Vec2::ZERO, 0., 10., BorderRadius::MAX),
+                (
+                    Vec2::splat(100.),
                     Vec2::splat(50.),
                     0.,
                     0.,
@@ -72,7 +116,7 @@ fn setup(mut commands: Commands) {
                     Vec2::splat(25.),
                     0.,
                     0.,
-                    BorderRadius::MAX,
+                    BorderRadius::bottom_right(Val::Px(25.)),
                 ),
                 (
                     Vec2::splat(100.),
@@ -93,7 +137,7 @@ fn setup(mut commands: Commands) {
                     Vec2::splat(25.),
                     0.,
                     10.,
-                    BorderRadius::MAX,
+                    BorderRadius::bottom_right(Val::Px(25.)),
                 ),
                 (
                     Vec2::splat(100.),
@@ -114,7 +158,7 @@ fn setup(mut commands: Commands) {
                     Vec2::splat(25.),
                     0.,
                     3.,
-                    BorderRadius::MAX,
+                    BorderRadius::bottom_right(Val::Px(25.)),
                 ),
                 (
                     Vec2::splat(100.),
@@ -141,21 +185,21 @@ fn setup(mut commands: Commands) {
                     Vec2::splat(100.),
                     Vec2::splat(25.),
                     0.,
-                    25.,
+                    10.,
                     BorderRadius::all(Val::Px(20.)),
                 ),
                 (
                     Vec2::new(100., 50.),
                     Vec2::splat(25.),
                     0.,
-                    25.,
+                    10.,
                     BorderRadius::all(Val::Px(20.)),
                 ),
                 (
                     Vec2::new(50., 100.),
                     Vec2::splat(25.),
                     0.,
-                    25.,
+                    10.,
                     BorderRadius::MAX,
                 ),
             ];
@@ -193,7 +237,7 @@ fn box_shadow_node_bundle(
             ..Default::default()
         },
         BoxShadow {
-            color: Color::BLACK.with_alpha(0.5),
+            color: Color::BLACK.with_alpha(0.75),
             x_offset: Val::Percent(offset.x),
             y_offset: Val::Percent(offset.y),
             spread_radius: Val::Percent(spread),
