@@ -8,7 +8,7 @@ use bevy_input::{
 use bevy_math::Vec2;
 #[cfg(feature = "custom_cursor")]
 use bevy_window::SystemCursorIcon;
-use bevy_window::{EnabledButtons, ResizeDirection, SystemCursorIcon, WindowLevel, WindowTheme};
+use bevy_window::{EnabledButtons, ResizeDirection, WindowLevel, WindowTheme};
 use winit::keyboard::{Key, NamedKey, NativeKey};
 
 pub fn convert_keyboard_input(
