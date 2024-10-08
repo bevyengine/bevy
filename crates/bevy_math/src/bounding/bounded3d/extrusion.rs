@@ -174,9 +174,7 @@ impl BoundedExtrusion for Capsule2d {
             half_height: half_depth,
             radius: self.radius,
         }
-        .aabb_3d(Isometry3d::from_rotation(
-            isometry.rotation * Quat::from_rotation_x(FRAC_PI_2),
-        ));
+        .aabb_3d(isometry.rotation * Quat::from_rotation_x(FRAC_PI_2));
 
         let up = isometry.rotation * Vec3A::new(0., self.half_length, 0.);
         let half_size = aabb.max + up.abs();
@@ -226,7 +224,7 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
 
             // Calculate the `Aabb2d` of the base shape. The shape is rotated so that the line of intersection is parallel to the Y axis in the `Aabb2d` calculations.
             // This guarantees that the X value of the `Aabb2d` is closest to the `ax` plane
-            let aabb2d = self.aabb_2d(Isometry2d::from_rotation(Rot2::radians(angle)));
+            let aabb2d = self.aabb_2d(Rot2::radians(angle));
             (aabb2d.half_size().x * scale, aabb2d.center().x * scale)
         });
 
@@ -280,13 +278,12 @@ mod tests {
     fn circle() {
         let cylinder = Extrusion::new(Circle::new(0.5), 2.0);
         let translation = Vec3::new(2.0, 1.0, 0.0);
-        let isometry = Isometry3d::from_translation(translation);
 
-        let aabb = cylinder.aabb_3d(isometry);
+        let aabb = cylinder.aabb_3d(translation);
         assert_eq!(aabb.center(), Vec3A::from(translation));
         assert_eq!(aabb.half_size(), Vec3A::new(0.5, 0.5, 1.0));
 
-        let bounding_sphere = cylinder.bounding_sphere(isometry);
+        let bounding_sphere = cylinder.bounding_sphere(translation);
         assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(bounding_sphere.radius(), ops::hypot(1.0, 0.5));
     }

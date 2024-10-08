@@ -394,13 +394,12 @@ mod tests {
     fn sphere() {
         let sphere = Sphere { radius: 1.0 };
         let translation = Vec3::new(2.0, 1.0, 0.0);
-        let isometry = Isometry3d::from_translation(translation);
 
-        let aabb = sphere.aabb_3d(isometry);
+        let aabb = sphere.aabb_3d(translation);
         assert_eq!(aabb.min, Vec3A::new(1.0, 0.0, -1.0));
         assert_eq!(aabb.max, Vec3A::new(3.0, 2.0, 1.0));
 
-        let bounding_sphere = sphere.bounding_sphere(isometry);
+        let bounding_sphere = sphere.bounding_sphere(translation);
         assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(bounding_sphere.radius(), 1.0);
     }
@@ -408,25 +407,24 @@ mod tests {
     #[test]
     fn plane() {
         let translation = Vec3::new(2.0, 1.0, 0.0);
-        let isometry = Isometry3d::from_translation(translation);
 
-        let aabb1 = InfinitePlane3d::new(Vec3::X).aabb_3d(isometry);
+        let aabb1 = InfinitePlane3d::new(Vec3::X).aabb_3d(translation);
         assert_eq!(aabb1.min, Vec3A::new(2.0, -f32::MAX / 2.0, -f32::MAX / 2.0));
         assert_eq!(aabb1.max, Vec3A::new(2.0, f32::MAX / 2.0, f32::MAX / 2.0));
 
-        let aabb2 = InfinitePlane3d::new(Vec3::Y).aabb_3d(isometry);
+        let aabb2 = InfinitePlane3d::new(Vec3::Y).aabb_3d(translation);
         assert_eq!(aabb2.min, Vec3A::new(-f32::MAX / 2.0, 1.0, -f32::MAX / 2.0));
         assert_eq!(aabb2.max, Vec3A::new(f32::MAX / 2.0, 1.0, f32::MAX / 2.0));
 
-        let aabb3 = InfinitePlane3d::new(Vec3::Z).aabb_3d(isometry);
+        let aabb3 = InfinitePlane3d::new(Vec3::Z).aabb_3d(translation);
         assert_eq!(aabb3.min, Vec3A::new(-f32::MAX / 2.0, -f32::MAX / 2.0, 0.0));
         assert_eq!(aabb3.max, Vec3A::new(f32::MAX / 2.0, f32::MAX / 2.0, 0.0));
 
-        let aabb4 = InfinitePlane3d::new(Vec3::ONE).aabb_3d(isometry);
+        let aabb4 = InfinitePlane3d::new(Vec3::ONE).aabb_3d(translation);
         assert_eq!(aabb4.min, Vec3A::splat(-f32::MAX / 2.0));
         assert_eq!(aabb4.max, Vec3A::splat(f32::MAX / 2.0));
 
-        let bounding_sphere = InfinitePlane3d::new(Vec3::Y).bounding_sphere(isometry);
+        let bounding_sphere = InfinitePlane3d::new(Vec3::Y).bounding_sphere(translation);
         assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(bounding_sphere.radius(), f32::MAX / 2.0);
     }
@@ -434,28 +432,27 @@ mod tests {
     #[test]
     fn line() {
         let translation = Vec3::new(2.0, 1.0, 0.0);
-        let isometry = Isometry3d::from_translation(translation);
 
-        let aabb1 = Line3d { direction: Dir3::Y }.aabb_3d(isometry);
+        let aabb1 = Line3d { direction: Dir3::Y }.aabb_3d(translation);
         assert_eq!(aabb1.min, Vec3A::new(2.0, -f32::MAX / 2.0, 0.0));
         assert_eq!(aabb1.max, Vec3A::new(2.0, f32::MAX / 2.0, 0.0));
 
-        let aabb2 = Line3d { direction: Dir3::X }.aabb_3d(isometry);
+        let aabb2 = Line3d { direction: Dir3::X }.aabb_3d(translation);
         assert_eq!(aabb2.min, Vec3A::new(-f32::MAX / 2.0, 1.0, 0.0));
         assert_eq!(aabb2.max, Vec3A::new(f32::MAX / 2.0, 1.0, 0.0));
 
-        let aabb3 = Line3d { direction: Dir3::Z }.aabb_3d(isometry);
+        let aabb3 = Line3d { direction: Dir3::Z }.aabb_3d(translation);
         assert_eq!(aabb3.min, Vec3A::new(2.0, 1.0, -f32::MAX / 2.0));
         assert_eq!(aabb3.max, Vec3A::new(2.0, 1.0, f32::MAX / 2.0));
 
         let aabb4 = Line3d {
             direction: Dir3::from_xyz(1.0, 1.0, 1.0).unwrap(),
         }
-        .aabb_3d(isometry);
+        .aabb_3d(translation);
         assert_eq!(aabb4.min, Vec3A::splat(-f32::MAX / 2.0));
         assert_eq!(aabb4.max, Vec3A::splat(f32::MAX / 2.0));
 
-        let bounding_sphere = Line3d { direction: Dir3::Y }.bounding_sphere(isometry);
+        let bounding_sphere = Line3d { direction: Dir3::Y }.bounding_sphere(translation);
         assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(bounding_sphere.radius(), f32::MAX / 2.0);
     }
@@ -463,16 +460,15 @@ mod tests {
     #[test]
     fn segment() {
         let translation = Vec3::new(2.0, 1.0, 0.0);
-        let isometry = Isometry3d::from_translation(translation);
 
         let segment =
             Segment3d::from_points(Vec3::new(-1.0, -0.5, 0.0), Vec3::new(1.0, 0.5, 0.0)).0;
 
-        let aabb = segment.aabb_3d(isometry);
+        let aabb = segment.aabb_3d(translation);
         assert_eq!(aabb.min, Vec3A::new(1.0, 0.5, 0.0));
         assert_eq!(aabb.max, Vec3A::new(3.0, 1.5, 0.0));
 
-        let bounding_sphere = segment.bounding_sphere(isometry);
+        let bounding_sphere = segment.bounding_sphere(translation);
         assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(bounding_sphere.radius(), ops::hypot(1.0, 0.5));
     }
@@ -486,13 +482,12 @@ mod tests {
             Vec3::new(1.0, -1.0, -1.0),
         ]);
         let translation = Vec3::new(2.0, 1.0, 0.0);
-        let isometry = Isometry3d::from_translation(translation);
 
-        let aabb = polyline.aabb_3d(isometry);
+        let aabb = polyline.aabb_3d(translation);
         assert_eq!(aabb.min, Vec3A::new(1.0, 0.0, -1.0));
         assert_eq!(aabb.max, Vec3A::new(3.0, 2.0, 1.0));
 
-        let bounding_sphere = polyline.bounding_sphere(isometry);
+        let bounding_sphere = polyline.bounding_sphere(translation);
         assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(
             bounding_sphere.radius(),
@@ -513,7 +508,7 @@ mod tests {
         assert_eq!(aabb.min, Vec3A::from(translation) - expected_half_size);
         assert_eq!(aabb.max, Vec3A::from(translation) + expected_half_size);
 
-        let bounding_sphere = cuboid.bounding_sphere(Isometry3d::from_translation(translation));
+        let bounding_sphere = cuboid.bounding_sphere(translation);
         assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(
             bounding_sphere.radius(),
@@ -525,9 +520,8 @@ mod tests {
     fn cylinder() {
         let cylinder = Cylinder::new(0.5, 2.0);
         let translation = Vec3::new(2.0, 1.0, 0.0);
-        let isometry = Isometry3d::from_translation(translation);
 
-        let aabb = cylinder.aabb_3d(isometry);
+        let aabb = cylinder.aabb_3d(translation);
         assert_eq!(
             aabb.min,
             Vec3A::from(translation) - Vec3A::new(0.5, 1.0, 0.5)
@@ -537,7 +531,7 @@ mod tests {
             Vec3A::from(translation) + Vec3A::new(0.5, 1.0, 0.5)
         );
 
-        let bounding_sphere = cylinder.bounding_sphere(isometry);
+        let bounding_sphere = cylinder.bounding_sphere(translation);
         assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(bounding_sphere.radius(), ops::hypot(1.0, 0.5));
     }
@@ -546,9 +540,8 @@ mod tests {
     fn capsule() {
         let capsule = Capsule3d::new(0.5, 2.0);
         let translation = Vec3::new(2.0, 1.0, 0.0);
-        let isometry = Isometry3d::from_translation(translation);
 
-        let aabb = capsule.aabb_3d(isometry);
+        let aabb = capsule.aabb_3d(translation);
         assert_eq!(
             aabb.min,
             Vec3A::from(translation) - Vec3A::new(0.5, 1.5, 0.5)
@@ -558,7 +551,7 @@ mod tests {
             Vec3A::from(translation) + Vec3A::new(0.5, 1.5, 0.5)
         );
 
-        let bounding_sphere = capsule.bounding_sphere(isometry);
+        let bounding_sphere = capsule.bounding_sphere(translation);
         assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(bounding_sphere.radius(), 1.5);
     }
@@ -570,13 +563,12 @@ mod tests {
             height: 2.0,
         };
         let translation = Vec3::new(2.0, 1.0, 0.0);
-        let isometry = Isometry3d::from_translation(translation);
 
-        let aabb = cone.aabb_3d(isometry);
+        let aabb = cone.aabb_3d(translation);
         assert_eq!(aabb.min, Vec3A::new(1.0, 0.0, -1.0));
         assert_eq!(aabb.max, Vec3A::new(3.0, 2.0, 1.0));
 
-        let bounding_sphere = cone.bounding_sphere(isometry);
+        let bounding_sphere = cone.bounding_sphere(translation);
         assert_eq!(
             bounding_sphere.center,
             Vec3A::from(translation) + Vec3A::NEG_Y * 0.25
@@ -592,13 +584,12 @@ mod tests {
             height: 2.0,
         };
         let translation = Vec3::new(2.0, 1.0, 0.0);
-        let isometry = Isometry3d::from_translation(translation);
 
-        let aabb = conical_frustum.aabb_3d(isometry);
+        let aabb = conical_frustum.aabb_3d(translation);
         assert_eq!(aabb.min, Vec3A::new(1.0, 0.0, -1.0));
         assert_eq!(aabb.max, Vec3A::new(3.0, 2.0, 1.0));
 
-        let bounding_sphere = conical_frustum.bounding_sphere(isometry);
+        let bounding_sphere = conical_frustum.bounding_sphere(translation);
         assert_eq!(
             bounding_sphere.center,
             Vec3A::from(translation) + Vec3A::NEG_Y * 0.1875
@@ -614,15 +605,14 @@ mod tests {
             height: 1.0,
         };
         let translation = Vec3::new(2.0, 1.0, 0.0);
-        let isometry = Isometry3d::from_translation(translation);
 
-        let aabb = conical_frustum.aabb_3d(isometry);
+        let aabb = conical_frustum.aabb_3d(translation);
         assert_eq!(aabb.min, Vec3A::new(-3.0, 0.5, -5.0));
         assert_eq!(aabb.max, Vec3A::new(7.0, 1.5, 5.0));
 
         // For wide conical frusta like this, the circumcenter can be outside the frustum,
         // so the center and radius should be clamped to the longest side.
-        let bounding_sphere = conical_frustum.bounding_sphere(isometry);
+        let bounding_sphere = conical_frustum.bounding_sphere(translation);
         assert_eq!(
             bounding_sphere.center,
             Vec3A::from(translation) + Vec3A::NEG_Y * 0.5
@@ -637,13 +627,12 @@ mod tests {
             major_radius: 1.0,
         };
         let translation = Vec3::new(2.0, 1.0, 0.0);
-        let isometry = Isometry3d::from_translation(translation);
 
-        let aabb = torus.aabb_3d(isometry);
+        let aabb = torus.aabb_3d(translation);
         assert_eq!(aabb.min, Vec3A::new(0.5, 0.5, -1.5));
         assert_eq!(aabb.max, Vec3A::new(3.5, 1.5, 1.5));
 
-        let bounding_sphere = torus.bounding_sphere(isometry);
+        let bounding_sphere = torus.bounding_sphere(translation);
         assert_eq!(bounding_sphere.center, translation.into());
         assert_eq!(bounding_sphere.radius(), 1.5);
     }

@@ -166,7 +166,7 @@ fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Co
 fn draw_shapes(mut gizmos: Gizmos, mines: Query<&Mine>) {
     for mine in &mines {
         gizmos.circle_2d(
-            Isometry2d::from_translation(mine.pos),
+            mine.pos,
             mine.size,
             Color::hsl((mine.size - 4.0) / 16.0 * 360.0, 1.0, 0.8),
         );

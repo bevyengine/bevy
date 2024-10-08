@@ -1375,36 +1375,36 @@ mod tests {
 
         let point_in_plane = Vec3::X + Vec3::Z;
         assert_eq!(
-            plane.signed_distance(Isometry3d::from_translation(origin), point_in_plane),
+            plane.signed_distance(origin, point_in_plane),
             0.0,
             "incorrect distance"
         );
         assert_eq!(
-            plane.project_point(Isometry3d::from_translation(origin), point_in_plane),
+            plane.project_point(origin, point_in_plane),
             point_in_plane,
             "incorrect point"
         );
 
         let point_outside = Vec3::Y;
         assert_eq!(
-            plane.signed_distance(Isometry3d::from_translation(origin), point_outside),
+            plane.signed_distance(origin, point_outside),
             -1.0,
             "incorrect distance"
         );
         assert_eq!(
-            plane.project_point(Isometry3d::from_translation(origin), point_outside),
+            plane.project_point(origin, point_outside),
             Vec3::ZERO,
             "incorrect point"
         );
 
         let point_outside = Vec3::NEG_Y;
         assert_eq!(
-            plane.signed_distance(Isometry3d::from_translation(origin), point_outside),
+            plane.signed_distance(origin, point_outside),
             1.0,
             "incorrect distance"
         );
         assert_eq!(
-            plane.project_point(Isometry3d::from_translation(origin), point_outside),
+            plane.project_point(origin, point_outside),
             Vec3::ZERO,
             "incorrect point"
         );

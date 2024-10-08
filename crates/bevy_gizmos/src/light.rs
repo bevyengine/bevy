@@ -41,20 +41,10 @@ fn point_light_gizmo(
 ) {
     let position = transform.translation();
     gizmos
-        .primitive_3d(
-            &Sphere {
-                radius: point_light.radius,
-            },
-            Isometry3d::from_translation(position),
-            color,
-        )
+        .primitive_3d(&Sphere::new(point_light.radius), position, color)
         .resolution(16);
     gizmos
-        .sphere(
-            Isometry3d::from_translation(position),
-            point_light.range,
-            color,
-        )
+        .sphere(position, point_light.range, color)
         .resolution(32);
 }
 
@@ -68,13 +58,7 @@ fn spot_light_gizmo(
 ) {
     let (_, rotation, translation) = transform.to_scale_rotation_translation();
     gizmos
-        .primitive_3d(
-            &Sphere {
-                radius: spot_light.radius,
-            },
-            Isometry3d::from_translation(translation),
-            color,
-        )
+        .primitive_3d(&Sphere::new(spot_light.radius), translation, color)
         .resolution(16);
 
     // Offset the tip of the cone to the light position.

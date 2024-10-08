@@ -30,7 +30,7 @@ fn draw_cursor(
         return;
     };
 
-    gizmos.circle_2d(Isometry2d::from_translation(point), 10., WHITE);
+    gizmos.circle_2d(point, 10., WHITE);
 }
 
 fn setup(mut commands: Commands) {
