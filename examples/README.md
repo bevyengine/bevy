@@ -353,6 +353,8 @@ Example | Description
 
 Example | Description
 --- | ---
+[2D Ray Casting for Primitives](../examples/math/ray_cast_2d.rs) | Shows off ray casting for primitive shapes in 2D
+[3D Ray Casting for Primitives](../examples/math/ray_cast_3d.rs) | Shows off ray casting for primitive shapes in 3D
 [Cubic Splines](../examples/math/cubic_splines.rs) | Exhibits different modes of constructing cubic curves using splines
 [Custom Primitives](../examples/math/custom_primitives.rs) | Demonstrates how to add custom primitives and useful traits for them.
 [Random Sampling](../examples/math/random_sampling.rs) | Demonstrates how to sample random points from mathematical primitives
