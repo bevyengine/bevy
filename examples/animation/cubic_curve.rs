@@ -1,5 +1,7 @@
 //! Demonstrates how to work with Cubic curves.
 
+use std::f32::consts::PI;
+
 use bevy::{
     animation::{AnimationTarget, AnimationTargetId},
     color::palettes::css::{ORANGE, SILVER},
@@ -99,18 +101,34 @@ impl AnimationInfo {
         // Allocate an animation clip.
         let mut animation_clip = AnimationClip::default();
 
+        // Each leg of the animation should take 3 seconds.
+        let animation_domain = interval(0.0, 3.0).unwrap();
+
+        // This curve is parametrized over [0, 1], so we reparametrize it and then ping-pong,
+        // which makes it spend another 3 seconds on the return journey.
         let translation_curve = easing_curve(
             vec3(-6., 2., 0.),
             vec3(6., 2., 0.),
             EaseFunction::CubicInOut,
-        );
-        // .reparametrize_linear(interval(0.0, 3.0).unwrap())
-        // .expect("this curve has bounded domain, so this should never fail")
-        // .ping_pong()
-        // .expect("this curve has bounded domain, so this should never fail");
+        )
+        .reparametrize_linear(animation_domain)
+        .expect("this curve has bounded domain, so this should never fail")
+        .ping_pong()
+        .expect("this curve has bounded domain, so this should never fail");
+
+        let rotation_curve = easing_curve(
+            Quat::IDENTITY,
+            Quat::from_rotation_y(PI),
+            EaseFunction::ElasticInOut,
+        )
+        .reparametrize_linear(animation_domain)
+        .expect("this curve has bounded domain, so this should never fail")
+        .ping_pong()
+        .expect("this curve has bounded domain, so this should never fail");
 
         animation_clip
             .add_curve_to_target(animation_target_id, TranslationCurve(translation_curve));
+        animation_clip.add_curve_to_target(animation_target_id, RotationCurve(rotation_curve));
 
         // Save our animation clip as an asset.
         let animation_clip_handle = animation_clips.add(animation_clip);
