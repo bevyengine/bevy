@@ -219,7 +219,7 @@ fn triangle_intersection(
     if hit.distance < 0.0 || hit.distance > max_distance {
         return None;
     };
-    let position = ray.get_point(hit.distance);
+    let point = ray.get_point(hit.distance);
     let u = hit.barycentric_coords.0;
     let v = hit.barycentric_coords.1;
     let w = 1.0 - u - v;
@@ -232,7 +232,7 @@ fn triangle_intersection(
             .normalize()
     };
     Some(RayMeshHit {
-        point: position,
+        point,
         normal: Dir3::new_unchecked(normal.into()),
         barycentric_coord: barycentric,
         distance: hit.distance,

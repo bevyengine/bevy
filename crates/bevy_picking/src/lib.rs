@@ -169,6 +169,7 @@ use bevy_reflect::prelude::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[cfg(feature = "bevy_mesh")]
+    #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{Backfaces, MeshRayCast, RayCastSettings, RayCastVisibility},
         MeshPickingBackend,
