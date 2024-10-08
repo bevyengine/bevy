@@ -264,7 +264,8 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        world.removed_components()
+    ) -> Option<Self::Item<'w, 's>> {
+        let param = world.removed_components();
+        Some(param)
     }
 }

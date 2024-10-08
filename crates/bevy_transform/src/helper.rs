@@ -137,7 +137,7 @@ mod tests {
         let transform = *app.world().get::<GlobalTransform>(leaf_entity).unwrap();
 
         let mut state = SystemState::<TransformHelper>::new(app.world_mut());
-        let helper = state.get(app.world());
+        let helper = state.get(app.world()).unwrap();
 
         let computed_transform = helper.compute_global_transform(leaf_entity).unwrap();
 

@@ -38,10 +38,10 @@ use super::{IntoSystem, ReadOnlySystem, System};
 ///
 ///     fn combine(
 ///         _input: Self::In,
-///         a: impl FnOnce(A::In) -> A::Out,
-///         b: impl FnOnce(B::In) -> B::Out,
-///     ) -> Self::Out {
-///         a(()) ^ b(())
+///         a: impl FnOnce(A::In) -> Option<A::Out>,
+///         b: impl FnOnce(B::In) -> Option<B::Out>,
+///     ) -> Option<Self::Out> {
+///         Some(a(())? ^ b(())?)
 ///     }
 /// }
 ///
@@ -101,9 +101,9 @@ pub trait Combine<A: System, B: System> {
     /// See the trait-level docs for [`Combine`] for an example implementation.
     fn combine(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out;
+        a: impl FnOnce(SystemIn<'_, A>) -> Option<A::Out>,
+        b: impl FnOnce(SystemIn<'_, B>) -> Option<B::Out>,
+    ) -> Option<Self::Out>;
 }
 
 /// A [`System`] defined by combining two other systems.
@@ -171,7 +171,7 @@ where
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Option<Self::Out> {
         Func::combine(
             input,
             // SAFETY: The world accesses for both underlying systems have been registered,
@@ -186,7 +186,13 @@ where
         )
     }
 
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+    #[inline]
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+        // SAFETY: Delegate to existing `System` implementations.
+        self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world)
+    }
+
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Option<Self::Out> {
         let world = world.as_unsafe_world_cell();
         Func::combine(
             input,
@@ -209,12 +215,6 @@ where
     fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
         self.a.queue_deferred(world.reborrow());
         self.b.queue_deferred(world);
-    }
-
-    #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
-        // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world) }
     }
 
     fn initialize(&mut self, world: &mut World) {
@@ -334,7 +334,7 @@ where
 ///     // pipe the `parse_message_system`'s output into the `filter_system`s input
 ///     let mut piped_system = IntoSystem::into_system(parse_message_system.pipe(filter_system));
 ///     piped_system.initialize(&mut world);
-///     assert_eq!(piped_system.run((), &mut world), Some(42));
+///     assert_eq!(piped_system.run((), &mut world).unwrap(), Some(42));
 /// }
 ///
 /// #[derive(Resource)]
@@ -411,13 +411,19 @@ where
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
-        let value = self.a.run_unsafe(input, world);
+    ) -> Option<Self::Out> {
+        let value = self.a.run_unsafe(input, world)?;
         self.b.run_unsafe(value, world)
     }
 
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
-        let value = self.a.run(input, world);
+    #[inline]
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+        // SAFETY: Delegate to existing `System` implementations.
+        self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world)
+    }
+
+    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Option<Self::Out> {
+        let value = self.a.run(input, world)?;
         self.b.run(value, world)
     }
 
@@ -429,15 +435,6 @@ where
     fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
         self.a.queue_deferred(world.reborrow());
         self.b.queue_deferred(world);
-    }
-
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
-        // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world) }
-    }
-
-    fn validate_param(&mut self, world: &World) -> bool {
-        self.a.validate_param(world) && self.b.validate_param(world)
     }
 
     fn initialize(&mut self, world: &mut World) {

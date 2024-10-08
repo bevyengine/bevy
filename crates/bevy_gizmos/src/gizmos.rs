@@ -187,22 +187,12 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param(
-        state: &Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> bool {
-        // SAFETY: Delegated to existing `SystemParam` implementations.
-        unsafe { GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world) }
-    }
-
-    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Option<Self::Item<'w, 's>> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
         let (f0, f1) = unsafe {
             GizmosState::<Config, Clear>::get_param(
@@ -211,17 +201,17 @@ where
                 world,
                 change_tick,
             )
-        };
+        }?;
         // Accessing the GizmoConfigStore in the immediate mode API reduces performance significantly.
         // Implementing SystemParam manually allows us to do it to here
         // Having config available allows for early returns when gizmos are disabled
         let (config, config_ext) = f1.into_inner().config::<Config>();
-        Gizmos {
+        Some(Gizmos {
             buffer: f0,
             enabled: config.enabled,
             config,
             config_ext,
-        }
+        })
     }
 }
 

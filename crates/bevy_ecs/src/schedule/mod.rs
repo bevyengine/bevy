@@ -1198,7 +1198,7 @@ mod tests {
                 // start a new frame by running ihe begin_frame() system
                 let mut system_state: SystemState<Option<ResMut<Stepping>>> =
                     SystemState::new(&mut world);
-                let res = system_state.get_mut(&mut world);
+                let res = system_state.get_mut(&mut world).unwrap();
                 Stepping::begin_frame(res);
 
                 // now run the schedule; this will panic if the executor doesn't

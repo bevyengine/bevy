@@ -316,7 +316,7 @@ where
         view: Entity,
         item: &P,
     ) -> Result<(), DrawError> {
-        let param = self.state.get_manual(world);
+        let param = self.state.get_manual(world).unwrap();
         let view = match self.view.get_manual(world, view) {
             Ok(view) => view,
             Err(err) => match err {

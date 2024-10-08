@@ -84,8 +84,9 @@ unsafe impl SystemParam for SystemName<'_> {
         _system_meta: &SystemMeta,
         _world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
-        SystemName(name)
+    ) -> Option<Self::Item<'w, 's>> {
+        let param = SystemName(name);
+        Some(param)
     }
 }
 

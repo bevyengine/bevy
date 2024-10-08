@@ -95,6 +95,7 @@ impl SystemExecutor for SimpleExecutor {
                 continue;
             }
 
+            let system = &mut schedule.systems[system_index];
             if is_apply_deferred(system) {
                 continue;
             }
@@ -137,7 +138,9 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
             if !condition.validate_param(world) {
                 return false;
             }
-            __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
+            let maybe_out = __rust_begin_short_backtrace::readonly_run(&mut **condition, world);
+            // We checked params can be acquired.
+            maybe_out.unwrap()
         })
         .fold(true, |acc, res| acc && res)
 }

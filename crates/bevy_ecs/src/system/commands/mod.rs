@@ -149,30 +149,18 @@ const _: () = {
         }
 
         #[inline]
-        unsafe fn validate_param(
-            state: &Self::State,
-            system_meta: &bevy_ecs::system::SystemMeta,
-            world: UnsafeWorldCell,
-        ) -> bool {
-            <(Deferred<CommandQueue>, &Entities) as bevy_ecs::system::SystemParam>::validate_param(
-                &state.state,
-                system_meta,
-                world,
-            )
-        }
-
-        #[inline]
         unsafe fn get_param<'w, 's>(
             state: &'s mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
             world: UnsafeWorldCell<'w>,
             change_tick: bevy_ecs::component::Tick,
-        ) -> Self::Item<'w, 's> {
-            let(f0, f1) =  <(Deferred<'s, CommandQueue>, &'w Entities) as bevy_ecs::system::SystemParam>::get_param(&mut state.state, system_meta, world, change_tick);
-            Commands {
+        ) -> Option<Self::Item<'w, 's>> {
+            let(f0, f1) =  <(Deferred<'s, CommandQueue>, &'w Entities) as bevy_ecs::system::SystemParam>::get_param(&mut state.state, system_meta, world, change_tick)?;
+            let param = Commands {
                 queue: InternalQueue::CommandQueue(f0),
                 entities: f1,
-            }
+            };
+            Some(param)
         }
     }
     // SAFETY: Only reads Entities

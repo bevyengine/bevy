@@ -189,7 +189,7 @@ pub fn extract_meshlet_mesh_entities(
     }
     let system_state = system_state.as_mut().unwrap();
     let (instances_query, asset_server, mut assets, mut asset_events) =
-        system_state.get_mut(&mut main_world);
+        system_state.get_mut(&mut main_world).unwrap();
 
     // Reset per-frame data
     instance_manager.reset(render_entities);
