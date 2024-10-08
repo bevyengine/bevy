@@ -896,7 +896,7 @@ pub fn prepare_uinodes(
 
                             existing_batch = batches.last_mut();
                         } else {
-                            UnwindContinue();
+                            continue;
                         }
                     } else if batch_image_handle == AssetId::default()
                         && extracted_uinode.image != AssetId::default()
