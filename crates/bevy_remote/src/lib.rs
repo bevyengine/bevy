@@ -804,20 +804,21 @@ fn process_remote_requests(world: &mut World) {
 /// A system that checks all ongoing watching requests for changes that should be sent
 /// and handles it if so.
 fn process_ongoing_watching_requests(world: &mut World) {
-    let requests = world.resource::<RemoteWatchingRequests>().0.clone();
-    for (message, system_id) in &requests {
-        let handler_result = process_single_ongoing_watching_request(world, message, system_id);
-        let sender_result = match handler_result {
-            Ok(Some(value)) => message.sender.try_send(Ok(value)),
-            Err(err) => message.sender.try_send(Err(err)),
-            Ok(None) => continue,
-        };
+    world.resource_scope::<RemoteWatchingRequests, ()>(|world, requests| {
+        for (message, system_id) in requests.0.iter() {
+            let handler_result = process_single_ongoing_watching_request(world, message, system_id);
+            let sender_result = match handler_result {
+                Ok(Some(value)) => message.sender.try_send(Ok(value)),
+                Err(err) => message.sender.try_send(Err(err)),
+                Ok(None) => continue,
+            };
 
-        if sender_result.is_err() {
-            // The [`remove_closed_watching_requests`] system will clean this up.
-            message.sender.close();
+            if sender_result.is_err() {
+                // The [`remove_closed_watching_requests`] system will clean this up.
+                message.sender.close();
+            }
         }
-    }
+    });
 }
 
 fn process_single_ongoing_watching_request(
