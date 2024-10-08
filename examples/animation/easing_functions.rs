@@ -151,15 +151,15 @@ fn display_curves(
 
         // Draw the curve
         let f = easing_curve(0.0, 1.0, *function);
-        gizmos.linestrip_2d(
-            (0..(samples + 1)).map(|i| {
-                let t = i as f32 / samples as f32;
-                let sampled = f.sample(t).unwrap();
-                Vec2::new(
-                    t * size + transform.translation.x,
-                    sampled * size + transform.translation.y + 15.0,
-                )
-            }),
+        let drawn_curve = f.by_ref().graph().map(|(x, y)| {
+            Vec2::new(
+                x * size + transform.translation.x,
+                y * size + transform.translation.y + 15.0,
+            )
+        });
+        gizmos.curve_2d(
+            &drawn_curve,
+            drawn_curve.domain().spaced_points(samples).unwrap(),
             *color,
         );
 
