@@ -3610,6 +3610,18 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "mesh_picking"
+path = "examples/picking/mesh_picking.rs"
+doc-scrape-examples = true
+required-features = ["bevy_picking_mesh"]
+
+[package.metadata.example.mesh_picking]
+name = "Mesh Picking"
+description = "Demonstrates picking meshes"
+category = "Picking"
+wasm = true
+
+[[example]]
 name = "simple_picking"
 path = "examples/picking/simple_picking.rs"
 doc-scrape-examples = true
