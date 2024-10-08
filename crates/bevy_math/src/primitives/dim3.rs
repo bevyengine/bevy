@@ -220,7 +220,8 @@ impl InfinitePlane3d {
     /// `point`. The result is a signed value; it's positive if the point lies in the half-space
     /// that the plane's normal vector points towards.
     #[inline]
-    pub fn signed_distance(&self, isometry: Isometry3d, point: Vec3) -> f32 {
+    pub fn signed_distance(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> f32 {
+        let isometry = isometry.into();
         self.normal.dot(isometry.inverse() * point)
     }
 
@@ -228,7 +229,7 @@ impl InfinitePlane3d {
     ///
     /// This projects the point orthogonally along the shortest path onto the plane.
     #[inline]
-    pub fn project_point(&self, isometry: Isometry3d, point: Vec3) -> Vec3 {
+    pub fn project_point(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> Vec3 {
         point - self.normal * self.signed_distance(isometry, point)
     }
 

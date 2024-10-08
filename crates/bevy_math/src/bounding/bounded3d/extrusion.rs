@@ -17,8 +17,10 @@ use crate::{bounding::Bounded2d, primitives::Circle};
 use super::{Aabb3d, Bounded3d, BoundingSphere};
 
 impl BoundedExtrusion for Circle {
-    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: Isometry3d) -> Aabb3d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
         // Reference: http://iquilezles.org/articles/diskbbox/
+
+        let isometry = isometry.into();
 
         let segment_dir = isometry.rotation * Vec3A::Z;
         let top = (segment_dir * half_depth).abs();
@@ -34,7 +36,8 @@ impl BoundedExtrusion for Circle {
 }
 
 impl BoundedExtrusion for Ellipse {
-    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: Isometry3d) -> Aabb3d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
         let Vec2 { x: a, y: b } = self.half_size;
         let normal = isometry.rotation * Vec3A::Z;
         let conjugate_rot = isometry.rotation.conjugate();
@@ -64,7 +67,8 @@ impl BoundedExtrusion for Ellipse {
 }
 
 impl BoundedExtrusion for Line2d {
-    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: Isometry3d) -> Aabb3d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
         let dir = isometry.rotation * Vec3A::from(self.direction.extend(0.));
         let half_depth = (isometry.rotation * Vec3A::new(0., 0., half_depth)).abs();
 
@@ -80,7 +84,8 @@ impl BoundedExtrusion for Line2d {
 }
 
 impl BoundedExtrusion for Segment2d {
-    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: Isometry3d) -> Aabb3d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
         let half_size = isometry.rotation * Vec3A::from(self.point1().extend(0.));
         let depth = isometry.rotation * Vec3A::new(0., 0., half_depth);
 
@@ -89,7 +94,8 @@ impl BoundedExtrusion for Segment2d {
 }
 
 impl<const N: usize> BoundedExtrusion for Polyline2d<N> {
-    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: Isometry3d) -> Aabb3d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
         let aabb =
             Aabb3d::from_point_cloud(isometry, self.vertices.map(|v| v.extend(0.)).into_iter());
         let depth = isometry.rotation * Vec3A::new(0., 0., half_depth);
@@ -99,7 +105,8 @@ impl<const N: usize> BoundedExtrusion for Polyline2d<N> {
 }
 
 impl BoundedExtrusion for BoxedPolyline2d {
-    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: Isometry3d) -> Aabb3d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
         let aabb = Aabb3d::from_point_cloud(isometry, self.vertices.iter().map(|v| v.extend(0.)));
         let depth = isometry.rotation * Vec3A::new(0., 0., half_depth);
 
@@ -108,7 +115,8 @@ impl BoundedExtrusion for BoxedPolyline2d {
 }
 
 impl BoundedExtrusion for Triangle2d {
-    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: Isometry3d) -> Aabb3d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
         let aabb = Aabb3d::from_point_cloud(isometry, self.vertices.iter().map(|v| v.extend(0.)));
         let depth = isometry.rotation * Vec3A::new(0., 0., half_depth);
 
@@ -117,7 +125,7 @@ impl BoundedExtrusion for Triangle2d {
 }
 
 impl BoundedExtrusion for Rectangle {
-    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: Isometry3d) -> Aabb3d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
         Cuboid {
             half_size: self.half_size.extend(half_depth),
         }
@@ -126,7 +134,8 @@ impl BoundedExtrusion for Rectangle {
 }
 
 impl<const N: usize> BoundedExtrusion for Polygon<N> {
-    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: Isometry3d) -> Aabb3d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
         let aabb =
             Aabb3d::from_point_cloud(isometry, self.vertices.map(|v| v.extend(0.)).into_iter());
         let depth = isometry.rotation * Vec3A::new(0., 0., half_depth);
@@ -136,7 +145,8 @@ impl<const N: usize> BoundedExtrusion for Polygon<N> {
 }
 
 impl BoundedExtrusion for BoxedPolygon {
-    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: Isometry3d) -> Aabb3d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
         let aabb = Aabb3d::from_point_cloud(isometry, self.vertices.iter().map(|v| v.extend(0.)));
         let depth = isometry.rotation * Vec3A::new(0., 0., half_depth);
 
@@ -145,7 +155,8 @@ impl BoundedExtrusion for BoxedPolygon {
 }
 
 impl BoundedExtrusion for RegularPolygon {
-    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: Isometry3d) -> Aabb3d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
         let aabb = Aabb3d::from_point_cloud(
             isometry,
             self.vertices(0.).into_iter().map(|v| v.extend(0.)),
@@ -157,7 +168,8 @@ impl BoundedExtrusion for RegularPolygon {
 }
 
 impl BoundedExtrusion for Capsule2d {
-    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: Isometry3d) -> Aabb3d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
         let aabb = Cylinder {
             half_height: half_depth,
             radius: self.radius,
@@ -173,11 +185,11 @@ impl BoundedExtrusion for Capsule2d {
 }
 
 impl<T: BoundedExtrusion> Bounded3d for Extrusion<T> {
-    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
         self.base_shape.extrusion_aabb_3d(self.half_depth, isometry)
     }
 
-    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
         self.base_shape
             .extrusion_bounding_sphere(self.half_depth, isometry)
     }
@@ -191,7 +203,8 @@ impl<T: BoundedExtrusion> Bounded3d for Extrusion<T> {
 /// `impl BoundedExtrusion for MyShape {}`
 pub trait BoundedExtrusion: Primitive2d + Bounded2d {
     /// Get an axis-aligned bounding box for an extrusion with this shape as a base and the given `half_depth`, transformed by the given `translation` and `rotation`.
-    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: Isometry3d) -> Aabb3d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
         let cap_normal = isometry.rotation * Vec3A::Z;
         let conjugate_rot = isometry.rotation.conjugate();
 
@@ -225,7 +238,13 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
     }
 
     /// Get a bounding sphere for an extrusion of the `base_shape` with the given `half_depth` with the given translation and rotation
-    fn extrusion_bounding_sphere(&self, half_depth: f32, isometry: Isometry3d) -> BoundingSphere {
+    fn extrusion_bounding_sphere(
+        &self,
+        half_depth: f32,
+        isometry: impl Into<Isometry3d>,
+    ) -> BoundingSphere {
+        let isometry = isometry.into();
+
         // We calculate the bounding circle of the base shape.
         // Since each of the extrusions bases will have the same distance from its center,
         // and they are just shifted along the Z-axis, the minimum bounding sphere will be the bounding sphere

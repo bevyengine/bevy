@@ -15,17 +15,21 @@ use crate::{
 use super::{Aabb3d, Bounded3d, BoundingSphere};
 
 impl Bounded3d for Sphere {
-    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
         Aabb3d::new(isometry.translation, Vec3::splat(self.radius))
     }
 
-    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
+        let isometry = isometry.into();
         BoundingSphere::new(isometry.translation, self.radius)
     }
 }
 
 impl Bounded3d for InfinitePlane3d {
-    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
+
         let normal = isometry.rotation * *self.normal;
         let facing_x = normal == Vec3::X || normal == Vec3::NEG_X;
         let facing_y = normal == Vec3::Y || normal == Vec3::NEG_Y;
@@ -41,13 +45,15 @@ impl Bounded3d for InfinitePlane3d {
         Aabb3d::new(isometry.translation, half_size)
     }
 
-    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
+        let isometry = isometry.into();
         BoundingSphere::new(isometry.translation, f32::MAX / 2.0)
     }
 }
 
 impl Bounded3d for Line3d {
-    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
         let direction = isometry.rotation * *self.direction;
 
         // Dividing `f32::MAX` by 2.0 is helpful so that we can do operations
@@ -61,13 +67,16 @@ impl Bounded3d for Line3d {
         Aabb3d::new(isometry.translation, half_size)
     }
 
-    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
+        let isometry = isometry.into();
         BoundingSphere::new(isometry.translation, f32::MAX / 2.0)
     }
 }
 
 impl Bounded3d for Segment3d {
-    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
+
         // Rotate the segment by `rotation`
         let direction = isometry.rotation * *self.direction;
         let half_size = (self.half_length * direction).abs();
@@ -75,33 +84,36 @@ impl Bounded3d for Segment3d {
         Aabb3d::new(isometry.translation, half_size)
     }
 
-    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
+        let isometry = isometry.into();
         BoundingSphere::new(isometry.translation, self.half_length)
     }
 }
 
 impl<const N: usize> Bounded3d for Polyline3d<N> {
-    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
         Aabb3d::from_point_cloud(isometry, self.vertices.iter().copied())
     }
 
-    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
         BoundingSphere::from_point_cloud(isometry, &self.vertices)
     }
 }
 
 impl Bounded3d for BoxedPolyline3d {
-    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
         Aabb3d::from_point_cloud(isometry, self.vertices.iter().copied())
     }
 
-    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
         BoundingSphere::from_point_cloud(isometry, &self.vertices)
     }
 }
 
 impl Bounded3d for Cuboid {
-    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
+
         // Compute the AABB of the rotated cuboid by transforming the half-size
         // by an absolute rotation matrix.
         let rot_mat = Mat3::from_quat(isometry.rotation);
@@ -115,14 +127,17 @@ impl Bounded3d for Cuboid {
         Aabb3d::new(isometry.translation, half_size)
     }
 
-    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
+        let isometry = isometry.into();
         BoundingSphere::new(isometry.translation, self.half_size.length())
     }
 }
 
 impl Bounded3d for Cylinder {
-    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
         // Reference: http://iquilezles.org/articles/diskbbox/
+
+        let isometry = isometry.into();
 
         let segment_dir = isometry.rotation * Vec3A::Y;
         let top = segment_dir * self.half_height;
@@ -137,14 +152,17 @@ impl Bounded3d for Cylinder {
         }
     }
 
-    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
+        let isometry = isometry.into();
         let radius = ops::hypot(self.radius, self.half_height);
         BoundingSphere::new(isometry.translation, radius)
     }
 }
 
 impl Bounded3d for Capsule3d {
-    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
+
         // Get the line segment between the hemispheres of the rotated capsule
         let segment_dir = isometry.rotation * Vec3A::Y;
         let top = segment_dir * self.half_length;
@@ -160,14 +178,17 @@ impl Bounded3d for Capsule3d {
         }
     }
 
-    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
+        let isometry = isometry.into();
         BoundingSphere::new(isometry.translation, self.radius + self.half_length)
     }
 }
 
 impl Bounded3d for Cone {
-    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
         // Reference: http://iquilezles.org/articles/diskbbox/
+
+        let isometry = isometry.into();
 
         let segment_dir = isometry.rotation * Vec3A::Y;
         let top = segment_dir * 0.5 * self.height;
@@ -182,7 +203,9 @@ impl Bounded3d for Cone {
         }
     }
 
-    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
+        let isometry = isometry.into();
+
         // Get the triangular cross-section of the cone.
         let half_height = 0.5 * self.height;
         let triangle = Triangle2d::new(
@@ -203,8 +226,10 @@ impl Bounded3d for Cone {
 }
 
 impl Bounded3d for ConicalFrustum {
-    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
         // Reference: http://iquilezles.org/articles/diskbbox/
+
+        let isometry = isometry.into();
 
         let segment_dir = isometry.rotation * Vec3A::Y;
         let top = segment_dir * 0.5 * self.height;
@@ -223,7 +248,8 @@ impl Bounded3d for ConicalFrustum {
         }
     }
 
-    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
+        let isometry = isometry.into();
         let half_height = 0.5 * self.height;
 
         // To compute the bounding sphere, we'll get the center and radius of the circumcircle
@@ -286,7 +312,9 @@ impl Bounded3d for ConicalFrustum {
 }
 
 impl Bounded3d for Torus {
-    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
+
         // Compute the AABB of a flat disc with the major radius of the torus.
         // Reference: http://iquilezles.org/articles/diskbbox/
         let normal = isometry.rotation * Vec3A::Y;
@@ -299,14 +327,16 @@ impl Bounded3d for Torus {
         Aabb3d::new(isometry.translation, half_size)
     }
 
-    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
+        let isometry = isometry.into();
         BoundingSphere::new(isometry.translation, self.outer_radius())
     }
 }
 
 impl Bounded3d for Triangle3d {
     /// Get the bounding box of the triangle.
-    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        let isometry = isometry.into();
         let [a, b, c] = self.vertices;
 
         let a = isometry.rotation * a;
@@ -327,7 +357,9 @@ impl Bounded3d for Triangle3d {
     /// The [`Triangle3d`] implements the minimal bounding sphere calculation. For acute triangles, the circumcenter is used as
     /// the center of the sphere. For the others, the bounding sphere is the minimal sphere
     /// that contains the largest side of the triangle.
-    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
+        let isometry = isometry.into();
+
         if self.is_degenerate() || self.is_obtuse() {
             let (p1, p2) = self.largest_side();
             let (p1, p2) = (Vec3A::from(p1), Vec3A::from(p2));
