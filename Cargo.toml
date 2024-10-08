@@ -1300,13 +1300,13 @@ category = "Animation"
 wasm = true
 
 [[example]]
-name = "cubic_curve"
-path = "examples/animation/cubic_curve.rs"
+name = "eased_motion"
+path = "examples/animation/eased_motion.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.cubic_curve]
-name = "Cubic Curve"
-description = "Bezier curve example showing a cube following a cubic curve"
+[package.metadata.example.eased_motion]
+name = "Eased Motion"
+description = "Demonstrates the application of easing curves to animate an object"
 category = "Animation"
 wasm = true
 
