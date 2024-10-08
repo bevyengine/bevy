@@ -763,10 +763,7 @@ fn process_remote_requests(world: &mut World) {
     while let Ok(message) = world.resource_mut::<BrpReceiver>().try_recv() {
         // Fetch the handler for the method. If there's no such handler
         // registered, return an error.
-        let Some(&handler) = world
-            .resource::<RemoteMethods>()
-            .get(&message.method)
-        else {
+        let Some(&handler) = world.resource::<RemoteMethods>().get(&message.method) else {
             let _ = message.sender.force_send(Err(BrpError {
                 code: error_codes::METHOD_NOT_FOUND,
                 message: format!("Method `{}` not found", message.method),
@@ -837,7 +834,9 @@ fn process_single_ongoing_watching_request(
 
 fn remove_closed_watching_requests(mut requests: ResMut<RemoteWatchingRequests>) {
     for i in (0..requests.0.len()).rev() {
-        let Some((message, _)) = requests.0.get(i) else { unreachable!() };
+        let Some((message, _)) = requests.0.get(i) else {
+            unreachable!()
+        };
 
         if message.sender.is_closed() {
             requests.0.swap_remove(i);
