@@ -1,19 +1,16 @@
 //! Demonstrates how to work with Cubic curves.
 
 use bevy::{
-    color::palettes::css::{ORANGE, SILVER, WHITE},
+    animation::{AnimationTarget, AnimationTargetId},
+    color::palettes::css::{ORANGE, SILVER},
     math::vec3,
     prelude::*,
 };
-
-#[derive(Component)]
-struct Curve(CubicCurve<Vec3>);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, animate_cube)
         .run();
 }
 
@@ -21,28 +18,37 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    mut animation_clips: ResMut<Assets<AnimationClip>>,
 ) {
-    // Define your control points
-    // These points will define the curve
-    // You can learn more about bezier curves here
-    // https://en.wikipedia.org/wiki/B%C3%A9zier_curve
-    let points = [[
-        vec3(-6., 2., 0.),
-        vec3(12., 8., 0.),
-        vec3(-12., 8., 0.),
-        vec3(6., 2., 0.),
-    ]];
+    // Create the animation:
+    let AnimationInfo {
+        target_name: animation_target_name,
+        target_id: animation_target_id,
+        graph: animation_graph,
+        node_index: animation_node_index,
+    } = AnimationInfo::create(&mut animation_graphs, &mut animation_clips);
 
-    // Make a CubicCurve
-    let bezier = CubicBezier::new(points).to_curve().unwrap();
+    // Build an animation player that automatically plays the animation.
+    let mut animation_player = AnimationPlayer::default();
+    animation_player.play(animation_node_index).repeat();
 
     // Spawning a cube to experiment on
-    commands.spawn((
-        Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(Color::from(ORANGE))),
-        Transform::from_translation(points[0][0]),
-        Curve(bezier),
-    ));
+    let cube_entity = commands
+        .spawn((
+            Mesh3d(meshes.add(Cuboid::default())),
+            MeshMaterial3d(materials.add(Color::from(ORANGE))),
+            Transform::from_translation(vec3(-6., 2., 0.)),
+            animation_target_name,
+            animation_player,
+            animation_graph,
+        ))
+        .id();
+
+    commands.entity(cube_entity).insert(AnimationTarget {
+        id: animation_target_id,
+        player: cube_entity,
+    });
 
     // Some light to see something
     commands.spawn((
@@ -64,18 +70,61 @@ fn setup(
     // The camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0., 6., 12.).looking_at(Vec3::new(0., 3., 0.), Vec3::Y),
+        Transform::from_xyz(0., 6., 12.).looking_at(Vec3::new(0., 1.5, 0.), Vec3::Y),
     ));
 }
 
-fn animate_cube(time: Res<Time>, mut query: Query<(&mut Transform, &Curve)>, mut gizmos: Gizmos) {
-    let t = (ops::sin(time.elapsed_seconds()) + 1.) / 2.;
+// Holds information about the animation we programmatically create.
+struct AnimationInfo {
+    // The name of the animation target (in this case, the text).
+    target_name: Name,
+    // The ID of the animation target, derived from the name.
+    target_id: AnimationTargetId,
+    // The animation graph asset.
+    graph: Handle<AnimationGraph>,
+    // The index of the node within that graph.
+    node_index: AnimationNodeIndex,
+}
 
-    for (mut transform, cubic_curve) in &mut query {
-        // Draw the curve
-        gizmos.linestrip(cubic_curve.0.iter_positions(50), WHITE);
-        // position takes a point from the curve where 0 is the initial point
-        // and 1 is the last point
-        transform.translation = cubic_curve.0.position(t);
+impl AnimationInfo {
+    // Programmatically creates the UI animation.
+    fn create(
+        animation_graphs: &mut Assets<AnimationGraph>,
+        animation_clips: &mut Assets<AnimationClip>,
+    ) -> AnimationInfo {
+        // Create an ID that identifies the text node we're going to animate.
+        let animation_target_name = Name::new("Cube");
+        let animation_target_id = AnimationTargetId::from_name(&animation_target_name);
+
+        // Allocate an animation clip.
+        let mut animation_clip = AnimationClip::default();
+
+        let translation_curve = easing_curve(
+            vec3(-6., 2., 0.),
+            vec3(6., 2., 0.),
+            EaseFunction::CubicInOut,
+        );
+        // .reparametrize_linear(interval(0.0, 3.0).unwrap())
+        // .expect("this curve has bounded domain, so this should never fail")
+        // .ping_pong()
+        // .expect("this curve has bounded domain, so this should never fail");
+
+        animation_clip
+            .add_curve_to_target(animation_target_id, TranslationCurve(translation_curve));
+
+        // Save our animation clip as an asset.
+        let animation_clip_handle = animation_clips.add(animation_clip);
+
+        // Create an animation graph with that clip.
+        let (animation_graph, animation_node_index) =
+            AnimationGraph::from_clip(animation_clip_handle);
+        let animation_graph_handle = animation_graphs.add(animation_graph);
+
+        AnimationInfo {
+            target_name: animation_target_name,
+            target_id: animation_target_id,
+            graph: animation_graph_handle,
+            node_index: animation_node_index,
+        }
     }
 }
