@@ -24,7 +24,6 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage, Image},
     view::{ExtractedView, Visibility},
-    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
