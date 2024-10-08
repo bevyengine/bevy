@@ -187,6 +187,153 @@ pub(crate) fn despawn_temporary_render_entities(
     }
 }
 
+/// This module exists to keep the complex unsafe code out of the main module.
+///
+/// The implementations for both [`MainEntity`] and [`RenderEntity`] should stay in sync,
+/// and are based off of the `&T` implementation in `bevy_ecs`.
+mod render_entities_world_query_impls {
+    use super::RenderEntity;
+
+    use bevy_ecs::{
+        archetype::Archetype,
+        component::{ComponentId, Components, Tick},
+        entity::Entity,
+        ptr::ThinSlicePtr,
+        query::{FilteredAccess, QueryData, ReadOnlyQueryData, WorldQuery},
+        storage::{Table, TableRow},
+        world::{unsafe_world_cell::UnsafeWorldCell, World},
+    };
+
+    use bevy_utils::syncunsafecell::UnsafeCell;
+
+    /// A [`WorldQuery::Fetch`] type that stores the state needed to read a component from a [`Table`].
+    ///
+    /// This type is a table-specialized variant of the private `ReadFetch` from [`bevy_ecs`].
+    ///
+    /// # Warning
+    ///
+    /// It is only sound to use this type as a `Fetch` if the component uses [`StorageType::Table`](bevy_ecs::component::StorageType::Table).
+    #[derive(Clone)]
+    struct TableFetch<'w, T> {
+        table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
+    }
+
+    impl<'w, T> TableFetch<'w, T> {
+        fn extract(&mut self) {
+            todo!()
+        }
+    }
+
+    unsafe impl WorldQuery for RenderEntity {
+        type Item<'w> = Entity;
+        type Fetch<'w> = TableFetch<'w, RenderEntity>;
+        type State = ComponentId;
+
+        fn shrink<'wlong: 'wshort, 'wshort>(item: Entity) -> Entity {
+            item
+        }
+
+        fn shrink_fetch<'wlong: 'wshort, 'wshort>(
+            fetch: Self::Fetch<'wlong>,
+        ) -> Self::Fetch<'wshort> {
+            fetch
+        }
+
+        #[inline]
+        unsafe fn init_fetch<'w>(
+            _world: UnsafeWorldCell<'w>,
+            _component_id: &ComponentId,
+            _last_run: Tick,
+            _this_run: Tick,
+        ) -> TableFetch<'w, RenderEntity> {
+            TableFetch {
+                table_components: None,
+            }
+        }
+
+        const IS_DENSE: bool = true;
+
+        #[inline]
+        unsafe fn set_archetype<'w>(
+            fetch: &mut TableFetch<'w, RenderEntity>,
+            component_id: &ComponentId,
+            _archetype: &'w Archetype,
+            table: &'w Table,
+        ) {
+            if Self::IS_DENSE {
+                // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
+                unsafe {
+                    Self::set_table(fetch, component_id, table);
+                }
+            }
+        }
+
+        #[inline]
+        unsafe fn set_table<'w>(
+            fetch: &mut TableFetch<'w, RenderEntity>,
+            &component_id: &ComponentId,
+            table: &'w Table,
+        ) {
+            // SAFETY: T::STORAGE_TYPE is always StorageType::Table for `RenderEntity`.
+            unsafe {
+                fetch.table_components =
+                    Some(table.get_data_slice_for(component_id).unwrap().into());
+            }
+        }
+
+        #[inline(always)]
+        unsafe fn fetch<'w>(
+            fetch: &mut Self::Fetch<'w>,
+            _entity: Entity,
+            table_row: TableRow,
+        ) -> Entity {
+            let table = fetch.table_components.unwrap();
+            // SAFETY: Caller ensures `table_row` is in range.
+            let unsafe_cell = unsafe { table.get(table_row.as_usize()) };
+            let pointer = unsafe_cell.get();
+            // SAFETY: TODO, please help me figure out if this is sound
+            let component = unsafe { &*pointer };
+            component.id()
+        }
+
+        fn update_component_access(
+            &component_id: &ComponentId,
+            access: &mut FilteredAccess<ComponentId>,
+        ) {
+            assert!(
+            !access.access().has_component_write(component_id),
+            "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+            core::any::type_name::<RenderEntity>(),
+        );
+            access.add_component_read(component_id);
+        }
+
+        fn init_state(world: &mut World) -> ComponentId {
+            world.register_component::<RenderEntity>()
+        }
+
+        fn get_state(components: &Components) -> Option<Self::State> {
+            components.component_id::<RenderEntity>()
+        }
+
+        fn matches_component_set(
+            &state: &ComponentId,
+            set_contains_id: &impl Fn(ComponentId) -> bool,
+        ) -> bool {
+            set_contains_id(state)
+        }
+    }
+
+    // SAFETY: Component access of Self::ReadOnly is a subset of Self.
+    // Self::ReadOnly matches exactly the same archetypes/tables as Self.
+    unsafe impl QueryData for RenderEntity {
+        type ReadOnly = RenderEntity;
+    }
+
+    // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
+    unsafe impl ReadOnlyQueryData for RenderEntity {}
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
