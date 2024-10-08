@@ -2,9 +2,9 @@ use crate::Sprite;
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
+    sync_world::SyncToRenderWorld,
     texture::Image,
     view::{InheritedVisibility, ViewVisibility, Visibility},
-    sync_world::SyncToRenderWorld,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 

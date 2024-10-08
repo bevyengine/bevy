@@ -55,9 +55,9 @@ use bevy_render::{
         TextureFormat, TextureUsages,
     },
     renderer::RenderDevice,
+    sync_world::RenderEntity,
     texture::TextureCache,
     view::{Msaa, ViewDepthTexture},
-    sync_world::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 

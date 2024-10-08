@@ -15,8 +15,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::Mesh3d,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
-    view::{InheritedVisibility, ViewVisibility, Visibility},
     sync_world::SyncToRenderWorld,
+    view::{InheritedVisibility, ViewVisibility, Visibility},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
