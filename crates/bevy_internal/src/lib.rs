@@ -43,14 +43,7 @@ pub use bevy_math as math;
 #[cfg(feature = "bevy_pbr")]
 pub use bevy_pbr as pbr;
 #[cfg(feature = "bevy_picking")]
-#[allow(ambiguous_glob_reexports)]
-pub mod picking {
-    pub use bevy_picking::*;
-    #[cfg(feature = "bevy_picking_mesh")]
-    pub mod mesh {
-        pub use bevy_picking_mesh::*;
-    }
-}
+pub use bevy_picking as picking;
 pub use bevy_ptr as ptr;
 pub use bevy_reflect as reflect;
 #[cfg(feature = "bevy_remote")]

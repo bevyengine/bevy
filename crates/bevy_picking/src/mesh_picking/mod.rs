@@ -1,4 +1,4 @@
-//! A ray casting backend for [`bevy_picking`].
+//! A ray casting backend for [`bevy_picking`](crate).
 //!
 //! # Usage
 //!
@@ -13,13 +13,13 @@
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 #![warn(missing_docs)]
 
-use bevy_app::prelude::*;
-use bevy_ecs::prelude::*;
-use bevy_picking::{
+use crate::{
     backend::{ray::RayMap, HitData, PointerHits},
     prelude::*,
     PickSet,
 };
+use bevy_app::prelude::*;
+use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_render::{prelude::*, view::RenderLayers};
 use ray_cast::{Backfaces, MeshRayCast, RayCastSettings, RayCastVisibility};
@@ -31,7 +31,7 @@ pub mod ray_cast;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
+    pub use super::{
         ray_cast::{Backfaces, MeshRayCast, RayCastSettings, RayCastVisibility},
         MeshPickingBackend,
     };

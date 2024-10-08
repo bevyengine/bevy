@@ -111,9 +111,9 @@ default = [
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
+  "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
-  "bevy_picking_mesh",
   "bevy_remote",
   "bevy_render",
   "bevy_scene",
@@ -136,6 +136,9 @@ default = [
   "webgl2",
   "x11",
 ]
+
+# Provides an implementation for picking meshes
+bevy_mesh_picking_backend = ["bevy_picking"]
 
 # Provides an implementation for picking sprites
 bevy_sprite_picking_backend = ["bevy_picking"]
@@ -184,9 +187,6 @@ bevy_pbr = [
 
 # Provides picking functionality
 bevy_picking = ["bevy_internal/bevy_picking"]
-
-# Provides a mesh picking backend for `bevy_picking`
-bevy_picking_mesh = ["bevy_picking", "bevy_internal/bevy_picking_mesh"]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
@@ -3703,7 +3703,7 @@ wasm = false
 name = "mesh_picking"
 path = "examples/picking/mesh_picking.rs"
 doc-scrape-examples = true
-required-features = ["bevy_picking_mesh"]
+required-features = ["bevy_mesh_picking_backend"]
 
 [package.metadata.example.mesh_picking]
 name = "Mesh Picking"

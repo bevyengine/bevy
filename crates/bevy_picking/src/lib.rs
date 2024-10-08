@@ -156,6 +156,8 @@ pub mod backend;
 pub mod events;
 pub mod focus;
 pub mod input;
+#[cfg(feature = "bevy_mesh")]
+pub mod mesh_picking;
 pub mod pointer;
 
 use bevy_app::prelude::*;
@@ -166,6 +168,11 @@ use bevy_reflect::prelude::*;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[cfg(feature = "bevy_mesh")]
+    pub use crate::mesh_picking::{
+        ray_cast::{Backfaces, MeshRayCast, RayCastSettings, RayCastVisibility},
+        MeshPickingBackend,
+    };
     #[doc(hidden)]
     pub use crate::{
         events::*, input::PointerInputPlugin, pointer::PointerButton, DefaultPickingPlugins,
@@ -274,6 +281,8 @@ impl Plugin for DefaultPickingPlugins {
             PickingPlugin::default(),
             InteractionPlugin,
         ));
+        #[cfg(feature = "bevy_mesh")]
+        app.add_plugins(mesh_picking::MeshPickingBackend);
     }
 }
 

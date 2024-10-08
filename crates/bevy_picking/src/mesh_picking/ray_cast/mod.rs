@@ -98,10 +98,7 @@ pub enum Backfaces {
     Include,
 }
 
-#[cfg(feature = "2d")]
 type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>)>;
-#[cfg(not(feature = "2d"))]
-type MeshFilter = With<Mesh3d>;
 
 /// Add this raycasting [`SystemParam`] to your system to ray cast into the world with an
 /// immediate-mode API. Call `cast_ray` to immediately perform a ray cast and get a result. Under the
@@ -182,7 +179,6 @@ pub struct MeshRayCast<'w, 's> {
             Read<GlobalTransform>,
         ),
     >,
-    #[cfg(feature = "2d")]
     #[doc(hidden)]
     pub mesh2d_query: Query<
         'w,
@@ -275,7 +271,6 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                     ray_cast_mesh(mesh, simplified_mesh, transform);
                 }
 
-                #[cfg(feature = "2d")]
                 if let Ok((mesh, simplified_mesh, transform)) = self.mesh2d_query.get(*entity) {
                     ray_cast_mesh(&mesh.0, simplified_mesh, transform);
                 }
