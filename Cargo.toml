@@ -2934,6 +2934,7 @@ name = "window_fallthrough"
 path = "examples/ui/window_fallthrough.rs"
 doc-scrape-examples = true
 
+
 [package.metadata.example.window_fallthrough]
 name = "Window Fallthrough"
 description = "Illustrates how to access `winit::window::Window`'s `hittest` functionality."
@@ -3270,6 +3271,17 @@ name = "Window Settings"
 description = "Demonstrates customizing default window settings"
 category = "Window"
 wasm = true
+
+[[example]]
+name = "window_drag_move"
+path = "examples/window/window_drag_move.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.window_drag_move]
+name = "Window Drag Move"
+description = "Demonstrates moving window via API"
+category = "Window"
+wasm = false
 
 [[example]]
 name = "ambiguity_detection"

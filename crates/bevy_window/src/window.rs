@@ -914,7 +914,7 @@ pub enum CursorGrabMode {
 }
 
 /// Defines the orientation in which a window resize will be performed.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Reflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Reflect, Hash, Default)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -929,6 +929,7 @@ pub enum ResizeDirection {
     East,
     /// Resize the window to the south.
     South,
+    #[default]
     /// Resize the window to the northwest.
     Northwest,
     /// Resize the window to the northeast.
