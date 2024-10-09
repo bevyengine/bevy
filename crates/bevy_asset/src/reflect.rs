@@ -1,4 +1,4 @@
-use alloc::boxed::Box;
+use alloc::{boxed::Box, sync::Arc};
 use core::any::{Any, TypeId};
 
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
@@ -19,6 +19,7 @@ pub struct ReflectAsset {
     assets_resource_type_id: TypeId,
 
     get: fn(&World, UntypedHandle) -> Option<&dyn Reflect>,
+    get_arc: fn(&World, UntypedHandle) -> Option<Arc<dyn Reflect>>,
     // SAFETY:
     // - may only be called with an [`UnsafeWorldCell`] which can be used to access the corresponding `Assets<T>` resource mutably
     // - may only be used to access **at most one** access at once
@@ -46,7 +47,12 @@ impl ReflectAsset {
         (self.get)(world, handle)
     }
 
-    /// Equivalent of [`Assets::get_mut`]
+    /// Equivalent of [`Assets::get_arc`]
+    pub fn get_arc(&self, world: &World, handle: UntypedHandle) -> Option<Arc<dyn Reflect>> {
+        (self.get_arc)(world, handle)
+    }
+
+    /// Equivalent of [`Assets::get_reflect_cloned_mut`]
     pub fn get_mut<'w>(
         &self,
         world: &'w mut World,
@@ -62,7 +68,7 @@ impl ReflectAsset {
         }
     }
 
-    /// Equivalent of [`Assets::get_mut`], but works with an [`UnsafeWorldCell`].
+    /// Equivalent of [`Assets::get_reflect_cloned_mut`], but works with an [`UnsafeWorldCell`].
     ///
     /// Only use this method when you have ensured that you are the *only* one with access to the [`Assets`] resource of the asset type.
     /// Furthermore, this does *not* allow you to have look up two distinct handles,
@@ -140,15 +146,23 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             get: |world, handle| {
                 let assets = world.resource::<Assets<A>>();
                 let asset = assets.get(&handle.typed_debug_checked());
-                asset.map(|asset| asset as &dyn Reflect)
+                asset.map(|asset| asset as _)
+            },
+            get_arc: |world, handle| {
+                let assets = world.resource::<Assets<A>>();
+                let asset = assets.get_arc(&handle.typed_debug_checked());
+                asset.map(|asset| asset as _)
             },
             get_unchecked_mut: |world, handle| {
                 // SAFETY: `get_unchecked_mut` must be called with `UnsafeWorldCell` having access to `Assets<A>`,
                 // and must ensure to only have at most one reference to it live at all times.
                 #[expect(unsafe_code, reason = "Uses `UnsafeWorldCell::get_resource_mut()`.")]
                 let assets = unsafe { world.get_resource_mut::<Assets<A>>().unwrap().into_inner() };
-                let asset = assets.get_mut(&handle.typed_debug_checked());
-                asset.map(|asset| asset as &mut dyn Reflect)
+
+                let handle = handle.typed_debug_checked();
+                assets
+                    .get_reflect_cloned_mut(&handle)
+                    .map(|asset| asset as _)
             },
             add: |world, value| {
                 let mut assets = world.resource_mut::<Assets<A>>();
