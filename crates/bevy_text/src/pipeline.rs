@@ -220,7 +220,7 @@ impl TextPipeline {
         computed.needs_rerender = false;
 
         // Extract font ids from the iterator while traversing it.
-        let mut glyph_info = std::mem::take(&mut self.glyph_info);
+        let mut glyph_info = core::mem::take(&mut self.glyph_info);
         glyph_info.clear();
         let text_spans = text_spans.inspect(|(_, _, _, style)| {
             glyph_info.push((style.font.id(), style.font_smoothing));

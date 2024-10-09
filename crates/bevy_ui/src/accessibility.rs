@@ -28,7 +28,7 @@ fn calc_name(
             .iter(child)
             .map(|(_, _, text, _)| text.into())
             .collect::<Vec<String>>();
-        if values.len() > 0 {
+        if !values.is_empty() {
             name = Some(values.join(" "));
         }
     }

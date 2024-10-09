@@ -394,7 +394,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
     for root in changed_roots.iter() {
         let Ok((_, Some(mut computed), _)) = computed.get_mut(root) else {
             warn_once!("found entity {:?} with a root text component ({}) but no ComputedTextBlock; this warning only \
-                prints once", root, std::any::type_name::<Root>());
+                prints once", root, core::any::type_name::<Root>());
             continue;
         };
         computed.needs_rerender = true;
@@ -408,7 +408,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
         if has_text_block {
             warn_once!("found entity {:?} with a TextSpan that has a TextBlock, which should only be on root \
                 text entities (that have {}); this warning only prints once",
-                entity, std::any::type_name::<Root>());
+                entity, core::any::type_name::<Root>());
         }
 
         let Some(span_parent) = maybe_span_parent else {
@@ -416,7 +416,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 "found entity {:?} with a TextSpan that has no parent; it should have an ancestor \
                 with a root text component ({}); this warning only prints once",
                 entity,
-                std::any::type_name::<Root>()
+                core::any::type_name::<Root>()
             );
             continue;
         };
@@ -447,7 +447,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                     "found entity {:?} with a TextSpan that has no ancestor with the root text \
                     component ({}); this warning only prints once",
                     entity,
-                    std::any::type_name::<Root>()
+                    core::any::type_name::<Root>()
                 );
                 break;
             };

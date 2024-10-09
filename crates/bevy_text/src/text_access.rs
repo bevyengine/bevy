@@ -26,7 +26,7 @@ pub(crate) struct TextIterScratch {
 }
 
 impl TextIterScratch {
-    fn take<'a, 'b>(&'a mut self) -> Vec<(&'b Children, usize)> {
+    fn take<'a>(&mut self) -> Vec<(&'a Children, usize)> {
         core::mem::take(&mut self.stack)
             .into_iter()
             .map(|_| -> (&Children, usize) { unreachable!() })
@@ -62,7 +62,7 @@ pub struct TextReader<'w, 's, R: TextRoot> {
 
 impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
     /// Returns an iterator over text spans in a text block, starting with the root entity.
-    pub fn iter<'a>(&'a mut self, root_entity: Entity) -> TextSpanIter<'a, R> {
+    pub fn iter(&mut self, root_entity: Entity) -> TextSpanIter<R> {
         let stack = self.scratch.take();
 
         TextSpanIter {
@@ -141,16 +141,13 @@ impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
                     self.stack.push((children, 0));
                 }
                 return Some((root_entity, 0, text.read_span(), style));
-            } else {
-                return None;
             }
+            return None;
         }
 
         // Span
         loop {
-            let Some((children, idx)) = self.stack.last_mut() else {
-                return None;
-            };
+            let (children, idx) = self.stack.last_mut()?;
 
             loop {
                 let Some(child) = children.get(*idx) else {
@@ -181,7 +178,7 @@ impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
 impl<'a, R: TextRoot> Drop for TextSpanIter<'a, R> {
     fn drop(&mut self) {
         // Return the internal stack.
-        let stack = std::mem::take(&mut self.stack);
+        let stack = core::mem::take(&mut self.stack);
         self.scratch.recover(stack);
     }
 }
