@@ -181,7 +181,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
 /// Runs automatically when using `App` to insert states, but needs to
 /// be added manually in other situations.
 pub fn setup_state_transitions_in_world(world: &mut World) {
-    let mut schedules = world.get_resource_or_insert_with(Schedules::default);
+    let mut schedules = world.get_resource_or_init::<Schedules>();
     if schedules.contains(StateTransition) {
         return;
     }

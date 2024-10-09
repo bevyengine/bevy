@@ -3319,7 +3319,7 @@ impl World {
     ///
     /// The `Schedules` resource will be initialized if it does not already exist.
     pub fn add_schedule(&mut self, schedule: Schedule) {
-        let mut schedules = self.get_resource_or_insert_with(Schedules::default);
+        let mut schedules = self.get_resource_or_init::<Schedules>();
         schedules.insert(schedule);
     }
 
