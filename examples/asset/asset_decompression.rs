@@ -9,7 +9,7 @@ use bevy::{
     reflect::TypePath,
 };
 use flate2::read::GzDecoder;
-use std::{io::prelude::*, marker::PhantomData};
+use std::{io::prelude::*, marker::PhantomData, sync::Arc};
 use thiserror::Error;
 
 #[derive(Asset, TypePath)]
@@ -119,9 +119,12 @@ fn decompress<T: Component + From<Handle<A>>, A: Asset>(
     query: Query<(Entity, &Compressed<A>)>,
 ) {
     for (entity, Compressed { compressed, .. }) in query.iter() {
-        let Some(GzAsset { uncompressed }) = compressed_assets.remove(compressed) else {
+        let Some(compressed) = compressed_assets.remove(compressed) else {
             continue;
         };
+
+        let GzAsset { uncompressed } =
+            Arc::into_inner(compressed).expect("The asset Arc is not aliased.");
 
         let uncompressed = uncompressed.take::<A>().unwrap();
 
