@@ -35,8 +35,8 @@ use bevy::{
         Render, RenderApp, RenderSet,
     },
 };
-use bytemuck::{Pod, Zeroable};
 use bevy_render::view::RenderVisibleEntities;
+use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using
 /// our custom phase item.

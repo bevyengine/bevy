@@ -20,6 +20,8 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
+use bevy_render::sync_world::MainEntity;
+use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -46,8 +48,6 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
-use bevy_render::sync_world::MainEntity;
-use bevy_render::view::RenderVisibleEntities;
 
 #[derive(Resource)]
 pub struct SpritePipeline {
@@ -348,7 +348,7 @@ pub struct ExtractedSprite {
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: HashMap<(Entity, MainEntity),ExtractedSprite>,
+    pub sprites: HashMap<(Entity, MainEntity), ExtractedSprite>,
 }
 
 #[derive(Resource, Default)]
@@ -397,7 +397,15 @@ pub fn extract_sprites(
             extracted_sprites.sprites.extend(
                 slices
                     .extract_sprites(transform, original_entity, sprite, handle)
-                    .map(|e| ((commands.spawn(TemporaryRenderEntity).id(), original_entity.into()), e)),
+                    .map(|e| {
+                        (
+                            (
+                                commands.spawn(TemporaryRenderEntity).id(),
+                                original_entity.into(),
+                            ),
+                            e,
+                        )
+                    }),
             );
         } else {
             let atlas_rect =

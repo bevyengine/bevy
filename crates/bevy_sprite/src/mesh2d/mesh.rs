@@ -1,6 +1,7 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 
+use crate::Material2dBindGroupId;
 use bevy_core_pipeline::{
     core_2d::{AlphaMask2d, Camera2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT},
     tonemapping::{
@@ -15,6 +16,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Vec4};
+use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::{
     batching::{
         gpu_preprocessing::IndirectParameters,
@@ -45,8 +47,6 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::tracing::error;
 use nonmax::NonMaxU32;
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
-use crate::Material2dBindGroupId;
 
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;

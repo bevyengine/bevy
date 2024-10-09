@@ -39,8 +39,8 @@ use crate::meshlet::{
 };
 use crate::*;
 
-use core::{hash::Hash, marker::PhantomData};
 use bevy_render::view::RenderVisibleEntities;
+use core::{hash::Hash, marker::PhantomData};
 
 pub const PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(921124473254008983);
 

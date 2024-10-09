@@ -1,3 +1,4 @@
+use crate::*;
 use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
@@ -30,7 +31,6 @@ use bevy_utils::{
     tracing::{error, warn},
 };
 use core::{hash::Hash, ops::Range};
-use crate::*;
 
 #[derive(Component)]
 pub struct ExtractedPointLight {
@@ -254,14 +254,14 @@ pub fn extract_lights(
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
         let Ok((
-                   render_entity,
-                   point_light,
-                   cubemap_visible_entities,
-                   transform,
-                   view_visibility,
-                   frusta,
-                   volumetric_light,
-               )) = point_lights.get(entity)
+            render_entity,
+            point_light,
+            cubemap_visible_entities,
+            transform,
+            view_visibility,
+            frusta,
+            volumetric_light,
+        )) = point_lights.get(entity)
         else {
             continue;
         };
@@ -269,12 +269,19 @@ pub fn extract_lights(
             continue;
         }
         let render_cubemap_visible_entities = RenderCubemapVisibleEntities {
-            data: cubemap_visible_entities.iter()
+            data: cubemap_visible_entities
+                .iter()
                 .map(|v| {
                     RenderVisibleMeshEntities {
-                        entities: v.entities.iter()
+                        entities: v
+                            .entities
+                            .iter()
                             .map(|e| {
-                                let render_entity = mapper.get(*e).unwrap();
+                                let render_entity = mapper.get(*e).cloned().unwrap_or_else(|_| {
+                                    // The cubemap was default-constructed, so the entity is not in the mapper,
+                                    // and this value doesn't matter
+                                    RenderEntity::from(*e)
+                                });
                                 (render_entity.id(), MainEntity::from(*e))
                             })
                             .collect(),
@@ -320,20 +327,21 @@ pub fn extract_lights(
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
         if let Ok((
-                      render_entity,
-                      spot_light,
-                      visible_entities,
-                      transform,
-                      view_visibility,
-                      frustum,
-                      volumetric_light,
-                  )) = spot_lights.get(entity)
+            render_entity,
+            spot_light,
+            visible_entities,
+            transform,
+            view_visibility,
+            frustum,
+            volumetric_light,
+        )) = spot_lights.get(entity)
         {
             if !view_visibility.get() {
                 continue;
             }
             let render_visible_entities = RenderVisibleMeshEntities {
-                entities: visible_entities.iter()
+                entities: visible_entities
+                    .iter()
                     .map(|e| {
                         let render_entity = mapper.get(*e).unwrap();
                         (render_entity.id(), MainEntity::from(*e))
@@ -709,8 +717,8 @@ pub fn prepare_lights(
 
     if !*max_cascades_per_light_warning_emitted
         && directional_lights
-        .iter()
-        .any(|(_, light)| light.cascade_shadow_config.bounds.len() > MAX_CASCADES_PER_LIGHT)
+            .iter()
+            .any(|(_, light)| light.cascade_shadow_config.bounds.len() > MAX_CASCADES_PER_LIGHT)
     {
         warn!(
             "The number of cascades configured for a directional light exceeds the supported limit of {}.",
@@ -812,8 +820,8 @@ pub fn prepare_lights(
         // Lights are sorted, shadow enabled lights are first
         if light.shadows_enabled
             && (index < point_light_shadow_maps_count
-            || (light.spot_light_angles.is_some()
-            && index - point_light_count < spot_light_shadow_maps_count))
+                || (light.spot_light_angles.is_some()
+                    && index - point_light_count < spot_light_shadow_maps_count))
         {
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
@@ -826,8 +834,8 @@ pub fn prepare_lights(
         if light.shadows_enabled
             && light.volumetric
             && (index < point_light_volumetric_enabled_count
-            || (light.spot_light_angles.is_some()
-            && index - point_light_count < spot_light_volumetric_enabled_count))
+                || (light.spot_light_angles.is_some()
+                    && index - point_light_count < spot_light_volumetric_enabled_count))
         {
             flags |= PointLightFlags::VOLUMETRIC;
         }
@@ -1372,7 +1380,10 @@ pub fn queue_shadows<M: Material>(
     view_lights: Query<(Entity, &MainEntity, &ViewLightEntities)>,
     view_light_entities: Query<&LightEntity>,
     point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
-    directional_light_entities: Query<&RenderCascadesVisibleEntities, With<ExtractedDirectionalLight>>,
+    directional_light_entities: Query<
+        &RenderCascadesVisibleEntities,
+        With<ExtractedDirectionalLight>,
+    >,
     spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,

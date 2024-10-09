@@ -7,6 +7,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::FloatOrd;
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::*,
@@ -15,7 +16,6 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
-use bevy_render::sync_world::MainEntity;
 use bevy_utils::tracing::error;
 
 pub struct UiPassNode {

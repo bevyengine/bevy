@@ -35,9 +35,9 @@ use bevy::{
         SetMesh2dViewBindGroup,
     },
 };
-use std::f32::consts::PI;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::RenderVisibleEntities;
+use std::f32::consts::PI;
 
 fn main() {
     App::new()

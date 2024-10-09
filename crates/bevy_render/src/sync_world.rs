@@ -1,5 +1,6 @@
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHash;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -9,7 +10,6 @@ use bevy_ecs::{
     system::{Local, Query, ResMut, Resource, SystemState},
     world::{Mut, OnAdd, OnRemove, World},
 };
-use bevy_ecs::entity::EntityHash;
 use bevy_reflect::Reflect;
 use bevy_utils::hashbrown;
 
@@ -127,6 +127,12 @@ impl RenderEntity {
     #[inline]
     pub fn id(&self) -> Entity {
         self.0
+    }
+}
+
+impl From<Entity> for RenderEntity {
+    fn from(entity: Entity) -> Self {
+        RenderEntity(entity)
     }
 }
 

@@ -37,6 +37,7 @@ use encase::{internal::WriteInto, ShaderSize};
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
+use crate::sync_world::MainEntity;
 use crate::{
     batching::{
         self,
@@ -61,7 +62,6 @@ use core::{
     slice::SliceIndex,
 };
 use smallvec::SmallVec;
-use crate::sync_world::MainEntity;
 
 /// Stores the rendering instructions for a single phase that uses bins in all
 /// views.
@@ -276,7 +276,12 @@ where
     /// The `phase_type` parameter specifies whether the entity is a
     /// preprocessable mesh and whether it can be binned with meshes of the same
     /// type.
-    pub fn add(&mut self, key: BPI::BinKey, entity: (Entity, MainEntity), phase_type: BinnedRenderPhaseType) {
+    pub fn add(
+        &mut self,
+        key: BPI::BinKey,
+        entity: (Entity, MainEntity),
+        phase_type: BinnedRenderPhaseType,
+    ) {
         match phase_type {
             BinnedRenderPhaseType::BatchableMesh => {
                 match self.batchable_mesh_values.entry(key.clone()) {

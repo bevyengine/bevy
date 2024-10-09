@@ -3,7 +3,9 @@ pub mod node;
 
 use core::ops::Range;
 
+use crate::prepass::OpaqueNoLightmap3dBinKey;
 use bevy_ecs::prelude::*;
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem,
@@ -11,8 +13,6 @@ use bevy_render::{
     },
     render_resource::{CachedRenderPipelineId, TextureFormat},
 };
-use bevy_render::sync_world::MainEntity;
-use crate::prepass::OpaqueNoLightmap3dBinKey;
 
 pub const DEFERRED_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgba32Uint;
 pub const DEFERRED_LIGHTING_PASS_ID_FORMAT: TextureFormat = TextureFormat::R8Uint;

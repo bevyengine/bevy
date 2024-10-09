@@ -46,11 +46,6 @@ use bevy_utils::{
     Entry, HashMap, Parallel,
 };
 
-use bytemuck::{Pod, Zeroable};
-use nonmax::{NonMaxU16, NonMaxU32};
-use smallvec::{smallvec, SmallVec};
-use static_assertions::const_assert_eq;
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use crate::{
     render::{
         morph::{
@@ -61,6 +56,11 @@ use crate::{
     },
     *,
 };
+use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
+use bytemuck::{Pod, Zeroable};
+use nonmax::{NonMaxU16, NonMaxU32};
+use smallvec::{smallvec, SmallVec};
+use static_assertions::const_assert_eq;
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 
@@ -1063,7 +1063,11 @@ pub fn extract_meshes_for_gpu_building(
                 previous_input_index,
             };
 
-            queue.push(entity.into(), gpu_mesh_instance_builder, gpu_mesh_culling_data);
+            queue.push(
+                entity.into(),
+                gpu_mesh_instance_builder,
+                gpu_mesh_culling_data,
+            );
         },
     );
 }
@@ -1373,7 +1377,7 @@ impl GetFullBatchData for MeshPipeline {
 
     fn get_binned_index(
         (mesh_instances, _, _, _): &SystemParamItem<Self::Param>,
-        (entity, main_entity): (Entity, MainEntity)
+        (entity, main_entity): (Entity, MainEntity),
     ) -> Option<NonMaxU32> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {

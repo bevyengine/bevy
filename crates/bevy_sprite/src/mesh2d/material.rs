@@ -1,5 +1,9 @@
 #![expect(deprecated)]
 
+use crate::{
+    DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
+    SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
@@ -14,6 +18,9 @@ use bevy_ecs::{
 };
 use bevy_math::FloatOrd;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::extract_instances::ExtractedInstances;
+use bevy_render::sync_world::MainEntity;
+use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     mesh::{MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{
@@ -36,13 +43,6 @@ use bevy_render::{
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
 use core::{hash::Hash, marker::PhantomData};
-use bevy_render::extract_instances::ExtractedInstances;
-use bevy_render::sync_world::MainEntity;
-use bevy_render::view::RenderVisibleEntities;
-use crate::{
-    DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
-    SetMesh2dBindGroup, SetMesh2dViewBindGroup,
-};
 
 use super::ColorMaterial;
 
@@ -508,7 +508,8 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     ) -> RenderCommandResult {
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();
-        let Some(material_instance) = material_instances.get(&MainEntity::from(item.entity())) else {
+        let Some(material_instance) = material_instances.get(&MainEntity::from(item.entity()))
+        else {
             return RenderCommandResult::Skip;
         };
         let Some(material2d) = materials.get(*material_instance) else {

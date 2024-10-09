@@ -12,13 +12,13 @@ use bevy_ecs::{
     reflect::ReflectComponent,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::{
     mesh::Mesh3d,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
     sync_world::SyncToRenderWorld,
     view::{InheritedVisibility, ViewVisibility, Visibility},
 };
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_transform::components::{GlobalTransform, Transform};
 
 /// A component bundle for PBR entities with a [`Mesh3d`] and a [`MeshMaterial3d<StandardMaterial>`].
@@ -129,7 +129,6 @@ impl RenderCubemapVisibleEntities {
     }
 }
 
-
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct CascadesVisibleEntities {
@@ -145,7 +144,6 @@ pub struct RenderCascadesVisibleEntities {
     #[reflect(ignore)]
     pub entities: MainEntityHashMap<Vec<RenderVisibleMeshEntities>>,
 }
-
 
 /// A component bundle for [`PointLight`] entities.
 #[derive(Debug, Bundle, Default, Clone)]

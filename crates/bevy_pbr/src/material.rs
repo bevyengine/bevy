@@ -1,3 +1,4 @@
+use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
     prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
@@ -23,6 +24,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     camera::TemporalJitter,
     extract_instances::ExtractedInstances,
@@ -42,8 +44,6 @@ use core::{
     num::NonZero,
     sync::atomic::{AtomicU32, Ordering},
 };
-use bevy_render::view::RenderVisibleEntities;
-use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 
 /// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level

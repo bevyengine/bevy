@@ -435,10 +435,8 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             // this entity.
             let item = &phase.items[current_index];
             let entity = (item.entity(), item.main_entity());
-            let current_batch_input_index = GFBD::get_index_and_compare_data(
-                &system_param_item,
-                entity,
-            );
+            let current_batch_input_index =
+                GFBD::get_index_and_compare_data(&system_param_item, entity);
 
             // Unpack that index and metadata. Note that it's possible for index
             // and/or metadata to not be present, which signifies that this
@@ -555,7 +553,9 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         for key in &phase.batchable_mesh_keys {
             let mut batch: Option<BinnedRenderPhaseBatch> = None;
             for &(entity, main_entity) in &phase.batchable_mesh_values[key] {
-                let Some(input_index) = GFBD::get_binned_index(&system_param_item, (entity, main_entity)) else {
+                let Some(input_index) =
+                    GFBD::get_binned_index(&system_param_item, (entity, main_entity))
+                else {
                     continue;
                 };
                 let output_index = data_buffer.add() as u32;
@@ -615,7 +615,9 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         for key in &phase.unbatchable_mesh_keys {
             let unbatchables = phase.unbatchable_mesh_values.get_mut(key).unwrap();
             for &(entity, main_entity) in &unbatchables.entities {
-                let Some(input_index) = GFBD::get_binned_index(&system_param_item, (entity, main_entity)) else {
+                let Some(input_index) =
+                    GFBD::get_binned_index(&system_param_item, (entity, main_entity))
+                else {
                     continue;
                 };
                 let output_index = data_buffer.add() as u32;

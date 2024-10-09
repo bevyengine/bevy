@@ -41,6 +41,7 @@ use bevy_ecs::{
 };
 use bevy_math::{uvec2, vec4, Rect, UVec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::{
     mesh::{Mesh, RenderMesh},
     render_asset::RenderAssets,
@@ -49,7 +50,6 @@ use bevy_render::{
     view::ViewVisibility,
     Extract, ExtractSchedule, RenderApp,
 };
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_utils::HashSet;
 
 use crate::{ExtractMeshesSet, RenderMeshInstances};

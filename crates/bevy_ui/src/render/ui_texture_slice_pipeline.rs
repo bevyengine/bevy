@@ -1,5 +1,6 @@
 use core::{hash::Hash, ops::Range};
 
+use crate::*;
 use bevy_asset::*;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_ecs::{
@@ -11,6 +12,7 @@ use bevy_ecs::{
     },
 };
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::*,
@@ -29,8 +31,6 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
-use bevy_render::sync_world::MainEntity;
-use crate::*;
 
 pub const UI_SLICER_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11156288772117983964);
 
@@ -263,8 +263,17 @@ pub fn extract_ui_texture_slices(
     >,
     mapping: Extract<Query<&RenderEntity>>,
 ) {
-    for (entity, uinode, transform, view_visibility, clip, camera, image, image_scale_mode, atlas) in
-        &slicers_query
+    for (
+        entity,
+        uinode,
+        transform,
+        view_visibility,
+        clip,
+        camera,
+        image,
+        image_scale_mode,
+        atlas,
+    ) in &slicers_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {

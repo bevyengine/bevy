@@ -1,5 +1,9 @@
 use core::{hash::Hash, ops::Range};
 
+use crate::{
+    BoxShadow, CalculatedClip, DefaultUiCamera, Node, RenderUiSystem, ResolvedBorderRadius,
+    TargetCamera, TransparentUi, UiBoxShadowSamples, UiScale, Val,
+};
 use bevy_app::prelude::*;
 use bevy_asset::*;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
@@ -13,6 +17,7 @@ use bevy_ecs::{
     },
 };
 use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
+use bevy_render::sync_world::MainEntity;
 use bevy_render::RenderApp;
 use bevy_render::{
     camera::Camera,
@@ -26,11 +31,6 @@ use bevy_render::{
 };
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
-use bevy_render::sync_world::MainEntity;
-use crate::{
-    BoxShadow, CalculatedClip, DefaultUiCamera, Node, RenderUiSystem, ResolvedBorderRadius,
-    TargetCamera, TransparentUi, UiBoxShadowSamples, UiScale, Val,
-};
 
 use super::{QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
@@ -249,7 +249,8 @@ pub fn extract_shadows(
     >,
     mapping: Extract<Query<&RenderEntity>>,
 ) {
-    for (entity, uinode, transform, view_visibility, box_shadow, clip, camera) in &box_shadow_query {
+    for (entity, uinode, transform, view_visibility, box_shadow, clip, camera) in &box_shadow_query
+    {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;

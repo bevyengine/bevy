@@ -6,6 +6,8 @@ use bevy_ecs::{
 use bytemuck::Pod;
 use nonmax::NonMaxU32;
 
+use self::gpu_preprocessing::IndirectParametersBuffer;
+use crate::sync_world::MainEntity;
 use crate::{
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, SortedPhaseItem,
@@ -13,8 +15,6 @@ use crate::{
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferable},
 };
-use crate::sync_world::MainEntity;
-use self::gpu_preprocessing::IndirectParametersBuffer;
 
 pub mod gpu_preprocessing;
 pub mod no_gpu_preprocessing;

@@ -3,6 +3,7 @@ use core::mem::{self, size_of};
 use bevy_asset::Assets;
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_math::Mat4;
+use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::NoAutomaticBatching,
     mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -11,7 +12,6 @@ use bevy_render::{
     view::ViewVisibility,
     Extract,
 };
-use bevy_render::sync_world::MainEntityHashMap;
 use bevy_transform::prelude::GlobalTransform;
 
 /// Maximum number of joints supported for skinned meshes.
@@ -169,7 +169,9 @@ pub fn extract_skins(
             buffer.push(Mat4::ZERO);
         }
 
-        skin_indices.current.insert(entity.into(), SkinIndex::new(start));
+        skin_indices
+            .current
+            .insert(entity.into(), SkinIndex::new(start));
     }
 
     // Pad out the buffer to ensure that there's enough space for bindings

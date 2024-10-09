@@ -18,6 +18,7 @@ use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::render_phase::ViewSortedRenderPhases;
+use bevy_render::sync_world::MainEntity;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::{
     camera::Camera,
@@ -50,7 +51,6 @@ use bevy_utils::HashMap;
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
-use bevy_render::sync_world::MainEntity;
 use graph::{NodeUi, SubGraphUi};
 pub use pipeline::*;
 pub use render_pass::*;
@@ -241,7 +241,9 @@ pub fn extract_uinode_background_colors(
     >,
     mapping: Extract<Query<&RenderEntity>>,
 ) {
-    for (entity, uinode, transform, view_visibility, clip, camera, background_color) in &uinode_query {
+    for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
+        &uinode_query
+    {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;

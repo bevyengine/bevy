@@ -1,6 +1,7 @@
 use core::{iter, mem};
 
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::NoAutomaticBatching,
     mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
@@ -10,7 +11,6 @@ use bevy_render::{
     Extract,
 };
 use bytemuck::NoUninit;
-use bevy_render::sync_world::MainEntityHashMap;
 
 #[derive(Component)]
 pub struct MorphIndex {
@@ -132,7 +132,9 @@ pub fn extract_morphs(
         add_to_alignment::<f32>(&mut uniform.current_buffer);
 
         let index = (start * size_of::<f32>()) as u32;
-        morph_indices.current.insert(entity.into(), MorphIndex { index });
+        morph_indices
+            .current
+            .insert(entity.into(), MorphIndex { index });
     }
 }
 

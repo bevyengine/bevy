@@ -1,3 +1,5 @@
+use super::{ClearColorConfig, Projection};
+use crate::view::RenderVisibleEntities;
 use crate::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
@@ -38,8 +40,6 @@ use bevy_window::{
 };
 use core::ops::Range;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
-use crate::view::RenderVisibleEntities;
-use super::{ClearColorConfig, Projection};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///

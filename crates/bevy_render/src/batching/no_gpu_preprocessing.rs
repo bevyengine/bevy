@@ -107,7 +107,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         for key in &phase.batchable_mesh_keys {
             let mut batch_set: SmallVec<[BinnedRenderPhaseBatch; 1]> = smallvec![];
             for &(entity, main_entity) in &phase.batchable_mesh_values[key] {
-                let Some(buffer_data) = GFBD::get_binned_batch_data(&system_param_item, (entity, main_entity))
+                let Some(buffer_data) =
+                    GFBD::get_binned_batch_data(&system_param_item, (entity, main_entity))
                 else {
                     continue;
                 };

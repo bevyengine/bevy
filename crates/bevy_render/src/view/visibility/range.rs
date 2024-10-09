@@ -22,6 +22,8 @@ use bevy_utils::{prelude::default, HashMap};
 use nonmax::NonMaxU16;
 use wgpu::{BufferBindingType, BufferUsages};
 
+use super::{check_visibility, VisibilitySystems};
+use crate::sync_world::{MainEntity, MainEntityHashMap};
 use crate::{
     camera::Camera,
     mesh::Mesh3d,
@@ -30,8 +32,6 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use crate::sync_world::{MainEntity, MainEntityHashMap};
-use super::{check_visibility, VisibilitySystems};
 
 /// We need at least 4 storage buffer bindings available to enable the
 /// visibility range buffer.

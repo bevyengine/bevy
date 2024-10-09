@@ -18,6 +18,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -29,7 +30,6 @@ use bevy_render::{
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSet,
 };
-use bevy_render::sync_world::MainEntity;
 use bevy_utils::tracing::error;
 
 pub struct LineGizmo3dPlugin;
