@@ -50,9 +50,10 @@ glam_assert = ["glam/glam-assert"]
 debug_glam_assert = ["glam/debug-glam-assert"]
 # Enable the rand dependency for shape_sampling
 rand = ["dep:rand", "dep:rand_distr", "glam/rand"]
+# Include code related to the Curve trait
 curve = []
 
-[lints] # Include code related to the Curve trait
+[lints]
 workspace = true
 
 [package.metadata.docs.rs]
