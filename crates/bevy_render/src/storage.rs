@@ -1,3 +1,5 @@
+use alloc::sync::Arc;
+
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages},
     render_resource::{Buffer, BufferUsages},
@@ -113,15 +115,15 @@ impl RenderAsset for GpuShaderStorageBuffer {
     }
 
     fn prepare_asset(
-        source_asset: Self::SourceAsset,
+        source_asset: Arc<Self::SourceAsset>,
         _: AssetId<Self::SourceAsset>,
         render_device: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        match source_asset.data {
+        match source_asset.data.as_ref() {
             Some(data) => {
                 let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
                     label: source_asset.buffer_description.label,
-                    contents: &data,
+                    contents: data,
                     usage: source_asset.buffer_description.usage,
                 });
                 Ok(GpuShaderStorageBuffer { buffer })

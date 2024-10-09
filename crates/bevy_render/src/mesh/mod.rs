@@ -1,3 +1,5 @@
+use alloc::sync::Arc;
+
 use bevy_hierarchy::Children;
 use bevy_math::Vec3;
 pub use bevy_mesh::*;
@@ -168,7 +170,7 @@ impl RenderAsset for RenderMesh {
 
     /// Converts the extracted mesh into a [`RenderMesh`].
     fn prepare_asset(
-        mesh: Self::SourceAsset,
+        mesh: Arc<Self::SourceAsset>,
         _: AssetId<Self::SourceAsset>,
         (images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
