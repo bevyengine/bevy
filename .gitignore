@@ -17,12 +17,12 @@ Cargo.lock
 dxcompiler.dll
 dxil.dll
 
-# Assets
+# Bevy Assets
 assets/**/*.meta
 crates/bevy_asset/imported_assets
 imported_assets
 
-# Examples
+# Bevy Examples
 example_showcase_config.ron
 example-showcase-reports/
 
