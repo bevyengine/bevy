@@ -18,7 +18,11 @@ bevy_time = { path = "../bevy_time", version = "0.15.0-dev" }
 
 # other
 gilrs = "0.11.0"
-thiserror = "1.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+] }
 
 [lints]
 workspace = true

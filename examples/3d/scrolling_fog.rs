@@ -55,6 +55,7 @@ fn setup(
             hdr: true,
             ..default()
         },
+        Msaa::Off,
         TemporalAntiAliasing::default(),
         Bloom::default(),
         VolumetricFog {

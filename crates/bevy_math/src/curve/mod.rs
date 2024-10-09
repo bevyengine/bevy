@@ -19,9 +19,9 @@ use cores::{EvenCore, UnevenCore};
 
 use crate::{StableInterpolate, VectorSpace};
 use core::{marker::PhantomData, ops::Deref};
+use derive_more::derive::{Display, Error};
 use interval::InvalidIntervalError;
 use itertools::Itertools;
-use thiserror::Error;
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 ///
@@ -624,73 +624,74 @@ where
 
 /// An error indicating that a linear reparametrization couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error)]
-#[error("Could not build a linear function to reparametrize this curve")]
+#[derive(Debug, Error, Display)]
+#[display("Could not build a linear function to reparametrize this curve")]
 pub enum LinearReparamError {
     /// The source curve that was to be reparametrized had unbounded domain.
-    #[error("This curve has unbounded domain")]
+    #[display("This curve has unbounded domain")]
     SourceCurveUnbounded,
 
     /// The target interval for reparametrization was unbounded.
-    #[error("The target interval for reparametrization is unbounded")]
+    #[display("The target interval for reparametrization is unbounded")]
     TargetIntervalUnbounded,
 }
 
 /// An error indicating that a reversion of a curve couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error)]
-#[error("Could not reverse this curve")]
+#[derive(Debug, Error, Display)]
+#[display("Could not reverse this curve")]
 pub enum ReverseError {
     /// The source curve that was to be reversed had unbounded domain end.
-    #[error("This curve has an unbounded domain end")]
+    #[display("This curve has an unbounded domain end")]
     SourceDomainEndInfinite,
 }
 
 /// An error indicating that a repetition of a curve couldn't be performed because of malformed
 /// inputs.
-#[derive(Debug, Error)]
-#[error("Could not repeat this curve")]
+#[derive(Debug, Error, Display)]
+#[display("Could not repeat this curve")]
 pub enum RepeatError {
     /// The source curve that was to be repeated had unbounded domain.
-    #[error("This curve has an unbounded domain")]
+    #[display("This curve has an unbounded domain")]
     SourceDomainUnbounded,
 }
 
 /// An error indicating that a ping ponging of a curve couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error)]
-#[error("Could not ping pong this curve")]
+#[derive(Debug, Error, Display)]
+#[display("Could not ping pong this curve")]
 pub enum PingPongError {
     /// The source curve that was to be ping ponged had unbounded domain end.
-    #[error("This curve has an unbounded domain end")]
+    #[display("This curve has an unbounded domain end")]
     SourceDomainEndInfinite,
 }
 
 /// An error indicating that an end-to-end composition couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error)]
-#[error("Could not compose these curves together")]
+#[derive(Debug, Error, Display)]
+#[display("Could not compose these curves together")]
 pub enum ChainError {
     /// The right endpoint of the first curve was infinite.
-    #[error("The first curve's domain has an infinite end")]
+    #[display("The first curve's domain has an infinite end")]
     FirstEndInfinite,
 
     /// The left endpoint of the second curve was infinite.
-    #[error("The second curve's domain has an infinite start")]
+    #[display("The second curve's domain has an infinite start")]
     SecondStartInfinite,
 }
 
 /// An error indicating that a resampling operation could not be performed because of
 /// malformed inputs.
-#[derive(Debug, Error)]
-#[error("Could not resample from this curve because of bad inputs")]
+#[derive(Debug, Error, Display)]
+#[display("Could not resample from this curve because of bad inputs")]
 pub enum ResamplingError {
     /// This resampling operation was not provided with enough samples to have well-formed output.
-    #[error("Not enough unique samples to construct resampled curve")]
+    #[display("Not enough unique samples to construct resampled curve")]
+    #[error(ignore)]
     NotEnoughSamples(usize),
 
     /// This resampling operation failed because of an unbounded interval.
-    #[error("Could not resample because this curve has unbounded domain")]
+    #[display("Could not resample because this curve has unbounded domain")]
     UnboundedDomain,
 }
 

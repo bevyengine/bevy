@@ -27,7 +27,11 @@ bytemuck = { version = "1.5" }
 wgpu = { version = "22", default-features = false }
 serde = { version = "1", features = ["derive"] }
 hexasphere = "15.0"
-thiserror = "1.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+] }
 
 [lints]
 workspace = true

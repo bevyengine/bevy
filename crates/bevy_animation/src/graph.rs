@@ -7,12 +7,16 @@ use std::io::{self, Write};
 use bevy_asset::{
     io::Reader, Asset, AssetEvent, AssetId, AssetLoader, AssetPath, Assets, Handle, LoadContext,
 };
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    component::Component,
     event::EventReader,
+    reflect::ReflectComponent,
     system::{Res, ResMut, Resource},
 };
-use bevy_reflect::{Reflect, ReflectSerialize};
+use bevy_reflect::{prelude::ReflectDefault, Reflect, ReflectSerialize};
 use bevy_utils::HashMap;
+use derive_more::derive::{Display, Error, From};
 use petgraph::{
     graph::{DiGraph, NodeIndex},
     Direction,
@@ -20,7 +24,6 @@ use petgraph::{
 use ron::de::SpannedError;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use thiserror::Error;
 
 use crate::{AnimationClip, AnimationTargetId};
 
@@ -122,6 +125,23 @@ pub struct AnimationGraph {
     pub mask_groups: HashMap<AnimationTargetId, AnimationMask>,
 }
 
+/// A [`Handle`] to the [`AnimationGraph`] to be used by the [`AnimationPlayer`](crate::AnimationPlayer) on the same entity.
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[reflect(Component, Default)]
+pub struct AnimationGraphHandle(pub Handle<AnimationGraph>);
+
+impl From<AnimationGraphHandle> for AssetId<AnimationGraph> {
+    fn from(handle: AnimationGraphHandle) -> Self {
+        handle.id()
+    }
+}
+
+impl From<&AnimationGraphHandle> for AssetId<AnimationGraph> {
+    fn from(handle: &AnimationGraphHandle) -> Self {
+        handle.id()
+    }
+}
+
 /// A type alias for the `petgraph` data structure that defines the animation
 /// graph.
 pub type AnimationDiGraph = DiGraph<AnimationGraphNode, (), u32>;
@@ -204,18 +224,18 @@ pub struct AnimationGraphAssetLoader;
 
 /// Various errors that can occur when serializing or deserializing animation
 /// graphs to and from RON, respectively.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum AnimationGraphLoadError {
     /// An I/O error occurred.
-    #[error("I/O")]
-    Io(#[from] io::Error),
+    #[display("I/O")]
+    Io(io::Error),
     /// An error occurred in RON serialization or deserialization.
-    #[error("RON serialization")]
-    Ron(#[from] ron::Error),
+    #[display("RON serialization")]
+    Ron(ron::Error),
     /// An error occurred in RON deserialization, and the location of the error
     /// is supplied.
-    #[error("RON serialization")]
-    SpannedRon(#[from] SpannedError),
+    #[display("RON serialization")]
+    SpannedRon(SpannedError),
 }
 
 /// Acceleration structures for animation graphs that allows Bevy to evaluate

@@ -30,9 +30,9 @@ use bevy_render::{
         *,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
+    sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
-    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{

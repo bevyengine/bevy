@@ -2,6 +2,7 @@ use crate::component::ComponentId;
 use crate::storage::SparseSetIndex;
 use crate::world::World;
 use core::{fmt, fmt::Debug, marker::PhantomData};
+use derive_more::derive::From;
 use fixedbitset::FixedBitSet;
 
 /// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
@@ -856,7 +857,7 @@ impl<T: SparseSetIndex> From<FilteredAccess<T>> for FilteredAccessSet<T> {
 }
 
 /// Records how two accesses conflict with each other
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, From)]
 pub enum AccessConflicts {
     /// Conflict is for all indices
     All,
@@ -905,12 +906,6 @@ impl AccessConflicts {
     /// An [`AccessConflicts`] which represents the absence of any conflict
     pub(crate) fn empty() -> Self {
         Self::Individual(FixedBitSet::new())
-    }
-}
-
-impl From<FixedBitSet> for AccessConflicts {
-    fn from(value: FixedBitSet) -> Self {
-        Self::Individual(value)
     }
 }
 

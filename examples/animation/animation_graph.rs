@@ -250,16 +250,15 @@ fn setup_scene(
 
 /// Places the help text at the top left of the window.
 fn setup_help_text(commands: &mut Commands) {
-    commands.spawn(TextBundle {
-        text: Text::from_section(HELP_TEXT, TextStyle::default()),
-        style: Style {
+    commands.spawn((
+        Text::new(HELP_TEXT),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 }
 
 /// Initializes the node UI widgets.
@@ -271,18 +270,15 @@ fn setup_node_rects(commands: &mut Commands) {
         };
 
         let text = commands
-            .spawn(TextBundle {
-                text: Text::from_section(
-                    node_string,
-                    TextStyle {
-                        font_size: 16.0,
-                        color: ANTIQUE_WHITE.into(),
-                        ..default()
-                    },
-                )
-                .with_justify(JustifyText::Center),
-                ..default()
-            })
+            .spawn((
+                Text::new(node_string),
+                TextStyle {
+                    font_size: 16.0,
+                    color: ANTIQUE_WHITE.into(),
+                    ..default()
+                },
+                TextLayout::new_with_justify(JustifyText::Center),
+            ))
             .id();
 
         let container = {
@@ -392,7 +388,7 @@ fn init_animations(
 
     for (entity, mut player) in query.iter_mut() {
         commands.entity(entity).insert((
-            animation_graph.0.clone(),
+            AnimationGraphHandle(animation_graph.0.clone()),
             ExampleAnimationWeights::default(),
         ));
         for &node_index in &CLIP_NODE_INDICES {
@@ -444,7 +440,7 @@ fn update_ui(
             // Update the node labels with the current weights.
             let mut text_iter = text_query.iter_many_mut(children);
             if let Some(mut text) = text_iter.fetch_next() {
-                text.sections[0].value = format!(
+                **text = format!(
                     "{}\n{:.2}",
                     clip_node.text, animation_weights.weights[clip_node.index]
                 );

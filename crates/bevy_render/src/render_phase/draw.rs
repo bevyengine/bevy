@@ -8,8 +8,8 @@ use bevy_ecs::{
 };
 use bevy_utils::{all_tuples, TypeIdMap};
 use core::{any::TypeId, fmt::Debug, hash::Hash};
+use derive_more::derive::{Display, Error};
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use thiserror::Error;
 
 /// A draw function used to draw [`PhaseItem`]s.
 ///
@@ -34,13 +34,14 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     ) -> Result<(), DrawError>;
 }
 
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Display, Debug, PartialEq, Eq)]
 pub enum DrawError {
-    #[error("Failed to execute render command {0:?}")]
+    #[display("Failed to execute render command {_0:?}")]
+    #[error(ignore)]
     RenderCommandFailure(&'static str),
-    #[error("Failed to get execute view query")]
+    #[display("Failed to get execute view query")]
     InvalidViewQuery,
-    #[error("View entity not found")]
+    #[display("View entity not found")]
     ViewEntityNotFound,
 }
 

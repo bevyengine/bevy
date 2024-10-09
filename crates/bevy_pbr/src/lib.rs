@@ -127,6 +127,7 @@ use bevy_render::{
     render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_resource::Shader,
+    sync_component::SyncComponentPlugin,
     texture::{GpuImage, Image},
     view::{check_visibility, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
@@ -314,7 +315,6 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
-            .register_type::<DistanceFog>()
             .register_type::<ShadowFilteringMethod>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisibleClusterableObjects>()
@@ -345,6 +345,11 @@ impl Plugin for PbrPlugin {
                 },
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
+            ))
+            .add_plugins((
+                SyncComponentPlugin::<DirectionalLight>::default(),
+                SyncComponentPlugin::<PointLight>::default(),
+                SyncComponentPlugin::<SpotLight>::default(),
             ))
             .configure_sets(
                 PostUpdate,
@@ -453,8 +458,10 @@ impl Plugin for PbrPlugin {
             )
             .init_resource::<LightMeta>();
 
-        render_app.world_mut().observe(add_light_view_entities);
-        render_app.world_mut().observe(remove_light_view_entities);
+        render_app.world_mut().add_observer(add_light_view_entities);
+        render_app
+            .world_mut()
+            .add_observer(remove_light_view_entities);
 
         let shadow_pass_node = ShadowPassNode::new(render_app.world_mut());
         let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();

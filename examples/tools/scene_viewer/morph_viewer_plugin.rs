@@ -122,8 +122,8 @@ impl fmt::Display for Target {
     }
 }
 impl Target {
-    fn text_section(&self, key: &str, style: TextStyle) -> TextSection {
-        TextSection::new(format!("[{key}] {self}\n"), style)
+    fn text_span(&self, key: &str, style: TextStyle) -> (String, TextStyle) {
+        (format!("[{key}] {self}\n"), style)
     }
     fn new(
         entity_name: Option<&Name>,
@@ -178,8 +178,9 @@ impl MorphKey {
 }
 fn update_text(
     controls: Option<ResMut<WeightsControl>>,
-    mut text: Query<&mut Text>,
+    text: Query<Entity, With<Text>>,
     morphs: Query<&MorphWeights>,
+    mut writer: UiTextWriter,
 ) {
     let Some(mut controls) = controls else {
         return;
@@ -195,8 +196,7 @@ fn update_text(
             target.weight = actual_weight;
         }
         let key_name = &AVAILABLE_KEYS[i].name;
-        let mut text = text.single_mut();
-        text.sections[i + 2].value = format!("[{key_name}] {target}\n");
+        *writer.text(text.single(), i + 3) = format!("[{key_name}] {target}\n");
     }
 }
 fn update_morphs(
@@ -257,20 +257,28 @@ fn detect_morphs(
         font_size: 13.0,
         ..default()
     };
-    let mut sections = vec![
-        TextSection::new("Morph Target Controls\n", style.clone()),
-        TextSection::new("---------------\n", style.clone()),
+    let mut spans = vec![
+        ("Morph Target Controls\n".into(), style.clone()),
+        ("---------------\n".into(), style.clone()),
     ];
     let target_to_text =
-        |(i, target): (usize, &Target)| target.text_section(AVAILABLE_KEYS[i].name, style.clone());
-    sections.extend(detected.iter().enumerate().map(target_to_text));
+        |(i, target): (usize, &Target)| target.text_span(AVAILABLE_KEYS[i].name, style.clone());
+    spans.extend(detected.iter().enumerate().map(target_to_text));
     commands.insert_resource(WeightsControl { weights: detected });
-    commands.spawn(TextBundle::from_sections(sections).with_style(Style {
-        position_type: PositionType::Absolute,
-        top: Val::Px(10.0),
-        left: Val::Px(10.0),
-        ..default()
-    }));
+    commands
+        .spawn((
+            Text::default(),
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(10.0),
+                left: Val::Px(10.0),
+                ..default()
+            },
+        ))
+        .with_children(|p| {
+            p.spawn((TextSpan::new("Morph Target Controls\n"), style.clone()));
+            p.spawn((TextSpan::new("---------------\n"), style));
+        });
 }
 
 pub struct MorphViewerPlugin;

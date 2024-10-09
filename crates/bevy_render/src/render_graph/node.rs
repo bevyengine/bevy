@@ -15,8 +15,8 @@ use bevy_ecs::{
 };
 use bevy_utils::all_tuples_with_size;
 use core::fmt::Debug;
+use derive_more::derive::{Display, Error, From};
 use downcast_rs::{impl_downcast, Downcast};
-use thiserror::Error;
 
 pub use bevy_render_macros::RenderLabel;
 
@@ -90,16 +90,16 @@ pub trait Node: Downcast + Send + Sync + 'static {
 
 impl_downcast!(Node);
 
-#[derive(Error, Debug, Eq, PartialEq)]
+#[derive(Error, Display, Debug, Eq, PartialEq, From)]
 pub enum NodeRunError {
-    #[error("encountered an input slot error")]
-    InputSlotError(#[from] InputSlotError),
-    #[error("encountered an output slot error")]
-    OutputSlotError(#[from] OutputSlotError),
-    #[error("encountered an error when running a sub-graph")]
-    RunSubGraphError(#[from] RunSubGraphError),
-    #[error("encountered an error when executing draw command")]
-    DrawError(#[from] DrawError),
+    #[display("encountered an input slot error")]
+    InputSlotError(InputSlotError),
+    #[display("encountered an output slot error")]
+    OutputSlotError(OutputSlotError),
+    #[display("encountered an error when running a sub-graph")]
+    RunSubGraphError(RunSubGraphError),
+    #[display("encountered an error when executing draw command")]
+    DrawError(DrawError),
 }
 
 /// A collection of input and output [`Edges`](Edge) for a [`Node`].

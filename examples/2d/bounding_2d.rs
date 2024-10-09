@@ -78,7 +78,6 @@ fn update_text(mut text: Query<&mut Text>, cur_state: Res<State<Test>>) {
     }
 
     let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
     text.clear();
 
     text.push_str("Intersection test:\n");
@@ -272,14 +271,15 @@ fn setup(mut commands: Commands) {
         Intersects::default(),
     ));
 
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn draw_filled_circle(gizmos: &mut Gizmos, position: Vec2, color: Srgba) {
