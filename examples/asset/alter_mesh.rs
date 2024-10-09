@@ -147,9 +147,7 @@ fn spawn_text(mut commands: Commands) {
             },
         ))
         .with_children(|parent| {
-            parent.spawn(Text::new(
-                "Space: swap meshes by mutating a Handle<Mesh>",
-            ));
+            parent.spawn(Text::new("Space: swap meshes by mutating a Handle<Mesh>"));
             parent.spawn(Text::new(
                 "Return: mutate the mesh itself, changing all copies of it",
             ));

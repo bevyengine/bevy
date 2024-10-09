@@ -91,10 +91,7 @@ fn setup(mut commands: Commands) {
             },
             ..default()
         })
-        .with_child((
-            Text::new("Press 1 or 2 to load a new scene."),
-            text_style,
-        ));
+        .with_child((Text::new("Press 1 or 2 to load a new scene."), text_style));
 }
 
 // Selects the level you want to load.

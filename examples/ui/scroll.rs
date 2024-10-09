@@ -250,10 +250,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 for i in 0..25 {
                                                     parent
                                                         .spawn((
-                                                            Text(format!(
-                                                                "Item {}",
-                                                                (oi * 25) + i
-                                                            )),
+                                                            Text(format!("Item {}", (oi * 25) + i)),
                                                             TextStyle {
                                                                 font: asset_server.load(
                                                                     "fonts/FiraSans-Bold.ttf",
@@ -335,10 +332,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 for i in 0..25 {
                                                     parent
                                                         .spawn((
-                                                            Text(format!(
-                                                                "Item {}",
-                                                                (oi * 25) + i
-                                                            )),
+                                                            Text(format!("Item {}", (oi * 25) + i)),
                                                             TextStyle {
                                                                 font: asset_server.load(
                                                                     "fonts/FiraSans-Bold.ttf",
