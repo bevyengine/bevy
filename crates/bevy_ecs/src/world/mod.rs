@@ -2101,6 +2101,19 @@ impl World {
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
     /// otherwise inserts the resource using the result of calling `func`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Resource)]
+    /// struct MyResource(i32);
+    ///
+    /// # let mut world = World::new();
+    /// let my_res = world.get_resource_or_insert_with(|| MyResource(10));
+    /// assert_eq!(my_res.0, 10);
+    /// ```
     #[inline]
     #[track_caller]
     pub fn get_resource_or_insert_with<R: Resource>(
