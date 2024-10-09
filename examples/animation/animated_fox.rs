@@ -141,7 +141,7 @@ fn setup_scene_once_loaded(
     ) -> &'a mut AnimationClip {
         let node = graph.get(node).unwrap();
         let clip = match &node.node_type {
-            AnimationNodeType::Clip(handle) => clips.get_mut(handle),
+            AnimationNodeType::Clip(handle) => clips.get_cloned_mut(handle),
             _ => unreachable!(),
         };
         clip.unwrap()
