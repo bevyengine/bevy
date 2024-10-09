@@ -291,16 +291,16 @@ impl Plugin for MeshletPlugin {
 
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
-pub struct MeshletMeshHandle(pub Handle<MeshletMesh>);
+pub struct MeshletMesh3d(pub Handle<MeshletMesh>);
 
-impl From<MeshletMeshHandle> for AssetId<MeshletMesh> {
-    fn from(mesh: MeshletMeshHandle) -> Self {
+impl From<MeshletMesh3d> for AssetId<MeshletMesh> {
+    fn from(mesh: MeshletMesh3d) -> Self {
         mesh.id()
     }
 }
 
-impl From<&MeshletMeshHandle> for AssetId<MeshletMesh> {
-    fn from(mesh: &MeshletMeshHandle) -> Self {
+impl From<&MeshletMesh3d> for AssetId<MeshletMesh> {
+    fn from(mesh: &MeshletMesh3d) -> Self {
         mesh.id()
     }
 }
@@ -308,7 +308,7 @@ impl From<&MeshletMeshHandle> for AssetId<MeshletMesh> {
 /// A component bundle for entities with a [`MeshletMesh`] and a [`Material`].
 #[derive(Bundle, Clone)]
 pub struct MaterialMeshletMeshBundle<M: Material> {
-    pub meshlet_mesh: MeshletMeshHandle,
+    pub meshlet_mesh: MeshletMesh3d,
     pub material: MeshMaterial3d<M>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -334,9 +334,9 @@ impl<M: Material> Default for MaterialMeshletMeshBundle<M> {
     }
 }
 
-/// A convenient alias for `With<MeshletMeshHandle>`, for use with
+/// A convenient alias for `With<MeshletMesh3d>`, for use with
 /// [`bevy_render::view::VisibleEntities`].
-pub type WithMeshletMesh = With<MeshletMeshHandle>;
+pub type WithMeshletMesh = With<MeshletMesh3d>;
 
 fn configure_meshlet_views(
     mut views_3d: Query<(
