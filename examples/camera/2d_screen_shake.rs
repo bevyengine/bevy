@@ -143,7 +143,7 @@ fn screen_shake(
     let angle = (screen_shake.max_angle * shake).to_radians() * rng.gen_range(-1.0..1.0);
     let offset_x = screen_shake.max_offset * shake * rng.gen_range(-1.0..1.0);
     let offset_y = screen_shake.max_offset * shake * rng.gen_range(-1.0..1.0);
-    eprintln!("{} {}", offset_x, offset_y);
+
     if shake > 0.0 {
         for (mut camera, mut transform) in query.iter_mut() {
             // Position
