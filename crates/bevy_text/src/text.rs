@@ -1,3 +1,9 @@
+pub use cosmic_text::{
+    self, FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle,
+    Weight as FontWeight,
+};
+
+use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -8,12 +14,6 @@ use bevy_utils::warn_once;
 use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-
-use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
-pub use cosmic_text::{
-    self, FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle,
-    Weight as FontWeight,
-};
 
 /// Wrapper for [`cosmic_text::Buffer`]
 #[derive(Deref, DerefMut, Debug, Clone)]

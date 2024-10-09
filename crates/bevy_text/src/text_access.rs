@@ -4,7 +4,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::Children;
 
-use crate::TextStyle;
+use crate::{TextSpan, TextStyle};
 
 /// Helper trait for using the [`TextReader`] and [`TextWriter`] system params.
 pub trait TextSpanAccess: Component {
@@ -15,10 +15,7 @@ pub trait TextSpanAccess: Component {
 }
 
 /// Helper trait for the root text component in a text block.
-pub trait TextRoot: TextSpanAccess + From<String> {
-    /// Component type for spans of text blocks starting with the root component.
-    type Span: TextSpanComponent;
-}
+pub trait TextRoot: TextSpanAccess + From<String> {}
 
 /// Helper trait for the text span components in a text block.
 pub trait TextSpanComponent: TextSpanAccess + From<String> {}
@@ -56,7 +53,7 @@ pub struct TextReader<'w, 's, R: TextRoot> {
         'w,
         's,
         (
-            &'static <R as TextRoot>::Span,
+            &'static TextSpan,
             &'static TextStyle,
             Option<&'static Children>,
         ),
@@ -126,7 +123,7 @@ pub struct TextSpanIter<'a, R: TextRoot> {
         'a,
         'a,
         (
-            &'static <R as TextRoot>::Span,
+            &'static TextSpan,
             &'static TextStyle,
             Option<&'static Children>,
         ),
@@ -195,8 +192,8 @@ impl<'a, R: TextRoot> Drop for TextSpanIter<'a, R> {
 #[derive(SystemParam)]
 pub struct TextWriter<'w, 's, R: TextRoot> {
     scratch: ResMut<'w, TextIterScratch>,
-    roots: Query<'w, 's, (&'static mut R, &'static mut TextStyle), Without<<R as TextRoot>::Span>>,
-    spans: Query<'w, 's, (&'static mut <R as TextRoot>::Span, &'static mut TextStyle), Without<R>>,
+    roots: Query<'w, 's, (&'static mut R, &'static mut TextStyle), Without<TextSpan>>,
+    spans: Query<'w, 's, (&'static mut TextSpan, &'static mut TextStyle), Without<R>>,
     children: Query<'w, 's, &'static Children>,
 }
 

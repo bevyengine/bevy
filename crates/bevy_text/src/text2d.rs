@@ -1,8 +1,8 @@
 use crate::pipeline::CosmicFontSystem;
 use crate::{
     ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBlock,
-    TextBounds, TextError, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpan,
-    TextSpanAccess, TextStyle, TextWriter, YAxisOrientation,
+    TextBounds, TextError, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
+    TextStyle, TextWriter, YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
@@ -95,9 +95,7 @@ impl Text2d {
     }
 }
 
-impl TextRoot for Text2d {
-    type Span = TextSpan;
-}
+impl TextRoot for Text2d {}
 
 impl TextSpanAccess for Text2d {
     fn read_span(&self) -> &str {
