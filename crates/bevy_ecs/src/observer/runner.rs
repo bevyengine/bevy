@@ -241,7 +241,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// If all entities watched by a given [`Observer`] are despawned, the [`Observer`] entity will also be despawned.
 /// This protects against observer "garbage" building up over time.
 ///
-/// The examples above calling [`EntityWorldMut::observe_entity`] to add entity-specific observer logic are (once again)
+/// The examples above calling [`EntityWorldMut::observe`] to add entity-specific observer logic are (once again)
 /// just shorthand for spawning an [`Observer`] directly:
 ///
 /// ```
