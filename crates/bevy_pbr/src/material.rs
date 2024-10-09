@@ -550,7 +550,7 @@ pub(super) fn clear_material_instances<M: Material>(
 
 fn extract_mesh_materials<M: Material>(
     mut material_instances: ResMut<RenderMaterialInstances<M>>,
-    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial3d<M>), With<Mesh3d>>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial3d<M>)>>,
 ) {
     for (entity, view_visibility, material) in &query {
         if view_visibility.get() {
