@@ -2,15 +2,15 @@ use crate::{Indices, Mesh, MeshBuilder, Meshable};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::Sphere};
 use core::f32::consts::PI;
+use derive_more::derive::{Display, Error};
 use hexasphere::shapes::IcoSphere;
-use thiserror::Error;
 use wgpu::PrimitiveTopology;
 
 /// An error when creating an icosphere [`Mesh`] from a [`SphereMeshBuilder`].
-#[derive(Clone, Copy, Debug, Error)]
+#[derive(Clone, Copy, Debug, Error, Display)]
 pub enum IcosphereError {
     /// The icosphere has too many vertices.
-    #[error("Cannot create an icosphere of {subdivisions} subdivisions due to there being too many vertices being generated: {number_of_resulting_points}. (Limited to 65535 vertices or 79 subdivisions)")]
+    #[display("Cannot create an icosphere of {subdivisions} subdivisions due to there being too many vertices being generated: {number_of_resulting_points}. (Limited to 65535 vertices or 79 subdivisions)")]
     TooManyVertices {
         /// The number of subdivisions used. 79 is the largest allowed value for a mesh to be generated.
         subdivisions: u32,
