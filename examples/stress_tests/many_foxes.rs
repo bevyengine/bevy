@@ -193,11 +193,11 @@ fn setup(
         radius * 0.5 * zoom,
         radius * 1.5 * zoom,
     );
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_translation(translation)
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_translation(translation)
             .looking_at(0.2 * Vec3::new(translation.x, 0.0, translation.z), Vec3::Y),
-        ..default()
-    });
+    ));
 
     // Plane
     commands.spawn((
@@ -239,7 +239,7 @@ fn setup_scene_once_loaded(
         for (entity, mut player) in &mut player {
             commands
                 .entity(entity)
-                .insert(animations.graph.clone())
+                .insert(AnimationGraphHandle(animations.graph.clone()))
                 .insert(AnimationTransitions::new());
 
             let playing_animation = player.play(animations.node_indices[0]).repeat();

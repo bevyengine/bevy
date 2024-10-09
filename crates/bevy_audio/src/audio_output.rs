@@ -2,7 +2,7 @@ use crate::{
     AudioPlayer, Decodable, DefaultSpatialScale, GlobalVolume, PlaybackMode, PlaybackSettings,
     SpatialAudioSink, SpatialListener,
 };
-use bevy_asset::{Asset, Assets, Handle};
+use bevy_asset::{Asset, Assets};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_math::Vec3;
@@ -101,7 +101,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
     query_nonplaying: Query<
         (
             Entity,
-            &Handle<Source>,
+            &AudioPlayer<Source>,
             &PlaybackSettings,
             Option<&GlobalTransform>,
         ),
@@ -119,7 +119,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
     };
 
     for (entity, source_handle, settings, maybe_emitter_transform) in &query_nonplaying {
-        let Some(audio_source) = audio_sources.get(source_handle) else {
+        let Some(audio_source) = audio_sources.get(&source_handle.0) else {
             continue;
         };
         // audio data is available (has loaded), begin playback and insert sink component
@@ -236,19 +236,19 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
     mut commands: Commands,
     query_nonspatial_despawn: Query<
         (Entity, &AudioSink),
-        (With<PlaybackDespawnMarker>, With<Handle<T>>),
+        (With<PlaybackDespawnMarker>, With<AudioPlayer<T>>),
     >,
     query_spatial_despawn: Query<
         (Entity, &SpatialAudioSink),
-        (With<PlaybackDespawnMarker>, With<Handle<T>>),
+        (With<PlaybackDespawnMarker>, With<AudioPlayer<T>>),
     >,
     query_nonspatial_remove: Query<
         (Entity, &AudioSink),
-        (With<PlaybackRemoveMarker>, With<Handle<T>>),
+        (With<PlaybackRemoveMarker>, With<AudioPlayer<T>>),
     >,
     query_spatial_remove: Query<
         (Entity, &SpatialAudioSink),
-        (With<PlaybackRemoveMarker>, With<Handle<T>>),
+        (With<PlaybackRemoveMarker>, With<AudioPlayer<T>>),
     >,
 ) {
     for (entity, sink) in &query_nonspatial_despawn {

@@ -15,6 +15,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
+use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::{
     primitives::Aabb,
     texture::Image,
@@ -26,7 +27,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
-/// The bundle of components needed to draw text in a 2D scene via a 2D `Camera2dBundle`.
+/// The bundle of components needed to draw text in a 2D scene via a `Camera2d`.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct Text2dBundle {
@@ -115,9 +116,8 @@ pub fn extract_text2d_sprite(
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            let entity = commands.spawn_empty().id();
             extracted_sprites.sprites.insert(
-                entity,
+                commands.spawn(TemporaryRenderEntity).id(),
                 ExtractedSprite {
                     transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                     color,

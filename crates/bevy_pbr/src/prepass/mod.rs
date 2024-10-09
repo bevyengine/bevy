@@ -3,7 +3,7 @@ mod prepass_bindings;
 use bevy_render::{
     mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_resource::binding_types::uniform_buffer,
-    world_sync::RenderEntity,
+    sync_world::RenderEntity,
 };
 pub use prepass_bindings::*;
 
@@ -585,7 +585,9 @@ pub fn extract_camera_previous_view_data(
     for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
         if camera.is_active {
             let entity = entity.id();
-            let entity = commands.get_or_spawn(entity);
+            let mut entity = commands
+                .get_entity(entity)
+                .expect("Camera entity wasn't synced.");
 
             if let Some(previous_view_data) = maybe_previous_view_data {
                 entity.insert(previous_view_data.clone());

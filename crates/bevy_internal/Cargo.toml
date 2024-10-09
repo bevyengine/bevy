@@ -28,21 +28,35 @@ detailed_trace = ["bevy_utils/detailed_trace"]
 
 sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
 
-# Image format support for texture loading (PNG and HDR are enabled by default)
-exr = ["bevy_render/exr"]
-hdr = ["bevy_render/hdr"]
-png = ["bevy_render/png"]
-tga = ["bevy_render/tga"]
-jpeg = ["bevy_render/jpeg"]
-bmp = ["bevy_render/bmp"]
-webp = ["bevy_render/webp"]
-basis-universal = ["bevy_render/basis-universal"]
-dds = ["bevy_render/dds", "bevy_core_pipeline/dds", "bevy_gltf/dds"]
-pnm = ["bevy_render/pnm"]
-ktx2 = ["bevy_render/ktx2"]
+# Texture formats that have specific rendering support (HDR enabled by default)
+basis-universal = ["bevy_image/basis-universal", "bevy_render/basis-universal"]
+dds = [
+  "bevy_image/dds",
+  "bevy_render/dds",
+  "bevy_core_pipeline/dds",
+  "bevy_gltf/dds",
+]
+exr = ["bevy_image/exr", "bevy_render/exr"]
+hdr = ["bevy_image/hdr", "bevy_render/hdr"]
+ktx2 = ["bevy_image/ktx2", "bevy_render/ktx2"]
+
 # For ktx2 supercompression
-zlib = ["bevy_render/zlib"]
-zstd = ["bevy_render/zstd"]
+zlib = ["bevy_image/zlib"]
+zstd = ["bevy_image/zstd"]
+
+# Image format support (PNG enabled by default)
+avif = ["bevy_image/avif"]
+bmp = ["bevy_image/bmp"]
+ff = ["bevy_image/ff"]
+gif = ["bevy_image/gif"]
+ico = ["bevy_image/ico"]
+jpeg = ["bevy_image/jpeg"]
+png = ["bevy_image/png"]
+pnm = ["bevy_image/pnm"]
+qoi = ["bevy_image/qoi"]
+tga = ["bevy_image/tga"]
+tiff = ["bevy_image/tiff"]
+webp = ["bevy_image/webp"]
 
 # Enable SPIR-V passthrough
 spirv_shader_passthrough = ["bevy_render/spirv_shader_passthrough"]
@@ -223,6 +237,9 @@ reflect_functions = [
   "bevy_ecs/reflect_functions",
 ]
 
+# Enable winit custom cursor support
+custom_cursor = ["bevy_winit/custom_cursor"]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.15.0-dev" }
@@ -255,6 +272,7 @@ bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.15.
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.15.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.15.0-dev", default-features = false }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.15.0-dev" }
+bevy_image = { path = "../bevy_image", optional = true, version = "0.15.0-dev" }
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.15.0-dev" }
 bevy_picking = { path = "../bevy_picking", optional = true, version = "0.15.0-dev" }
 bevy_remote = { path = "../bevy_remote", optional = true, version = "0.15.0-dev" }

@@ -56,7 +56,8 @@ impl Plugin for CiTestingPlugin {
                 systems::send_events
                     .before(trigger_screenshots)
                     .before(bevy_window::close_when_requested)
-                    .in_set(SendEvents),
+                    .in_set(SendEvents)
+                    .ambiguous_with_all(),
             );
 
         // The offending system does not exist in the wasm32 target.

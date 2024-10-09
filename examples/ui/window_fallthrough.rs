@@ -24,7 +24,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     // Text with one section
     commands.spawn((
         // Create a TextBundle that has a Text with a single section.

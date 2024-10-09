@@ -231,16 +231,15 @@ fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
 }
 
 fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
-    commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        })
-        .insert(Skybox {
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
+        Skybox {
             image: assets.skybox.clone(),
             brightness: 150.0,
             ..default()
-        });
+        },
+    ));
 }
 
 fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
@@ -523,12 +522,12 @@ impl FromWorld for ExampleAssets {
 fn play_animations(
     mut commands: Commands,
     assets: Res<ExampleAssets>,
-    mut players: Query<(Entity, &mut AnimationPlayer), Without<Handle<AnimationGraph>>>,
+    mut players: Query<(Entity, &mut AnimationPlayer), Without<AnimationGraphHandle>>,
 ) {
     for (entity, mut player) in players.iter_mut() {
         commands
             .entity(entity)
-            .insert(assets.fox_animation_graph.clone());
+            .insert(AnimationGraphHandle(assets.fox_animation_graph.clone()));
         player.play(assets.fox_animation_node).repeat();
     }
 }

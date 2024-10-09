@@ -36,9 +36,9 @@ use bevy_render::{
         TextureSampleType, TextureUsages, VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
+    sync_world::RenderEntity,
     texture::{BevyDefault as _, GpuImage, Image},
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
-    world_sync::RenderEntity,
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
@@ -280,18 +280,25 @@ pub fn extract_volumetric_fog(
     }
 
     for (entity, volumetric_fog) in view_targets.iter() {
-        commands.get_or_spawn(entity.id()).insert(*volumetric_fog);
+        commands
+            .get_entity(entity.id())
+            .expect("Volumetric fog entity wasn't synced.")
+            .insert(*volumetric_fog);
     }
 
     for (entity, fog_volume, fog_transform) in fog_volumes.iter() {
         commands
-            .get_or_spawn(entity.id())
+            .get_entity(entity.id())
+            .expect("Fog volume entity wasn't synced.")
             .insert((*fog_volume).clone())
             .insert(*fog_transform);
     }
 
     for (entity, volumetric_light) in volumetric_lights.iter() {
-        commands.get_or_spawn(entity.id()).insert(*volumetric_light);
+        commands
+            .get_entity(entity.id())
+            .expect("Volumetric light entity wasn't synced.")
+            .insert(*volumetric_light);
     }
 }
 

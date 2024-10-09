@@ -1,4 +1,4 @@
-use bevy_render::{view::Visibility, world_sync::SyncToRenderWorld};
+use bevy_render::view::Visibility;
 
 use super::*;
 
@@ -21,13 +21,7 @@ use super::*;
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(
-    CubemapFrusta,
-    CubemapVisibleEntities,
-    Transform,
-    Visibility,
-    SyncToRenderWorld
-)]
+#[require(CubemapFrusta, CubemapVisibleEntities, Transform, Visibility)]
 pub struct PointLight {
     /// The color of this light source.
     pub color: Color,

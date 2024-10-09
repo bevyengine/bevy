@@ -1,7 +1,6 @@
 //! Demonstrates how to observe life-cycle triggers as well as define custom ones.
 
 use bevy::{
-    math::Isometry2d,
     prelude::*,
     utils::{HashMap, HashSet},
 };
@@ -71,7 +70,7 @@ struct ExplodeMines {
 struct Explode;
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.spawn(
         TextBundle::from_section(
             "Click on a \"Mine\" to trigger it.\n\
@@ -149,7 +148,7 @@ fn on_remove_mine(
 fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands) {
     // If a triggered event is targeting a specific entity you can access it with `.entity()`
     let id = trigger.entity();
-    let Some(entity) = commands.get_entity(id) else {
+    let Some(mut entity) = commands.get_entity(id) else {
         return;
     };
     info!("Boom! {:?} exploded.", id.index());
@@ -166,7 +165,7 @@ fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Co
 fn draw_shapes(mut gizmos: Gizmos, mines: Query<&Mine>) {
     for mine in &mines {
         gizmos.circle_2d(
-            Isometry2d::from_translation(mine.pos),
+            mine.pos,
             mine.size,
             Color::hsl((mine.size - 4.0) / 16.0 * 360.0, 1.0, 0.8),
         );

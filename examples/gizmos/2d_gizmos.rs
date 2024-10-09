@@ -18,7 +18,7 @@ fn main() {
 struct MyRoundGizmos {}
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     // text
     commands.spawn(
         TextBundle::from_section(
@@ -67,11 +67,7 @@ fn draw_example_collection(
 
     gizmos.rect_2d(Isometry2d::IDENTITY, Vec2::splat(650.), BLACK);
 
-    gizmos.cross_2d(
-        Isometry2d::from_translation(Vec2::new(-160., 120.)),
-        12.,
-        FUCHSIA,
-    );
+    gizmos.cross_2d(Vec2::new(-160., 120.), 12., FUCHSIA);
 
     let domain = Interval::EVERYWHERE;
     let curve = function_curve(domain, |t| Vec2::new(t, ops::sin(t / 25.0) * 100.0));
@@ -89,11 +85,11 @@ fn draw_example_collection(
     // Circles have 32 line-segments by default.
     // You may want to increase this for larger circles.
     my_gizmos
-        .circle_2d(Isometry2d::from_translation(Vec2::ZERO), 300., NAVY)
+        .circle_2d(Isometry2d::IDENTITY, 300., NAVY)
         .resolution(64);
 
     my_gizmos.ellipse_2d(
-        Isometry2d::new(Vec2::ZERO, Rot2::radians(time.elapsed_seconds() % TAU)),
+        Rot2::radians(time.elapsed_seconds() % TAU),
         Vec2::new(100., 200.),
         YELLOW_GREEN,
     );
@@ -101,7 +97,7 @@ fn draw_example_collection(
     // Arcs default resolution is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
     my_gizmos.arc_2d(
-        Isometry2d::from_rotation(Rot2::radians(sin_t_scaled / 10.)),
+        Rot2::radians(sin_t_scaled / 10.),
         FRAC_PI_2,
         310.,
         ORANGE_RED,

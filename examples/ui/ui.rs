@@ -31,7 +31,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
-    commands.spawn((Camera2dBundle::default(), IsDefaultUiCamera));
+    commands.spawn((Camera2d, IsDefaultUiCamera));
 
     // root node
     commands
@@ -44,7 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-        .insert(Pickable::IGNORE)
+        .insert(PickingBehavior::IGNORE)
         .with_children(|parent| {
             // left vertical fill (border)
             parent
@@ -167,7 +167,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         Label,
                                         AccessibilityNode(NodeBuilder::new(Role::ListItem)),
                                     ))
-                                    .insert(Pickable {
+                                    .insert(PickingBehavior {
                                         should_block_lower: false,
                                         ..default()
                                     });
@@ -214,7 +214,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     ..default()
                 })
-                .insert(Pickable::IGNORE)
+                .insert(PickingBehavior::IGNORE)
                 .with_children(|parent| {
                     parent
                         .spawn(NodeBundle {

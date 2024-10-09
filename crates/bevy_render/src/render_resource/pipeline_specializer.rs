@@ -1,8 +1,8 @@
 use crate::{
-    mesh::{MeshVertexBufferLayoutRef, MissingVertexAttributeError},
+    mesh::{MeshVertexBufferLayoutRef, MissingVertexAttributeError, VertexBufferLayout},
     render_resource::{
         CachedComputePipelineId, CachedRenderPipelineId, ComputePipelineDescriptor, PipelineCache,
-        RenderPipelineDescriptor, VertexBufferLayout,
+        RenderPipelineDescriptor,
     },
 };
 use bevy_ecs::system::Resource;

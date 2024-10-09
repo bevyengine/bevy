@@ -60,11 +60,11 @@ pub mod prelude {
             Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
             NonSend, NonSendMut, ParallelCommands, ParamSet, Populated, Query, ReadOnlySystem, Res,
             ResMut, Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction,
+            SystemParamFunction, WithParamWarnPolicy,
         },
         world::{
-            Command, EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove,
-            OnReplace, World,
+            Command, EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
+            FromWorld, OnAdd, OnInsert, OnRemove, OnReplace, World,
         },
     };
 
@@ -1617,107 +1617,6 @@ mod tests {
     }
 
     #[test]
-    fn reserve_entities_across_worlds() {
-        let mut world_a = World::default();
-        let mut world_b = World::default();
-
-        let e1 = world_a.spawn(A(1)).id();
-        let e2 = world_a.spawn(A(2)).id();
-        let e3 = world_a.entities().reserve_entity();
-        world_a.flush_entities();
-
-        let world_a_max_entities = world_a.entities().len();
-        world_b.entities.reserve_entities(world_a_max_entities);
-        world_b.entities.flush_as_invalid();
-
-        let e4 = world_b.spawn(A(4)).id();
-        assert_eq!(
-            e4,
-            Entity::from_raw(3),
-            "new entity is created immediately after world_a's max entity"
-        );
-        assert!(world_b.get::<A>(e1).is_none());
-        assert!(world_b.get_entity(e1).is_none());
-
-        assert!(world_b.get::<A>(e2).is_none());
-        assert!(world_b.get_entity(e2).is_none());
-
-        assert!(world_b.get::<A>(e3).is_none());
-        assert!(world_b.get_entity(e3).is_none());
-
-        world_b.get_or_spawn(e1).unwrap().insert(B(1));
-        assert_eq!(
-            world_b.get::<B>(e1),
-            Some(&B(1)),
-            "spawning into 'world_a' entities works"
-        );
-
-        world_b.get_or_spawn(e4).unwrap().insert(B(4));
-        assert_eq!(
-            world_b.get::<B>(e4),
-            Some(&B(4)),
-            "spawning into existing `world_b` entities works"
-        );
-        assert_eq!(
-            world_b.get::<A>(e4),
-            Some(&A(4)),
-            "spawning into existing `world_b` entities works"
-        );
-
-        let e4_mismatched_generation =
-            Entity::from_raw_and_generation(3, NonZero::<u32>::new(2).unwrap());
-        assert!(
-            world_b.get_or_spawn(e4_mismatched_generation).is_none(),
-            "attempting to spawn on top of an entity with a mismatched entity generation fails"
-        );
-        assert_eq!(
-            world_b.get::<B>(e4),
-            Some(&B(4)),
-            "failed mismatched spawn doesn't change existing entity"
-        );
-        assert_eq!(
-            world_b.get::<A>(e4),
-            Some(&A(4)),
-            "failed mismatched spawn doesn't change existing entity"
-        );
-
-        let high_non_existent_entity = Entity::from_raw(6);
-        world_b
-            .get_or_spawn(high_non_existent_entity)
-            .unwrap()
-            .insert(B(10));
-        assert_eq!(
-            world_b.get::<B>(high_non_existent_entity),
-            Some(&B(10)),
-            "inserting into newly allocated high / non-continuous entity id works"
-        );
-
-        let high_non_existent_but_reserved_entity = Entity::from_raw(5);
-        assert!(
-            world_b.get_entity(high_non_existent_but_reserved_entity).is_none(),
-            "entities between high-newly allocated entity and continuous block of existing entities don't exist"
-        );
-
-        let reserved_entities = vec![
-            world_b.entities().reserve_entity(),
-            world_b.entities().reserve_entity(),
-            world_b.entities().reserve_entity(),
-            world_b.entities().reserve_entity(),
-        ];
-
-        assert_eq!(
-            reserved_entities,
-            vec![
-                Entity::from_raw(5),
-                Entity::from_raw(4),
-                Entity::from_raw(7),
-                Entity::from_raw(8),
-            ],
-            "space between original entities and high entities is used for new entity ids"
-        );
-    }
-
-    #[test]
     fn insert_or_spawn_batch() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
@@ -2027,6 +1926,138 @@ mod tests {
         });
 
         assert!(e.contains::<Y>());
+    }
+
+    #[test]
+    fn remove_component_and_his_runtime_required_components() {
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        struct Z;
+
+        #[derive(Component)]
+        struct V;
+
+        let mut world = World::new();
+        world.register_required_components::<X, Y>();
+        world.register_required_components::<Y, Z>();
+
+        let e = world.spawn((X, V)).id();
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //check that `remove` works as expected
+        world.entity_mut(e).remove::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        world.entity_mut(e).insert(X);
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //remove `X` again and ensure that `Y` and `Z` was removed too
+        world.entity_mut(e).remove_with_requires::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(!world.entity(e).contains::<Y>());
+        assert!(!world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+    }
+
+    #[test]
+    fn remove_component_and_his_required_components() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        #[require(Z)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        struct Z;
+
+        #[derive(Component)]
+        struct V;
+
+        let mut world = World::new();
+
+        let e = world.spawn((X, V)).id();
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //check that `remove` works as expected
+        world.entity_mut(e).remove::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        world.entity_mut(e).insert(X);
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //remove `X` again and ensure that `Y` and `Z` was removed too
+        world.entity_mut(e).remove_with_requires::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(!world.entity(e).contains::<Y>());
+        assert!(!world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+    }
+
+    #[test]
+    fn remove_bundle_and_his_required_components() {
+        #[derive(Component, Default)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        #[require(W)]
+        struct Z;
+
+        #[derive(Component, Default)]
+        struct W;
+
+        #[derive(Component)]
+        struct V;
+
+        #[derive(Bundle, Default)]
+        struct TestBundle {
+            x: X,
+            z: Z,
+        }
+
+        let mut world = World::new();
+        let e = world.spawn((TestBundle::default(), V)).id();
+
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<W>());
+        assert!(world.entity(e).contains::<V>());
+
+        world.entity_mut(e).remove_with_requires::<TestBundle>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(!world.entity(e).contains::<Y>());
+        assert!(!world.entity(e).contains::<Z>());
+        assert!(!world.entity(e).contains::<W>());
+        assert!(world.entity(e).contains::<V>());
     }
 
     #[test]

@@ -6,29 +6,31 @@ use crate::{
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
+    sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
+        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers, Visibility,
+        VisibleEntities,
     },
-    world_sync::RenderEntity,
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::Component,
+    component::{Component, ComponentId},
     entity::Entity,
     event::EventReader,
     prelude::With,
     query::Has,
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
+    world::DeferredWorld,
 };
 use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{tracing::warn, warn_once, HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
@@ -274,10 +276,25 @@ pub enum ViewportConversionError {
 /// to transform the 3D objects into a 2D image, as well as the render target into which that image
 /// is produced.
 ///
-/// Adding a camera is typically done by adding a bundle, either the `Camera2dBundle` or the
-/// `Camera3dBundle`.
+/// Note that a [`Camera`] needs a [`CameraRenderGraph`] to render anything.
+/// This is typically provided by adding a [`Camera2d`] or [`Camera3d`] component,
+/// but custom render graphs can also be defined. Inserting a [`Camera`] with no render
+/// graph will emit an error at runtime.
+///
+/// [`Camera2d`]: https://docs.rs/crate/bevy_core_pipeline/latest/core_2d/struct.Camera2d.html
+/// [`Camera3d`]: https://docs.rs/crate/bevy_core_pipeline/latest/core_3d/struct.Camera3d.html
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component, Default, Debug)]
+#[component(on_add = warn_on_no_render_graph)]
+#[require(
+    Frustum,
+    CameraMainTextureUsages,
+    VisibleEntities,
+    Transform,
+    Visibility,
+    Msaa,
+    SyncToRenderWorld
+)]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,
@@ -307,6 +324,12 @@ pub struct Camera {
     pub clear_color: ClearColorConfig,
     /// If set, this camera will be a sub camera of a large view, defined by a [`SubCameraView`].
     pub sub_camera_view: Option<SubCameraView>,
+}
+
+fn warn_on_no_render_graph(world: DeferredWorld, entity: Entity, _: ComponentId) {
+    if !world.entity(entity).contains::<CameraRenderGraph>() {
+        warn!("Entity {entity} has a `Camera` component, but it doesn't have a render graph configured. Consider adding a `Camera2d` or `Camera3d` component, or manually adding a `CameraRenderGraph` component if you need a custom render graph.");
+    }
 }
 
 impl Default for Camera {
@@ -942,10 +965,14 @@ pub fn camera_system<T: CameraProjection + Component>(
                 }
                 camera.computed.target_info = new_computed_target_info;
                 if let Some(size) = camera.logical_viewport_size() {
-                    camera_projection.update(size.x, size.y);
-                    camera.computed.clip_from_view = match &camera.sub_camera_view {
-                        Some(sub_view) => camera_projection.get_clip_from_view_for_sub(sub_view),
-                        None => camera_projection.get_clip_from_view(),
+                    if size.x != 0.0 && size.y != 0.0 {
+                        camera_projection.update(size.x, size.y);
+                        camera.computed.clip_from_view = match &camera.sub_camera_view {
+                            Some(sub_view) => {
+                                camera_projection.get_clip_from_view_for_sub(sub_view)
+                            }
+                            None => camera_projection.get_clip_from_view(),
+                        }
                     }
                 }
             }
@@ -1051,7 +1078,7 @@ pub fn extract_cameras(
             }
 
             let mut commands = commands.entity(render_entity.id());
-            commands = commands.insert((
+            commands.insert((
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),
                     viewport: camera.viewport.clone(),
@@ -1087,15 +1114,15 @@ pub fn extract_cameras(
             ));
 
             if let Some(temporal_jitter) = temporal_jitter {
-                commands = commands.insert(temporal_jitter.clone());
+                commands.insert(temporal_jitter.clone());
             }
 
             if let Some(render_layers) = render_layers {
-                commands = commands.insert(render_layers.clone());
+                commands.insert(render_layers.clone());
             }
 
             if let Some(perspective) = projection {
-                commands = commands.insert(perspective.clone());
+                commands.insert(perspective.clone());
             }
             if gpu_culling {
                 if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
