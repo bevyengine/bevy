@@ -124,7 +124,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// });
 /// ```
 ///
-/// Notice that we used [`World::observe`]. This is just a shorthand for spawning an [`Observer`] manually:
+/// Notice that we used [`World::add_observer`]. This is just a shorthand for spawning an [`Observer`] manually:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;

@@ -750,7 +750,7 @@ mod tests {
         world.add_observer(|mut trigger: Trigger<EventWithData>| trigger.event_mut().counter += 2);
         world.add_observer(|mut trigger: Trigger<EventWithData>| trigger.event_mut().counter += 4);
         // This flush is required for the last observer to be called when triggering the event,
-        // due to `World::observe` returning `WorldEntityMut`.
+        // due to `World::add_observer` returning `WorldEntityMut`.
         world.flush();
 
         let mut event = EventWithData { counter: 0 };
@@ -772,7 +772,7 @@ mod tests {
             trigger.event_mut().counter += 4;
         });
         // This flush is required for the last observer to be called when triggering the event,
-        // due to `World::observe` returning `WorldEntityMut`.
+        // due to `World::add_observer` returning `WorldEntityMut`.
         world.flush();
 
         let mut event = EventWithData { counter: 0 };
