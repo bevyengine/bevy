@@ -939,7 +939,7 @@ pub struct EntityCommands<'a> {
     pub(crate) commands: Commands<'a, 'a>,
 }
 
-impl EntityCommands<'_> {
+impl<'a> EntityCommands<'a> {
     /// Returns the [`Entity`] id of the entity.
     ///
     /// # Example
@@ -1531,6 +1531,11 @@ impl EntityCommands<'_> {
     /// Returns the underlying [`Commands`].
     pub fn commands(&mut self) -> Commands {
         self.commands.reborrow()
+    }
+
+    /// Returns a mutable reference to the underlying [`Commands`].
+    pub fn commands_mut(&mut self) -> &mut Commands<'a, 'a> {
+        &mut self.commands
     }
 
     /// Sends a [`Trigger`] targeting this entity. This will run any [`Observer`] of the `event` that

@@ -105,13 +105,9 @@ fn spawn_text(mut commands: Commands) {
             },
         ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Space: swap the right sprite's image handle",
-                TextStyle::default(),
-            ));
-            parent.spawn(TextBundle::from_section(
+            parent.spawn(Text::new("Space: swap the right sprite's image handle"));
+            parent.spawn(Text::new(
                 "Return: modify the image Asset of the left sprite, affecting all uses of it",
-                TextStyle::default(),
             ));
         });
 }

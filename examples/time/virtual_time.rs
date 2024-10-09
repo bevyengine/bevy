@@ -92,40 +92,34 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
         .with_children(|builder| {
             // real time info
             builder.spawn((
-                TextBundle::from_section(
-                    "",
-                    TextStyle {
-                        font_size,
-                        ..default()
-                    },
-                ),
+                Text::default(),
+                TextStyle {
+                    font_size,
+                    ..default()
+                },
                 RealTime,
             ));
 
             // keybindings
-            builder.spawn(
-                TextBundle::from_section(
-                    "CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down",
-                    TextStyle {
-                        font_size,
-                        color: Color::srgb(0.85, 0.85, 0.85),
-                        ..default()
-                    },
-                )
-                .with_text_justify(JustifyText::Center),
-            );
+            builder.spawn((
+                Text::new("CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down"),
+                TextStyle {
+                    font_size,
+                    color: Color::srgb(0.85, 0.85, 0.85),
+                    ..default()
+                },
+                TextBlock::new_with_justify(JustifyText::Center),
+            ));
 
             // virtual time info
             builder.spawn((
-                TextBundle::from_section(
-                    "",
-                    TextStyle {
-                        font_size,
-                        color: virtual_color,
-                        ..default()
-                    },
-                )
-                .with_text_justify(JustifyText::Right),
+                Text::default(),
+                TextStyle {
+                    font_size,
+                    color: virtual_color,
+                    ..default()
+                },
+                TextBlock::new_with_justify(JustifyText::Right),
                 VirtualTime,
             ));
         });
@@ -188,7 +182,7 @@ fn toggle_pause(mut time: ResMut<Time<Virtual>>) {
 /// Update the `Real` time info text
 fn update_real_time_info_text(time: Res<Time<Real>>, mut query: Query<&mut Text, With<RealTime>>) {
     for mut text in &mut query {
-        text.sections[0].value = format!(
+        **text = format!(
             "REAL TIME\nElapsed: {:.1}\nDelta: {:.5}\n",
             time.elapsed_seconds(),
             time.delta_seconds(),
@@ -202,7 +196,7 @@ fn update_virtual_time_info_text(
     mut query: Query<&mut Text, With<VirtualTime>>,
 ) {
     for mut text in &mut query {
-        text.sections[0].value = format!(
+        **text = format!(
             "VIRTUAL TIME\nElapsed: {:.1}\nDelta: {:.5}\nSpeed: {:.2}",
             time.elapsed_seconds(),
             time.delta_seconds(),
