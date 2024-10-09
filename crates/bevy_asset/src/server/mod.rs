@@ -31,13 +31,13 @@ use core::{
     panic::AssertUnwindSafe,
 };
 use crossbeam_channel::{Receiver, Sender};
+use derive_more::derive::{Display, Error, From};
 use either::Either;
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
 use loaders::*;
 use parking_lot::RwLock;
 use std::path::{Path, PathBuf};
-use thiserror::Error;
 
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader). This can be used to kick off new asset loads and
 /// retrieve their current load states.
@@ -1532,55 +1532,53 @@ pub enum RecursiveDependencyLoadState {
 }
 
 /// An error that occurs during an [`Asset`] load.
-#[derive(Error, Debug, Clone, PartialEq, Eq)]
+#[derive(Error, Display, Debug, Clone, PartialEq, Eq, From)]
 pub enum AssetLoadError {
-    #[error("Requested handle of type {requested:?} for asset '{path}' does not match actual asset type '{actual_asset_name}', which used loader '{loader_name}'")]
+    #[display("Requested handle of type {requested:?} for asset '{path}' does not match actual asset type '{actual_asset_name}', which used loader '{loader_name}'")]
     RequestedHandleTypeMismatch {
         path: AssetPath<'static>,
         requested: TypeId,
         actual_asset_name: &'static str,
         loader_name: &'static str,
     },
-    #[error("Could not find an asset loader matching: Loader Name: {loader_name:?}; Asset Type: {loader_name:?}; Extension: {extension:?}; Path: {asset_path:?};")]
+    #[display("Could not find an asset loader matching: Loader Name: {loader_name:?}; Asset Type: {loader_name:?}; Extension: {extension:?}; Path: {asset_path:?};")]
     MissingAssetLoader {
         loader_name: Option<String>,
         asset_type_id: Option<TypeId>,
         extension: Option<String>,
         asset_path: Option<String>,
     },
-    #[error(transparent)]
-    MissingAssetLoaderForExtension(#[from] MissingAssetLoaderForExtensionError),
-    #[error(transparent)]
-    MissingAssetLoaderForTypeName(#[from] MissingAssetLoaderForTypeNameError),
-    #[error(transparent)]
-    MissingAssetLoaderForTypeIdError(#[from] MissingAssetLoaderForTypeIdError),
-    #[error(transparent)]
-    AssetReaderError(#[from] AssetReaderError),
-    #[error(transparent)]
-    MissingAssetSourceError(#[from] MissingAssetSourceError),
-    #[error(transparent)]
-    MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
-    #[error("Encountered an error while reading asset metadata bytes")]
+    MissingAssetLoaderForExtension(MissingAssetLoaderForExtensionError),
+    MissingAssetLoaderForTypeName(MissingAssetLoaderForTypeNameError),
+    MissingAssetLoaderForTypeIdError(MissingAssetLoaderForTypeIdError),
+    AssetReaderError(AssetReaderError),
+    MissingAssetSourceError(MissingAssetSourceError),
+    MissingProcessedAssetReaderError(MissingProcessedAssetReaderError),
+    #[display("Encountered an error while reading asset metadata bytes")]
     AssetMetaReadError,
-    #[error("Failed to deserialize meta for asset {path}: {error}")]
+    #[display("Failed to deserialize meta for asset {path}: {error}")]
     DeserializeMeta {
         path: AssetPath<'static>,
         error: Box<DeserializeMetaError>,
     },
-    #[error("Asset '{path}' is configured to be processed. It cannot be loaded directly.")]
-    CannotLoadProcessedAsset { path: AssetPath<'static> },
-    #[error("Asset '{path}' is configured to be ignored. It cannot be loaded.")]
-    CannotLoadIgnoredAsset { path: AssetPath<'static> },
-    #[error("Failed to load asset '{path}', asset loader '{loader_name}' panicked")]
+    #[display("Asset '{path}' is configured to be processed. It cannot be loaded directly.")]
+    #[from(ignore)]
+    CannotLoadProcessedAsset {
+        path: AssetPath<'static>,
+    },
+    #[display("Asset '{path}' is configured to be ignored. It cannot be loaded.")]
+    #[from(ignore)]
+    CannotLoadIgnoredAsset {
+        path: AssetPath<'static>,
+    },
+    #[display("Failed to load asset '{path}', asset loader '{loader_name}' panicked")]
     AssetLoaderPanic {
         path: AssetPath<'static>,
         loader_name: &'static str,
     },
-    #[error(transparent)]
-    AssetLoaderError(#[from] AssetLoaderError),
-    #[error(transparent)]
-    AddAsyncError(#[from] AddAsyncError),
-    #[error("The file at '{}' does not contain the labeled asset '{}'; it contains the following {} assets: {}",
+    AssetLoaderError(AssetLoaderError),
+    AddAsyncError(AddAsyncError),
+    #[display("The file at '{}' does not contain the labeled asset '{}'; it contains the following {} assets: {}",
             base_path,
             label,
             all_labels.len(),
@@ -1592,8 +1590,8 @@ pub enum AssetLoadError {
     },
 }
 
-#[derive(Error, Debug, Clone)]
-#[error("Failed to load asset '{path}' with asset loader '{loader_name}': {error}")]
+#[derive(Error, Display, Debug, Clone)]
+#[display("Failed to load asset '{path}' with asset loader '{loader_name}': {error}")]
 pub struct AssetLoaderError {
     path: AssetPath<'static>,
     loader_name: &'static str,
@@ -1618,8 +1616,8 @@ impl AssetLoaderError {
     }
 }
 
-#[derive(Error, Debug, Clone)]
-#[error("An error occurred while resolving an asset added by `add_async`: {error}")]
+#[derive(Error, Display, Debug, Clone)]
+#[display("An error occurred while resolving an asset added by `add_async`: {error}")]
 pub struct AddAsyncError {
     error: Arc<dyn core::error::Error + Send + Sync + 'static>,
 }
@@ -1635,22 +1633,22 @@ impl PartialEq for AddAsyncError {
 impl Eq for AddAsyncError {}
 
 /// An error that occurs when an [`AssetLoader`] is not registered for a given extension.
-#[derive(Error, Debug, Clone, PartialEq, Eq)]
-#[error("no `AssetLoader` found{}", format_missing_asset_ext(.extensions))]
+#[derive(Error, Display, Debug, Clone, PartialEq, Eq)]
+#[display("no `AssetLoader` found{}", format_missing_asset_ext(extensions))]
 pub struct MissingAssetLoaderForExtensionError {
     extensions: Vec<String>,
 }
 
 /// An error that occurs when an [`AssetLoader`] is not registered for a given [`std::any::type_name`].
-#[derive(Error, Debug, Clone, PartialEq, Eq)]
-#[error("no `AssetLoader` found with the name '{type_name}'")]
+#[derive(Error, Display, Debug, Clone, PartialEq, Eq)]
+#[display("no `AssetLoader` found with the name '{type_name}'")]
 pub struct MissingAssetLoaderForTypeNameError {
     type_name: String,
 }
 
 /// An error that occurs when an [`AssetLoader`] is not registered for a given [`Asset`] [`TypeId`].
-#[derive(Error, Debug, Clone, PartialEq, Eq)]
-#[error("no `AssetLoader` found with the ID '{type_id:?}'")]
+#[derive(Error, Display, Debug, Clone, PartialEq, Eq)]
+#[display("no `AssetLoader` found with the ID '{type_id:?}'")]
 pub struct MissingAssetLoaderForTypeIdError {
     pub type_id: TypeId,
 }
