@@ -57,19 +57,23 @@ use self::{
 };
 use crate::{graph::NodePbr, Material, MeshMaterial3d};
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{load_internal_asset, AssetApp, Handle};
+use bevy_asset::{load_internal_asset, AssetApp, AssetId, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},
 };
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     bundle::Bundle,
+    component::Component,
     entity::Entity,
     prelude::With,
     query::Has,
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Commands, Query},
 };
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::Shader,
@@ -83,6 +87,7 @@ use bevy_render::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
+use derive_more::From;
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
 const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
@@ -284,10 +289,26 @@ impl Plugin for MeshletPlugin {
     }
 }
 
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[reflect(Component, Default)]
+pub struct MeshletMeshHandle(pub Handle<MeshletMesh>);
+
+impl From<MeshletMeshHandle> for AssetId<MeshletMesh> {
+    fn from(mesh: MeshletMeshHandle) -> Self {
+        mesh.id()
+    }
+}
+
+impl From<&MeshletMeshHandle> for AssetId<MeshletMesh> {
+    fn from(mesh: &MeshletMeshHandle) -> Self {
+        mesh.id()
+    }
+}
+
 /// A component bundle for entities with a [`MeshletMesh`] and a [`Material`].
 #[derive(Bundle, Clone)]
 pub struct MaterialMeshletMeshBundle<M: Material> {
-    pub meshlet_mesh: Handle<MeshletMesh>,
+    pub meshlet_mesh: MeshletMeshHandle,
     pub material: MeshMaterial3d<M>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -313,9 +334,9 @@ impl<M: Material> Default for MaterialMeshletMeshBundle<M> {
     }
 }
 
-/// A convenient alias for `With<Handle<MeshletMesh>>`, for use with
+/// A convenient alias for `With<MeshletMeshHandle>`, for use with
 /// [`bevy_render::view::VisibleEntities`].
-pub type WithMeshletMesh = With<Handle<MeshletMesh>>;
+pub type WithMeshletMesh = With<MeshletMeshHandle>;
 
 fn configure_meshlet_views(
     mut views_3d: Query<(

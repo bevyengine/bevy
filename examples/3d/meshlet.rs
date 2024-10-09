@@ -7,7 +7,7 @@ mod camera_controller;
 
 use bevy::{
     pbr::{
-        experimental::meshlet::{MaterialMeshletMeshBundle, MeshletPlugin},
+        experimental::meshlet::{MaterialMeshletMeshBundle, MeshletMeshHandle, MeshletPlugin},
         CascadeShadowConfigBuilder, DirectionalLightShadowMap,
     },
     prelude::*,
@@ -85,7 +85,7 @@ fn setup(
 
     for x in -2..=2 {
         commands.spawn(MaterialMeshletMeshBundle {
-            meshlet_mesh: meshlet_mesh_handle.clone(),
+            meshlet_mesh: MeshletMeshHandle(meshlet_mesh_handle.clone()),
             material: MeshMaterial3d(standard_materials.add(StandardMaterial {
                 base_color: match x {
                     -2 => Srgba::hex("#dc2626").unwrap().into(),
@@ -106,7 +106,7 @@ fn setup(
     }
     for x in -2..=2 {
         commands.spawn(MaterialMeshletMeshBundle {
-            meshlet_mesh: meshlet_mesh_handle.clone(),
+            meshlet_mesh: MeshletMeshHandle(meshlet_mesh_handle.clone()),
             material: debug_material.clone().into(),
             transform: Transform::default()
                 .with_scale(Vec3::splat(0.2))

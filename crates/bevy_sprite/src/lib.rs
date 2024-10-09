@@ -299,13 +299,11 @@ mod test {
         // Add entities
         let entity = app
             .world_mut()
-            .spawn((
-                Sprite {
-                    custom_size: Some(Vec2::ZERO),
-                    ..default()
-                },
-                image_handle,
-            ))
+            .spawn(Sprite {
+                custom_size: Some(Vec2::ZERO),
+                image: image_handle,
+                ..default()
+            })
             .id();
 
         // Create initial AABB
@@ -364,14 +362,12 @@ mod test {
         // Add entities
         let entity = app
             .world_mut()
-            .spawn((
-                Sprite {
-                    rect: Some(Rect::new(0., 0., 0.5, 1.)),
-                    anchor: Anchor::TopRight,
-                    ..default()
-                },
-                image_handle,
-            ))
+            .spawn(Sprite {
+                rect: Some(Rect::new(0., 0., 0.5, 1.)),
+                anchor: Anchor::TopRight,
+                image: image_handle,
+                ..default()
+            })
             .id();
 
         // Create AABB

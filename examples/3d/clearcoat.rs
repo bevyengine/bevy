@@ -98,7 +98,7 @@ fn spawn_car_paint_sphere(
     commands
         .spawn((
             Mesh3d(sphere.clone()),
-            materials.add(StandardMaterial {
+            MeshMaterial3d(materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.1,
                 normal_map_texture: Some(asset_server.load_with_settings(
@@ -109,7 +109,7 @@ fn spawn_car_paint_sphere(
                 perceptual_roughness: 0.5,
                 base_color: BLUE.into(),
                 ..default()
-            }),
+            })),
             Transform::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
         ))
         .insert(ExampleSphere);
