@@ -181,6 +181,7 @@ impl Plugin for UiPlugin {
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate)
                     // Text and Text2D operate on disjoint sets of entities
+                    .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
                     .ambiguous_with(bevy_text::update_text2d_layout),
                 ui_stack_system
                     .in_set(UiSystem::Stack)
@@ -251,6 +252,7 @@ fn build_text_interop(app: &mut App) {
                 .in_set(UiSystem::PostLayout)
                 .after(bevy_text::remove_dropped_font_atlas_sets)
                 // Text2d and bevy_ui text are entirely on separate entities
+                .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
                 .ambiguous_with(bevy_text::update_text2d_layout)
                 .ambiguous_with(bevy_text::calculate_bounds_text2d),
         ),
