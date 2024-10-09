@@ -148,7 +148,7 @@ fn asset_loaded(
 ) {
     if !cubemap.is_loaded && asset_server.load_state(&cubemap.image_handle).is_loaded() {
         info!("Swapping to {}...", CUBEMAPS[cubemap.index].0);
-        let image = images.get_mut(&cubemap.image_handle).unwrap();
+        let image = images.get_cloned_mut(&cubemap.image_handle).unwrap();
         // NOTE: PNGs do not have any metadata that could indicate they contain a cubemap texture,
         // so they appear as one texture. The following code reconfigures the texture as necessary.
         if image.texture_descriptor.array_layer_count() == 1 {
