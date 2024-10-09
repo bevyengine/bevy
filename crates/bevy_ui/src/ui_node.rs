@@ -12,8 +12,8 @@ use bevy_sprite::BorderRect;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
+use derive_more::derive::{Display, Error, From};
 use smallvec::SmallVec;
-use thiserror::Error;
 
 /// Base component for a UI node, which also provides the computed size of the node.
 ///
@@ -1333,7 +1333,7 @@ impl Default for GridTrack {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect, From)]
 #[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -1360,12 +1360,6 @@ pub enum GridTrackRepetition {
 impl Default for GridTrackRepetition {
     fn default() -> Self {
         Self::Count(1)
-    }
-}
-
-impl From<u16> for GridTrackRepetition {
-    fn from(count: u16) -> Self {
-        Self::Count(count)
     }
 }
 
@@ -1784,11 +1778,11 @@ fn try_into_grid_span(span: u16) -> Result<Option<NonZero<u16>>, GridPlacementEr
 }
 
 /// Errors that occur when setting constraints for a `GridPlacement`
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Error, Display)]
 pub enum GridPlacementError {
-    #[error("Zero is not a valid grid position")]
+    #[display("Zero is not a valid grid position")]
     InvalidZeroIndex,
-    #[error("Spans cannot be zero length")]
+    #[display("Spans cannot be zero length")]
     InvalidZeroSpan,
 }
 
