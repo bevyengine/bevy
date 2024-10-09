@@ -178,7 +178,7 @@ fn setup(
                         color: Color::Srgba(Srgba::RED),
                         ..default()
                     },
-                    TextBlock::new_with_justify(JustifyText::Center),
+                    TextLayout::new_with_justify(JustifyText::Center),
                 ))
                 // Mark as an animation target.
                 .insert(AnimationTarget {

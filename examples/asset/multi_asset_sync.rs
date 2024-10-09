@@ -187,7 +187,7 @@ fn setup_ui(mut commands: Commands) {
                     color: Color::BLACK,
                     ..Default::default()
                 },
-                TextBlock::new_with_justify(JustifyText::Right),
+                TextLayout::new_with_justify(JustifyText::Right),
                 LoadingText,
             ));
         });

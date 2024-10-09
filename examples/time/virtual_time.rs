@@ -108,7 +108,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     color: Color::srgb(0.85, 0.85, 0.85),
                     ..default()
                 },
-                TextBlock::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(JustifyText::Center),
             ));
 
             // virtual time info
@@ -119,7 +119,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     color: virtual_color,
                     ..default()
                 },
-                TextBlock::new_with_justify(JustifyText::Right),
+                TextLayout::new_with_justify(JustifyText::Right),
                 VirtualTime,
             ));
         });

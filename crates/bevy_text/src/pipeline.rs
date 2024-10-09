@@ -17,7 +17,7 @@ use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, JustifyText,
-    LineBreak, PositionedGlyph, TextBlock, TextBounds, TextEntity, TextStyle, YAxisOrientation,
+    LineBreak, PositionedGlyph, TextBounds, TextEntity, TextLayout, TextStyle, YAxisOrientation,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -203,7 +203,7 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextStyle)>,
         scale_factor: f64,
-        block: &TextBlock,
+        block: &TextLayout,
         bounds: TextBounds,
         font_atlas_sets: &mut FontAtlasSets,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
@@ -337,7 +337,7 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextStyle)>,
         scale_factor: f64,
-        block: &TextBlock,
+        block: &TextLayout,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
     ) -> Result<TextMeasureInfo, TextError> {
@@ -386,7 +386,7 @@ impl TextPipeline {
 /// Render information for a corresponding text block.
 ///
 /// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`] when an entity has
-/// [`TextBlock`] and [`ComputedTextBlock`] components.
+/// [`TextLayout`] and [`ComputedTextBlock`] components.
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct TextLayoutInfo {

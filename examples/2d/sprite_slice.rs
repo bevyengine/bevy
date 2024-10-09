@@ -88,7 +88,7 @@ fn spawn_sprites(
             builder.spawn((
                 Text2d::new(label),
                 text_style,
-                TextBlock::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(JustifyText::Center),
                 Transform::from_xyz(0., -0.5 * size.y - 10., 0.0),
                 bevy::sprite::Anchor::TopCenter,
             ));

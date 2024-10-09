@@ -50,7 +50,7 @@ fn setup(mut commands: Commands) {
         font_size: 4.,
         ..Default::default()
     };
-    let text_block = TextBlock {
+    let text_block = TextLayout {
         justify: JustifyText::Left,
         linebreak: LineBreak::AnyCharacter,
     };
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-fn force_text_recomputation(mut text_query: Query<&mut TextBlock>) {
+fn force_text_recomputation(mut text_query: Query<&mut TextLayout>) {
     for mut block in &mut text_query {
         block.set_changed();
     }

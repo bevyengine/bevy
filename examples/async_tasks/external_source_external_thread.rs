@@ -60,7 +60,7 @@ fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
         commands.spawn((
             Text2d::new(event.0.to_string()),
             text_style.clone(),
-            TextBlock::new_with_justify(JustifyText::Center),
+            TextLayout::new_with_justify(JustifyText::Center),
             Transform::from_xyz(per_frame as f32 * 100.0, 300.0, 0.0),
         ));
     }
