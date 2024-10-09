@@ -212,7 +212,7 @@ impl Plugin for MeshletPlugin {
             .register_asset_loader(MeshletMeshLoader)
             .add_systems(
                 PostUpdate,
-                check_visibility::<WithMeshletMesh>.in_set(VisibilitySystems::CheckVisibility),
+                check_visibility::<With<MeshletMesh3d>>.in_set(VisibilitySystems::CheckVisibility),
             );
     }
 
@@ -339,10 +339,6 @@ impl<M: Material> Default for MaterialMeshletMeshBundle<M> {
         }
     }
 }
-
-/// A convenient alias for `With<MeshletMesh3d>`, for use with
-/// [`bevy_render::view::VisibleEntities`].
-pub type WithMeshletMesh = With<MeshletMesh3d>;
 
 fn configure_meshlet_views(
     mut views_3d: Query<(
