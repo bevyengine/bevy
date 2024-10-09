@@ -124,7 +124,7 @@ pub fn update_hits(
                     ray_id.camera,
                     hit.distance,
                     Some(hit.point),
-                    Some(*hit.normal),
+                    Some(hit.normal),
                 );
                 (*entity, hit_data)
             })
