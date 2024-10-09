@@ -763,13 +763,13 @@ mod tests {
         let mut world = World::new();
 
         world.add_observer(|mut trigger: Trigger<EventWithData, A>| {
-            trigger.event_mut().counter += 1
+            trigger.event_mut().counter += 1;
         });
         world.add_observer(|mut trigger: Trigger<EventWithData, B>| {
-            trigger.event_mut().counter += 2
+            trigger.event_mut().counter += 2;
         });
         world.add_observer(|mut trigger: Trigger<EventWithData, A>| {
-            trigger.event_mut().counter += 4
+            trigger.event_mut().counter += 4;
         });
         // This flush is required for the last observer to be called when triggering the event,
         // due to `World::observe` returning `WorldEntityMut`.
