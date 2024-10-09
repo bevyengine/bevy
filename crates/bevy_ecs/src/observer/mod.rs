@@ -618,7 +618,7 @@ mod tests {
         world
             .add_observer(|_: Trigger<OnInsert, A>, mut res: ResMut<Order>| res.observed("insert"));
         world.add_observer(|_: Trigger<OnReplace, A>, mut res: ResMut<Order>| {
-            res.observed("replace")
+            res.observed("replace");
         });
         world
             .add_observer(|_: Trigger<OnRemove, A>, mut res: ResMut<Order>| res.observed("remove"));
@@ -640,7 +640,7 @@ mod tests {
         world
             .add_observer(|_: Trigger<OnInsert, A>, mut res: ResMut<Order>| res.observed("insert"));
         world.add_observer(|_: Trigger<OnReplace, A>, mut res: ResMut<Order>| {
-            res.observed("replace")
+            res.observed("replace");
         });
         world
             .add_observer(|_: Trigger<OnRemove, A>, mut res: ResMut<Order>| res.observed("remove"));
@@ -664,7 +664,7 @@ mod tests {
         world
             .add_observer(|_: Trigger<OnInsert, S>, mut res: ResMut<Order>| res.observed("insert"));
         world.add_observer(|_: Trigger<OnReplace, S>, mut res: ResMut<Order>| {
-            res.observed("replace")
+            res.observed("replace");
         });
         world
             .add_observer(|_: Trigger<OnRemove, S>, mut res: ResMut<Order>| res.observed("remove"));
@@ -690,7 +690,7 @@ mod tests {
         world
             .add_observer(|_: Trigger<OnInsert, A>, mut res: ResMut<Order>| res.observed("insert"));
         world.add_observer(|_: Trigger<OnReplace, A>, mut res: ResMut<Order>| {
-            res.observed("replace")
+            res.observed("replace");
         });
         world
             .add_observer(|_: Trigger<OnRemove, A>, mut res: ResMut<Order>| res.observed("remove"));
@@ -826,7 +826,7 @@ mod tests {
         world.register_component::<B>();
 
         world.add_observer(|_: Trigger<OnAdd, (A, B)>, mut res: ResMut<Order>| {
-            res.observed("add_ab")
+            res.observed("add_ab");
         });
 
         let entity = world.spawn(A).id();
@@ -857,7 +857,7 @@ mod tests {
         let entity = world.spawn((A, B)).flush();
 
         world.add_observer(|_: Trigger<OnRemove, A>, mut res: ResMut<Order>| {
-            res.observed("remove_a")
+            res.observed("remove_a");
         });
 
         let observer = world
@@ -878,7 +878,7 @@ mod tests {
         world.init_resource::<Order>();
 
         world.add_observer(|_: Trigger<OnAdd, (A, B)>, mut res: ResMut<Order>| {
-            res.observed("add_ab")
+            res.observed("add_ab");
         });
 
         world.spawn((A, B)).flush();
@@ -1204,7 +1204,7 @@ mod tests {
         world.init_resource::<Order>();
 
         world.add_observer(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
-            res.observed("event")
+            res.observed("event");
         });
 
         let grandparent = world.spawn_empty().id();
