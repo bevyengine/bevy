@@ -271,21 +271,18 @@ pub fn extract_lights(
         let render_cubemap_visible_entities = RenderCubemapVisibleEntities {
             data: cubemap_visible_entities
                 .iter()
-                .map(|v| {
-                    RenderVisibleMeshEntities {
-                        entities: v
-                            .entities
-                            .iter()
-                            .map(|e| {
-                                let render_entity = mapper.get(*e).cloned().unwrap_or_else(|_| {
-                                    // The cubemap was default-constructed, so the entity is not in the mapper,
-                                    // and this value doesn't matter
-                                    RenderEntity::from(*e)
-                                });
-                                (render_entity.id(), MainEntity::from(*e))
-                            })
-                            .collect(),
-                    }
+                .map(|v| RenderVisibleMeshEntities {
+                    entities: v
+                        .entities
+                        .iter()
+                        .map(|e| {
+                            let render_entity = mapper
+                                .get(*e)
+                                .map(|e| e.id())
+                                .unwrap_or_else(|_| commands.spawn_empty().id());
+                            (render_entity, MainEntity::from(*e))
+                        })
+                        .collect(),
                 })
                 .collect::<Vec<_>>()
                 .try_into()
