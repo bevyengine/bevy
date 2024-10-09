@@ -75,6 +75,7 @@ fn fragment(
     if alpha_mode != pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
         // This will always return 0.0. The fragments will only be drawn during the oit resolve pass.
         out.color = oit_draw(in.position, out.color);
+        discard;
     }
 #endif // OIT_ENABLED
 

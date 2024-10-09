@@ -19,7 +19,7 @@ fn oit_draw(position: vec4f, color: vec4f) -> vec4f {
         // accidentally increase the index above the maximum value
         atomicStore(&oit_layer_ids[screen_index], oit_layers_count);
         // TODO for tail blending we should return the color here
-        discard;
+        return vec4f(0.0);
     }
 
     // get the layer_index from the screen
@@ -27,7 +27,7 @@ fn oit_draw(position: vec4f, color: vec4f) -> vec4f {
     let rgb9e5_color = bevy_pbr::rgb9e5::vec3_to_rgb9e5_(color.rgb);
     let depth_alpha = pack_24bit_depth_8bit_alpha(position.z, color.a);
     oit_layers[layer_index] = vec2(rgb9e5_color, depth_alpha);
-    discard;
+    return vec4f(0.0);
 }
 #endif // OIT_ENABLED
 
