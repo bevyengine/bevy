@@ -94,6 +94,7 @@ use bevy_render::{
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
+use bevy_render::sync_world::MainEntity;
 use bevy_utils::{tracing::warn, HashMap};
 
 use crate::{
@@ -214,7 +215,7 @@ pub struct Opaque3d {
     pub key: Opaque3dBinKey,
     /// An entity from which data will be fetched, including the mesh if
     /// applicable.
-    pub representative_entity: Entity,
+    pub representative_entity: (Entity, MainEntity),
     /// The ranges of instances.
     pub batch_range: Range<u32>,
     /// An extra index, which is either a dynamic offset or an index in the
@@ -249,7 +250,12 @@ pub struct Opaque3dBinKey {
 impl PhaseItem for Opaque3d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    #[inline]
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
@@ -282,7 +288,7 @@ impl BinnedPhaseItem for Opaque3d {
     #[inline]
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
@@ -304,7 +310,7 @@ impl CachedRenderPipelinePhaseItem for Opaque3d {
 
 pub struct AlphaMask3d {
     pub key: OpaqueNoLightmap3dBinKey,
-    pub representative_entity: Entity,
+    pub representative_entity: (Entity, MainEntity),
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
 }
@@ -312,7 +318,11 @@ pub struct AlphaMask3d {
 impl PhaseItem for AlphaMask3d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
@@ -347,7 +357,7 @@ impl BinnedPhaseItem for AlphaMask3d {
     #[inline]
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
@@ -370,7 +380,7 @@ impl CachedRenderPipelinePhaseItem for AlphaMask3d {
 pub struct Transmissive3d {
     pub distance: f32,
     pub pipeline: CachedRenderPipelineId,
-    pub entity: Entity,
+    pub entity: (Entity, MainEntity),
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
@@ -390,7 +400,12 @@ impl PhaseItem for Transmissive3d {
 
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.entity.0
+    }
+
+    #[inline]
+    fn main_entity(&self) -> MainEntity {
+        self.entity.1
     }
 
     #[inline]
@@ -444,7 +459,7 @@ impl CachedRenderPipelinePhaseItem for Transmissive3d {
 pub struct Transparent3d {
     pub distance: f32,
     pub pipeline: CachedRenderPipelineId,
-    pub entity: Entity,
+    pub entity: (Entity, MainEntity),
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
@@ -453,7 +468,11 @@ pub struct Transparent3d {
 impl PhaseItem for Transparent3d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.entity.1
     }
 
     #[inline]

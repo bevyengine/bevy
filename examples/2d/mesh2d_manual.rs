@@ -36,6 +36,8 @@ use bevy::{
     },
 };
 use std::f32::consts::PI;
+use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
+use bevy_render::view::RenderVisibleEntities;
 
 fn main() {
     App::new()
@@ -290,7 +292,7 @@ pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
 
 /// Our custom pipeline needs its own instance storage
 #[derive(Resource, Deref, DerefMut, Default)]
-pub struct RenderColoredMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
+pub struct RenderColoredMesh2dInstances(MainEntityHashMap<RenderMesh2dInstance>);
 
 impl Plugin for ColoredMesh2dPlugin {
     fn build(&self, app: &mut App) {
@@ -346,7 +348,7 @@ pub fn extract_colored_mesh2d(
 
         values.push((entity, ColoredMesh2d));
         render_mesh_instances.insert(
-            entity,
+            entity.into(),
             RenderMesh2dInstance {
                 mesh_asset_id: handle.0.id(),
                 transforms,
@@ -369,7 +371,7 @@ pub fn queue_colored_mesh2d(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderColoredMesh2dInstances>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    views: Query<(Entity, &VisibleEntities, &ExtractedView, &Msaa)>,
+    views: Query<(Entity, &RenderVisibleEntities, &ExtractedView, &Msaa)>,
 ) {
     if render_mesh_instances.is_empty() {
         return;

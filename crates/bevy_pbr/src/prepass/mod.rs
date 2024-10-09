@@ -40,6 +40,7 @@ use crate::meshlet::{
 use crate::*;
 
 use core::{hash::Hash, marker::PhantomData};
+use bevy_render::view::RenderVisibleEntities;
 
 pub const PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(921124473254008983);
 
@@ -697,7 +698,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     views: Query<
         (
             Entity,
-            &VisibleEntities,
+            &RenderVisibleEntities,
             &Msaa,
             Option<&DepthPrepass>,
             Option<&NormalPrepass>,
@@ -767,7 +768,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
-        for visible_entity in visible_entities.iter::<With<Mesh3d>>() {
+        for (render_entity, visible_entity) in visible_entities.iter::<With<Mesh3d>>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
@@ -873,7 +874,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 asset_id: mesh_instance.mesh_asset_id.into(),
                                 material_bind_group_id: material.get_bind_group_id().0,
                             },
-                            *visible_entity,
+                            (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     } else if let Some(opaque_phase) = opaque_phase.as_mut() {
@@ -884,7 +885,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 asset_id: mesh_instance.mesh_asset_id.into(),
                                 material_bind_group_id: material.get_bind_group_id().0,
                             },
-                            *visible_entity,
+                            (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     }
@@ -900,7 +901,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         };
                         alpha_mask_deferred_phase.as_mut().unwrap().add(
                             bin_key,
-                            *visible_entity,
+                            (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
@@ -912,7 +913,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         };
                         alpha_mask_phase.add(
                             bin_key,
-                            *visible_entity,
+                            (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     }

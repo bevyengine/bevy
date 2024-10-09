@@ -30,7 +30,7 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-
+use crate::sync_world::{MainEntity, MainEntityHashMap};
 use super::{check_visibility, VisibilitySystems};
 
 /// We need at least 4 storage buffer bindings available to enable the
@@ -195,7 +195,7 @@ impl VisibilityRange {
 #[derive(Resource)]
 pub struct RenderVisibilityRanges {
     /// Information corresponding to each entity.
-    entities: EntityHashMap<RenderVisibilityEntityInfo>,
+    entities: MainEntityHashMap<RenderVisibilityEntityInfo>,
 
     /// Maps a [`VisibilityRange`] to its index within the `buffer`.
     ///
@@ -246,7 +246,7 @@ impl RenderVisibilityRanges {
     }
 
     /// Inserts a new entity into the [`RenderVisibilityRanges`].
-    fn insert(&mut self, entity: Entity, visibility_range: &VisibilityRange) {
+    fn insert(&mut self, entity: MainEntity, visibility_range: &VisibilityRange) {
         // Grab a slot in the GPU buffer, or take the existing one if there
         // already is one.
         let buffer_index = *self
@@ -276,14 +276,14 @@ impl RenderVisibilityRanges {
     ///
     /// If the entity has no visible range, returns `None`.
     #[inline]
-    pub fn lod_index_for_entity(&self, entity: Entity) -> Option<NonMaxU16> {
+    pub fn lod_index_for_entity(&self, entity: MainEntity) -> Option<NonMaxU16> {
         self.entities.get(&entity).map(|info| info.buffer_index)
     }
 
     /// Returns true if the entity has a visibility range and it isn't abrupt:
     /// i.e. if it has a crossfade.
     #[inline]
-    pub fn entity_has_crossfading_visibility_ranges(&self, entity: Entity) -> bool {
+    pub fn entity_has_crossfading_visibility_ranges(&self, entity: MainEntity) -> bool {
         self.entities
             .get(&entity)
             .is_some_and(|info| !info.is_abrupt)
@@ -423,7 +423,7 @@ pub fn extract_visibility_ranges(
 
     render_visibility_ranges.clear();
     for (entity, visibility_range) in visibility_ranges_query.iter() {
-        render_visibility_ranges.insert(entity, visibility_range);
+        render_visibility_ranges.insert(entity.into(), visibility_range);
     }
 }
 

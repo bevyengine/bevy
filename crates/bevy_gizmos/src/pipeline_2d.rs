@@ -4,7 +4,7 @@ use crate::{
     DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmoUniformBindgroupLayout,
     SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Main, Plugin};
 use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
 
 use bevy_ecs::{
@@ -25,6 +25,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSet,
 };
+use bevy_render::sync_world::MainEntity;
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
 use bevy_utils::tracing::error;
 
@@ -283,7 +284,7 @@ fn queue_line_gizmos_2d(
     pipeline: Res<LineGizmoPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &GizmoMeshConfig)>,
+    line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
@@ -299,7 +300,7 @@ fn queue_line_gizmos_2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         let render_layers = render_layers.unwrap_or_default();
-        for (entity, config) in &line_gizmos {
+        for (entity, main_entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
                 continue;
             }
@@ -319,7 +320,7 @@ fn queue_line_gizmos_2d(
             );
 
             transparent_phase.add(Transparent2d {
-                entity,
+                entity: (entity, *main_entity),
                 draw_function,
                 pipeline,
                 sort_key: FloatOrd(f32::INFINITY),
@@ -336,7 +337,7 @@ fn queue_line_joint_gizmos_2d(
     pipeline: Res<LineJointGizmoPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LineJointGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &GizmoMeshConfig)>,
+    line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
@@ -355,7 +356,7 @@ fn queue_line_joint_gizmos_2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         let render_layers = render_layers.unwrap_or_default();
-        for (entity, config) in &line_gizmos {
+        for (entity, main_entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
                 continue;
             }
@@ -377,7 +378,7 @@ fn queue_line_joint_gizmos_2d(
                 },
             );
             transparent_phase.add(Transparent2d {
-                entity,
+                entity: (entity, *main_entity),
                 draw_function,
                 pipeline,
                 sort_key: FloatOrd(f32::INFINITY),

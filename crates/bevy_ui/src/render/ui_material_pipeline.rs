@@ -25,7 +25,7 @@ use bevy_render::{
 };
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
-
+use bevy_render::sync_world::MainEntity;
 use crate::*;
 
 pub const UI_MATERIAL_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10074188772096983955);
@@ -339,6 +339,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     // it is defaulted to a single camera if only one exists.
     // Nodes with ambiguous camera will be ignored.
     pub camera_entity: Entity,
+    pub main_entity: MainEntity,
 }
 
 #[derive(Resource)]
@@ -362,6 +363,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     uinode_query: Extract<
         Query<
             (
+                Entity,
                 &Node,
                 &GlobalTransform,
                 &UiMaterialHandle<M>,
@@ -377,7 +379,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     // If there is only one camera, we use it as default
     let default_single_camera = default_ui_camera.get();
 
-    for (uinode, transform, handle, view_visibility, clip, camera) in uinode_query.iter() {
+    for (entity, uinode, transform, handle, view_visibility, clip, camera) in uinode_query.iter() {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
             continue;
         };
@@ -416,6 +418,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 border,
                 clip: clip.map(|clip| clip.clip),
                 camera_entity: camera_entity.id(),
+                main_entity: entity.into(),
             },
         );
     }
@@ -454,7 +457,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(item.entity) {
+                if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(item.entity()) {
                     let mut existing_batch = batches
                         .last_mut()
                         .filter(|_| batch_shader_handle == extracted_uinode.material);
@@ -468,7 +471,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                             material: extracted_uinode.material,
                         };
 
-                        batches.push((item.entity, new_batch));
+                        batches.push((item.entity(), new_batch));
 
                         existing_batch = batches.last_mut();
                     }
@@ -643,7 +646,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
-            entity: *entity,
+            entity: (*entity, extracted_uinode.main_entity),
             sort_key: (
                 FloatOrd(extracted_uinode.stack_index as f32),
                 entity.index(),

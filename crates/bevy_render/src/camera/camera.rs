@@ -38,7 +38,7 @@ use bevy_window::{
 };
 use core::ops::Range;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
-
+use crate::view::RenderVisibleEntities;
 use super::{ClearColorConfig, Projection};
 
 /// Render viewport configuration for the [`Camera`] component.
@@ -1027,7 +1027,7 @@ pub fn extract_cameras(
             &Camera,
             &CameraRenderGraph,
             &GlobalTransform,
-            &VisibleEntities,
+            &RenderVisibleEntities,
             &Frustum,
             Option<&ColorGrading>,
             Option<&Exposure>,

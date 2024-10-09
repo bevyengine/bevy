@@ -11,6 +11,7 @@ use bevy_render::{
     view::ViewVisibility,
     Extract,
 };
+use bevy_render::sync_world::MainEntityHashMap;
 use bevy_transform::prelude::GlobalTransform;
 
 /// Maximum number of joints supported for skinned meshes.
@@ -39,11 +40,11 @@ impl SkinIndex {
 pub struct SkinIndices {
     /// Maps each skinned mesh to the applicable offset within
     /// [`SkinUniforms::current_buffer`].
-    pub current: EntityHashMap<SkinIndex>,
+    pub current: MainEntityHashMap<SkinIndex>,
 
     /// Maps each skinned mesh to the applicable offset within
     /// [`SkinUniforms::prev_buffer`].
-    pub prev: EntityHashMap<SkinIndex>,
+    pub prev: MainEntityHashMap<SkinIndex>,
 }
 
 /// The GPU buffers containing joint matrices for all skinned meshes.
@@ -168,7 +169,7 @@ pub fn extract_skins(
             buffer.push(Mat4::ZERO);
         }
 
-        skin_indices.current.insert(entity, SkinIndex::new(start));
+        skin_indices.current.insert(entity.into(), SkinIndex::new(start));
     }
 
     // Pad out the buffer to ensure that there's enough space for bindings

@@ -44,7 +44,7 @@ use bevy_render::{
     },
     texture::ColorAttachment,
 };
-
+use bevy_render::sync_world::MainEntity;
 use crate::deferred::{DEFERRED_LIGHTING_PASS_ID_FORMAT, DEFERRED_PREPASS_FORMAT};
 
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
@@ -143,8 +143,7 @@ pub struct Opaque3dPrepass {
 
     /// An entity from which Bevy fetches data common to all instances in this
     /// batch, such as the mesh.
-    pub representative_entity: Entity,
-
+    pub representative_entity: (Entity, MainEntity),
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
 }
@@ -171,7 +170,11 @@ pub struct OpaqueNoLightmap3dBinKey {
 impl PhaseItem for Opaque3dPrepass {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
@@ -206,7 +209,7 @@ impl BinnedPhaseItem for Opaque3dPrepass {
     #[inline]
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
@@ -233,7 +236,7 @@ impl CachedRenderPipelinePhaseItem for Opaque3dPrepass {
 /// Used to render all meshes with a material with an alpha mask.
 pub struct AlphaMask3dPrepass {
     pub key: OpaqueNoLightmap3dBinKey,
-    pub representative_entity: Entity,
+    pub representative_entity: (Entity, MainEntity),
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
 }
@@ -241,7 +244,11 @@ pub struct AlphaMask3dPrepass {
 impl PhaseItem for AlphaMask3dPrepass {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
@@ -276,7 +283,7 @@ impl BinnedPhaseItem for AlphaMask3dPrepass {
     #[inline]
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {

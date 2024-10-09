@@ -433,9 +433,11 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
         for current_index in 0..phase.items.len() {
             // Get the index of the input data, and comparison metadata, for
             // this entity.
+            let item = &phase.items[current_index];
+            let entity = (item.entity(), item.main_entity());
             let current_batch_input_index = GFBD::get_index_and_compare_data(
                 &system_param_item,
-                phase.items[current_index].entity(),
+                entity,
             );
 
             // Unpack that index and metadata. Note that it's possible for index
@@ -464,7 +466,8 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             });
 
             // Make space in the data buffer for this instance.
-            let current_entity = phase.items[current_index].entity();
+            let item = &phase.items[current_index];
+            let entity = (item.entity(), item.main_entity());
             let output_index = data_buffer.add() as u32;
 
             // If we can't batch, break the existing batch and make a new one.
@@ -479,7 +482,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                     GFBD::get_batch_indirect_parameters_index(
                         &system_param_item,
                         &mut indirect_parameters_buffer,
-                        current_entity,
+                        entity,
                         output_index,
                     )
                 } else {
@@ -551,8 +554,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 
         for key in &phase.batchable_mesh_keys {
             let mut batch: Option<BinnedRenderPhaseBatch> = None;
-            for &entity in &phase.batchable_mesh_values[key] {
-                let Some(input_index) = GFBD::get_binned_index(&system_param_item, entity) else {
+            for &(entity, main_entity) in &phase.batchable_mesh_values[key] {
+                let Some(input_index) = GFBD::get_binned_index(&system_param_item, (entity, main_entity)) else {
                     continue;
                 };
                 let output_index = data_buffer.add() as u32;
@@ -573,7 +576,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         let indirect_parameters_index = GFBD::get_batch_indirect_parameters_index(
                             &system_param_item,
                             &mut indirect_parameters_buffer,
-                            entity,
+                            (entity, main_entity),
                             output_index,
                         );
                         work_item_buffer.buffer.push(PreprocessWorkItem {
@@ -581,7 +584,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                             output_index: indirect_parameters_index.unwrap_or_default().into(),
                         });
                         batch = Some(BinnedRenderPhaseBatch {
-                            representative_entity: entity,
+                            representative_entity: (entity, main_entity),
                             instance_range: output_index..output_index + 1,
                             extra_index: PhaseItemExtraIndex::maybe_indirect_parameters_index(
                                 indirect_parameters_index,
@@ -595,7 +598,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                             output_index,
                         });
                         batch = Some(BinnedRenderPhaseBatch {
-                            representative_entity: entity,
+                            representative_entity: (entity, main_entity),
                             instance_range: output_index..output_index + 1,
                             extra_index: PhaseItemExtraIndex::NONE,
                         });
@@ -611,8 +614,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         // Prepare unbatchables.
         for key in &phase.unbatchable_mesh_keys {
             let unbatchables = phase.unbatchable_mesh_values.get_mut(key).unwrap();
-            for &entity in &unbatchables.entities {
-                let Some(input_index) = GFBD::get_binned_index(&system_param_item, entity) else {
+            for &(entity, main_entity) in &unbatchables.entities {
+                let Some(input_index) = GFBD::get_binned_index(&system_param_item, (entity, main_entity)) else {
                     continue;
                 };
                 let output_index = data_buffer.add() as u32;
@@ -621,7 +624,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                     let indirect_parameters_index = GFBD::get_batch_indirect_parameters_index(
                         &system_param_item,
                         &mut indirect_parameters_buffer,
-                        entity,
+                        (entity, main_entity),
                         output_index,
                     )
                     .unwrap_or_default();

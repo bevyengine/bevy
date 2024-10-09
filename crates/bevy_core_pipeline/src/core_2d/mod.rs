@@ -60,7 +60,7 @@ use bevy_render::{
     view::{Msaa, ViewDepthTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-
+use bevy_render::sync_world::MainEntity;
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 
 use self::graph::{Core2d, Node2d};
@@ -129,7 +129,7 @@ pub struct Opaque2d {
     pub key: Opaque2dBinKey,
     /// An entity from which data will be fetched, including the mesh if
     /// applicable.
-    pub representative_entity: Entity,
+    pub representative_entity: (Entity, MainEntity),
     /// The ranges of instances.
     pub batch_range: Range<u32>,
     /// An extra index, which is either a dynamic offset or an index in the
@@ -156,7 +156,11 @@ pub struct Opaque2dBinKey {
 impl PhaseItem for Opaque2d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
@@ -188,7 +192,7 @@ impl BinnedPhaseItem for Opaque2d {
 
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
@@ -214,7 +218,7 @@ pub struct AlphaMask2d {
     pub key: AlphaMask2dBinKey,
     /// An entity from which data will be fetched, including the mesh if
     /// applicable.
-    pub representative_entity: Entity,
+    pub representative_entity: (Entity, MainEntity),
     /// The ranges of instances.
     pub batch_range: Range<u32>,
     /// An extra index, which is either a dynamic offset or an index in the
@@ -241,7 +245,12 @@ pub struct AlphaMask2dBinKey {
 impl PhaseItem for AlphaMask2d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    #[inline]
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
@@ -273,7 +282,7 @@ impl BinnedPhaseItem for AlphaMask2d {
 
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
@@ -296,7 +305,7 @@ impl CachedRenderPipelinePhaseItem for AlphaMask2d {
 /// Transparent 2D [`SortedPhaseItem`]s.
 pub struct Transparent2d {
     pub sort_key: FloatOrd,
-    pub entity: Entity,
+    pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
@@ -306,7 +315,12 @@ pub struct Transparent2d {
 impl PhaseItem for Transparent2d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.entity.0
+    }
+
+    #[inline]
+    fn main_entity(&self) -> MainEntity {
+        self.entity.1
     }
 
     #[inline]

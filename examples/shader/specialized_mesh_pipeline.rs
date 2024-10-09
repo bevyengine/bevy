@@ -33,6 +33,7 @@ use bevy::{
         Render, RenderApp, RenderSet,
     },
 };
+use bevy_render::view::RenderVisibleEntities;
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
 
@@ -280,7 +281,7 @@ fn queue_custom_mesh_pipeline(
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     mut specialized_mesh_pipelines: ResMut<SpecializedMeshPipelines<CustomMeshPipeline>>,
-    views: Query<(Entity, &VisibleEntities, &ExtractedView, &Msaa), With<ExtractedView>>,
+    views: Query<(Entity, &RenderVisibleEntities, &ExtractedView, &Msaa), With<ExtractedView>>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
 ) {

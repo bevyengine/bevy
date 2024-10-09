@@ -10,6 +10,7 @@ use bevy_render::{
     Extract,
 };
 use bytemuck::NoUninit;
+use bevy_render::sync_world::MainEntityHashMap;
 
 #[derive(Component)]
 pub struct MorphIndex {
@@ -25,11 +26,11 @@ pub struct MorphIndex {
 pub struct MorphIndices {
     /// Maps each entity with a morphed mesh to the appropriate offset within
     /// [`MorphUniforms::current_buffer`].
-    pub current: EntityHashMap<MorphIndex>,
+    pub current: MainEntityHashMap<MorphIndex>,
 
     /// Maps each entity with a morphed mesh to the appropriate offset within
     /// [`MorphUniforms::prev_buffer`].
-    pub prev: EntityHashMap<MorphIndex>,
+    pub prev: MainEntityHashMap<MorphIndex>,
 }
 
 /// The GPU buffers containing morph weights for all meshes with morph targets.
@@ -131,7 +132,7 @@ pub fn extract_morphs(
         add_to_alignment::<f32>(&mut uniform.current_buffer);
 
         let index = (start * size_of::<f32>()) as u32;
-        morph_indices.current.insert(entity, MorphIndex { index });
+        morph_indices.current.insert(entity.into(), MorphIndex { index });
     }
 }
 

@@ -61,6 +61,7 @@ use core::{
     slice::SliceIndex,
 };
 use smallvec::SmallVec;
+use crate::sync_world::MainEntity;
 
 /// Stores the rendering instructions for a single phase that uses bins in all
 /// views.
@@ -100,7 +101,7 @@ where
     ///
     /// Each bin corresponds to a single batch set. For unbatchable entities,
     /// prefer `unbatchable_values` instead.
-    pub(crate) batchable_mesh_values: HashMap<BPI::BinKey, Vec<Entity>>,
+    pub(crate) batchable_mesh_values: HashMap<BPI::BinKey, Vec<(Entity, MainEntity)>>,
 
     /// A list of `BinKey`s for unbatchable items.
     ///
@@ -120,7 +121,7 @@ where
     /// entity are simply called in order at rendering time.
     ///
     /// See the `custom_phase_item` example for an example of how to use this.
-    pub non_mesh_items: Vec<(BPI::BinKey, Entity)>,
+    pub non_mesh_items: Vec<(BPI::BinKey, (Entity, MainEntity))>,
 
     /// Information on each batch set.
     ///
@@ -142,8 +143,7 @@ pub struct BinnedRenderPhaseBatch {
     /// An entity that's *representative* of this batch.
     ///
     /// Bevy uses this to fetch the mesh. It can be any entity in the batch.
-    pub representative_entity: Entity,
-
+    pub representative_entity: (Entity, MainEntity),
     /// The range of instance indices in this batch.
     pub instance_range: Range<u32>,
 
@@ -157,7 +157,7 @@ pub struct BinnedRenderPhaseBatch {
 /// Information about the unbatchable entities in a bin.
 pub(crate) struct UnbatchableBinnedEntities {
     /// The entities.
-    pub(crate) entities: Vec<Entity>,
+    pub(crate) entities: Vec<(Entity, MainEntity)>,
 
     /// The GPU array buffer indices of each unbatchable binned entity.
     pub(crate) buffer_indices: UnbatchableBinnedEntityIndexSet,
@@ -276,7 +276,7 @@ where
     /// The `phase_type` parameter specifies whether the entity is a
     /// preprocessable mesh and whether it can be binned with meshes of the same
     /// type.
-    pub fn add(&mut self, key: BPI::BinKey, entity: Entity, phase_type: BinnedRenderPhaseType) {
+    pub fn add(&mut self, key: BPI::BinKey, entity: (Entity, MainEntity), phase_type: BinnedRenderPhaseType) {
         match phase_type {
             BinnedRenderPhaseType::BatchableMesh => {
                 match self.batchable_mesh_values.entry(key.clone()) {
@@ -846,6 +846,9 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// from the render world .
     fn entity(&self) -> Entity;
 
+    /// The main world entity represented by this `PhaseItem`.
+    fn main_entity(&self) -> MainEntity;
+
     /// Specifies the [`Draw`] function used to render the item.
     fn draw_function(&self) -> DrawFunctionId;
 
@@ -1018,7 +1021,7 @@ pub trait BinnedPhaseItem: PhaseItem {
     /// structures, resulting in significant memory savings.
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self;

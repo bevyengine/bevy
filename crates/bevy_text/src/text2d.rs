@@ -117,7 +117,7 @@ pub fn extract_text2d_sprite(
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
             extracted_sprites.sprites.insert(
-                commands.spawn(TemporaryRenderEntity).id(),
+                (commands.spawn(TemporaryRenderEntity).id(), original_entity.into()),
                 ExtractedSprite {
                     transform: transform * GlobalTransform::from_translation(position.extend(0.)),
                     color,

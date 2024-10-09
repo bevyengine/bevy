@@ -36,6 +36,7 @@ use bevy::{
     },
 };
 use bytemuck::{Pod, Zeroable};
+use bevy_render::view::RenderVisibleEntities;
 
 /// A marker component that represents an entity that is to be rendered using
 /// our custom phase item.
@@ -234,7 +235,7 @@ fn queue_custom_phase_item(
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     mut specialized_render_pipelines: ResMut<SpecializedRenderPipelines<CustomPhasePipeline>>,
-    views: Query<(Entity, &VisibleEntities, &Msaa), With<ExtractedView>>,
+    views: Query<(Entity, &RenderVisibleEntities, &Msaa), With<ExtractedView>>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
         .read()

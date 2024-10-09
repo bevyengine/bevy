@@ -49,6 +49,7 @@ use bevy_render::{
     view::ViewVisibility,
     Extract, ExtractSchedule, RenderApp,
 };
+use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_utils::HashSet;
 
 use crate::{ExtractMeshesSet, RenderMeshInstances};
@@ -110,7 +111,7 @@ pub struct RenderLightmaps {
     ///
     /// Entities without lightmaps, or for which the mesh or lightmap isn't
     /// loaded, won't have entries in this table.
-    pub(crate) render_lightmaps: EntityHashMap<RenderLightmap>,
+    pub(crate) render_lightmaps: MainEntityHashMap<RenderLightmap>,
 
     /// All active lightmap images in the scene.
     ///
@@ -161,7 +162,7 @@ fn extract_lightmaps(
         if !view_visibility.get()
             || images.get(&lightmap.image).is_none()
             || !render_mesh_instances
-                .mesh_asset_id(entity)
+                .mesh_asset_id(entity.into())
                 .and_then(|mesh_asset_id| meshes.get(mesh_asset_id))
                 .is_some_and(|mesh| mesh.layout.0.contains(Mesh::ATTRIBUTE_UV_1.id))
         {
@@ -170,7 +171,7 @@ fn extract_lightmaps(
 
         // Store information about the lightmap in the render world.
         render_lightmaps.render_lightmaps.insert(
-            entity,
+            entity.into(),
             RenderLightmap::new(lightmap.image.id(), lightmap.uv_rect),
         );
 
