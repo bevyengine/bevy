@@ -1,7 +1,7 @@
 //! A simple 3D scene with a spinning cube with a normal map and depth map to demonstrate parallax mapping.
 //! Press left mouse button to cycle through different views.
 
-use std::fmt;
+use std::{fmt, sync::Arc};
 
 use bevy::{image::ImageLoaderSettings, math::ops, prelude::*};
 
@@ -97,7 +97,7 @@ fn update_parallax_depth_scale(
         for (_, mat) in materials.iter_mut() {
             let current_depth = mat.parallax_depth_scale;
             let new_depth = current_depth.lerp(target_depth.0, DEPTH_CHANGE_RATE);
-            mat.parallax_depth_scale = new_depth;
+            Arc::make_mut(mat).parallax_depth_scale = new_depth;
             *writer.text(*text, 1) = format!("Parallax depth scale: {new_depth:.5}\n");
             if (new_depth - current_depth).abs() <= 0.000000001 {
                 *depth_update = false;
@@ -122,7 +122,7 @@ fn switch_method(
     *writer.text(text_entity, 3) = format!("Method: {}\n", *current);
 
     for (_, mat) in materials.iter_mut() {
-        mat.parallax_mapping_method = current.0;
+        Arc::make_mut(mat).parallax_mapping_method = current.0;
     }
 }
 
@@ -146,7 +146,7 @@ fn update_parallax_layers(
     *writer.text(text_entity, 2) = format!("Layers: {layer_count:.0}\n");
 
     for (_, mat) in materials.iter_mut() {
-        mat.max_parallax_layer_count = layer_count;
+        Arc::make_mut(mat).max_parallax_layer_count = layer_count;
     }
 }
 
