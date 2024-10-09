@@ -1388,7 +1388,7 @@ pub fn queue_shadows<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (entity, main_entity, view_lights) in &view_lights {
+    for (_entity, main_entity, view_lights) in &view_lights {
         let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawPrepass<M>>();
         for view_light_entity in view_lights.lights.iter().copied() {
             let Ok(light_entity) = view_light_entities.get(view_light_entity) else {

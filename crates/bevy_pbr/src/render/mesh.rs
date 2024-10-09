@@ -1289,7 +1289,7 @@ impl GetBatchData for MeshPipeline {
 
     fn get_batch_data(
         (mesh_instances, lightmaps, _, mesh_allocator): &SystemParamItem<Self::Param>,
-        (entity, main_entity): (Entity, MainEntity),
+        (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
@@ -1377,7 +1377,7 @@ impl GetFullBatchData for MeshPipeline {
 
     fn get_binned_index(
         (mesh_instances, _, _, _): &SystemParamItem<Self::Param>,
-        (entity, main_entity): (Entity, MainEntity),
+        (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<NonMaxU32> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -1418,7 +1418,7 @@ fn get_batch_indirect_parameters_index(
     meshes: &RenderAssets<RenderMesh>,
     mesh_allocator: &MeshAllocator,
     indirect_parameters_buffer: &mut IndirectParametersBuffer,
-    (entity, main_entity): (Entity, MainEntity),
+    (_entity, main_entity): (Entity, MainEntity),
     instance_index: u32,
 ) -> Option<NonMaxU32> {
     // This should only be called during GPU building.

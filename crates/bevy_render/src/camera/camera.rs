@@ -1027,7 +1027,7 @@ pub fn extract_cameras(
             &Camera,
             &CameraRenderGraph,
             &GlobalTransform,
-            &RenderVisibleEntities,
+            &VisibleEntities,
             &Frustum,
             Option<&ColorGrading>,
             Option<&Exposure>,
@@ -1039,6 +1039,7 @@ pub fn extract_cameras(
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    mapper: Extract<Query<&RenderEntity>>,
 ) {
     let primary_window = primary_window.iter().next();
     for (
@@ -1077,6 +1078,26 @@ pub fn extract_cameras(
                 continue;
             }
 
+            let render_visible_entities = RenderVisibleEntities {
+                entities: visible_entities
+                    .entities
+                    .iter()
+                    .map(|(type_id, entities)| {
+                        let entities = entities
+                            .iter()
+                            .map(|entity| {
+                                let render_entity = mapper
+                                    .get(*entity)
+                                    .cloned()
+                                    .map(|entity| entity.id())
+                                    .unwrap_or_else(|_e| commands.spawn_empty().id());
+                                (render_entity, (*entity).into())
+                            })
+                            .collect();
+                        (*type_id, entities)
+                    })
+                    .collect(),
+            };
             let mut commands = commands.entity(render_entity.id());
             commands.insert((
                 ExtractedCamera {
@@ -1109,7 +1130,7 @@ pub fn extract_cameras(
                     ),
                     color_grading,
                 },
-                visible_entities.clone(),
+                render_visible_entities,
                 *frustum,
             ));
 
