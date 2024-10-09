@@ -340,8 +340,11 @@ pub fn extract_lights(
                 entities: visible_entities
                     .iter()
                     .map(|e| {
-                        let render_entity = mapper.get(*e).unwrap();
-                        (render_entity.id(), MainEntity::from(*e))
+                        let render_entity = mapper
+                            .get(*e)
+                            .map(|e| e.id())
+                            .unwrap_or_else(|_| commands.spawn_empty().id());
+                        (render_entity, MainEntity::from(*e))
                     })
                     .collect(),
             };
