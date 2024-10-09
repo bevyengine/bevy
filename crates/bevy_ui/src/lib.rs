@@ -11,6 +11,8 @@
 //! Spawn UI elements with [`widget::Button`], [`UiImage`], [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
+extern crate alloc;
+
 pub mod measurement;
 pub mod node_bundles;
 pub mod ui_material;
