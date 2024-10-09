@@ -454,15 +454,11 @@
 //! but [`Reflect`] requires all types to have a `'static` lifetime.
 //! This makes it impossible to reflect any type with non-static borrowed data.
 //!
-//! ## Function Reflection
+//! ## Generic Function Reflection
 //!
-//! Another limitation is the inability to fully reflect functions and methods.
-//! Most languages offer some way of calling methods dynamically,
-//! but Rust makes this very difficult to do.
-//! For non-generic methods, this can be done by registering custom [type data] that
-//! contains function pointers.
-//! For generic methods, the same can be done but will typically require manual monomorphization
-//! (i.e. manually specifying the types the generic method can take).
+//! Another limitation is the inability to reflect over generic functions directly. It can be done, but will
+//! typically require manual monomorphization (i.e. manually specifying the types the generic method can
+//! take).
 //!
 //! ## Manual Registration
 //!
