@@ -832,8 +832,13 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(TriggerEvent { event, targets });
     }
 
-    /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.
-    pub fn observe<E: Event, B: Bundle, M>(
+    /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated
+    /// with the entity that stores the observer.
+    ///
+    /// **Calling [`observe`](EntityCommands::observe) on the returned
+    /// [`EntityCommands`] will observe the observer itself, which you very
+    /// likely do not want.**
+    pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> EntityCommands {
@@ -1923,7 +1928,7 @@ fn observe<E: Event, B: Bundle, M>(
 ) -> impl EntityCommand {
     move |entity: Entity, world: &mut World| {
         if let Ok(mut entity) = world.get_entity_mut(entity) {
-            entity.observe_entity(observer);
+            entity.observe(observer);
         }
     }
 }

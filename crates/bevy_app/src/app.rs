@@ -1267,7 +1267,7 @@ impl App {
     /// # struct Friend;
     /// #
     /// // An observer system can be any system where the first parameter is a trigger
-    /// app.observe(|trigger: Trigger<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
+    /// app.add_observer(|trigger: Trigger<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
     ///     if trigger.event().friends_allowed {
     ///         for friend in friends.iter() {
     ///             commands.trigger_targets(Invite, friend);
@@ -1275,11 +1275,11 @@ impl App {
     ///     }
     /// });
     /// ```
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
-        self.world_mut().observe(observer);
+        self.world_mut().add_observer(observer);
         self
     }
 }
