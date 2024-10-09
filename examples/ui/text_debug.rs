@@ -95,8 +95,9 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             Style {
                 max_width: Val::Px(300.),
                 ..default()
-            })
-            .with_background_color(background_color)
+            },
+            BackgroundColor(background_color)
+        )
         );
     }).id();
 
@@ -124,8 +125,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             Style {
                 max_width: Val::Px(400.),
                 ..default()
-            })
-            .with_background_color(background_color)
+            },BackgroundColor(background_color))
         );
 
         builder.spawn((Text::new(
@@ -137,22 +137,6 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             TextBlock::new_with_justify(JustifyText::Left),
-            Style {
-                max_width: Val::Px(300.),
-                ..default()
-            },
-            BackgroundColor(background_color)
-        ));
-
-        builder.spawn((
-            Text::new( "This text is fully justified and is positioned in the same way."),
-            TextStyle {
-                font: font.clone(),
-                font_size: 29.0,
-                color: GREEN_YELLOW.into(),
-                ..default()
-            },
-            TextBlock::new_with_justify(JustifyText::Justified),
             Style {
                 max_width: Val::Px(300.),
                 ..default()

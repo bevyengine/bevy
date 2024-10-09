@@ -655,7 +655,7 @@ pub fn extract_text_sections(
                 atlas_info,
                 span_index,
                 ..
-            }
+            },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
             if *span_index != current_span {
@@ -687,8 +687,7 @@ pub fn extract_text_sections(
                 .glyphs
                 .get(i + 1)
                 .map(|info| {
-                    info.section_index != *section_index
-                        || info.atlas_info.texture != atlas_info.texture
+                    info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
                 })
                 .unwrap_or(true)
             {
@@ -698,7 +697,7 @@ pub fn extract_text_sections(
                     id,
                     ExtractedUiNode {
                         stack_index: uinode.stack_index,
-                        color: LinearRgba::from(text.sections[*section_index].style.color),
+                        color,
                         image: atlas_info.texture.id(),
                         clip: clip.map(|clip| clip.clip),
                         camera_entity: render_camera_entity.id(),
