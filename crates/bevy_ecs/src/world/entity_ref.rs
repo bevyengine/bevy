@@ -15,7 +15,7 @@ use crate::{
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::{HashMap, HashSet};
 use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
 
@@ -2774,12 +2774,16 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a> {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 pub enum TryFromFilteredError {
-    #[error("Conversion failed, filtered entity ref does not have read access to all components")]
+    #[display(
+        "Conversion failed, filtered entity ref does not have read access to all components"
+    )]
     MissingReadAllAccess,
 
-    #[error("Conversion failed, filtered entity ref does not have write access to all components")]
+    #[display(
+        "Conversion failed, filtered entity ref does not have write access to all components"
+    )]
     MissingWriteAllAccess,
 }
 
