@@ -632,7 +632,7 @@ pub fn prepare_core_3d_depth_textures(
         &Msaa,
     )>,
 ) {
-    let mut render_target_usage = HashMap::default();
+    let mut render_target_usage: HashMap<_, _> = HashMap::default();
     for (view, camera, depth_prepass, camera_3d, _msaa) in &views_3d {
         if !opaque_3d_phases.contains_key(&view)
             || !alpha_mask_3d_phases.contains_key(&view)
@@ -654,7 +654,7 @@ pub fn prepare_core_3d_depth_textures(
             .or_insert_with(|| usage);
     }
 
-    let mut textures = HashMap::default();
+    let mut textures: HashMap<_, _> = HashMap::default();
     for (entity, camera, _, camera_3d, msaa) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
@@ -717,7 +717,7 @@ pub fn prepare_core_3d_transmission_textures(
     transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
     views_3d: Query<(Entity, &ExtractedCamera, &Camera3d, &ExtractedView)>,
 ) {
-    let mut textures = HashMap::default();
+    let mut textures: HashMap<_, _> = HashMap::default();
     for (entity, camera, camera_3d, view) in &views_3d {
         if !opaque_3d_phases.contains_key(&entity)
             || !alpha_mask_3d_phases.contains_key(&entity)
@@ -825,11 +825,11 @@ pub fn prepare_prepass_textures(
         Has<DeferredPrepass>,
     )>,
 ) {
-    let mut depth_textures = HashMap::default();
-    let mut normal_textures = HashMap::default();
-    let mut deferred_textures = HashMap::default();
-    let mut deferred_lighting_id_textures = HashMap::default();
-    let mut motion_vectors_textures = HashMap::default();
+    let mut depth_textures: HashMap<_, _> = HashMap::default();
+    let mut normal_textures: HashMap<_, _> = HashMap::default();
+    let mut deferred_textures: HashMap<_, _> = HashMap::default();
+    let mut deferred_lighting_id_textures: HashMap<_, _> = HashMap::default();
+    let mut motion_vectors_textures: HashMap<_, _> = HashMap::default();
     for (
         entity,
         camera,

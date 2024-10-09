@@ -405,7 +405,7 @@ pub fn prepare_core_2d_depth_textures(
     opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
     views_2d: Query<(Entity, &ExtractedCamera, &Msaa), (With<Camera2d>,)>,
 ) {
-    let mut textures = HashMap::default();
+    let mut textures: HashMap<_, _> = HashMap::default();
     for (view, camera, msaa) in &views_2d {
         if !opaque_2d_phases.contains_key(&view) || !transparent_2d_phases.contains_key(&view) {
             continue;

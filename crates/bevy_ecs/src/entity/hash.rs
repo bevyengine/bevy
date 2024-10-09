@@ -28,7 +28,8 @@ impl BuildHasher for EntityHash {
 ///
 /// If you have an unusual case -- say all your indices are multiples of 256
 /// or most of the entities are dead generations -- then you might want also to
-/// try [`AHasher`](bevy_utils::AHasher) for a slower hash computation but fewer lookup conflicts.
+/// try [`DefaultHasher`](bevy_utils::DefaultHasher) for a slower hash
+/// computation but fewer lookup conflicts.
 #[derive(Debug, Default)]
 pub struct EntityHasher {
     hash: u64,

@@ -113,7 +113,7 @@ mod tests {
         let mut entity_map = EntityHashMap::<Entity>::default();
         let mut remapped = Foo {
             ordered: vec![],
-            unordered: HashSet::new(),
+            unordered: HashSet::default(),
             single: Entity::PLACEHOLDER,
             not_an_entity: foo.not_an_entity.clone(),
         };
