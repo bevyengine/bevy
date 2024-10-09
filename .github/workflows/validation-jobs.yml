@@ -78,7 +78,7 @@ jobs:
         run: cd examples/mobile/android_example && chmod +x gradlew && ./gradlew build
 
   run-examples-linux-vulkan:
-    if: ${{ github.event_name == 'merge_group' }}
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -135,8 +135,19 @@ jobs:
           name: example-run-linux
           path: example-run/
 
+  compare-linux-screenshots:
+    name: Compare Linux screenshots
+    needs: [run-examples-linux-vulkan]
+    uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
+    with:
+      commit: ${{ github.sha }}
+      branch: ${{ github.ref_name }}
+      artifact: screenshots-linux
+      os: linux
+    secrets: inherit
+
   run-examples-on-windows-dx12:
-    if: ${{ github.event_name == 'merge_group' }}
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
