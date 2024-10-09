@@ -1158,7 +1158,7 @@ pub fn prepare_uinodes(
                                         position: positions_clipped[i].into(),
                                         uv: uvs[i].into(),
                                         color,
-                                        flags: shader_flags::TEXTURED,
+                                        flags: shader_flags::TEXTURED | shader_flags::CORNERS[i],
                                         radius: [0.0; 4],
                                         border: [0.0; 4],
                                         size: size.into(),
