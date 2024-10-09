@@ -26,7 +26,6 @@ rand = { version = "0.8", features = [
 ], default-features = false, optional = true }
 rand_distr = { version = "0.4.3", optional = true }
 smallvec = { version = "1.11" }
-
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "glam",
 ], optional = true }
@@ -41,7 +40,7 @@ bevy_math = { path = ".", version = "0.15.0-dev", features = ["approx"] }
 glam = { version = "0.29", features = ["approx"] }
 
 [features]
-default = ["rand", "bevy_reflect"]
+default = ["rand", "bevy_reflect", "curve"]
 serialize = ["dep:serde", "glam/serde"]
 # Enable approx for glam types to approximate floating point equality comparisons and assertions
 approx = ["dep:approx", "glam/approx"]
@@ -56,6 +55,8 @@ glam_assert = ["glam/glam-assert"]
 debug_glam_assert = ["glam/debug-glam-assert"]
 # Enable the rand dependency for shape_sampling
 rand = ["dep:rand", "dep:rand_distr", "glam/rand"]
+# Include code related to the Curve trait
+curve = []
 
 [lints]
 workspace = true
