@@ -14,7 +14,7 @@
 //!
 //! The [`TextPipeline`] resource does all of the heavy lifting for rendering text.
 //!
-//! [`Text`] is first measured by creating a [`TextMeasureInfo`] in [`TextPipeline::create_text_measure`],
+//! UI `Text` is first measured by creating a [`TextMeasureInfo`] in [`TextPipeline::create_text_measure`],
 //! which is called by the `measure_text_system` system of `bevy_ui`.
 //!
 //! Note that text measurement is only relevant in a UI context.
@@ -23,7 +23,7 @@
 //! or [`text2d::update_text2d_layout`] system (in a 2d world space context)
 //! passes it into [`TextPipeline::queue_text`], which:
 //!
-//! 1. creates a [`Buffer`](cosmic_text::Buffer) from the [`TextSection`]s, generating new [`FontAtlasSet`]s if necessary.
+//! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new [`FontAtlasSet`]s if necessary.
 //! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a [`PositionedGlyph`],
 //!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
@@ -92,7 +92,7 @@ pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
 pub struct TextPlugin;
 
 /// Text is rendered for two different view projections;
-/// 2-dimensional text ([`Text2dBundle`]) is rendered in "world space" with a `BottomToTop` Y-axis,
+/// 2-dimensional text ([`Text2d`]) is rendered in "world space" with a `BottomToTop` Y-axis,
 /// while UI is rendered with a `TopToBottom` Y-axis.
 /// This matters for text because the glyph positioning is different in either layout.
 /// For `TopToBottom`, 0 is the top of the text, while for `BottomToTop` 0 is the bottom.

@@ -76,8 +76,8 @@ impl ComputedTextBlock {
 
     /// Indicates if the text needs to be refreshed in [`TextLayoutInfo`].
     ///
-    /// Updated automatically by [`detect_text_needs_rerender`](crate::detect_text_needs_rerender) and cleared
-    /// by [`TextPipeline`] methods.
+    /// Updated automatically by [`detect_text_needs_rerender`] and cleared
+    /// by [`TextPipeline`](crate::TextPipeline) methods.
     pub fn needs_rerender(&self) -> bool {
         self.needs_rerender
     }
@@ -99,7 +99,7 @@ impl Default for ComputedTextBlock {
 /// spans associated with a text block are collected into [`ComputedTextBlock`] for layout, and then inserted
 /// to [`TextLayoutInfo`] for rendering.
 ///
-/// See [`Text2d`] for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
+/// See [`Text2d`](crate::Text2d) for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(ComputedTextBlock, TextLayoutInfo)]
@@ -349,8 +349,8 @@ pub enum FontSmoothing {
 
 /// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
 ///
-/// Generic over the root text component and text span component. For example, [`Text2d`]/[`TextSpan`] for 2d or
-/// `Text`/[`TextSpan`] for UI.
+/// Generic over the root text component and text span component. For example, [`Text2d`](crate::Text2d)/[`TextSpan`] for
+/// 2d or `Text`/[`TextSpan`] for UI.
 pub fn detect_text_needs_rerender<Root: Component>(
     changed_roots: Query<
         Entity,

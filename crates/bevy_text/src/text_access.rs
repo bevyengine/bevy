@@ -42,12 +42,13 @@ impl TextIterScratch {
     }
 }
 
-/// System parameter for reading text spans in a [`TextBlock`].
+/// System parameter for reading text spans in a [`TextBlock`](crate::TextBlock).
 ///
 /// `R` is the root text component, and `S` is the text span component on children.
 #[derive(SystemParam)]
 pub struct TextReader<'w, 's, R: TextRoot> {
-    scratch: ResMut<'w, TextIterScratch>,
+    // This is a local to avoid system ambiguities when TextReaders run in parallel.
+    scratch: Local<'s, TextIterScratch>,
     roots: Query<'w, 's, (&'static R, &'static TextStyle, Option<&'static Children>)>,
     spans: Query<
         'w,
@@ -108,7 +109,7 @@ impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
     }
 }
 
-/// Iterator returned by [`TextReader::iter`] and [`TextWriter::iter`].
+/// Iterator returned by [`TextReader::iter`].
 ///
 /// Iterates all spans in a text block according to hierarchy traversal order.
 /// Does *not* flatten interspersed ghost nodes. Only contiguous spans are traversed.
@@ -183,11 +184,12 @@ impl<'a, R: TextRoot> Drop for TextSpanIter<'a, R> {
     }
 }
 
-/// System parameter for reading and writing text spans in a [`TextBlock`].
+/// System parameter for reading and writing text spans in a [`TextBlock`](crate::TextBlock).
 ///
 /// `R` is the root text component, and `S` is the text span component on children.
 #[derive(SystemParam)]
 pub struct TextWriter<'w, 's, R: TextRoot> {
+    // This is a resource because two TextWriters can't run in parallel.
     scratch: ResMut<'w, TextIterScratch>,
     roots: Query<'w, 's, (&'static mut R, &'static mut TextStyle), Without<TextSpan>>,
     spans: Query<'w, 's, (&'static mut TextSpan, &'static mut TextStyle), Without<R>>,

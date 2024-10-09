@@ -60,7 +60,7 @@ struct FontFaceInfo {
     family_name: Arc<str>,
 }
 
-/// The `TextPipeline` is used to layout and render [`Text`](crate::Text).
+/// The `TextPipeline` is used to layout and render text blocks (see `Text`/[`Text2d`](crate::Text2d)).
 ///
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
@@ -383,9 +383,10 @@ impl TextPipeline {
     }
 }
 
-/// Render information for a corresponding [`Text`](crate::Text) component.
+/// Render information for a corresponding text block.
 ///
-/// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`].
+/// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`] when an entity has
+/// [`TextBlock`] and [`ComputedTextBlock`] components.
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct TextLayoutInfo {
@@ -395,7 +396,7 @@ pub struct TextLayoutInfo {
     pub size: Vec2,
 }
 
-/// Size information for a corresponding [`Text`](crate::Text) component.
+/// Size information for a corresponding [`ComputedTextBlock`] component.
 ///
 /// Generated via [`TextPipeline::create_text_measure`].
 #[derive(Debug)]

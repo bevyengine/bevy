@@ -52,7 +52,7 @@ impl Default for TextNodeFlags {
 /// Adding [`Text`] to an entity will pull in required components for setting up a UI text node.
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`TextBlock`]. See [`TextSpan`] for the component used by children of entities with [`Text`].
+/// a [`TextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
 ///
 /// Note that [`Transform`] on this entity is managed automatically by the UI layout system.
 ///

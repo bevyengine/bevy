@@ -13,7 +13,7 @@ use bevy_sprite::TextureAtlasLayout;
 /// Used in [`TextPipeline::queue_text`](crate::TextPipeline::queue_text) and [`crate::TextLayoutInfo`] for rendering glyphs.
 #[derive(Debug, Clone, Reflect)]
 pub struct PositionedGlyph {
-    /// The position of the glyph in the [`Text`](crate::Text)'s bounding box.
+    /// The position of the glyph in the text block's bounding box.
     pub position: Vec2,
     /// The width and height of the glyph in logical pixels.
     pub size: Vec2,

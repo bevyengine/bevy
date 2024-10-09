@@ -13,7 +13,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 ///
 /// Contains the [`Node`] component and other components required to make a container.
 ///
-/// See [`node_bundles`](crate::node_bundles) for more specialized bundles like [`TextBundle`].
+/// See [`node_bundles`](crate::node_bundles) for more specialized bundles like [`ImageBundle`].
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct NodeBundle {
     /// Describes the logical size of the node
