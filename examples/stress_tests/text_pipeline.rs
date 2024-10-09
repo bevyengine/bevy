@@ -43,7 +43,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     let make_spans = |i| {
         [
             (
-                TextSpan2d("text".repeat(i)),
+                TextSpan("text".repeat(i)),
                 TextStyle {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: (4 + i % 10) as f32,
@@ -52,7 +52,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
             ),
             (
-                TextSpan2d("pipeline".repeat(i)),
+                TextSpan("pipeline".repeat(i)),
                 TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: (4 + i % 11) as f32,

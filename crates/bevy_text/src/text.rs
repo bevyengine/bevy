@@ -9,7 +9,7 @@ use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::{Font, TextLayoutInfo};
+use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
 pub use cosmic_text::{
     self, FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle,
     Weight as FontWeight,
@@ -56,7 +56,7 @@ pub struct ComputedTextBlock {
     ///
     /// Includes:
     /// - [`TextBlock`] changes.
-    /// - [`TextStyle`] or `Text2d`/`Text`/`TextSpan2d`/`TextSpan` changes anywhere in the block's entity hierarchy.
+    /// - [`TextStyle`] or `Text2d`/`Text`/`TextSpan` changes anywhere in the block's entity hierarchy.
     // TODO: This encompasses both structural changes like font size or justification and non-structural
     // changes like text color and font smoothing. This field currently causes UI to 'remeasure' text, even if
     // the actual changes are non-structural and can be handled by only rerendering and not remeasuring. A full
@@ -150,6 +150,74 @@ impl TextBlock {
     pub const fn with_no_wrap(mut self) -> Self {
         self.linebreak = LineBreak::NoWrap;
         self
+    }
+}
+
+/// A span of UI text in a tree of spans under an entity with [`TextBlock`], such as `Text` or `Text2d`.
+///
+/// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
+///
+/*
+```
+# use bevy_asset::Handle;
+# use bevy_color::Color;
+# use bevy_color::palettes::basic::{RED, BLUE};
+# use bevy_ecs::World;
+# use bevy_text::{Font, TextBlock, TextStyle, TextSection};
+
+# let font_handle: Handle<Font> = Default::default();
+# let mut world = World::default();
+#
+world.spawn((
+    TextBlock::default(),
+    TextStyle {
+        font: font_handle.clone().into(),
+        font_size: 60.0,
+        color: BLUE.into(),
+    }
+))
+.with_child((
+    TextSpan::new("Hello!"),
+    TextStyle {
+        font: font_handle.into(),
+        font_size: 60.0,
+        color: RED.into(),
+    }
+));
+```
+*/
+#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
+#[reflect(Component, Default, Debug)]
+#[require(TextStyle)]
+pub struct TextSpan(pub String);
+
+impl TextSpan {
+    /// Makes a new text span component.
+    pub fn new(text: impl Into<String>) -> Self {
+        Self(text.into())
+    }
+}
+
+impl TextSpanComponent for TextSpan {}
+
+impl TextSpanAccess for TextSpan {
+    fn read_span(&self) -> &str {
+        self.as_str()
+    }
+    fn write_span(&mut self) -> &mut String {
+        &mut *self
+    }
+}
+
+impl From<&str> for TextSpan {
+    fn from(value: &str) -> Self {
+        Self(String::from(value))
+    }
+}
+
+impl From<String> for TextSpan {
+    fn from(value: String) -> Self {
+        Self(value)
     }
 }
 
@@ -281,9 +349,9 @@ pub enum FontSmoothing {
 
 /// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
 ///
-/// Generic over the root text component and text span component. For example, [`Text2d`]/[`TextSpan2d`] for 2d or
-/// `Text`/`TextSpan` for UI.
-pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
+/// Generic over the root text component and text span component. For example, [`Text2d`]/[`TextSpan`] for 2d or
+/// `Text`/[`TextSpan`] for UI.
+pub fn detect_text_needs_rerender<Root: Component>(
     changed_roots: Query<
         Entity,
         (
@@ -302,17 +370,21 @@ pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
         (Entity, Option<&Parent>, Has<TextBlock>),
         (
             Or<(
-                Changed<Span>,
+                Changed<TextSpan>,
                 Changed<TextStyle>,
                 Changed<Children>,
                 Changed<Parent>, // Included to detect broken text block hierarchies.
                 Added<TextBlock>,
             )>,
-            With<Span>,
+            With<TextSpan>,
             With<TextStyle>,
         ),
     >,
-    mut computed: Query<(Option<&Parent>, Option<&mut ComputedTextBlock>, Has<Span>)>,
+    mut computed: Query<(
+        Option<&Parent>,
+        Option<&mut ComputedTextBlock>,
+        Has<TextSpan>,
+    )>,
 ) {
     // Root entity:
     // - Root component changed.
@@ -334,15 +406,18 @@ pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
     // - Span children changed (can include additions and removals).
     for (entity, maybe_span_parent, has_text_block) in changed_spans.iter() {
         if has_text_block {
-            warn_once!("found entity {:?} with a text span ({}) that has a TextBlock, which should only be on root \
+            warn_once!("found entity {:?} with a TextSpan that has a TextBlock, which should only be on root \
                 text entities (that have {}); this warning only prints once",
-                entity, std::any::type_name::<Span>(), std::any::type_name::<Root>());
+                entity, std::any::type_name::<Root>());
         }
 
         let Some(span_parent) = maybe_span_parent else {
-            warn_once!("found entity {:?} with a text span ({}) that has no parent; it should have an ancestor \
+            warn_once!(
+                "found entity {:?} with a TextSpan that has no parent; it should have an ancestor \
                 with a root text component ({}); this warning only prints once",
-                entity, std::any::type_name::<Span>(), std::any::type_name::<Root>());
+                entity,
+                std::any::type_name::<Root>()
+            );
             continue;
         };
         let mut parent: Entity = **span_parent;
@@ -352,9 +427,9 @@ pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
         // is outweighed by the expense of tracking visited spans.
         loop {
             let Ok((maybe_parent, maybe_computed, has_span)) = computed.get_mut(parent) else {
-                warn_once!("found entity {:?} with a text span ({}) that is part of a broken hierarchy with a Parent \
+                warn_once!("found entity {:?} with a TextSpan that is part of a broken hierarchy with a Parent \
                     component that points at non-existent entity {:?}; this warning only prints once",
-                    entity, std::any::type_name::<Span>(), parent);
+                    entity, parent);
                 break;
             };
             if let Some(mut computed) = maybe_computed {
@@ -362,15 +437,18 @@ pub fn detect_text_needs_rerender<Root: Component, Span: Component>(
                 break;
             }
             if !has_span {
-                warn_once!("found entity {:?} with a text span ({}) that has an ancestor ({}) that does not have a text \
+                warn_once!("found entity {:?} with a TextSpan that has an ancestor ({}) that does not have a text \
                 span component or a ComputedTextBlock component; this warning only prints once",
-                    entity, std::any::type_name::<Span>(), parent);
+                    entity, parent);
                 break;
             }
             let Some(next_parent) = maybe_parent else {
-                warn_once!("found entity {:?} with a text span ({}) that has no ancestor with the root text \
+                warn_once!(
+                    "found entity {:?} with a TextSpan that has no ancestor with the root text \
                     component ({}); this warning only prints once",
-                    entity, std::any::type_name::<Span>(), std::any::type_name::<Root>());
+                    entity,
+                    std::any::type_name::<Root>()
+                );
                 break;
             };
             parent = **next_parent;

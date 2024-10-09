@@ -65,7 +65,7 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, JustifyText, LineBreak, Text2d, TextBlock, TextError, TextReader2d, TextSpan2d,
+        Font, JustifyText, LineBreak, Text2d, TextBlock, TextError, TextReader2d, TextSpan,
         TextStyle, TextWriter2d,
     };
 }
@@ -111,7 +111,7 @@ impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
             .register_type::<Text2d>()
-            .register_type::<TextSpan2d>()
+            .register_type::<TextSpan>()
             .register_type::<TextBounds>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
@@ -123,7 +123,7 @@ impl Plugin for TextPlugin {
                 PostUpdate,
                 (
                     remove_dropped_font_atlas_sets,
-                    detect_text_needs_rerender::<Text2d, TextSpan2d>,
+                    detect_text_needs_rerender::<Text2d>,
                     update_text2d_layout
                         // Potential conflict: `Assets<Image>`
                         // In practice, they run independently since `bevy_render::camera_update_system`

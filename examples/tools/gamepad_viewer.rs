@@ -309,9 +309,9 @@ fn setup_sticks(
                         TextWithAxes { x_axis, y_axis },
                     ))
                     .with_children(|p| {
-                        p.spawn((TextSpan2d(format!("{:.3}", 0.)), style.clone()));
-                        p.spawn((TextSpan2d::new(", "), style.clone()));
-                        p.spawn((TextSpan2d(format!("{:.3}", 0.)), style));
+                        p.spawn((TextSpan(format!("{:.3}", 0.)), style.clone()));
+                        p.spawn((TextSpan::new(", "), style.clone()));
+                        p.spawn((TextSpan(format!("{:.3}", 0.)), style));
                     });
                 // cursor
                 parent.spawn((

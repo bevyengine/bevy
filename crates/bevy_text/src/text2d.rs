@@ -1,8 +1,8 @@
 use crate::pipeline::CosmicFontSystem;
 use crate::{
     ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBlock,
-    TextBounds, TextError, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
-    TextSpanComponent, TextStyle, TextWriter, YAxisOrientation,
+    TextBounds, TextError, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpan,
+    TextSpanAccess, TextStyle, TextWriter, YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
@@ -96,7 +96,7 @@ impl Text2d {
 }
 
 impl TextRoot for Text2d {
-    type Span = TextSpan2d;
+    type Span = TextSpan;
 }
 
 impl TextSpanAccess for Text2d {
@@ -115,79 +115,6 @@ impl From<&str> for Text2d {
 }
 
 impl From<String> for Text2d {
-    fn from(value: String) -> Self {
-        Self(value)
-    }
-}
-
-/// A span of 2d text in a tree of spans under an entity with [`Text2d`].
-///
-/// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
-///
-/*
-```
-# use bevy_asset::Handle;
-# use bevy_color::Color;
-# use bevy_color::palettes::basic::{RED, BLUE};
-# use bevy_ecs::World;
-# use bevy_text::{Font, Text2d, TextSpan2d, TextStyle, TextSection};
-#
-# let font_handle: Handle<Font> = Default::default();
-# let mut world = World::default();
-#
-world.spawn((
-    Text2d::new("Hello, "),
-    TextStyle {
-        font: font_handle.clone().into(),
-        font_size: 60.0,
-        color: BLUE.into(),
-    }
-))
-.with_child((
-    TextSpan2d::new("World!"),
-    TextStyle {
-        font: font_handle.into(),
-        font_size: 60.0,
-        color: RED.into(),
-    }
-));
-```
-*/
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
-#[require(TextStyle)]
-pub struct TextSpan2d(pub String);
-
-impl TextSpan2d {
-    /// Makes a new 2d span text component.
-    pub fn new(text: impl Into<String>) -> Self {
-        Self(text.into())
-    }
-
-    /// Makes an empty 2d span text component.
-    pub fn empty() -> Self {
-        Self::new("")
-    }
-}
-
-impl TextSpanComponent for TextSpan2d {}
-
-impl TextSpanAccess for TextSpan2d {
-    fn read_span(&self) -> &str {
-        self.as_str()
-    }
-    fn write_span(&mut self) -> &mut String {
-        &mut *self
-    }
-}
-
-impl From<&str> for TextSpan2d {
-    fn from(value: &str) -> Self {
-        Self(String::from(value))
-    }
-}
-
-impl From<String> for TextSpan2d {
     fn from(value: String) -> Self {
         Self(value)
     }
@@ -441,7 +368,7 @@ mod tests {
             .add_systems(
                 Update,
                 (
-                    detect_text_needs_rerender::<Text2d, TextSpan2d>,
+                    detect_text_needs_rerender::<Text2d>,
                     update_text2d_layout,
                     calculate_bounds_text2d,
                 )

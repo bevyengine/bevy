@@ -63,22 +63,17 @@ fn setup(mut commands: Commands) {
             let color = Hsla::hsl(i as f32 / 11.0 * 360.0, 0.8, 0.75).into();
             commands
                 .spawn((
-                    Text2dBundle {
-                        text: Text::from_section(
-                            format!("{:?}", function),
-                            TextStyle {
-                                color,
-                                ..text_style.clone()
-                            },
-                        ),
-                        transform: Transform::from_xyz(
-                            i as f32 * 113.0 - 1280.0 / 2.0 + 25.0,
-                            -100.0 - ((j as f32 * 250.0) - 300.0),
-                            0.0,
-                        ),
-                        text_anchor: Anchor::TopLeft,
-                        ..default()
+                    Text2d(format!("{:?}", function)),
+                    TextStyle {
+                        color,
+                        ..text_style.clone()
                     },
+                    Transform::from_xyz(
+                        i as f32 * 113.0 - 1280.0 / 2.0 + 25.0,
+                        -100.0 - ((j as f32 * 250.0) - 300.0),
+                        0.0,
+                    ),
+                    Anchor::TopLeft,
                     SelectedEaseFunction(*function, color),
                 ))
                 .with_children(|p| {
@@ -93,14 +88,15 @@ fn setup(mut commands: Commands) {
                 });
         }
     }
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 const SIZE_PER_FUNCTION: f32 = 95.0;
@@ -109,7 +105,7 @@ fn display_curves(
     mut gizmos: Gizmos,
     ease_functions: Query<(&SelectedEaseFunction, &Transform, &Children)>,
     mut transforms: Query<&mut Transform, Without<SelectedEaseFunction>>,
-    mut ui: Query<&mut Text, With<Node>>,
+    mut ui_text: Single<&mut Text>,
     time: Res<Time>,
 ) {
     let samples = 100;
@@ -119,7 +115,7 @@ fn display_curves(
     let now = ((time.elapsed_seconds() % (duration + time_margin * 2.0) - time_margin) / duration)
         .clamp(0.0, 1.0);
 
-    ui.single_mut().sections[0].value = format!("Progress: {:.2}", now);
+    ui_text.0 = format!("Progress: {:.2}", now);
 
     for (SelectedEaseFunction(function, color), transform, children) in &ease_functions {
         // Draw a box around the curve

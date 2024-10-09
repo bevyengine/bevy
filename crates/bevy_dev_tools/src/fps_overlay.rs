@@ -14,10 +14,10 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{BuildChildren, ChildBuild};
 use bevy_render::view::Visibility;
-use bevy_text::{Font, TextStyle};
+use bevy_text::{Font, TextSpan, TextStyle};
 use bevy_ui::{
     node_bundles::NodeBundle,
-    widget::{Text, TextSpan, UiTextWriter},
+    widget::{Text, UiTextWriter},
     GlobalZIndex, PositionType, Style,
 };
 use bevy_utils::default;

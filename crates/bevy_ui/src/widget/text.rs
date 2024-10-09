@@ -1,5 +1,5 @@
 use crate::{
-    ContentSize, DefaultUiCamera, FixedMeasure, FocusPolicy, GhostNode, Measure, MeasureArgs, Node,
+    ContentSize, DefaultUiCamera, FixedMeasure, FocusPolicy, Measure, MeasureArgs, Node,
     NodeMeasure, Style, TargetCamera, UiScale, ZIndex,
 };
 use bevy_asset::Assets;
@@ -20,7 +20,7 @@ use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
     TextBlock, TextBounds, TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader,
-    TextRoot, TextSpanAccess, TextSpanComponent, TextStyle, TextWriter, YAxisOrientation,
+    TextRoot, TextSpan, TextSpanAccess, TextStyle, TextWriter, YAxisOrientation,
 };
 use bevy_transform::components::Transform;
 use bevy_utils::{tracing::error, Entry};
@@ -139,79 +139,6 @@ impl From<String> for Text {
     fn from(value: String) -> Self {
         Self(value)
     }
-}
-
-/// A span of UI text in a tree of spans under an entity with [`Text`].
-///
-/// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
-///
-/*
-```
-# use bevy_asset::Handle;
-# use bevy_color::Color;
-# use bevy_color::palettes::basic::{RED, BLUE};
-# use bevy_ecs::World;
-# use bevy_text::{Font, TextStyle, TextSection};
-# use bevy_ui::{Text, TextSpan};
-#
-# let font_handle: Handle<Font> = Default::default();
-# let mut world = World::default();
-#
-world.spawn((
-    Text::new("Hello, "),
-    TextStyle {
-        font: font_handle.clone().into(),
-        font_size: 60.0,
-        color: BLUE.into(),
-    }
-))
-.with_child((
-    TextSpan::new("World!"),
-    TextStyle {
-        font: font_handle.into(),
-        font_size: 60.0,
-        color: RED.into(),
-    }
-));
-```
-*/
-#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
-#[require(TextStyle, GhostNode, Visibility(hidden_visibility))]
-pub struct TextSpan(pub String);
-
-impl TextSpan {
-    /// Makes a new text span component.
-    pub fn new(text: impl Into<String>) -> Self {
-        Self(text.into())
-    }
-}
-
-impl TextSpanComponent for TextSpan {}
-
-impl TextSpanAccess for TextSpan {
-    fn read_span(&self) -> &str {
-        self.as_str()
-    }
-    fn write_span(&mut self) -> &mut String {
-        &mut *self
-    }
-}
-
-impl From<&str> for TextSpan {
-    fn from(value: &str) -> Self {
-        Self(String::from(value))
-    }
-}
-
-impl From<String> for TextSpan {
-    fn from(value: String) -> Self {
-        Self(value)
-    }
-}
-
-fn hidden_visibility() -> Visibility {
-    Visibility::Hidden
 }
 
 /// UI alias for [`TextReader`].

@@ -63,15 +63,15 @@ fn setup_scene(
 }
 
 fn setup_instructions(mut commands: Commands) {
-    commands.spawn(
-        TextBundle::from_section("Hold space to trigger a screen shake", TextStyle::default())
-            .with_style(Style {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            }),
-    );
+    commands.spawn((
+        Text::new("Hold space to trigger a screen shake"),
+        Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
 }
 
 fn setup_camera(mut commands: Commands) {
