@@ -368,8 +368,8 @@ mod ui {
                         MenuButton::Play,
                     ))
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Play",
+                        parent.spawn((
+                            Text::new("Play"),
                             TextStyle {
                                 font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),
@@ -400,8 +400,8 @@ mod ui {
                         MenuButton::Tutorial,
                     ))
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Tutorial",
+                        parent.spawn((
+                            Text::new("Tutorial"),
                             TextStyle {
                                 font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),
@@ -498,8 +498,8 @@ mod ui {
                         MenuButton::Play,
                     ))
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Paused",
+                        parent.spawn((
+                            Text::new("Paused"),
                             TextStyle {
                                 font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),
@@ -530,8 +530,8 @@ mod ui {
                 },
             ))
             .with_children(|parent| {
-                parent.spawn(TextBundle::from_section(
-                    "TURBO MODE",
+                parent.spawn((
+                    Text::new("TURBO MODE"),
                     TextStyle {
                         font_size: 33.0,
                         color: Color::srgb(0.9, 0.3, 0.1),
@@ -572,25 +572,16 @@ mod ui {
                 },
             ))
             .with_children(|parent| {
-                parent.spawn(TextBundle::from_section(
-                    "Move the bevy logo with the arrow keys",
+                parent.spawn((
+                    Text::new("Move the bevy logo with the arrow keys"),
                     TextStyle {
                         font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
                 ));
-                parent.spawn(TextBundle::from_section(
-                    "Press T to enter TURBO MODE",
-                    TextStyle {
-                        font_size: 33.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
-                        ..default()
-                    },
-                ));
-
-                parent.spawn(TextBundle::from_section(
-                    "Press SPACE to pause",
+                parent.spawn((
+                    Text::new("Press T to enter TURBO MODE"),
                     TextStyle {
                         font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
@@ -598,8 +589,17 @@ mod ui {
                     },
                 ));
 
-                parent.spawn(TextBundle::from_section(
-                    "Press ESCAPE to return to the menu",
+                parent.spawn((
+                    Text::new("Press SPACE to pause"),
+                    TextStyle {
+                        font_size: 33.0,
+                        color: Color::srgb(0.3, 0.3, 0.7),
+                        ..default()
+                    },
+                ));
+
+                parent.spawn((
+                    Text::new("Press ESCAPE to return to the menu"),
                     TextStyle {
                         font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
@@ -629,8 +629,8 @@ mod ui {
                 },
             ))
             .with_children(|parent| {
-                parent.spawn(TextBundle::from_section(
-                    "Press SPACE to resume",
+                parent.spawn((
+                    Text::new("Press SPACE to resume"),
                     TextStyle {
                         font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),
@@ -638,8 +638,8 @@ mod ui {
                     },
                 ));
 
-                parent.spawn(TextBundle::from_section(
-                    "Press ESCAPE to return to the menu",
+                parent.spawn((
+                    Text::new("Press ESCAPE to return to the menu"),
                     TextStyle {
                         font_size: 33.0,
                         color: Color::srgb(0.3, 0.3, 0.7),

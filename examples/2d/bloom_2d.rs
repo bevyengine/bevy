@@ -57,14 +57,15 @@ fn setup(
     ));
 
     // UI
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -78,11 +79,10 @@ fn update_bloom_settings(
 ) {
     let bloom = camera.single_mut();
     let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
 
     match bloom {
         (entity, Some(mut bloom)) => {
-            *text = "Bloom (Toggle: Space)\n".to_string();
+            **text = "Bloom (Toggle: Space)\n".to_string();
             text.push_str(&format!("(Q/A) Intensity: {}\n", bloom.intensity));
             text.push_str(&format!(
                 "(W/S) Low-frequency boost: {}\n",
@@ -173,7 +173,7 @@ fn update_bloom_settings(
         }
 
         (entity, None) => {
-            *text = "Bloom: Off (Toggle: Space)".to_string();
+            **text = "Bloom: Off (Toggle: Space)".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).insert(Bloom::default());

@@ -37,11 +37,12 @@ impl AnimationEvent for MessageEvent {
 
 fn edit_message(
     mut event_reader: EventReader<MessageEvent>,
-    mut text: Single<&mut Text, With<MessageText>>,
+    text: Single<(&mut Text2d, &mut TextStyle), With<MessageText>>,
 ) {
+    let (mut text, mut style) = text.into_inner();
     for event in event_reader.read() {
-        text.sections[0].value = event.value.clone();
-        text.sections[0].style.color = event.color;
+        text.0 = event.value.clone();
+        style.color = event.color;
     }
 }
 
@@ -67,16 +68,11 @@ fn setup(
     // The text that will be changed by animation events.
     commands.spawn((
         MessageText,
-        Text2dBundle {
-            text: Text::from_section(
-                "",
-                TextStyle {
-                    font_size: 119.0,
-                    color: Color::NONE,
-                    ..Default::default()
-                },
-            ),
-            ..Default::default()
+        Text2d::default(),
+        TextStyle {
+            font_size: 119.0,
+            color: Color::NONE,
+            ..default()
         },
     ));
 
@@ -112,10 +108,9 @@ fn setup(
 }
 
 // Slowly fade out the text opacity.
-fn animate_text_opacity(mut query: Query<&mut Text>, time: Res<Time>) {
-    for mut text in &mut query {
-        let color = &mut text.sections[0].style.color;
-        let a = color.alpha();
-        color.set_alpha(a - time.delta_seconds());
+fn animate_text_opacity(mut styles: Query<&mut TextStyle>, time: Res<Time>) {
+    for mut style in &mut styles {
+        let a = style.color.alpha();
+        style.color.set_alpha(a - time.delta_seconds());
     }
 }

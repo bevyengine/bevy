@@ -50,14 +50,13 @@ fn setup(
     ));
 
     // spawn help text
-    commands.spawn((
-        TextBundle::from_sections([
-            TextSection::new("Press T to toggle OIT\n", TextStyle::default()),
-            TextSection::new("OIT Enabled", TextStyle::default()),
-            TextSection::new("\nPress C to cycle test scenes", TextStyle::default()),
-        ]),
-        RenderLayers::layer(1),
-    ));
+    commands
+        .spawn((Text::default(), RenderLayers::layer(1)))
+        .with_children(|p| {
+            p.spawn(TextSpan::new("Press T to toggle OIT\n"));
+            p.spawn(TextSpan::new("OIT Enabled"));
+            p.spawn(TextSpan::new("\nPress C to cycle test scenes"));
+        });
 
     // spawn default scene
     spawn_spheres(&mut commands, &mut meshes, &mut materials);
@@ -65,13 +64,14 @@ fn setup(
 
 fn toggle_oit(
     mut commands: Commands,
-    mut text: Query<&mut Text>,
+    text: Single<Entity, With<Text>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     q: Query<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
+    mut text_writer: UiTextWriter,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyT) {
         let (e, has_oit) = q.single();
-        text.single_mut().sections[1].value = if has_oit {
+        *text_writer.text(*text, 2) = if has_oit {
             // Removing the component will completely disable OIT for this camera
             commands
                 .entity(e)

@@ -123,38 +123,33 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     ));
 
     // Add the help text.
-    commands.spawn(
-        TextBundle {
-            text: create_text(&app_settings),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        create_text(&app_settings),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn create_text(app_settings: &AppSettings) -> Text {
-    Text::from_section(
-        format!(
-            "{}\n{}\n{}",
-            "Press WASD or the arrow keys to change the direction of the directional light",
-            if app_settings.volumetric_pointlight {
-                "Press P to turn volumetric point light off"
-            } else {
-                "Press P to turn volumetric point light on"
-            },
-            if app_settings.volumetric_spotlight {
-                "Press L to turn volumetric spot light off"
-            } else {
-                "Press L to turn volumetric spot light on"
-            }
-        ),
-        TextStyle::default(),
+    format!(
+        "{}\n{}\n{}",
+        "Press WASD or the arrow keys to change the direction of the directional light",
+        if app_settings.volumetric_pointlight {
+            "Press P to turn volumetric point light off"
+        } else {
+            "Press P to turn volumetric point light on"
+        },
+        if app_settings.volumetric_spotlight {
+            "Press L to turn volumetric spot light off"
+        } else {
+            "Press L to turn volumetric spot light on"
+        }
     )
+    .into()
 }
 
 /// A system that makes directional lights in the glTF scene into volumetric
