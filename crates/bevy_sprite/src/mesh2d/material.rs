@@ -36,6 +36,7 @@ use bevy_render::{
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
 use core::{hash::Hash, marker::PhantomData};
+use derive_more::derive::From;
 
 use crate::{
     DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
@@ -209,7 +210,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 ///     commands.spawn(Mesh2d(meshes.add(Circle::new(50.0))));
 /// }
 /// ```
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
 #[require(HasMaterial2d)]
 pub struct MeshMaterial2d<M: Material2d>(pub Handle<M>);
@@ -217,12 +218,6 @@ pub struct MeshMaterial2d<M: Material2d>(pub Handle<M>);
 impl<M: Material2d> Default for MeshMaterial2d<M> {
     fn default() -> Self {
         Self(Handle::default())
-    }
-}
-
-impl<M: Material2d> From<Handle<M>> for MeshMaterial2d<M> {
-    fn from(handle: Handle<M>) -> Self {
-        Self(handle)
     }
 }
 

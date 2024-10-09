@@ -58,24 +58,21 @@ fn setup(
     ));
 
     // example instructions
-    commands.spawn(
-        TextBundle::from_section(
-            "Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new("Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement"),
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 #[derive(Component, Default)]

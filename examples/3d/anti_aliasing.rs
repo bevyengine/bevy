@@ -55,7 +55,7 @@ fn modify_aa(
     // No AA
     if keys.just_pressed(KeyCode::Digit1) {
         *msaa = Msaa::Off;
-        camera = camera
+        camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
             .remove::<TaaComponents>();
@@ -63,7 +63,7 @@ fn modify_aa(
 
     // MSAA
     if keys.just_pressed(KeyCode::Digit2) && *msaa == Msaa::Off {
-        camera = camera
+        camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
             .remove::<TaaComponents>();
@@ -87,7 +87,7 @@ fn modify_aa(
     // FXAA
     if keys.just_pressed(KeyCode::Digit3) && fxaa.is_none() {
         *msaa = Msaa::Off;
-        camera = camera
+        camera
             .remove::<Smaa>()
             .remove::<TaaComponents>()
             .insert(Fxaa::default());
@@ -120,7 +120,7 @@ fn modify_aa(
     // SMAA
     if keys.just_pressed(KeyCode::Digit4) && smaa.is_none() {
         *msaa = Msaa::Off;
-        camera = camera
+        camera
             .remove::<Fxaa>()
             .remove::<TaaComponents>()
             .insert(Smaa::default());
@@ -191,8 +191,7 @@ fn update_ui(
 ) {
     let (fxaa, smaa, taa, cas, msaa) = camera.single();
 
-    let mut ui = ui.single_mut();
-    let ui = &mut ui.sections[0].value;
+    let ui = &mut **ui.single_mut();
 
     *ui = "Antialias Method\n".to_string();
 
@@ -301,15 +300,12 @@ fn setup(
 
     // Camera
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        Camera3d::default(),
+        Camera {
+            hdr: true,
             ..default()
         },
+        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ContrastAdaptiveSharpening {
             enabled: false,
             ..default()
@@ -331,14 +327,15 @@ fn setup(
     ));
 
     // example instructions
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 /// Writes a simple menu item that can be on or off.

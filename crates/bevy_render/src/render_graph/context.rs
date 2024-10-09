@@ -4,7 +4,7 @@ use crate::{
 };
 use alloc::borrow::Cow;
 use bevy_ecs::entity::Entity;
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 use super::{InternedRenderSubGraph, RenderSubGraph};
 
@@ -231,19 +231,21 @@ impl<'a> RenderGraphContext<'a> {
     }
 }
 
-#[derive(Error, Debug, Eq, PartialEq)]
+#[derive(Error, Display, Debug, Eq, PartialEq)]
 pub enum RunSubGraphError {
-    #[error("attempted to run sub-graph `{0:?}`, but it does not exist")]
+    #[display("attempted to run sub-graph `{_0:?}`, but it does not exist")]
+    #[error(ignore)]
     MissingSubGraph(InternedRenderSubGraph),
-    #[error("attempted to pass inputs to sub-graph `{0:?}`, which has no input slots")]
+    #[display("attempted to pass inputs to sub-graph `{_0:?}`, which has no input slots")]
+    #[error(ignore)]
     SubGraphHasNoInputs(InternedRenderSubGraph),
-    #[error("sub graph (name: `{graph_name:?}`) could not be run because slot `{slot_name}` at index {slot_index} has no value")]
+    #[display("sub graph (name: `{graph_name:?}`) could not be run because slot `{slot_name}` at index {slot_index} has no value")]
     MissingInput {
         slot_index: usize,
         slot_name: Cow<'static, str>,
         graph_name: InternedRenderSubGraph,
     },
-    #[error("attempted to use the wrong type for input slot")]
+    #[display("attempted to use the wrong type for input slot")]
     MismatchedInputSlotType {
         graph_name: InternedRenderSubGraph,
         slot_index: usize,
@@ -253,11 +255,12 @@ pub enum RunSubGraphError {
     },
 }
 
-#[derive(Error, Debug, Eq, PartialEq)]
+#[derive(Error, Display, Debug, Eq, PartialEq)]
 pub enum OutputSlotError {
-    #[error("output slot `{0:?}` does not exist")]
+    #[display("output slot `{_0:?}` does not exist")]
+    #[error(ignore)]
     InvalidSlot(SlotLabel),
-    #[error("attempted to output a value of type `{actual}` to output slot `{label:?}`, which has type `{expected}`")]
+    #[display("attempted to output a value of type `{actual}` to output slot `{label:?}`, which has type `{expected}`")]
     MismatchedSlotType {
         label: SlotLabel,
         expected: SlotType,
@@ -265,11 +268,12 @@ pub enum OutputSlotError {
     },
 }
 
-#[derive(Error, Debug, Eq, PartialEq)]
+#[derive(Error, Display, Debug, Eq, PartialEq)]
 pub enum InputSlotError {
-    #[error("input slot `{0:?}` does not exist")]
+    #[display("input slot `{_0:?}` does not exist")]
+    #[error(ignore)]
     InvalidSlot(SlotLabel),
-    #[error("attempted to retrieve a value of type `{actual}` from input slot `{label:?}`, which has type `{expected}`")]
+    #[display("attempted to retrieve a value of type `{actual}` from input slot `{label:?}`, which has type `{expected}`")]
     MismatchedSlotType {
         label: SlotLabel,
         expected: SlotType,

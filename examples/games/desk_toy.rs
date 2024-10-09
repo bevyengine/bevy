@@ -103,7 +103,7 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // Spawn a 2D camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Spawn the text instructions
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
@@ -113,14 +113,9 @@ fn setup(
         ..default()
     };
     commands.spawn((
-        Text2dBundle {
-            text: Text::from_section(
-                "Press Space to play on your desktop! Press it again to return.\nRight click Bevy logo to exit.",
-                text_style.clone(),
-            ),
-            transform: Transform::from_xyz(0.0, -300.0, 100.0),
-            ..default()
-        },
+        Text2d::new("Press Space to play on your desktop! Press it again to return.\nRight click Bevy logo to exit."),
+            text_style.clone(),
+            Transform::from_xyz(0.0, -300.0, 100.0),
         InstructionsText,
     ));
 
@@ -135,10 +130,7 @@ fn setup(
     // Spawn the Bevy logo sprite
     commands
         .spawn((
-            SpriteBundle {
-                texture: asset_server.load("branding/icon.png"),
-                ..default()
-            },
+            Sprite::from_image(asset_server.load("branding/icon.png")),
             BevyLogo,
         ))
         .with_children(|commands| {

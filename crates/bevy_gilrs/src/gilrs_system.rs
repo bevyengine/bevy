@@ -28,6 +28,8 @@ pub fn gilrs_event_startup_system(
 
         let info = GamepadInfo {
             name: gamepad.name().into(),
+            vendor_id: gamepad.vendor_id(),
+            product_id: gamepad.product_id(),
         };
 
         events.send(GamepadConnectionEvent {
@@ -62,6 +64,8 @@ pub fn gilrs_event_system(
 
                 let info = GamepadInfo {
                     name: pad.name().into(),
+                    vendor_id: pad.vendor_id(),
+                    product_id: pad.product_id(),
                 };
 
                 events.send(

@@ -19,7 +19,7 @@ struct AnimationState {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.insert_resource(AnimationState {
         min: 128.0,
         max: 512.0,
@@ -27,10 +27,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         speed: 50.0,
     });
     commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
-            ..default()
-        },
+        Sprite::from_image(asset_server.load("branding/icon.png")),
         ImageScaleMode::Tiled {
             tile_x: true,
             tile_y: true,

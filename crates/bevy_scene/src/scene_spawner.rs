@@ -8,8 +8,8 @@ use bevy_ecs::{
     world::{Command, Mut, World},
 };
 use bevy_hierarchy::{AddChild, BuildChildren, DespawnRecursiveExt, Parent};
-use bevy_utils::{tracing::error, HashMap, HashSet};
-use thiserror::Error;
+use bevy_utils::{HashMap, HashSet};
+use derive_more::derive::{Display, Error};
 use uuid::Uuid;
 
 /// Triggered on a scene's parent entity when [`crate::SceneInstance`] becomes ready to use.
@@ -72,22 +72,22 @@ pub struct SceneSpawner {
 }
 
 /// Errors that can occur when spawning a scene.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 pub enum SceneSpawnError {
     /// Scene contains an unregistered component type.
-    #[error("scene contains the unregistered component `{type_path}`. consider adding `#[reflect(Component)]` to your type")]
+    #[display("scene contains the unregistered component `{type_path}`. consider adding `#[reflect(Component)]` to your type")]
     UnregisteredComponent {
         /// Type of the unregistered component.
         type_path: String,
     },
     /// Scene contains an unregistered resource type.
-    #[error("scene contains the unregistered resource `{type_path}`. consider adding `#[reflect(Resource)]` to your type")]
+    #[display("scene contains the unregistered resource `{type_path}`. consider adding `#[reflect(Resource)]` to your type")]
     UnregisteredResource {
         /// Type of the unregistered resource.
         type_path: String,
     },
     /// Scene contains an unregistered type.
-    #[error(
+    #[display(
         "scene contains the unregistered type `{std_type_name}`. \
         consider reflecting it with `#[derive(Reflect)]` \
         and registering the type using `app.register_type::<T>()`"
@@ -97,7 +97,7 @@ pub enum SceneSpawnError {
         std_type_name: String,
     },
     /// Scene contains an unregistered type which has a `TypePath`.
-    #[error(
+    #[display(
         "scene contains the reflected type `{type_path}` but it was not found in the type registry. \
         consider registering the type using `app.register_type::<T>()``"
     )]
@@ -106,19 +106,19 @@ pub enum SceneSpawnError {
         type_path: String,
     },
     /// Scene contains a proxy without a represented type.
-    #[error("scene contains dynamic type `{type_path}` without a represented type. consider changing this using `set_represented_type`.")]
+    #[display("scene contains dynamic type `{type_path}` without a represented type. consider changing this using `set_represented_type`.")]
     NoRepresentedType {
         /// The dynamic instance type.
         type_path: String,
     },
     /// Dynamic scene with the given id does not exist.
-    #[error("scene does not exist")]
+    #[display("scene does not exist")]
     NonExistentScene {
         /// Id of the non-existent dynamic scene.
         id: AssetId<DynamicScene>,
     },
     /// Scene with the given id does not exist.
-    #[error("scene does not exist")]
+    #[display("scene does not exist")]
     NonExistentRealScene {
         /// Id of the non-existent scene.
         id: AssetId<Scene>,
@@ -191,7 +191,7 @@ impl SceneSpawner {
     pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
         if let Some(instance) = self.spawned_instances.remove(instance_id) {
             for &entity in instance.entity_map.values() {
-                if let Some(mut entity_mut) = world.get_entity_mut(entity) {
+                if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
                     entity_mut.remove_parent();
                     entity_mut.despawn_recursive();
                 };
@@ -427,7 +427,7 @@ pub fn scene_spawner_system(world: &mut World) {
         scene_spawner
             .scenes_with_parent
             .retain(|(instance, parent)| {
-                let retain = world.get_entity(*parent).is_some();
+                let retain = world.get_entity(*parent).is_ok();
 
                 if !retain {
                     dead_instances.insert(*instance);
@@ -581,7 +581,7 @@ mod tests {
 
     fn observe_trigger(app: &mut App, scene_id: InstanceId, scene_entity: Entity) {
         // Add observer
-        app.world_mut().observe(
+        app.world_mut().add_observer(
             move |trigger: Trigger<SceneInstanceReady>,
                   scene_spawner: Res<SceneSpawner>,
                   mut trigger_count: ResMut<TriggerCount>| {

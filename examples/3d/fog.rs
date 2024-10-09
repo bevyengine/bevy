@@ -34,7 +34,7 @@ fn main() {
 
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
-        Camera3dBundle::default(),
+        Camera3d::default(),
         DistanceFog {
             color: Color::srgb(0.25, 0.25, 0.25),
             falloff: FogFalloff::Linear {
@@ -116,14 +116,15 @@ fn setup_pyramid_scene(
 }
 
 fn setup_instructions(mut commands: Commands) {
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn update_system(
@@ -148,12 +149,10 @@ fn update_system(
     .looking_at(Vec3::ZERO, Vec3::Y);
 
     // Fog Information
-    text.sections[0].value = format!("Fog Falloff: {:?}\nFog Color: {:?}", fog.falloff, fog.color);
+    **text = format!("Fog Falloff: {:?}\nFog Color: {:?}", fog.falloff, fog.color);
 
     // Fog Falloff Mode Switching
-    text.sections[0]
-        .value
-        .push_str("\n\n1 / 2 / 3 - Fog Falloff Mode");
+    text.push_str("\n\n1 / 2 / 3 - Fog Falloff Mode");
 
     if keycode.pressed(KeyCode::Digit1) {
         if let FogFalloff::Linear { .. } = fog.falloff {
@@ -192,9 +191,7 @@ fn update_system(
         ref mut end,
     } = &mut fog.falloff
     {
-        text.sections[0]
-            .value
-            .push_str("\nA / S - Move Start Distance\nZ / X - Move End Distance");
+        text.push_str("\nA / S - Move Start Distance\nZ / X - Move End Distance");
 
         if keycode.pressed(KeyCode::KeyA) {
             *start -= delta * 3.0;
@@ -212,7 +209,7 @@ fn update_system(
 
     // Exponential Fog Controls
     if let FogFalloff::Exponential { ref mut density } = &mut fog.falloff {
-        text.sections[0].value.push_str("\nA / S - Change Density");
+        text.push_str("\nA / S - Change Density");
 
         if keycode.pressed(KeyCode::KeyA) {
             *density -= delta * 0.5 * *density;
@@ -227,7 +224,7 @@ fn update_system(
 
     // ExponentialSquared Fog Controls
     if let FogFalloff::ExponentialSquared { ref mut density } = &mut fog.falloff {
-        text.sections[0].value.push_str("\nA / S - Change Density");
+        text.push_str("\nA / S - Change Density");
 
         if keycode.pressed(KeyCode::KeyA) {
             *density -= delta * 0.5 * *density;
@@ -241,9 +238,7 @@ fn update_system(
     }
 
     // RGBA Controls
-    text.sections[0]
-        .value
-        .push_str("\n\n- / = - Red\n[ / ] - Green\n; / ' - Blue\n. / ? - Alpha");
+    text.push_str("\n\n- / = - Red\n[ / ] - Green\n; / ' - Blue\n. / ? - Alpha");
 
     // We're performing various operations in the sRGB color space,
     // so we convert the fog color to sRGB here, then modify it,

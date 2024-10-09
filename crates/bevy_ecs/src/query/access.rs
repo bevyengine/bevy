@@ -1,5 +1,8 @@
+use crate::component::ComponentId;
 use crate::storage::SparseSetIndex;
+use crate::world::World;
 use core::{fmt, fmt::Debug, marker::PhantomData};
+use derive_more::derive::From;
 use fixedbitset::FixedBitSet;
 
 /// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
@@ -727,6 +730,25 @@ impl<T: SparseSetIndex> Access<T> {
         AccessConflicts::Individual(conflicts)
     }
 
+    /// Returns the indices of the resources this has access to.
+    pub fn resource_reads_and_writes(&self) -> impl Iterator<Item = T> + '_ {
+        self.resource_read_and_writes
+            .ones()
+            .map(T::get_sparse_set_index)
+    }
+
+    /// Returns the indices of the resources this has non-exclusive access to.
+    pub fn resource_reads(&self) -> impl Iterator<Item = T> + '_ {
+        self.resource_read_and_writes
+            .difference(&self.resource_writes)
+            .map(T::get_sparse_set_index)
+    }
+
+    /// Returns the indices of the resources this has exclusive access to.
+    pub fn resource_writes(&self) -> impl Iterator<Item = T> + '_ {
+        self.resource_writes.ones().map(T::get_sparse_set_index)
+    }
+
     /// Returns the indices of the components that this has an archetypal access to.
     ///
     /// These are components whose values are not accessed (and thus will never cause conflicts),
@@ -835,7 +857,7 @@ impl<T: SparseSetIndex> From<FilteredAccess<T>> for FilteredAccessSet<T> {
 }
 
 /// Records how two accesses conflict with each other
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, From)]
 pub enum AccessConflicts {
     /// Conflict is for all indices
     All,
@@ -863,15 +885,27 @@ impl AccessConflicts {
         }
     }
 
+    pub(crate) fn format_conflict_list(&self, world: &World) -> String {
+        match self {
+            AccessConflicts::All => String::new(),
+            AccessConflicts::Individual(indices) => format!(
+                " {}",
+                indices
+                    .ones()
+                    .map(|index| world
+                        .components
+                        .get_info(ComponentId::get_sparse_set_index(index))
+                        .unwrap()
+                        .name())
+                    .collect::<Vec<&str>>()
+                    .join(", ")
+            ),
+        }
+    }
+
     /// An [`AccessConflicts`] which represents the absence of any conflict
     pub(crate) fn empty() -> Self {
         Self::Individual(FixedBitSet::new())
-    }
-}
-
-impl From<FixedBitSet> for AccessConflicts {
-    fn from(value: FixedBitSet) -> Self {
-        Self::Individual(value)
     }
 }
 
@@ -1236,6 +1270,20 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     pub(crate) fn add_unfiltered_resource_write(&mut self, index: T) {
         let mut filter = FilteredAccess::default();
         filter.add_resource_write(index);
+        self.add(filter);
+    }
+
+    /// Adds read access to all resources to the set.
+    pub(crate) fn add_unfiltered_read_all_resources(&mut self) {
+        let mut filter = FilteredAccess::default();
+        filter.access.read_all_resources();
+        self.add(filter);
+    }
+
+    /// Adds write access to all resources to the set.
+    pub(crate) fn add_unfiltered_write_all_resources(&mut self) {
+        let mut filter = FilteredAccess::default();
+        filter.access.write_all_resources();
         self.add(filter);
     }
 

@@ -115,7 +115,7 @@ fn star(
     ));
 
     // Spawn the camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }
 
 // Require `HasMaterial2d` to indicate that no placeholder material should be rendeed.

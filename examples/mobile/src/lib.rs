@@ -97,14 +97,14 @@ fn setup_scene(
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         // MSAA makes some Android devices panic, this is under investigation
         // https://github.com/bevyengine/bevy/issues/8229
         #[cfg(target_os = "android")]
-        msaa: Msaa::Off,
-        ..default()
-    });
+        Msaa::Off,
+    ));
 
     // Test ui
     commands
@@ -120,19 +120,15 @@ fn setup_scene(
             },
             ..default()
         })
-        .with_children(|b| {
-            b.spawn(
-                TextBundle::from_section(
-                    "Test Button",
-                    TextStyle {
-                        font_size: 30.0,
-                        color: Color::BLACK,
-                        ..default()
-                    },
-                )
-                .with_text_justify(JustifyText::Center),
-            );
-        });
+        .with_child((
+            Text::new("Test Button"),
+            TextStyle {
+                font_size: 30.0,
+                color: Color::BLACK,
+                ..default()
+            },
+            TextLayout::new_with_justify(JustifyText::Center),
+        ));
 }
 
 fn button_handler(

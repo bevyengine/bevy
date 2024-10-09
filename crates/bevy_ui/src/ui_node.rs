@@ -12,8 +12,8 @@ use bevy_sprite::BorderRect;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
+use derive_more::derive::{Display, Error, From};
 use smallvec::SmallVec;
-use thiserror::Error;
 
 /// Base component for a UI node, which also provides the computed size of the node.
 ///
@@ -1333,7 +1333,7 @@ impl Default for GridTrack {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect, From)]
 #[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -1360,12 +1360,6 @@ pub enum GridTrackRepetition {
 impl Default for GridTrackRepetition {
     fn default() -> Self {
         Self::Count(1)
-    }
-}
-
-impl From<u16> for GridTrackRepetition {
-    fn from(count: u16) -> Self {
-        Self::Count(count)
     }
 }
 
@@ -1784,11 +1778,11 @@ fn try_into_grid_span(span: u16) -> Result<Option<NonZero<u16>>, GridPlacementEr
 }
 
 /// Errors that occur when setting constraints for a `GridPlacement`
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Error, Display)]
 pub enum GridPlacementError {
-    #[error("Zero is not a valid grid position")]
+    #[display("Zero is not a valid grid position")]
     InvalidZeroIndex,
-    #[error("Spans cannot be zero length")]
+    #[display("Spans cannot be zero length")]
     InvalidZeroSpan,
 }
 
@@ -2373,6 +2367,41 @@ impl ResolvedBorderRadius {
     };
 }
 
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct BoxShadow {
+    /// The shadow's color
+    pub color: Color,
+    /// Horizontal offset
+    pub x_offset: Val,
+    /// Vertical offset
+    pub y_offset: Val,
+    /// How much the shadow should spread outward.
+    ///
+    /// Negative values will make the shadow shrink inwards.
+    /// Percentage values are based on the width of the UI node.
+    pub spread_radius: Val,
+    /// Blurriness of the shadow
+    pub blur_radius: Val,
+}
+
+impl Default for BoxShadow {
+    fn default() -> Self {
+        Self {
+            color: Color::BLACK,
+            x_offset: Val::Percent(20.),
+            y_offset: Val::Percent(20.),
+            spread_radius: Val::ZERO,
+            blur_radius: Val::Percent(10.),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::GridPlacement;
@@ -2437,7 +2466,7 @@ impl TargetCamera {
 /// # use bevy_ui::prelude::*;
 /// # use bevy_ecs::prelude::Commands;
 /// # use bevy_render::camera::{Camera, RenderTarget};
-/// # use bevy_core_pipeline::prelude::Camera2dBundle;
+/// # use bevy_core_pipeline::prelude::Camera2d;
 /// # use bevy_window::{Window, WindowRef};
 ///
 /// fn spawn_camera(mut commands: Commands) {
@@ -2446,11 +2475,9 @@ impl TargetCamera {
 ///         ..Default::default()
 ///     }).id();
 ///     commands.spawn((
-///         Camera2dBundle {
-///             camera: Camera {
-///                 target: RenderTarget::Window(WindowRef::Entity(another_window)),
-///                 ..Default::default()
-///             },
+///         Camera2d,
+///         Camera {
+///             target: RenderTarget::Window(WindowRef::Entity(another_window)),
 ///             ..Default::default()
 ///         },
 ///         // We add the Marker here so all Ui will spawn in
@@ -2493,7 +2520,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 /// Marker for controlling whether Ui is rendered with or without anti-aliasing
 /// in a camera. By default, Ui is always anti-aliased.
 ///
-/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`bevy_text::Text`] component.
+/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextStyle`](bevy_text::TextStyle) component.
 ///
 /// ```
 /// use bevy_core_pipeline::prelude::*;
@@ -2502,7 +2529,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 ///
 /// fn spawn_camera(mut commands: Commands) {
 ///     commands.spawn((
-///         Camera2dBundle::default(),
+///         Camera2d,
 ///         // This will cause all Ui in this camera to be rendered without
 ///         // anti-aliasing
 ///         UiAntiAlias::Off,
@@ -2516,4 +2543,29 @@ pub enum UiAntiAlias {
     On,
     /// UI will render without anti-aliasing
     Off,
+}
+
+/// Number of shadow samples.
+/// A larger value will result in higher quality shadows.
+/// Default is 4, values higher than ~10 offer diminishing returns.
+///
+/// ```
+/// use bevy_core_pipeline::prelude::*;
+/// use bevy_ecs::prelude::*;
+/// use bevy_ui::prelude::*;
+///
+/// fn spawn_camera(mut commands: Commands) {
+///     commands.spawn((
+///         Camera2d,
+///         UiBoxShadowSamples(6),
+///     ));
+/// }
+/// ```
+#[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
+pub struct UiBoxShadowSamples(pub u32);
+
+impl Default for UiBoxShadowSamples {
+    fn default() -> Self {
+        Self(4)
+    }
 }

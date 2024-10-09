@@ -129,7 +129,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -186,7 +186,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -257,13 +257,13 @@ fn spawn_button(
     ));
 
     if let Some(image) = image {
-        builder = builder.insert(UiImage::new(image));
+        builder.insert(UiImage::new(image));
     }
 
     if spawn_text {
         builder.with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                format!("{column}, {row}"),
+            parent.spawn((
+                Text(format!("{column}, {row}")),
                 TextStyle {
                     font_size: FONT_SIZE,
                     color: Color::srgb(0.2, 0.2, 0.2),

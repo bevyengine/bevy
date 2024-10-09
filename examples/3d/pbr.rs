@@ -58,71 +58,61 @@ fn setup(
     ));
 
     // labels
-    commands.spawn(
-        TextBundle::from_section(
-            "Perceptual Roughness",
-            TextStyle {
-                font_size: 30.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new("Perceptual Roughness"),
+        TextStyle {
+            font_size: 30.0,
+            ..default()
+        },
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(20.0),
             left: Val::Px(100.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
-    commands.spawn(TextBundle {
-        text: Text::from_section(
-            "Metallic",
-            TextStyle {
-                font_size: 30.0,
-                ..default()
-            },
-        ),
-        style: Style {
+    commands.spawn((
+        Text::new("Metallic"),
+        TextStyle {
+            font_size: 30.0,
+            ..default()
+        },
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(130.0),
             right: Val::ZERO,
             ..default()
         },
-        transform: Transform {
+        Transform {
             rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 
     commands.spawn((
-        TextBundle::from_section(
-            "Loading Environment Map...",
-            TextStyle {
-                font_size: 30.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+        Text::new("Loading Environment Map..."),
+        TextStyle {
+            font_size: 30.0,
+            ..default()
+        },
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(20.0),
             right: Val::Px(20.0),
             ..default()
-        }),
+        },
         EnvironmentMapLabel,
     ));
 
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
-            projection: OrthographicProjection {
-                scaling_mode: ScalingMode::WindowSize(100.0),
-                ..OrthographicProjection::default_3d()
-            }
-            .into(),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
+        Projection::from(OrthographicProjection {
+            scaling_mode: ScalingMode::WindowSize(100.0),
+            ..OrthographicProjection::default_3d()
+        }),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),

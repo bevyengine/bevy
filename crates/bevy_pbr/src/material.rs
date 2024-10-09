@@ -10,6 +10,7 @@ use bevy_core_pipeline::{
         AlphaMask3d, Camera3d, Opaque3d, Opaque3dBinKey, ScreenSpaceTransmissionQuality,
         Transmissive3d, Transparent3d,
     },
+    oit::OrderIndependentTransparencySettings,
     prepass::{
         DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass, OpaqueNoLightmap3dBinKey,
     },
@@ -17,6 +18,7 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    entity::EntityHashMap,
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
@@ -24,7 +26,6 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::TemporalJitter,
-    extract_instances::ExtractedInstances,
     extract_resource::ExtractResource,
     mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -275,7 +276,7 @@ where
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<DrawFunctions<Shadow>>()
-                .init_resource::<ExtractedInstances<AssetId<M>>>()
+                .init_resource::<RenderMaterialInstances<M>>()
                 .add_render_command::<Shadow, DrawPrepass<M>>()
                 .add_render_command::<Transmissive3d, DrawMaterial<M>>()
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
@@ -489,7 +490,15 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
     }
 }
 
-pub type RenderMaterialInstances<M> = ExtractedInstances<AssetId<M>>;
+/// Stores all extracted instances of a [`Material`] in the render world.
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderMaterialInstances<M: Material>(pub EntityHashMap<AssetId<M>>);
+
+impl<M: Material> Default for RenderMaterialInstances<M> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
 
 pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> MeshPipelineKey {
     match alpha_mode {
@@ -549,7 +558,7 @@ pub(super) fn clear_material_instances<M: Material>(
 
 fn extract_mesh_materials<M: Material>(
     mut material_instances: ResMut<RenderMaterialInstances<M>>,
-    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial3d<M>), With<Mesh3d>>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial3d<M>)>>,
 ) {
     for (entity, view_visibility, material) in &query {
         if view_visibility.get() {
@@ -620,6 +629,7 @@ pub fn queue_material_meshes<M: Material>(
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
         ),
+        Has<OrderIndependentTransparencySettings>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -638,6 +648,7 @@ pub fn queue_material_meshes<M: Material>(
         temporal_jitter,
         projection,
         (has_environment_maps, has_irradiance_volumes),
+        has_oit,
     ) in &views
     {
         let (
@@ -689,6 +700,10 @@ pub fn queue_material_meshes<M: Material>(
 
         if has_irradiance_volumes {
             view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
+        }
+
+        if has_oit {
+            view_key |= MeshPipelineKey::OIT_ENABLED;
         }
 
         if let Some(projection) = projection {

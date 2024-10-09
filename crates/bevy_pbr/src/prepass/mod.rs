@@ -3,7 +3,7 @@ mod prepass_bindings;
 use bevy_render::{
     mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_resource::binding_types::uniform_buffer,
-    world_sync::RenderEntity,
+    sync_world::RenderEntity,
 };
 pub use prepass_bindings::*;
 
@@ -35,7 +35,7 @@ use bevy_utils::tracing::error;
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
     prepare_material_meshlet_meshes_prepass, queue_material_meshlet_meshes, InstanceManager,
-    MeshletMesh,
+    MeshletMesh3d,
 };
 use crate::*;
 
@@ -221,7 +221,7 @@ pub struct PreviousGlobalTransform(pub Affine3A);
 #[cfg(not(feature = "meshlet"))]
 type PreviousMeshFilter = With<Mesh3d>;
 #[cfg(feature = "meshlet")]
-type PreviousMeshFilter = Or<(With<Mesh3d>, With<Handle<MeshletMesh>>)>;
+type PreviousMeshFilter = Or<(With<Mesh3d>, With<MeshletMesh3d>)>;
 
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
@@ -585,7 +585,9 @@ pub fn extract_camera_previous_view_data(
     for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
         if camera.is_active {
             let entity = entity.id();
-            let entity = commands.get_or_spawn(entity);
+            let mut entity = commands
+                .get_entity(entity)
+                .expect("Camera entity wasn't synced.");
 
             if let Some(previous_view_data) = maybe_previous_view_data {
                 entity.insert(previous_view_data.clone());

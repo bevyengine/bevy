@@ -55,17 +55,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let enemy_b_handle = asset_server.load("textures/simplespace/enemy_B.png");
 
     // 2D orthographic camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let horizontal_margin = BOUNDS.x / 4.0;
     let vertical_margin = BOUNDS.y / 4.0;
 
     // player controlled ship
     commands.spawn((
-        SpriteBundle {
-            texture: ship_handle,
-            ..default()
-        },
+        Sprite::from_image(ship_handle),
         Player {
             movement_speed: 500.0,                  // meters per second
             rotation_speed: f32::to_radians(360.0), // degrees per second
@@ -74,39 +71,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // enemy that snaps to face the player spawns on the bottom and left
     commands.spawn((
-        SpriteBundle {
-            texture: enemy_a_handle.clone(),
-            transform: Transform::from_xyz(0.0 - horizontal_margin, 0.0, 0.0),
-            ..default()
-        },
+        Sprite::from_image(enemy_a_handle.clone()),
+        Transform::from_xyz(0.0 - horizontal_margin, 0.0, 0.0),
         SnapToPlayer,
     ));
     commands.spawn((
-        SpriteBundle {
-            texture: enemy_a_handle,
-            transform: Transform::from_xyz(0.0, 0.0 - vertical_margin, 0.0),
-            ..default()
-        },
+        Sprite::from_image(enemy_a_handle),
+        Transform::from_xyz(0.0, 0.0 - vertical_margin, 0.0),
         SnapToPlayer,
     ));
 
     // enemy that rotates to face the player enemy spawns on the top and right
     commands.spawn((
-        SpriteBundle {
-            texture: enemy_b_handle.clone(),
-            transform: Transform::from_xyz(0.0 + horizontal_margin, 0.0, 0.0),
-            ..default()
-        },
+        Sprite::from_image(enemy_b_handle.clone()),
+        Transform::from_xyz(0.0 + horizontal_margin, 0.0, 0.0),
         RotateToPlayer {
             rotation_speed: f32::to_radians(45.0), // degrees per second
         },
     ));
     commands.spawn((
-        SpriteBundle {
-            texture: enemy_b_handle,
-            transform: Transform::from_xyz(0.0, 0.0 + vertical_margin, 0.0),
-            ..default()
-        },
+        Sprite::from_image(enemy_b_handle),
+        Transform::from_xyz(0.0, 0.0 + vertical_margin, 0.0),
         RotateToPlayer {
             rotation_speed: f32::to_radians(90.0), // degrees per second
         },

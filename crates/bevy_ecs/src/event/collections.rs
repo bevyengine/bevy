@@ -114,9 +114,7 @@ impl<E: Event> Default for Events<E> {
 impl<E: Event> Events<E> {
     /// Returns the index of the oldest event stored in the event buffer.
     pub fn oldest_event_count(&self) -> usize {
-        self.events_a
-            .start_event_count
-            .min(self.events_b.start_event_count)
+        self.events_a.start_event_count
     }
 
     /// "Sends" an `event` by writing it to the current event buffer.
@@ -279,7 +277,7 @@ impl<E: Event> Events<E> {
 
     /// Get a specific event by id if it still exists in the events buffer.
     pub fn get_event(&self, id: usize) -> Option<(&E, EventId<E>)> {
-        if id < self.oldest_id() {
+        if id < self.oldest_event_count() {
             return None;
         }
 
@@ -289,11 +287,6 @@ impl<E: Event> Events<E> {
         sequence
             .get(index)
             .map(|instance| (&instance.event, instance.event_id))
-    }
-
-    /// Oldest id still in the events buffer.
-    pub fn oldest_id(&self) -> usize {
-        self.events_a.start_event_count
     }
 
     /// Which event buffer is this event id a part of.

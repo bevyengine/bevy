@@ -27,15 +27,13 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            msaa: Msaa::Off,
+        Camera3d::default(),
+        Camera {
+            hdr: true,
             ..default()
         },
+        Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Msaa::Off,
         ScreenSpaceAmbientOcclusion::default(),
         TemporalAntiAliasing::default(),
     ));
@@ -80,14 +78,15 @@ fn setup(
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
     ));
 
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn update(
@@ -109,35 +108,55 @@ fn update(
     sphere.translation.y = ops::sin(time.elapsed_seconds() / 1.7) * 0.7;
 
     let (camera_entity, ssao, temporal_jitter) = camera.single();
+    let current_ssao = ssao.cloned().unwrap_or_default();
 
-    let mut commands = commands
-        .entity(camera_entity)
+    let mut commands = commands.entity(camera_entity);
+    commands
         .insert_if(
             ScreenSpaceAmbientOcclusion {
                 quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Low,
+                ..current_ssao
             },
             || keycode.just_pressed(KeyCode::Digit2),
         )
         .insert_if(
             ScreenSpaceAmbientOcclusion {
                 quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Medium,
+                ..current_ssao
             },
             || keycode.just_pressed(KeyCode::Digit3),
         )
         .insert_if(
             ScreenSpaceAmbientOcclusion {
                 quality_level: ScreenSpaceAmbientOcclusionQualityLevel::High,
+                ..current_ssao
             },
             || keycode.just_pressed(KeyCode::Digit4),
         )
         .insert_if(
             ScreenSpaceAmbientOcclusion {
                 quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
+                ..current_ssao
             },
             || keycode.just_pressed(KeyCode::Digit5),
+        )
+        .insert_if(
+            ScreenSpaceAmbientOcclusion {
+                constant_object_thickness: (current_ssao.constant_object_thickness * 2.0).min(4.0),
+                ..current_ssao
+            },
+            || keycode.just_pressed(KeyCode::ArrowUp),
+        )
+        .insert_if(
+            ScreenSpaceAmbientOcclusion {
+                constant_object_thickness: (current_ssao.constant_object_thickness * 0.5)
+                    .max(0.0625),
+                ..current_ssao
+            },
+            || keycode.just_pressed(KeyCode::ArrowDown),
         );
     if keycode.just_pressed(KeyCode::Digit1) {
-        commands = commands.remove::<ScreenSpaceAmbientOcclusion>();
+        commands.remove::<ScreenSpaceAmbientOcclusion>();
     }
     if keycode.just_pressed(KeyCode::Space) {
         if temporal_jitter.is_some() {
@@ -148,7 +167,6 @@ fn update(
     }
 
     let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
     text.clear();
 
     let (o, l, m, h, u) = match ssao.map(|s| s.quality_level) {
@@ -159,6 +177,13 @@ fn update(
         Some(ScreenSpaceAmbientOcclusionQualityLevel::Ultra) => ("", "", "", "", "*"),
         _ => unreachable!(),
     };
+
+    if let Some(thickness) = ssao.map(|s| s.constant_object_thickness) {
+        text.push_str(&format!(
+            "Constant object thickness: {} (Up/Down)\n\n",
+            thickness
+        ));
+    }
 
     text.push_str("SSAO Quality:\n");
     text.push_str(&format!("(1) {o}Off{o}\n"));

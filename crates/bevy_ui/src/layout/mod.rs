@@ -18,11 +18,11 @@ use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
 use ui_surface::UiSurface;
 
 #[cfg(feature = "bevy_text")]
-use bevy_text::CosmicBuffer;
+use bevy_text::ComputedTextBlock;
 #[cfg(feature = "bevy_text")]
 use bevy_text::CosmicFontSystem;
 
@@ -61,12 +61,12 @@ impl Default for LayoutContext {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display, From)]
 pub enum LayoutError {
-    #[error("Invalid hierarchy")]
+    #[display("Invalid hierarchy")]
     InvalidHierarchy,
-    #[error("Taffy error: {0}")]
-    TaffyError(#[from] taffy::TaffyError),
+    #[display("Taffy error: {_0}")]
+    TaffyError(taffy::TaffyError),
 }
 
 #[doc(hidden)]
@@ -125,7 +125,7 @@ pub fn ui_layout_system(
         Option<&Outline>,
         Option<&ScrollPosition>,
     )>,
-    #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut CosmicBuffer>,
+    #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut ComputedTextBlock>,
     #[cfg(feature = "bevy_text")] mut font_system: ResMut<CosmicFontSystem>,
 ) {
     let UiLayoutSystemBuffers {
@@ -464,7 +464,7 @@ mod tests {
     use taffy::TraversePartialTree;
 
     use bevy_asset::{AssetEvent, Assets};
-    use bevy_core_pipeline::core_2d::Camera2dBundle;
+    use bevy_core_pipeline::core_2d::Camera2d;
     use bevy_ecs::{
         entity::Entity,
         event::Events,
@@ -539,7 +539,7 @@ mod tests {
             },
             PrimaryWindow,
         ));
-        world.spawn(Camera2dBundle::default());
+        world.spawn(Camera2d);
 
         let mut ui_schedule = Schedule::default();
         ui_schedule.add_systems(
@@ -646,7 +646,7 @@ mod tests {
         assert!(ui_surface.camera_entity_to_taffy.is_empty());
 
         // respawn camera
-        let camera_entity = world.spawn(Camera2dBundle::default()).id();
+        let camera_entity = world.spawn(Camera2d).id();
 
         let ui_entity = world
             .spawn((NodeBundle::default(), TargetCamera(camera_entity)))
@@ -793,7 +793,7 @@ mod tests {
         }
 
         // despawn the parent entity and its descendants
-        despawn_with_children_recursive(&mut world, ui_parent_entity);
+        despawn_with_children_recursive(&mut world, ui_parent_entity, true);
 
         ui_schedule.run(&mut world);
 
@@ -970,13 +970,13 @@ mod tests {
 
         let (mut world, mut ui_schedule) = setup_ui_test_world();
 
-        world.spawn(Camera2dBundle {
-            camera: Camera {
+        world.spawn((
+            Camera2d,
+            Camera {
                 order: 1,
                 ..default()
             },
-            ..default()
-        });
+        ));
 
         world.spawn((
             NodeBundle {

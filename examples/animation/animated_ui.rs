@@ -40,22 +40,22 @@ fn main() {
 }
 
 impl AnimatableProperty for FontSizeProperty {
-    type Component = Text;
+    type Component = TextStyle;
 
     type Property = f32;
 
     fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-        Some(&mut component.sections.get_mut(0)?.style.font_size)
+        Some(&mut component.font_size)
     }
 }
 
 impl AnimatableProperty for TextColorProperty {
-    type Component = Text;
+    type Component = TextStyle;
 
     type Property = Srgba;
 
     fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-        match component.sections.get_mut(0)?.style.color {
+        match component.color {
             Color::Srgba(ref mut color) => Some(color),
             _ => None,
         }
@@ -144,7 +144,7 @@ fn setup(
     animation_player.play(animation_node_index).repeat();
 
     // Add a camera.
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Build the UI. We have a parent node that covers the whole screen and
     // contains the `AnimationPlayer`, as well as a child node that contains the
@@ -165,22 +165,21 @@ fn setup(
             ..default()
         })
         .insert(animation_player)
-        .insert(animation_graph)
+        .insert(AnimationGraphHandle(animation_graph))
         .with_children(|builder| {
             // Build the text node.
             let player = builder.parent_entity();
             builder
-                .spawn(
-                    TextBundle::from_section(
-                        "Bevy",
-                        TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 24.0,
-                            color: Color::Srgba(Srgba::RED),
-                        },
-                    )
-                    .with_text_justify(JustifyText::Center),
-                )
+                .spawn((
+                    Text::new("Bevy"),
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 24.0,
+                        color: Color::Srgba(Srgba::RED),
+                        ..default()
+                    },
+                    TextLayout::new_with_justify(JustifyText::Center),
+                ))
                 // Mark as an animation target.
                 .insert(AnimationTarget {
                     id: animation_target_id,
