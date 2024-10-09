@@ -178,7 +178,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         );
 
         builder.spawn((
-            Text::empty(),
+            Text::default(),
             TextStyle {
                 font: font.clone(),
                 font_size: 21.0,

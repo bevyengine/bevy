@@ -88,7 +88,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        Text::empty(),
+        Text::default(),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),

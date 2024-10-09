@@ -92,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
         .with_children(|builder| {
             // real time info
             builder.spawn((
-                Text::empty(),
+                Text::default(),
                 TextStyle {
                     font_size,
                     ..default()
@@ -113,7 +113,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
 
             // virtual time info
             builder.spawn((
-                Text::empty(),
+                Text::default(),
                 TextStyle {
                     font_size,
                     color: virtual_color,
