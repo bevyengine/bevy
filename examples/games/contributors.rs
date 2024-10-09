@@ -136,7 +136,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn((
-            TextNEW::new("Contributor showcase"),
+            Text::new("Contributor showcase"),
             text_style.clone(),
             ContributorDisplay,
             Style {
@@ -159,7 +159,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn selection(
     mut timer: ResMut<SelectionTimer>,
     mut contributor_selection: ResMut<ContributorSelection>,
-    text_query: Query<Entity, (With<ContributorDisplay>, With<TextNEW>)>,
+    text_query: Query<Entity, (With<ContributorDisplay>, With<Text>)>,
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
     mut writer: UiTextWriter,
     time: Res<Time>,

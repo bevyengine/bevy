@@ -203,7 +203,7 @@ fn spawn_text(mut commands: Commands) {
             },
             ..default()
         })
-        .with_child(TextNEW::new(concat!(
+        .with_child(Text::new(concat!(
             "Move the camera with your mouse.\n",
             "Press arrow up to decrease the FOV of the world model.\n",
             "Press arrow down to increase the FOV of the world model."

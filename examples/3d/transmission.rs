@@ -332,7 +332,7 @@ fn setup(
 
     // Controls Text
     commands.spawn((
-        TextNEW::empty(),
+        Text::empty(),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
@@ -396,7 +396,7 @@ fn example_control_system(
         ),
         With<Camera3d>,
     >,
-    mut display: Query<&mut TextNEW, With<ExampleDisplay>>,
+    mut display: Query<&mut Text, With<ExampleDisplay>>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,

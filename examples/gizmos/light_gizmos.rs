@@ -103,7 +103,7 @@ fn setup(
     // Example instructions and gizmo config.
     {
         commands.spawn((
-            TextNEW::new(
+            Text::new(
                 "Press 'D' to toggle drawing gizmos on top of everything else in the scene\n\
             Hold 'Left' or 'Right' to change the line width of the gizmos\n\
             Press 'A' to toggle drawing of the light gizmos\n\
@@ -123,7 +123,7 @@ fn setup(
 
         commands
             .spawn((
-                TextNEW::new("Gizmo color mode: "),
+                Text::new("Gizmo color mode: "),
                 GizmoColorText,
                 Style {
                     position_type: PositionType::Absolute,

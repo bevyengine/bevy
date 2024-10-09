@@ -22,7 +22,7 @@ fn button_system(
         (&Interaction, &mut TextureAtlas, &Children, &mut UiImage),
         (Changed<Interaction>, With<Button>),
     >,
-    mut text_query: Query<&mut TextNEW>,
+    mut text_query: Query<&mut Text>,
 ) {
     for (interaction, mut atlas, children, mut image) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
@@ -103,7 +103,7 @@ fn setup(
                     ))
                     .with_children(|parent| {
                         parent.spawn((
-                            TextNEW::new("Button"),
+                            Text::new("Button"),
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 33.0,

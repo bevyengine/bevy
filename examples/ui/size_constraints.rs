@@ -74,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     parent.spawn((
-                        TextNEW::new("Size Constraints Example"),
+                        Text::new("Size Constraints Example"),
                         text_style.clone(),
                         Style {
                             margin: UiRect::bottom(Val::Px(25.)),
@@ -193,7 +193,7 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                             },
                             ..Default::default()
                         })
-                        .with_child((TextNEW::new(label), text_style.clone()));
+                        .with_child((Text::new(label), text_style.clone()));
 
                     // spawn row buttons
                     parent
@@ -270,7 +270,7 @@ fn spawn_button(
                     ..Default::default()
                 })
                 .with_child((
-                    TextNEW::new(label),
+                    Text::new(label),
                     TextStyle {
                         color: if active {
                             ACTIVE_TEXT_COLOR

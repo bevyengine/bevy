@@ -82,7 +82,7 @@ fn setup(
         ))
         .with_children(|parent| {
             parent.spawn((
-                TextNEW::new("This is a cube"),
+                Text::new("This is a cube"),
                 TextStyle {
                     font_size: 40.0,
                     color: Color::BLACK,

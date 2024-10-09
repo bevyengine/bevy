@@ -61,7 +61,7 @@ fn setup(
                 Outline::new(Val::Px(8.0), Val::ZERO, CRIMSON.into()),
             ));
             parent
-                .spawn((TextNEW::new("press "), text_style.clone()))
+                .spawn((Text::new("press "), text_style.clone()))
                 .with_child((
                     TextSpan::new("space"),
                     TextStyle {

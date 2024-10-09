@@ -129,7 +129,7 @@ fn setup(
 
     let text_style = TextStyle::default();
 
-    commands.spawn((TextNEW::new("Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask"),
+    commands.spawn((Text::new("Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask"),
             text_style.clone(), Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
@@ -139,7 +139,7 @@ fn setup(
     );
 
     commands.spawn((
-        TextNEW::new(""),
+        Text::default(),
         text_style,
         Style {
             position_type: PositionType::Absolute,
@@ -162,7 +162,7 @@ struct ExampleResources {
 
 fn example_control_system(
     mut camera: Query<(&mut Transform, &mut AutoExposure), With<Camera3d>>,
-    mut display: Query<&mut TextNEW, With<ExampleDisplay>>,
+    mut display: Query<&mut Text, With<ExampleDisplay>>,
     mut mask_image: Query<&mut Style, With<UiImage>>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,

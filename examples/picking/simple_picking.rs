@@ -19,7 +19,7 @@ fn setup(
 ) {
     commands
         .spawn((
-            TextNEW::new("Click Me to get a box"),
+            Text::new("Click Me to get a box"),
             Style {
                 position_type: PositionType::Absolute,
                 top: Val::Percent(12.0),

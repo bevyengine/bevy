@@ -72,7 +72,7 @@ fn update_test_state(
     state.set(next);
 }
 
-fn update_text(mut text: Query<&mut TextNEW>, cur_state: Res<State<Test>>) {
+fn update_text(mut text: Query<&mut Text>, cur_state: Res<State<Test>>) {
     if !cur_state.is_changed() {
         return;
     }
@@ -272,7 +272,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        TextNEW::empty(),
+        Text::empty(),
         Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),

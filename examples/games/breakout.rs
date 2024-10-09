@@ -218,7 +218,7 @@ fn setup(
     // Scoreboard
     commands
         .spawn((
-            TextNEW::new("Score: "),
+            Text::new("Score: "),
             TextStyle {
                 font_size: SCOREBOARD_FONT_SIZE,
                 color: TEXT_COLOR,
@@ -336,7 +336,7 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>
 
 fn update_scoreboard(
     score: Res<Score>,
-    query: Query<Entity, (With<ScoreboardUi>, With<TextNEW>)>,
+    query: Query<Entity, (With<ScoreboardUi>, With<Text>)>,
     mut writer: UiTextWriter,
 ) {
     *writer.text(query.single(), 1) = score.to_string();

@@ -86,7 +86,7 @@ fn main() {
     }
 
     if args.recompute_text {
-        app.add_systems(Update, |mut text_query: Query<&mut TextNEW>| {
+        app.add_systems(Update, |mut text_query: Query<&mut Text>| {
             text_query
                 .iter_mut()
                 .for_each(|mut text| text.set_changed());
@@ -263,7 +263,7 @@ fn spawn_button(
     if spawn_text {
         builder.with_children(|parent| {
             parent.spawn((
-                TextNEW(format!("{column}, {row}")),
+                Text(format!("{column}, {row}")),
                 TextStyle {
                     font_size: FONT_SIZE,
                     color: Color::srgb(0.2, 0.2, 0.2),

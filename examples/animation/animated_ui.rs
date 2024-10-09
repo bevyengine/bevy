@@ -171,7 +171,7 @@ fn setup(
             let player = builder.parent_entity();
             builder
                 .spawn((
-                    TextNEW::new("Bevy"),
+                    Text::new("Bevy"),
                     TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 24.0,

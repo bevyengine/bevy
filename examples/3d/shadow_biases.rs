@@ -116,7 +116,7 @@ fn setup(
             GlobalZIndex(i32::MAX),
         ))
         .with_children(|p| {
-            p.spawn(TextNEW::default()).with_children(|p| {
+            p.spawn(Text::default()).with_children(|p| {
                 p.spawn(TextSpan::new("Controls:\n"));
                 p.spawn(TextSpan::new("R / Z - reset biases to default / zero\n"));
                 p.spawn(TextSpan::new(
@@ -158,7 +158,7 @@ fn toggle_light(
     input: Res<ButtonInput<KeyCode>>,
     mut point_lights: Query<&mut PointLight>,
     mut directional_lights: Query<&mut DirectionalLight>,
-    example_text: Query<Entity, With<TextNEW>>,
+    example_text: Query<Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     if input.just_pressed(KeyCode::KeyL) {
@@ -184,7 +184,7 @@ fn toggle_light(
 fn adjust_light_position(
     input: Res<ButtonInput<KeyCode>>,
     mut lights: Query<&mut Transform, With<Lights>>,
-    example_text: Query<Entity, With<TextNEW>>,
+    example_text: Query<Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     let mut offset = Vec3::ZERO;
@@ -221,7 +221,7 @@ fn adjust_light_position(
 fn cycle_filter_methods(
     input: Res<ButtonInput<KeyCode>>,
     mut filter_methods: Query<&mut ShadowFilteringMethod>,
-    example_text: Query<Entity, With<TextNEW>>,
+    example_text: Query<Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     if input.just_pressed(KeyCode::KeyF) {
@@ -249,7 +249,7 @@ fn cycle_filter_methods(
 fn adjust_point_light_biases(
     input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut PointLight>,
-    example_text: Query<Entity, With<TextNEW>>,
+    example_text: Query<Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     let depth_bias_step_size = 0.01;
@@ -284,7 +284,7 @@ fn adjust_point_light_biases(
 fn adjust_directional_light_biases(
     input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut DirectionalLight>,
-    example_text: Query<Entity, With<TextNEW>>,
+    example_text: Query<Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     let depth_bias_step_size = 0.01;

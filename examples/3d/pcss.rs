@@ -252,7 +252,7 @@ fn update_radio_buttons(
         (
             Entity,
             Option<&mut BackgroundColor>,
-            Has<TextNEW>,
+            Has<Text>,
             &WidgetClickSender<AppSetting>,
         ),
         Or<(With<RadioButton>, With<RadioButtonText>)>,

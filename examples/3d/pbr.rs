@@ -59,7 +59,7 @@ fn setup(
 
     // labels
     commands.spawn((
-        TextNEW::new("Perceptual Roughness"),
+        Text::new("Perceptual Roughness"),
         TextStyle {
             font_size: 30.0,
             ..default()
@@ -73,7 +73,7 @@ fn setup(
     ));
 
     commands.spawn((
-        TextNEW::new("Metallic"),
+        Text::new("Metallic"),
         TextStyle {
             font_size: 30.0,
             ..default()
@@ -91,7 +91,7 @@ fn setup(
     ));
 
     commands.spawn((
-        TextNEW::new("Loading Environment Map..."),
+        Text::new("Loading Environment Map..."),
         TextStyle {
             font_size: 30.0,
             ..default()

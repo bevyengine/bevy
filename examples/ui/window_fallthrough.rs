@@ -28,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Text with one span
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
-        TextNEW::new("Hit 'P' then scroll/click around!"),
+        Text::new("Hit 'P' then scroll/click around!"),
         TextStyle {
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 83.0, // Nice and big so you can see it!

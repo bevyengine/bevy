@@ -282,7 +282,7 @@ fn setup(
             GlobalZIndex(i32::MAX),
         ))
         .with_children(|p| {
-            p.spawn((TextNEW::default(), StatsText)).with_children(|p| {
+            p.spawn((Text::default(), StatsText)).with_children(|p| {
                 p.spawn((TextSpan::new("Bird Count: "), lime_text.clone()));
                 p.spawn((TextSpan::new(""), aqua_text.clone()));
                 p.spawn((TextSpan::new("\nFPS (raw): "), lime_text.clone()));

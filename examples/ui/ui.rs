@@ -74,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .with_children(|parent| {
                             // text
                             parent.spawn((
-                                TextNEW::new("Text Example"),
+                                Text::new("Text Example"),
                                 TextStyle {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     font_size: 25.0,
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             #[cfg(feature = "bevy_dev_tools")]
                             // Debug overlay text
                             parent.spawn((
-                                TextNEW::new("Press Space to enable debug outlines."),
+                                Text::new("Press Space to enable debug outlines."),
                                 TextStyle {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     ..default()
@@ -99,7 +99,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                             #[cfg(not(feature = "bevy_dev_tools"))]
                             parent.spawn((
-                                TextNEW::new("Try enabling feature \"bevy_dev_tools\"."),
+                                Text::new("Try enabling feature \"bevy_dev_tools\"."),
                                 TextStyle {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     ..default()
@@ -123,7 +123,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     // Title
                     parent.spawn((
-                        TextNEW::new("Scrolling list"),
+                        Text::new("Scrolling list"),
                         TextStyle {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 21.,
@@ -149,7 +149,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             for i in 0..25 {
                                 parent
                                     .spawn((
-                                        TextNEW(format!("Item {i}")),
+                                        Text(format!("Item {i}")),
                                         TextStyle {
                                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                             ..default()
@@ -310,7 +310,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     ..Default::default()
                                 },
-                                TextNEW::new("Bevy logo"),
+                                Text::new("Bevy logo"),
                             ));
                         });
                 });

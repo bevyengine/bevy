@@ -105,10 +105,10 @@ fn spawn_text(mut commands: Commands) {
             },
         ))
         .with_children(|parent| {
-            parent.spawn(TextNEW::new(
+            parent.spawn(Text::new(
                 "Space: swap image texture paths by mutating a Handle<Image>",
             ));
-            parent.spawn(TextNEW::new(
+            parent.spawn(Text::new(
                 "Return: mutate the image Asset itself, changing all copies of it",
             ));
         });

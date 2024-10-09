@@ -56,7 +56,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn((TextNEW::new("Size!"), text_style));
+                    parent.spawn((Text::new("Size!"), text_style));
                 });
             parent.spawn(NodeBundle {
                 style: Style {

@@ -382,7 +382,7 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
         ))
         .with_children(|p| {
             p.spawn((
-                TextNEW::default(),
+                Text::default(),
                 HeaderText,
                 TextBlock::new_with_justify(JustifyText::Center),
             ))

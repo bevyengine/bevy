@@ -55,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .insert(RelativeCursorPosition::default());
 
             parent.spawn((
-                TextNEW::new("(0.0, 0.0)"),
+                Text::new("(0.0, 0.0)"),
                 TextStyle {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 33.0,
@@ -69,7 +69,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// This systems polls the relative cursor position and displays its value in a text component.
 fn relative_cursor_position_system(
     relative_cursor_position_query: Query<&RelativeCursorPosition>,
-    mut output_query: Query<(&mut TextNEW, &mut TextStyle)>,
+    mut output_query: Query<(&mut Text, &mut TextStyle)>,
 ) {
     let relative_cursor_position = relative_cursor_position_query.single();
 

@@ -49,10 +49,10 @@ impl Default for TextNodeFlags {
 
 /// The top-level UI text component.
 ///
-/// Adding `TextNEW` to an entity will pull in required components for setting up a UI text node.
+/// Adding [`Text`] to an entity will pull in required components for setting up a UI text node.
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`TextBlock`]. See [`TextSpan`] for the component used by children of entities with `TextNEW`.
+/// a [`TextBlock`]. See [`TextSpan`] for the component used by children of entities with [`Text`].
 ///
 /// Note that [`Transform`] on this entity is managed automatically by the UI layout system.
 ///
@@ -102,9 +102,9 @@ world.spawn((
     Visibility, // TODO: Remove when Node uses required components.
     Transform // TODO: Remove when Node uses required components.
 )]
-pub struct TextNEW(pub String);
+pub struct Text(pub String);
 
-impl TextNEW {
+impl Text {
     /// Makes a new text component.
     pub fn new(text: impl Into<String>) -> Self {
         Self(text.into())
@@ -116,11 +116,11 @@ impl TextNEW {
     }
 }
 
-impl TextRoot for TextNEW {
+impl TextRoot for Text {
     type Span = TextSpan;
 }
 
-impl TextSpanAccess for TextNEW {
+impl TextSpanAccess for Text {
     fn read_span(&self) -> &str {
         self.as_str()
     }
@@ -129,13 +129,13 @@ impl TextSpanAccess for TextNEW {
     }
 }
 
-impl From<&str> for TextNEW {
+impl From<&str> for Text {
     fn from(value: &str) -> Self {
         Self(String::from(value))
     }
 }
 
-impl From<String> for TextNEW {
+impl From<String> for Text {
     fn from(value: String) -> Self {
         Self(value)
     }
@@ -220,10 +220,10 @@ fn hidden_visibility() -> Visibility {
 }
 
 /// UI alias for [`TextReader`].
-pub type UiTextReader<'w, 's> = TextReader<'w, 's, TextNEW>;
+pub type UiTextReader<'w, 's> = TextReader<'w, 's, Text>;
 
 /// UI alias for [`TextWriter`].
-pub type UiTextWriter<'w, 's> = TextWriter<'w, 's, TextNEW>;
+pub type UiTextWriter<'w, 's> = TextWriter<'w, 's, Text>;
 
 /// Text measurement for UI layout. See [`NodeMeasure`].
 pub struct TextMeasure {

@@ -135,7 +135,7 @@ fn setup(
 
     // create a minimal UI explaining how to interact with the example
     commands.spawn((
-        TextNEW::new("Left Arrow Key: Animate Left Sprite\nRight Arrow Key: Animate Right Sprite"),
+        Text::new("Left Arrow Key: Animate Left Sprite\nRight Arrow Key: Animate Right Sprite"),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),

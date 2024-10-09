@@ -82,7 +82,7 @@ fn setup(
     ));
 
     commands.spawn((
-        TextNEW::new("Press <spacebar> to save a screenshot to disk"),
+        Text::new("Press <spacebar> to save a screenshot to disk"),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),

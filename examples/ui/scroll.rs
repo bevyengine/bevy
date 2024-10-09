@@ -55,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     // header
                     parent.spawn((
-                        TextNEW::new("Horizontally Scrolling list (Ctrl + Mousewheel)"),
+                        Text::new("Horizontally Scrolling list (Ctrl + Mousewheel)"),
                         TextStyle {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: FONT_SIZE,
@@ -79,7 +79,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         })
                         .with_children(|parent| {
                             for i in 0..100 {
-                                parent.spawn((TextNEW(format!("Item {i}")),
+                                parent.spawn((Text(format!("Item {i}")),
                                         TextStyle {
                                             font: asset_server
                                                 .load("fonts/FiraSans-Bold.ttf"),
@@ -137,7 +137,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .with_children(|parent| {
                             // Title
                             parent.spawn((
-                                TextNEW::new("Vertically Scrolling List"),
+                                Text::new("Vertically Scrolling List"),
                                 TextStyle {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     font_size: FONT_SIZE,
@@ -177,7 +177,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             .with_children(|parent| {
                                                 parent
                                                     .spawn((
-                                                        TextNEW(format!("Item {i}")),
+                                                        Text(format!("Item {i}")),
                                                         TextStyle {
                                                             font: asset_server
                                                                 .load("fonts/FiraSans-Bold.ttf"),
@@ -212,7 +212,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .with_children(|parent| {
                             // Title
                             parent.spawn((
-                                TextNEW::new("Bidirectionally Scrolling List"),
+                                Text::new("Bidirectionally Scrolling List"),
                                 TextStyle {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     font_size: FONT_SIZE,
@@ -250,7 +250,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 for i in 0..25 {
                                                     parent
                                                         .spawn((
-                                                            TextNEW(format!(
+                                                            Text(format!(
                                                                 "Item {}",
                                                                 (oi * 25) + i
                                                             )),
@@ -290,7 +290,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .with_children(|parent| {
                             // Title
                             parent.spawn((
-                                TextNEW::new("Nested Scrolling Lists"),
+                                Text::new("Nested Scrolling Lists"),
                                 TextStyle {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     font_size: FONT_SIZE,
@@ -335,7 +335,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 for i in 0..25 {
                                                     parent
                                                         .spawn((
-                                                            TextNEW(format!(
+                                                            Text(format!(
                                                                 "Item {}",
                                                                 (oi * 25) + i
                                                             )),

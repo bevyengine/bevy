@@ -188,7 +188,7 @@ pub(crate) mod test_setup {
         event.send(RequestRedraw);
         commands
             .spawn((
-                TextNEW::default(),
+                Text::default(),
                 Style {
                     align_self: AlignSelf::FlexStart,
                     position_type: PositionType::Absolute,

@@ -20,7 +20,7 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
     commands.spawn((
-        TextNEW::new("Press P to panic"),
+        Text::new("Press P to panic"),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),

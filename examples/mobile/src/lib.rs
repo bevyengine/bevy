@@ -121,7 +121,7 @@ fn setup_scene(
             ..default()
         })
         .with_child((
-            TextNEW::new("Test Button"),
+            Text::new("Test Button"),
             TextStyle {
                 font_size: 30.0,
                 color: Color::BLACK,

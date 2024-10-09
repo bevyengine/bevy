@@ -251,7 +251,7 @@ fn setup_scene(
 /// Places the help text at the top left of the window.
 fn setup_help_text(commands: &mut Commands) {
     commands.spawn((
-        TextNEW::new(HELP_TEXT),
+        Text::new(HELP_TEXT),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
@@ -271,7 +271,7 @@ fn setup_node_rects(commands: &mut Commands) {
 
         let text = commands
             .spawn((
-                TextNEW::new(node_string),
+                Text::new(node_string),
                 TextStyle {
                     font_size: 16.0,
                     color: ANTIQUE_WHITE.into(),
@@ -422,8 +422,8 @@ fn handle_weight_drag(
 
 // Updates the UI based on the weights that the user has chosen.
 fn update_ui(
-    mut text_query: Query<&mut TextNEW>,
-    mut background_query: Query<&mut Style, Without<TextNEW>>,
+    mut text_query: Query<&mut Text>,
+    mut background_query: Query<&mut Style, Without<Text>>,
     container_query: Query<(&Children, &ClipNode)>,
     animation_weights_query: Query<&ExampleAnimationWeights, Changed<ExampleAnimationWeights>>,
 ) {

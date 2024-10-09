@@ -34,7 +34,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // a place to display the extras on screen
     commands.spawn((
-        TextNEW::new(""),
+        Text::default(),
         TextStyle {
             font_size: 15.,
             ..default()
@@ -58,7 +58,7 @@ fn check_for_gltf_extras(
         Option<&GltfMeshExtras>,
         Option<&GltfMaterialExtras>,
     )>,
-    mut display: Query<&mut TextNEW, With<ExampleDisplay>>,
+    mut display: Query<&mut Text, With<ExampleDisplay>>,
 ) {
     let mut gltf_extra_infos_lines: Vec<String> = vec![];
 

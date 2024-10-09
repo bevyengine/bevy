@@ -95,9 +95,9 @@ fn instructions(mut commands: Commands) {
             },
         ))
         .with_children(|parent| {
-            parent.spawn(TextNEW::new("Mouse up or down: pitch"));
-            parent.spawn(TextNEW::new("Mouse left or right: yaw"));
-            parent.spawn(TextNEW::new("Mouse buttons: roll"));
+            parent.spawn(Text::new("Mouse up or down: pitch"));
+            parent.spawn(Text::new("Mouse left or right: yaw"));
+            parent.spawn(Text::new("Mouse buttons: roll"));
         });
 }
 

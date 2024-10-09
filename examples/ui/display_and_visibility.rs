@@ -94,7 +94,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         background_color: BackgroundColor(Color::BLACK),
         ..Default::default()
     }).with_children(|parent| {
-        parent.spawn((TextNEW::new("Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left"),
+        parent.spawn((Text::new("Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left"),
             text_style.clone(),
             TextBlock::new_with_justify(JustifyText::Center),
             Style {
@@ -152,15 +152,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 };
 
-                builder.spawn((TextNEW::new("Display::None\nVisibility::Hidden\nVisibility::Inherited"),
+                builder.spawn((Text::new("Display::None\nVisibility::Hidden\nVisibility::Inherited"),
                         TextStyle { color: HIDDEN_COLOR, ..text_style.clone() },
                         TextBlock::new_with_justify(JustifyText::Center),
                 ));
-                builder.spawn((TextNEW::new("-\n-\n-"),
+                builder.spawn((Text::new("-\n-\n-"),
                         TextStyle { color: DARK_GRAY.into(), ..text_style.clone() },
                         TextBlock::new_with_justify(JustifyText::Center),
                 ));
-                builder.spawn((TextNEW::new("The UI Node and its descendants will not be visible and will not be allotted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible."),
+                builder.spawn((Text::new("The UI Node and its descendants will not be visible and will not be allotted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible."),
                     text_style
                 ));
             });
@@ -412,7 +412,7 @@ where
         ))
         .with_children(|builder| {
             builder.spawn((
-                TextNEW(format!("{}::{:?}", Target::<T>::NAME, T::default())),
+                Text(format!("{}::{:?}", Target::<T>::NAME, T::default())),
                 text_style,
                 TextBlock::new_with_justify(JustifyText::Center),
             ));
@@ -422,7 +422,7 @@ where
 fn buttons_handler<T>(
     mut left_panel_query: Query<&mut <Target<T> as TargetUpdate>::TargetComponent>,
     mut visibility_button_query: Query<(&Target<T>, &Interaction, &Children), Changed<Interaction>>,
-    mut text_query: Query<(&mut TextNEW, &mut TextStyle)>,
+    mut text_query: Query<(&mut Text, &mut TextStyle)>,
 ) where
     T: Send + Sync,
     Target<T>: TargetUpdate + Component,
@@ -446,7 +446,7 @@ fn buttons_handler<T>(
 
 fn text_hover(
     mut button_query: Query<(&Interaction, &mut BackgroundColor, &Children), Changed<Interaction>>,
-    mut text_query: Query<(&TextNEW, &mut TextStyle)>,
+    mut text_query: Query<(&Text, &mut TextStyle)>,
 ) {
     for (interaction, mut color, children) in button_query.iter_mut() {
         match interaction {

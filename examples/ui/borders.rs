@@ -160,7 +160,7 @@ fn setup(mut commands: Commands) {
             .id();
         let label_node = commands
             .spawn((
-                TextNEW::new(label),
+                Text::new(label),
                 TextStyle {
                     font_size: 9.0,
                     ..Default::default()
@@ -229,7 +229,7 @@ fn setup(mut commands: Commands) {
             .id();
         let label_node = commands
             .spawn((
-                TextNEW::new(label),
+                Text::new(label),
                 TextStyle {
                     font_size: 9.0,
                     ..Default::default()
@@ -266,7 +266,7 @@ fn setup(mut commands: Commands) {
         })
         .with_children(|builder| {
             builder.spawn((
-                TextNEW::new("Borders"),
+                Text::new("Borders"),
                 TextStyle {
                     font_size: 20.0,
                     ..Default::default()
@@ -291,7 +291,7 @@ fn setup(mut commands: Commands) {
         })
         .with_children(|builder| {
             builder.spawn((
-                TextNEW::new("Borders Rounded"),
+                Text::new("Borders Rounded"),
                 TextStyle {
                     font_size: 20.0,
                     ..Default::default()

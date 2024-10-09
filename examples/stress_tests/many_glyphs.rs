@@ -76,7 +76,7 @@ fn setup(mut commands: Commands) {
                     ..Default::default()
                 })
                 .with_child((
-                    TextNEW(text_string.clone()),
+                    Text(text_string.clone()),
                     text_style.clone(),
                     text_block.clone(),
                 ));

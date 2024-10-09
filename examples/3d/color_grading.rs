@@ -315,7 +315,7 @@ fn add_help_text(
     currently_selected_option: &SelectedColorGradingOption,
 ) {
     commands.spawn((
-        TextNEW::new(create_help_text(currently_selected_option)),
+        Text::new(create_help_text(currently_selected_option)),
         TextStyle {
             font: font.clone(),
             ..default()
@@ -338,7 +338,7 @@ fn add_text<'a>(
     color: Color,
 ) -> EntityCommands<'a> {
     parent.spawn((
-        TextNEW::new(label),
+        Text::new(label),
         TextStyle {
             font: font.clone(),
             font_size: 15.0,
@@ -559,7 +559,7 @@ fn update_ui_state(
         &mut BorderColor,
         &ColorGradingOptionWidget,
     )>,
-    button_text: Query<(Entity, &ColorGradingOptionWidget), (With<TextNEW>, Without<HelpText>)>,
+    button_text: Query<(Entity, &ColorGradingOptionWidget), (With<Text>, Without<HelpText>)>,
     help_text: Query<Entity, With<HelpText>>,
     mut writer: UiTextWriter,
     cameras: Query<Ref<ColorGrading>>,
