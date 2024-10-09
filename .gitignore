@@ -1,4 +1,4 @@
-# Rust
+# Rust build artifacts
 /target
 crates/*/target
 **/*.rs.bk
@@ -22,7 +22,7 @@ assets/**/*.meta
 crates/bevy_asset/imported_assets
 imported_assets
 
-# Example
+# Examples
 example_showcase_config.ron
 example-showcase-reports/
 
