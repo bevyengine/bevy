@@ -9,19 +9,19 @@ use bevy_utils::{
     tracing::{debug, error, warn},
     HashMap,
 };
+use derive_more::derive::{Display, Error};
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
     RectToInsert, TargetBin,
 };
-use thiserror::Error;
 
 use crate::{TextureAtlasLayout, TextureAtlasSources};
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub enum TextureAtlasBuilderError {
-    #[error("could not pack textures into an atlas within the given bounds")]
+    #[display("could not pack textures into an atlas within the given bounds")]
     NotEnoughSpace,
-    #[error("added a texture with the wrong format in an atlas")]
+    #[display("added a texture with the wrong format in an atlas")]
     WrongFormat,
 }
 
