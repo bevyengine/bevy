@@ -147,15 +147,15 @@ fn setup(
     ));
 
     // Instructions
-    commands.spawn(
-        TextBundle::from_section("Hover over the shapes to pick them", TextStyle::default())
-            .with_style(Style {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            }),
-    );
+    commands.spawn((
+        Text::new("Hover over the shapes to pick them"),
+        Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
 }
 
 /// Changes the material when the pointer is over the mesh.
