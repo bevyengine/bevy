@@ -12,8 +12,7 @@ struct OitFragment {
     depth: f32,
 }
 // Contains all the colors and depth for this specific fragment
-// TODO don't hardcode size
-var<private> fragment_list: array<OitFragment, 32>;
+var<private> fragment_list: array<OitFragment, #{LAYER_COUNT}>;
 
 struct FullscreenVertexOutput {
     @builtin(position) position: vec4<f32>,

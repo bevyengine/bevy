@@ -8,6 +8,7 @@ use bevy_render::{
     extract_component::ExtractComponent,
     render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
 };
+use derive_more::derive::From;
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
@@ -152,19 +153,15 @@ where
     }
 }
 
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, ExtractComponent)]
+#[derive(
+    Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, ExtractComponent, From,
+)]
 #[reflect(Component, Default)]
 pub struct UiMaterialHandle<M: UiMaterial>(pub Handle<M>);
 
 impl<M: UiMaterial> Default for UiMaterialHandle<M> {
     fn default() -> Self {
         Self(Handle::default())
-    }
-}
-
-impl<M: UiMaterial> From<Handle<M>> for UiMaterialHandle<M> {
-    fn from(handle: Handle<M>) -> Self {
-        Self(handle)
     }
 }
 

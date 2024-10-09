@@ -55,7 +55,7 @@ use self::{
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
-use crate::{graph::NodePbr, Material};
+use crate::{graph::NodePbr, Material, MeshMaterial3d};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetApp, Handle};
 use bevy_core_pipeline::{
@@ -288,7 +288,7 @@ impl Plugin for MeshletPlugin {
 #[derive(Bundle, Clone)]
 pub struct MaterialMeshletMeshBundle<M: Material> {
     pub meshlet_mesh: Handle<MeshletMesh>,
-    pub material: Handle<M>,
+    pub material: MeshMaterial3d<M>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible

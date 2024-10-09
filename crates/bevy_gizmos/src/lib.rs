@@ -83,6 +83,10 @@ use bevy_ecs::{
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
 
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 use crate::config::GizmoMeshConfig;
 
 #[cfg(feature = "bevy_render")]
@@ -105,7 +109,7 @@ use {
             ShaderStages, ShaderType, VertexFormat,
         },
         renderer::RenderDevice,
-        world_sync::TemporaryRenderEntity,
+        sync_world::TemporaryRenderEntity,
         Extract, ExtractSchedule, Render, RenderApp, RenderSet,
     },
     bytemuck::cast_slice,
@@ -600,7 +604,10 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
 
 #[cfg(feature = "bevy_render")]
 struct DrawLineGizmo;
-#[cfg(feature = "bevy_render")]
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
@@ -653,7 +660,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
 
 #[cfg(feature = "bevy_render")]
 struct DrawLineJointGizmo;
-#[cfg(feature = "bevy_render")]
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();

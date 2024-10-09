@@ -8,8 +8,8 @@
 
 use super::interval::Interval;
 use core::fmt::Debug;
+use derive_more::derive::{Display, Error};
 use itertools::Itertools;
-use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -131,18 +131,18 @@ pub struct EvenCore<T> {
 }
 
 /// An error indicating that an [`EvenCore`] could not be constructed.
-#[derive(Debug, Error)]
-#[error("Could not construct an EvenCore")]
+#[derive(Debug, Error, Display)]
+#[display("Could not construct an EvenCore")]
 pub enum EvenCoreError {
     /// Not enough samples were provided.
-    #[error("Need at least two samples to create an EvenCore, but {samples} were provided")]
+    #[display("Need at least two samples to create an EvenCore, but {samples} were provided")]
     NotEnoughSamples {
         /// The number of samples that were provided.
         samples: usize,
     },
 
     /// Unbounded domains are not compatible with `EvenCore`.
-    #[error("Cannot create a EvenCore over an unbounded domain")]
+    #[display("Cannot create a EvenCore over an unbounded domain")]
     UnboundedDomain,
 }
 
@@ -333,11 +333,11 @@ pub struct UnevenCore<T> {
 }
 
 /// An error indicating that an [`UnevenCore`] could not be constructed.
-#[derive(Debug, Error)]
-#[error("Could not construct an UnevenCore")]
+#[derive(Debug, Error, Display)]
+#[display("Could not construct an UnevenCore")]
 pub enum UnevenCoreError {
     /// Not enough samples were provided.
-    #[error(
+    #[display(
         "Need at least two unique samples to create an UnevenCore, but {samples} were provided"
     )]
     NotEnoughSamples {
@@ -472,15 +472,15 @@ pub struct ChunkedUnevenCore<T> {
 }
 
 /// An error that indicates that a [`ChunkedUnevenCore`] could not be formed.
-#[derive(Debug, Error)]
-#[error("Could not create a ChunkedUnevenCore")]
+#[derive(Debug, Error, Display)]
+#[display("Could not create a ChunkedUnevenCore")]
 pub enum ChunkedUnevenCoreError {
     /// The width of a `ChunkedUnevenCore` cannot be zero.
-    #[error("Chunk width must be at least 1")]
+    #[display("Chunk width must be at least 1")]
     ZeroWidth,
 
     /// At least two sample times are necessary to interpolate in `ChunkedUnevenCore`.
-    #[error(
+    #[display(
         "Need at least two unique samples to create a ChunkedUnevenCore, but {samples} were provided"
     )]
     NotEnoughSamples {
@@ -489,7 +489,7 @@ pub enum ChunkedUnevenCoreError {
     },
 
     /// The length of the value buffer is supposed to be the `width` times the number of samples.
-    #[error("Expected {expected} total values based on width, but {actual} were provided")]
+    #[display("Expected {expected} total values based on width, but {actual} were provided")]
     MismatchedLengths {
         /// The expected length of the value buffer.
         expected: usize,
@@ -498,7 +498,7 @@ pub enum ChunkedUnevenCoreError {
     },
 
     /// Tried to infer the width, but the ratio of lengths wasn't an integer, so no such length exists.
-    #[error("The length of the list of values ({values_len}) was not divisible by that of the list of times ({times_len})")]
+    #[display("The length of the list of values ({values_len}) was not divisible by that of the list of times ({times_len})")]
     NonDivisibleLengths {
         /// The length of the value buffer.
         values_len: usize,

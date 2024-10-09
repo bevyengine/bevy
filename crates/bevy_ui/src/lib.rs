@@ -150,6 +150,7 @@ impl Plugin for UiPlugin {
             .register_type::<ZIndex>()
             .register_type::<Outline>()
             .register_type::<UiBoxShadowSamples>()
+            .register_type::<UiAntiAlias>()
             .configure_sets(
                 PostUpdate,
                 (

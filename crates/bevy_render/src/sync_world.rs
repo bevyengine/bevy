@@ -13,11 +13,18 @@ use bevy_reflect::Reflect;
 
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
 ///
+/// All entities with the [`SyncToRenderWorld`] component are kept in sync. It
+/// is automatically added as a required component by [`ExtractComponentPlugin`]
+/// and [`SyncComponentPlugin`], so it doesn't need to be added manually when
+/// spawning or as a required component when either of these plugins are used.
+///
+/// # Implementation
+///
 /// Bevy's renderer is architected independently from the main app.
 /// It operates in its own separate ECS [`World`], so the renderer logic can run in parallel with the main world logic.
 /// This is called "Pipelined Rendering", see [`PipelinedRenderingPlugin`] for more information.
 ///
-/// [`WorldSyncPlugin`] is the first thing that runs every frame and it maintains an entity-to-entity mapping
+/// [`SyncWorldPlugin`] is the first thing that runs every frame and it maintains an entity-to-entity mapping
 /// between the main world and the render world.
 /// It does so by spawning and despawning entities in the render world, to match spawned and despawned entities in the main world.
 /// The link between synced entities is maintained by the [`RenderEntity`] and [`MainEntity`] components.
@@ -66,42 +73,52 @@ use bevy_reflect::Reflect;
 /// The render world probably cares about a `Position` component, but not a `Velocity` component.
 /// The extraction happens in its own step, independently from, and after synchronization.
 ///
-/// Moreover, [`WorldSyncPlugin`] only synchronizes *entities*. [`RenderAsset`](crate::render_asset::RenderAsset)s like meshes and textures are handled
+/// Moreover, [`SyncWorldPlugin`] only synchronizes *entities*. [`RenderAsset`](crate::render_asset::RenderAsset)s like meshes and textures are handled
 /// differently.
 ///
 /// [`PipelinedRenderingPlugin`]: crate::pipelined_rendering::PipelinedRenderingPlugin
+/// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
+/// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 #[derive(Default)]
-pub struct WorldSyncPlugin;
+pub struct SyncWorldPlugin;
 
-impl Plugin for WorldSyncPlugin {
+impl Plugin for SyncWorldPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity>();
-        app.observe(
+        app.add_observer(
             |trigger: Trigger<OnAdd, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(trigger.entity()));
             },
         );
-        app.observe(
+        app.add_observer(
             |trigger: Trigger<OnRemove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(trigger.entity()) {
-                    pending.push(EntityRecord::Removed(e.id()));
+                    pending.push(EntityRecord::Removed(*e));
                 };
             },
         );
     }
 }
-/// Marker component that indicates that its entity needs to be synchronized to the render world
+/// Marker component that indicates that its entity needs to be synchronized to the render world.
+///
+/// This component is automatically added as a required component by [`ExtractComponentPlugin`] and [`SyncComponentPlugin`].
+/// For more information see [`SyncWorldPlugin`].
 ///
 /// NOTE: This component should persist throughout the entity's entire lifecycle.
 /// If this component is removed from its entity, the entity will be despawned.
+///
+/// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
+/// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect[Component]]
 #[component(storage = "SparseSet")]
 pub struct SyncToRenderWorld;
 
-/// Component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity
+/// Component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity.
+///
+/// Can also be used as a newtype wrapper for render world entities.
 #[derive(Component, Deref, Clone, Debug, Copy)]
 pub struct RenderEntity(Entity);
 impl RenderEntity {
@@ -111,7 +128,9 @@ impl RenderEntity {
     }
 }
 
-/// Component added on the render world entities to keep track of the corresponding main world entity
+/// Component added on the render world entities to keep track of the corresponding main world entity.
+///
+/// Can also be used as a newtype wrapper for main world entities.
 #[derive(Component, Deref, Clone, Debug)]
 pub struct MainEntity(Entity);
 impl MainEntity {
@@ -127,13 +146,17 @@ impl MainEntity {
 pub struct TemporaryRenderEntity;
 
 /// A record enum to what entities with [`SyncToRenderWorld`] have been added or removed.
+#[derive(Debug)]
 pub(crate) enum EntityRecord {
     /// When an entity is spawned on the main world, notify the render world so that it can spawn a corresponding
     /// entity. This contains the main world entity.
     Added(Entity),
     /// When an entity is despawned on the main world, notify the render world so that the corresponding entity can be
     /// despawned. This contains the render world entity.
-    Removed(Entity),
+    Removed(RenderEntity),
+    /// When a component is removed from an entity, notify the render world so that the corresponding component can be
+    /// removed. This contains the main world entity.
+    ComponentRemoved(Entity),
 }
 
 // Entity Record in MainWorld pending to Sync
@@ -148,8 +171,8 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
         for record in pending.drain(..) {
             match record {
                 EntityRecord::Added(e) => {
-                    if let Ok(mut entity) = world.get_entity_mut(e) {
-                        match entity.entry::<RenderEntity>() {
+                    if let Ok(mut main_entity) = world.get_entity_mut(e) {
+                        match main_entity.entry::<RenderEntity>() {
                             bevy_ecs::world::Entry::Occupied(_) => {
                                 panic!("Attempting to synchronize an entity that has already been synchronized!");
                             }
@@ -161,11 +184,24 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                         };
                     }
                 }
-                EntityRecord::Removed(e) => {
-                    if let Ok(ec) = render_world.get_entity_mut(e) {
+                EntityRecord::Removed(render_entity) => {
+                    if let Ok(ec) = render_world.get_entity_mut(render_entity.id()) {
                         ec.despawn();
                     };
                 }
+                EntityRecord::ComponentRemoved(main_entity) => {
+                    let Some(mut render_entity) = world.get_mut::<RenderEntity>(main_entity) else {
+                        continue;
+                    };
+                    if let Ok(render_world_entity) = render_world.get_entity_mut(render_entity.id()) {
+                        // In order to handle components that extract to derived components, we clear the entity
+                        // and let the extraction system re-add the components.
+                        render_world_entity.despawn();
+
+                        let id = render_world.spawn(MainEntity(main_entity)).id();
+                        render_entity.0 = id;
+                    }
+                },
             }
         }
     });
@@ -207,22 +243,22 @@ mod tests {
     struct RenderDataComponent;
 
     #[test]
-    fn world_sync() {
+    fn sync_world() {
         let mut main_world = World::new();
         let mut render_world = World::new();
         main_world.init_resource::<PendingSyncEntity>();
 
-        main_world.observe(
+        main_world.add_observer(
             |trigger: Trigger<OnAdd, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(trigger.entity()));
             },
         );
-        main_world.observe(
+        main_world.add_observer(
             |trigger: Trigger<OnRemove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(trigger.entity()) {
-                    pending.push(EntityRecord::Removed(e.id()));
+                    pending.push(EntityRecord::Removed(*e));
                 };
             },
         );

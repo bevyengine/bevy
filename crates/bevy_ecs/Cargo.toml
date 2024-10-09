@@ -32,7 +32,13 @@ concurrent-queue = "2.4.0"
 disqualified = "1.0"
 fixedbitset = "0.5"
 serde = { version = "1", optional = true, default-features = false }
-thiserror = "1.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+  "into",
+  "as_ref",
+] }
 nonmax = "0.5"
 arrayvec = { version = "0.7.4", optional = true }
 smallvec = "1"

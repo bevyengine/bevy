@@ -4,6 +4,7 @@ use super::Transform;
 use bevy_math::{Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A};
 #[cfg(all(feature = "bevy-support", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use derive_more::derive::From;
 #[cfg(feature = "bevy-support")]
 use {
     bevy_ecs::{component::Component, reflect::ReflectComponent},
@@ -39,7 +40,7 @@ use {
 /// - [`transform`][transform_example]
 ///
 /// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy-support",
@@ -271,12 +272,6 @@ impl Default for GlobalTransform {
 impl From<Transform> for GlobalTransform {
     fn from(transform: Transform) -> Self {
         Self(transform.compute_affine())
-    }
-}
-
-impl From<Affine3A> for GlobalTransform {
-    fn from(affine: Affine3A) -> Self {
-        Self(affine)
     }
 }
 
