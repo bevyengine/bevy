@@ -559,10 +559,22 @@ fn extract_mesh_materials<M: Material>(
     }
 }
 
+#[derive(Component)]
+pub struct NoDefaultMaterial3d;
+
 /// Extracts default materials for 3D meshes with no [`MeshMaterial3d`].
 pub(super) fn extract_default_materials(
     mut material_instances: ResMut<RenderMaterialInstances<StandardMaterial>>,
-    query: Extract<Query<(Entity, &ViewVisibility), (With<Mesh3d>, Without<HasMaterial3d>)>>,
+    query: Extract<
+        Query<
+            (Entity, &ViewVisibility),
+            (
+                With<Mesh3d>,
+                Without<HasMaterial3d>,
+                Without<NoDefaultMaterial3d>,
+            ),
+        >,
+    >,
 ) {
     for (entity, view_visibility) in &query {
         if view_visibility.get() {
