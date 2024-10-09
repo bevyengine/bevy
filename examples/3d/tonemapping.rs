@@ -81,14 +81,15 @@ fn setup(
     ));
 
     // ui
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -169,25 +170,22 @@ fn setup_image_viewer_scene(
         HDRViewer,
     ));
 
-    commands
-        .spawn((
-            TextBundle::from_section(
-                "Drag and drop an HDR or EXR file",
-                TextStyle {
-                    font_size: 36.0,
-                    color: Color::BLACK,
-                    ..default()
-                },
-            )
-            .with_text_justify(JustifyText::Center)
-            .with_style(Style {
-                align_self: AlignSelf::Center,
-                margin: UiRect::all(Val::Auto),
-                ..default()
-            }),
-            SceneNumber(3),
-        ))
-        .insert(Visibility::Hidden);
+    commands.spawn((
+        Text::new("Drag and drop an HDR or EXR file"),
+        TextStyle {
+            font_size: 36.0,
+            color: Color::BLACK,
+            ..default()
+        },
+        TextLayout::new_with_justify(JustifyText::Center),
+        Style {
+            align_self: AlignSelf::Center,
+            margin: UiRect::all(Val::Auto),
+            ..default()
+        },
+        SceneNumber(3),
+        Visibility::Hidden,
+    ));
 }
 
 // ----------------------------------------------------------------------------
@@ -403,13 +401,13 @@ fn update_ui(
         *hide_ui = !*hide_ui;
     }
 
-    let old_text = &text_query.single().sections[0].value;
+    let old_text = text_query.single();
 
     if *hide_ui {
         if !old_text.is_empty() {
             // single_mut() always triggers change detection,
             // so only access if text actually needs changing
-            text_query.single_mut().sections[0].value.clear();
+            text_query.single_mut().clear();
         }
         return;
     }
@@ -534,7 +532,7 @@ fn update_ui(
     if text != old_text.as_str() {
         // single_mut() always triggers change detection,
         // so only access if text actually changed
-        text_query.single_mut().sections[0].value = text;
+        **text_query.single_mut() = text;
     }
 }
 

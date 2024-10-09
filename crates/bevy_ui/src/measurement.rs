@@ -23,7 +23,7 @@ pub struct MeasureArgs<'a> {
     #[cfg(feature = "bevy_text")]
     pub font_system: &'a mut bevy_text::cosmic_text::FontSystem,
     #[cfg(feature = "bevy_text")]
-    pub buffer: Option<&'a mut bevy_text::cosmic_text::Buffer>,
+    pub buffer: Option<&'a mut bevy_text::ComputedTextBlock>,
     // When `bevy_text` is disabled, use `PhantomData` in order to keep lifetime in type signature.
     #[cfg(not(feature = "bevy_text"))]
     pub font_system: core::marker::PhantomData<&'a mut ()>,

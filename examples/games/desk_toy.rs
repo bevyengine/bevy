@@ -113,14 +113,9 @@ fn setup(
         ..default()
     };
     commands.spawn((
-        Text2dBundle {
-            text: Text::from_section(
-                "Press Space to play on your desktop! Press it again to return.\nRight click Bevy logo to exit.",
-                text_style.clone(),
-            ),
-            transform: Transform::from_xyz(0.0, -300.0, 100.0),
-            ..default()
-        },
+        Text2d::new("Press Space to play on your desktop! Press it again to return.\nRight click Bevy logo to exit."),
+            text_style.clone(),
+            Transform::from_xyz(0.0, -300.0, 100.0),
         InstructionsText,
     ));
 
