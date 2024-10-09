@@ -1,17 +1,15 @@
-//! A ray casting backend for [`bevy_picking`](crate).
-//!
-//! # Usage
+//! A [mesh ray casting](ray_cast) backend for [`bevy_picking`](crate).
 //!
 //! If a pointer passes through this camera's render target, it will automatically shoot rays into
-//! the scene and will be able to pick things.
+//! the scene and be able to pick meshes.
 //!
-//! To ignore an entity, you can add [`PickingBehavior::IGNORE`] to it, and it will be ignored during
-//! ray casting.
+//! To ignore an entity for picking, you can add [`PickingBehavior::IGNORE`] to it. You can also configure
+//! [`MeshPickingBackendSettings::require_markers`] to only perform ray casts between cameras and meshes
+//! marked with the [`RayCastPickable`] component.
 //!
-//! For fine-grained control, see the [`MeshPickingBackendSettings::require_markers`] setting.
+//! To manually perform mesh ray casts independent of picking, use the [`MeshRayCast`] system parameter.
 
-#![allow(clippy::too_many_arguments, clippy::type_complexity)]
-#![warn(missing_docs)]
+pub mod ray_cast;
 
 use crate::{
     backend::{ray::RayMap, HitData, PointerHits},
@@ -22,35 +20,25 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_render::{prelude::*, view::RenderLayers};
-use ray_cast::{Backfaces, MeshRayCast, RayCastSettings, RayCastVisibility};
-
-pub mod ray_cast;
-
-/// The mesh picking prelude.
-///
-/// This includes the most common types in this crate, re-exported for your convenience.
-pub mod prelude {
-    #[doc(hidden)]
-    pub use super::{
-        ray_cast::{Backfaces, MeshRayCast, RayCastSettings, RayCastVisibility},
-        MeshPickingBackend,
-    };
-}
+use ray_cast::{Backfaces, MeshRayCast, RayCastSettings, RayCastVisibility, SimplifiedMesh};
 
 /// Runtime settings for the [`MeshPickingBackend`].
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
 pub struct MeshPickingBackendSettings {
     /// When set to `true` ray casting will only happen between cameras and entities marked with
-    /// [`RayCastPickable`]. Off by default. This setting is provided to give you fine-grained
-    /// control over which cameras and entities should be used by the ray cast backend at runtime.
+    /// [`RayCastPickable`]. Off by default.
+    ///
+    /// This setting is provided to give you fine-grained control over which cameras and entities
+    /// should be used by the ray cast backend at runtime.
     pub require_markers: bool,
 
-    /// When set to [`RayCastVisibility::Any`], hidden items can be ray casted against.
+    /// When set to [`RayCastVisibility::Any`], hidden meshes can be ray casted against.
+    ///
     /// See [`RayCastSettings::visibility`] for more information.
     pub raycast_visibility: RayCastVisibility,
 
-    /// When set to [`Backfaces::Cull`], backfaces will be ignored during ray casting.
+    /// When set to [`Backfaces::Cull`], backfaces of meshes will be ignored during ray casting.
     pub backfaces: Backfaces,
 }
 
@@ -58,31 +46,32 @@ impl Default for MeshPickingBackendSettings {
     fn default() -> Self {
         Self {
             require_markers: false,
-            raycast_visibility: RayCastVisibility::VisibleAndInView,
+            raycast_visibility: RayCastVisibility::VisibleInView,
             backfaces: Backfaces::default(),
         }
     }
 }
 
-/// Optional. Marks cameras and target entities that should be used in the ray cast picking backend.
-/// Only needed if [`MeshPickingBackendSettings::require_markers`] is set to true.
+/// An optional component that marks cameras and target entities that should be used in the ray cast picking backend.
+/// Only needed if [`MeshPickingBackendSettings::require_markers`] is set to `true`.
 #[derive(Debug, Clone, Default, Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct RayCastPickable;
 
-/// Adds the ray casting picking backend to your app.
+/// Adds the mesh picking backend to your app.
 #[derive(Clone, Default)]
 pub struct MeshPickingBackend;
+
 impl Plugin for MeshPickingBackend {
     fn build(&self, app: &mut App) {
         app.init_resource::<MeshPickingBackendSettings>()
-            .add_systems(PreUpdate, update_hits.in_set(PickSet::Backend))
-            .register_type::<RayCastPickable>()
-            .register_type::<MeshPickingBackendSettings>();
+            .register_type::<(RayCastPickable, MeshPickingBackendSettings, SimplifiedMesh)>()
+            .add_systems(PreUpdate, update_hits.in_set(PickSet::Backend));
     }
 }
 
-/// Casts rays into the scene using [`MeshPickingBackendSettings`] and outputs [`PointerHits`].
+/// Casts rays into the scene using [`MeshPickingBackendSettings`] and sends [`PointerHits`] events.
+#[allow(clippy::too_many_arguments)]
 pub fn update_hits(
     backend_settings: Res<MeshPickingBackendSettings>,
     ray_map: Res<RayMap>,

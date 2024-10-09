@@ -1,9 +1,10 @@
-//! Ray casting on meshes.
+//! Ray casting for meshes.
+//!
+//! See the [`MeshRayCast`] system parameter for more information.
 
 mod intersections;
-mod simplified_mesh;
 
-pub use simplified_mesh::*;
+use bevy_derive::{Deref, DerefMut};
 
 use bevy_math::Ray3d;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -19,30 +20,30 @@ use bevy_render::{prelude::*, primitives::Aabb};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::tracing::*;
 
-/// How a ray cast should handle visibility.
+/// How a ray cast should handle [`Visibility`].
 #[derive(Clone, Copy, Reflect)]
 pub enum RayCastVisibility {
     /// Completely ignore visibility checks. Hidden items can still be ray casted against.
     Any,
-    /// Only ray cast against entities that are visible in the hierarchy. See [`Visibility`].
+    /// Only cast rays against entities that are visible in the hierarchy. See [`Visibility`].
     Visible,
-    /// Only ray cast against entities that are visible in the hierarchy and visible to a camera or
+    /// Only cast rays against entities that are visible in the hierarchy and visible to a camera or
     /// light. See [`Visibility`].
-    VisibleAndInView,
+    VisibleInView,
 }
 
 /// Settings for a ray cast.
 #[derive(Clone)]
 pub struct RayCastSettings<'a> {
-    /// Determines how ray casting should consider entity visibility.
+    /// Determines how ray casting should consider [`Visibility`].
     pub visibility: RayCastVisibility,
-    /// Determines how ray casting should handle backfaces.
+    /// Determines if ray casting should include backfaces or cull them.
     pub backfaces: Backfaces,
-    /// A filtering function that is applied to every entity that is ray casted. Only entities that
-    /// return `true` will be considered.
+    /// A predicate that is applied for every entity that ray casts are performed against.
+    /// Only entities that return `true` will be considered.
     pub filter: &'a dyn Fn(Entity) -> bool,
     /// A function that is run every time a hit is found. Ray casting will continue to check for hits
-    /// along the ray as long as this returns false.
+    /// along the ray as long as this returns `false`.
     pub early_exit_test: &'a dyn Fn(Entity) -> bool,
 }
 
@@ -79,7 +80,7 @@ impl<'a> RayCastSettings<'a> {
 impl<'a> Default for RayCastSettings<'a> {
     fn default() -> Self {
         Self {
-            visibility: RayCastVisibility::VisibleAndInView,
+            visibility: RayCastVisibility::VisibleInView,
             backfaces: Backfaces::default(),
             filter: &|_| true,
             early_exit_test: &|_| true,
@@ -87,7 +88,7 @@ impl<'a> Default for RayCastSettings<'a> {
     }
 }
 
-/// Determines whether backfaces should be culled or included in intersection checks.
+/// Determines whether backfaces should be culled or included in ray intersection tests.
 #[derive(Copy, Clone, Default, Reflect)]
 #[reflect(Default)]
 pub enum Backfaces {
@@ -97,31 +98,38 @@ pub enum Backfaces {
     /// Include backfaces.
     Include,
 }
+/// A simplified mesh component that can be used for [ray casting](super::MeshRayCast).
+///
+/// Consider using this component for complex meshes that don't need perfectly accurate ray casting.
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect)]
+#[reflect(Component, Debug)]
+pub struct SimplifiedMesh(pub Handle<Mesh>);
 
-type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>)>;
+type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;
 
-/// Add this raycasting [`SystemParam`] to your system to ray cast into the world with an
-/// immediate-mode API. Call `cast_ray` to immediately perform a ray cast and get a result. Under the
-/// hood, this is a collection of regular bevy queries, resources, and locals that are added to your
-/// system.
+/// Add this ray casting [`SystemParam`] to your system to cast rays into the world with an
+/// immediate-mode API. Call `cast_ray` to immediately perform a ray cast and get a result.
+///
+/// Under the hood, this is a collection of regular bevy queries, resources, and local parameters
+/// that are added to your system.
 ///
 /// ## Usage
 ///
-/// The following system ray casts into the world with a ray positioned at the origin, pointing in
-/// the x-direction, and returns a list of intersections:
+/// The following system casts a ray into the world with the ray positioned at the origin, pointing in
+/// the X-direction, and returns a list of intersections:
 ///
 /// ```
 /// # use bevy::prelude::*;
-/// fn ray_cast_system(mut raycast: MeshRayCast) {
-///     let ray = Ray3d::new(Vec3::ZERO, Vec3::X);
-///     let hits = raycast.cast_ray(ray, &RayCastSettings::default());
+/// fn ray_cast_system(mut ray_cast: MeshRayCast) {
+///     let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
+///     let hits = ray_cast.cast_ray(ray, &RayCastSettings::default());
 /// }
 /// ```
 ///
 /// ## Configuration
 ///
-/// You can specify behavior of the ray cast using [`RayCastSettings`]. This allows you to filter out
-/// entities, configure early-out, and set whether the [`Visibility`] of an entity should be
+/// You can specify the behavior of the ray cast using [`RayCastSettings`]. This allows you to filter out
+/// entities, configure early-out behavior, and set whether the [`Visibility`] of an entity should be
 /// considered.
 ///
 /// ```
@@ -129,20 +137,23 @@ type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>)>;
 /// # #[derive(Component)]
 /// # struct Foo;
 /// fn ray_cast_system(mut ray_cast: MeshRayCast, foo_query: Query<(), With<Foo>>) {
-///     let ray = Ray3d::new(Vec3::ZERO, Vec3::X);
+///     let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
 ///
 ///     // Only ray cast against entities with the `Foo` component.
 ///     let filter = |entity| foo_query.contains(entity);
+///
 ///     // Never early-exit. Note that you can change behavior per-entity.
 ///     let early_exit_test = |_entity| false;
+///
 ///     // Ignore the visibility of entities. This allows ray casting hidden entities.
-///     let visibility = RayCastVisibility::Ignore;
+///     let visibility = RayCastVisibility::Any;
 ///
 ///     let settings = RayCastSettings::default()
 ///         .with_filter(&filter)
 ///         .with_early_exit_test(&early_exit_test)
 ///         .with_visibility(visibility);
 ///
+///     // Cast the ray with the settings, returning a list of intersections.
 ///     let hits = ray_cast.cast_ray(ray, &settings);
 /// }
 /// ```
@@ -174,20 +185,12 @@ pub struct MeshRayCast<'w, 's> {
         'w,
         's,
         (
-            Read<Mesh3d>,
+            Option<Read<Mesh2d>>,
+            Option<Read<Mesh3d>>,
             Option<Read<SimplifiedMesh>>,
             Read<GlobalTransform>,
         ),
-    >,
-    #[doc(hidden)]
-    pub mesh2d_query: Query<
-        'w,
-        's,
-        (
-            Read<Mesh2d>,
-            Option<Read<SimplifiedMesh>>,
-            Read<GlobalTransform>,
-        ),
+        MeshFilter,
     >,
 }
 
@@ -201,7 +204,7 @@ impl<'w, 's> MeshRayCast<'w, 's> {
         self.culled_list.clear();
         self.output.clear();
 
-        // Check all entities to see if the ray intersects the AABB, use this to build a short list
+        // Check all entities to see if the ray intersects the AABB. Use this to build a short list
         // of entities that are in the path of the ray.
         let (aabb_hits_tx, aabb_hits_rx) = crossbeam_channel::unbounded::<(FloatOrd, Entity)>();
         let visibility_setting = settings.visibility;
@@ -210,7 +213,7 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                 let should_ray_cast = match visibility_setting {
                     RayCastVisibility::Any => true,
                     RayCastVisibility::Visible => inherited_visibility.get(),
-                    RayCastVisibility::VisibleAndInView => view_visibility.get(),
+                    RayCastVisibility::VisibleInView => view_visibility.get(),
                 };
                 if should_ray_cast {
                     if let Some([near, _]) =
@@ -223,57 +226,61 @@ impl<'w, 's> MeshRayCast<'w, 's> {
             },
         );
         *self.culled_list = aabb_hits_rx.try_iter().collect();
+
+        // Sort by the distance along the ray.
         self.culled_list.sort_by_key(|(aabb_near, _)| *aabb_near);
+
         drop(ray_cull_guard);
 
+        // Perform ray casts against the culled entities.
         let mut nearest_blocking_hit = FloatOrd(f32::INFINITY);
         let ray_cast_guard = debug_span!("ray_cast");
         self.culled_list
             .iter()
             .filter(|(_, entity)| (settings.filter)(*entity))
             .for_each(|(aabb_near, entity)| {
-                let mut ray_cast_mesh =
-                    |mesh_handle: &Handle<Mesh>,
-                     simplified_mesh: Option<&SimplifiedMesh>,
-                     transform: &GlobalTransform| {
-                        // Is it even possible the mesh could be closer than the current best?
-                        if *aabb_near > nearest_blocking_hit {
-                            return;
-                        }
+                // Get the mesh components and transform.
+                let Ok((mesh2d, mesh3d, simplified_mesh, transform)) = self.mesh_query.get(*entity)
+                else {
+                    return;
+                };
 
-                        // Does the mesh handle resolve?
-                        let mesh_handle = simplified_mesh.map(|m| &m.0).unwrap_or(mesh_handle);
-                        let Some(mesh) = self.meshes.get(mesh_handle) else {
-                            return;
-                        };
+                // Get the underlying mesh handle. One of these will always be `Some` because of the query filters.
+                let Some(mesh_handle) = simplified_mesh
+                    .map(|m| &m.0)
+                    .or(mesh3d.map(|m| &m.0).or(mesh2d.map(|m| &m.0)))
+                else {
+                    return;
+                };
 
-                        let _ray_cast_guard = ray_cast_guard.enter();
-                        let transform = transform.compute_matrix();
-                        let intersection =
-                            ray_intersection_over_mesh(mesh, &transform, ray, settings.backfaces);
-                        if let Some(intersection) = intersection {
-                            let distance = FloatOrd(intersection.distance);
-                            if (settings.early_exit_test)(*entity)
-                                && distance < nearest_blocking_hit
-                            {
-                                // The reason we don't just return here is because right now we are
-                                // going through the AABBs in order, but that doesn't mean that an
-                                // AABB that starts further away cant end up with a closer hit than
-                                // an AABB that starts closer. We need to keep checking AABBs that
-                                // could possibly contain a nearer hit.
-                                nearest_blocking_hit = distance.min(nearest_blocking_hit);
-                            }
-                            self.hits.push((distance, (*entity, intersection)));
-                        };
-                    };
-
-                if let Ok((mesh, simplified_mesh, transform)) = self.mesh_query.get(*entity) {
-                    ray_cast_mesh(mesh, simplified_mesh, transform);
+                // Is it even possible the mesh could be closer than the current best?
+                if *aabb_near > nearest_blocking_hit {
+                    return;
                 }
 
-                if let Ok((mesh, simplified_mesh, transform)) = self.mesh2d_query.get(*entity) {
-                    ray_cast_mesh(&mesh.0, simplified_mesh, transform);
-                }
+                // Does the mesh handle resolve?
+                let Some(mesh) = self.meshes.get(mesh_handle) else {
+                    return;
+                };
+
+                // Perform the actual ray cast.
+                let _ray_cast_guard = ray_cast_guard.enter();
+                let transform = transform.compute_matrix();
+                let intersection =
+                    ray_intersection_over_mesh(mesh, &transform, ray, settings.backfaces);
+
+                if let Some(intersection) = intersection {
+                    let distance = FloatOrd(intersection.distance);
+                    if (settings.early_exit_test)(*entity) && distance < nearest_blocking_hit {
+                        // The reason we don't just return here is because right now we are
+                        // going through the AABBs in order, but that doesn't mean that an
+                        // AABB that starts further away can't end up with a closer hit than
+                        // an AABB that starts closer. We need to keep checking AABBs that
+                        // could possibly contain a nearer hit.
+                        nearest_blocking_hit = distance.min(nearest_blocking_hit);
+                    }
+                    self.hits.push((distance, (*entity, intersection)));
+                };
             });
 
         self.hits.retain(|(dist, _)| *dist <= nearest_blocking_hit);
