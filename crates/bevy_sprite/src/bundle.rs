@@ -1,3 +1,4 @@
+#![expect(deprecated)]
 use crate::Sprite;
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
@@ -16,6 +17,10 @@ use bevy_transform::components::{GlobalTransform, Transform};
 /// - [`ImageScaleMode`](crate::ImageScaleMode) to enable either slicing or tiling of the texture
 /// - [`TextureAtlas`](crate::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Clone, Debug, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Sprite` component instead. Inserting it will now also insert `Transform` and `Visibility` automatically."
+)]
 pub struct SpriteBundle {
     /// Specifies the rendering properties of the sprite, such as color tint and flip.
     pub sprite: Sprite,
