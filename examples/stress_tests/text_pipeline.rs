@@ -63,7 +63,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         ]
     };
 
-    let spans = (1..50).into_iter().flat_map(|i| make_spans(i).into_iter());
+    let spans = (1..50).flat_map(|i| make_spans(i).into_iter());
 
     commands
         .spawn((
@@ -71,7 +71,6 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextBlock {
                 justify: JustifyText::Center,
                 linebreak: LineBreak::AnyCharacter,
-                ..Default::default()
             },
             TextBounds::default(),
         ))

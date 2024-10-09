@@ -123,7 +123,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Text(message.clone()),
                     text_style.clone(),
                     TextBlock::new(JustifyText::Left, linebreak),
-                    BackgroundColor(Color::srgb(0.8 - j as f32 * 0.2, 0., 0.).into()),
+                    BackgroundColor(Color::srgb(0.8 - j as f32 * 0.2, 0., 0.)),
                 ));
             }
             commands.entity(row_id).add_child(column_id);

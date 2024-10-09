@@ -53,7 +53,6 @@ fn setup(mut commands: Commands) {
     let text_block = TextBlock {
         justify: JustifyText::Left,
         linebreak: LineBreak::AnyCharacter,
-        ..Default::default()
     };
 
     commands
@@ -75,11 +74,7 @@ fn setup(mut commands: Commands) {
                     },
                     ..Default::default()
                 })
-                .with_child((
-                    Text(text_string.clone()),
-                    text_style.clone(),
-                    text_block.clone(),
-                ));
+                .with_child((Text(text_string.clone()), text_style.clone(), text_block));
         });
 
     commands.spawn((
