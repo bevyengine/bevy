@@ -2,14 +2,13 @@
 
 use core::{fmt::Debug, iter::once};
 
-use crate::{
-    curve::{Curve, Interval},
-    ops::FloatPow,
-    Vec2, VectorSpace,
-};
+use crate::{ops::FloatPow, Vec2, VectorSpace};
 
 use itertools::Itertools;
 use thiserror::Error;
+
+#[cfg(feature = "curve")]
+use crate::curve::{Curve, Interval};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -1062,6 +1061,7 @@ impl CubicSegment<Vec2> {
     }
 }
 
+#[cfg(feature = "curve")]
 impl<P: VectorSpace> Curve<P> for CubicSegment<P> {
     #[inline]
     fn domain(&self) -> Interval {
@@ -1199,6 +1199,7 @@ impl<P: VectorSpace> CubicCurve<P> {
     }
 }
 
+#[cfg(feature = "curve")]
 impl<P: VectorSpace> Curve<P> for CubicCurve<P> {
     #[inline]
     fn domain(&self) -> Interval {
@@ -1370,6 +1371,7 @@ impl<P: VectorSpace> RationalSegment<P> {
     }
 }
 
+#[cfg(feature = "curve")]
 impl<P: VectorSpace> Curve<P> for RationalSegment<P> {
     #[inline]
     fn domain(&self) -> Interval {
@@ -1526,6 +1528,7 @@ impl<P: VectorSpace> RationalCurve<P> {
     }
 }
 
+#[cfg(feature = "curve")]
 impl<P: VectorSpace> Curve<P> for RationalCurve<P> {
     #[inline]
     fn domain(&self) -> Interval {
