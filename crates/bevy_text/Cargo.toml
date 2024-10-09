@@ -30,7 +30,11 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 
 # other
 cosmic-text = { version = "0.12", features = ["shape-run-cache"] }
-thiserror = "1.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+] }
 serde = { version = "1", features = ["derive"] }
 unicode-bidi = "0.3.13"
 sys-locale = "0.3.0"
