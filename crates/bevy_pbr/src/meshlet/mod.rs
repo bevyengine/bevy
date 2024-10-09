@@ -1,3 +1,4 @@
+#![expect(deprecated)]
 //! Render high-poly 3d meshes using an efficient GPU-driven method. See [`MeshletPlugin`] and [`MeshletMesh`] for details.
 
 mod asset;
@@ -291,6 +292,7 @@ impl Plugin for MeshletPlugin {
 
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
+#[require(Transform, Visibility)]
 pub struct MeshletMesh3d(pub Handle<MeshletMesh>);
 
 impl From<MeshletMesh3d> for AssetId<MeshletMesh> {
@@ -307,6 +309,10 @@ impl From<&MeshletMesh3d> for AssetId<MeshletMesh> {
 
 /// A component bundle for entities with a [`MeshletMesh`] and a [`Material`].
 #[derive(Bundle, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `MeshletMesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."
+)]
 pub struct MaterialMeshletMeshBundle<M: Material> {
     pub meshlet_mesh: MeshletMesh3d,
     pub material: MeshMaterial3d<M>,
