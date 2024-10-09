@@ -54,10 +54,10 @@ impl AssetLoader for HdrTextureLoader {
         for rgb in image_buffer.pixels() {
             let alpha = 1.0f32;
 
-            rgba_data.extend_from_slice(&rgb.0[0].to_ne_bytes());
-            rgba_data.extend_from_slice(&rgb.0[1].to_ne_bytes());
-            rgba_data.extend_from_slice(&rgb.0[2].to_ne_bytes());
-            rgba_data.extend_from_slice(&alpha.to_ne_bytes());
+            rgba_data.extend_from_slice(&rgb.0[0].to_le_bytes());
+            rgba_data.extend_from_slice(&rgb.0[1].to_le_bytes());
+            rgba_data.extend_from_slice(&rgb.0[2].to_le_bytes());
+            rgba_data.extend_from_slice(&alpha.to_le_bytes());
         }
 
         Ok(Image::new(

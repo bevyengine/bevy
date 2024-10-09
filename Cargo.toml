@@ -974,6 +974,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "order_independent_transparency"
+path = "examples/3d/order_independent_transparency.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.order_independent_transparency]
+name = "Order Independent Transparency"
+description = "Demonstrates how to use OIT"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "tonemapping"
 path = "examples/3d/tonemapping.rs"
 doc-scrape-examples = true
@@ -1198,7 +1209,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/854eb98353ad94aea1104f355fc24dbe4fda679d/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/8443bbdee0bf517e6c297dede7f6a46ab712ee4c/bunny.meshlet_mesh",
   ],
 ]
 
@@ -1289,13 +1300,24 @@ category = "Animation"
 wasm = true
 
 [[example]]
-name = "cubic_curve"
-path = "examples/animation/cubic_curve.rs"
+name = "eased_motion"
+path = "examples/animation/eased_motion.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.cubic_curve]
-name = "Cubic Curve"
-description = "Bezier curve example showing a cube following a cubic curve"
+[package.metadata.example.eased_motion]
+name = "Eased Motion"
+description = "Demonstrates the application of easing curves to animate an object"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "easing_functions"
+path = "examples/animation/easing_functions.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.easing_functions]
+name = "Easing Functions"
+description = "Showcases the built-in easing functions"
 category = "Animation"
 wasm = true
 
@@ -2875,6 +2897,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "box_shadow"
+path = "examples/ui/box_shadow.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.box_shadow]
+name = "Box Shadow"
+description = "Demonstrates how to create a node with a shadow"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "button"
 path = "examples/ui/button.rs"
 doc-scrape-examples = true
@@ -3464,6 +3497,18 @@ name = "Camera Orbit"
 description = "Shows how to orbit a static scene using pitch, yaw, and roll."
 category = "Camera"
 wasm = true
+
+[[example]]
+name = "2d_screen_shake"
+path = "examples/camera/2d_screen_shake.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.2d_screen_shake]
+name = "Screen Shake"
+description = "A simple 2D screen shake effect"
+category = "Camera"
+wasm = true
+
 
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"

@@ -28,10 +28,10 @@ use core::{
 use graph::AnimationNodeType;
 use prelude::AnimationCurveEvaluator;
 
-use crate::graph::ThreadedAnimationGraphs;
+use crate::graph::{AnimationGraphHandle, ThreadedAnimationGraphs};
 
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{Asset, AssetApp, Assets, Handle};
+use bevy_asset::{Asset, AssetApp, Assets};
 use bevy_core::Name;
 use bevy_ecs::{
     entity::{VisitEntities, VisitEntitiesMut},
@@ -942,7 +942,7 @@ fn trigger_untargeted_animation_events(
     mut commands: Commands,
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
-    players: Query<(Entity, &AnimationPlayer, &Handle<AnimationGraph>)>,
+    players: Query<(Entity, &AnimationPlayer, &AnimationGraphHandle)>,
 ) {
     for (entity, player, graph_id) in &players {
         // The graph might not have loaded yet. Safely bail.
@@ -989,7 +989,7 @@ pub fn advance_animations(
     time: Res<Time>,
     animation_clips: Res<Assets<AnimationClip>>,
     animation_graphs: Res<Assets<AnimationGraph>>,
-    mut players: Query<(&mut AnimationPlayer, &Handle<AnimationGraph>)>,
+    mut players: Query<(&mut AnimationPlayer, &AnimationGraphHandle)>,
 ) {
     let delta_seconds = time.delta_seconds();
     players
@@ -1030,7 +1030,7 @@ pub type AnimationEntityMut<'w> = EntityMutExcept<
         AnimationTarget,
         Transform,
         AnimationPlayer,
-        Handle<AnimationGraph>,
+        AnimationGraphHandle,
     ),
 >;
 
@@ -1041,7 +1041,7 @@ pub fn animate_targets(
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
-    players: Query<(&AnimationPlayer, &Handle<AnimationGraph>)>,
+    players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
     mut targets: Query<(
         Entity,
         &AnimationTarget,

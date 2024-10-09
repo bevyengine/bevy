@@ -18,9 +18,9 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
+    sync_world::{RenderEntity, TemporaryRenderEntity},
     texture::BevyDefault,
     view::*,
-    world_sync::{RenderEntity, TemporaryRenderEntity},
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -60,7 +60,7 @@ where
             Shader::from_wgsl
         );
         app.init_asset::<M>().add_plugins((
-            ExtractComponentPlugin::<Handle<M>>::extract_visible(),
+            ExtractComponentPlugin::<UiMaterialHandle<M>>::extract_visible(),
             RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
         ));
 
@@ -364,7 +364,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             (
                 &Node,
                 &GlobalTransform,
-                &Handle<M>,
+                &UiMaterialHandle<M>,
                 &ViewVisibility,
                 Option<&CalculatedClip>,
                 Option<&TargetCamera>,

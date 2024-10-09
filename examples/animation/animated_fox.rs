@@ -172,7 +172,7 @@ fn setup_scene_once_loaded(
 
         commands
             .entity(entity)
-            .insert(animations.graph.clone())
+            .insert(AnimationGraphHandle(animations.graph.clone()))
             .insert(transitions);
     }
 }

@@ -50,7 +50,7 @@ pub mod prelude {
     pub use {
         crate::{
             geometry::*, node_bundles::*, ui_material::*, ui_node::*, widget::Button,
-            widget::Label, Interaction, UiMaterialPlugin, UiScale,
+            widget::Label, Interaction, UiMaterialHandle, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer},
@@ -136,6 +136,7 @@ impl Plugin for UiPlugin {
             .register_type::<Interaction>()
             .register_type::<Node>()
             .register_type::<RelativeCursorPosition>()
+            .register_type::<ScrollPosition>()
             .register_type::<Style>()
             .register_type::<TargetCamera>()
             .register_type::<UiImage>()
@@ -148,6 +149,7 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
             .register_type::<Outline>()
+            .register_type::<UiBoxShadowSamples>()
             .configure_sets(
                 PostUpdate,
                 (

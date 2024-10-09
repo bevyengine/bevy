@@ -36,9 +36,9 @@ use bevy_render::{
         TextureSampleType, TextureUsages, VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
+    sync_world::RenderEntity,
     texture::{BevyDefault as _, GpuImage, Image},
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
-    world_sync::RenderEntity,
     Extract,
 };
 use bevy_transform::components::GlobalTransform;

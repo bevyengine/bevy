@@ -108,7 +108,7 @@ fn setup(
     let mut player = AnimationPlayer::default();
     player.play(animation_index).repeat();
 
-    commands.spawn((graphs.add(graph), player));
+    commands.spawn((AnimationGraphHandle(graphs.add(graph)), player));
 }
 
 // Slowly fade out the text opacity.
