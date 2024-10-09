@@ -29,7 +29,11 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
 
 # other
 downcast-rs = "1.2.0"
-thiserror = "1.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ctrlc = "3.4.4"
