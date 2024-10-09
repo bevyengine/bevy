@@ -26,7 +26,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
+    view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract,
 };
 use bevy_transform::prelude::GlobalTransform;

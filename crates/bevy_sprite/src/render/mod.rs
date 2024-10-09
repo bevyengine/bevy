@@ -14,7 +14,6 @@ use bevy_core_pipeline::{
     },
 };
 use bevy_ecs::{
-    entity::EntityHashMap,
     prelude::*,
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
@@ -40,7 +39,7 @@ use bevy_render::{
     },
     view::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
-        ViewVisibility, VisibleEntities,
+        ViewVisibility,
     },
     Extract,
 };

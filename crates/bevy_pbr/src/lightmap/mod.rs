@@ -34,14 +34,14 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityHashMap},
+    entity::Entity,
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Query, Res, ResMut, Resource},
 };
 use bevy_math::{uvec2, vec4, Rect, UVec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
+use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     mesh::{Mesh, RenderMesh},
     render_asset::RenderAssets,

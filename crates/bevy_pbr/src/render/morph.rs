@@ -1,6 +1,6 @@
 use core::{iter, mem};
 
-use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_ecs::prelude::*;
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::NoAutomaticBatching,
