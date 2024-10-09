@@ -176,7 +176,7 @@ fn alter_mesh(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     // Obtain a mutable reference to the Mesh asset.
-    let Some(mesh) = meshes.get_mut(*left_shape) else {
+    let Some(mesh) = meshes.get_cloned_mut(*left_shape) else {
         return;
     };
 
