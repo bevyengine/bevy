@@ -11,7 +11,12 @@ rust-version = "1.68.2"
 
 [dependencies]
 glam = { version = "0.29", features = ["bytemuck"] }
-thiserror = "1.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+  "into",
+] }
 itertools = "0.13.0"
 serde = { version = "1", features = ["derive"], optional = true }
 libm = { version = "0.2", optional = true }

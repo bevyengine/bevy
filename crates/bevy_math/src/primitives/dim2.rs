@@ -1,5 +1,5 @@
 use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
 
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
@@ -267,7 +267,7 @@ impl Arc2d {
 ///
 /// **Warning:** Circular sectors with negative angle or radius, or with angle greater than an entire circle, are not officially supported.
 /// We recommend normalizing circular sectors to have an angle in [0, 2π].
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -289,12 +289,6 @@ impl Default for CircularSector {
     /// Returns the default [`CircularSector`] with radius `0.5` and covering a third of a circle
     fn default() -> Self {
         Self::from(Arc2d::default())
-    }
-}
-
-impl From<Arc2d> for CircularSector {
-    fn from(arc: Arc2d) -> Self {
-        Self { arc }
     }
 }
 
@@ -406,7 +400,7 @@ impl CircularSector {
 ///
 /// **Warning:** Circular segments with negative angle or radius, or with angle greater than an entire circle, are not officially supported.
 /// We recommend normalizing circular segments to have an angle in [0, 2π].
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -428,12 +422,6 @@ impl Default for CircularSegment {
     /// Returns the default [`CircularSegment`] with radius `0.5` and covering a third of a circle
     fn default() -> Self {
         Self::from(Arc2d::default())
-    }
-}
-
-impl From<Arc2d> for CircularSegment {
-    fn from(arc: Arc2d) -> Self {
-        Self { arc }
     }
 }
 
@@ -1620,10 +1608,10 @@ pub struct ConvexPolygon<const N: usize> {
 impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
 
 /// An error that happens when creating a [`ConvexPolygon`].
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Display, Debug, Clone)]
 pub enum ConvexPolygonError {
     /// The created polygon is not convex.
-    #[error("The created polygon is not convex")]
+    #[display("The created polygon is not convex")]
     Concave,
 }
 
