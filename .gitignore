@@ -5,12 +5,12 @@ crates/*/target
 /benches/target
 /tools/compile_fail_utils/target
 
-# Cargo Rust
+# Cargo
 Cargo.lock
 .cargo/config
 .cargo/config.toml
 
-# Build files IDE
+# IDE files
 /.idea
 /.vscode
 .zed
