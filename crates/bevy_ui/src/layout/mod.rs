@@ -18,11 +18,11 @@ use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
 use ui_surface::UiSurface;
 
 #[cfg(feature = "bevy_text")]
-use bevy_text::CosmicBuffer;
+use bevy_text::ComputedTextBlock;
 #[cfg(feature = "bevy_text")]
 use bevy_text::CosmicFontSystem;
 
@@ -61,12 +61,12 @@ impl Default for LayoutContext {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display, From)]
 pub enum LayoutError {
-    #[error("Invalid hierarchy")]
+    #[display("Invalid hierarchy")]
     InvalidHierarchy,
-    #[error("Taffy error: {0}")]
-    TaffyError(#[from] taffy::TaffyError),
+    #[display("Taffy error: {_0}")]
+    TaffyError(taffy::TaffyError),
 }
 
 #[doc(hidden)]
@@ -125,7 +125,7 @@ pub fn ui_layout_system(
         Option<&Outline>,
         Option<&ScrollPosition>,
     )>,
-    #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut CosmicBuffer>,
+    #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut ComputedTextBlock>,
     #[cfg(feature = "bevy_text")] mut font_system: ResMut<CosmicFontSystem>,
 ) {
     let UiLayoutSystemBuffers {

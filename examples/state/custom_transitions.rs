@@ -223,10 +223,7 @@ fn setup(mut commands: Commands) {
 }
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/icon.png"),
-        ..default()
-    });
+    commands.spawn(Sprite::from_image(asset_server.load("branding/icon.png")));
     info!("Setup game");
 }
 
@@ -273,8 +270,8 @@ fn setup_menu(mut commands: Commands) {
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "Play",
+                    parent.spawn((
+                        Text::new("Play"),
                         TextStyle {
                             font_size: 33.0,
                             color: Color::srgb(0.9, 0.9, 0.9),

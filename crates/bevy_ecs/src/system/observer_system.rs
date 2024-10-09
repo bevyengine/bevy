@@ -70,7 +70,7 @@ mod tests {
         fn b() {}
 
         let mut world = World::new();
-        world.observe(a.pipe(b));
+        world.add_observer(a.pipe(b));
     }
 
     #[test]
@@ -81,6 +81,6 @@ mod tests {
         fn b(_: In<u32>) {}
 
         let mut world = World::new();
-        world.observe(a.pipe(b));
+        world.add_observer(a.pipe(b));
     }
 }

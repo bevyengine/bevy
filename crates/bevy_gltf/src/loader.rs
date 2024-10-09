@@ -45,6 +45,7 @@ use bevy_utils::{
     tracing::{error, info_span, warn},
     HashMap, HashSet,
 };
+use derive_more::derive::{Display, Error, From};
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -59,7 +60,6 @@ use std::{
     io::Error,
     path::{Path, PathBuf},
 };
-use thiserror::Error;
 #[cfg(feature = "bevy_animation")]
 use {
     bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId},
@@ -67,53 +67,59 @@ use {
 };
 
 /// An error that occurs when loading a glTF file.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum GltfError {
     /// Unsupported primitive mode.
-    #[error("unsupported primitive mode")]
+    #[display("unsupported primitive mode")]
     UnsupportedPrimitive {
         /// The primitive mode.
         mode: Mode,
     },
     /// Invalid glTF file.
-    #[error("invalid glTF file: {0}")]
-    Gltf(#[from] gltf::Error),
+    #[display("invalid glTF file: {_0}")]
+    Gltf(gltf::Error),
     /// Binary blob is missing.
-    #[error("binary blob is missing")]
+    #[display("binary blob is missing")]
     MissingBlob,
     /// Decoding the base64 mesh data failed.
-    #[error("failed to decode base64 mesh data")]
-    Base64Decode(#[from] base64::DecodeError),
+    #[display("failed to decode base64 mesh data")]
+    Base64Decode(base64::DecodeError),
     /// Unsupported buffer format.
-    #[error("unsupported buffer format")]
+    #[display("unsupported buffer format")]
     BufferFormatUnsupported,
     /// Invalid image mime type.
-    #[error("invalid image mime type: {0}")]
+    #[display("invalid image mime type: {_0}")]
+    #[error(ignore)]
+    #[from(ignore)]
     InvalidImageMimeType(String),
     /// Error when loading a texture. Might be due to a disabled image file format feature.
-    #[error("You may need to add the feature for the file format: {0}")]
-    ImageError(#[from] TextureError),
+    #[display("You may need to add the feature for the file format: {_0}")]
+    ImageError(TextureError),
     /// Failed to read bytes from an asset path.
-    #[error("failed to read bytes from an asset path: {0}")]
-    ReadAssetBytesError(#[from] ReadAssetBytesError),
+    #[display("failed to read bytes from an asset path: {_0}")]
+    ReadAssetBytesError(ReadAssetBytesError),
     /// Failed to load asset from an asset path.
-    #[error("failed to load asset from an asset path: {0}")]
-    AssetLoadError(#[from] AssetLoadError),
+    #[display("failed to load asset from an asset path: {_0}")]
+    AssetLoadError(AssetLoadError),
     /// Missing sampler for an animation.
-    #[error("Missing sampler for animation {0}")]
+    #[display("Missing sampler for animation {_0}")]
+    #[error(ignore)]
+    #[from(ignore)]
     MissingAnimationSampler(usize),
     /// Failed to generate tangents.
-    #[error("failed to generate tangents: {0}")]
-    GenerateTangentsError(#[from] bevy_render::mesh::GenerateTangentsError),
+    #[display("failed to generate tangents: {_0}")]
+    GenerateTangentsError(bevy_render::mesh::GenerateTangentsError),
     /// Failed to generate morph targets.
-    #[error("failed to generate morph targets: {0}")]
-    MorphTarget(#[from] bevy_render::mesh::morph::MorphBuildError),
+    #[display("failed to generate morph targets: {_0}")]
+    MorphTarget(bevy_render::mesh::morph::MorphBuildError),
     /// Circular children in Nodes
-    #[error("GLTF model must be a tree, found cycle instead at node indices: {0:?}")]
+    #[display("GLTF model must be a tree, found cycle instead at node indices: {_0:?}")]
+    #[error(ignore)]
+    #[from(ignore)]
     CircularChildren(String),
     /// Failed to load a file.
-    #[error("failed to load file: {0}")]
-    Io(#[from] Error),
+    #[display("failed to load file: {_0}")]
+    Io(Error),
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
@@ -2223,7 +2229,7 @@ mod test {
         AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
     use bevy_core::TaskPoolPlugin;
-    use bevy_ecs::world::World;
+    use bevy_ecs::{system::Resource, world::World};
     use bevy_log::LogPlugin;
     use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};
     use bevy_scene::ScenePlugin;
@@ -2264,6 +2270,10 @@ mod test {
     }
 
     fn load_gltf_into_app(gltf_path: &str, gltf: &str) -> App {
+        #[expect(unused)]
+        #[derive(Resource)]
+        struct GltfHandle(Handle<Gltf>);
+
         let dir = Dir::default();
         dir.insert_asset_text(Path::new(gltf_path), gltf);
         let mut app = test_app(dir);
@@ -2271,7 +2281,7 @@ mod test {
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<Gltf> = asset_server.load(gltf_path.to_string());
         let handle_id = handle.id();
-        app.world_mut().spawn(handle.clone());
+        app.insert_resource(GltfHandle(handle));
         app.update();
         run_app_until(&mut app, |_world| {
             let load_state = asset_server.get_load_state(handle_id).unwrap();
@@ -2503,7 +2513,6 @@ mod test {
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<Gltf> = asset_server.load(gltf_path);
         let handle_id = handle.id();
-        app.world_mut().spawn(handle.clone());
         app.update();
         run_app_until(&mut app, |_world| {
             let load_state = asset_server.get_load_state(handle_id).unwrap();
@@ -2546,7 +2555,6 @@ mod test {
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<Gltf> = asset_server.load(gltf_path);
         let handle_id = handle.id();
-        app.world_mut().spawn(handle.clone());
         app.update();
         run_app_until(&mut app, |_world| {
             let load_state = asset_server.get_load_state(handle_id).unwrap();

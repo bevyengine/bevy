@@ -1,6 +1,6 @@
 use bevy_reflect::Reflect;
 use core::iter::FusedIterator;
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 use wgpu::IndexFormat;
 
 /// A disjunction of four iterators. This is necessary to have a well-formed type for the output
@@ -33,35 +33,35 @@ where
 }
 
 /// An error that occurred while trying to invert the winding of a [`Mesh`](super::Mesh).
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub enum MeshWindingInvertError {
     /// This error occurs when you try to invert the winding for a mesh with [`PrimitiveTopology::PointList`](super::PrimitiveTopology::PointList).
-    #[error("Mesh winding invertation does not work for primitive topology `PointList`")]
+    #[display("Mesh winding invertation does not work for primitive topology `PointList`")]
     WrongTopology,
 
     /// This error occurs when you try to invert the winding for a mesh with
     /// * [`PrimitiveTopology::TriangleList`](super::PrimitiveTopology::TriangleList), but the indices are not in chunks of 3.
     /// * [`PrimitiveTopology::LineList`](super::PrimitiveTopology::LineList), but the indices are not in chunks of 2.
-    #[error("Indices weren't in chunks according to topology")]
+    #[display("Indices weren't in chunks according to topology")]
     AbruptIndicesEnd,
 }
 
 /// An error that occurred while trying to extract a collection of triangles from a [`Mesh`](super::Mesh).
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub enum MeshTrianglesError {
-    #[error("Source mesh does not have primitive topology TriangleList or TriangleStrip")]
+    #[display("Source mesh does not have primitive topology TriangleList or TriangleStrip")]
     WrongTopology,
 
-    #[error("Source mesh lacks position data")]
+    #[display("Source mesh lacks position data")]
     MissingPositions,
 
-    #[error("Source mesh position data is not Float32x3")]
+    #[display("Source mesh position data is not Float32x3")]
     PositionsFormat,
 
-    #[error("Source mesh lacks face index data")]
+    #[display("Source mesh lacks face index data")]
     MissingIndices,
 
-    #[error("Face index data references vertices that do not exist")]
+    #[display("Face index data references vertices that do not exist")]
     BadIndices,
 }
 

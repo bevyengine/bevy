@@ -15,7 +15,7 @@ fn main() {
         .add_systems(Update, (draw_shapes, handle_click))
         // Observers are systems that run when an event is "triggered". This observer runs whenever
         // `ExplodeMines` is triggered.
-        .observe(
+        .add_observer(
             |trigger: Trigger<ExplodeMines>,
              mines: Query<&Mine>,
              index: Res<SpatialIndex>,
@@ -35,10 +35,10 @@ fn main() {
             },
         )
         // This observer runs whenever the `Mine` component is added to an entity, and places it in a simple spatial index.
-        .observe(on_add_mine)
+        .add_observer(on_add_mine)
         // This observer runs whenever the `Mine` component is removed from an entity (including despawning it)
         // and removes it from the spatial index.
-        .observe(on_remove_mine)
+        .add_observer(on_remove_mine)
         .run();
 }
 
@@ -71,22 +71,22 @@ struct Explode;
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
-    commands.spawn(
-        TextBundle::from_section(
+    commands.spawn((
+        Text::new(
             "Click on a \"Mine\" to trigger it.\n\
             When it explodes it will trigger all overlapping mines.",
-            TextStyle {
-                color: Color::WHITE,
-                ..default()
-            },
-        )
-        .with_style(Style {
+        ),
+        TextStyle {
+            color: Color::WHITE,
+            ..default()
+        },
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),
             ..default()
-        }),
-    );
+        },
+    ));
 
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
 

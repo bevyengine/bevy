@@ -14,7 +14,7 @@
 //!
 //! The [`TextPipeline`] resource does all of the heavy lifting for rendering text.
 //!
-//! [`Text`] is first measured by creating a [`TextMeasureInfo`] in [`TextPipeline::create_text_measure`],
+//! UI `Text` is first measured by creating a [`TextMeasureInfo`] in [`TextPipeline::create_text_measure`],
 //! which is called by the `measure_text_system` system of `bevy_ui`.
 //!
 //! Note that text measurement is only relevant in a UI context.
@@ -23,7 +23,7 @@
 //! or [`text2d::update_text2d_layout`] system (in a 2d world space context)
 //! passes it into [`TextPipeline::queue_text`], which:
 //!
-//! 1. creates a [`Buffer`](cosmic_text::Buffer) from the [`TextSection`]s, generating new [`FontAtlasSet`]s if necessary.
+//! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new [`FontAtlasSet`]s if necessary.
 //! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a [`PositionedGlyph`],
 //!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
@@ -43,6 +43,7 @@ mod glyph;
 mod pipeline;
 mod text;
 mod text2d;
+mod text_access;
 
 pub use cosmic_text;
 
@@ -56,13 +57,17 @@ pub use glyph::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
+pub use text_access::*;
 
 /// The text prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Font, JustifyText, Text, Text2dBundle, TextError, TextSection, TextStyle};
+    pub use crate::{
+        Font, JustifyText, LineBreak, Text2d, TextError, TextLayout, TextReader2d, TextSpan,
+        TextStyle, TextWriter2d,
+    };
 }
 
 use bevy_app::prelude::*;
@@ -87,7 +92,7 @@ pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
 pub struct TextPlugin;
 
 /// Text is rendered for two different view projections;
-/// 2-dimensional text ([`Text2dBundle`]) is rendered in "world space" with a `BottomToTop` Y-axis,
+/// 2-dimensional text ([`Text2d`]) is rendered in "world space" with a `BottomToTop` Y-axis,
 /// while UI is rendered with a `TopToBottom` Y-axis.
 /// This matters for text because the glyph positioning is different in either layout.
 /// For `TopToBottom`, 0 is the top of the text, while for `BottomToTop` 0 is the bottom.
@@ -98,35 +103,37 @@ pub enum YAxisOrientation {
     BottomToTop,
 }
 
-/// A convenient alias for `With<Text>`, for use with
-/// [`bevy_render::view::VisibleEntities`].
-pub type WithText = With<Text>;
+/// System set in [`PostUpdate`] where all 2d text update systems are executed.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct Update2dText;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
-            .register_type::<Text>()
+            .register_type::<Text2d>()
+            .register_type::<TextSpan>()
             .register_type::<TextBounds>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
+            .init_resource::<TextIterScratch>()
             .add_systems(
                 PostUpdate,
                 (
-                    calculate_bounds_text2d
-                        .in_set(VisibilitySystems::CalculateBounds)
-                        .after(update_text2d_layout),
+                    remove_dropped_font_atlas_sets,
+                    detect_text_needs_rerender::<Text2d>,
                     update_text2d_layout
-                        .after(remove_dropped_font_atlas_sets)
                         // Potential conflict: `Assets<Image>`
                         // In practice, they run independently since `bevy_render::camera_update_system`
                         // will only ever observe its own render target, and `update_text2d_layout`
                         // will never modify a pre-existing `Image` asset.
                         .ambiguous_with(CameraUpdateSystem),
-                    remove_dropped_font_atlas_sets,
-                ),
+                    calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
+                )
+                    .chain()
+                    .in_set(Update2dText),
             )
             .add_systems(Last, trim_cosmic_cache);
 

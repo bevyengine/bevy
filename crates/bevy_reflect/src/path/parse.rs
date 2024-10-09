@@ -4,34 +4,38 @@ use core::{
     str::from_utf8_unchecked,
 };
 
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
 
 use super::{Access, ReflectPathError};
 
 /// An error that occurs when parsing reflect path strings.
-#[derive(Debug, PartialEq, Eq, Error)]
-#[error(transparent)]
+#[derive(Debug, PartialEq, Eq, Error, Display)]
+#[error(ignore)]
 pub struct ParseError<'a>(Error<'a>);
 
 /// A parse error for a path string.
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, PartialEq, Eq, Error, Display, From)]
 enum Error<'a> {
-    #[error("expected an identifier, but reached end of path string")]
+    #[display("expected an identifier, but reached end of path string")]
     NoIdent,
 
-    #[error("expected an identifier, got '{0}' instead")]
+    #[display("expected an identifier, got '{_0}' instead")]
+    #[error(ignore)]
+    #[from(ignore)]
     ExpectedIdent(Token<'a>),
 
-    #[error("failed to parse index as integer")]
-    InvalidIndex(#[from] ParseIntError),
+    #[display("failed to parse index as integer")]
+    InvalidIndex(ParseIntError),
 
-    #[error("a '[' wasn't closed, reached end of path string before finding a ']'")]
+    #[display("a '[' wasn't closed, reached end of path string before finding a ']'")]
     Unclosed,
 
-    #[error("a '[' wasn't closed properly, got '{0}' instead")]
+    #[display("a '[' wasn't closed properly, got '{_0}' instead")]
+    #[error(ignore)]
+    #[from(ignore)]
     BadClose(Token<'a>),
 
-    #[error("a ']' was found before an opening '['")]
+    #[display("a ']' was found before an opening '['")]
     CloseBeforeOpen,
 }
 

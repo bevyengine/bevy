@@ -77,8 +77,6 @@ use core::{any::TypeId, ptr::NonNull};
 /// Additionally, [Tuples](`tuple`) of bundles are also [`Bundle`] (with up to 15 bundles).
 /// These bundles contain the items of the 'inner' bundles.
 /// This is a convenient shorthand which is primarily used when spawning entities.
-/// For example, spawning an entity using the bundle `(SpriteBundle {...}, PlayerMarker)`
-/// will spawn an entity with components required for a 2d sprite, and the `PlayerMarker` component.
 ///
 /// [`unit`], otherwise known as [`()`](`unit`), is a [`Bundle`] containing no components (since it
 /// can also be considered as the empty tuple).

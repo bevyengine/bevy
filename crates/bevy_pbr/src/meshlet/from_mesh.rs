@@ -8,6 +8,7 @@ use bevy_render::{
 use bevy_utils::HashMap;
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
 use core::ops::Range;
+use derive_more::derive::{Display, Error};
 use itertools::Itertools;
 use meshopt::{
     build_meshlets, compute_cluster_bounds, compute_meshlet_bounds,
@@ -478,12 +479,12 @@ fn pack2x16snorm(v: Vec2) -> u32 {
 }
 
 /// An error produced by [`MeshletMesh::from_mesh`].
-#[derive(thiserror::Error, Debug)]
+#[derive(Error, Display, Debug)]
 pub enum MeshToMeshletMeshConversionError {
-    #[error("Mesh primitive topology is not TriangleList")]
+    #[display("Mesh primitive topology is not TriangleList")]
     WrongMeshPrimitiveTopology,
-    #[error("Mesh attributes are not {{POSITION, NORMAL, UV_0}}")]
+    #[display("Mesh attributes are not {{POSITION, NORMAL, UV_0}}")]
     WrongMeshVertexAttributes,
-    #[error("Mesh has no indices")]
+    #[display("Mesh has no indices")]
     MeshMissingIndices,
 }

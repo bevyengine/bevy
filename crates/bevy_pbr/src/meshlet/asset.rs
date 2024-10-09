@@ -8,6 +8,7 @@ use bevy_math::{Vec2, Vec3};
 use bevy_reflect::TypePath;
 use bevy_tasks::block_on;
 use bytemuck::{Pod, Zeroable};
+use derive_more::derive::{Display, Error, From};
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
 use std::io::{Read, Write};
 
@@ -35,7 +36,7 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 /// * Materials must use the [`crate::Material::meshlet_mesh_fragment_shader`] method (and similar variants for prepass/deferred shaders)
 ///   which requires certain shader patterns that differ from the regular material shaders.
 ///
-/// See also [`super::MaterialMeshletMeshBundle`] and [`super::MeshletPlugin`].
+/// See also [`super::MeshletMesh3d`] and [`super::MeshletPlugin`].
 #[derive(Asset, TypePath, Clone)]
 pub struct MeshletMesh {
     /// Quantized and bitstream-packed vertex positions for meshlet vertices.
@@ -194,16 +195,16 @@ impl AssetLoader for MeshletMeshLoader {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum MeshletMeshSaveOrLoadError {
-    #[error("file was not a MeshletMesh asset")]
+    #[display("file was not a MeshletMesh asset")]
     WrongFileType,
-    #[error("expected asset version {MESHLET_MESH_ASSET_VERSION} but found version {found}")]
+    #[display("expected asset version {MESHLET_MESH_ASSET_VERSION} but found version {found}")]
     WrongVersion { found: u64 },
-    #[error("failed to compress or decompress asset data")]
-    CompressionOrDecompression(#[from] lz4_flex::frame::Error),
-    #[error("failed to read or write asset data")]
-    Io(#[from] std::io::Error),
+    #[display("failed to compress or decompress asset data")]
+    CompressionOrDecompression(lz4_flex::frame::Error),
+    #[display("failed to read or write asset data")]
+    Io(std::io::Error),
 }
 
 async fn async_read_u64(reader: &mut dyn Reader) -> Result<u64, std::io::Error> {
