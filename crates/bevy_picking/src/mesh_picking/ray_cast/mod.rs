@@ -10,8 +10,8 @@ use bevy_math::Ray3d;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::mesh::Mesh;
 
-pub use intersections::RayMeshHit;
 use intersections::*;
+pub use intersections::{ray_mesh_intersection, RayMeshHit};
 
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{prelude::*, system::lifetimeless::Read, system::SystemParam};
@@ -37,8 +37,6 @@ pub enum RayCastVisibility {
 pub struct RayCastSettings<'a> {
     /// Determines how ray casting should consider [`Visibility`].
     pub visibility: RayCastVisibility,
-    /// Determines if ray casting should include backfaces or cull them.
-    pub backfaces: Backfaces,
     /// A predicate that is applied for every entity that ray casts are performed against.
     /// Only entities that return `true` will be considered.
     pub filter: &'a dyn Fn(Entity) -> bool,
@@ -81,7 +79,6 @@ impl<'a> Default for RayCastSettings<'a> {
     fn default() -> Self {
         Self {
             visibility: RayCastVisibility::VisibleInView,
-            backfaces: Backfaces::default(),
             filter: &|_| true,
             early_exit_test: &|_| true,
         }
@@ -89,6 +86,8 @@ impl<'a> Default for RayCastSettings<'a> {
 }
 
 /// Determines whether backfaces should be culled or included in ray intersection tests.
+///
+/// By default, backfaces are culled.
 #[derive(Copy, Clone, Default, Reflect)]
 #[reflect(Default)]
 pub enum Backfaces {
@@ -98,6 +97,12 @@ pub enum Backfaces {
     /// Include backfaces.
     Include,
 }
+
+/// Disables backface culling for [ray casts](MeshRayCast) on this entity.
+#[derive(Component, Copy, Clone, Default, Reflect)]
+#[reflect(Component, Default)]
+pub struct RayCastBackfaces;
+
 /// A simplified mesh component that can be used for [ray casting](super::MeshRayCast).
 ///
 /// Consider using this component for complex meshes that don't need perfectly accurate ray casting.
@@ -188,6 +193,7 @@ pub struct MeshRayCast<'w, 's> {
             Option<Read<Mesh2d>>,
             Option<Read<Mesh3d>>,
             Option<Read<SimplifiedMesh>>,
+            Has<RayCastBackfaces>,
             Read<GlobalTransform>,
         ),
         MeshFilter,
@@ -240,7 +246,8 @@ impl<'w, 's> MeshRayCast<'w, 's> {
             .filter(|(_, entity)| (settings.filter)(*entity))
             .for_each(|(aabb_near, entity)| {
                 // Get the mesh components and transform.
-                let Ok((mesh2d, mesh3d, simplified_mesh, transform)) = self.mesh_query.get(*entity)
+                let Ok((mesh2d, mesh3d, simplified_mesh, has_backfaces, transform)) =
+                    self.mesh_query.get(*entity)
                 else {
                     return;
                 };
@@ -263,11 +270,15 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                     return;
                 };
 
+                let backfaces = match has_backfaces {
+                    true => Backfaces::Include,
+                    false => Backfaces::Cull,
+                };
+
                 // Perform the actual ray cast.
                 let _ray_cast_guard = ray_cast_guard.enter();
                 let transform = transform.compute_matrix();
-                let intersection =
-                    ray_intersection_over_mesh(mesh, &transform, ray, settings.backfaces);
+                let intersection = ray_intersection_over_mesh(mesh, &transform, ray, backfaces);
 
                 if let Some(intersection) = intersection {
                     let distance = FloatOrd(intersection.distance);

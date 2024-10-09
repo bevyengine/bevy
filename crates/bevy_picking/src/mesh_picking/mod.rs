@@ -20,7 +20,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_render::{prelude::*, view::RenderLayers};
-use ray_cast::{Backfaces, MeshRayCast, RayCastSettings, RayCastVisibility, SimplifiedMesh};
+use ray_cast::{MeshRayCast, RayCastSettings, RayCastVisibility, SimplifiedMesh};
 
 /// Runtime settings for the [`MeshPickingBackend`].
 #[derive(Resource, Reflect)]
@@ -36,18 +36,14 @@ pub struct MeshPickingBackendSettings {
     /// When set to [`RayCastVisibility::Any`], hidden meshes can be ray casted against.
     ///
     /// See [`RayCastSettings::visibility`] for more information.
-    pub raycast_visibility: RayCastVisibility,
-
-    /// When set to [`Backfaces::Cull`], backfaces of meshes will be ignored during ray casting.
-    pub backfaces: Backfaces,
+    pub ray_cast_visibility: RayCastVisibility,
 }
 
 impl Default for MeshPickingBackendSettings {
     fn default() -> Self {
         Self {
             require_markers: false,
-            raycast_visibility: RayCastVisibility::VisibleInView,
-            backfaces: Backfaces::default(),
+            ray_cast_visibility: RayCastVisibility::VisibleInView,
         }
     }
 }
@@ -93,8 +89,7 @@ pub fn update_hits(
         let cam_layers = cam_layers.to_owned().unwrap_or_default();
 
         let settings = RayCastSettings {
-            visibility: backend_settings.raycast_visibility,
-            backfaces: backend_settings.backfaces,
+            visibility: backend_settings.ray_cast_visibility,
             filter: &|entity| {
                 let marker_requirement =
                     !backend_settings.require_markers || marked_targets.get(entity).is_ok();

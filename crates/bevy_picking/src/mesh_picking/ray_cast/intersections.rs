@@ -8,6 +8,30 @@ use bevy_utils::tracing::{error, warn};
 
 use super::Backfaces;
 
+/// A ray intersection with a mesh.
+#[derive(Debug, Clone, Reflect)]
+pub struct RayMeshHit {
+    /// The point of intersection in world space.
+    pub point: Vec3,
+    /// The normal vector of the triangle at the point of intersection. Not guaranteed to be normalized for scaled meshes.
+    pub normal: Vec3,
+    /// The barycentric coordinates of the intersection.
+    pub barycentric_coords: Vec3,
+    /// The distance from the ray origin to the intersection point.
+    pub distance: f32,
+    /// The vertices of the triangle that was hit.
+    pub triangle: Option<[Vec3A; 3]>,
+    /// The index of the triangle that was hit.
+    pub triangle_index: Option<usize>,
+}
+
+/// A hit result from a ray cast on a triangle.
+#[derive(Default, Debug)]
+pub struct RayTriangleHit {
+    pub distance: f32,
+    pub barycentric_coords: (f32, f32),
+}
+
 /// Casts a ray on a mesh, and returns the intersection.
 pub(super) fn ray_intersection_over_mesh(
     mesh: &Mesh,
@@ -72,7 +96,7 @@ pub(super) fn ray_intersection_over_mesh(
 }
 
 /// A trait for converting a value into a [`usize`].
-trait IntoUsize: Copy {
+pub trait IntoUsize: Copy {
     /// Converts the value into a [`usize`].
     fn into_usize(self) -> usize;
 }
@@ -90,7 +114,7 @@ impl IntoUsize for u32 {
 }
 
 /// Checks if a ray intersects a mesh, and returns the nearest intersection if one exists.
-fn ray_mesh_intersection(
+pub fn ray_mesh_intersection(
     ray: Ray3d,
     mesh_transform: &Mat4,
     vertex_positions: &[[f32; 3]],
@@ -221,14 +245,17 @@ fn triangle_intersection(
     backface_culling: Backfaces,
 ) -> Option<RayMeshHit> {
     let hit = ray_triangle_intersection(ray, &tri_vertices, backface_culling)?;
+
     if hit.distance < 0.0 || hit.distance > max_distance {
         return None;
     };
+
     let point = ray.get_point(hit.distance);
     let u = hit.barycentric_coords.0;
     let v = hit.barycentric_coords.1;
     let w = 1.0 - u - v;
     let barycentric = Vec3::new(u, v, w);
+
     let normal = if let Some(normals) = tri_normals {
         normals[1] * u + normals[2] * v + normals[0] * w
     } else {
@@ -236,6 +263,7 @@ fn triangle_intersection(
             .cross(tri_vertices[2] - tri_vertices[0])
             .normalize()
     };
+
     Some(RayMeshHit {
         point,
         normal: normal.into(),
@@ -299,59 +327,7 @@ fn ray_triangle_intersection(
     })
 }
 
-/// A hit result from a ray cast on a triangle.
-#[derive(Default, Debug)]
-pub struct RayTriangleHit {
-    pub distance: f32,
-    pub barycentric_coords: (f32, f32),
-}
-
-#[cfg(test)]
-mod tests {
-    use bevy_math::Vec3;
-
-    use super::*;
-
-    // Triangle vertices to be used in a left-hand coordinate system
-    const V0: [f32; 3] = [1.0, -1.0, 2.0];
-    const V1: [f32; 3] = [1.0, 2.0, -1.0];
-    const V2: [f32; 3] = [1.0, -1.0, -1.0];
-
-    #[test]
-    fn ray_cast_triangle_mt() {
-        let triangle = [V0.into(), V1.into(), V2.into()];
-        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
-        let result = ray_triangle_intersection(&ray, &triangle, Backfaces::Include);
-        assert!(result.unwrap().distance - 1.0 <= f32::EPSILON);
-    }
-
-    #[test]
-    fn ray_cast_triangle_mt_culling() {
-        let triangle = [V2.into(), V1.into(), V0.into()];
-        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
-        let result = ray_triangle_intersection(&ray, &triangle, Backfaces::Cull);
-        assert!(result.is_none());
-    }
-}
-
-/// A ray intersection with a mesh.
-#[derive(Debug, Clone, Reflect)]
-pub struct RayMeshHit {
-    /// The point of intersection in world space.
-    pub point: Vec3,
-    /// The normal vector of the triangle at the point of intersection. Not guaranteed to be normalized for scaled meshes.
-    pub normal: Vec3,
-    /// The barycentric coordinates of the intersection.
-    pub barycentric_coords: Vec3,
-    /// The distance from the ray origin to the intersection point.
-    pub distance: f32,
-    /// The vertices of the triangle that was hit.
-    pub triangle: Option<[Vec3A; 3]>,
-    /// The index of the triangle that was hit.
-    pub triangle_index: Option<usize>,
-}
-
-// TODO: It'd be nice to use `RayCast3d` from `bevy_math` instead, but it only works on normalized rays.
+// TODO: It'd be nice to use `RayCast3d` from `bevy_math` instead. It caches the direction reciprocal.
 /// Checks if the ray intersects with an AABB of a mesh, returning `[near, far]` if it does.
 pub(crate) fn ray_aabb_intersection_3d(
     ray: Ray3d,
@@ -396,5 +372,34 @@ pub(crate) fn ray_aabb_intersection_3d(
     if t_max.z < hit_far {
         hit_far = t_max.z;
     }
+
     Some([hit_near, hit_far])
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_math::Vec3;
+
+    use super::*;
+
+    // Triangle vertices to be used in a left-hand coordinate system
+    const V0: [f32; 3] = [1.0, -1.0, 2.0];
+    const V1: [f32; 3] = [1.0, 2.0, -1.0];
+    const V2: [f32; 3] = [1.0, -1.0, -1.0];
+
+    #[test]
+    fn ray_cast_triangle_mt() {
+        let triangle = [V0.into(), V1.into(), V2.into()];
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
+        let result = ray_triangle_intersection(&ray, &triangle, Backfaces::Include);
+        assert!(result.unwrap().distance - 1.0 <= f32::EPSILON);
+    }
+
+    #[test]
+    fn ray_cast_triangle_mt_culling() {
+        let triangle = [V2.into(), V1.into(), V0.into()];
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
+        let result = ray_triangle_intersection(&ray, &triangle, Backfaces::Cull);
+        assert!(result.is_none());
+    }
 }
