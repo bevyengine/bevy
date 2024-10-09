@@ -314,7 +314,7 @@ impl Plugin for AssetPlugin {
         {
             let mut sources = app
                 .world_mut()
-                .get_resource_or_insert_with::<AssetSourceBuilders>(Default::default);
+                .get_resource_or_init::<AssetSourceBuilders>();
             sources.init_default_source(
                 &self.file_path,
                 (!matches!(self.mode, AssetMode::Unprocessed))
@@ -519,7 +519,7 @@ impl AssetApp for App {
         {
             let mut sources = self
                 .world_mut()
-                .get_resource_or_insert_with(AssetSourceBuilders::default);
+                .get_resource_or_init::<AssetSourceBuilders>();
             sources.insert(id, source);
         }
 

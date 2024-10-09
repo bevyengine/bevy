@@ -241,12 +241,10 @@ impl AppGizmoBuilder for App {
         }
 
         self.world_mut()
-            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
+            .get_resource_or_init::<GizmoConfigStore>()
             .register::<Config>();
 
-        let mut handles = self
-            .world_mut()
-            .get_resource_or_insert_with::<LineGizmoHandles>(Default::default);
+        let mut handles = self.world_mut().get_resource_or_init::<LineGizmoHandles>();
 
         handles.list.insert(TypeId::of::<Config>(), None);
         handles.strip.insert(TypeId::of::<Config>(), None);
@@ -288,7 +286,7 @@ impl AppGizmoBuilder for App {
         self.init_gizmo_group::<Config>();
 
         self.world_mut()
-            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
+            .get_resource_or_init::<GizmoConfigStore>()
             .insert(config, group);
 
         self
