@@ -27,7 +27,7 @@ use core::{
     marker::PhantomData,
     mem::needs_drop,
 };
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 /// A data type that can be used to store data for an [entity].
 ///
@@ -1623,14 +1623,18 @@ impl<T: Component> FromWorld for InitComponentId<T> {
 }
 
 /// An error returned when the registration of a required component fails.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 #[non_exhaustive]
 pub enum RequiredComponentsError {
     /// The component is already a directly required component for the requiree.
-    #[error("Component {0:?} already directly requires component {1:?}")]
+    #[display("Component {0:?} already directly requires component {_1:?}")]
+    #[error(ignore)]
     DuplicateRegistration(ComponentId, ComponentId),
     /// An archetype with the component that requires other components already exists
-    #[error("An archetype with the component {0:?} that requires other components already exists")]
+    #[display(
+        "An archetype with the component {_0:?} that requires other components already exists"
+    )]
+    #[error(ignore)]
     ArchetypeExists(ComponentId),
 }
 

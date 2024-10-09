@@ -33,13 +33,10 @@ fn setup(
     ));
 
     // Sprite
-    commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/bevy_bird_dark.png"),
-        sprite: Sprite {
-            color: Color::srgb(5.0, 5.0, 5.0), // 4. Put something bright in a dark environment to see the effect
-            custom_size: Some(Vec2::splat(160.0)),
-            ..default()
-        },
+    commands.spawn(Sprite {
+        image: asset_server.load("branding/bevy_bird_dark.png"),
+        color: Color::srgb(5.0, 5.0, 5.0), // 4. Put something bright in a dark environment to see the effect
+        custom_size: Some(Vec2::splat(160.0)),
         ..default()
     });
 

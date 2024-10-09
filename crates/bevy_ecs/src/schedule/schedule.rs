@@ -8,10 +8,10 @@ use bevy_utils::{
     tracing::{error, info, warn},
     HashMap, HashSet,
 };
+use derive_more::derive::{Display, Error};
 use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 use petgraph::{algo::TarjanScc, prelude::*};
-use thiserror::Error;
 
 use crate::{
     self as bevy_ecs,
@@ -1934,42 +1934,43 @@ impl ScheduleGraph {
 }
 
 /// Category of errors encountered during schedule construction.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
+#[error(ignore)]
 #[non_exhaustive]
 pub enum ScheduleBuildError {
     /// A system set contains itself.
-    #[error("System set `{0}` contains itself.")]
+    #[display("System set `{_0}` contains itself.")]
     HierarchyLoop(String),
     /// The hierarchy of system sets contains a cycle.
-    #[error("System set hierarchy contains cycle(s).\n{0}")]
+    #[display("System set hierarchy contains cycle(s).\n{_0}")]
     HierarchyCycle(String),
     /// The hierarchy of system sets contains redundant edges.
     ///
     /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
-    #[error("System set hierarchy contains redundant edges.\n{0}")]
+    #[display("System set hierarchy contains redundant edges.\n{_0}")]
     HierarchyRedundancy(String),
     /// A system (set) has been told to run before itself.
-    #[error("System set `{0}` depends on itself.")]
+    #[display("System set `{_0}` depends on itself.")]
     DependencyLoop(String),
     /// The dependency graph contains a cycle.
-    #[error("System dependencies contain cycle(s).\n{0}")]
+    #[display("System dependencies contain cycle(s).\n{_0}")]
     DependencyCycle(String),
     /// Tried to order a system (set) relative to a system set it belongs to.
-    #[error("`{0}` and `{1}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
+    #[display("`{0}` and `{_1}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
     CrossDependency(String, String),
     /// Tried to order system sets that share systems.
-    #[error("`{0}` and `{1}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
+    #[display("`{0}` and `{_1}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
     SetsHaveOrderButIntersect(String, String),
     /// Tried to order a system (set) relative to all instances of some system function.
-    #[error("Tried to order against `{0}` in a schedule that has more than one `{0}` instance. `{0}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
+    #[display("Tried to order against `{0}` in a schedule that has more than one `{0}` instance. `{_0}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
     SystemTypeSetAmbiguity(String),
     /// Systems with conflicting access have indeterminate run order.
     ///
     /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
-    #[error("Systems with conflicting access have indeterminate run order.\n{0}")]
+    #[display("Systems with conflicting access have indeterminate run order.\n{_0}")]
     Ambiguity(String),
     /// Tried to run a schedule before all of its systems have been initialized.
-    #[error("Systems in schedule have not been initialized.")]
+    #[display("Systems in schedule have not been initialized.")]
     Uninitialized,
 }
 
@@ -2040,8 +2041,8 @@ impl ScheduleBuildSettings {
 
 /// Error to denote that [`Schedule::initialize`] or [`Schedule::run`] has not yet been called for
 /// this schedule.
-#[derive(Error, Debug)]
-#[error("executable schedule has not been built")]
+#[derive(Error, Display, Debug)]
+#[display("executable schedule has not been built")]
 pub struct ScheduleNotInitialized;
 
 #[cfg(test)]

@@ -5,7 +5,7 @@ use bevy_math::Vec3;
 use bevy_utils::HashSet;
 use bytemuck::cast_slice;
 use core::hash::{Hash, Hasher};
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 use wgpu::{BufferAddress, VertexAttribute, VertexFormat, VertexStepMode};
 
 #[derive(Debug, Clone, Copy)]
@@ -108,8 +108,8 @@ impl MeshVertexBufferLayout {
     }
 }
 
-#[derive(Error, Debug)]
-#[error("Mesh is missing requested attribute: {name} ({id:?}, pipeline type: {pipeline_type:?})")]
+#[derive(Error, Display, Debug)]
+#[display("Mesh is missing requested attribute: {name} ({id:?}, pipeline type: {pipeline_type:?})")]
 pub struct MissingVertexAttributeError {
     pub pipeline_type: Option<&'static str>,
     id: MeshVertexAttributeId,

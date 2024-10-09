@@ -34,7 +34,11 @@ petgraph = { version = "0.6", features = ["serde-1"] }
 ron = "0.8"
 serde = "1"
 blake3 = { version = "1.0" }
-thiserror = "1"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+] }
 thread_local = "1"
 uuid = { version = "1.7", features = ["v4"] }
 smallvec = "1"

@@ -18,7 +18,7 @@ use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
 use ui_surface::UiSurface;
 
 #[cfg(feature = "bevy_text")]
@@ -61,12 +61,12 @@ impl Default for LayoutContext {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display, From)]
 pub enum LayoutError {
-    #[error("Invalid hierarchy")]
+    #[display("Invalid hierarchy")]
     InvalidHierarchy,
-    #[error("Taffy error: {0}")]
-    TaffyError(#[from] taffy::TaffyError),
+    #[display("Taffy error: {_0}")]
+    TaffyError(taffy::TaffyError),
 }
 
 #[doc(hidden)]

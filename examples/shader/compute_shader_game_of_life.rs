@@ -67,15 +67,14 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let image0 = images.add(image.clone());
     let image1 = images.add(image);
 
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
+    commands.spawn((
+        Sprite {
+            image: image0.clone(),
             custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)),
             ..default()
         },
-        texture: image0.clone(),
-        transform: Transform::from_scale(Vec3::splat(DISPLAY_FACTOR as f32)),
-        ..default()
-    });
+        Transform::from_scale(Vec3::splat(DISPLAY_FACTOR as f32)),
+    ));
     commands.spawn(Camera2d);
 
     commands.insert_resource(GameOfLifeImages {

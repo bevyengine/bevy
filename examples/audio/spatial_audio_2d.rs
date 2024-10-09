@@ -46,26 +46,16 @@ fn setup(
         .spawn((SpatialBundle::default(), listener.clone()))
         .with_children(|parent| {
             // left ear
-            parent.spawn(SpriteBundle {
-                sprite: Sprite {
-                    color: RED.into(),
-                    custom_size: Some(Vec2::splat(20.0)),
-                    ..default()
-                },
-                transform: Transform::from_xyz(-gap / 2.0, 0.0, 0.0),
-                ..default()
-            });
+            parent.spawn((
+                Sprite::from_color(RED, Vec2::splat(20.0)),
+                Transform::from_xyz(-gap / 2.0, 0.0, 0.0),
+            ));
 
             // right ear
-            parent.spawn(SpriteBundle {
-                sprite: Sprite {
-                    color: LIME.into(),
-                    custom_size: Some(Vec2::splat(20.0)),
-                    ..default()
-                },
-                transform: Transform::from_xyz(gap / 2.0, 0.0, 0.0),
-                ..default()
-            });
+            parent.spawn((
+                Sprite::from_color(LIME, Vec2::splat(20.0)),
+                Transform::from_xyz(gap / 2.0, 0.0, 0.0),
+            ));
         });
 
     // example instructions
