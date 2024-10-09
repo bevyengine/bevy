@@ -6,9 +6,9 @@ use core::{
     hash::Hash,
     ops::Deref,
 };
+use derive_more::derive::{Display, Error};
 use serde::{de::Visitor, Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use thiserror::Error;
 
 /// Represents a path to an asset in a "virtual filesystem".
 ///
@@ -76,19 +76,19 @@ impl<'a> Display for AssetPath<'a> {
 }
 
 /// An error that occurs when parsing a string type to create an [`AssetPath`] fails, such as during [`AssetPath::parse`].
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Display, Debug, PartialEq, Eq)]
 pub enum ParseAssetPathError {
     /// Error that occurs when the [`AssetPath::source`] section of a path string contains the [`AssetPath::label`] delimiter `#`. E.g. `bad#source://file.test`.
-    #[error("Asset source must not contain a `#` character")]
+    #[display("Asset source must not contain a `#` character")]
     InvalidSourceSyntax,
     /// Error that occurs when the [`AssetPath::label`] section of a path string contains the [`AssetPath::source`] delimiter `://`. E.g. `source://file.test#bad://label`.
-    #[error("Asset label must not contain a `://` substring")]
+    #[display("Asset label must not contain a `://` substring")]
     InvalidLabelSyntax,
     /// Error that occurs when a path string has an [`AssetPath::source`] delimiter `://` with no characters preceding it. E.g. `://file.test`.
-    #[error("Asset source must be at least one character. Either specify the source before the '://' or remove the `://`")]
+    #[display("Asset source must be at least one character. Either specify the source before the '://' or remove the `://`")]
     MissingSource,
     /// Error that occurs when a path string has an [`AssetPath::label`] delimiter `#` with no characters succeeding it. E.g. `file.test#`
-    #[error("Asset label must be at least one character. Either specify the label after the '#' or remove the '#'")]
+    #[display("Asset label must be at least one character. Either specify the label after the '#' or remove the '#'")]
     MissingLabel,
 }
 
