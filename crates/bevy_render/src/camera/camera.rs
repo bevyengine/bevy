@@ -37,6 +37,7 @@ use bevy_window::{
     WindowScaleFactorChanged,
 };
 use core::ops::Range;
+use derive_more::derive::From;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
 use super::{ClearColorConfig, Projection};
@@ -710,7 +711,7 @@ impl CameraRenderGraph {
 
 /// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`]
 /// swapchain or an [`Image`].
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, From)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowRef),
@@ -727,16 +728,10 @@ impl Default for RenderTarget {
     }
 }
 
-impl From<Handle<Image>> for RenderTarget {
-    fn from(handle: Handle<Image>) -> Self {
-        Self::Image(handle)
-    }
-}
-
 /// Normalized version of the render target.
 ///
 /// Once we have this we shouldn't need to resolve it down anymore.
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord, From)]
 pub enum NormalizedRenderTarget {
     /// Window to which the camera's view is rendered.
     Window(NormalizedWindowRef),

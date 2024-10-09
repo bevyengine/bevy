@@ -4,6 +4,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
+use derive_more::derive::From;
 
 /// A component for rendering 2D meshes, typically with a [`MeshMaterial2d`] using a [`ColorMaterial`].
 ///
@@ -35,16 +36,10 @@ use bevy_transform::components::Transform;
 ///     ));
 /// }
 /// ```
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
 #[require(Transform, Visibility)]
 pub struct Mesh2d(pub Handle<Mesh>);
-
-impl From<Handle<Mesh>> for Mesh2d {
-    fn from(handle: Handle<Mesh>) -> Self {
-        Self(handle)
-    }
-}
 
 impl From<Mesh2d> for AssetId<Mesh> {
     fn from(mesh: Mesh2d) -> Self {
@@ -91,16 +86,10 @@ impl From<&Mesh2d> for AssetId<Mesh> {
 ///     ));
 /// }
 /// ```
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
 #[require(Transform, Visibility)]
 pub struct Mesh3d(pub Handle<Mesh>);
-
-impl From<Handle<Mesh>> for Mesh3d {
-    fn from(handle: Handle<Mesh>) -> Self {
-        Self(handle)
-    }
-}
 
 impl From<Mesh3d> for AssetId<Mesh> {
     fn from(mesh: Mesh3d) -> Self {

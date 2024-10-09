@@ -3,24 +3,21 @@ use crate::define_atomic_id;
 use alloc::borrow::Cow;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
-use bevy_utils::tracing::error;
 use core::marker::Copy;
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
 
 define_atomic_id!(ShaderId);
 
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum ShaderReflectError {
-    #[error(transparent)]
-    WgslParse(#[from] naga::front::wgsl::ParseError),
+    WgslParse(naga::front::wgsl::ParseError),
     #[cfg(feature = "shader_format_glsl")]
-    #[error("GLSL Parse Error: {0:?}")]
+    #[display("GLSL Parse Error: {_0:?}")]
+    #[error(ignore)]
     GlslParse(Vec<naga::front::glsl::Error>),
     #[cfg(feature = "shader_format_spirv")]
-    #[error(transparent)]
-    SpirVParse(#[from] naga::front::spv::Error),
-    #[error(transparent)]
-    Validation(#[from] naga::WithSpan<naga::valid::ValidationError>),
+    SpirVParse(naga::front::spv::Error),
+    Validation(naga::WithSpan<naga::valid::ValidationError>),
 }
 /// A shader, as defined by its [`ShaderSource`](wgpu::ShaderSource) and [`ShaderStage`](naga::ShaderStage)
 /// This is an "unprocessed" shader. It can contain preprocessor directives.
@@ -247,12 +244,12 @@ impl From<&Source> for naga_oil::compose::ShaderType {
 pub struct ShaderLoader;
 
 #[non_exhaustive]
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display, From)]
 pub enum ShaderLoaderError {
-    #[error("Could not load shader: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("Could not parse shader: {0}")]
-    Parse(#[from] alloc::string::FromUtf8Error),
+    #[display("Could not load shader: {_0}")]
+    Io(std::io::Error),
+    #[display("Could not parse shader: {_0}")]
+    Parse(alloc::string::FromUtf8Error),
 }
 
 impl AssetLoader for ShaderLoader {
