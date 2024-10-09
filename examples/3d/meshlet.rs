@@ -86,20 +86,18 @@ fn setup(
     for x in -2..=2 {
         commands.spawn(MaterialMeshletMeshBundle {
             meshlet_mesh: meshlet_mesh_handle.clone(),
-            material: standard_materials
-                .add(StandardMaterial {
-                    base_color: match x {
-                        -2 => Srgba::hex("#dc2626").unwrap().into(),
-                        -1 => Srgba::hex("#ea580c").unwrap().into(),
-                        0 => Srgba::hex("#facc15").unwrap().into(),
-                        1 => Srgba::hex("#16a34a").unwrap().into(),
-                        2 => Srgba::hex("#0284c7").unwrap().into(),
-                        _ => unreachable!(),
-                    },
-                    perceptual_roughness: (x + 2) as f32 / 4.0,
-                    ..default()
-                })
-                .into(),
+            material: MeshMaterial3d(standard_materials.add(StandardMaterial {
+                base_color: match x {
+                    -2 => Srgba::hex("#dc2626").unwrap().into(),
+                    -1 => Srgba::hex("#ea580c").unwrap().into(),
+                    0 => Srgba::hex("#facc15").unwrap().into(),
+                    1 => Srgba::hex("#16a34a").unwrap().into(),
+                    2 => Srgba::hex("#0284c7").unwrap().into(),
+                    _ => unreachable!(),
+                },
+                perceptual_roughness: (x + 2) as f32 / 4.0,
+                ..default()
+            })),
             transform: Transform::default()
                 .with_scale(Vec3::splat(0.2))
                 .with_translation(Vec3::new(x as f32 / 2.0, 0.0, -0.3)),
