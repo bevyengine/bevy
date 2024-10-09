@@ -15,11 +15,11 @@ use bevy_ecs::{
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
+use derive_more::derive::{Display, Error};
 use std::{
     panic::{catch_unwind, resume_unwind},
     process::{ExitCode, Termination},
 };
-use thiserror::Error;
 
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
@@ -32,9 +32,9 @@ pub use bevy_ecs::label::DynEq;
 /// A shorthand for `Interned<dyn AppLabel>`.
 pub type InternedAppLabel = Interned<dyn AppLabel>;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub(crate) enum AppError {
-    #[error("duplicate plugin {plugin_name:?}")]
+    #[display("duplicate plugin {plugin_name:?}")]
     DuplicatePlugin { plugin_name: String },
 }
 
