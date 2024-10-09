@@ -23,7 +23,7 @@ use bevy_render::{
     settings::WgpuFeatures,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage, Image},
-    view::ExtractedView,
+    view::{ExtractedView, Visibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
@@ -65,14 +65,13 @@ pub struct LightProbePlugin;
 /// A marker component for a light probe, which is a cuboid region that provides
 /// global illumination to all fragments inside it.
 ///
-/// The light probe range is conceptually a unit cube (1×1×1) centered on the
-/// origin.  The [`bevy_transform::prelude::Transform`] applied to this entity
-/// can scale, rotate, or translate that cube so that it contains all fragments
-/// that should take this light probe into account.
-///
 /// Note that a light probe will have no effect unless the entity contains some
 /// kind of illumination, which can either be an [`EnvironmentMapLight`] or an
 /// [`IrradianceVolume`].
+///
+/// The light probe range is conceptually a unit cube (1×1×1) centered on the
+/// origin. The [`Transform`] applied to this entity can scale, rotate, or translate
+/// that cube so that it contains all fragments that should take this light probe into account.
 ///
 /// When multiple sources of indirect illumination can be applied to a fragment,
 /// the highest-quality one is chosen. Diffuse and specular illumination are
@@ -104,6 +103,7 @@ pub struct LightProbePlugin;
 /// with other engines should be aware of this terminology difference.
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
+#[require(Transform, Visibility)]
 pub struct LightProbe;
 
 /// A GPU type that stores information about a light probe.
