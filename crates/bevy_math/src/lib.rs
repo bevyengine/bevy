@@ -44,6 +44,9 @@ pub use ray::{Ray2d, Ray3d};
 pub use rects::*;
 pub use rotation2d::Rot2;
 
+#[cfg(feature = "curve")]
+pub use curve::Curve;
+
 #[cfg(feature = "rand")]
 pub use sampling::{FromRng, ShapeSample};
 
