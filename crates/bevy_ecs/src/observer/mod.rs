@@ -378,7 +378,7 @@ impl World {
     /// #[derive(Component)]
     /// struct A;
     ///
-    /// # let world  = World::new();
+    /// # let mut world = World::new();
     /// world.add_observer(|_: Trigger<OnAdd, A>| {
     ///     // ...
     /// });
