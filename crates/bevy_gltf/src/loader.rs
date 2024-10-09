@@ -262,11 +262,11 @@ async fn load_gltf<'a, 'b, 'c>(
 
     #[cfg(feature = "bevy_animation")]
     let paths = {
-        let mut paths = HashMap::<usize, (usize, Vec<Name>)>::new();
+        let mut paths = HashMap::<usize, (usize, Vec<Name>)>::default();
         for scene in gltf.scenes() {
             for node in scene.nodes() {
                 let root_index = node.index();
-                paths_recur(node, &[], &mut paths, root_index, &mut HashSet::new());
+                paths_recur(node, &[], &mut paths, root_index, &mut HashSet::default());
             }
         }
         paths
@@ -747,8 +747,8 @@ async fn load_gltf<'a, 'b, 'c>(
         })
         .collect();
 
-    let mut nodes = HashMap::<usize, Handle<GltfNode>>::new();
-    let mut named_nodes = HashMap::new();
+    let mut nodes = HashMap::<usize, Handle<GltfNode>>::default();
+    let mut named_nodes = HashMap::default();
     let mut skins = vec![];
     let mut named_skins = HashMap::default();
     for node in GltfTreeIterator::try_new(&gltf)? {
@@ -817,7 +817,7 @@ async fn load_gltf<'a, 'b, 'c>(
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
-        let mut node_index_to_entity_map = HashMap::new();
+        let mut node_index_to_entity_map = HashMap::default();
         let mut entity_to_skin_index_map = EntityHashMap::default();
         let mut scene_load_context = load_context.begin_labeled_asset();
 
@@ -1866,7 +1866,7 @@ impl<'a> GltfTreeIterator<'a> {
             .collect::<HashMap<_, _>>();
 
         let mut nodes = Vec::new();
-        let mut warned_about_max_joints = HashSet::new();
+        let mut warned_about_max_joints = HashSet::default();
         while let Some(index) = empty_children.pop_front() {
             if let Some(skin) = unprocessed_nodes.get(&index).unwrap().0.skin() {
                 if skin.joints().len() > MAX_JOINTS && warned_about_max_joints.insert(skin.index())

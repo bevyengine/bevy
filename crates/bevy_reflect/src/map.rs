@@ -563,7 +563,7 @@ pub fn map_partial_eq<M: Map + ?Sized>(a: &M, b: &dyn PartialReflect) -> Option<
 ///
 /// # Example
 /// ```
-/// # use bevy_utils::HashMap;
+/// # use std::collections::HashMap;
 /// use bevy_reflect::Reflect;
 ///
 /// let mut my_map = HashMap::new();

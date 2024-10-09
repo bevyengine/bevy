@@ -447,8 +447,8 @@ mod tests {
     fn stable_hash_within_same_program_execution() {
         use alloc::vec::Vec;
 
-        let mut map_1 = HashMap::new();
-        let mut map_2 = HashMap::new();
+        let mut map_1 = HashMap::default();
+        let mut map_2 = HashMap::default();
         for i in 1..10 {
             map_1.insert(i, i);
             map_2.insert(i, i);

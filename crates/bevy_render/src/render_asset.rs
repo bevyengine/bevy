@@ -234,7 +234,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
             }
 
             let mut extracted_assets = Vec::new();
-            let mut added = HashSet::new();
+            let mut added = HashSet::default();
             for id in changed_assets.drain() {
                 if let Some(asset) = assets.get(id) {
                     let asset_usage = A::asset_usage(asset);

@@ -885,7 +885,7 @@ pub fn camera_system<T: CameraProjection + Component>(
 ) {
     let primary_window = primary_window.iter().next();
 
-    let mut changed_window_ids = HashSet::new();
+    let mut changed_window_ids = HashSet::default();
     changed_window_ids.extend(window_created_events.read().map(|event| event.window));
     changed_window_ids.extend(window_resized_events.read().map(|event| event.window));
     let scale_factor_changed_window_ids: HashSet<_> = window_scale_factor_changed_events
@@ -924,7 +924,9 @@ pub fn camera_system<T: CameraProjection + Component>(
                 // This can happen when the window is moved between monitors with different DPIs.
                 // Without this, the viewport will take a smaller portion of the window moved to
                 // a higher DPI monitor.
-                if normalized_target.is_changed(&scale_factor_changed_window_ids, &HashSet::new()) {
+                if normalized_target
+                    .is_changed(&scale_factor_changed_window_ids, &HashSet::default())
+                {
                     if let (Some(new_scale_factor), Some(old_scale_factor)) = (
                         new_computed_target_info
                             .as_ref()
@@ -1164,8 +1166,8 @@ pub fn sort_cameras(
             ord => ord,
         });
     let mut previous_order_target = None;
-    let mut ambiguities = HashSet::new();
-    let mut target_counts = HashMap::new();
+    let mut ambiguities = HashSet::default();
+    let mut target_counts = HashMap::default();
     for sorted_camera in &mut sorted_cameras.0 {
         let new_order_target = (sorted_camera.order, sorted_camera.target.clone());
         if let Some(previous_order_target) = previous_order_target {

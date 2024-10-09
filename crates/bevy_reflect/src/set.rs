@@ -431,7 +431,7 @@ pub fn set_partial_eq<M: Set>(a: &M, b: &dyn PartialReflect) -> Option<bool> {
 ///
 /// # Example
 /// ```
-/// # use bevy_utils::HashSet;
+/// # use std::collections::HashSet;
 /// use bevy_reflect::Reflect;
 ///
 /// let mut my_set = HashSet::new();

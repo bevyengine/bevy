@@ -124,10 +124,10 @@ mod tests {
     }
 
     fn get_my_struct() -> MyStruct {
-        let mut map = HashMap::new();
+        let mut map = HashMap::default();
         map.insert(64, 32);
 
-        let mut set = HashSet::new();
+        let mut set = HashSet::default();
         set.insert(64);
 
         MyStruct {

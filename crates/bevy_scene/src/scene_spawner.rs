@@ -316,7 +316,7 @@ impl SceneSpawner {
                     let spawned = self
                         .spawned_dynamic_scenes
                         .entry(handle.id())
-                        .or_insert_with(HashSet::new);
+                        .or_insert_with(HashSet::default);
                     spawned.insert(instance_id);
 
                     // Scenes with parents need more setup before they are ready.
