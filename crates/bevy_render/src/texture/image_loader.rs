@@ -1,6 +1,6 @@
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use bevy_ecs::prelude::{FromWorld, World};
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
 
 use crate::{
     render_asset::RenderAssetUsages,
@@ -45,12 +45,12 @@ impl Default for ImageLoaderSettings {
 }
 
 #[non_exhaustive]
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display, From)]
 pub enum ImageLoaderError {
-    #[error("Could load shader: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("Could not load texture file: {0}")]
-    FileTexture(#[from] FileTextureError),
+    #[display("Could load shader: {_0}")]
+    Io(std::io::Error),
+    #[display("Could not load texture file: {_0}")]
+    FileTexture(FileTextureError),
 }
 
 impl AssetLoader for ImageLoader {
@@ -120,17 +120,9 @@ impl FromWorld for ImageLoader {
 }
 
 /// An error that occurs when loading a texture from a file.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
+#[display("Error reading image file {path}: {error}, this is an error in `bevy_render`.")]
 pub struct FileTextureError {
     error: TextureError,
     path: String,
-}
-impl core::fmt::Display for FileTextureError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
-        write!(
-            f,
-            "Error reading image file {}: {}, this is an error in `bevy_render`.",
-            self.path, self.error
-        )
-    }
 }
