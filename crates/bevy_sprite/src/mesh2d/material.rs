@@ -1,5 +1,6 @@
 #![expect(deprecated)]
 
+use alloc::sync::Arc;
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
@@ -715,7 +716,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
     type Param = (SRes<RenderDevice>, SRes<Material2dPipeline<M>>, M::Param);
 
     fn prepare_asset(
-        material: Self::SourceAsset,
+        material: Arc<Self::SourceAsset>,
         (render_device, pipeline, material_param): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match material.as_bind_group(&pipeline.material2d_layout, render_device, material_param) {
