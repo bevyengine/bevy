@@ -1,7 +1,7 @@
 use crate::pipeline::CosmicFontSystem;
 use crate::{
-    ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBlock,
-    TextBounds, TextError, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
+    ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBounds,
+    TextError, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
     TextStyle, TextWriter, YAxisOrientation,
 };
 use bevy_asset::Assets;
@@ -38,9 +38,9 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`TextBlock`]. See [`TextSpan`](crate::TextSpan) for the component used by children of entities with [`Text2d`].
+/// a [`ComputedTextBlock`]. See [`TextSpan`](crate::TextSpan) for the component used by children of entities with [`Text2d`].
 ///
-/// With `Text2d` the `justify` field of [`TextBlock`] only affects the internal alignment of a block of text and not its
+/// With `Text2d` the `justify` field of [`TextLayout`] only affects the internal alignment of a block of text and not its
 /// relative position, which is controlled by the [`Anchor`] component.
 /// This means that for a block of text consisting of only one line that doesn't wrap, the `justify` field will have no effect.
 ///
@@ -50,7 +50,7 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 # use bevy_color::Color;
 # use bevy_color::palettes::basic::BLUE;
 # use bevy_ecs::World;
-# use bevy_text::{Font, JustifyText, Text2d, TextBlock, TextStyle};
+# use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextStyle};
 #
 # let font_handle: Handle<Font> = Default::default();
 # let mut world = World::default();
@@ -71,14 +71,14 @@ world.spawn((
 // With text justification.
 world.spawn((
     Text2d::new("hello world\nand bevy!"),
-    TextBlock::new_with_justify(JustifyText::Center)
+    TextLayout::new_with_justify(JustifyText::Center)
 ));
 ```
 */
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(
-    TextBlock,
+    TextLayout,
     TextStyle,
     TextBounds,
     Anchor,
@@ -230,7 +230,7 @@ pub fn update_text2d_layout(
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
-        Ref<TextBlock>,
+        Ref<TextLayout>,
         Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,

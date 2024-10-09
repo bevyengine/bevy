@@ -39,7 +39,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         // Set the justification of the Text
-        TextBlock::new_with_justify(JustifyText::Center),
+        TextLayout::new_with_justify(JustifyText::Center),
         // Set the style of the Node itself.
         Style {
             position_type: PositionType::Absolute,

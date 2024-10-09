@@ -19,7 +19,7 @@ use bevy_render::{camera::Camera, texture::Image, view::Visibility};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
-    TextBlock, TextBounds, TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader,
+    TextBounds, TextError, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader,
     TextRoot, TextSpanAccess, TextStyle, TextWriter, YAxisOrientation,
 };
 use bevy_transform::components::Transform;
@@ -52,7 +52,7 @@ impl Default for TextNodeFlags {
 /// Adding [`Text`] to an entity will pull in required components for setting up a UI text node.
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`TextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
+/// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
 ///
 /// Note that [`Transform`] on this entity is managed automatically by the UI layout system.
 ///
@@ -62,7 +62,7 @@ impl Default for TextNodeFlags {
 # use bevy_color::Color;
 # use bevy_color::palettes::basic::BLUE;
 # use bevy_ecs::World;
-# use bevy_text::{Font, JustifyText, TextBlock, TextStyle};
+# use bevy_text::{Font, JustifyText, TextLayout, TextStyle};
 # use bevy_ui::Text;
 #
 # let font_handle: Handle<Font> = Default::default();
@@ -84,14 +84,14 @@ world.spawn((
 // With text justification.
 world.spawn((
     Text::new("hello world\nand bevy!"),
-    TextBlock::new_with_justify(JustifyText::Center)
+    TextLayout::new_with_justify(JustifyText::Center)
 ));
 ```
 */
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(
-    TextBlock,
+    TextLayout,
     TextStyle,
     TextNodeFlags,
     Node,
@@ -205,7 +205,7 @@ fn create_text_measure<'a>(
     fonts: &Assets<Font>,
     scale_factor: f64,
     spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextStyle)>,
-    block: Ref<TextBlock>,
+    block: Ref<TextLayout>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextNodeFlags>,
@@ -263,7 +263,7 @@ pub fn measure_text_system(
     mut text_query: Query<
         (
             Entity,
-            Ref<TextBlock>,
+            Ref<TextLayout>,
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
@@ -329,7 +329,7 @@ fn queue_text(
     textures: &mut Assets<Image>,
     scale_factor: f32,
     inverse_scale_factor: f32,
-    block: &TextBlock,
+    block: &TextLayout,
     node: Ref<Node>,
     mut text_flags: Mut<TextNodeFlags>,
     text_layout_info: Mut<TextLayoutInfo>,
@@ -408,7 +408,7 @@ pub fn text_system(
     mut text_query: Query<(
         Entity,
         Ref<Node>,
-        &TextBlock,
+        &TextLayout,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
