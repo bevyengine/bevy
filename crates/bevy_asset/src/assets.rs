@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{Res, ResMut, SystemChangeTick},
 };
 use bevy_platform_support::collections::HashMap;
-use bevy_reflect::{Reflect, TypePath};
+use bevy_reflect::{FromReflect, Reflect, TypePath};
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
@@ -632,6 +632,40 @@ impl<A: Asset + Clone> Assets<A> {
         self.queued_events.push(AssetEvent::Modified { id });
         // This clones the asset if the asset is aliased.
         Some(Arc::make_mut(arc))
+    }
+}
+
+impl<A: Asset + FromReflect> Assets<A> {
+    /// Retrieves a mutable reference to the [`Asset`] with the given `id` if it exists.
+    ///
+    /// If the asset is currently aliased (another [`Arc`] or [`Weak`] to this asset exists), the
+    /// asset is "cloned" using reflection.
+    ///
+    /// [`Weak`]: std::sync::Weak
+    pub fn get_reflect_cloned_mut(&mut self, id: impl Into<AssetId<A>>) -> Option<&mut A> {
+        let id = id.into();
+        let arc = match id {
+            AssetId::Index { index, .. } => self.dense_storage.get_arc_mut(index)?,
+            AssetId::Uuid { uuid } => self.hash_map.get_mut(&uuid)?,
+        };
+
+        self.queued_events.push(AssetEvent::Modified { id });
+        if Arc::get_mut(arc).is_some() {
+            // This is a workaround to the lack of polonius (the problem described at
+            // https://rust-lang.github.io/rfcs/2094-nll.html#problem-case-3-conditional-control-flow-across-functions)
+            // Since we can get mutable access to the `Arc` and the value inside the `Arc`, it is
+            // impossible for us to "lose" access in between these calls.
+            return Some(
+                Arc::get_mut(arc)
+                    .expect("the Arc is aliased somehow even though we just got it mutably in `Assets::get_reflect_cloned_mut`."),
+            );
+        }
+
+        let cloned_asset = FromReflect::from_reflect(arc.as_ref()).expect(
+            "could not call `FromReflect::from_reflect` in `Assets::get_reflect_cloned_mut`",
+        );
+        *arc = Arc::new(cloned_asset);
+        Some(Arc::get_mut(arc).expect("the Arc is aliased somehow even though we just cloned it in `Assets::get_reflect_cloned_mut`."))
     }
 }
 
