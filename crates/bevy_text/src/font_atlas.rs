@@ -94,8 +94,9 @@ impl FontAtlas {
         texture: &Image,
         offset: IVec2,
     ) -> Result<(), TextError> {
-        let atlas_layout = atlas_layouts.get_mut(&self.texture_atlas).unwrap();
-        let atlas_texture = textures.get_mut(&self.texture).unwrap();
+        // Accessing these assets mutably (especially the texture) could incur a large cloning cost.
+        let atlas_layout = atlas_layouts.get_cloned_mut(&self.texture_atlas).unwrap();
+        let atlas_texture = textures.get_cloned_mut(&self.texture).unwrap();
 
         if let Ok(glyph_index) =
             self.dynamic_texture_atlas_builder

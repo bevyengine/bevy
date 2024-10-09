@@ -5,6 +5,7 @@ use crate::meshlet::{
     InstanceManager,
 };
 use crate::*;
+use alloc::sync::Arc;
 use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{Asset, AssetEvents, AssetId, AssetServer, UntypedAssetId};
 use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
@@ -1170,7 +1171,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
     );
 
     fn prepare_asset(
-        material: Self::SourceAsset,
+        material: Arc<Self::SourceAsset>,
         material_id: AssetId<Self::SourceAsset>,
         (
             render_device,
