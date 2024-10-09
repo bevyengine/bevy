@@ -13,7 +13,8 @@ use bevy_utils::{
 };
 use bevy_window::{
     ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
-    WindowClosing, WindowCreated, WindowFocused, WindowMode, WindowResized, WindowWrapper,
+    WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode, WindowResized,
+    WindowWrapper,
 };
 
 use winit::{
@@ -135,6 +136,7 @@ pub(crate) fn check_keyboard_focus_lost(
     mut focus_events: EventReader<WindowFocused>,
     mut keyboard_focus: EventWriter<KeyboardFocusLost>,
     mut keyboard_input: EventWriter<KeyboardInput>,
+    mut window_events: EventWriter<WindowEvent>,
     mut q_windows: Query<&mut WinitWindowPressedKeys>,
 ) {
     let mut focus_lost = vec![];
@@ -149,6 +151,7 @@ pub(crate) fn check_keyboard_focus_lost(
 
     if !focus_gained {
         if !focus_lost.is_empty() {
+            window_events.send(WindowEvent::KeyboardFocusLost(KeyboardFocusLost));
             keyboard_focus.send(KeyboardFocusLost);
         }
 
@@ -157,13 +160,15 @@ pub(crate) fn check_keyboard_focus_lost(
                 continue;
             };
             for (key_code, logical_key) in pressed_keys.0.drain() {
-                keyboard_input.send(KeyboardInput {
+                let event = KeyboardInput {
                     key_code,
                     logical_key,
                     state: bevy_input::ButtonState::Released,
                     repeat: false,
                     window,
-                });
+                };
+                window_events.send(WindowEvent::KeyboardInput(event.clone()));
+                keyboard_input.send(event);
             }
         }
     }
