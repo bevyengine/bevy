@@ -2,7 +2,7 @@
 use bevy_reflect::Reflect;
 use bevy_utils::{tracing::debug, Duration};
 
-use crate::{real::Real, time::Time};
+use crate::{context::Context, real::Real, time::Time};
 
 /// The virtual game clock representing game time.
 ///
@@ -227,7 +227,7 @@ impl Time<Virtual> {
     }
 
     /// Updates the elapsed duration of `self` by `raw_delta`, up to the `max_delta`.
-    fn advance_with_raw_delta(&mut self, raw_delta: Duration) {
+    pub fn advance_with_raw_delta(&mut self, raw_delta: Duration) {
         let max_delta = self.context().max_delta;
         let clamped_delta = if raw_delta > max_delta {
             debug!(
@@ -254,6 +254,8 @@ impl Time<Virtual> {
         self.advance_by(delta);
     }
 }
+
+impl Context for Virtual {}
 
 impl Default for Virtual {
     fn default() -> Self {
