@@ -396,7 +396,7 @@ pub fn extract_sprites(
             );
         } else {
             let atlas_rect = sprite
-                .atlas
+                .texture_atlas
                 .as_ref()
                 .and_then(|s| s.texture_rect(&texture_atlases).map(|r| r.as_rect()));
             let rect = match (atlas_rect, sprite.rect) {

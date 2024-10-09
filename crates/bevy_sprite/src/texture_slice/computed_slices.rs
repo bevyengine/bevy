@@ -90,7 +90,7 @@ fn compute_sprite_slices(
     images: &Assets<Image>,
     atlas_layouts: &Assets<TextureAtlasLayout>,
 ) -> Option<ComputedTextureSlices> {
-    let (image_size, texture_rect) = match &sprite.atlas {
+    let (image_size, texture_rect) = match &sprite.texture_atlas {
         Some(a) => {
             let layout = atlas_layouts.get(&a.layout)?;
             (

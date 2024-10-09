@@ -203,7 +203,7 @@ pub fn calculate_bounds_2d(
         if let Some(size) = sprite
             .custom_size
             .or_else(|| sprite.rect.map(|rect| rect.size()))
-            .or_else(|| match &sprite.atlas {
+            .or_else(|| match &sprite.texture_atlas {
                 // We default to the texture size for regular sprites
                 None => images.get(&sprite.image).map(Image::size_f32),
                 // We default to the drawn rect for atlas sprites

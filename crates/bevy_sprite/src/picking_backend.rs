@@ -81,7 +81,7 @@ pub fn sprite_picking(
                 }
 
                 // Hit box in sprite coordinate system
-                let extents = match (sprite.custom_size, &sprite.atlas) {
+                let extents = match (sprite.custom_size, &sprite.texture_atlas) {
                     (Some(custom_size), _) => custom_size,
                     (None, None) => images.get(&sprite.image)?.size().as_vec2(),
                     (None, Some(atlas)) => texture_atlas_layout

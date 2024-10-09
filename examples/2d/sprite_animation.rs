@@ -63,7 +63,7 @@ fn execute_animations(time: Res<Time>, mut query: Query<(&mut AnimationConfig, &
 
         // If it has been displayed for the user-defined amount of time (fps)...
         if config.frame_timer.just_finished() {
-            if let Some(atlas) = &mut sprite.atlas {
+            if let Some(atlas) = &mut sprite.texture_atlas {
                 if atlas.index == config.last_sprite_index {
                     // ...and it IS the last frame, then we move back to the first frame and stop.
                     atlas.index = config.first_sprite_index;
@@ -105,7 +105,7 @@ fn setup(
     commands.spawn((
         Sprite {
             image: texture.clone(),
-            atlas: Some(TextureAtlas {
+            texture_atlas: Some(TextureAtlas {
                 layout: texture_atlas_layout.clone(),
                 index: animation_config_1.first_sprite_index,
             }),
@@ -123,7 +123,7 @@ fn setup(
     commands.spawn((
         Sprite {
             image: texture.clone(),
-            atlas: Some(TextureAtlas {
+            texture_atlas: Some(TextureAtlas {
                 layout: texture_atlas_layout.clone(),
                 index: animation_config_2.first_sprite_index,
             }),

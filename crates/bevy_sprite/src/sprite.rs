@@ -16,7 +16,7 @@ pub struct Sprite {
     /// The image used to render the sprite
     pub image: Handle<Image>,
     /// The (optional) texture atlas used to render the sprite
-    pub atlas: Option<TextureAtlas>,
+    pub texture_atlas: Option<TextureAtlas>,
     /// The sprite's color tint
     pub color: Color,
     /// Flip the sprite along the `X` axis
@@ -57,7 +57,7 @@ impl Sprite {
     pub fn from_atlas_image(image: Handle<Image>, atlas: TextureAtlas) -> Self {
         Self {
             image,
-            atlas: Some(atlas),
+            texture_atlas: Some(atlas),
             ..Default::default()
         }
     }
