@@ -8,8 +8,8 @@ use bevy_ecs::{
     world::{Command, Mut, World},
 };
 use bevy_hierarchy::{AddChild, BuildChildren, DespawnRecursiveExt, Parent};
-use bevy_utils::{tracing::error, HashMap, HashSet};
-use thiserror::Error;
+use bevy_utils::{HashMap, HashSet};
+use derive_more::derive::{Display, Error};
 use uuid::Uuid;
 
 /// Triggered on a scene's parent entity when [`crate::SceneInstance`] becomes ready to use.
@@ -72,22 +72,22 @@ pub struct SceneSpawner {
 }
 
 /// Errors that can occur when spawning a scene.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 pub enum SceneSpawnError {
     /// Scene contains an unregistered component type.
-    #[error("scene contains the unregistered component `{type_path}`. consider adding `#[reflect(Component)]` to your type")]
+    #[display("scene contains the unregistered component `{type_path}`. consider adding `#[reflect(Component)]` to your type")]
     UnregisteredComponent {
         /// Type of the unregistered component.
         type_path: String,
     },
     /// Scene contains an unregistered resource type.
-    #[error("scene contains the unregistered resource `{type_path}`. consider adding `#[reflect(Resource)]` to your type")]
+    #[display("scene contains the unregistered resource `{type_path}`. consider adding `#[reflect(Resource)]` to your type")]
     UnregisteredResource {
         /// Type of the unregistered resource.
         type_path: String,
     },
     /// Scene contains an unregistered type.
-    #[error(
+    #[display(
         "scene contains the unregistered type `{std_type_name}`. \
         consider reflecting it with `#[derive(Reflect)]` \
         and registering the type using `app.register_type::<T>()`"
@@ -97,7 +97,7 @@ pub enum SceneSpawnError {
         std_type_name: String,
     },
     /// Scene contains an unregistered type which has a `TypePath`.
-    #[error(
+    #[display(
         "scene contains the reflected type `{type_path}` but it was not found in the type registry. \
         consider registering the type using `app.register_type::<T>()``"
     )]
@@ -106,19 +106,19 @@ pub enum SceneSpawnError {
         type_path: String,
     },
     /// Scene contains a proxy without a represented type.
-    #[error("scene contains dynamic type `{type_path}` without a represented type. consider changing this using `set_represented_type`.")]
+    #[display("scene contains dynamic type `{type_path}` without a represented type. consider changing this using `set_represented_type`.")]
     NoRepresentedType {
         /// The dynamic instance type.
         type_path: String,
     },
     /// Dynamic scene with the given id does not exist.
-    #[error("scene does not exist")]
+    #[display("scene does not exist")]
     NonExistentScene {
         /// Id of the non-existent dynamic scene.
         id: AssetId<DynamicScene>,
     },
     /// Scene with the given id does not exist.
-    #[error("scene does not exist")]
+    #[display("scene does not exist")]
     NonExistentRealScene {
         /// Id of the non-existent scene.
         id: AssetId<Scene>,
