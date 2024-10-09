@@ -121,12 +121,6 @@ impl UiSurface {
         for child in children {
             if let Some(taffy_node) = self.entity_to_taffy.get(&child) {
                 self.taffy_children_scratch.push(*taffy_node);
-            } else {
-                warn!(
-                    "Unstyled child `{child}` in a UI entity hierarchy. You are using an entity \
-without UI components as a child of an entity with UI components, results may be unexpected. \
-If this is intentional, consider adding a GhostNode component to this entity."
-                );
             }
         }
 
@@ -296,8 +290,8 @@ If this is intentional, consider adding a GhostNode component to this entity."
                 .map_err(LayoutError::TaffyError)
         } else {
             warn!(
-                "Styled child in a non-UI entity hierarchy. You are using an entity \
-with UI components as a child of an entity without UI components, results may be unexpected."
+                "Styled child ({entity}) in a non-UI entity hierarchy. You are using an entity \
+with UI components as a child of an entity without UI components, your UI layout may be broken."
             );
             Err(LayoutError::InvalidHierarchy)
         }

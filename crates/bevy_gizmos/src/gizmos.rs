@@ -482,10 +482,11 @@ where
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect(&mut self, isometry: Isometry3d, size: Vec2, color: impl Into<Color>) {
+    pub fn rect(&mut self, isometry: impl Into<Isometry3d>, size: Vec2, color: impl Into<Color>) {
         if !self.enabled {
             return;
         }
+        let isometry = isometry.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2.extend(0.));
         self.linestrip([tl, tr, br, bl, tl], color);
     }
@@ -709,10 +710,16 @@ where
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect_2d(&mut self, isometry: Isometry2d, size: Vec2, color: impl Into<Color>) {
+    pub fn rect_2d(
+        &mut self,
+        isometry: impl Into<Isometry2d>,
+        size: Vec2,
+        color: impl Into<Color>,
+    ) {
         if !self.enabled {
             return;
         }
+        let isometry = isometry.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2);
         self.linestrip_2d([tl, tr, br, bl, tl], color);
     }

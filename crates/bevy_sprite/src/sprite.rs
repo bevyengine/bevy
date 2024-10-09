@@ -3,7 +3,7 @@ use bevy_color::Color;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{texture::Image, view::Visibility, world_sync::SyncToRenderWorld};
+use bevy_render::{sync_world::SyncToRenderWorld, texture::Image, view::Visibility};
 use bevy_transform::components::Transform;
 
 use crate::{TextureAtlas, TextureSlicer};

@@ -31,6 +31,7 @@ use bevy_render::{
         *,
     },
     renderer::{RenderDevice, RenderQueue},
+    sync_world::{RenderEntity, TemporaryRenderEntity},
     texture::{
         BevyDefault, DefaultImageSampler, FallbackImage, GpuImage, Image, ImageSampler,
         TextureFormatPixelInfo,
@@ -39,7 +40,6 @@ use bevy_render::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
         ViewVisibility, VisibleEntities,
     },
-    world_sync::{RenderEntity, TemporaryRenderEntity},
     Extract,
 };
 use bevy_transform::components::GlobalTransform;

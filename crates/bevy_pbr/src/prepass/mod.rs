@@ -3,7 +3,7 @@ mod prepass_bindings;
 use bevy_render::{
     mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_resource::binding_types::uniform_buffer,
-    world_sync::RenderEntity,
+    sync_world::RenderEntity,
 };
 pub use prepass_bindings::*;
 

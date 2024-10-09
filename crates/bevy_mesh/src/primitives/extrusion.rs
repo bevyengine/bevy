@@ -67,7 +67,7 @@ impl PerimeterSegment {
     }
 }
 
-/// A trait for required for implementing `Meshable` for `Extrusion<T>`.
+/// A trait required for implementing `Meshable` for `Extrusion<T>`.
 ///
 /// ## Warning
 ///
