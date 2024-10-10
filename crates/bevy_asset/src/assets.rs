@@ -425,7 +425,14 @@ impl<A: Asset> Assets<A> {
     }
 
     /// Retrieves the [`Arc`] of an [`Asset`] with the given `id`, if it exists.
-    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes [`Handle`] and [`AssetId`].
+    ///
+    /// Note that this supports anything that implements `Into<AssetId<A>>`, which includes
+    /// [`Handle`] and [`AssetId`]. Be careful with holding the Arc indefinitely: holding the
+    /// [`Arc`] (or a [`Weak`]) prevents the asset from being mutated in place. This can incur
+    /// clones when using `get_cloned_mut`, or can just entirely block mutation when using
+    /// `get_inplace_mut`.
+    ///
+    /// [`Weak`]: std::sync::Weak
     #[inline]
     pub fn get_arc(&self, id: impl Into<AssetId<A>>) -> Option<Arc<A>> {
         match id.into() {
