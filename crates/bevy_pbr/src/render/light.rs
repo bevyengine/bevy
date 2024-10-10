@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::lifetimeless::Read,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::sync_world::{MainEntity, RenderEntity};
+use bevy_render::sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
@@ -279,7 +279,7 @@ pub fn extract_lights(
                             let render_entity = mapper
                                 .get(*e)
                                 .map(RenderEntity::id)
-                                .unwrap_or_else(|_| commands.spawn_empty().id());
+                                .unwrap_or_else(|_| commands.spawn(TemporaryRenderEntity).id());
                             (render_entity, MainEntity::from(*e))
                         })
                         .collect(),
@@ -343,7 +343,7 @@ pub fn extract_lights(
                         let render_entity = mapper
                             .get(*e)
                             .map(RenderEntity::id)
-                            .unwrap_or_else(|_| commands.spawn_empty().id());
+                            .unwrap_or_else(|_| commands.spawn(TemporaryRenderEntity).id());
                         (render_entity, MainEntity::from(*e))
                     })
                     .collect(),

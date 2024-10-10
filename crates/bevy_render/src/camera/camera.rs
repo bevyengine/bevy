@@ -1,4 +1,5 @@
 use super::{ClearColorConfig, Projection};
+use crate::sync_world::TemporaryRenderEntity;
 use crate::view::RenderVisibleEntities;
 use crate::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
@@ -1085,7 +1086,9 @@ pub fn extract_cameras(
                                     .get(*entity)
                                     .cloned()
                                     .map(|entity| entity.id())
-                                    .unwrap_or_else(|_e| commands.spawn_empty().id());
+                                    .unwrap_or_else(|_e| {
+                                        commands.spawn(TemporaryRenderEntity).id()
+                                    });
                                 (render_entity, (*entity).into())
                             })
                             .collect();
