@@ -1,13 +1,13 @@
 //! A module for the [`GizmoConfig<T>`] [`Resource`].
 
-use crate::{self as bevy_gizmos, LineGizmoAsset};
+use crate::{self as bevy_gizmos};
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
 #[cfg(all(
     feature = "bevy_render",
     any(feature = "bevy_pbr", feature = "bevy_sprite")
 ))]
-use {bevy_asset::Handle, bevy_ecs::component::Component};
+use {crate::LineGizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
 
 use bevy_ecs::{reflect::ReflectResource, system::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
