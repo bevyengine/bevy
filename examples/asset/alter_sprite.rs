@@ -139,7 +139,7 @@ fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Query<&Sprite, With
     };
 
     // Obtain a mutable reference to the Image asset.
-    let Some(image) = images.get_mut(&sprite.image) else {
+    let Some(image) = images.get_cloned_mut(&sprite.image) else {
         return;
     };
 

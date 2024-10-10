@@ -191,7 +191,7 @@ fn alter_mesh(
     };
 
     // Obtain a mutable reference to the Mesh asset.
-    let Some(mesh) = meshes.get_mut(handle) else {
+    let Some(mesh) = meshes.get_cloned_mut(handle) else {
         return;
     };
 
