@@ -472,11 +472,9 @@ mod tests {
         query::Without,
         schedule::{apply_deferred, IntoSystemConfigs, Schedule},
         system::RunSystemOnce,
-        world::World,
+        world::{Command, World},
     };
-    use bevy_hierarchy::{
-        despawn_with_children_recursive, BuildChildren, ChildBuild, Children, Parent,
-    };
+    use bevy_hierarchy::{BuildChildren, ChildBuild, Children, DespawnRecursive, Parent};
     use bevy_math::{vec2, Rect, UVec2, Vec2};
     use bevy_render::{
         camera::{ManualTextureViews, OrthographicProjection},
@@ -793,7 +791,9 @@ mod tests {
         }
 
         // despawn the parent entity and its descendants
-        despawn_with_children_recursive(&mut world, ui_parent_entity, true);
+        DespawnRecursive::<Children>::new(ui_parent_entity)
+            .with_warn(true)
+            .apply(&mut world);
 
         ui_schedule.run(&mut world);
 
