@@ -146,9 +146,7 @@ fn setup(
 
                 // sclera
                 commands
-                    .spawn(SpatialBundle::from_transform(Transform::from_xyz(
-                        x, y, 2.0,
-                    )))
+                    .spawn((Transform::from_xyz(x, y, 2.0), Visibility::default()))
                     .with_children(|commands| {
                         // sclera
                         commands.spawn((
@@ -163,7 +161,8 @@ fn setup(
                         // pupil
                         commands
                             .spawn((
-                                SpatialBundle::from_transform(Transform::from_xyz(0.0, 0.0, 1.0)),
+                                Transform::from_xyz(0.0, 0.0, 1.0),
+                                Visibility::default(),
                                 Pupil {
                                     eye_radius: radius,
                                     pupil_radius,
