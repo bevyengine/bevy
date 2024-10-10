@@ -98,7 +98,7 @@ fn spawn_car_paint_sphere(
     commands
         .spawn((
             Mesh3d(sphere.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterialHandle(materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.1,
                 normal_map_texture: Some(asset_server.load_with_settings(
@@ -124,7 +124,7 @@ fn spawn_coated_glass_bubble_sphere(
     commands
         .spawn((
             Mesh3d(sphere.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterialHandle(materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.1,
                 metallic: 0.5,
@@ -164,7 +164,7 @@ fn spawn_scratched_gold_ball(
     commands
         .spawn((
             Mesh3d(sphere.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterialHandle(materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.3,
                 clearcoat_normal_texture: Some(asset_server.load_with_settings(

@@ -165,7 +165,7 @@ fn setup(
                 commands
                     .spawn((
                         Mesh3d(mesh.clone()),
-                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        MeshMaterialHandle(materials.choose(&mut material_rng).unwrap().clone()),
                         Transform::from_translation((radius * unit_sphere_p).as_vec3())
                             .looking_at(Vec3::ZERO, Vec3::Y)
                             .mul_transform(*transform),
@@ -186,7 +186,7 @@ fn setup(
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
                 Mesh3d(mesh_assets.add(Cuboid::from_size(Vec3::splat(radius as f32 * 2.2)))),
-                MeshMaterial3d(material_assets.add(StandardMaterial::from(Color::WHITE))),
+                MeshMaterialHandle(material_assets.add(StandardMaterial::from(Color::WHITE))),
                 Transform::from_scale(-Vec3::ONE),
                 NotShadowCaster,
             ));
@@ -204,12 +204,12 @@ fn setup(
                     // cube
                     commands.spawn((
                         Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
-                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        MeshMaterialHandle(materials.choose(&mut material_rng).unwrap().clone()),
                         Transform::from_xyz((x as f32) * scale, (y as f32) * scale, 0.0),
                     ));
                     commands.spawn((
                         Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
-                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        MeshMaterialHandle(materials.choose(&mut material_rng).unwrap().clone()),
                         Transform::from_xyz(
                             (x as f32) * scale,
                             HEIGHT as f32 * scale,
@@ -218,12 +218,12 @@ fn setup(
                     ));
                     commands.spawn((
                         Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
-                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        MeshMaterialHandle(materials.choose(&mut material_rng).unwrap().clone()),
                         Transform::from_xyz((x as f32) * scale, 0.0, (y as f32) * scale),
                     ));
                     commands.spawn((
                         Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
-                        MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                        MeshMaterialHandle(materials.choose(&mut material_rng).unwrap().clone()),
                         Transform::from_xyz(0.0, (x as f32) * scale, (y as f32) * scale),
                     ));
                 }
@@ -234,7 +234,7 @@ fn setup(
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
                 Mesh3d(mesh_assets.add(Cuboid::from_size(2.0 * 1.1 * center))),
-                MeshMaterial3d(material_assets.add(StandardMaterial::from(Color::WHITE))),
+                MeshMaterialHandle(material_assets.add(StandardMaterial::from(Color::WHITE))),
                 Transform::from_scale(-Vec3::ONE).with_translation(center),
                 NotShadowCaster,
             ));

@@ -65,7 +65,7 @@ fn spawn_sphere(
 ) {
     commands.spawn((
         Mesh3d(sphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             clearcoat: 1.0,
             clearcoat_perceptual_roughness: 0.3,
             clearcoat_normal_texture: Some(asset_server.load_with_settings(

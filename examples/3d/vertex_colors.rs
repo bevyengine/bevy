@@ -18,7 +18,7 @@ fn setup(
     // plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        MeshMaterialHandle(materials.add(Color::srgb(0.3, 0.5, 0.3))),
     ));
     // cube
     // Assign vertex colors based on vertex positions
@@ -37,7 +37,7 @@ fn setup(
         // This is the default color, but note that vertex colors are
         // multiplied by the base color, so you'll likely want this to be
         // white if using vertex colors.
-        MeshMaterial3d(materials.add(Color::srgb(1., 1., 1.))),
+        MeshMaterialHandle(materials.add(Color::srgb(1., 1., 1.))),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
 

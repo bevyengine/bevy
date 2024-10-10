@@ -39,7 +39,7 @@ fn setup(
     let cube_entity = commands
         .spawn((
             Mesh3d(meshes.add(Cuboid::from_length(2.0))),
-            MeshMaterial3d(materials.add(Color::from(ORANGE))),
+            MeshMaterialHandle(materials.add(Color::from(ORANGE))),
             Transform::from_translation(vec3(-6., 2., 0.)),
             animation_target_name,
             animation_player,
@@ -66,7 +66,7 @@ fn setup(
     // Ground plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(50., 50.))),
-        MeshMaterial3d(materials.add(Color::from(SILVER))),
+        MeshMaterialHandle(materials.add(Color::from(SILVER))),
     ));
 
     // The camera

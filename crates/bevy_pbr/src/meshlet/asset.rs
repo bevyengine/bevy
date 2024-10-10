@@ -36,7 +36,7 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 /// * Materials must use the [`crate::Material::meshlet_mesh_fragment_shader`] method (and similar variants for prepass/deferred shaders)
 ///   which requires certain shader patterns that differ from the regular material shaders.
 ///
-/// See also [`super::MeshletMesh3d`] and [`super::MeshletPlugin`].
+/// See also [`super::MeshletMeshHandle`] and [`super::MeshletPlugin`].
 #[derive(Asset, TypePath, Clone)]
 pub struct MeshletMesh {
     /// Quantized and bitstream-packed vertex positions for meshlet vertices.

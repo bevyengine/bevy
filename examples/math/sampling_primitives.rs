@@ -284,7 +284,7 @@ fn setup(
     // Make a plane for establishing space.
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             base_color: Color::srgb(0.3, 0.5, 0.3),
             perceptual_roughness: 0.95,
             metallic: 0.0,
@@ -306,7 +306,7 @@ fn setup(
         // The sampled shape shown transparently:
         commands.spawn((
             Mesh3d(meshes.add(shape.mesh())),
-            MeshMaterial3d(shape_material.clone()),
+            MeshMaterialHandle(shape_material.clone()),
             Transform::from_translation(*translation),
         ));
 
@@ -592,7 +592,7 @@ fn spawn_points(
         // Spawn a sphere at the random location:
         commands.spawn((
             Mesh3d(sample_mesh.0.clone()),
-            MeshMaterial3d(match *mode {
+            MeshMaterialHandle(match *mode {
                 SamplingMode::Interior => sample_material.interior.clone(),
                 SamplingMode::Boundary => sample_material.boundary.clone(),
             }),

@@ -85,7 +85,7 @@ fn setup(
     // a cube with multiple textures
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(BindlessMaterial { textures })),
+        MeshMaterialHandle(materials.add(BindlessMaterial { textures })),
     ));
 }
 

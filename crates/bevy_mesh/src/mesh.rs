@@ -27,7 +27,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// It is also possible to create one manually. They can be edited after creation.
 ///
 /// Meshes can be rendered with a `Mesh2d` and `MeshMaterial2d`
-/// or `Mesh3d` and `MeshMaterial3d` for 2D and 3D respectively.
+/// or `Mesh3d` and `MeshMaterialHandle` for 2D and 3D respectively.
 ///
 /// A [`Mesh`] in Bevy is equivalent to a "primitive" in the glTF format, for a
 /// glTF Mesh representation, see `GltfMesh`.

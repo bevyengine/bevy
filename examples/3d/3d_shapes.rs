@@ -82,7 +82,7 @@ fn setup(
     for (i, shape) in shapes.into_iter().enumerate() {
         commands.spawn((
             Mesh3d(shape),
-            MeshMaterial3d(debug_material.clone()),
+            MeshMaterialHandle(debug_material.clone()),
             Transform::from_xyz(
                 -SHAPES_X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * SHAPES_X_EXTENT,
                 2.0,
@@ -98,7 +98,7 @@ fn setup(
     for (i, shape) in extrusions.into_iter().enumerate() {
         commands.spawn((
             Mesh3d(shape),
-            MeshMaterial3d(debug_material.clone()),
+            MeshMaterialHandle(debug_material.clone()),
             Transform::from_xyz(
                 -EXTRUSION_X_EXTENT / 2.
                     + i as f32 / (num_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
@@ -124,7 +124,7 @@ fn setup(
     // ground plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10))),
-        MeshMaterial3d(materials.add(Color::from(SILVER))),
+        MeshMaterialHandle(materials.add(Color::from(SILVER))),
     ));
 
     commands.spawn((

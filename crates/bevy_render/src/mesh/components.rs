@@ -53,18 +53,18 @@ impl From<&Mesh2d> for AssetId<Mesh> {
     }
 }
 
-/// A component for rendering 3D meshes, typically with a [`MeshMaterial3d`] using a [`StandardMaterial`].
+/// A component for rendering 3D meshes, typically with a [`MeshMaterialHandle`] using a [`StandardMaterial`].
 ///
-/// Meshes without a [`MeshMaterial3d`] will be rendered with a [default material].
+/// Meshes without a [`MeshMaterialHandle`] will be rendered with a [default material].
 ///
-/// [`MeshMaterial3d`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterial3d.html>
+/// [`MeshMaterialHandle`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterialHandle.html>
 /// [`StandardMaterial`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.StandardMaterial.html>
-/// [default material]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterial3d.html#default-material>
+/// [default material]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterialHandle.html#default-material>
 ///
 /// # Example
 ///
 /// ```ignore
-/// # use bevy_pbr::{Material, MeshMaterial3d, StandardMaterial};
+/// # use bevy_pbr::{Material, MeshMaterialHandle, StandardMaterial};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::mesh::{Mesh, Mesh3d};
 /// # use bevy_color::palettes::basic::RED;
@@ -79,7 +79,7 @@ impl From<&Mesh2d> for AssetId<Mesh> {
 /// ) {
 ///     commands.spawn((
 ///         Mesh3d(meshes.add(Capsule3d::default())),
-///         MeshMaterial3d(materials.add(StandardMaterial {
+///         MeshMaterialHandle(materials.add(StandardMaterial {
 ///             base_color: RED.into(),
 ///             ..Default::default()
 ///         })),

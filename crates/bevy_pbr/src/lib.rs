@@ -85,7 +85,7 @@ pub mod prelude {
             LightProbe,
         },
         material::{Material, MaterialPlugin},
-        mesh_material::MeshMaterial3d,
+        mesh_material::MeshMaterialHandle,
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
         ssao::ScreenSpaceAmbientOcclusionPlugin,

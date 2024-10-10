@@ -42,7 +42,7 @@ fn setup(
                     // For automatic instancing to take effect you need to
                     // use the same mesh handle and material handle for each instance
                     Mesh3d(mesh.clone()),
-                    MeshMaterial3d(material.clone()),
+                    MeshMaterialHandle(material.clone()),
                     Transform::from_xyz(x as f32, y as f32, z as f32),
                 ));
             }

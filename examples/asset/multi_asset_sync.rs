@@ -216,7 +216,7 @@ fn setup_scene(
     // Plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.7, 0.2, 0.2))),
+        MeshMaterialHandle(materials.add(Color::srgb(0.7, 0.2, 0.2))),
         Loading,
     ));
 }
@@ -240,7 +240,7 @@ fn wait_on_load(
     // Change color of plane to green
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        MeshMaterialHandle(materials.add(Color::srgb(0.3, 0.5, 0.3))),
         Transform::from_translation(Vec3::Z * -0.01),
     ));
 

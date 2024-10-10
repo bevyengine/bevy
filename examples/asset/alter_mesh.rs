@@ -105,7 +105,7 @@ fn setup(
         Left,
         Name::new("Left Shape"),
         Mesh3d(left_shape_model),
-        MeshMaterial3d(material_handle.clone()),
+        MeshMaterialHandle(material_handle.clone()),
         Transform::from_xyz(-3.0, 0.0, 0.0),
         left_shape,
     ));
@@ -113,7 +113,7 @@ fn setup(
     commands.spawn((
         Name::new("Right Shape"),
         Mesh3d(right_shape_model),
-        MeshMaterial3d(material_handle),
+        MeshMaterialHandle(material_handle),
         Transform::from_xyz(3.0, 0.0, 0.0),
         right_shape,
     ));

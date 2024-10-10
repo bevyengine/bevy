@@ -260,7 +260,7 @@ fn setup(
     // Plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.2, 0.1))),
+        MeshMaterialHandle(materials.add(Color::srgb(0.1, 0.2, 0.1))),
     ));
 
     let cube_material = materials.add(StandardMaterial {
@@ -272,7 +272,7 @@ fn setup(
     for i in 0..5 {
         commands.spawn((
             Mesh3d(meshes.add(Cuboid::new(0.25, 0.25, 0.25))),
-            MeshMaterial3d(cube_material.clone()),
+            MeshMaterialHandle(cube_material.clone()),
             Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
         ));
     }

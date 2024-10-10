@@ -40,7 +40,7 @@ fn setup(
     let entity_spawn = Vec3::ZERO;
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(Color::WHITE)),
+        MeshMaterialHandle(materials.add(Color::WHITE)),
         Transform::from_translation(entity_spawn),
         Movable::new(entity_spawn),
     ));

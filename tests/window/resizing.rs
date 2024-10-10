@@ -112,12 +112,12 @@ fn setup_3d(
     // plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        MeshMaterialHandle(materials.add(Color::srgb(0.3, 0.5, 0.3))),
     ));
     // cube
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
+        MeshMaterialHandle(materials.add(Color::srgb(0.8, 0.7, 0.6))),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
     // light

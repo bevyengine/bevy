@@ -1,4 +1,4 @@
-use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d};
+use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMeshHandle};
 use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
     PreviousGlobalTransform, RenderMaterialInstances,
@@ -168,7 +168,7 @@ pub fn extract_meshlet_mesh_entities(
             SystemState<(
                 Query<(
                     Entity,
-                    &MeshletMesh3d,
+                    &MeshletMeshHandle,
                     &GlobalTransform,
                     Option<&PreviousGlobalTransform>,
                     Option<&RenderLayers>,

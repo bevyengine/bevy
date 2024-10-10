@@ -27,7 +27,7 @@ fn add_lightmaps_to_meshes(
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     meshes: Query<
-        (Entity, &Name, &MeshMaterial3d<StandardMaterial>),
+        (Entity, &Name, &MeshMaterialHandle<StandardMaterial>),
         (With<Mesh3d>, Without<Lightmap>),
     >,
 ) {

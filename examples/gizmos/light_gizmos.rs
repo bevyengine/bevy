@@ -44,7 +44,7 @@ fn setup(
     // Circular base.
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(4.0))),
-        MeshMaterial3d(materials.add(Color::WHITE)),
+        MeshMaterialHandle(materials.add(Color::WHITE)),
         Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
     ));
 
@@ -55,7 +55,7 @@ fn setup(
         for x in [-2.0, 0.0, 2.0] {
             commands.spawn((
                 Mesh3d(mesh.clone()),
-                MeshMaterial3d(material.clone()),
+                MeshMaterialHandle(material.clone()),
                 Transform::from_xyz(x, 0.5, 0.0),
             ));
         }

@@ -42,7 +42,7 @@ fn setup(
     // Spawn a cube to scale.
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(Color::WHITE)),
+        MeshMaterialHandle(materials.add(Color::WHITE)),
         Transform::from_rotation(Quat::from_rotation_y(PI / 4.0)),
         Scaling::new(),
     ));

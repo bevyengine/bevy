@@ -99,9 +99,9 @@ fn create_material_variants(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     new_meshes: Query<
-        (Entity, &MeshMaterial3d<StandardMaterial>),
+        (Entity, &MeshMaterialHandle<StandardMaterial>),
         (
-            Added<MeshMaterial3d<StandardMaterial>>,
+            Added<MeshMaterialHandle<StandardMaterial>>,
             Without<MaterialVariants>,
         ),
     >,
@@ -161,7 +161,7 @@ fn handle_input(
     asset_server: Res<AssetServer>,
     cameras: Query<Entity, With<Camera>>,
     lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>)>>,
-    mut meshes: Query<(&mut MeshMaterial3d<StandardMaterial>, &MaterialVariants)>,
+    mut meshes: Query<(&mut MeshMaterialHandle<StandardMaterial>, &MaterialVariants)>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
 ) {

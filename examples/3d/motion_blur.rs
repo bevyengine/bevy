@@ -71,7 +71,7 @@ fn setup_scene(
     // Sky
     commands.spawn((
         Mesh3d(meshes.add(Sphere::default())),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             unlit: true,
             base_color: Color::linear_rgb(0.1, 0.6, 1.0),
             ..default()
@@ -85,7 +85,7 @@ fn setup_scene(
     plane.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
     commands.spawn((
         Mesh3d(meshes.add(plane)),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
             base_color_texture: Some(images.add(uv_debug_texture())),
@@ -138,7 +138,7 @@ fn spawn_cars(
         commands
             .spawn((
                 Mesh3d(box_mesh.clone()),
-                MeshMaterial3d(color.clone()),
+                MeshMaterialHandle(color.clone()),
                 Transform::from_scale(Vec3::splat(0.5)),
                 Moves(i as f32 * 2.0),
             ))
@@ -146,13 +146,13 @@ fn spawn_cars(
             .with_children(|parent| {
                 parent.spawn((
                     Mesh3d(box_mesh.clone()),
-                    MeshMaterial3d(color),
+                    MeshMaterialHandle(color),
                     Transform::from_xyz(0.0, 0.08, 0.03).with_scale(Vec3::new(1.0, 1.0, 0.5)),
                 ));
                 let mut spawn_wheel = |x: f32, z: f32| {
                     parent.spawn((
                         Mesh3d(cylinder.clone()),
-                        MeshMaterial3d(wheel_matl.clone()),
+                        MeshMaterialHandle(wheel_matl.clone()),
                         Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
                             .with_scale(Vec3::new(0.15, 0.04, 0.15))
                             .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
@@ -187,7 +187,7 @@ fn spawn_barriers(
             );
             commands.spawn((
                 Mesh3d(capsule.clone()),
-                MeshMaterial3d(matl.clone()),
+                MeshMaterialHandle(matl.clone()),
                 Transform::from_xyz(pos.x, -0.65, pos.y).with_scale(Vec3::splat(0.07)),
             ));
         }
@@ -216,12 +216,12 @@ fn spawn_trees(
             let [x, z] = pos.into();
             commands.spawn((
                 Mesh3d(sphere.clone()),
-                MeshMaterial3d(leaves.clone()),
+                MeshMaterialHandle(leaves.clone()),
                 Transform::from_xyz(x, -0.3, z).with_scale(Vec3::splat(0.3)),
             ));
             commands.spawn((
                 Mesh3d(capsule.clone()),
-                MeshMaterial3d(trunk.clone()),
+                MeshMaterialHandle(trunk.clone()),
                 Transform::from_xyz(x, -0.5, z).with_scale(Vec3::new(0.05, 0.3, 0.05)),
             ));
         }

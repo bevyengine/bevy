@@ -122,7 +122,7 @@ fn setup(
     commands.spawn((
         // We can use the methods defined on the meshbuilder to customize the mesh.
         Mesh3d(meshes.add(HEART.mesh().resolution(50))),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             emissive: RED.into(),
             base_color: RED.into(),
             ..Default::default()
@@ -135,7 +135,7 @@ fn setup(
     commands.spawn((
         // We can set a custom resolution for the round parts of the extrusion aswell.
         Mesh3d(meshes.add(EXTRUSION.mesh().resolution(50))),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             base_color: RED.into(),
             ..Default::default()
         })),

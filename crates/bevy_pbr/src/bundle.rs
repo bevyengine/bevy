@@ -1,7 +1,7 @@
 #![expect(deprecated)]
 
 use crate::{
-    CascadeShadowConfig, Cascades, DirectionalLight, Material, MeshMaterial3d, PointLight,
+    CascadeShadowConfig, Cascades, DirectionalLight, Material, MeshMaterialHandle, PointLight,
     SpotLight, StandardMaterial,
 };
 use bevy_derive::{Deref, DerefMut};
@@ -20,22 +20,22 @@ use bevy_render::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
-/// A component bundle for PBR entities with a [`Mesh3d`] and a [`MeshMaterial3d<StandardMaterial>`].
+/// A component bundle for PBR entities with a [`Mesh3d`] and a [`MeshMaterialHandle<StandardMaterial>`].
 #[deprecated(
     since = "0.15.0",
-    note = "Use the `Mesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."
+    note = "Use the `Mesh3d` and `MeshMaterialHandle` components instead. Inserting them will now also insert the other components required by them automatically."
 )]
 pub type PbrBundle = MaterialMeshBundle<StandardMaterial>;
 
-/// A component bundle for entities with a [`Mesh3d`] and a [`MeshMaterial3d`].
+/// A component bundle for entities with a [`Mesh3d`] and a [`MeshMaterialHandle`].
 #[derive(Bundle, Clone)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use the `Mesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."
+    note = "Use the `Mesh3d` and `MeshMaterialHandle` components instead. Inserting them will now also insert the other components required by them automatically."
 )]
 pub struct MaterialMeshBundle<M: Material> {
     pub mesh: Mesh3d,
-    pub material: MeshMaterial3d<M>,
+    pub material: MeshMaterialHandle<M>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible

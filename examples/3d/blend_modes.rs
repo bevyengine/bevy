@@ -43,7 +43,7 @@ fn setup(
     let opaque = commands
         .spawn((
             Mesh3d(icosphere_mesh.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterialHandle(materials.add(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Opaque,
                 ..default()
@@ -60,7 +60,7 @@ fn setup(
     let blend = commands
         .spawn((
             Mesh3d(icosphere_mesh.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterialHandle(materials.add(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Blend,
                 ..default()
@@ -77,7 +77,7 @@ fn setup(
     let premultiplied = commands
         .spawn((
             Mesh3d(icosphere_mesh.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterialHandle(materials.add(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Premultiplied,
                 ..default()
@@ -94,7 +94,7 @@ fn setup(
     let add = commands
         .spawn((
             Mesh3d(icosphere_mesh.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterialHandle(materials.add(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Add,
                 ..default()
@@ -111,7 +111,7 @@ fn setup(
     let multiply = commands
         .spawn((
             Mesh3d(icosphere_mesh),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterialHandle(materials.add(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Multiply,
                 ..default()
@@ -134,7 +134,7 @@ fn setup(
         for z in -3..4 {
             commands.spawn((
                 Mesh3d(plane_mesh.clone()),
-                MeshMaterial3d(if (x + z) % 2 == 0 {
+                MeshMaterialHandle(if (x + z) % 2 == 0 {
                     black_material.clone()
                 } else {
                     white_material.clone()
@@ -259,7 +259,7 @@ impl Default for ExampleState {
 #[allow(clippy::too_many_arguments)]
 fn example_control_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
-    controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
+    controllable: Query<(&MeshMaterialHandle<StandardMaterial>, &ExampleControls)>,
     mut camera: Query<(&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
     mut labels: Query<(&mut Style, &ExampleLabel)>,
     mut display: Query<&mut Text, With<ExampleDisplay>>,

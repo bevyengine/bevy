@@ -186,7 +186,7 @@ fn tweak_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut lights: Query<&mut DirectionalLight, Changed<DirectionalLight>>,
     mut named_entities: Query<
-        (Entity, &Name, &MeshMaterial3d<StandardMaterial>),
+        (Entity, &Name, &MeshMaterialHandle<StandardMaterial>),
         (With<Mesh3d>, Without<Lightmap>),
     >,
 ) {

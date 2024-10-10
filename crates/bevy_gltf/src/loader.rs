@@ -17,7 +17,7 @@ use bevy_ecs::{
 use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
-    DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial, UvChannel,
+    DirectionalLight, MeshMaterialHandle, PointLight, SpotLight, StandardMaterial, UvChannel,
     MAX_JOINTS,
 };
 use bevy_render::{
@@ -1466,7 +1466,7 @@ fn load_node(
                     let mut mesh_entity = parent.spawn((
                         // TODO: handle missing label handle errors here?
                         Mesh3d(load_context.get_label_handle(primitive_label.to_string())),
-                        MeshMaterial3d::<StandardMaterial>(
+                        MeshMaterialHandle::<StandardMaterial>(
                             load_context.get_label_handle(&material_label),
                         ),
                     ));

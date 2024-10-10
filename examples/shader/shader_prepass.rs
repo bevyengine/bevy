@@ -64,7 +64,7 @@ fn setup(
     // plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
-        MeshMaterial3d(std_materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        MeshMaterialHandle(std_materials.add(Color::srgb(0.3, 0.5, 0.3))),
     ));
 
     // A quad that shows the outputs of the prepass
@@ -72,7 +72,7 @@ fn setup(
     // For a real application, this isn't ideal.
     commands.spawn((
         Mesh3d(meshes.add(Rectangle::new(20.0, 20.0))),
-        MeshMaterial3d(depth_materials.add(PrepassOutputMaterial {
+        MeshMaterialHandle(depth_materials.add(PrepassOutputMaterial {
             settings: ShowPrepassSettings::default(),
         })),
         Transform::from_xyz(-0.75, 1.25, 3.0).looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
@@ -82,7 +82,7 @@ fn setup(
     // Opaque cube
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(CustomMaterial {
+        MeshMaterialHandle(materials.add(CustomMaterial {
             color: LinearRgba::WHITE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Opaque,
@@ -94,7 +94,7 @@ fn setup(
     // Cube with alpha mask
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(std_materials.add(StandardMaterial {
+        MeshMaterialHandle(std_materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Mask(1.0),
             base_color_texture: Some(asset_server.load("branding/icon.png")),
             ..default()
@@ -106,7 +106,7 @@ fn setup(
     // Transparent materials are ignored by the prepass
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterial3d(materials.add(CustomMaterial {
+        MeshMaterialHandle(materials.add(CustomMaterial {
             color: LinearRgba::WHITE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
@@ -212,7 +212,7 @@ impl Material for PrepassOutputMaterial {
 fn toggle_prepass_view(
     mut prepass_view: Local<u32>,
     keycode: Res<ButtonInput<KeyCode>>,
-    material_handle: Query<&MeshMaterial3d<PrepassOutputMaterial>>,
+    material_handle: Query<&MeshMaterialHandle<PrepassOutputMaterial>>,
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
     text: Query<Entity, With<Text>>,
     mut writer: UiTextWriter,

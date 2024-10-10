@@ -140,7 +140,7 @@ fn setup_color_gradient_scene(
 
     commands.spawn((
         Mesh3d(meshes.add(Rectangle::new(0.7, 0.7))),
-        MeshMaterial3d(materials.add(ColorGradientMaterial {})),
+        MeshMaterialHandle(materials.add(ColorGradientMaterial {})),
         transform,
         Visibility::Hidden,
         SceneNumber(2),
@@ -159,7 +159,7 @@ fn setup_image_viewer_scene(
     // exr/hdr viewer (exr requires enabling bevy feature)
     commands.spawn((
         Mesh3d(meshes.add(Rectangle::default())),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             base_color_texture: None,
             unlit: true,
             ..default()
@@ -191,7 +191,7 @@ fn setup_image_viewer_scene(
 // ----------------------------------------------------------------------------
 
 fn drag_drop_image(
-    image_mat: Query<&MeshMaterial3d<StandardMaterial>, With<HDRViewer>>,
+    image_mat: Query<&MeshMaterialHandle<StandardMaterial>, With<HDRViewer>>,
     text: Query<Entity, (With<Text>, With<SceneNumber>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut drop_events: EventReader<FileDragAndDrop>,
@@ -220,7 +220,7 @@ fn drag_drop_image(
 }
 
 fn resize_image(
-    image_mesh: Query<(&MeshMaterial3d<StandardMaterial>, &Mesh3d), With<HDRViewer>>,
+    image_mesh: Query<(&MeshMaterialHandle<StandardMaterial>, &Mesh3d), With<HDRViewer>>,
     materials: Res<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     images: Res<Assets<Image>>,

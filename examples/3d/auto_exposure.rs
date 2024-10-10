@@ -88,7 +88,7 @@ fn setup(
 
             commands.spawn((
                 Mesh3d(plane.clone()),
-                MeshMaterial3d(materials.add(StandardMaterial {
+                MeshMaterialHandle(materials.add(StandardMaterial {
                     base_color: Color::srgb(
                         0.5 + side.x * 0.5,
                         0.75 - level as f32 * 0.25,

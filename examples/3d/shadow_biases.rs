@@ -82,7 +82,7 @@ fn setup(
     for z_i32 in (-spawn_plane_depth as i32..=0).step_by(2) {
         commands.spawn((
             Mesh3d(sphere_handle.clone()),
-            MeshMaterial3d(white_handle.clone()),
+            MeshMaterialHandle(white_handle.clone()),
             Transform::from_xyz(
                 0.0,
                 if z_i32 % 4 == 0 {
@@ -99,7 +99,7 @@ fn setup(
     let plane_size = 2.0 * spawn_plane_depth;
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(plane_size, plane_size))),
-        MeshMaterial3d(white_handle),
+        MeshMaterialHandle(white_handle),
     ));
 
     commands

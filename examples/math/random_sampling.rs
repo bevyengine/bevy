@@ -60,7 +60,7 @@ fn setup(
     // Make a plane for establishing space.
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(12.0, 12.0))),
-        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        MeshMaterialHandle(materials.add(Color::srgb(0.3, 0.5, 0.3))),
         Transform::from_xyz(0.0, -2.5, 0.0),
     ));
 
@@ -71,7 +71,7 @@ fn setup(
     // The sampled shape shown transparently:
     commands.spawn((
         Mesh3d(meshes.add(shape)),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             base_color: Color::srgba(0.2, 0.1, 0.6, 0.3),
             alpha_mode: AlphaMode::Blend,
             cull_mode: None,
@@ -165,7 +165,7 @@ fn handle_keypress(
         // Spawn a sphere at the random location:
         commands.spawn((
             Mesh3d(sample_mesh.0.clone()),
-            MeshMaterial3d(sample_material.0.clone()),
+            MeshMaterialHandle(sample_material.0.clone()),
             Transform::from_translation(sample),
             SamplePoint,
         ));
@@ -199,7 +199,7 @@ fn handle_keypress(
         for sample in samples {
             commands.spawn((
                 Mesh3d(sample_mesh.0.clone()),
-                MeshMaterial3d(sample_material.0.clone()),
+                MeshMaterialHandle(sample_material.0.clone()),
                 Transform::from_translation(sample),
                 SamplePoint,
             ));

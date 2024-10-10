@@ -56,7 +56,7 @@ use self::{
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
-use crate::{graph::NodePbr, Material, MeshMaterial3d};
+use crate::{graph::NodePbr, Material, MeshMaterialHandle};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetApp, AssetId, Handle};
 use bevy_core_pipeline::{
@@ -87,6 +87,7 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_utils::impl_handle_wrapper;
 use bevy_utils::tracing::error;
 use derive_more::From;
 
@@ -212,7 +213,8 @@ impl Plugin for MeshletPlugin {
             .register_asset_loader(MeshletMeshLoader)
             .add_systems(
                 PostUpdate,
-                check_visibility::<With<MeshletMesh3d>>.in_set(VisibilitySystems::CheckVisibility),
+                check_visibility::<With<MeshletMeshHandle>>
+                    .in_set(VisibilitySystems::CheckVisibility),
             );
     }
 
@@ -293,29 +295,19 @@ impl Plugin for MeshletPlugin {
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
 #[require(Transform, Visibility)]
-pub struct MeshletMesh3d(pub Handle<MeshletMesh>);
+pub struct MeshletMeshHandle(pub Handle<MeshletMesh>);
 
-impl From<MeshletMesh3d> for AssetId<MeshletMesh> {
-    fn from(mesh: MeshletMesh3d) -> Self {
-        mesh.id()
-    }
-}
-
-impl From<&MeshletMesh3d> for AssetId<MeshletMesh> {
-    fn from(mesh: &MeshletMesh3d) -> Self {
-        mesh.id()
-    }
-}
+impl_handle_wrapper!(MeshletMeshHandle, MeshletMesh);
 
 /// A component bundle for entities with a [`MeshletMesh`] and a [`Material`].
 #[derive(Bundle, Clone)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use the `MeshletMesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."
+    note = "Use the `MeshletMeshHandle` and `MeshMaterialHandle` components instead. Inserting them will now also insert the other components required by them automatically."
 )]
 pub struct MaterialMeshletMeshBundle<M: Material> {
-    pub meshlet_mesh: MeshletMesh3d,
-    pub material: MeshMaterial3d<M>,
+    pub meshlet_mesh: MeshletMeshHandle,
+    pub material: MeshMaterialHandle<M>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible

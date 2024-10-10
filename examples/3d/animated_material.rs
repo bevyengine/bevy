@@ -36,7 +36,7 @@ fn setup(
         for z in -1..2 {
             commands.spawn((
                 Mesh3d(cube.clone()),
-                MeshMaterial3d(materials.add(Color::from(hsla))),
+                MeshMaterialHandle(materials.add(Color::from(hsla))),
                 Transform::from_translation(Vec3::new(x as f32, 0.0, z as f32)),
             ));
             hsla = hsla.rotate_hue(GOLDEN_ANGLE);
@@ -45,7 +45,7 @@ fn setup(
 }
 
 fn animate_materials(
-    material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
+    material_handles: Query<&MeshMaterialHandle<StandardMaterial>>,
     time: Res<Time>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {

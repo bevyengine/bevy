@@ -26,7 +26,7 @@ fn setup(
             // sphere
             commands.spawn((
                 Mesh3d(sphere_mesh.clone()),
-                MeshMaterial3d(materials.add(StandardMaterial {
+                MeshMaterialHandle(materials.add(StandardMaterial {
                     base_color: Srgba::hex("#ffd891").unwrap().into(),
                     // vary key PBR parameters on a grid of spheres to show the effect
                     metallic: y01,
@@ -40,7 +40,7 @@ fn setup(
     // unlit sphere
     commands.spawn((
         Mesh3d(sphere_mesh),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             base_color: Srgba::hex("#ffd891").unwrap().into(),
             // vary key PBR parameters on a grid of spheres to show the effect
             unlit: true,

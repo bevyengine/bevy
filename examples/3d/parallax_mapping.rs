@@ -231,13 +231,16 @@ fn setup(
         .with_children(|commands| {
             // represent the light source as a sphere
             let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
-            commands.spawn((Mesh3d(mesh), MeshMaterial3d(materials.add(Color::WHITE))));
+            commands.spawn((
+                Mesh3d(mesh),
+                MeshMaterialHandle(materials.add(Color::WHITE)),
+            ));
         });
 
     // Plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             // standard material derived from dark green, but
             // with roughness and reflectance set.
             perceptual_roughness: 0.45,
@@ -272,7 +275,7 @@ fn setup(
                     .unwrap(),
             ),
         ),
-        MeshMaterial3d(parallax_material.clone()),
+        MeshMaterialHandle(parallax_material.clone()),
         Spin { speed: 0.3 },
     ));
 
@@ -285,7 +288,7 @@ fn setup(
     let background_cube_bundle = |translation| {
         (
             Mesh3d(background_cube.clone()),
-            MeshMaterial3d(parallax_material.clone()),
+            MeshMaterialHandle(parallax_material.clone()),
             Transform::from_translation(translation),
             Spin { speed: -0.1 },
         )

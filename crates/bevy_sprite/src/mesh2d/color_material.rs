@@ -179,6 +179,6 @@ impl Material2d for ColorMaterial {
 /// A component bundle for entities with a [`Mesh2d`](crate::Mesh2d) and a [`ColorMaterial`].
 #[deprecated(
     since = "0.15.0",
-    note = "Use the `Mesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."
+    note = "Use the `Mesh3d` and `MeshMaterialHandle` components instead. Inserting them will now also insert the other components required by them automatically."
 )]
 pub type ColorMesh2dBundle = MaterialMesh2dBundle<ColorMaterial>;

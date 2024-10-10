@@ -8,6 +8,7 @@ use bevy_render::{
     extract_component::ExtractComponent,
     render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
 };
+use bevy_utils::impl_generic_handle_wrapper;
 use derive_more::derive::From;
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
@@ -159,20 +160,4 @@ where
 #[reflect(Component, Default)]
 pub struct UiMaterialHandle<M: UiMaterial>(pub Handle<M>);
 
-impl<M: UiMaterial> Default for UiMaterialHandle<M> {
-    fn default() -> Self {
-        Self(Handle::default())
-    }
-}
-
-impl<M: UiMaterial> From<UiMaterialHandle<M>> for AssetId<M> {
-    fn from(material: UiMaterialHandle<M>) -> Self {
-        material.id()
-    }
-}
-
-impl<M: UiMaterial> From<&UiMaterialHandle<M>> for AssetId<M> {
-    fn from(material: &UiMaterialHandle<M>) -> Self {
-        material.id()
-    }
-}
+impl_generic_handle_wrapper!(UiMaterialHandle, Handle, M, UiMaterial);

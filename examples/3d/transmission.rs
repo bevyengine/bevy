@@ -76,7 +76,7 @@ fn setup(
     // Cube #1
     commands.spawn((
         Mesh3d(cube_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial::default())),
+        MeshMaterialHandle(materials.add(StandardMaterial::default())),
         Transform::from_xyz(0.25, 0.5, -2.0).with_rotation(Quat::from_euler(
             EulerRot::XYZ,
             1.4,
@@ -93,7 +93,7 @@ fn setup(
     // Cube #2
     commands.spawn((
         Mesh3d(cube_mesh),
-        MeshMaterial3d(materials.add(StandardMaterial::default())),
+        MeshMaterialHandle(materials.add(StandardMaterial::default())),
         Transform::from_xyz(-0.75, 0.7, -2.0).with_rotation(Quat::from_euler(
             EulerRot::XYZ,
             0.4,
@@ -110,7 +110,7 @@ fn setup(
     // Candle
     commands.spawn((
         Mesh3d(cylinder_mesh),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             base_color: Color::srgb(0.9, 0.2, 0.3),
             diffuse_transmission: 0.7,
             perceptual_roughness: 0.32,
@@ -137,7 +137,7 @@ fn setup(
 
     commands.spawn((
         Mesh3d(icosphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             emissive,
             diffuse_transmission: 1.0,
             ..default()
@@ -150,7 +150,7 @@ fn setup(
     // Glass Sphere
     commands.spawn((
         Mesh3d(icosphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             base_color: Color::WHITE,
             specular_transmission: 0.9,
             diffuse_transmission: 1.0,
@@ -170,7 +170,7 @@ fn setup(
     // R Sphere
     commands.spawn((
         Mesh3d(icosphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             base_color: RED.into(),
             specular_transmission: 0.9,
             diffuse_transmission: 1.0,
@@ -190,7 +190,7 @@ fn setup(
     // G Sphere
     commands.spawn((
         Mesh3d(icosphere_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             base_color: LIME.into(),
             specular_transmission: 0.9,
             diffuse_transmission: 1.0,
@@ -210,7 +210,7 @@ fn setup(
     // B Sphere
     commands.spawn((
         Mesh3d(icosphere_mesh),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             base_color: BLUE.into(),
             specular_transmission: 0.9,
             diffuse_transmission: 1.0,
@@ -246,7 +246,7 @@ fn setup(
         for z in -3..4 {
             commands.spawn((
                 Mesh3d(plane_mesh.clone()),
-                MeshMaterial3d(if (x + z) % 2 == 0 {
+                MeshMaterialHandle(if (x + z) % 2 == 0 {
                     black_material.clone()
                 } else {
                     white_material.clone()
@@ -264,7 +264,7 @@ fn setup(
     // Paper
     commands.spawn((
         Mesh3d(plane_mesh),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             base_color: Color::WHITE,
             diffuse_transmission: 0.6,
             perceptual_roughness: 0.8,
@@ -384,7 +384,7 @@ impl Default for ExampleState {
 fn example_control_system(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
+    controllable: Query<(&MeshMaterialHandle<StandardMaterial>, &ExampleControls)>,
     mut camera: Query<
         (
             Entity,

@@ -167,7 +167,7 @@ fn setup(
         // Create skinned mesh renderer. Note that its transform doesn't affect the position of the mesh.
         commands.spawn((
             Mesh3d(mesh.clone()),
-            MeshMaterial3d(materials.add(StandardMaterial {
+            MeshMaterialHandle(materials.add(StandardMaterial {
                 base_color: Color::srgb(
                     rng.gen_range(0.0..1.0),
                     rng.gen_range(0.0..1.0),

@@ -39,7 +39,7 @@ fn setup(
     // Render the mesh with the custom texture, and add the marker.
     commands.spawn((
         Mesh3d(cube_mesh_handle),
-        MeshMaterial3d(materials.add(StandardMaterial {
+        MeshMaterialHandle(materials.add(StandardMaterial {
             base_color_texture: Some(custom_texture_handle),
             ..default()
         })),
