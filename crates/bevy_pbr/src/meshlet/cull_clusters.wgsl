@@ -14,6 +14,7 @@
     meshlet_hardware_raster_indirect_args,
     meshlet_raster_clusters,
     meshlet_raster_cluster_rightmost_slot,
+    MeshletBoundingSphere,
 }
 #import bevy_render::maths::affine3_to_square
 
@@ -63,9 +64,8 @@ fn cull_clusters(
 
     // Check LOD cut (cluster group error imperceptible, and parent group error not imperceptible)
     let simplification_errors = meshlet_simplification_errors[meshlet_id];
-    let lod_is_ok = lod_error_is_imperceptible(bounding_spheres.lod_group_sphere.center, bounding_spheres.lod_group_sphere.radius, simplification_errors.group_error, world_from_local, world_scale);
-    let parent_lod_is_ok = lod_error_is_imperceptible(bounding_spheres.lod_parent_group_sphere.center, bounding_spheres.lod_parent_group_sphere.radius, simplification_errors.parent_group_error, world_from_local, world_scale);
-    if !lod_is_ok || parent_lod_is_ok { return; }
+    if !lod_error_is_imperceptible(bounding_spheres.lod_group_sphere, simplification_errors.group_error, world_from_local, world_scale) { return; }
+    if lod_error_is_imperceptible(bounding_spheres.lod_parent_group_sphere, simplification_errors.parent_group_error, world_from_local, world_scale) { return; }
 #endif
 
     // Project the culling bounding sphere to view-space for occlusion culling
@@ -140,15 +140,15 @@ fn cull_clusters(
     meshlet_raster_clusters[buffer_slot] = cluster_id;
 }
 
-fn lod_error_is_imperceptible(cp: vec3<f32>, r: f32, error: f32, world_from_local: mat4x4<f32>, world_scale: f32) -> bool {
-    let cp_world = world_from_local * vec4(cp, 1.0);
-    let r_view = world_scale * r;
+fn lod_error_is_imperceptible(sphere: MeshletBoundingSphere, error: f32, world_from_local: mat4x4<f32>, world_scale: f32) -> bool {
+    let cp_world = world_from_local * vec4(sphere.center, 1.0);
+    let r_view = world_scale * sphere.radius;
     let cp_view = (view.view_from_world * vec4(cp_world.xyz, 1.0)).xyz;
 
     // TODO: Handle view clipping / being inside sphere bounds
     let aabb = project_view_space_sphere_to_screen_space_aabb(cp_view, r_view);
     let screen_size = max(aabb.z - aabb.x, aabb.w - aabb.y);
-    let meters_per_pixel = r / screen_size;
+    let meters_per_pixel = sphere.radius / screen_size;
 
     return error < meters_per_pixel;
 }
