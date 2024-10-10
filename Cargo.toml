@@ -1218,6 +1218,17 @@ setup = [
 ]
 
 [[example]]
+name = "mesh_ray_cast"
+path = "examples/3d/mesh_ray_cast.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh_ray_cast]
+name = "Mesh Ray Cast"
+description = "Demonstrates ray casting with the `MeshRayCast` system parameter"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "lightmaps"
 path = "examples/3d/lightmaps.rs"
 doc-scrape-examples = true
