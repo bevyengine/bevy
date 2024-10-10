@@ -1,4 +1,5 @@
-//! This example illustrates drag and drag resize without window decorations.
+//! This example illustrates drag move and drag resize without window
+//! decorations.
 //!
 //! When window decorations are not present, the user cannot drag the window.
 //! The `start_drag_move()` function will permit the application to make the
@@ -70,8 +71,9 @@ fn setup(mut commands: Commands) {
         .with_children(|p| {
             p.spawn(Text::default()).with_children(|p| {
                 p.spawn(TextSpan::new(
-                    "Demonstrate drag and drag resize without window decorations.\n\nControls:\n",
+                    "Demonstrate drag move and drag resize without window decorations.\n\n",
                 ));
+                p.spawn(TextSpan::new("Controls:\n"));
                 p.spawn(TextSpan::new("A - change left click action ["));
                 p.spawn(TextSpan::new("Drag"));
                 p.spawn(TextSpan::new("]\n"));
@@ -96,7 +98,7 @@ fn handle_input(
             Resize => Nothing,
             Nothing => Drag,
         };
-        *writer.text(example_text.single(), 3) = format!("{:?}", *action);
+        *writer.text(example_text.single(), 4) = format!("{:?}", *action);
     }
 
     if input.just_pressed(KeyCode::KeyS) {
@@ -104,12 +106,12 @@ fn handle_input(
             .0
             .checked_sub(1)
             .unwrap_or(DIRECTIONS.len().saturating_sub(1));
-        *writer.text(example_text.single(), 6) = format!("{:?}", DIRECTIONS[dir.0]);
+        *writer.text(example_text.single(), 7) = format!("{:?}", DIRECTIONS[dir.0]);
     }
 
     if input.just_pressed(KeyCode::KeyD) {
         dir.0 = (dir.0 + 1) % DIRECTIONS.len();
-        *writer.text(example_text.single(), 6) = format!("{:?}", DIRECTIONS[dir.0]);
+        *writer.text(example_text.single(), 7) = format!("{:?}", DIRECTIONS[dir.0]);
     }
 }
 
