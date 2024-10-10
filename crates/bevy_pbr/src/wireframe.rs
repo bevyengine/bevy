@@ -1,4 +1,6 @@
-use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin, MeshMaterial3dHandle};
+use crate::{
+    Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin, MeshMaterial3dHandle,
+};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
@@ -131,7 +133,10 @@ fn global_color_changed(
 fn wireframe_color_changed(
     mut materials: ResMut<Assets<WireframeMaterial>>,
     mut colors_changed: Query<
-        (&mut MeshMaterial3dHandle<WireframeMaterial>, &WireframeColor),
+        (
+            &mut MeshMaterial3dHandle<WireframeMaterial>,
+            &WireframeColor,
+        ),
         (With<Wireframe>, Changed<WireframeColor>),
     >,
 ) {
@@ -193,7 +198,10 @@ fn apply_global_wireframe_material(
     >,
     meshes_with_global_material: Query<
         Entity,
-        (WireframeFilter, With<MeshMaterial3dHandle<WireframeMaterial>>),
+        (
+            WireframeFilter,
+            With<MeshMaterial3dHandle<WireframeMaterial>>,
+        ),
     >,
     global_material: Res<GlobalWireframeMaterial>,
     mut materials: ResMut<Assets<WireframeMaterial>>,

@@ -128,7 +128,10 @@ fn global_color_changed(
 fn wireframe_color_changed(
     mut materials: ResMut<Assets<Wireframe2dMaterial>>,
     mut colors_changed: Query<
-        (&mut MeshMaterial2dHandle<Wireframe2dMaterial>, &Wireframe2dColor),
+        (
+            &mut MeshMaterial2dHandle<Wireframe2dMaterial>,
+            &Wireframe2dColor,
+        ),
         (With<Wireframe2d>, Changed<Wireframe2dColor>),
     >,
 ) {
@@ -197,7 +200,10 @@ fn apply_global_wireframe_material(
     >,
     meshes_with_global_material: Query<
         Entity,
-        (Wireframe2dFilter, With<MeshMaterial2dHandle<Wireframe2dMaterial>>),
+        (
+            Wireframe2dFilter,
+            With<MeshMaterial2dHandle<Wireframe2dMaterial>>,
+        ),
     >,
     global_material: Res<GlobalWireframe2dMaterial>,
 ) {

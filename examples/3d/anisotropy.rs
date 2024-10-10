@@ -161,7 +161,10 @@ fn handle_input(
     asset_server: Res<AssetServer>,
     cameras: Query<Entity, With<Camera>>,
     lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>)>>,
-    mut meshes: Query<(&mut MeshMaterial3dHandle<StandardMaterial>, &MaterialVariants)>,
+    mut meshes: Query<(
+        &mut MeshMaterial3dHandle<StandardMaterial>,
+        &MaterialVariants,
+    )>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
 ) {
