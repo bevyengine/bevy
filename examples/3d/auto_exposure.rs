@@ -96,7 +96,7 @@ fn setup(
                     ),
                     ..default()
                 })),
-                Transform::from_translation(side * 2.0 + height),
+                Transform::from_translation(side * 2.0 + height).looking_at(height, Vec3::Y),
             ));
         }
     }
