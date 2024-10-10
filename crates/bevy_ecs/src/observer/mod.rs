@@ -563,8 +563,10 @@ mod tests {
     use alloc::vec;
 
     use bevy_ptr::OwningPtr;
+    use bevy_utils::HashMap;
 
     use crate as bevy_ecs;
+    use crate::component::ComponentId;
     use crate::{
         observer::{EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace},
         prelude::*,
@@ -1279,9 +1281,6 @@ mod tests {
 
     #[test]
     fn observer_invalid_params() {
-        #[derive(Event)]
-        struct EventA;
-
         #[derive(Resource)]
         struct ResA;
 
@@ -1300,9 +1299,6 @@ mod tests {
 
     #[test]
     fn observer_apply_deferred_from_param_set() {
-        #[derive(Event)]
-        struct EventA;
-
         #[derive(Resource)]
         struct ResA;
 
@@ -1319,5 +1315,36 @@ mod tests {
         world.flush();
 
         assert!(world.get_resource::<ResA>().is_some());
+    }
+
+    #[test]
+    fn observer_triggered_components() {
+        #[derive(Resource, Default)]
+        struct Counter(HashMap<ComponentId, usize>);
+
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        let a_id = world.register_component::<A>();
+        let b_id = world.register_component::<B>();
+
+        world.add_observer(
+            |trigger: Trigger<EventA, (A, B)>, mut counter: ResMut<Counter>| {
+                for &component in trigger.components() {
+                    *counter.0.entry(component).or_default() += 1;
+                }
+            },
+        );
+        world.flush();
+
+        world.trigger_targets(EventA, [a_id, b_id]);
+        world.trigger_targets(EventA, a_id);
+        world.trigger_targets(EventA, b_id);
+        world.trigger_targets(EventA, [a_id, b_id]);
+        world.trigger_targets(EventA, a_id);
+        world.flush();
+
+        let counter = world.resource::<Counter>();
+        assert_eq!(4, *counter.0.get(&a_id).unwrap());
+        assert_eq!(3, *counter.0.get(&b_id).unwrap());
     }
 }
