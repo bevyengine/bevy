@@ -13,7 +13,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use glam::Quat;
 
 #[cfg(feature = "alloc")]
-use alloc::boxed::Box;
+use alloc::{boxed::Box, vec::Vec};
 
 /// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]

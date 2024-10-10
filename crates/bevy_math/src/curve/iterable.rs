@@ -2,6 +2,7 @@
 //! output whose length cannot be known statically.
 
 use super::{ConstantCurve, Interval};
+use alloc::vec::Vec;
 
 /// A curve which provides samples in the form of [`Iterator`]s.
 ///

@@ -262,6 +262,30 @@ mod std_ops {
     pub fn copysign(x: f32, y: f32) -> f32 {
         f32::copysign(x, y)
     }
+
+    /// Returns the nearest integer to `x`. If a value is half-way between two integers, round away from `0.0`.
+    ///
+    /// This function always returns the precise result.
+    #[inline(always)]
+    pub fn round(x: f32) -> f32 {
+        f32::round(x)
+    }
+
+    /// Returns the largest integer less than or equal to `x`.
+    ///
+    /// This function always returns the precise result.
+    #[inline(always)]
+    pub fn floor(x: f32) -> f32 {
+        f32::floor(x)
+    }
+
+    /// Returns the fractional part of `x`.
+    ///
+    /// This function always returns the precise result.
+    #[inline(always)]
+    pub fn fract(x: f32) -> f32 {
+        f32::fract(x)
+    }
 }
 
 #[cfg(feature = "libm")]
@@ -483,7 +507,13 @@ mod libm_ops {
     /// Precision is specified when the `libm` feature is enabled.
     #[inline(always)]
     pub fn rem_euclid(x: f32, y: f32) -> f32 {
-        libm::remainderf(x, y)
+        let result = libm::remainderf(x, y);
+
+        if result < 0. {
+            result + y
+        } else {
+            result
+        }
     }
 
     /// Computes the absolute value of x.
@@ -508,6 +538,30 @@ mod libm_ops {
     #[inline(always)]
     pub fn copysign(x: f32, y: f32) -> f32 {
         libm::copysignf(x, y)
+    }
+
+    /// Returns the nearest integer to `x`. If a value is half-way between two integers, round away from `0.0`.
+    ///
+    /// Precision is specified when the `libm` feature is enabled.
+    #[inline(always)]
+    pub fn round(x: f32) -> f32 {
+        libm::roundf(x)
+    }
+
+    /// Returns the largest integer less than or equal to `x`.
+    ///
+    /// Precision is specified when the `libm` feature is enabled.
+    #[inline(always)]
+    pub fn floor(x: f32) -> f32 {
+        libm::floorf(x)
+    }
+
+    /// Returns the fractional part of `x`.
+    ///
+    /// This function always returns the precise result.
+    #[inline(always)]
+    pub fn fract(x: f32) -> f32 {
+        libm::modff(x).0
     }
 }
 
