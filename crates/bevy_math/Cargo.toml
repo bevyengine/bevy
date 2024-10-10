@@ -74,7 +74,7 @@ debug_glam_assert = ["glam/debug-glam-assert"]
 rand = ["dep:rand", "dep:rand_distr", "glam/rand"]
 # Include code related to the Curve trait
 curve = []
-# Include code related to the Curve trait
+# Enable bevy_reflect (requires std)
 bevy_reflect = ["dep:bevy_reflect", "std"]
 
 [lints]

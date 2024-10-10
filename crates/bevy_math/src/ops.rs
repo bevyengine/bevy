@@ -230,7 +230,7 @@ mod std_ops {
 
     /// Calculates the least nonnegative remainder of `x (mod y)`.
     ///
-    /// Precision is specified when the `libm` feature is enabled.
+    /// The result of this operation is guaranteed to be the rounded infinite-precision result.
     #[inline(always)]
     pub fn rem_euclid(x: f32, y: f32) -> f32 {
         f32::rem_euclid(x, y)
@@ -238,7 +238,7 @@ mod std_ops {
 
     /// Computes the absolute value of x.
     ///
-    /// Precision is specified when the `libm` feature is enabled.
+    /// This function always returns the precise result.
     #[inline(always)]
     pub fn abs(x: f32) -> f32 {
         f32::abs(x)
@@ -246,7 +246,8 @@ mod std_ops {
 
     /// Returns the square root of a number.
     ///
-    /// Precision is specified when the `libm` feature is enabled.
+    /// The result of this operation is guaranteed to be the rounded infinite-precision result.
+    /// It is specified by IEEE 754 as `squareRoot` and guaranteed not to change.
     #[inline(always)]
     pub fn sqrt(x: f32) -> f32 {
         f32::sqrt(x)
@@ -254,7 +255,9 @@ mod std_ops {
 
     /// Returns a number composed of the magnitude of `x` and the sign of `y`.
     ///
-    /// Precision is specified when the `libm` feature is enabled.
+    /// Equal to `x` if the sign of `x` and `y` are the same, otherwise equal to `-x`. If `x` is a
+    /// `NaN`, then a `NaN` with the sign bit of `y` is returned. Note, however, that conserving the
+    /// sign bit on `NaN` across arithmetical operations is not generally guaranteed.
     #[inline(always)]
     pub fn copysign(x: f32, y: f32) -> f32 {
         f32::copysign(x, y)
