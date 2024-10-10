@@ -397,7 +397,7 @@ impl<'de> Deserialize<'de> for Entity {
 ///
 /// This takes the format: `{index}v{generation}#{bits}`.
 ///
-/// For [`Entity::PLACEHOLDER`], this outputs `Entity::PLACEHOLDER`.
+/// For [`Entity::PLACEHOLDER`], this outputs `PLACEHOLDER`.
 ///
 /// # Usage
 ///
@@ -419,7 +419,7 @@ impl<'de> Deserialize<'de> for Entity {
 impl fmt::Debug for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self == &Self::PLACEHOLDER {
-            write!(f, "Entity::PLACEHOLDER")
+            write!(f, "PLACEHOLDER")
         } else {
             write!(
                 f,
@@ -436,11 +436,11 @@ impl fmt::Debug for Entity {
 ///
 /// This takes the format: `{index}v{generation}`.
 ///
-/// For [`Entity::PLACEHOLDER`], this outputs `Entity::PLACEHOLDER`.
+/// For [`Entity::PLACEHOLDER`], this outputs `PLACEHOLDER`.
 impl fmt::Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self == &Self::PLACEHOLDER {
-            write!(f, "Entity::PLACEHOLDER")
+            write!(f, "PLACEHOLDER")
         } else {
             write!(f, "{}v{}", self.index(), self.generation())
         }
@@ -1211,7 +1211,7 @@ mod tests {
 
         let entity = Entity::PLACEHOLDER;
         let string = format!("{:?}", entity);
-        assert_eq!(string, "Entity::PLACEHOLDER");
+        assert_eq!(string, "PLACEHOLDER");
     }
 
     #[test]
@@ -1222,6 +1222,6 @@ mod tests {
 
         let entity = Entity::PLACEHOLDER;
         let string = format!("{}", entity);
-        assert_eq!(string, "Entity::PLACEHOLDER");
+        assert_eq!(string, "PLACEHOLDER");
     }
 }
