@@ -278,7 +278,7 @@ pub fn extract_lights(
                         .map(|e| {
                             let render_entity = mapper
                                 .get(*e)
-                                .map(|e| e.id())
+                                .map(RenderEntity::id)
                                 .unwrap_or_else(|_| commands.spawn_empty().id());
                             (render_entity, MainEntity::from(*e))
                         })
@@ -342,7 +342,7 @@ pub fn extract_lights(
                     .map(|e| {
                         let render_entity = mapper
                             .get(*e)
-                            .map(|e| e.id())
+                            .map(RenderEntity::id)
                             .unwrap_or_else(|_| commands.spawn_empty().id());
                         (render_entity, MainEntity::from(*e))
                     })
