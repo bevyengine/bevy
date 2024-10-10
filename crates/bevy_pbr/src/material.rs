@@ -25,6 +25,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     camera::TemporalJitter,
@@ -492,7 +493,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
 
 /// Stores all extracted instances of a [`Material`] in the render world.
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterialInstances<M: Material>(pub EntityHashMap<AssetId<M>>);
+pub struct RenderMaterialInstances<M: Material>(pub MainEntityHashMap<AssetId<M>>);
 
 impl<M: Material> Default for RenderMaterialInstances<M> {
     fn default() -> Self {
