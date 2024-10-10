@@ -175,7 +175,7 @@ impl Neg for Val {
     }
 }
 
-/// Helper trait that allows for easier conversion into the different Val variants, especially when writing Ui code
+/// Helper trait that allows for easier conversion into the different [`Val`] variants, especially when writing UI code
 ///
 /// # Example
 ///
