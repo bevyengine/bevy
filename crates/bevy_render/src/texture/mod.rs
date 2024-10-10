@@ -1,5 +1,3 @@
-#[cfg(feature = "basis-universal")]
-mod compressed_image_saver;
 mod fallback_image;
 mod gpu_image;
 mod texture_attachment;
@@ -17,7 +15,7 @@ pub use bevy_image::{
     TextureError, TextureFormatPixelInfo,
 };
 #[cfg(feature = "basis-universal")]
-pub use compressed_image_saver::*;
+pub use bevy_image::{CompressedImageSaver, CompressedImageSaverError};
 pub use fallback_image::*;
 pub use gpu_image::*;
 pub use texture_attachment::*;
