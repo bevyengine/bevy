@@ -10,9 +10,12 @@ use bevy_utils::{
     default,
     hashbrown::hash_map::{RawEntryMut, VacantEntry},
     tracing::error,
-    Entry, HashMap,
+    AHasher, Entry, HashMap,
 };
-use core::{fmt::Debug, hash::Hash};
+use core::{
+    fmt::Debug,
+    hash::{BuildHasherDefault, Hash},
+};
 use derive_more::derive::{Display, Error, From};
 
 pub trait SpecializedRenderPipeline {
@@ -132,7 +135,11 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
             specialize_pipeline: &S,
             key: S::Key,
             layout: &MeshVertexBufferLayoutRef,
-            entry: VacantEntry<(MeshVertexBufferLayoutRef, S::Key), CachedRenderPipelineId>,
+            entry: VacantEntry<
+                (MeshVertexBufferLayoutRef, S::Key),
+                CachedRenderPipelineId,
+                BuildHasherDefault<AHasher>,
+            >,
         ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError>
         where
             S: SpecializedMeshPipeline,

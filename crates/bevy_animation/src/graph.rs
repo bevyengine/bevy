@@ -406,7 +406,7 @@ impl AnimationGraph {
         Self {
             graph,
             root,
-            mask_groups: HashMap::new(),
+            mask_groups: HashMap::default(),
         }
     }
 

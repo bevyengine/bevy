@@ -42,7 +42,7 @@ impl FromWorld for MeshletMeshManager {
                 "meshlet_bounding_spheres",
                 render_device,
             ),
-            meshlet_mesh_slices: HashMap::new(),
+            meshlet_mesh_slices: HashMap::default(),
         }
     }
 }

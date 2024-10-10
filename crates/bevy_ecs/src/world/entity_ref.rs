@@ -3411,7 +3411,7 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
         self,
         cell: UnsafeEntityCell<'_>,
     ) -> Result<Self::Ref<'_>, EntityComponentError> {
-        let mut ptrs = HashMap::with_capacity(self.len());
+        let mut ptrs = HashMap::with_capacity_and_hasher(self.len(), Default::default());
         for &id in self {
             ptrs.insert(
                 id,
@@ -3426,7 +3426,7 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
         self,
         cell: UnsafeEntityCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityComponentError> {
-        let mut ptrs = HashMap::with_capacity(self.len());
+        let mut ptrs = HashMap::with_capacity_and_hasher(self.len(), Default::default());
         for &id in self {
             ptrs.insert(
                 id,
