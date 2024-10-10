@@ -6,7 +6,10 @@
 //! provided methods all maintain the invariants, so this is only a concern if you manually mutate
 //! the fields.
 
+use crate::ops::{floor, fract};
+
 use super::interval::Interval;
+use alloc::vec::Vec;
 use core::fmt::Debug;
 use derive_more::derive::{Display, Error};
 use itertools::Itertools;
@@ -243,11 +246,11 @@ pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDat
         // To the right side of all the samples
         InterpolationDatum::RightTail(samples - 1)
     } else {
-        let lower_index = steps_taken.floor() as usize;
+        let lower_index = floor(steps_taken) as usize;
         // This upper index is always valid because `steps_taken` is a finite value
         // strictly less than `samples - 1`, so its floor is at most `samples - 2`
         let upper_index = lower_index + 1;
-        let s = steps_taken.fract();
+        let s = fract(steps_taken);
         InterpolationDatum::Between(lower_index, upper_index, s)
     }
 }

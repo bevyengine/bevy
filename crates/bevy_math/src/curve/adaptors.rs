@@ -3,6 +3,7 @@
 use super::interval::*;
 use super::Curve;
 
+use crate::ops::rem_euclid;
 use crate::VectorSpace;
 use core::any::type_name;
 use core::fmt::{self, Debug};
@@ -621,7 +622,7 @@ where
     fn sample_unchecked(&self, t: f32) -> T {
         // the domain is bounded by construction
         let d = self.curve.domain();
-        let cyclic_t = (t - d.start()).rem_euclid(d.length());
+        let cyclic_t = rem_euclid(t - d.start(), d.length());
         let t = if t != d.start() && cyclic_t == 0.0 {
             d.end()
         } else {
@@ -669,7 +670,7 @@ where
     fn sample_unchecked(&self, t: f32) -> T {
         // the domain is bounded by construction
         let d = self.curve.domain();
-        let cyclic_t = (t - d.start()).rem_euclid(d.length());
+        let cyclic_t = rem_euclid(t - d.start(), d.length());
         let t = if t != d.start() && cyclic_t == 0.0 {
             d.end()
         } else {

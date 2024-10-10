@@ -2,6 +2,7 @@ mod primitive_impls;
 
 use super::{BoundingVolume, IntersectsVolume};
 use crate::{
+    ops::{copysign, sqrt},
     prelude::{Mat2, Rot2, Vec2},
     FloatPow, Isometry2d,
 };
@@ -488,7 +489,7 @@ impl BoundingCircle {
             }
         }
 
-        BoundingCircle::new(isometry * center, radius_squared.sqrt())
+        BoundingCircle::new(isometry * center, sqrt(radius_squared))
     }
 
     /// Get the radius of the bounding circle
@@ -539,7 +540,7 @@ impl BoundingVolume for BoundingCircle {
     #[inline(always)]
     fn contains(&self, other: &Self) -> bool {
         let diff = self.radius() - other.radius();
-        self.center.distance_squared(other.center) <= diff.squared().copysign(diff)
+        self.center.distance_squared(other.center) <= copysign(diff.squared(), diff)
     }
 
     #[inline(always)]

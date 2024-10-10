@@ -2,8 +2,12 @@
 
 use core::{fmt::Debug, iter::once};
 
-use crate::{ops::FloatPow, Vec2, VectorSpace};
+use crate::{
+    ops::{abs, floor, FloatPow},
+    Vec2, VectorSpace,
+};
 
+use alloc::{vec, vec::Vec};
 use derive_more::derive::{Display, Error};
 use itertools::Itertools;
 
@@ -1050,7 +1054,7 @@ impl CubicSegment<Vec2> {
         for _ in 0..Self::MAX_ITERS {
             pos_guess = self.position(t_guess);
             let error = pos_guess.x - x;
-            if error.abs() <= Self::MAX_ERROR {
+            if abs(error) <= Self::MAX_ERROR {
                 break;
             }
             // Using Newton's method, use the tangent line to estimate a better guess value.
@@ -1193,7 +1197,7 @@ impl<P: VectorSpace> CubicCurve<P> {
         if self.segments.len() == 1 {
             (&self.segments[0], t)
         } else {
-            let i = (t.floor() as usize).clamp(0, self.segments.len() - 1);
+            let i = (floor(t) as usize).clamp(0, self.segments.len() - 1);
             (&self.segments[i], t - i as f32)
         }
     }

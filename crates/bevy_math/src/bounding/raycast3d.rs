@@ -1,5 +1,8 @@
 use super::{Aabb3d, BoundingSphere, IntersectsVolume};
-use crate::{ops::FloatPow, Dir3A, Ray3d, Vec3A};
+use crate::{
+    ops::{copysign, sqrt, FloatPow},
+    Dir3A, Ray3d, Vec3A,
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -74,10 +77,10 @@ impl RayCast3d {
         let projected = offset.dot(*self.direction);
         let closest_point = offset - projected * *self.direction;
         let distance_squared = sphere.radius().squared() - closest_point.length_squared();
-        if distance_squared < 0. || projected.squared().copysign(-projected) < -distance_squared {
+        if distance_squared < 0. || copysign(projected.squared(), -projected) < -distance_squared {
             None
         } else {
-            let toi = -projected - distance_squared.sqrt();
+            let toi = -projected - sqrt(distance_squared);
             if toi > self.max {
                 None
             } else {

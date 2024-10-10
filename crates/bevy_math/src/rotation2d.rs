@@ -3,7 +3,7 @@ use core::f32::consts::TAU;
 use glam::FloatExt;
 
 use crate::{
-    ops,
+    ops::{self, abs},
     prelude::{Mat2, Vec2},
 };
 
@@ -318,7 +318,7 @@ impl Rot2 {
         // The allowed length is 1 +/- 1e-4, so the largest allowed
         // squared length is (1 + 1e-4)^2 = 1.00020001, which makes
         // the threshold for the squared length approximately 2e-4.
-        (self.length_squared() - 1.0).abs() <= 2e-4
+        abs(self.length_squared() - 1.0) <= 2e-4
     }
 
     /// Returns `true` if the rotation is near [`Rot2::IDENTITY`].
@@ -326,7 +326,7 @@ impl Rot2 {
     pub fn is_near_identity(self) -> bool {
         // Same as `Quat::is_near_identity`, but using sine and cosine
         let threshold_angle_sin = 0.000_049_692_047; // let threshold_angle = 0.002_847_144_6;
-        self.cos > 0.0 && self.sin.abs() < threshold_angle_sin
+        self.cos > 0.0 && abs(self.sin) < threshold_angle_sin
     }
 
     /// Returns the angle in radians needed to make `self` and `other` coincide.

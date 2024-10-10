@@ -1,5 +1,8 @@
 use super::{Aabb2d, BoundingCircle, IntersectsVolume};
-use crate::{ops::FloatPow, Dir2, Ray2d, Vec2};
+use crate::{
+    ops::{copysign, sqrt, FloatPow},
+    Dir2, Ray2d, Vec2,
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -77,10 +80,10 @@ impl RayCast2d {
         let projected = offset.dot(*self.ray.direction);
         let closest_point = offset - projected * *self.ray.direction;
         let distance_squared = circle.radius().squared() - closest_point.length_squared();
-        if distance_squared < 0. || projected.squared().copysign(-projected) < -distance_squared {
+        if distance_squared < 0. || copysign(projected.squared(), -projected) < -distance_squared {
             None
         } else {
-            let toi = -projected - distance_squared.sqrt();
+            let toi = -projected - sqrt(distance_squared);
             if toi > self.max {
                 None
             } else {

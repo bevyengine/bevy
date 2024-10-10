@@ -4,13 +4,16 @@ use glam::{Vec2, Vec3A, Vec3Swizzles};
 
 use crate::{
     bounding::{BoundingCircle, BoundingVolume},
-    ops,
+    ops::{self, sqrt},
     primitives::{
-        BoxedPolygon, BoxedPolyline2d, Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d,
-        Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
+        Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d, Polygon, Polyline2d, Primitive2d,
+        Rectangle, RegularPolygon, Segment2d, Triangle2d,
     },
     Isometry2d, Isometry3d, Quat, Rot2,
 };
+
+#[cfg(feature = "alloc")]
+use crate::primitives::{BoxedPolygon, BoxedPolyline2d};
 
 use crate::{bounding::Bounded2d, primitives::Circle};
 
@@ -26,7 +29,7 @@ impl BoundedExtrusion for Circle {
         let top = (segment_dir * half_depth).abs();
 
         let e = (Vec3A::ONE - segment_dir * segment_dir).max(Vec3A::ZERO);
-        let half_size = self.radius * Vec3A::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
+        let half_size = self.radius * Vec3A::new(sqrt(e.x), sqrt(e.y), sqrt(e.z));
 
         Aabb3d {
             min: isometry.translation - half_size - top,
@@ -56,8 +59,8 @@ impl BoundedExtrusion for Ellipse {
             let m = -axis.x / axis.y;
             let signum = axis.signum();
 
-            let y = signum.y * b * b / (b * b + m * m * a * a).sqrt();
-            let x = signum.x * a * (1. - y * y / b / b).sqrt();
+            let y = signum.y * b * b / sqrt(b * b + m * m * a * a);
+            let x = signum.x * a * sqrt(1. - y * y / b / b);
             isometry.rotation * Vec3A::new(x, y, 0.)
         });
 
@@ -104,6 +107,7 @@ impl<const N: usize> BoundedExtrusion for Polyline2d<N> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl BoundedExtrusion for BoxedPolyline2d {
     fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
         let isometry = isometry.into();
@@ -144,6 +148,7 @@ impl<const N: usize> BoundedExtrusion for Polygon<N> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl BoundedExtrusion for BoxedPolygon {
     fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
         let isometry = isometry.into();

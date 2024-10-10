@@ -4,6 +4,7 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 //! Provides math types and functionality for the Bevy game engine.
 //!
@@ -11,12 +12,18 @@
 //! matrices like [`Mat2`], [`Mat3`] and [`Mat4`] and orientation representations
 //! like [`Quat`].
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 mod affine3;
 mod aspect_ratio;
 pub mod bounding;
 pub mod common_traits;
 mod compass;
+
+#[cfg(feature = "alloc")]
 pub mod cubic_splines;
+
 mod direction;
 mod float_ord;
 mod isometry;
@@ -56,11 +63,6 @@ pub use sampling::{FromRng, ShapeSample};
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        cubic_splines::{
-            CubicBSpline, CubicBezier, CubicCardinalSpline, CubicCurve, CubicGenerator,
-            CubicHermite, CubicNurbs, CubicNurbsError, CubicSegment, CyclicCubicGenerator,
-            RationalCurve, RationalGenerator, RationalSegment,
-        },
         direction::{Dir2, Dir3, Dir3A},
         ops,
         primitives::*,
@@ -76,6 +78,14 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "rand")]
     pub use crate::sampling::{FromRng, ShapeSample};
+
+    #[doc(hidden)]
+    #[cfg(feature = "alloc")]
+    pub use crate::cubic_splines::{
+        CubicBSpline, CubicBezier, CubicCardinalSpline, CubicCurve, CubicGenerator, CubicHermite,
+        CubicNurbs, CubicNurbsError, CubicSegment, CyclicCubicGenerator, RationalCurve,
+        RationalGenerator, RationalSegment,
+    };
 }
 
 pub use glam::*;
