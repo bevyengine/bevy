@@ -175,22 +175,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/cakeBirthday.glb"));
 
     // scoreboard
-    commands.spawn(
-        TextBundle::from_section(
-            "Score:",
-            TextStyle {
-                font_size: 33.0,
-                color: Color::srgb(0.5, 0.5, 1.0),
-                ..default()
-            },
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new("Score:"),
+        TextStyle {
+            font_size: 33.0,
+            color: Color::srgb(0.5, 0.5, 1.0),
+            ..default()
+        },
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(5.0),
             left: Val::Px(5.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
     commands.insert_resource(Random(rng));
 }
@@ -380,8 +378,7 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
 
 // update the score displayed during the game
 fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
-    let mut text = query.single_mut();
-    text.sections[0].value = format!("Sugar Rush: {}", game.score);
+    **query.single_mut() = format!("Sugar Rush: {}", game.score);
 }
 
 // restart the game when pressing spacebar
@@ -406,14 +403,12 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
             },
             ..default()
         })
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                format!("Cake eaten: {}", game.cake_eaten),
-                TextStyle {
-                    font_size: 67.0,
-                    color: Color::srgb(0.5, 0.5, 1.0),
-                    ..default()
-                },
-            ));
-        });
+        .with_child((
+            Text::new(format!("Cake eaten: {}", game.cake_eaten)),
+            TextStyle {
+                font_size: 67.0,
+                color: Color::srgb(0.5, 0.5, 1.0),
+                ..default()
+            },
+        ));
 }

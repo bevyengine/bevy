@@ -100,39 +100,40 @@ unused_qualifications = "warn"
 
 [features]
 default = [
+  "android-game-activity",
+  "android-game-activity",
+  "android_shared_stdcxx",
   "animation",
   "bevy_asset",
-  "bevy_state",
   "bevy_audio",
   "bevy_color",
-  "bevy_gilrs",
-  "bevy_scene",
-  "bevy_winit",
   "bevy_core_pipeline",
+  "bevy_gilrs",
+  "bevy_gizmos",
+  "bevy_gltf",
   "bevy_pbr",
   "bevy_picking",
-  "bevy_sprite_picking_backend",
-  "bevy_ui_picking_backend",
-  "bevy_gltf",
+  "bevy_remote",
   "bevy_render",
+  "bevy_scene",
   "bevy_sprite",
+  "bevy_sprite_picking_backend",
+  "bevy_state",
   "bevy_text",
   "bevy_ui",
-  "bevy_remote",
+  "bevy_ui_picking_backend",
+  "bevy_winit",
+  "custom_cursor",
+  "default_font",
+  "hdr",
   "multi_threaded",
   "png",
-  "hdr",
-  "vorbis",
-  "x11",
-  "bevy_gizmos",
-  "android_shared_stdcxx",
-  "tonemapping_luts",
   "smaa_luts",
-  "default_font",
-  "webgl2",
   "sysinfo_plugin",
-  "android-game-activity",
-  "custom_cursor",
+  "tonemapping_luts",
+  "vorbis",
+  "webgl2",
+  "x11",
 ]
 
 # Provides an implementation for picking sprites
@@ -242,38 +243,56 @@ trace_tracy_memory = [
 # Tracing support
 trace = ["bevy_internal/trace"]
 
-# EXR image format support
-exr = ["bevy_internal/exr"]
-
-# HDR image format support
-hdr = ["bevy_internal/hdr"]
-
-# PNG image format support
-png = ["bevy_internal/png"]
-
-# TGA image format support
-tga = ["bevy_internal/tga"]
-
-# JPEG image format support
-jpeg = ["bevy_internal/jpeg"]
-
-# BMP image format support
-bmp = ["bevy_internal/bmp"]
-
-# WebP image format support
-webp = ["bevy_internal/webp"]
+# AVIF image format support
+avif = ["bevy_internal/avif"]
 
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
 
+# BMP image format support
+bmp = ["bevy_internal/bmp"]
+
 # DDS compressed texture support
 dds = ["bevy_internal/dds"]
+
+# EXR image format support
+exr = ["bevy_internal/exr"]
+
+# Farbfeld image format support
+ff = ["bevy_internal/ff"]
+
+# GIF image format support
+gif = ["bevy_internal/gif"]
+
+# HDR image format support
+hdr = ["bevy_internal/hdr"]
 
 # KTX2 compressed texture support
 ktx2 = ["bevy_internal/ktx2"]
 
+# ICO image format support
+ico = ["bevy_internal/ico"]
+
+# JPEG image format support
+jpeg = ["bevy_internal/jpeg"]
+
+# PNG image format support
+png = ["bevy_internal/png"]
+
 # PNM image format support, includes pam, pbm, pgm and ppm
 pnm = ["bevy_internal/pnm"]
+
+# QOI image format support
+qoi = ["bevy_internal/qoi"]
+
+# TGA image format support
+tga = ["bevy_internal/tga"]
+
+# TIFF image format support
+tiff = ["bevy_internal/tiff"]
+
+# WebP image format support
+webp = ["bevy_internal/webp"]
 
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
@@ -955,6 +974,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "order_independent_transparency"
+path = "examples/3d/order_independent_transparency.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.order_independent_transparency]
+name = "Order Independent Transparency"
+description = "Demonstrates how to use OIT"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "tonemapping"
 path = "examples/3d/tonemapping.rs"
 doc-scrape-examples = true
@@ -1179,7 +1209,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/854eb98353ad94aea1104f355fc24dbe4fda679d/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/8443bbdee0bf517e6c297dede7f6a46ab712ee4c/bunny.meshlet_mesh",
   ],
 ]
 
@@ -1270,13 +1300,24 @@ category = "Animation"
 wasm = true
 
 [[example]]
-name = "cubic_curve"
-path = "examples/animation/cubic_curve.rs"
+name = "eased_motion"
+path = "examples/animation/eased_motion.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.cubic_curve]
-name = "Cubic Curve"
-description = "Bezier curve example showing a cube following a cubic curve"
+[package.metadata.example.eased_motion]
+name = "Eased Motion"
+description = "Demonstrates the application of easing curves to animate an object"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "easing_functions"
+path = "examples/animation/easing_functions.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.easing_functions]
+name = "Easing Functions"
+description = "Showcases the built-in easing functions"
 category = "Animation"
 wasm = true
 
@@ -2856,6 +2897,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "box_shadow"
+path = "examples/ui/box_shadow.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.box_shadow]
+name = "Box Shadow"
+description = "Demonstrates how to create a node with a shadow"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "button"
 path = "examples/ui/button.rs"
 doc-scrape-examples = true
@@ -3445,6 +3497,18 @@ name = "Camera Orbit"
 description = "Shows how to orbit a static scene using pitch, yaw, and roll."
 category = "Camera"
 wasm = true
+
+[[example]]
+name = "2d_screen_shake"
+path = "examples/camera/2d_screen_shake.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.2d_screen_shake]
+name = "Screen Shake"
+description = "A simple 2D screen shake effect"
+category = "Camera"
+wasm = true
+
 
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"

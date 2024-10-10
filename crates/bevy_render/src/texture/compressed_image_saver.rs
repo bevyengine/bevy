@@ -1,15 +1,14 @@
 use super::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSettings};
 use bevy_asset::saver::{AssetSaver, SavedAsset};
+use derive_more::derive::{Display, Error, From};
 use futures_lite::AsyncWriteExt;
-use thiserror::Error;
 
 pub struct CompressedImageSaver;
 
 #[non_exhaustive]
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display, From)]
 pub enum CompressedImageSaverError {
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
+    Io(std::io::Error),
 }
 
 impl AssetSaver for CompressedImageSaver {

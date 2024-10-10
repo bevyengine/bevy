@@ -114,33 +114,13 @@ impl Plugin for ImagePlugin {
             );
         }
 
-        #[cfg(any(
-            feature = "png",
-            feature = "dds",
-            feature = "tga",
-            feature = "jpeg",
-            feature = "bmp",
-            feature = "basis-universal",
-            feature = "ktx2",
-            feature = "webp",
-            feature = "pnm"
-        ))]
-        app.preregister_asset_loader::<ImageLoader>(IMG_FILE_EXTENSIONS);
+        if !ImageFormat::SUPPORTED_FILE_EXTENSIONS.is_empty() {
+            app.preregister_asset_loader::<ImageLoader>(ImageFormat::SUPPORTED_FILE_EXTENSIONS);
+        }
     }
 
     fn finish(&self, app: &mut App) {
-        #[cfg(any(
-            feature = "png",
-            feature = "dds",
-            feature = "tga",
-            feature = "jpeg",
-            feature = "bmp",
-            feature = "basis-universal",
-            feature = "ktx2",
-            feature = "webp",
-            feature = "pnm"
-        ))]
-        {
+        if !ImageFormat::SUPPORTED.is_empty() {
             app.init_asset_loader::<ImageLoader>();
         }
 

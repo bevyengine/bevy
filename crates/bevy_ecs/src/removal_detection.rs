@@ -11,6 +11,8 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
+use derive_more::derive::Into;
+
 use core::{
     fmt::Debug,
     iter,
@@ -21,14 +23,8 @@ use core::{
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
 /// Internally, `RemovedComponents` uses these as an `Events<RemovedComponentEntity>`.
-#[derive(Event, Debug, Clone)]
+#[derive(Event, Debug, Clone, Into)]
 pub struct RemovedComponentEntity(Entity);
-
-impl From<RemovedComponentEntity> for Entity {
-    fn from(value: RemovedComponentEntity) -> Self {
-        value.0
-    }
-}
 
 /// Wrapper around a [`EventCursor<RemovedComponentEntity>`] so that we
 /// can differentiate events between components.

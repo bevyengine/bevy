@@ -31,7 +31,7 @@ impl Plugin for CursorPlugin {
             .init_resource::<CustomCursorCache>()
             .add_systems(Last, update_cursors);
 
-        app.observe(on_remove_cursor_icon);
+        app.add_observer(on_remove_cursor_icon);
     }
 }
 

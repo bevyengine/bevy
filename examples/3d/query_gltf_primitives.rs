@@ -23,7 +23,11 @@ fn find_top_material_and_mesh(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     time: Res<Time>,
-    mat_query: Query<(&Handle<StandardMaterial>, &Handle<Mesh>, &GltfMaterialName)>,
+    mat_query: Query<(
+        &MeshMaterial3d<StandardMaterial>,
+        &Mesh3d,
+        &GltfMaterialName,
+    )>,
 ) {
     for (mat_handle, mesh_handle, name) in mat_query.iter() {
         // locate a material by material name

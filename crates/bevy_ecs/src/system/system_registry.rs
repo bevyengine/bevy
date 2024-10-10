@@ -12,7 +12,7 @@ use bevy_ecs_macros::{Component, Resource};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use core::marker::PhantomData;
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
@@ -587,28 +587,28 @@ where
 }
 
 /// An operation with stored systems failed.
-#[derive(Error)]
+#[derive(Error, Display)]
 pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     /// A system was run by id, but no system with that id was found.
     ///
     /// Did you forget to register it?
-    #[error("System {0:?} was not registered")]
+    #[display("System {_0:?} was not registered")]
     SystemIdNotRegistered(SystemId<I, O>),
     /// A cached system was removed by value, but no system with its type was found.
     ///
     /// Did you forget to register it?
-    #[error("Cached system was not found")]
+    #[display("Cached system was not found")]
     SystemNotCached,
     /// A system tried to run itself recursively.
-    #[error("System {0:?} tried to run itself recursively")]
+    #[display("System {_0:?} tried to run itself recursively")]
     Recursive(SystemId<I, O>),
     /// A system tried to remove itself.
-    #[error("System {0:?} tried to remove itself")]
+    #[display("System {_0:?} tried to remove itself")]
     SelfRemove(SystemId<I, O>),
     /// System could not be run due to parameters that failed validation.
     ///
     /// This can occur because the data required by the system was not present in the world.
-    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
+    #[display("The data required by the system {_0:?} was not found in the world and the system did not run due to failed parameter validation.")]
     InvalidParams(SystemId<I, O>),
 }
 

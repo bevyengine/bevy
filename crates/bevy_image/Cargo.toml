@@ -9,15 +9,24 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-png = ["image/png"]
-exr = ["image/exr"]
-hdr = ["image/hdr"]
-tga = ["image/tga"]
-jpeg = ["image/jpeg"]
+# Image formats
+avif = ["image/avif"]
+basis-universal = ["dep:basis-universal"]
 bmp = ["image/bmp"]
-webp = ["image/webp"]
 dds = ["ddsfile"]
+exr = ["image/exr"]
+ff = ["image/ff"]
+gif = ["image/gif"]
+hdr = ["image/hdr"]
+ktx2 = ["dep:ktx2"]
+ico = ["image/ico"]
+jpeg = ["image/jpeg"]
+png = ["image/png"]
 pnm = ["image/pnm"]
+qoi = ["image/qoi"]
+tga = ["image/tga"]
+tiff = ["image/tiff"]
+webp = ["image/webp"]
 
 # For ktx2 supercompression
 zlib = ["flate2"]
@@ -43,7 +52,11 @@ bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5" }
 wgpu = { version = "22", default-features = false }
 serde = { version = "1", features = ["derive"] }
-thiserror = "1.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+] }
 futures-lite = "2.0.1"
 ddsfile = { version = "0.5.2", optional = true }
 ktx2 = { version = "0.3.0", optional = true }

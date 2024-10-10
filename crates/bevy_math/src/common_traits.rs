@@ -43,11 +43,11 @@ pub trait VectorSpace:
     /// on the parameter `t`. When `t` is `0`, `self` is recovered. When `t` is `1`, `rhs`
     /// is recovered.
     ///
-    /// Note that the value of `t` is not clamped by this function, so interpolating outside
+    /// Note that the value of `t` is not clamped by this function, so extrapolating outside
     /// of the interval `[0,1]` is allowed.
     #[inline]
-    fn lerp(&self, rhs: Self, t: f32) -> Self {
-        *self * (1. - t) + rhs * t
+    fn lerp(self, rhs: Self, t: f32) -> Self {
+        self * (1. - t) + rhs * t
     }
 }
 

@@ -10,7 +10,7 @@ use bevy_utils::{
     Duration, HashMap,
 };
 use core::{fmt::Display, hash::Hash};
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 use super::{ErasedAssetReader, ErasedAssetWriter};
 
@@ -629,23 +629,27 @@ impl AssetSources {
 }
 
 /// An error returned when an [`AssetSource`] does not exist for a given id.
-#[derive(Error, Debug, Clone, PartialEq, Eq)]
-#[error("Asset Source '{0}' does not exist")]
+#[derive(Error, Display, Debug, Clone, PartialEq, Eq)]
+#[display("Asset Source '{_0}' does not exist")]
+#[error(ignore)]
 pub struct MissingAssetSourceError(AssetSourceId<'static>);
 
 /// An error returned when an [`AssetWriter`](crate::io::AssetWriter) does not exist for a given id.
-#[derive(Error, Debug, Clone)]
-#[error("Asset Source '{0}' does not have an AssetWriter.")]
+#[derive(Error, Display, Debug, Clone)]
+#[display("Asset Source '{_0}' does not have an AssetWriter.")]
+#[error(ignore)]
 pub struct MissingAssetWriterError(AssetSourceId<'static>);
 
 /// An error returned when a processed [`AssetReader`](crate::io::AssetReader) does not exist for a given id.
-#[derive(Error, Debug, Clone, PartialEq, Eq)]
-#[error("Asset Source '{0}' does not have a processed AssetReader.")]
+#[derive(Error, Display, Debug, Clone, PartialEq, Eq)]
+#[display("Asset Source '{_0}' does not have a processed AssetReader.")]
+#[error(ignore)]
 pub struct MissingProcessedAssetReaderError(AssetSourceId<'static>);
 
 /// An error returned when a processed [`AssetWriter`](crate::io::AssetWriter) does not exist for a given id.
-#[derive(Error, Debug, Clone)]
-#[error("Asset Source '{0}' does not have a processed AssetWriter.")]
+#[derive(Error, Display, Debug, Clone)]
+#[display("Asset Source '{_0}' does not have a processed AssetWriter.")]
+#[error(ignore)]
 pub struct MissingProcessedAssetWriterError(AssetSourceId<'static>);
 
 const MISSING_DEFAULT_SOURCE: &str =

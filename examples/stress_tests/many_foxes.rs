@@ -239,7 +239,7 @@ fn setup_scene_once_loaded(
         for (entity, mut player) in &mut player {
             commands
                 .entity(entity)
-                .insert(animations.graph.clone())
+                .insert(AnimationGraphHandle(animations.graph.clone()))
                 .insert(AnimationTransitions::new());
 
             let playing_animation = player.play(animations.node_indices[0]).repeat();

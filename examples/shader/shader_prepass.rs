@@ -123,23 +123,23 @@ fn setup(
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 
-    let style = TextStyle::default();
-
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new("Prepass Output: transparent\n", style.clone()),
-            TextSection::new("\n\n", style.clone()),
-            TextSection::new("Controls\n", style.clone()),
-            TextSection::new("---------------\n", style.clone()),
-            TextSection::new("Space - Change output\n", style),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-    );
+    commands
+        .spawn((
+            Text::default(),
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+        ))
+        .with_children(|p| {
+            p.spawn(TextSpan::new("Prepass Output: transparent\n"));
+            p.spawn(TextSpan::new("\n\n"));
+            p.spawn(TextSpan::new("Controls\n"));
+            p.spawn(TextSpan::new("---------------\n"));
+            p.spawn(TextSpan::new("Space - Change output\n"));
+        });
 }
 
 // This is the struct that will be passed to your shader
@@ -212,9 +212,10 @@ impl Material for PrepassOutputMaterial {
 fn toggle_prepass_view(
     mut prepass_view: Local<u32>,
     keycode: Res<ButtonInput<KeyCode>>,
-    material_handle: Query<&Handle<PrepassOutputMaterial>>,
+    material_handle: Query<&MeshMaterial3d<PrepassOutputMaterial>>,
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
-    mut text: Query<&mut Text>,
+    text: Query<Entity, With<Text>>,
+    mut writer: UiTextWriter,
 ) {
     if keycode.just_pressed(KeyCode::Space) {
         *prepass_view = (*prepass_view + 1) % 4;
@@ -226,11 +227,11 @@ fn toggle_prepass_view(
             3 => "motion vectors",
             _ => unreachable!(),
         };
-        let mut text = text.single_mut();
-        text.sections[0].value = format!("Prepass Output: {label}\n");
-        for section in &mut text.sections {
-            section.style.color = Color::WHITE;
-        }
+        let text = text.single();
+        *writer.text(text, 1) = format!("Prepass Output: {label}\n");
+        writer.for_each_style(text, |mut style| {
+            style.color = Color::WHITE;
+        });
 
         let handle = material_handle.single();
         let mat = materials.get_mut(handle).unwrap();
