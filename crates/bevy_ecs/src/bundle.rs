@@ -464,7 +464,7 @@ impl BundleInfo {
 
     /// To iterate all components contributed by this bundle (including Required Components), see [`BundleInfo::iter_contributed_components`]
     #[inline]
-    pub fn iter_explicit_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn iter_explicit_components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.explicit_components().iter().copied()
     }
 
@@ -472,7 +472,7 @@ impl BundleInfo {
     ///
     /// To iterate only components explicitly defined in this bundle, see [`BundleInfo::iter_explicit_components`]
     #[inline]
-    pub fn iter_contributed_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn iter_contributed_components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.component_ids.iter().copied()
     }
 
