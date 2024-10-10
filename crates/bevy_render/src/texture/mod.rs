@@ -10,11 +10,11 @@ pub use crate::render_resource::DefaultImageSampler;
 pub use bevy_image::ExrTextureLoader;
 #[cfg(feature = "hdr")]
 pub use bevy_image::HdrTextureLoader;
-use bevy_image::ImageLoader;
 pub use bevy_image::{
-    BevyDefault, CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageFormat,
-    ImageSampler, ImageSamplerDescriptor, ImageType, IntoDynamicImageError, TextureError,
-    TextureFormatPixelInfo,
+    BevyDefault, CompressedImageFormats, FileTextureError, Image, ImageAddressMode,
+    ImageFilterMode, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderError,
+    ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor, ImageType, IntoDynamicImageError,
+    TextureError, TextureFormatPixelInfo,
 };
 #[cfg(feature = "basis-universal")]
 pub use compressed_image_saver::*;
