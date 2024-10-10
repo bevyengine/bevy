@@ -240,7 +240,8 @@ macro_rules! impl_as_val {
         )+
     };
 }
-impl_asval!(f32, f64, usize, u32, u64, i32, i64);
+
+impl_as_val!(f32, f64, usize, u32, u64, i32, i64);
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error, Display)]
 pub enum ValArithmeticError {
