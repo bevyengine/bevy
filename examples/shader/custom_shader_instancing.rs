@@ -29,11 +29,11 @@ use bevy::{
         },
         render_resource::*,
         renderer::RenderDevice,
+        sync_world::MainEntity,
         view::{ExtractedView, NoFrustumCulling},
         Render, RenderApp, RenderSet,
     },
 };
-use bevy_render::sync_world::MainEntity;
 use bytemuck::{Pod, Zeroable};
 
 /// This example uses a shader source file from the assets subdirectory

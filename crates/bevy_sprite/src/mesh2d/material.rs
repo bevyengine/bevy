@@ -17,7 +17,6 @@ use bevy_ecs::{
 };
 use bevy_math::FloatOrd;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::extract_instances::ExtractedInstances;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{

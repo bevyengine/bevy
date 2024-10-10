@@ -31,11 +31,10 @@ use bevy::{
         },
         renderer::{RenderDevice, RenderQueue},
         texture::BevyDefault as _,
-        view::{self, ExtractedView, VisibilitySystems, VisibleEntities},
+        view::{self, ExtractedView, RenderVisibleEntities, VisibilitySystems},
         Render, RenderApp, RenderSet,
     },
 };
-use bevy_render::view::RenderVisibleEntities;
 use bytemuck::{Pod, Zeroable};
 
 /// A marker component that represents an entity that is to be rendered using

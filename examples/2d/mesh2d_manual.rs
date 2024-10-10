@@ -25,8 +25,9 @@ use bevy::{
             SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
             TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
+        sync_world::{MainEntity, MainEntityHashMap},
         texture::BevyDefault,
-        view::{ExtractedView, ViewTarget, VisibleEntities},
+        view::{ExtractedView, RenderVisibleEntities, ViewTarget, VisibleEntities},
         Extract, Render, RenderApp, RenderSet,
     },
     sprite::{
@@ -35,8 +36,6 @@ use bevy::{
         SetMesh2dViewBindGroup,
     },
 };
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
-use bevy_render::view::RenderVisibleEntities;
 use std::f32::consts::PI;
 
 fn main() {

@@ -10,11 +10,11 @@ use bevy_ecs::{
     query::Has,
     system::{Local, Query, Res, ResMut, Resource, SystemState},
 };
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{render_resource::StorageBuffer, view::RenderLayers, MainWorld};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
 use core::ops::{DerefMut, Range};
-use bevy_render::sync_world::MainEntity;
 
 /// Manages data for each entity with a [`MeshletMesh`].
 #[derive(Resource)]
