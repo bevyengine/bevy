@@ -73,6 +73,16 @@ path = "benches/bevy_math/bezier.rs"
 harness = false
 
 [[bench]]
+name = "ray_cast_2d"
+path = "benches/bevy_math/ray_cast_2d.rs"
+harness = false
+
+[[bench]]
+name = "ray_cast_3d"
+path = "benches/bevy_math/ray_cast_3d.rs"
+harness = false
+
+[[bench]]
 name = "torus"
 path = "benches/bevy_render/torus.rs"
 harness = false
