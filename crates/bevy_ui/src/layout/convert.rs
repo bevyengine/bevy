@@ -66,6 +66,9 @@ impl UiRect {
 pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> taffy::style::Style {
     taffy::style::Style {
         display: node.display.into(),
+        box_sizing: taffy::BoxSizing::BorderBox,
+        item_is_table: false,
+        text_align: taffy::TextAlign::Auto,
         overflow: taffy::Point {
             x: node.overflow.x.into(),
             y: node.overflow.y.into(),
