@@ -8,7 +8,6 @@
 use bevy::{
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
-    ecs::entity::EntityHashMap,
     math::{ops, FloatOrd},
     prelude::*,
     render::{
@@ -27,7 +26,7 @@ use bevy::{
         },
         sync_world::{MainEntity, MainEntityHashMap},
         texture::BevyDefault,
-        view::{ExtractedView, RenderVisibleEntities, ViewTarget, VisibleEntities},
+        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Extract, Render, RenderApp, RenderSet,
     },
     sprite::{
@@ -387,7 +386,7 @@ pub fn queue_colored_mesh2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         // Queue all entities visible to that view
-        for visible_entity in visible_entities.iter::<With<Mesh2d>>() {
+        for (render_entity, visible_entity) in visible_entities.iter::<With<Mesh2d>>() {
             if let Some(mesh_instance) = render_mesh_instances.get(visible_entity) {
                 let mesh2d_handle = mesh_instance.mesh_asset_id;
                 let mesh2d_transforms = &mesh_instance.transforms;
@@ -403,7 +402,7 @@ pub fn queue_colored_mesh2d(
 
                 let mesh_z = mesh2d_transforms.world_from_local.translation.z;
                 transparent_phase.add(Transparent2d {
-                    entity: *visible_entity,
+                    entity: (*render_entity, *visible_entity),
                     draw_function: draw_colored_mesh2d,
                     pipeline: pipeline_id,
                     // The 2d render items are sorted according to their z value before rendering,
