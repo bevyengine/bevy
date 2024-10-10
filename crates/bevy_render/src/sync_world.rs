@@ -1,5 +1,6 @@
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHash;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -10,6 +11,7 @@ use bevy_ecs::{
     world::{Mut, OnAdd, OnRemove, World},
 };
 use bevy_reflect::Reflect;
+use bevy_utils::hashbrown;
 
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
 ///
@@ -128,10 +130,16 @@ impl RenderEntity {
     }
 }
 
+impl From<Entity> for RenderEntity {
+    fn from(entity: Entity) -> Self {
+        RenderEntity(entity)
+    }
+}
+
 /// Component added on the render world entities to keep track of the corresponding main world entity.
 ///
 /// Can also be used as a newtype wrapper for main world entities.
-#[derive(Component, Deref, Clone, Debug)]
+#[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub struct MainEntity(Entity);
 impl MainEntity {
     #[inline]
@@ -139,6 +147,18 @@ impl MainEntity {
         self.0
     }
 }
+
+impl From<Entity> for MainEntity {
+    fn from(entity: Entity) -> Self {
+        MainEntity(entity)
+    }
+}
+
+/// A [`HashMap`](hashbrown::HashMap) pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
+pub type MainEntityHashMap<V> = hashbrown::HashMap<MainEntity, V, EntityHash>;
+
+/// A [`HashSet`](hashbrown::HashSet) pre-configured to use [`EntityHash`] hashing with a [`MainEntity`]..
+pub type MainEntityHashSet = hashbrown::HashSet<MainEntity, EntityHash>;
 
 /// Marker component that indicates that its entity needs to be despawned at the end of the frame.
 #[derive(Component, Clone, Debug, Default, Reflect)]
