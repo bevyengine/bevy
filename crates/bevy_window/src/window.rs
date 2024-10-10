@@ -314,6 +314,80 @@ pub struct Window {
     ///
     /// - Only used on iOS.
     pub recognize_pan_gesture: Option<(u8, u8)>,
+    /// Enables click-and-drag behavior for the entire window, not just the titlebar.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_movable_by_window_background`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_movable_by_window_background`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_movable_by_window_background
+    pub movable_by_window_background: bool,
+    /// Makes the window content appear behind the titlebar.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_fullsize_content_view`].
+    ///
+    /// For games which want to render the window buttons on top of the game
+    /// itself, this should be enabled along with [`titlebar_transparent`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_fullsize_content_view`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_fullsize_content_view
+    /// [`titlebar_transparent`]: Self::titlebar_transparent
+    pub fullsize_content_view: bool,
+    /// Toggles drawing the drop shadow behind the window.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_has_shadow`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_has_shadow`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_has_shadow
+    pub has_shadow: bool,
+    /// Toggles drawing the titlebar.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_titlebar_hidden`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_titlebar_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_titlebar_hidden
+    pub titlebar_shown: bool,
+    /// Makes the titlebar transparent, allowing the app content to appear behind it.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_titlebar_transparent`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_titlebar_transparent`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_titlebar_transparent
+    pub titlebar_transparent: bool,
+    /// Toggles showing the window title.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_title_hidden`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_title_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_title_hidden
+    pub titlebar_show_title: bool,
+    /// Toggles showing the traffic light window buttons.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_titlebar_buttons_hidden`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_titlebar_buttons_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_titlebar_buttons_hidden
+    pub titlebar_show_buttons: bool,
 }
 
 impl Default for Window {
@@ -348,6 +422,13 @@ impl Default for Window {
             recognize_rotation_gesture: false,
             recognize_doubletap_gesture: false,
             recognize_pan_gesture: None,
+            movable_by_window_background: false,
+            fullsize_content_view: false,
+            has_shadow: true,
+            titlebar_shown: true,
+            titlebar_transparent: false,
+            titlebar_show_title: true,
+            titlebar_show_buttons: true,
         }
     }
 }
