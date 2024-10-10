@@ -328,7 +328,7 @@ pub struct Window {
     ///
     /// Corresponds to [`WindowAttributesExtMacOS::with_fullsize_content_view`].
     ///
-    /// For games which want to render the window buttons on top of the game
+    /// For apps which want to render the window buttons on top of the apps
     /// itself, this should be enabled along with [`titlebar_transparent`].
     ///
     /// # Platform-specific
