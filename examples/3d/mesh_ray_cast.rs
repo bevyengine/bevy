@@ -14,7 +14,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup_scene)
+        .add_systems(Startup, setup)
         .add_systems(Update, bouncing_raycast)
         .insert_resource(ClearColor(Color::BLACK))
         .run();
@@ -50,35 +50,38 @@ fn bounce_ray(mut ray: Ray3d, ray_cast: &mut MeshRayCast, gizmos: &mut Gizmos, c
     intersections.push((ray.origin, Color::srgb(30.0, 0.0, 0.0)));
 
     for i in 0..MAX_BOUNCES {
-        if let Some((_, hit)) = ray_cast.cast_ray(ray, &RayCastSettings::default()).first() {
-            let bright = 1.0 + 10.0 * (1.0 - i as f32 / MAX_BOUNCES as f32);
-            intersections.push((hit.point, Color::BLACK.mix(&color, bright)));
-            gizmos.sphere(hit.point, 0.005, Color::BLACK.mix(&color, bright * 2.0));
-            ray.direction = Dir3::new(ray.direction.reflect(hit.normal)).unwrap();
-            ray.origin = hit.point + ray.direction * 1e-6;
-        } else {
+        // Cast the ray and get the first hit
+        let Some((_, hit)) = ray_cast.cast_ray(ray, &RayCastSettings::default()).first() else {
             break;
-        }
+        };
+
+        // Draw the point of intersection and add it to the list
+        let brightness = 1.0 + 10.0 * (1.0 - i as f32 / MAX_BOUNCES as f32);
+        intersections.push((hit.point, Color::BLACK.mix(&color, brightness)));
+        gizmos.sphere(hit.point, 0.005, Color::BLACK.mix(&color, brightness * 2.0));
+
+        // Reflect the ray off of the surface
+        ray.direction = Dir3::new(ray.direction.reflect(hit.normal)).unwrap();
+        ray.origin = hit.point + ray.direction * 1e-6;
     }
     gizmos.linestrip_gradient(intersections);
 }
 
 // Set up a simple 3D scene
-fn setup_scene(
+fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Make a box of planes facing inward so the laser gets trapped inside
     let plane_mesh = meshes.add(Plane3d::default());
-    let material = materials.add(Color::from(css::GRAY).with_alpha(0.01));
-
+    let plane_material = materials.add(Color::from(css::GRAY).with_alpha(0.01));
     let create_plane = move |translation, rotation| {
         (
             Transform::from_translation(translation)
                 .with_rotation(Quat::from_scaled_axis(rotation)),
             Mesh3d(plane_mesh.clone()),
-            MeshMaterial3d(material.clone()),
+            MeshMaterial3d(plane_material.clone()),
         )
     };
 
@@ -98,11 +101,11 @@ fn setup_scene(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
         Camera {
             hdr: true,
             ..default()
         },
+        Transform::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
         Tonemapping::TonyMcMapface,
         Bloom::default(),
     ));
