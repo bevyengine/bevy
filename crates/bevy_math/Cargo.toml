@@ -18,7 +18,9 @@ derive_more = { version = "1", default-features = false, features = [
   "into",
 ] }
 itertools = { version = "0.13.0", default-features = false }
-serde = { version = "1", default-features = false, features = ["derive"], optional = true }
+serde = { version = "1", default-features = false, features = [
+  "derive",
+], optional = true }
 libm = { version = "0.2", optional = true }
 approx = { version = "0.5", default-features = false, optional = true }
 rand = { version = "0.8", default-features = false, optional = true }
@@ -39,8 +41,22 @@ glam = { version = "0.29", features = ["approx"] }
 
 [features]
 default = ["std", "rand", "bevy_reflect", "curve"]
-std = ["alloc", "glam/std", "derive_more/std", "itertools/use_std", "serde?/std", "approx?/std", "rand?/std", "rand_distr?/std"]
-alloc = ["itertools/use_alloc", "serde?/alloc", "rand?/alloc", "rand_distr?/alloc"]
+std = [
+  "alloc",
+  "glam/std",
+  "derive_more/std",
+  "itertools/use_std",
+  "serde?/std",
+  "approx?/std",
+  "rand?/std",
+  "rand_distr?/std",
+]
+alloc = [
+  "itertools/use_alloc",
+  "serde?/alloc",
+  "rand?/alloc",
+  "rand_distr?/alloc",
+]
 
 serialize = ["dep:serde", "glam/serde"]
 # Enable approx for glam types to approximate floating point equality comparisons and assertions
