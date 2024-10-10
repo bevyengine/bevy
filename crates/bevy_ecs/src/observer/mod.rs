@@ -23,6 +23,7 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use smallvec::SmallVec;
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
@@ -68,6 +69,13 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     /// Returns the [`Entity`] that triggered the observer, could be [`Entity::PLACEHOLDER`].
     pub fn entity(&self) -> Entity {
         self.trigger.entity
+    }
+
+    /// Returns the components that triggered the observer, out of the
+    /// components defined in `B`. Does not necessarily include all of them as
+    /// `B` acts like an `OR` filter rather than an `AND` filter.
+    pub fn components(&self) -> &[ComponentId] {
+        &self.trigger.components
     }
 
     /// Returns the [`Entity`] that observed the triggered event.
@@ -192,13 +200,13 @@ impl ObserverDescriptor {
 #[derive(Debug)]
 pub struct ObserverTrigger {
     /// The [`Entity`] of the observer handling the trigger.
-    pub observer: Entity,
-
-    /// The [`ComponentId`] the trigger targeted.
-    pub event_type: ComponentId,
-
+    observer: Entity,
+    /// The [`Event`] the trigger targeted.
+    event_type: ComponentId,
+    /// The [`ComponentId`]s the trigger targeted.
+    components: SmallVec<[ComponentId; 1]>,
     /// The entity the trigger targeted.
-    pub entity: Entity,
+    entity: Entity,
 }
 
 // Map between an observer entity and its runner
@@ -262,7 +270,7 @@ impl Observers {
         mut world: DeferredWorld,
         event_type: ComponentId,
         entity: Entity,
-        components: impl Iterator<Item = ComponentId>,
+        components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
     ) {
@@ -279,12 +287,15 @@ impl Observers {
             (world.into_deferred(), observers)
         };
 
+        let trigger_for_components = components.clone();
+
         let mut trigger_observer = |(&observer, runner): (&Entity, &ObserverRunner)| {
             (runner)(
                 world.reborrow(),
                 ObserverTrigger {
                     observer,
                     event_type,
+                    components: components.clone().collect(),
                     entity,
                 },
                 data.into(),
@@ -302,7 +313,7 @@ impl Observers {
         }
 
         // Trigger observers listening to this trigger targeting a specific component
-        components.for_each(|id| {
+        trigger_for_components.for_each(|id| {
             if let Some(component_observers) = observers.component_observers.get(&id) {
                 component_observers
                     .map
