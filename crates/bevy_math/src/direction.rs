@@ -55,18 +55,18 @@ impl core::fmt::Display for InvalidDirectionError {
 /// and similarly for the error.
 #[cfg(debug_assertions)]
 fn assert_is_normalized(message: &str, length_squared: f32) {
-    let length_error_squared = (length_squared - 1.0).abs();
+    use crate::ops::{abs, sqrt};
+
+    let length_error_squared = abs(length_squared - 1.0);
 
     // Panic for large error and warn for slight error.
     if length_error_squared > 2e-2 || length_error_squared.is_nan() {
         // Length error is approximately 1e-2 or more.
-        panic!("Error: {message} The length is {}.", length_squared.sqrt());
+        panic!("Error: {message} The length is {}.", sqrt(length_squared));
     } else if length_error_squared > 2e-4 {
         // Length error is approximately 1e-4 or more.
-        eprintln!(
-            "Warning: {message} The length is {}.",
-            length_squared.sqrt()
-        );
+        #[cfg(feature = "std")]
+        eprintln!("Warning: {message} The length is {}.", sqrt(length_squared));
     }
 }
 

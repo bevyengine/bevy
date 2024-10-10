@@ -4,7 +4,10 @@ mod primitive_impls;
 use glam::Mat3;
 
 use super::{BoundingVolume, IntersectsVolume};
-use crate::{ops::FloatPow, Isometry3d, Quat, Vec3A};
+use crate::{
+    ops::{copysign, sqrt, FloatPow},
+    Isometry3d, Quat, Vec3A,
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -494,7 +497,7 @@ impl BoundingSphere {
             }
         }
 
-        BoundingSphere::new(isometry * center, radius_squared.sqrt())
+        BoundingSphere::new(isometry * center, sqrt(radius_squared))
     }
 
     /// Get the radius of the bounding sphere
@@ -528,7 +531,7 @@ impl BoundingSphere {
         } else {
             // The point is outside the sphere.
             // Find the closest point on the surface of the sphere.
-            let dir_to_point = point / distance_squared.sqrt();
+            let dir_to_point = point / sqrt(distance_squared);
             self.center + radius * dir_to_point
         }
     }
@@ -557,7 +560,7 @@ impl BoundingVolume for BoundingSphere {
     #[inline(always)]
     fn contains(&self, other: &Self) -> bool {
         let diff = self.radius() - other.radius();
-        self.center.distance_squared(other.center) <= diff.squared().copysign(diff)
+        self.center.distance_squared(other.center) <= copysign(diff.squared(), diff)
     }
 
     #[inline(always)]

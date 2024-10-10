@@ -1,13 +1,19 @@
 use core::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
-use crate::{ops, ops::FloatPow, Dir3, InvalidDirectionError, Isometry3d, Mat3, Vec2, Vec3};
+use crate::{
+    ops::{self, abs, sqrt, FloatPow},
+    Dir3, InvalidDirectionError, Isometry3d, Mat3, Vec2, Vec3,
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use glam::Quat;
+
+#[cfg(feature = "alloc")]
+use alloc::boxed::Box;
 
 /// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -61,7 +67,7 @@ impl Sphere {
         } else {
             // The point is outside the sphere.
             // Find the closest point on the surface of the sphere.
-            let dir_to_point = point / distance_squared.sqrt();
+            let dir_to_point = point / sqrt(distance_squared);
             self.radius * dir_to_point
         }
     }
@@ -440,14 +446,18 @@ impl<const N: usize> Polyline3d<N> {
 /// in a `Box<[Vec3]>`.
 ///
 /// For a version without alloc: [`Polyline3d`]
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct BoxedPolyline3d {
     /// The vertices of the polyline
     pub vertices: Box<[Vec3]>,
 }
+
+#[cfg(feature = "alloc")]
 impl Primitive3d for BoxedPolyline3d {}
 
+#[cfg(feature = "alloc")]
 impl FromIterator<Vec3> for BoxedPolyline3d {
     fn from_iter<I: IntoIterator<Item = Vec3>>(iter: I) -> Self {
         let vertices: Vec<Vec3> = iter.into_iter().collect();
@@ -457,6 +467,7 @@ impl FromIterator<Vec3> for BoxedPolyline3d {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl BoxedPolyline3d {
     /// Create a new `BoxedPolyline3d` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
@@ -1246,7 +1257,7 @@ impl Measured3d for Tetrahedron {
     /// Get the volume of the tetrahedron.
     #[inline(always)]
     fn volume(&self) -> f32 {
-        self.signed_volume().abs()
+        abs(self.signed_volume())
     }
 }
 

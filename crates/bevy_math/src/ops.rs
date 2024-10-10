@@ -227,6 +227,38 @@ mod std_ops {
     pub fn atanh(x: f32) -> f32 {
         f32::atanh(x)
     }
+
+    /// Calculates the least nonnegative remainder of `x (mod y)`.
+    ///
+    /// Precision is specified when the `libm` feature is enabled.
+    #[inline(always)]
+    pub fn rem_euclid(x: f32, y: f32) -> f32 {
+        f32::rem_euclid(x, y)
+    }
+
+    /// Computes the absolute value of x.
+    ///
+    /// Precision is specified when the `libm` feature is enabled.
+    #[inline(always)]
+    pub fn abs(x: f32) -> f32 {
+        f32::abs(x)
+    }
+
+    /// Returns the square root of a number.
+    ///
+    /// Precision is specified when the `libm` feature is enabled.
+    #[inline(always)]
+    pub fn sqrt(x: f32) -> f32 {
+        f32::sqrt(x)
+    }
+
+    /// Returns a number composed of the magnitude of `x` and the sign of `y`.
+    ///
+    /// Precision is specified when the `libm` feature is enabled.
+    #[inline(always)]
+    pub fn copysign(x: f32, y: f32) -> f32 {
+        f32::copysign(x, y)
+    }
 }
 
 #[cfg(feature = "libm")]
@@ -441,6 +473,38 @@ mod libm_ops {
     #[inline(always)]
     pub fn atanh(x: f32) -> f32 {
         libm::atanhf(x)
+    }
+
+    /// Calculates the least nonnegative remainder of `self (mod rhs)`.
+    ///
+    /// Precision is specified when the `libm` feature is enabled.
+    #[inline(always)]
+    pub fn rem_euclid(x: f32, y: f32) -> f32 {
+        libm::remainderf(x, y)
+    }
+
+    /// Computes the absolute value of x.
+    ///
+    /// Precision is specified when the `libm` feature is enabled.
+    #[inline(always)]
+    pub fn abs(x: f32) -> f32 {
+        libm::fabsf(x)
+    }
+
+    /// Returns the square root of a number.
+    ///
+    /// Precision is specified when the `libm` feature is enabled.
+    #[inline(always)]
+    pub fn sqrt(x: f32) -> f32 {
+        libm::sqrtf(x)
+    }
+
+    /// Returns a number composed of the magnitude of `x` and the sign of `y`.
+    ///
+    /// Precision is specified when the `libm` feature is enabled.
+    #[inline(always)]
+    pub fn copysign(x: f32, y: f32) -> f32 {
+        libm::copysignf(x, y)
     }
 }
 
