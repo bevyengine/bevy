@@ -1,10 +1,8 @@
 #![expect(deprecated)]
 use crate::Sprite;
-use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     sync_world::SyncToRenderWorld,
-    texture::Image,
     view::{InheritedVisibility, ViewVisibility, Visibility},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -28,8 +26,6 @@ pub struct SpriteBundle {
     pub transform: Transform,
     /// The absolute transform of the sprite. This should generally not be written to directly.
     pub global_transform: GlobalTransform,
-    /// A reference-counted handle to the image asset to be drawn.
-    pub texture: Handle<Image>,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
     /// Inherited visibility of an entity.

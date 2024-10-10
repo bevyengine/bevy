@@ -1,6 +1,6 @@
 //! A simple scene to demonstrate picking events
 
-use bevy::{color::palettes::css::*, prelude::*};
+use bevy::{color::palettes::tailwind::CYAN_400, prelude::*};
 
 fn main() {
     let mut app = App::new();
@@ -44,13 +44,13 @@ fn setup(
         .observe(
             |evt: Trigger<Pointer<Out>>, mut texts: Query<&mut TextStyle>| {
                 let mut style = texts.get_mut(evt.entity()).unwrap();
-                style.color = WHITE.into();
+                style.color = Color::WHITE;
             },
         )
         .observe(
             |evt: Trigger<Pointer<Over>>, mut texts: Query<&mut TextStyle>| {
                 let mut style = texts.get_mut(evt.entity()).unwrap();
-                style.color = BLUE.into();
+                style.color = CYAN_400.into();
             },
         );
     // circular base

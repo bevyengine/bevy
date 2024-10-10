@@ -1,3 +1,4 @@
+#![expect(deprecated)]
 //! Render high-poly 3d meshes using an efficient GPU-driven method. See [`MeshletPlugin`] and [`MeshletMesh`] for details.
 
 mod asset;
@@ -57,19 +58,23 @@ use self::{
 };
 use crate::{graph::NodePbr, Material, MeshMaterial3d};
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{load_internal_asset, AssetApp, Handle};
+use bevy_asset::{load_internal_asset, AssetApp, AssetId, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},
 };
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     bundle::Bundle,
+    component::Component,
     entity::Entity,
     prelude::With,
     query::Has,
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Commands, Query},
 };
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::Shader,
@@ -83,6 +88,7 @@ use bevy_render::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
+use derive_more::From;
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
 const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
@@ -206,7 +212,7 @@ impl Plugin for MeshletPlugin {
             .register_asset_loader(MeshletMeshLoader)
             .add_systems(
                 PostUpdate,
-                check_visibility::<WithMeshletMesh>.in_set(VisibilitySystems::CheckVisibility),
+                check_visibility::<With<MeshletMesh3d>>.in_set(VisibilitySystems::CheckVisibility),
             );
     }
 
@@ -284,10 +290,31 @@ impl Plugin for MeshletPlugin {
     }
 }
 
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[reflect(Component, Default)]
+#[require(Transform, Visibility)]
+pub struct MeshletMesh3d(pub Handle<MeshletMesh>);
+
+impl From<MeshletMesh3d> for AssetId<MeshletMesh> {
+    fn from(mesh: MeshletMesh3d) -> Self {
+        mesh.id()
+    }
+}
+
+impl From<&MeshletMesh3d> for AssetId<MeshletMesh> {
+    fn from(mesh: &MeshletMesh3d) -> Self {
+        mesh.id()
+    }
+}
+
 /// A component bundle for entities with a [`MeshletMesh`] and a [`Material`].
 #[derive(Bundle, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `MeshletMesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."
+)]
 pub struct MaterialMeshletMeshBundle<M: Material> {
-    pub meshlet_mesh: Handle<MeshletMesh>,
+    pub meshlet_mesh: MeshletMesh3d,
     pub material: MeshMaterial3d<M>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -312,10 +339,6 @@ impl<M: Material> Default for MaterialMeshletMeshBundle<M> {
         }
     }
 }
-
-/// A convenient alias for `With<Handle<MeshletMesh>>`, for use with
-/// [`bevy_render::view::VisibleEntities`].
-pub type WithMeshletMesh = With<Handle<MeshletMesh>>;
 
 fn configure_meshlet_views(
     mut views_3d: Query<(

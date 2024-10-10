@@ -2229,7 +2229,7 @@ mod test {
         AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
     use bevy_core::TaskPoolPlugin;
-    use bevy_ecs::world::World;
+    use bevy_ecs::{system::Resource, world::World};
     use bevy_log::LogPlugin;
     use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};
     use bevy_scene::ScenePlugin;
@@ -2270,6 +2270,10 @@ mod test {
     }
 
     fn load_gltf_into_app(gltf_path: &str, gltf: &str) -> App {
+        #[expect(unused)]
+        #[derive(Resource)]
+        struct GltfHandle(Handle<Gltf>);
+
         let dir = Dir::default();
         dir.insert_asset_text(Path::new(gltf_path), gltf);
         let mut app = test_app(dir);
@@ -2277,7 +2281,7 @@ mod test {
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<Gltf> = asset_server.load(gltf_path.to_string());
         let handle_id = handle.id();
-        app.world_mut().spawn(handle.clone());
+        app.insert_resource(GltfHandle(handle));
         app.update();
         run_app_until(&mut app, |_world| {
             let load_state = asset_server.get_load_state(handle_id).unwrap();
@@ -2509,7 +2513,6 @@ mod test {
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<Gltf> = asset_server.load(gltf_path);
         let handle_id = handle.id();
-        app.world_mut().spawn(handle.clone());
         app.update();
         run_app_until(&mut app, |_world| {
             let load_state = asset_server.get_load_state(handle_id).unwrap();
@@ -2552,7 +2555,6 @@ mod test {
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<Gltf> = asset_server.load(gltf_path);
         let handle_id = handle.id();
-        app.world_mut().spawn(handle.clone());
         app.update();
         run_app_until(&mut app, |_world| {
             let load_state = asset_server.get_load_state(handle_id).unwrap();

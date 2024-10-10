@@ -129,6 +129,7 @@ fn setup(
             }),
             ..Default::default()
         },
+        Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(50.0, 0.0, 0.0)),
         RightSprite,
         animation_config_2,
     ));

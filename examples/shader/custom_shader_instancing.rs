@@ -47,7 +47,7 @@ fn main() {
 
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn((
-        meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
+        Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
         SpatialBundle::INHERITED_IDENTITY,
         InstanceMaterialData(
             (1..=10)
