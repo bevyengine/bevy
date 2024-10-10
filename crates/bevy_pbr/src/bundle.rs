@@ -12,7 +12,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     mesh::Mesh3d,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
@@ -142,7 +142,7 @@ pub struct CascadesVisibleEntities {
 pub struct RenderCascadesVisibleEntities {
     /// Map of view entity to the visible entities for each cascade frustum.
     #[reflect(ignore)]
-    pub entities: MainEntityHashMap<Vec<RenderVisibleMeshEntities>>,
+    pub entities: EntityHashMap<Vec<RenderVisibleMeshEntities>>,
 }
 
 /// A component bundle for [`PointLight`] entities.

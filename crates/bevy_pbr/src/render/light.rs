@@ -271,19 +271,7 @@ pub fn extract_lights(
         let render_cubemap_visible_entities = RenderCubemapVisibleEntities {
             data: cubemap_visible_entities
                 .iter()
-                .map(|v| RenderVisibleMeshEntities {
-                    entities: v
-                        .entities
-                        .iter()
-                        .map(|e| {
-                            let render_entity = mapper
-                                .get(*e)
-                                .map(RenderEntity::id)
-                                .unwrap_or_else(|_| commands.spawn(TemporaryRenderEntity).id());
-                            (render_entity, MainEntity::from(*e))
-                        })
-                        .collect(),
-                })
+                .map(|v| create_render_visible_mesh_entities(&mut commands, &mapper, v))
                 .collect::<Vec<_>>()
                 .try_into()
                 .unwrap(),
@@ -336,18 +324,8 @@ pub fn extract_lights(
             if !view_visibility.get() {
                 continue;
             }
-            let render_visible_entities = RenderVisibleMeshEntities {
-                entities: visible_entities
-                    .iter()
-                    .map(|e| {
-                        let render_entity = mapper
-                            .get(*e)
-                            .map(RenderEntity::id)
-                            .unwrap_or_else(|_| commands.spawn(TemporaryRenderEntity).id());
-                        (render_entity, MainEntity::from(*e))
-                    })
-                    .collect(),
-            };
+            let render_visible_entities =
+                create_render_visible_mesh_entities(&mut commands, &mapper, visible_entities);
 
             let texel_size =
                 2.0 * ops::tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
@@ -424,7 +402,12 @@ pub fn extract_lights(
         }
         for (e, v) in visible_entities.entities.iter() {
             if let Ok(entity) = mapper.get(*e) {
-                cascade_visible_entities.insert(entity.id(), v.clone());
+                cascade_visible_entities.insert(
+                    entity.id(),
+                    v.iter()
+                        .map(|v| create_render_visible_mesh_entities(&mut commands, &mapper, v))
+                        .collect(),
+                );
             } else {
                 break;
             }
@@ -450,10 +433,29 @@ pub fn extract_lights(
                     frusta: extracted_frusta,
                     render_layers: maybe_layers.unwrap_or_default().clone(),
                 },
-                CascadesVisibleEntities {
+                RenderCascadesVisibleEntities {
                     entities: cascade_visible_entities,
                 },
             ));
+    }
+}
+
+fn create_render_visible_mesh_entities(
+    commands: &mut Commands,
+    mapper: &Extract<Query<&RenderEntity>>,
+    visible_entities: &VisibleMeshEntities,
+) -> RenderVisibleMeshEntities {
+    RenderVisibleMeshEntities {
+        entities: visible_entities
+            .iter()
+            .map(|e| {
+                let render_entity = mapper
+                    .get(*e)
+                    .map(RenderEntity::id)
+                    .unwrap_or_else(|_| commands.spawn(TemporaryRenderEntity).id());
+                (render_entity, MainEntity::from(*e))
+            })
+            .collect(),
     }
 }
 
@@ -1388,7 +1390,7 @@ pub fn queue_shadows<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (_entity, main_entity, view_lights) in &view_lights {
+    for (entity, main_entity, view_lights) in &view_lights {
         let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawPrepass<M>>();
         for view_light_entity in view_lights.lights.iter().copied() {
             let Ok(light_entity) = view_light_entities.get(view_light_entity) else {
@@ -1407,7 +1409,7 @@ pub fn queue_shadows<M: Material>(
                     .get(*light_entity)
                     .expect("Failed to get directional light visible entities")
                     .entities
-                    .get(main_entity)
+                    .get(&entity)
                     .expect("Failed to get directional light visible entities for view")
                     .get(*cascade_index)
                     .expect("Failed to get directional light visible entities for cascade"),
