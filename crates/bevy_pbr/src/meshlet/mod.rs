@@ -213,7 +213,7 @@ impl Plugin for MeshletPlugin {
             .register_asset_loader(MeshletMeshLoader)
             .add_systems(
                 PostUpdate,
-                check_visibility::<With<MeshletMeshHandle>>
+                check_visibility::<With<MeshletMesh3dHandle>>
                     .in_set(VisibilitySystems::CheckVisibility),
             );
     }
@@ -295,18 +295,18 @@ impl Plugin for MeshletPlugin {
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
 #[require(Transform, Visibility)]
-pub struct MeshletMeshHandle(pub Handle<MeshletMesh>);
+pub struct MeshletMesh3dHandle(pub Handle<MeshletMesh>);
 
-impl_handle_wrapper!(MeshletMeshHandle, MeshletMesh);
+impl_handle_wrapper!(MeshletMesh3dHandle, MeshletMesh);
 
 /// A component bundle for entities with a [`MeshletMesh`] and a [`Material`].
 #[derive(Bundle, Clone)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use the `MeshletMeshHandle` and `MeshMaterial3dHandle` components instead. Inserting them will now also insert the other components required by them automatically."
+    note = "Use the `MeshletMesh3dHandle` and `MeshMaterial3dHandle` components instead. Inserting them will now also insert the other components required by them automatically."
 )]
 pub struct MaterialMeshletMeshBundle<M: Material> {
-    pub meshlet_mesh: MeshletMeshHandle,
+    pub meshlet_mesh: MeshletMesh3dHandle,
     pub material: MeshMaterial3dHandle<M>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
