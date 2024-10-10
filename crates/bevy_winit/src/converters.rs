@@ -5,10 +5,10 @@ use bevy_input::{
     touch::{ForceTouch, TouchInput, TouchPhase},
     ButtonState,
 };
-use bevy_math::Vec2;
+use bevy_math::{CompassOctant, Vec2};
 #[cfg(feature = "custom_cursor")]
 use bevy_window::SystemCursorIcon;
-use bevy_window::{EnabledButtons, ResizeDirection, WindowLevel, WindowTheme};
+use bevy_window::{EnabledButtons, WindowLevel, WindowTheme};
 use winit::keyboard::{Key, NamedKey, NativeKey};
 
 pub fn convert_keyboard_input(
@@ -707,17 +707,15 @@ pub fn convert_enabled_buttons(enabled_buttons: EnabledButtons) -> winit::window
     window_buttons
 }
 
-pub fn convert_resize_direction(
-    resize_direction: ResizeDirection,
-) -> winit::window::ResizeDirection {
+pub fn convert_resize_direction(resize_direction: CompassOctant) -> winit::window::ResizeDirection {
     match resize_direction {
-        ResizeDirection::West => winit::window::ResizeDirection::West,
-        ResizeDirection::North => winit::window::ResizeDirection::North,
-        ResizeDirection::East => winit::window::ResizeDirection::East,
-        ResizeDirection::South => winit::window::ResizeDirection::South,
-        ResizeDirection::Northwest => winit::window::ResizeDirection::NorthWest,
-        ResizeDirection::Northeast => winit::window::ResizeDirection::NorthEast,
-        ResizeDirection::Southwest => winit::window::ResizeDirection::SouthWest,
-        ResizeDirection::Southeast => winit::window::ResizeDirection::SouthEast,
+        CompassOctant::West => winit::window::ResizeDirection::West,
+        CompassOctant::North => winit::window::ResizeDirection::North,
+        CompassOctant::East => winit::window::ResizeDirection::East,
+        CompassOctant::South => winit::window::ResizeDirection::South,
+        CompassOctant::NorthWest => winit::window::ResizeDirection::NorthWest,
+        CompassOctant::NorthEast => winit::window::ResizeDirection::NorthEast,
+        CompassOctant::SouthWest => winit::window::ResizeDirection::SouthWest,
+        CompassOctant::SouthEast => winit::window::ResizeDirection::SouthEast,
     }
 }
