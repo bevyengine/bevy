@@ -24,7 +24,7 @@ use bevy::{
             SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
             TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
-        sync_world::{MainEntity, MainEntityHashMap},
+        sync_world::MainEntityHashMap,
         texture::BevyDefault,
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Extract, Render, RenderApp, RenderSet,
