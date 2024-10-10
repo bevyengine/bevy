@@ -40,7 +40,13 @@ pub fn sprite_picking(
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
-        .filter(|(.., transform, _, vis)| !transform.affine().is_nan() && vis.get())
+        .filter_map(|(entity, sprite, transform, picking_behavior, vis)| {
+            if !transform.affine().is_nan() && vis.get() {
+                Some((entity, sprite, transform, picking_behavior))
+            } else {
+                None
+            }
+        })
         .collect();
     sorted_sprites.sort_by_key(|x| Reverse(FloatOrd(x.2.translation().z)));
 
@@ -74,7 +80,7 @@ pub fn sprite_picking(
         let picks: Vec<(Entity, HitData)> = sorted_sprites
             .iter()
             .copied()
-            .filter_map(|(entity, sprite, sprite_transform, picking_behavior, ..)| {
+            .filter_map(|(entity, sprite, sprite_transform, picking_behavior)| {
                 if blocked {
                     return None;
                 }
