@@ -1,7 +1,7 @@
 use crate::{
     commands::{
-        BenchCheckCommand, CompileCheckCommand, CompileCheckNoStdCommand, CompileFailCommand,
-        ExampleCheckCommand, TestCheckCommand,
+        BenchCheckCommand, CompileCheckCommand, CompileFailCommand, ExampleCheckCommand,
+        TestCheckCommand,
     },
     Flag, Prepare, PreparedCommand,
 };
@@ -19,7 +19,6 @@ impl Prepare for CompileCommand {
         commands.append(&mut BenchCheckCommand::default().prepare(sh, flags));
         commands.append(&mut ExampleCheckCommand::default().prepare(sh, flags));
         commands.append(&mut CompileCheckCommand::default().prepare(sh, flags));
-        commands.append(&mut CompileCheckNoStdCommand::default().prepare(sh, flags));
         commands.append(&mut TestCheckCommand::default().prepare(sh, flags));
         commands
     }
