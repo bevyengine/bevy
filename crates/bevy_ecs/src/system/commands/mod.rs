@@ -614,6 +614,110 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(insert_or_spawn_batch(bundles_iter));
     }
 
+    /// Pushes a [`Command`] to the queue for adding a bundle to a batch of entities.
+    ///
+    /// `bundles_iter` is a type that can be converted into an ([`Entity`], [`Bundle`]) iterator
+    /// (it can also be a collection).
+    ///
+    /// When the command is applied, for each (`Entity`, `Bundle`) pair in the given `bundles_iter`,
+    /// the `Bundle` is added to the `Entity`, overwriting any existing components shared by the `Bundle`.
+    ///
+    /// This method is equivalent to iterating `bundles_iter`,
+    /// calling [`entity`](Self::entity) for each bundle,
+    /// and passing it to [`insert`](EntityCommands::insert),
+    /// but it is faster due to memory pre-allocation.
+    ///
+    /// # Panics
+    ///
+    /// This command panics if any of the given entities do not exist.
+    ///
+    /// See [`try_insert_batch`](Self::try_insert_batch) for the non-panicking version.
+    #[track_caller]
+    pub fn insert_batch<I, B>(&mut self, bundles_iter: I)
+    where
+        I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+        B: Bundle,
+    {
+        self.queue(insert_batch(bundles_iter));
+    }
+
+    /// Pushes a [`Command`] to the queue for adding a bundle to a batch of entities.
+    ///
+    /// `bundles_iter` is a type that can be converted into an ([`Entity`], [`Bundle`]) iterator
+    /// (it can also be a collection).
+    ///
+    /// When the command is applied, for each (`Entity`, `Bundle`) pair in the given `bundles_iter`,
+    /// the `Bundle` is added to the `Entity`, except for any components already present on the `Entity`.
+    ///
+    /// This method is equivalent to iterating `bundles_iter`,
+    /// calling [`entity`](Self::entity) for each bundle,
+    /// and passing it to [`insert_if_new`](EntityCommands::insert_if_new),
+    /// but it is faster due to memory pre-allocation.
+    ///
+    /// # Panics
+    ///
+    /// This command panics if any of the given entities do not exist.
+    ///
+    /// See [`try_insert_batch_if_new`](Self::try_insert_batch_if_new) for the non-panicking version.
+    #[track_caller]
+    pub fn insert_batch_if_new<I, B>(&mut self, bundles_iter: I)
+    where
+        I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+        B: Bundle,
+    {
+        self.queue(insert_batch_if_new(bundles_iter));
+    }
+
+    /// Pushes a [`Command`] to the queue for adding a bundle to a batch of entities.
+    ///
+    /// `bundles_iter` is a type that can be converted into an ([`Entity`], [`Bundle`]) iterator
+    /// (it can also be a collection).
+    ///
+    /// When the command is applied, for each (`Entity`, `Bundle`) pair in the given `bundles_iter`,
+    /// the `Bundle` is added to the `Entity`, overwriting any existing components shared by the `Bundle`.
+    ///
+    /// This method is equivalent to iterating `bundles_iter`,
+    /// calling [`get_entity`](Self::get_entity) for each bundle,
+    /// and passing it to [`try_insert`](EntityCommands::try_insert),
+    /// but it is faster due to memory pre-allocation.
+    ///
+    /// This command silently fails by ignoring any entities that do not exist.
+    ///
+    /// See [`insert_batch`](Self::insert_batch) for the panicking version.
+    #[track_caller]
+    pub fn try_insert_batch<I, B>(&mut self, bundles_iter: I)
+    where
+        I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+        B: Bundle,
+    {
+        self.queue(try_insert_batch(bundles_iter));
+    }
+
+    /// Pushes a [`Command`] to the queue for adding a bundle to a batch of entities.
+    ///
+    /// `bundles_iter` is a type that can be converted into an ([`Entity`], [`Bundle`]) iterator
+    /// (it can also be a collection).
+    ///
+    /// When the command is applied, for each (`Entity`, `Bundle`) pair in the given `bundles_iter`,
+    /// the `Bundle` is added to the `Entity`, except for any components already present on the `Entity`.
+    ///
+    /// This method is equivalent to iterating `bundles_iter`,
+    /// calling [`get_entity`](Self::get_entity) for each bundle,
+    /// and passing it to [`try_insert_if_new`](EntityCommands::try_insert_if_new),
+    /// but it is faster due to memory pre-allocation.
+    ///
+    /// This command silently fails by ignoring any entities that do not exist.
+    ///
+    /// See [`insert_batch_if_new`](Self::insert_batch_if_new) for the panicking version.
+    #[track_caller]
+    pub fn try_insert_batch_if_new<I, B>(&mut self, bundles_iter: I)
+    where
+        I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+        B: Bundle,
+    {
+        self.queue(try_insert_batch_if_new(bundles_iter));
+    }
+
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
     ///
     /// The inferred value is determined by the [`FromWorld`] trait of the resource.
@@ -1731,6 +1835,94 @@ where
                 invalid_entities
             );
         }
+    }
+}
+
+/// A [`Command`] that consumes an iterator to add a series of [`Bundle`]s to a set of entities.
+/// If any entities do not exist in the world, this command will panic.
+///
+/// This is more efficient than inserting the bundles individually.
+#[track_caller]
+fn insert_batch<I, B>(bundles_iter: I) -> impl Command
+where
+    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+    B: Bundle,
+{
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
+    move |world: &mut World| {
+        world.insert_batch_with_caller(
+            bundles_iter,
+            InsertMode::Replace,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
+    }
+}
+
+/// A [`Command`] that consumes an iterator to add a series of [`Bundle`]s to a set of entities.
+/// If any entities do not exist in the world, this command will panic.
+///
+/// This is more efficient than inserting the bundles individually.
+#[track_caller]
+fn insert_batch_if_new<I, B>(bundles_iter: I) -> impl Command
+where
+    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+    B: Bundle,
+{
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
+    move |world: &mut World| {
+        world.insert_batch_with_caller(
+            bundles_iter,
+            InsertMode::Keep,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
+    }
+}
+
+/// A [`Command`] that consumes an iterator to add a series of [`Bundle`]s to a set of entities.
+/// If any entities do not exist in the world, this command will ignore them.
+///
+/// This is more efficient than inserting the bundles individually.
+#[track_caller]
+fn try_insert_batch<I, B>(bundles_iter: I) -> impl Command
+where
+    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+    B: Bundle,
+{
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
+    move |world: &mut World| {
+        world.try_insert_batch_with_caller(
+            bundles_iter,
+            InsertMode::Replace,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
+    }
+}
+
+/// A [`Command`] that consumes an iterator to add a series of [`Bundle`]s to a set of entities.
+/// If any entities do not exist in the world, this command will ignore them.
+///
+/// This is more efficient than inserting the bundles individually.
+#[track_caller]
+fn try_insert_batch_if_new<I, B>(bundles_iter: I) -> impl Command
+where
+    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+    B: Bundle,
+{
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
+    move |world: &mut World| {
+        world.try_insert_batch_with_caller(
+            bundles_iter,
+            InsertMode::Keep,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
     }
 }
 
