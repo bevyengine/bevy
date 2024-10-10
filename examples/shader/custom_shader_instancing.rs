@@ -29,6 +29,7 @@ use bevy::{
         },
         render_resource::*,
         renderer::RenderDevice,
+        sync_world::MainEntity,
         view::{ExtractedView, NoFrustumCulling},
         Render, RenderApp, RenderSet,
     },
@@ -127,7 +128,7 @@ fn queue_custom(
     pipeline_cache: Res<PipelineCache>,
     meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
-    material_meshes: Query<Entity, With<InstanceMaterialData>>,
+    material_meshes: Query<(Entity, &MainEntity), With<InstanceMaterialData>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(Entity, &ExtractedView, &Msaa)>,
 ) {
@@ -142,8 +143,9 @@ fn queue_custom(
 
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
-        for entity in &material_meshes {
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(entity) else {
+        for (entity, main_entity) in &material_meshes {
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*main_entity)
+            else {
                 continue;
             };
             let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
@@ -155,7 +157,7 @@ fn queue_custom(
                 .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                 .unwrap();
             transparent_phase.add(Transparent3d {
-                entity,
+                entity: (entity, *main_entity),
                 pipeline,
                 draw_function: draw_custom,
                 distance: rangefinder.distance_translation(&mesh_instance.translation),
@@ -268,7 +270,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
         // A borrow check workaround.
         let mesh_allocator = mesh_allocator.into_inner();
 
-        let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(item.entity())
+        let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(item.main_entity())
         else {
             return RenderCommandResult::Skip;
         };

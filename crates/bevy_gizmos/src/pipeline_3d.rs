@@ -18,6 +18,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -285,7 +286,7 @@ fn queue_line_gizmos_3d(
     pipeline: Res<LineGizmoPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &GizmoMeshConfig)>,
+    line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     mut views: Query<(
@@ -340,7 +341,7 @@ fn queue_line_gizmos_3d(
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
 
-        for (entity, config) in &line_gizmos {
+        for (entity, main_entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
                 continue;
             }
@@ -361,7 +362,7 @@ fn queue_line_gizmos_3d(
                     },
                 );
                 transparent_phase.add(Transparent3d {
-                    entity,
+                    entity: (entity, *main_entity),
                     draw_function,
                     pipeline,
                     distance: 0.,
@@ -382,7 +383,7 @@ fn queue_line_gizmos_3d(
                     },
                 );
                 transparent_phase.add(Transparent3d {
-                    entity,
+                    entity: (entity, *main_entity),
                     draw_function: draw_function_strip,
                     pipeline,
                     distance: 0.,
@@ -400,7 +401,7 @@ fn queue_line_joint_gizmos_3d(
     pipeline: Res<LineJointGizmoPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LineJointGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &GizmoMeshConfig)>,
+    line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     mut views: Query<(
@@ -454,7 +455,7 @@ fn queue_line_joint_gizmos_3d(
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
 
-        for (entity, config) in &line_gizmos {
+        for (entity, main_entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
                 continue;
             }
@@ -478,7 +479,7 @@ fn queue_line_joint_gizmos_3d(
             );
 
             transparent_phase.add(Transparent3d {
-                entity,
+                entity: (entity, *main_entity),
                 draw_function,
                 pipeline,
                 distance: 0.,

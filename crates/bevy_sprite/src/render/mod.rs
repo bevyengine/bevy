@@ -14,12 +14,13 @@ use bevy_core_pipeline::{
     },
 };
 use bevy_ecs::{
-    entity::EntityHashMap,
     prelude::*,
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
+use bevy_render::sync_world::MainEntity;
+use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -38,7 +39,7 @@ use bevy_render::{
     },
     view::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
-        ViewVisibility, VisibleEntities,
+        ViewVisibility,
     },
     Extract,
 };
@@ -346,7 +347,7 @@ pub struct ExtractedSprite {
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: EntityHashMap<ExtractedSprite>,
+    pub sprites: HashMap<(Entity, MainEntity), ExtractedSprite>,
 }
 
 #[derive(Resource, Default)]
@@ -392,7 +393,15 @@ pub fn extract_sprites(
             extracted_sprites.sprites.extend(
                 slices
                     .extract_sprites(transform, original_entity, sprite)
-                    .map(|e| (commands.spawn(TemporaryRenderEntity).id(), e)),
+                    .map(|e| {
+                        (
+                            (
+                                commands.spawn(TemporaryRenderEntity).id(),
+                                original_entity.into(),
+                            ),
+                            e,
+                        )
+                    }),
             );
         } else {
             let atlas_rect = sprite
@@ -413,7 +422,7 @@ pub fn extract_sprites(
 
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.insert(
-                entity.id(),
+                (entity.id(), original_entity.into()),
                 ExtractedSprite {
                     color: sprite.color.into(),
                     transform: *transform,
@@ -498,7 +507,7 @@ pub fn queue_sprites(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut views: Query<(
         Entity,
-        &VisibleEntities,
+        &RenderVisibleEntities,
         &ExtractedView,
         &Msaa,
         Option<&Tonemapping>,
@@ -544,14 +553,14 @@ pub fn queue_sprites(
         view_entities.extend(
             visible_entities
                 .iter::<WithSprite>()
-                .map(|e| e.index() as usize),
+                .map(|(_, e)| e.index() as usize),
         );
 
         transparent_phase
             .items
             .reserve(extracted_sprites.sprites.len());
 
-        for (entity, extracted_sprite) in extracted_sprites.sprites.iter() {
+        for ((entity, main_entity), extracted_sprite) in extracted_sprites.sprites.iter() {
             let index = extracted_sprite.original_entity.unwrap_or(*entity).index();
 
             if !view_entities.contains(index as usize) {
@@ -565,7 +574,7 @@ pub fn queue_sprites(
             transparent_phase.add(Transparent2d {
                 draw_function: draw_sprite_function,
                 pipeline,
-                entity: *entity,
+                entity: (*entity, *main_entity),
                 sort_key,
                 // batch_range and dynamic_offset will be calculated in prepare_sprites
                 batch_range: 0..0,
@@ -739,7 +748,7 @@ pub fn prepare_sprite_image_bind_groups(
                 batch_item_index = item_index;
 
                 batches.push((
-                    item.entity,
+                    item.entity(),
                     SpriteBatch {
                         image_handle_id: batch_image_handle,
                         range: index..index,
