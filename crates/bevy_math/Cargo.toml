@@ -39,7 +39,7 @@ rand_chacha = "0.3"
 bevy_math = { path = ".", version = "0.15.0-dev", default-features = false, features = [
   "approx",
 ] }
-glam = { version = "0.29", features = ["approx"] }
+glam = { version = "0.29", default-features = false, features = ["approx"] }
 
 [features]
 default = ["std", "rand", "bevy_reflect", "curve"]

@@ -20,10 +20,7 @@ mod aspect_ratio;
 pub mod bounding;
 pub mod common_traits;
 mod compass;
-
-#[cfg(feature = "alloc")]
 pub mod cubic_splines;
-
 mod direction;
 mod float_ord;
 mod isometry;
@@ -63,6 +60,7 @@ pub use sampling::{FromRng, ShapeSample};
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
+        cubic_splines::{CubicNurbsError, CubicSegment, RationalSegment},
         direction::{Dir2, Dir3, Dir3A},
         ops,
         primitives::*,
@@ -79,12 +77,11 @@ pub mod prelude {
     #[cfg(feature = "rand")]
     pub use crate::sampling::{FromRng, ShapeSample};
 
-    #[doc(hidden)]
     #[cfg(feature = "alloc")]
+    #[doc(hidden)]
     pub use crate::cubic_splines::{
         CubicBSpline, CubicBezier, CubicCardinalSpline, CubicCurve, CubicGenerator, CubicHermite,
-        CubicNurbs, CubicNurbsError, CubicSegment, CyclicCubicGenerator, RationalCurve,
-        RationalGenerator, RationalSegment,
+        CubicNurbs, CyclicCubicGenerator, RationalCurve, RationalGenerator,
     };
 }
 

@@ -1,9 +1,6 @@
 //! This module contains abstract mathematical traits shared by types used in `bevy_math`.
 
-use crate::{
-    ops::{self, abs},
-    Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4,
-};
+use crate::{ops, Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
 use core::{
     fmt::Debug,
     ops::{Add, Div, Mul, Neg, Sub},
@@ -160,7 +157,7 @@ impl NormedVectorSpace for Vec2 {
 impl NormedVectorSpace for f32 {
     #[inline]
     fn norm(self) -> f32 {
-        abs(self)
+        ops::abs(self)
     }
 
     #[inline]

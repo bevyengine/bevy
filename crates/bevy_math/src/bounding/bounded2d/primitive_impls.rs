@@ -1,7 +1,7 @@
 //! Contains [`Bounded2d`] implementations for [geometric primitives](crate::primitives).
 
 use crate::{
-    ops::{self, abs, rem_euclid},
+    ops,
     primitives::{
         Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
         Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
@@ -43,11 +43,11 @@ fn arc_bounding_points(arc: Arc2d, rotation: impl Into<Rot2>) -> SmallVec<[Vec2;
     // The half-angles are measured from a starting point of π/2, being the angle of Vec2::Y.
     // Compute the normalized angles of the endpoints with the rotation taken into account, and then
     // check if we are looking for an angle that is between or outside them.
-    let left_angle = rem_euclid(FRAC_PI_2 + arc.half_angle + rotation.as_radians(), TAU);
-    let right_angle = rem_euclid(FRAC_PI_2 - arc.half_angle + rotation.as_radians(), TAU);
+    let left_angle = ops::rem_euclid(FRAC_PI_2 + arc.half_angle + rotation.as_radians(), TAU);
+    let right_angle = ops::rem_euclid(FRAC_PI_2 - arc.half_angle + rotation.as_radians(), TAU);
     let inverted = left_angle < right_angle;
     for extremum in [Vec2::X, Vec2::Y, Vec2::NEG_X, Vec2::NEG_Y] {
-        let angle = rem_euclid(extremum.to_angle(), TAU);
+        let angle = ops::rem_euclid(extremum.to_angle(), TAU);
         // If inverted = true, then right_angle > left_angle, so we are looking for an angle that is not between them.
         // There's a chance that this condition fails due to rounding error, if the endpoint angle is juuuust shy of the axis.
         // But in that case, the endpoint itself is within rounding error of the axis and will define the bounds just fine.
@@ -351,7 +351,8 @@ impl Bounded2d for Rectangle {
         // Compute the AABB of the rotated rectangle by transforming the half-extents
         // by an absolute rotation matrix.
         let (sin, cos) = isometry.rotation.sin_cos();
-        let abs_rot_mat = Mat2::from_cols_array(&[abs(cos), abs(sin), abs(sin), abs(cos)]);
+        let abs_rot_mat =
+            Mat2::from_cols_array(&[ops::abs(cos), ops::abs(sin), ops::abs(sin), ops::abs(cos)]);
         let half_size = abs_rot_mat * self.half_size;
 
         Aabb2d::new(isometry.translation, half_size)
@@ -474,6 +475,7 @@ mod tests {
     // Arcs and circular segments have the same bounding shapes so they share test cases.
     fn arc_and_segment() {
         struct TestCase {
+            #[allow(unused)]
             name: &'static str,
             arc: Arc2d,
             translation: Vec2,
@@ -491,7 +493,7 @@ mod tests {
         }
 
         // The apothem of an arc covering 1/6th of a circle.
-        let apothem = f32::sqrt(3.0) / 2.0;
+        let apothem = ops::sqrt(3.0) / 2.0;
         let tests = [
             // Test case: a basic minor arc
             TestCase {
@@ -562,7 +564,7 @@ mod tests {
                 aabb_min: Vec2::ZERO,
                 aabb_max: Vec2::splat(1.0),
                 bounding_circle_center: Vec2::splat(0.5),
-                bounding_circle_radius: f32::sqrt(2.0) / 2.0,
+                bounding_circle_radius: ops::sqrt(2.0) / 2.0,
             },
             // Test case: a basic major arc
             TestCase {
@@ -601,6 +603,7 @@ mod tests {
         ];
 
         for test in tests {
+            #[cfg(feature = "std")]
             println!("subtest case: {}", test.name);
             let segment: CircularSegment = test.arc.into();
 
@@ -626,6 +629,7 @@ mod tests {
     #[test]
     fn circular_sector() {
         struct TestCase {
+            #[allow(unused)]
             name: &'static str,
             arc: Arc2d,
             translation: Vec2,
@@ -643,8 +647,8 @@ mod tests {
         }
 
         // The apothem of an arc covering 1/6th of a circle.
-        let apothem = f32::sqrt(3.0) / 2.0;
-        let inv_sqrt_3 = f32::sqrt(3.0).recip();
+        let apothem = ops::sqrt(3.0) / 2.0;
+        let inv_sqrt_3 = ops::sqrt(3.0).recip();
         let tests = [
             // Test case: An sector whose arc is minor, but whose bounding circle is not the circumcircle of the endpoints and center
             TestCase {
@@ -721,7 +725,7 @@ mod tests {
                 aabb_min: Vec2::ZERO,
                 aabb_max: Vec2::splat(1.0),
                 bounding_circle_center: Vec2::splat(0.5),
-                bounding_circle_radius: f32::sqrt(2.0) / 2.0,
+                bounding_circle_radius: ops::sqrt(2.0) / 2.0,
             },
             TestCase {
                 name: "5/6th circle untransformed",
@@ -757,6 +761,7 @@ mod tests {
         ];
 
         for test in tests {
+            #[cfg(feature = "std")]
             println!("subtest case: {}", test.name);
             let sector: CircularSector = test.arc.into();
 

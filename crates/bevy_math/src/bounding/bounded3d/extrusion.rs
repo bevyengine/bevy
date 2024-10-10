@@ -4,7 +4,7 @@ use glam::{Vec2, Vec3A, Vec3Swizzles};
 
 use crate::{
     bounding::{BoundingCircle, BoundingVolume},
-    ops::{self, sqrt},
+    ops,
     primitives::{
         Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d, Polygon, Polyline2d, Primitive2d,
         Rectangle, RegularPolygon, Segment2d, Triangle2d,
@@ -29,7 +29,7 @@ impl BoundedExtrusion for Circle {
         let top = (segment_dir * half_depth).abs();
 
         let e = (Vec3A::ONE - segment_dir * segment_dir).max(Vec3A::ZERO);
-        let half_size = self.radius * Vec3A::new(sqrt(e.x), sqrt(e.y), sqrt(e.z));
+        let half_size = self.radius * Vec3A::new(ops::sqrt(e.x), ops::sqrt(e.y), ops::sqrt(e.z));
 
         Aabb3d {
             min: isometry.translation - half_size - top,
@@ -59,8 +59,8 @@ impl BoundedExtrusion for Ellipse {
             let m = -axis.x / axis.y;
             let signum = axis.signum();
 
-            let y = signum.y * b * b / sqrt(b * b + m * m * a * a);
-            let x = signum.x * a * sqrt(1. - y * y / b / b);
+            let y = signum.y * b * b / ops::sqrt(b * b + m * m * a * a);
+            let x = signum.x * a * ops::sqrt(1. - y * y / b / b);
             isometry.rotation * Vec3A::new(x, y, 0.)
         });
 
@@ -306,7 +306,7 @@ mod tests {
 
         let bounding_sphere = extrusion.bounding_sphere(isometry);
         assert_eq!(bounding_sphere.center, translation.into());
-        assert_eq!(bounding_sphere.radius(), 8f32.sqrt());
+        assert_eq!(bounding_sphere.radius(), ops::sqrt(8f32));
     }
 
     #[test]
@@ -449,7 +449,7 @@ mod tests {
 
         let bounding_sphere = extrusion.bounding_sphere(isometry);
         assert_eq!(bounding_sphere.center, translation.into());
-        assert_eq!(bounding_sphere.radius(), 8f32.sqrt());
+        assert_eq!(bounding_sphere.radius(), ops::sqrt(8f32));
     }
 
     #[test]

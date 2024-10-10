@@ -5,7 +5,7 @@ use glam::Mat3;
 
 use super::{BoundingVolume, IntersectsVolume};
 use crate::{
-    ops::{copysign, sqrt, FloatPow},
+    ops::{self, FloatPow},
     Isometry3d, Quat, Vec3A,
 };
 
@@ -300,12 +300,12 @@ mod aabb3d_tests {
             min: Vec3A::new(-1., -1., -1.),
             max: Vec3A::new(1., 1., 1.),
         };
-        assert!((aabb.visible_area() - 12.).abs() < f32::EPSILON);
+        assert!(ops::abs(aabb.visible_area() - 12.) < f32::EPSILON);
         let aabb = Aabb3d {
             min: Vec3A::new(0., 0., 0.),
             max: Vec3A::new(1., 0.5, 0.25),
         };
-        assert!((aabb.visible_area() - 0.875).abs() < f32::EPSILON);
+        assert!(ops::abs(aabb.visible_area() - 0.875) < f32::EPSILON);
     }
 
     #[test]
@@ -497,7 +497,7 @@ impl BoundingSphere {
             }
         }
 
-        BoundingSphere::new(isometry * center, sqrt(radius_squared))
+        BoundingSphere::new(isometry * center, ops::sqrt(radius_squared))
     }
 
     /// Get the radius of the bounding sphere
@@ -531,7 +531,7 @@ impl BoundingSphere {
         } else {
             // The point is outside the sphere.
             // Find the closest point on the surface of the sphere.
-            let dir_to_point = point / sqrt(distance_squared);
+            let dir_to_point = point / ops::sqrt(distance_squared);
             self.center + radius * dir_to_point
         }
     }
@@ -560,7 +560,7 @@ impl BoundingVolume for BoundingSphere {
     #[inline(always)]
     fn contains(&self, other: &Self) -> bool {
         let diff = self.radius() - other.radius();
-        self.center.distance_squared(other.center) <= copysign(diff.squared(), diff)
+        self.center.distance_squared(other.center) <= ops::copysign(diff.squared(), diff)
     }
 
     #[inline(always)]
@@ -647,14 +647,14 @@ mod bounding_sphere_tests {
     use super::BoundingSphere;
     use crate::{
         bounding::{BoundingVolume, IntersectsVolume},
-        Quat, Vec3, Vec3A,
+        ops, Quat, Vec3, Vec3A,
     };
 
     #[test]
     fn area() {
         let sphere = BoundingSphere::new(Vec3::ONE, 5.);
         // Since this number is messy we check it with a higher threshold
-        assert!((sphere.visible_area() - 157.0796).abs() < 0.001);
+        assert!(ops::abs(sphere.visible_area() - 157.0796) < 0.001);
     }
 
     #[test]
@@ -680,7 +680,7 @@ mod bounding_sphere_tests {
         let b = BoundingSphere::new(Vec3::new(1., 1., -4.), 1.);
         let merged = a.merge(&b);
         assert!((merged.center - Vec3A::new(1., 1., 0.5)).length() < f32::EPSILON);
-        assert!((merged.radius() - 5.5).abs() < f32::EPSILON);
+        assert!(ops::abs(merged.radius() - 5.5) < f32::EPSILON);
         assert!(merged.contains(&a));
         assert!(merged.contains(&b));
         assert!(!a.contains(&merged));
@@ -712,7 +712,7 @@ mod bounding_sphere_tests {
     fn grow() {
         let a = BoundingSphere::new(Vec3::ONE, 5.);
         let padded = a.grow(1.25);
-        assert!((padded.radius() - 6.25).abs() < f32::EPSILON);
+        assert!(ops::abs(padded.radius() - 6.25) < f32::EPSILON);
         assert!(padded.contains(&a));
         assert!(!a.contains(&padded));
     }
@@ -721,7 +721,7 @@ mod bounding_sphere_tests {
     fn shrink() {
         let a = BoundingSphere::new(Vec3::ONE, 5.);
         let shrunk = a.shrink(0.5);
-        assert!((shrunk.radius() - 4.5).abs() < f32::EPSILON);
+        assert!(ops::abs(shrunk.radius() - 4.5) < f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
     }
@@ -730,7 +730,7 @@ mod bounding_sphere_tests {
     fn scale_around_center() {
         let a = BoundingSphere::new(Vec3::ONE, 5.);
         let scaled = a.scale_around_center(2.);
-        assert!((scaled.radius() - 10.).abs() < f32::EPSILON);
+        assert!(ops::abs(scaled.radius() - 10.) < f32::EPSILON);
         assert!(!a.contains(&scaled));
         assert!(scaled.contains(&a));
     }

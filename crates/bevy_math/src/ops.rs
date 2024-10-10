@@ -4,6 +4,9 @@
 //!
 //! All the functions here are named according to their versions in the standard
 //! library.
+//!
+//! It also provides `no_std` compatible alternatives to certain floating-point
+//! operations which are not provided in the [`core`] library.
 
 #![allow(dead_code)]
 #![allow(clippy::disallowed_methods)]
@@ -227,65 +230,6 @@ mod std_ops {
     pub fn atanh(x: f32) -> f32 {
         f32::atanh(x)
     }
-
-    /// Calculates the least nonnegative remainder of `x (mod y)`.
-    ///
-    /// The result of this operation is guaranteed to be the rounded infinite-precision result.
-    #[inline(always)]
-    pub fn rem_euclid(x: f32, y: f32) -> f32 {
-        f32::rem_euclid(x, y)
-    }
-
-    /// Computes the absolute value of x.
-    ///
-    /// This function always returns the precise result.
-    #[inline(always)]
-    pub fn abs(x: f32) -> f32 {
-        f32::abs(x)
-    }
-
-    /// Returns the square root of a number.
-    ///
-    /// The result of this operation is guaranteed to be the rounded infinite-precision result.
-    /// It is specified by IEEE 754 as `squareRoot` and guaranteed not to change.
-    #[inline(always)]
-    pub fn sqrt(x: f32) -> f32 {
-        f32::sqrt(x)
-    }
-
-    /// Returns a number composed of the magnitude of `x` and the sign of `y`.
-    ///
-    /// Equal to `x` if the sign of `x` and `y` are the same, otherwise equal to `-x`. If `x` is a
-    /// `NaN`, then a `NaN` with the sign bit of `y` is returned. Note, however, that conserving the
-    /// sign bit on `NaN` across arithmetical operations is not generally guaranteed.
-    #[inline(always)]
-    pub fn copysign(x: f32, y: f32) -> f32 {
-        f32::copysign(x, y)
-    }
-
-    /// Returns the nearest integer to `x`. If a value is half-way between two integers, round away from `0.0`.
-    ///
-    /// This function always returns the precise result.
-    #[inline(always)]
-    pub fn round(x: f32) -> f32 {
-        f32::round(x)
-    }
-
-    /// Returns the largest integer less than or equal to `x`.
-    ///
-    /// This function always returns the precise result.
-    #[inline(always)]
-    pub fn floor(x: f32) -> f32 {
-        f32::floor(x)
-    }
-
-    /// Returns the fractional part of `x`.
-    ///
-    /// This function always returns the precise result.
-    #[inline(always)]
-    pub fn fract(x: f32) -> f32 {
-        f32::fract(x)
-    }
 }
 
 #[cfg(feature = "libm")]
@@ -501,7 +445,10 @@ mod libm_ops {
     pub fn atanh(x: f32) -> f32 {
         libm::atanhf(x)
     }
+}
 
+#[cfg(all(feature = "libm", not(feature = "std")))]
+mod libm_ops_for_no_std {
     /// Calculates the least nonnegative remainder of `self (mod rhs)`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
@@ -509,6 +456,7 @@ mod libm_ops {
     pub fn rem_euclid(x: f32, y: f32) -> f32 {
         let result = libm::remainderf(x, y);
 
+        // libm::remainderf has a range of -y/2 to +y/2
         if result < 0. {
             result + y
         } else {
@@ -565,11 +513,82 @@ mod libm_ops {
     }
 }
 
+#[cfg(feature = "std")]
+mod std_ops_for_no_std {
+    /// Calculates the least nonnegative remainder of `x (mod y)`.
+    ///
+    /// The result of this operation is guaranteed to be the rounded infinite-precision result.
+    #[inline(always)]
+    pub fn rem_euclid(x: f32, y: f32) -> f32 {
+        f32::rem_euclid(x, y)
+    }
+
+    /// Computes the absolute value of x.
+    ///
+    /// This function always returns the precise result.
+    #[inline(always)]
+    pub fn abs(x: f32) -> f32 {
+        f32::abs(x)
+    }
+
+    /// Returns the square root of a number.
+    ///
+    /// The result of this operation is guaranteed to be the rounded infinite-precision result.
+    /// It is specified by IEEE 754 as `squareRoot` and guaranteed not to change.
+    #[inline(always)]
+    pub fn sqrt(x: f32) -> f32 {
+        f32::sqrt(x)
+    }
+
+    /// Returns a number composed of the magnitude of `x` and the sign of `y`.
+    ///
+    /// Equal to `x` if the sign of `x` and `y` are the same, otherwise equal to `-x`. If `x` is a
+    /// `NaN`, then a `NaN` with the sign bit of `y` is returned. Note, however, that conserving the
+    /// sign bit on `NaN` across arithmetical operations is not generally guaranteed.
+    #[inline(always)]
+    pub fn copysign(x: f32, y: f32) -> f32 {
+        f32::copysign(x, y)
+    }
+
+    /// Returns the nearest integer to `x`. If a value is half-way between two integers, round away from `0.0`.
+    ///
+    /// This function always returns the precise result.
+    #[inline(always)]
+    pub fn round(x: f32) -> f32 {
+        f32::round(x)
+    }
+
+    /// Returns the largest integer less than or equal to `x`.
+    ///
+    /// This function always returns the precise result.
+    #[inline(always)]
+    pub fn floor(x: f32) -> f32 {
+        f32::floor(x)
+    }
+
+    /// Returns the fractional part of `x`.
+    ///
+    /// This function always returns the precise result.
+    #[inline(always)]
+    pub fn fract(x: f32) -> f32 {
+        f32::fract(x)
+    }
+}
+
 #[cfg(feature = "libm")]
 pub use libm_ops::*;
 
 #[cfg(not(feature = "libm"))]
 pub use std_ops::*;
+
+#[cfg(feature = "std")]
+pub use std_ops_for_no_std::*;
+
+#[cfg(all(feature = "libm", not(feature = "std")))]
+pub use libm_ops_for_no_std::*;
+
+#[cfg(all(not(feature = "libm"), not(feature = "std")))]
+compile_error!("Either the `libm` feature or the `std` feature must be enabled.");
 
 /// This extension trait covers shortfall in determinacy from the lack of a `libm` counterpart
 /// to `f32::powi`. Use this for the common small exponents.

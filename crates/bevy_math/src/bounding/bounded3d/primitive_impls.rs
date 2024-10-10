@@ -4,7 +4,7 @@ use glam::Vec3A;
 
 use crate::{
     bounding::{Bounded2d, BoundingCircle},
-    ops::{self, sqrt},
+    ops,
     primitives::{
         Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Polyline3d,
         Segment3d, Sphere, Torus, Triangle2d, Triangle3d,
@@ -148,7 +148,7 @@ impl Bounded3d for Cylinder {
         let bottom = -top;
 
         let e = (Vec3A::ONE - segment_dir * segment_dir).max(Vec3A::ZERO);
-        let half_size = self.radius * Vec3A::new(sqrt(e.x), sqrt(e.y), sqrt(e.z));
+        let half_size = self.radius * Vec3A::new(ops::sqrt(e.x), ops::sqrt(e.y), ops::sqrt(e.z));
 
         Aabb3d {
             min: isometry.translation + (top - half_size).min(bottom - half_size),
@@ -199,7 +199,7 @@ impl Bounded3d for Cone {
         let bottom = -top;
 
         let e = (Vec3A::ONE - segment_dir * segment_dir).max(Vec3A::ZERO);
-        let half_extents = Vec3A::new(sqrt(e.x), sqrt(e.y), sqrt(e.z));
+        let half_extents = Vec3A::new(ops::sqrt(e.x), ops::sqrt(e.y), ops::sqrt(e.z));
 
         Aabb3d {
             min: isometry.translation + top.min(bottom - self.radius * half_extents),
@@ -240,7 +240,7 @@ impl Bounded3d for ConicalFrustum {
         let bottom = -top;
 
         let e = (Vec3A::ONE - segment_dir * segment_dir).max(Vec3A::ZERO);
-        let half_extents = Vec3A::new(sqrt(e.x), sqrt(e.y), sqrt(e.z));
+        let half_extents = Vec3A::new(ops::sqrt(e.x), ops::sqrt(e.y), ops::sqrt(e.z));
 
         Aabb3d {
             min: isometry.translation
@@ -323,7 +323,8 @@ impl Bounded3d for Torus {
         // Reference: http://iquilezles.org/articles/diskbbox/
         let normal = isometry.rotation * Vec3A::Y;
         let e = (Vec3A::ONE - normal * normal).max(Vec3A::ZERO);
-        let disc_half_size = self.major_radius * Vec3A::new(sqrt(e.x), sqrt(e.y), sqrt(e.z));
+        let disc_half_size =
+            self.major_radius * Vec3A::new(ops::sqrt(e.x), ops::sqrt(e.y), ops::sqrt(e.z));
 
         // Expand the disc by the minor radius to get the torus half-size
         let half_size = disc_half_size + Vec3A::splat(self.minor_radius);

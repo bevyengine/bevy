@@ -2,7 +2,7 @@ use core::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{
-    ops::{self, abs, sqrt, FloatPow},
+    ops::{self, FloatPow},
     Dir3, InvalidDirectionError, Isometry3d, Mat3, Vec2, Vec3,
 };
 
@@ -67,7 +67,7 @@ impl Sphere {
         } else {
             // The point is outside the sphere.
             // Find the closest point on the surface of the sphere.
-            let dir_to_point = point / sqrt(distance_squared);
+            let dir_to_point = point / ops::sqrt(distance_squared);
             self.radius * dir_to_point
         }
     }
@@ -1257,7 +1257,7 @@ impl Measured3d for Tetrahedron {
     /// Get the volume of the tetrahedron.
     #[inline(always)]
     fn volume(&self) -> f32 {
-        abs(self.signed_volume())
+        ops::abs(self.signed_volume())
     }
 }
 
@@ -1584,7 +1584,7 @@ mod tests {
         assert_eq!(default_triangle.area(), 0.5, "incorrect area");
         assert_relative_eq!(
             default_triangle.perimeter(),
-            1.0 + 2.0 * 1.25_f32.sqrt(),
+            1.0 + 2.0 * ops::sqrt(1.25_f32),
             epsilon = 10e-9
         );
         assert_eq!(default_triangle.normal(), Ok(Dir3::Z), "incorrect normal");

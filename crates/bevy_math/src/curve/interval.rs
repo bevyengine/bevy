@@ -198,6 +198,8 @@ pub fn interval(start: f32, end: f32) -> Result<Interval, InvalidIntervalError> 
 
 #[cfg(test)]
 mod tests {
+    use crate::ops;
+
     use super::*;
     use approx::{assert_abs_diff_eq, AbsDiffEq};
 
@@ -237,10 +239,10 @@ mod tests {
     #[test]
     fn lengths() {
         let ivl = interval(-5.0, 10.0).unwrap();
-        assert!((ivl.length() - 15.0).abs() <= f32::EPSILON);
+        assert!(ops::abs(ivl.length() - 15.0) <= f32::EPSILON);
 
         let ivl = interval(5.0, 100.0).unwrap();
-        assert!((ivl.length() - 95.0).abs() <= f32::EPSILON);
+        assert!(ops::abs(ivl.length() - 95.0) <= f32::EPSILON);
 
         let ivl = interval(0.0, f32::INFINITY).unwrap();
         assert_eq!(ivl.length(), f32::INFINITY);
