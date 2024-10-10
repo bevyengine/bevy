@@ -56,7 +56,7 @@ impl DerefMut for LineGizmoAsset {
 /// ) {
 ///     let mut linegizmo = LineGizmoAsset::default();
 ///
-///     linegizmo.sphere(default(), 1., RED);
+///     linegizmo.sphere(Vec3::ZERO, 1., RED);
 ///
 ///     commands.spawn(LineGizmo {
 ///         handle: linegizmos.add(linegizmo),
