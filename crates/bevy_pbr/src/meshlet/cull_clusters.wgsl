@@ -1,6 +1,7 @@
 #import bevy_pbr::meshlet_bindings::{
     meshlet_cluster_meshlet_ids,
     meshlet_bounding_spheres,
+    meshlet_simplification_errors,
     meshlet_cluster_instance_ids,
     meshlet_instance_uniforms,
     meshlet_second_pass_candidates,
@@ -48,8 +49,8 @@ fn cull_clusters(
     let world_from_local = affine3_to_square(instance_uniform.world_from_local);
     let world_scale = max(length(world_from_local[0]), max(length(world_from_local[1]), length(world_from_local[2])));
     let bounding_spheres = meshlet_bounding_spheres[meshlet_id];
-    let culling_bounding_sphere_center = world_from_local * vec4(bounding_spheres.self_culling.center, 1.0);
-    let culling_bounding_sphere_radius = world_scale * bounding_spheres.self_culling.radius;
+    let culling_bounding_sphere_center = world_from_local * vec4(bounding_spheres.culling_sphere.center, 1.0);
+    let culling_bounding_sphere_radius = world_scale * bounding_spheres.culling_sphere.radius;
 
 #ifdef MESHLET_FIRST_CULLING_PASS
     // Frustum culling
@@ -60,19 +61,10 @@ fn cull_clusters(
         }
     }
 
-    // Calculate view-space LOD bounding sphere for the cluster
-    let lod_bounding_sphere_center = world_from_local * vec4(bounding_spheres.self_lod.center, 1.0);
-    let lod_bounding_sphere_radius = world_scale * bounding_spheres.self_lod.radius;
-    let lod_bounding_sphere_center_view_space = (view.view_from_world * vec4(lod_bounding_sphere_center.xyz, 1.0)).xyz;
-
-    // Calculate view-space LOD bounding sphere for the cluster's parent
-    let parent_lod_bounding_sphere_center = world_from_local * vec4(bounding_spheres.parent_lod.center, 1.0);
-    let parent_lod_bounding_sphere_radius = world_scale * bounding_spheres.parent_lod.radius;
-    let parent_lod_bounding_sphere_center_view_space = (view.view_from_world * vec4(parent_lod_bounding_sphere_center.xyz, 1.0)).xyz;
-
-    // Check LOD cut (cluster error imperceptible, and parent error not imperceptible)
-    let lod_is_ok = lod_error_is_imperceptible(lod_bounding_sphere_center_view_space, lod_bounding_sphere_radius);
-    let parent_lod_is_ok = lod_error_is_imperceptible(parent_lod_bounding_sphere_center_view_space, parent_lod_bounding_sphere_radius);
+    // Check LOD cut (cluster group error imperceptible, and parent group error not imperceptible)
+    let simplification_errors = meshlet_simplification_errors[meshlet_id];
+    let lod_is_ok = lod_error_is_imperceptible(bounding_spheres.lod_group_sphere.center, bounding_spheres.lod_group_sphere.radius, simplification_errors.group_error, world_from_local, world_scale);
+    let parent_lod_is_ok = lod_error_is_imperceptible(bounding_spheres.lod_parent_group_sphere.center, bounding_spheres.lod_parent_group_sphere.radius, simplification_errors.parent_group_error, world_from_local, world_scale);
     if !lod_is_ok || parent_lod_is_ok { return; }
 #endif
 
@@ -80,8 +72,8 @@ fn cull_clusters(
 #ifdef MESHLET_FIRST_CULLING_PASS
     let previous_world_from_local = affine3_to_square(instance_uniform.previous_world_from_local);
     let previous_world_from_local_scale = max(length(previous_world_from_local[0]), max(length(previous_world_from_local[1]), length(previous_world_from_local[2])));
-    let occlusion_culling_bounding_sphere_center = previous_world_from_local * vec4(bounding_spheres.self_culling.center, 1.0);
-    let occlusion_culling_bounding_sphere_radius = previous_world_from_local_scale * bounding_spheres.self_culling.radius;
+    let occlusion_culling_bounding_sphere_center = previous_world_from_local * vec4(bounding_spheres.culling_sphere.center, 1.0);
+    let occlusion_culling_bounding_sphere_radius = previous_world_from_local_scale * bounding_spheres.culling_sphere.radius;
     let occlusion_culling_bounding_sphere_center_view_space = (previous_view.view_from_world * vec4(occlusion_culling_bounding_sphere_center.xyz, 1.0)).xyz;
 #else
     let occlusion_culling_bounding_sphere_center = culling_bounding_sphere_center;
@@ -148,14 +140,17 @@ fn cull_clusters(
     meshlet_raster_clusters[buffer_slot] = cluster_id;
 }
 
-// https://stackoverflow.com/questions/21648630/radius-of-projected-sphere-in-screen-space/21649403#21649403
-fn lod_error_is_imperceptible(cp: vec3<f32>, r: f32) -> bool {
-    let d2 = dot(cp, cp);
-    let r2 = r * r;
-    let sphere_diameter_uv = view.clip_from_view[0][0] * r / sqrt(d2 - r2);
-    let view_size = f32(max(view.viewport.z, view.viewport.w));
-    let sphere_diameter_pixels = sphere_diameter_uv * view_size;
-    return sphere_diameter_pixels < 1.0;
+fn lod_error_is_imperceptible(cp: vec3<f32>, r: f32, error: f32, world_from_local: mat4x4<f32>, world_scale: f32) -> bool {
+    let cp_world = world_from_local * vec4(cp, 1.0);
+    let r_view = world_scale * r;
+    let cp_view = (view.view_from_world * vec4(cp_world.xyz, 1.0)).xyz;
+
+    // TODO: Handle view clipping / being inside sphere bounds
+    let aabb = project_view_space_sphere_to_screen_space_aabb(cp_view, r_view);
+    let screen_size = max(aabb.z - aabb.x, aabb.w - aabb.y);
+    let meters_per_pixel = r / screen_size;
+
+    return error < meters_per_pixel;
 }
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds

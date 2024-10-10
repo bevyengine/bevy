@@ -95,9 +95,9 @@ pub struct MeshletBoundingSpheres {
     /// Bounding sphere used for frustum and occlusion culling for this meshlet.
     pub culling_sphere: MeshletBoundingSphere,
     /// Bounding sphere used for determining if this meshlet's group is at the correct level of detail for a given view.
-    pub group_lod_sphere: MeshletBoundingSphere,
+    pub lod_group_sphere: MeshletBoundingSphere,
     /// Bounding sphere used for determining if this meshlet's parent group is at the correct level of detail for a given view.
-    pub parent_group_lod_sphere: MeshletBoundingSphere,
+    pub lod_parent_group_sphere: MeshletBoundingSphere,
 }
 
 /// A spherical bounding volume used for a [`Meshlet`].

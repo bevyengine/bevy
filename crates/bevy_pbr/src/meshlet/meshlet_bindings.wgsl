@@ -26,8 +26,8 @@ fn get_meshlet_triangle_count(meshlet: ptr<function, Meshlet>) -> u32 {
 
 struct MeshletBoundingSpheres {
     culling_sphere: MeshletBoundingSphere,
-    group_lod_sphere: MeshletBoundingSphere,
-    parent_group_lod_sphere: MeshletBoundingSphere,
+    lod_group_sphere: MeshletBoundingSphere,
+    lod_parent_group_sphere: MeshletBoundingSphere,
 }
 
 struct MeshletBoundingSphere {

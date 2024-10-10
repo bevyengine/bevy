@@ -72,8 +72,8 @@ impl MeshletMesh {
             .map(|meshlet| compute_meshlet_bounds(meshlet, &vertices))
             .map(|bounding_sphere| MeshletBoundingSpheres {
                 culling_sphere: bounding_sphere,
-                group_lod_sphere: bounding_sphere,
-                parent_group_lod_sphere: MeshletBoundingSphere {
+                lod_group_sphere: bounding_sphere,
+                lod_parent_group_sphere: MeshletBoundingSphere {
                     center: Vec3::ZERO,
                     radius: 0.0,
                 },
@@ -111,7 +111,7 @@ impl MeshletMesh {
                 };
 
                 // Compute LOD data for the group
-                let group_bounding_sphere = compute_group_lod_data(
+                let group_bounding_sphere = compute_lod_group_data(
                     &group_meshlets,
                     &mut group_error,
                     &mut bounding_spheres,
@@ -125,13 +125,13 @@ impl MeshletMesh {
                     &mut meshlets,
                 );
 
-                // Calculate the culling bounding sphere for the new meshlets and set their group LOD data
+                // Calculate the culling bounding sphere for the new meshlets and set their LOD group data
                 let new_meshlet_ids = (meshlets.len() - new_meshlets_count)..meshlets.len();
                 bounding_spheres.extend(new_meshlet_ids.clone().map(|meshlet_id| {
                     MeshletBoundingSpheres {
                         culling_sphere: compute_meshlet_bounds(meshlets.get(meshlet_id), &vertices),
-                        group_lod_sphere: group_bounding_sphere,
-                        parent_group_lod_sphere: MeshletBoundingSphere {
+                        lod_group_sphere: group_bounding_sphere,
+                        lod_parent_group_sphere: MeshletBoundingSphere {
                             center: Vec3::ZERO,
                             radius: 0.0,
                         },
@@ -330,7 +330,7 @@ fn simplify_meshlet_group(
     Some((simplified_group_indices, error))
 }
 
-fn compute_group_lod_data(
+fn compute_lod_group_data(
     group_meshlets: &[usize],
     group_error: &mut f32,
     bounding_spheres: &mut [MeshletBoundingSpheres],
@@ -344,7 +344,7 @@ fn compute_group_lod_data(
     // Compute the group lod sphere center as a weighted average of the children spheres
     let mut weight = 0.0;
     for meshlet_id in group_meshlets {
-        let meshlet_lod_bounding_sphere = bounding_spheres[*meshlet_id].group_lod_sphere;
+        let meshlet_lod_bounding_sphere = bounding_spheres[*meshlet_id].lod_group_sphere;
         group_bounding_sphere.center +=
             meshlet_lod_bounding_sphere.center * meshlet_lod_bounding_sphere.radius;
         weight += meshlet_lod_bounding_sphere.radius;
@@ -358,7 +358,7 @@ fn compute_group_lod_data(
     // TODO: This does not produce the absolute minimal bounding sphere. Doing so is non-trivial.
     //       "Smallest enclosing balls of balls" http://www.inf.ethz.ch/personal/emo/DoctThesisFiles/fischer05.pdf
     for meshlet_id in group_meshlets {
-        let meshlet_lod_bounding_sphere = bounding_spheres[*meshlet_id].group_lod_sphere;
+        let meshlet_lod_bounding_sphere = bounding_spheres[*meshlet_id].lod_group_sphere;
         let d = meshlet_lod_bounding_sphere
             .center
             .distance(group_bounding_sphere.center);
@@ -372,7 +372,7 @@ fn compute_group_lod_data(
         *group_error = group_error.max(simplification_errors[*meshlet_id].group_error);
 
         // Set the children's parent group lod sphere to the new sphere we made for this group
-        bounding_spheres[*meshlet_id].parent_group_lod_sphere = group_bounding_sphere;
+        bounding_spheres[*meshlet_id].lod_parent_group_sphere = group_bounding_sphere;
     }
 
     group_bounding_sphere
