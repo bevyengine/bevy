@@ -296,6 +296,29 @@ impl Transform {
         self.local_z()
     }
 
+    /// Translates this [`Transform`] within its local space using the provided translation vector.
+    ///
+    /// This method directly adjusts the [`Transform`]'s translation using the `translation` vector,
+    /// without considering the [`Transform`]'s current rotation. The translation happens in the
+    /// [`Transform`]'s local coordinate system, meaning the movement occurs along its local
+    /// axes (`x`, `y`, and `z`), regardless of the [`Transform`]'s orientation.
+    #[inline]
+    pub fn translate(&mut self, translation: Vec3) {
+        self.translation += translation;
+    }
+
+    /// Translates this [`Transform`] within its local space, considering its rotation and orientation.
+    ///
+    /// This method translates this [`Transform`] based on its current rotation, so the movement
+    /// happens relative to the direction this [`Transform`] is facing. The `translation` vector is
+    /// transformed by the [`Transform`]'s rotation, allowing for natural directional movement.
+    /// For instance, moving "forward" means moving along the [`Transform`]'s forward direction
+    /// based on its current orientation, rather than just along the local z-axis.
+    #[inline]
+    pub fn translate_with_local_rotation(&mut self, translation: Vec3) {
+        self.translation += self.rotation * translation;
+    }
+
     /// Rotates this [`Transform`] by the given rotation.
     ///
     /// If this [`Transform`] has a parent, the `rotation` is relative to the rotation of the parent.
