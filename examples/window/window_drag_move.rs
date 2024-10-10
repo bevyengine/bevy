@@ -54,7 +54,6 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera3d::default());
 
     // UI
-    let style = TextStyle::default();
     commands
         .spawn((
             NodeBundle {
@@ -70,7 +69,9 @@ fn setup(mut commands: Commands) {
         ))
         .with_children(|p| {
             p.spawn(Text::default()).with_children(|p| {
-                p.spawn(TextSpan::new("Demonstrate drag and drag resize without window decorations.\n\nControls:\n"));
+                p.spawn(TextSpan::new(
+                    "Demonstrate drag and drag resize without window decorations.\n\nControls:\n",
+                ));
                 p.spawn(TextSpan::new("A - change left click action ["));
                 p.spawn(TextSpan::new("Drag"));
                 p.spawn(TextSpan::new("]\n"));
@@ -119,7 +120,7 @@ fn move_windows(
     dir: Res<ResizeDir>,
 ) {
     // Both `start_drag_move()` and `start_drag_resize()` must be called after a
-    // left mouse button press.
+    // left mouse button press as done here.
     //
     // winit 0.30.5 may panic when initiated without a left mouse button press.
     if input.just_pressed(MouseButton::Left) {
