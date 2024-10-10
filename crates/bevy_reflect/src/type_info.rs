@@ -8,7 +8,7 @@ use core::{
     fmt::{Debug, Formatter},
     hash::Hash,
 };
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 /// A static accessor to compile-time type information.
 ///
@@ -163,12 +163,12 @@ impl<T: Typed> DynamicTyped for T {
 }
 
 /// A [`TypeInfo`]-specific error.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub enum TypeInfoError {
     /// Caused when a type was expected to be of a certain [kind], but was not.
     ///
     /// [kind]: ReflectKind
-    #[error("kind mismatch: expected {expected:?}, received {received:?}")]
+    #[display("kind mismatch: expected {expected:?}, received {received:?}")]
     KindMismatch {
         expected: ReflectKind,
         received: ReflectKind,

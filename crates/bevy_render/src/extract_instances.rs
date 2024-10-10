@@ -7,12 +7,11 @@
 use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::Entity,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
-    system::{lifetimeless::Read, Query, ResMut, Resource},
+    system::{Query, ResMut, Resource},
 };
 
 use crate::sync_world::MainEntityHashMap;
@@ -132,17 +131,5 @@ fn extract_visible<EI>(
                 extracted_instances.insert(entity.into(), extract_instance);
             }
         }
-    }
-}
-
-impl<A> ExtractInstance for AssetId<A>
-where
-    A: Asset,
-{
-    type QueryData = Read<Handle<A>>;
-    type QueryFilter = ();
-
-    fn extract(item: QueryItem<'_, Self::QueryData>) -> Option<Self> {
-        Some(item.id())
     }
 }

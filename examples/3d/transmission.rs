@@ -331,15 +331,14 @@ fn setup(
     ));
 
     // Controls Text
-    let text_style = TextStyle::default();
-
     commands.spawn((
-        TextBundle::from_section("", text_style).with_style(Style {
+        Text::default(),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
+        },
         ExampleDisplay,
     ));
 }
@@ -549,8 +548,7 @@ fn example_control_system(
         Quat::from_euler(EulerRot::XYZ, 0.0, rotation, 0.0),
     );
 
-    let mut display = display.single_mut();
-    display.sections[0].value = format!(
+    **display.single_mut() = format!(
         concat!(
             " J / K / L / ;  Screen Space Specular Transmissive Quality: {:?}\n",
             "         O / P  Screen Space Specular Transmissive Steps: {}\n",

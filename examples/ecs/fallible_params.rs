@@ -68,15 +68,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             rotation_speed: 2.0,
             min_follow_radius: 50.0,
         },
-        SpriteBundle {
-            sprite: Sprite {
-                color: bevy::color::palettes::tailwind::BLUE_800.into(),
-                ..default()
-            },
-            transform: Transform::from_translation(Vec3::ZERO),
-            texture,
-            ..default()
+        Sprite {
+            image: texture,
+            color: bevy::color::palettes::tailwind::BLUE_800.into(),
+            ..Default::default()
         },
+        Transform::from_translation(Vec3::ZERO),
     ));
 }
 
@@ -99,15 +96,12 @@ fn user_input(
                 rotation: rng.gen_range(0.0..std::f32::consts::TAU),
                 rotation_speed: rng.gen_range(0.5..1.5),
             },
-            SpriteBundle {
-                sprite: Sprite {
-                    color: bevy::color::palettes::tailwind::RED_800.into(),
-                    ..default()
-                },
-                transform: Transform::from_translation(Vec3::ZERO),
-                texture,
+            Sprite {
+                image: texture,
+                color: bevy::color::palettes::tailwind::RED_800.into(),
                 ..default()
             },
+            Transform::from_translation(Vec3::ZERO),
         ));
     }
 

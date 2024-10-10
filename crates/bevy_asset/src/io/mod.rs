@@ -28,25 +28,27 @@ use core::{
     pin::Pin,
     task::{Context, Poll},
 };
+use derive_more::derive::{Display, Error, From};
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::{ready, Stream};
 use std::path::{Path, PathBuf};
-use thiserror::Error;
 
 /// Errors that occur while loading assets.
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Display, Debug, Clone)]
 pub enum AssetReaderError {
     /// Path not found.
-    #[error("Path not found: {0}")]
+    #[display("Path not found: {}", _0.display())]
+    #[error(ignore)]
     NotFound(PathBuf),
 
     /// Encountered an I/O error while loading an asset.
-    #[error("Encountered an I/O error while loading asset: {0}")]
+    #[display("Encountered an I/O error while loading asset: {_0}")]
     Io(Arc<std::io::Error>),
 
     /// The HTTP request completed but returned an unhandled [HTTP response status code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status).
     /// If the request fails before getting a status code (e.g. request timeout, interrupted connection, etc), expect [`AssetReaderError::Io`].
-    #[error("Encountered HTTP status {0:?} when loading asset")]
+    #[display("Encountered HTTP status {_0:?} when loading asset")]
+    #[error(ignore)]
     HttpError(u16),
 }
 
@@ -296,11 +298,11 @@ pub type Writer = dyn AsyncWrite + Unpin + Send + Sync;
 pub type PathStream = dyn Stream<Item = PathBuf> + Unpin + Send;
 
 /// Errors that occur while loading assets.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum AssetWriterError {
     /// Encountered an I/O error while loading an asset.
-    #[error("encountered an io error while loading asset: {0}")]
-    Io(#[from] std::io::Error),
+    #[display("encountered an io error while loading asset: {_0}")]
+    Io(std::io::Error),
 }
 
 /// Preforms write operations on an asset storage. [`AssetWriter`] exposes a "virtual filesystem"

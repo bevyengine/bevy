@@ -4,11 +4,11 @@ use bevy_render::{
     render_resource::VertexFormat,
 };
 use bevy_utils::HashMap;
+use derive_more::derive::{Display, Error};
 use gltf::{
     accessor::{DataType, Dimensions},
     mesh::util::{ReadColors, ReadJoints, ReadTexCoords, ReadWeights},
 };
-use thiserror::Error;
 
 /// Represents whether integer data requires normalization
 #[derive(Copy, Clone)]
@@ -30,11 +30,11 @@ impl Normalization {
 }
 
 /// An error that occurs when accessing buffer data
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 pub(crate) enum AccessFailed {
-    #[error("Malformed vertex attribute data")]
+    #[display("Malformed vertex attribute data")]
     MalformedData,
-    #[error("Unsupported vertex attribute format")]
+    #[display("Unsupported vertex attribute format")]
     UnsupportedFormat,
 }
 
@@ -241,13 +241,16 @@ enum ConversionMode {
     TexCoord,
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
+#[error(ignore)]
 pub(crate) enum ConvertAttributeError {
-    #[error("Vertex attribute {0} has format {1:?} but expected {3:?} for target attribute {2}")]
+    #[display(
+        "Vertex attribute {_0} has format {_1:?} but expected {_3:?} for target attribute {_2}"
+    )]
     WrongFormat(String, VertexFormat, String, VertexFormat),
-    #[error("{0} in accessor {1}")]
+    #[display("{0} in accessor {_1}")]
     AccessFailed(AccessFailed, usize),
-    #[error("Unknown vertex attribute {0}")]
+    #[display("Unknown vertex attribute {_0}")]
     UnknownName(String),
 }
 

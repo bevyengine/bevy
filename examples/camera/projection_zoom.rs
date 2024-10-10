@@ -104,13 +104,9 @@ fn instructions(mut commands: Commands) {
             },
         ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Scroll mouse wheel to zoom in/out",
-                TextStyle::default(),
-            ));
-            parent.spawn(TextBundle::from_section(
+            parent.spawn(Text::new("Scroll mouse wheel to zoom in/out"));
+            parent.spawn(Text::new(
                 "Space: switch between orthographic and perspective projections",
-                TextStyle::default(),
             ));
         });
 }

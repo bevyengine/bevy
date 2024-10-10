@@ -1,7 +1,7 @@
 use crate::{Image, TextureFormatPixelInfo};
 use bevy_asset::RenderAssetUsages;
+use derive_more::derive::{Display, Error};
 use image::{DynamicImage, ImageBuffer};
-use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 impl Image {
@@ -204,14 +204,16 @@ impl Image {
 
 /// Errors that occur while converting an [`Image`] into a [`DynamicImage`]
 #[non_exhaustive]
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 pub enum IntoDynamicImageError {
     /// Conversion into dynamic image not supported for source format.
-    #[error("Conversion into dynamic image not supported for {0:?}.")]
+    #[display("Conversion into dynamic image not supported for {_0:?}.")]
+    #[error(ignore)]
     UnsupportedFormat(TextureFormat),
 
     /// Encountered an unknown error during conversion.
-    #[error("Failed to convert into {0:?}.")]
+    #[display("Failed to convert into {_0:?}.")]
+    #[error(ignore)]
     UnknownConversionError(TextureFormat),
 }
 

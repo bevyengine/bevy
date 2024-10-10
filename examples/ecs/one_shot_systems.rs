@@ -79,40 +79,37 @@ fn evaluate_callbacks(query: Query<(Entity, &Callback), With<Triggered>>, mut co
     }
 }
 
-fn system_a(mut query: Query<&mut Text>) {
-    let mut text = query.single_mut();
-    text.sections[2].value = String::from("A");
+fn system_a(query: Query<Entity, With<Text>>, mut writer: UiTextWriter) {
+    *writer.text(query.single(), 3) = String::from("A");
     info!("A: One shot system registered with Commands was triggered");
 }
 
-fn system_b(mut query: Query<&mut Text>) {
-    let mut text = query.single_mut();
-    text.sections[2].value = String::from("B");
+fn system_b(query: Query<Entity, With<Text>>, mut writer: UiTextWriter) {
+    *writer.text(query.single(), 3) = String::from("B");
     info!("B: One shot system registered with World was triggered");
 }
 
 fn setup_ui(mut commands: Commands) {
     commands.spawn(Camera2d);
-    commands.spawn(
-        TextBundle::from_sections([
-            TextSection::new(
-                "Press A or B to trigger a one-shot system\n",
-                TextStyle::default(),
-            ),
-            TextSection::new("Last Triggered: ", TextStyle::default()),
-            TextSection::new(
-                "-",
+    commands
+        .spawn((
+            Text::default(),
+            TextLayout::new_with_justify(JustifyText::Center),
+            Style {
+                align_self: AlignSelf::Center,
+                justify_self: JustifySelf::Center,
+                ..default()
+            },
+        ))
+        .with_children(|p| {
+            p.spawn(TextSpan::new("Press A or B to trigger a one-shot system\n"));
+            p.spawn(TextSpan::new("Last Triggered: "));
+            p.spawn((
+                TextSpan::new("-"),
                 TextStyle {
                     color: bevy::color::palettes::css::ORANGE.into(),
                     ..default()
                 },
-            ),
-        ])
-        .with_text_justify(JustifyText::Center)
-        .with_style(Style {
-            align_self: AlignSelf::Center,
-            justify_self: JustifySelf::Center,
-            ..default()
-        }),
-    );
+            ));
+        });
 }

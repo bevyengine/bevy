@@ -35,7 +35,7 @@ use bevy_utils::tracing::error;
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
     prepare_material_meshlet_meshes_prepass, queue_material_meshlet_meshes, InstanceManager,
-    MeshletMesh,
+    MeshletMesh3d,
 };
 use crate::*;
 
@@ -222,7 +222,7 @@ pub struct PreviousGlobalTransform(pub Affine3A);
 #[cfg(not(feature = "meshlet"))]
 type PreviousMeshFilter = With<Mesh3d>;
 #[cfg(feature = "meshlet")]
-type PreviousMeshFilter = Or<(With<Mesh3d>, With<Handle<MeshletMesh>>)>;
+type PreviousMeshFilter = Or<(With<Mesh3d>, With<MeshletMesh3d>)>;
 
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,

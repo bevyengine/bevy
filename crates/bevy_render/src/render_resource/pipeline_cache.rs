@@ -18,9 +18,9 @@ use bevy_utils::{
     HashMap, HashSet,
 };
 use core::{future::Future, hash::Hash, mem, ops::Deref};
+use derive_more::derive::{Display, Error, From};
 use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
-use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
 use wgpu::{
@@ -973,17 +973,19 @@ fn create_pipeline_task(
 }
 
 /// Type of error returned by a [`PipelineCache`] when the creation of a GPU pipeline object failed.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum PipelineCacheError {
-    #[error(
-        "Pipeline could not be compiled because the following shader could not be loaded: {0:?}"
+    #[display(
+        "Pipeline could not be compiled because the following shader could not be loaded: {_0:?}"
     )]
+    #[error(ignore)]
     ShaderNotLoaded(AssetId<Shader>),
-    #[error(transparent)]
-    ProcessShaderError(#[from] naga_oil::compose::ComposerError),
-    #[error("Shader import not yet available.")]
+
+    ProcessShaderError(naga_oil::compose::ComposerError),
+    #[display("Shader import not yet available.")]
     ShaderImportNotYetAvailable,
-    #[error("Could not create shader module: {0}")]
+    #[display("Could not create shader module: {_0}")]
+    #[error(ignore)]
     CreateShaderModule(String),
 }
 

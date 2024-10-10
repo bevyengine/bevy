@@ -183,8 +183,8 @@ mod ui {
                         ..default()
                     })
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Play",
+                        parent.spawn((
+                            Text::new("Play"),
                             TextStyle {
                                 font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),
@@ -198,10 +198,7 @@ mod ui {
     }
 
     pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn(SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
-            ..default()
-        });
+        commands.spawn(Sprite::from_image(asset_server.load("branding/icon.png")));
     }
 
     pub fn setup_paused_screen(mut commands: Commands) {
@@ -238,8 +235,8 @@ mod ui {
                         ..default()
                     })
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Paused",
+                        parent.spawn((
+                            Text::new("Paused"),
                             TextStyle {
                                 font_size: 33.0,
                                 color: Color::srgb(0.9, 0.9, 0.9),

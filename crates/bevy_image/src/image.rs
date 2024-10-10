@@ -11,8 +11,8 @@ use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use core::hash::Hash;
+use derive_more::derive::{Display, Error, From};
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
 pub trait BevyDefault {
     fn bevy_default() -> Self;
@@ -1535,39 +1535,48 @@ pub enum TranscodeFormat {
 }
 
 /// An error that occurs when accessing specific pixels in a texture
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 pub enum TextureAccessError {
-    #[error("out of bounds (x: {x}, y: {y}, z: {z})")]
+    #[display("out of bounds (x: {x}, y: {y}, z: {z})")]
     OutOfBounds { x: u32, y: u32, z: u32 },
-    #[error("unsupported texture format: {0:?}")]
+    #[display("unsupported texture format: {_0:?}")]
+    #[error(ignore)]
     UnsupportedTextureFormat(TextureFormat),
-    #[error("attempt to access texture with different dimension")]
+    #[display("attempt to access texture with different dimension")]
     WrongDimension,
 }
 
 /// An error that occurs when loading a texture
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
+#[error(ignore)]
 pub enum TextureError {
-    #[error("invalid image mime type: {0}")]
+    #[display("invalid image mime type: {_0}")]
+    #[from(ignore)]
     InvalidImageMimeType(String),
-    #[error("invalid image extension: {0}")]
+    #[display("invalid image extension: {_0}")]
+    #[from(ignore)]
     InvalidImageExtension(String),
-    #[error("failed to load an image: {0}")]
-    ImageError(#[from] image::ImageError),
-    #[error("unsupported texture format: {0}")]
+    #[display("failed to load an image: {_0}")]
+    ImageError(image::ImageError),
+    #[display("unsupported texture format: {_0}")]
+    #[from(ignore)]
     UnsupportedTextureFormat(String),
-    #[error("supercompression not supported: {0}")]
+    #[display("supercompression not supported: {_0}")]
+    #[from(ignore)]
     SuperCompressionNotSupported(String),
-    #[error("failed to load an image: {0}")]
+    #[display("failed to load an image: {_0}")]
+    #[from(ignore)]
     SuperDecompressionError(String),
-    #[error("invalid data: {0}")]
+    #[display("invalid data: {_0}")]
+    #[from(ignore)]
     InvalidData(String),
-    #[error("transcode error: {0}")]
+    #[display("transcode error: {_0}")]
+    #[from(ignore)]
     TranscodeError(String),
-    #[error("format requires transcoding: {0:?}")]
+    #[display("format requires transcoding: {_0:?}")]
     FormatRequiresTranscodingError(TranscodeFormat),
     /// Only cubemaps with six faces are supported.
-    #[error("only cubemaps with six faces are supported")]
+    #[display("only cubemaps with six faces are supported")]
     IncompleteCubemap,
 }
 

@@ -10,8 +10,8 @@ use alloc::sync::Arc;
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
 use core::ops::Deref;
+use derive_more::derive::{Display, Error};
 use encase::ShaderType;
-use thiserror::Error;
 use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource};
 
 define_atomic_id!(BindGroupId);
@@ -354,12 +354,12 @@ pub trait AsBindGroup {
 }
 
 /// An error that occurs during [`AsBindGroup::as_bind_group`] calls.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub enum AsBindGroupError {
     /// The bind group could not be generated. Try again next frame.
-    #[error("The bind group could not be generated")]
+    #[display("The bind group could not be generated")]
     RetryNextUpdate,
-    #[error("At binding index{0}, the provided image sampler `{1}` does not match the required sampler type(s) `{2}`.")]
+    #[display("At binding index{0}, the provided image sampler `{_1}` does not match the required sampler type(s) `{_2}`.")]
     InvalidSamplerType(u32, String, String),
 }
 

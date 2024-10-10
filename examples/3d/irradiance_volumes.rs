@@ -295,18 +295,15 @@ fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
 }
 
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
-    commands.spawn(
-        TextBundle {
-            text: app_status.create_text(),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        app_status.create_text(),
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // A system that updates the help text.
@@ -343,16 +340,14 @@ impl AppStatus {
             ExampleModel::Fox => SWITCH_TO_SPHERE_HELP_TEXT,
         };
 
-        Text::from_section(
-            format!(
-                "{CLICK_TO_MOVE_HELP_TEXT}
+        format!(
+            "{CLICK_TO_MOVE_HELP_TEXT}
         {voxels_help_text}
         {irradiance_volume_help_text}
         {rotation_help_text}
         {switch_mesh_help_text}"
-            ),
-            TextStyle::default(),
         )
+        .into()
     }
 }
 
