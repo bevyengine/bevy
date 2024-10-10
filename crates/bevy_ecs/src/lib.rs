@@ -1732,6 +1732,26 @@ mod tests {
     }
 
     #[test]
+    fn insert_batch_same_archetype() {
+        let mut world = World::default();
+        let e0 = world.spawn((A(0), B(0))).id();
+        let e1 = world.spawn((A(0), B(0))).id();
+        let e2 = world.spawn(B(0)).id();
+
+        let values = vec![(e0, (B(1), C)), (e1, (B(2), C)), (e2, (B(3), C))];
+
+        world.insert_batch(values);
+        let mut query = world.query::<(Option<&A>, &B, &C)>();
+        let component_values = query.get_many(&world, [e0, e1, e2]).unwrap();
+
+        assert_eq!(
+            component_values,
+            [(Some(&A(0)), &B(1), &C), (Some(&A(0)), &B(2), &C), (None, &B(3), &C)],
+            "all entities should have had their B component replaced, received C component, and had their A component (or lack thereof) unchanged"
+        );
+    }
+
+    #[test]
     fn insert_batch_if_new() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
