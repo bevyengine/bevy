@@ -417,7 +417,9 @@ fn extract_gizmo_data(
     handles: Extract<Res<LineGizmoHandles>>,
     config: Extract<Res<GizmoConfigStore>>,
 ) {
+    use bevy_ecs::entity::Entity;
     use bevy_math::{Affine3, Affine3A};
+    use bevy_render::sync_world::MainEntity;
 
     for (group_type_id, handle) in &handles.handles {
         let Some((config, _)) = config.get_config_dyn(group_type_id) else {
@@ -455,6 +457,9 @@ fn extract_gizmo_data(
                 render_layers: config.render_layers.clone(),
                 handle: handle.clone(),
             },
+            // The immediate mode API does not have a main world entity to refer to,
+            // but we do need MainEntity on this render entity for the systems to find it.
+            MainEntity::from(Entity::PLACEHOLDER),
             TemporaryRenderEntity,
         ));
     }

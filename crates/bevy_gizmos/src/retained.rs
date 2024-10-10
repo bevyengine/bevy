@@ -10,7 +10,10 @@ use bevy_transform::components::Transform;
 #[cfg(feature = "bevy_render")]
 use {
     crate::{config::GizmoLineJoint, LineGizmoUniform},
-    bevy_ecs::system::{Commands, Local, Query},
+    bevy_ecs::{
+        entity::Entity,
+        system::{Commands, Local, Query},
+    },
     bevy_render::{view::RenderLayers, Extract},
     bevy_transform::components::GlobalTransform,
 };
@@ -93,13 +96,13 @@ pub struct LineGizmo {
 pub(crate) fn extract_linegizmos(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(&LineGizmo, &GlobalTransform, Option<&RenderLayers>)>>,
+    query: Extract<Query<(Entity, &LineGizmo, &GlobalTransform, Option<&RenderLayers>)>>,
 ) {
     use bevy_math::Affine3;
-    use bevy_render::sync_world::TemporaryRenderEntity;
+    use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
 
     let mut values = Vec::with_capacity(*previous_len);
-    for (linegizmo, transform, render_layers) in &query {
+    for (entity, linegizmo, transform, render_layers) in &query {
         let joints_resolution = if let GizmoLineJoint::Round(resolution) = linegizmo.config.joints {
             resolution
         } else {
@@ -123,6 +126,7 @@ pub(crate) fn extract_linegizmos(
                 render_layers: render_layers.cloned().unwrap_or_default(),
                 handle: linegizmo.handle.clone_weak(),
             },
+            MainEntity::from(entity),
             TemporaryRenderEntity,
         ));
     }
