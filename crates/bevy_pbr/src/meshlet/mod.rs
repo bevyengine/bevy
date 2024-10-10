@@ -87,7 +87,7 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::tracing::error;
+use bevy_utils::{impl_handle_wrapper, tracing::error};
 use derive_more::From;
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
@@ -295,17 +295,7 @@ impl Plugin for MeshletPlugin {
 #[require(Transform, Visibility)]
 pub struct MeshletMesh3d(pub Handle<MeshletMesh>);
 
-impl From<MeshletMesh3d> for AssetId<MeshletMesh> {
-    fn from(mesh: MeshletMesh3d) -> Self {
-        mesh.id()
-    }
-}
-
-impl From<&MeshletMesh3d> for AssetId<MeshletMesh> {
-    fn from(mesh: &MeshletMesh3d) -> Self {
-        mesh.id()
-    }
-}
+impl_handle_wrapper!(MeshletMesh3d, MeshletMesh);
 
 /// A component bundle for entities with a [`MeshletMesh`] and a [`Material`].
 #[derive(Bundle, Clone)]

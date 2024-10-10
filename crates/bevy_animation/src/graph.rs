@@ -15,7 +15,7 @@ use bevy_ecs::{
     system::{Res, ResMut, Resource},
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect, ReflectSerialize};
-use bevy_utils::HashMap;
+use bevy_utils::{impl_handle_wrapper, HashMap};
 use derive_more::derive::{Display, Error, From};
 use petgraph::{
     graph::{DiGraph, NodeIndex},
@@ -130,17 +130,7 @@ pub struct AnimationGraph {
 #[reflect(Component, Default)]
 pub struct AnimationGraphHandle(pub Handle<AnimationGraph>);
 
-impl From<AnimationGraphHandle> for AssetId<AnimationGraph> {
-    fn from(handle: AnimationGraphHandle) -> Self {
-        handle.id()
-    }
-}
-
-impl From<&AnimationGraphHandle> for AssetId<AnimationGraph> {
-    fn from(handle: &AnimationGraphHandle) -> Self {
-        handle.id()
-    }
-}
+impl_handle_wrapper!(AnimationGraphHandle, AnimationGraph);
 
 /// A type alias for the `petgraph` data structure that defines the animation
 /// graph.

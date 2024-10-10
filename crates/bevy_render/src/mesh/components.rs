@@ -4,6 +4,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
+use bevy_utils::impl_handle_wrapper;
 use derive_more::derive::From;
 
 /// A component for rendering 2D meshes, typically with a [`MeshMaterial2d`] using a [`ColorMaterial`].
@@ -41,17 +42,7 @@ use derive_more::derive::From;
 #[require(Transform, Visibility)]
 pub struct Mesh2d(pub Handle<Mesh>);
 
-impl From<Mesh2d> for AssetId<Mesh> {
-    fn from(mesh: Mesh2d) -> Self {
-        mesh.id()
-    }
-}
-
-impl From<&Mesh2d> for AssetId<Mesh> {
-    fn from(mesh: &Mesh2d) -> Self {
-        mesh.id()
-    }
-}
+impl_handle_wrapper!(Mesh2d, Mesh);
 
 /// A component for rendering 3D meshes, typically with a [`MeshMaterial3d`] using a [`StandardMaterial`].
 ///
@@ -91,14 +82,4 @@ impl From<&Mesh2d> for AssetId<Mesh> {
 #[require(Transform, Visibility)]
 pub struct Mesh3d(pub Handle<Mesh>);
 
-impl From<Mesh3d> for AssetId<Mesh> {
-    fn from(mesh: Mesh3d) -> Self {
-        mesh.id()
-    }
-}
-
-impl From<&Mesh3d> for AssetId<Mesh> {
-    fn from(mesh: &Mesh3d) -> Self {
-        mesh.id()
-    }
-}
+impl_handle_wrapper!(Mesh3d, Mesh);

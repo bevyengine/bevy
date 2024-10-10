@@ -34,7 +34,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::tracing::error;
+use bevy_utils::{impl_generic_handle_wrapper, tracing::error};
 use core::{hash::Hash, marker::PhantomData};
 use derive_more::derive::From;
 
@@ -215,23 +215,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 #[require(HasMaterial2d)]
 pub struct MeshMaterial2d<M: Material2d>(pub Handle<M>);
 
-impl<M: Material2d> Default for MeshMaterial2d<M> {
-    fn default() -> Self {
-        Self(Handle::default())
-    }
-}
-
-impl<M: Material2d> From<MeshMaterial2d<M>> for AssetId<M> {
-    fn from(material: MeshMaterial2d<M>) -> Self {
-        material.id()
-    }
-}
-
-impl<M: Material2d> From<&MeshMaterial2d<M>> for AssetId<M> {
-    fn from(material: &MeshMaterial2d<M>) -> Self {
-        material.id()
-    }
-}
+impl_generic_handle_wrapper!(MeshMaterial2d, Handle, M, Material2d);
 
 /// A component that marks an entity as having a [`MeshMaterial2d`].
 /// [`Mesh2d`] entities without this component are rendered with a [default material].

@@ -3,6 +3,7 @@ use bevy_asset::{AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_utils::impl_generic_handle_wrapper;
 use derive_more::derive::From;
 
 /// A [material](Material) for a [`Mesh3d`].
@@ -73,23 +74,7 @@ use derive_more::derive::From;
 #[require(HasMaterial3d)]
 pub struct MeshMaterial3d<M: Material>(pub Handle<M>);
 
-impl<M: Material> Default for MeshMaterial3d<M> {
-    fn default() -> Self {
-        Self(Handle::default())
-    }
-}
-
-impl<M: Material> From<MeshMaterial3d<M>> for AssetId<M> {
-    fn from(material: MeshMaterial3d<M>) -> Self {
-        material.id()
-    }
-}
-
-impl<M: Material> From<&MeshMaterial3d<M>> for AssetId<M> {
-    fn from(material: &MeshMaterial3d<M>) -> Self {
-        material.id()
-    }
-}
+impl_generic_handle_wrapper!(MeshMaterial3d, Handle, M, Material);
 
 /// A component that marks an entity as having a [`MeshMaterial3d`].
 /// [`Mesh3d`] entities without this component are rendered with a [default material].

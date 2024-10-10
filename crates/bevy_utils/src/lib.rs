@@ -407,6 +407,54 @@ pub fn error<E: Debug>(result: Result<(), E>) {
     }
 }
 
+/// Boilerplate for handle wrapper
+#[macro_export]
+macro_rules! impl_handle_wrapper {
+    ($handle_wrapper_type:ident, $asset_type:ty) => {
+        impl From<$handle_wrapper_type> for AssetId<$asset_type> {
+            fn from(handle: $handle_wrapper_type) -> Self {
+                handle.id()
+            }
+        }
+
+        impl From<&$handle_wrapper_type> for AssetId<$asset_type> {
+            fn from(handle: &$handle_wrapper_type) -> Self {
+                handle.id()
+            }
+        }
+    };
+}
+
+/// Boilerplate for generic handle wrapper
+#[macro_export]
+macro_rules! impl_generic_handle_wrapper {
+    ($handle_type:ident, $asset_type:ty, $asset_type_parameter:ident, $parameter_trait:ident) => {
+        impl<$asset_type_parameter: $parameter_trait> Default
+            for $handle_type<$asset_type_parameter>
+        {
+            fn default() -> Self {
+                Self(Handle::default())
+            }
+        }
+
+        impl<$asset_type_parameter: $parameter_trait> From<$handle_type<$asset_type_parameter>>
+            for AssetId<$asset_type_parameter>
+        {
+            fn from(handle: $handle_type<$asset_type_parameter>) -> Self {
+                handle.id()
+            }
+        }
+
+        impl<$asset_type_parameter: $parameter_trait> From<&$handle_type<$asset_type_parameter>>
+            for AssetId<$asset_type_parameter>
+        {
+            fn from(handle: &$handle_type<$asset_type_parameter>) -> Self {
+                handle.id()
+            }
+        }
+    };
+}
+
 /// Like [`tracing::trace`], but conditional on cargo feature `detailed_trace`.
 #[macro_export]
 macro_rules! detailed_trace {
