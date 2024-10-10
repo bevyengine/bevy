@@ -36,7 +36,7 @@ use either::Either;
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
 use loaders::*;
-use parking_lot::RwLock;
+use parking_lot::{RwLock, RwLockWriteGuard};
 use std::path::{Path, PathBuf};
 
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader). This can be used to kick off new asset loads and
@@ -383,7 +383,7 @@ impl AssetServer {
         );
 
         if should_load {
-            self.spawn_load_task(handle.clone().untyped(), path, &mut infos, guard);
+            self.spawn_load_task(handle.clone().untyped(), path, infos, guard);
         }
 
         handle
@@ -407,7 +407,7 @@ impl AssetServer {
         );
 
         if should_load {
-            self.spawn_load_task(handle.clone(), path, &mut infos, guard);
+            self.spawn_load_task(handle.clone(), path, infos, guard);
         }
 
         handle
@@ -417,7 +417,7 @@ impl AssetServer {
         &self,
         handle: UntypedHandle,
         path: AssetPath<'static>,
-        infos: &mut AssetInfos,
+        mut infos: RwLockWriteGuard<AssetInfos>,
         guard: G,
     ) {
         // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
