@@ -124,7 +124,9 @@ pub fn sprite_picking(
                 let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
 
                 blocked = is_cursor_in_sprite
-                    && picking_behavior.map(|p| p.should_block_lower).unwrap_or(true);
+                    && picking_behavior
+                        .map(|p| p.should_block_lower)
+                        .unwrap_or(true);
 
                 is_cursor_in_sprite.then(|| {
                     let hit_pos_world =
