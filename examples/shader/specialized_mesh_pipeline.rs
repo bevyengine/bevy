@@ -303,7 +303,7 @@ fn queue_custom_mesh_pipeline(
 
         // Find all the custom rendered entities that are visible from this
         // view.
-        for &visible_entity in view_visible_entities
+        for &(render_entity, visible_entity) in view_visible_entities
             .get::<WithCustomRenderedEntity>()
             .iter()
         {
@@ -348,7 +348,7 @@ fn queue_custom_mesh_pipeline(
                     material_bind_group_id: None,
                     lightmap_image: None,
                 },
-                visible_entity,
+                (render_entity, visible_entity),
                 // This example supports batching, but if your pipeline doesn't
                 // support it you can use `BinnedRenderPhaseType::UnbatchableMesh`
                 BinnedRenderPhaseType::BatchableMesh,
