@@ -209,7 +209,7 @@ pub trait AsVal {
     fn vmax(self) -> Val;
 }
 
-macro_rules! impl_asval {
+macro_rules! impl_as_val {
     ($($t:ty),+) => {
         $(
             impl AsVal for $t {
