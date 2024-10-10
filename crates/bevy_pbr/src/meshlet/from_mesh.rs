@@ -115,7 +115,7 @@ impl MeshletMesh {
                     &group_meshlets,
                     &mut group_error,
                     &mut bounding_spheres,
-                    &simplification_errors,
+                    &mut simplification_errors,
                 );
 
                 // Build new meshlets using the simplified group
@@ -334,14 +334,14 @@ fn compute_lod_group_data(
     group_meshlets: &[usize],
     group_error: &mut f32,
     bounding_spheres: &mut [MeshletBoundingSpheres],
-    simplification_errors: &[MeshletSimplificationError],
+    simplification_errors: &mut [MeshletSimplificationError],
 ) -> MeshletBoundingSphere {
     let mut group_bounding_sphere = MeshletBoundingSphere {
         center: Vec3::ZERO,
         radius: 0.0,
     };
 
-    // Compute the group lod sphere center as a weighted average of the children spheres
+    // Compute the lod group sphere center as a weighted average of the children spheres
     let mut weight = 0.0;
     for meshlet_id in group_meshlets {
         let meshlet_lod_bounding_sphere = bounding_spheres[*meshlet_id].lod_group_sphere;
@@ -367,12 +367,15 @@ fn compute_lod_group_data(
             .max(meshlet_lod_bounding_sphere.radius + d);
     }
 
+    // Force parent error to be >= child error (we're currently building the parent from its children)
     for meshlet_id in group_meshlets {
-        // Force parent error to be >= child error (we're currently building the parent from its children)
         *group_error = group_error.max(simplification_errors[*meshlet_id].group_error);
+    }
 
-        // Set the children's parent group lod sphere to the new sphere we made for this group
+    // Set the children's lod parent group data to the new lod group we just made
+    for meshlet_id in group_meshlets {
         bounding_spheres[*meshlet_id].lod_parent_group_sphere = group_bounding_sphere;
+        simplification_errors[*meshlet_id].parent_group_error = *group_error;
     }
 
     group_bounding_sphere
