@@ -79,8 +79,21 @@ fn update_clipping(
         // current node's clip and the inherited clip. This handles the case
         // of nested `Overflow::Hidden` nodes. If parent `clip` is not
         // defined, use the current node's clip.
+
         let mut node_rect =
             Rect::from_center_size(global_transform.translation().truncate(), node.size());
+
+        // Content isn't clipped at the edges of the node but at the edges of its content box.
+        // The content box is innermost part of the node excluding the padding and border.
+        //
+        // The `content_inset` should always fit inside the `node_rect`.
+        // Even if it were to overflow, this won't result in a degenerate clipping rect as `Rect::intersect` clamps the intersection to an empty rect.
+        let content_inset = node.content_inset();
+        node_rect.min.x += content_inset.left;
+        node_rect.min.y += content_inset.top;
+        node_rect.max.x -= content_inset.right;
+        node_rect.max.y -= content_inset.bottom;
+
         if style.overflow.x == OverflowAxis::Visible {
             node_rect.min.x = -f32::INFINITY;
             node_rect.max.x = f32::INFINITY;
