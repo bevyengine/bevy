@@ -195,17 +195,17 @@ impl Neg for Val {
 /// assert_eq!(ui_rect.bottom, Val::Percent(40.0));
 /// ```
 pub trait AsVal {
-    /// turn the value into Val::Px(self)
+    /// turn the value into `Val::Px(self)`
     fn px(self) -> Val;
-    /// turn the value into Val::Percent(self)
+    /// turn the value into `Val::Percent(self)`
     fn percent(self) -> Val;
-    /// turn the value into Val::Vw(self)
+    /// turn the value into `Val::Vw(self)`
     fn vw(self) -> Val;
-    /// turn the value into Val::Vh(self)
+    /// turn the value into `Val::Vh(self)`
     fn vh(self) -> Val;
-    /// turn the value into Val::VMin(self)
+    /// turn the value into `Val::VMin(self)`
     fn vmin(self) -> Val;
-    /// turn the value into Val::VMax(self)
+    /// turn the value into `Val::VMax(self)`
     fn vmax(self) -> Val;
 }
 
