@@ -3279,7 +3279,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.window_drag_move]
 name = "Window Drag Move"
-description = "Demonstrates moving window via API"
+description = "Demonstrates drag move and drag resize without window decoration"
 category = "Window"
 wasm = false
 
