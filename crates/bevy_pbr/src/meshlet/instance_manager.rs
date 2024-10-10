@@ -14,6 +14,7 @@ use bevy_render::{render_resource::StorageBuffer, view::RenderLayers, MainWorld}
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
 use core::ops::{DerefMut, Range};
+use bevy_render::sync_world::MainEntity;
 
 /// Manages data for each entity with a [`MeshletMesh`].
 #[derive(Resource)]
@@ -21,8 +22,8 @@ pub struct InstanceManager {
     /// Amount of clusters in the scene (sum of all meshlet counts across all instances)
     pub scene_cluster_count: u32,
 
-    /// Per-instance [`Entity`], [`RenderLayers`], and [`NotShadowCaster`]
-    pub instances: Vec<(Entity, RenderLayers, bool)>,
+    /// Per-instance [`MainEntity`], [`RenderLayers`], and [`NotShadowCaster`]
+    pub instances: Vec<(MainEntity, RenderLayers, bool)>,
     /// Per-instance [`MeshUniform`]
     pub instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
     /// Per-instance material ID
@@ -107,7 +108,7 @@ impl InstanceManager {
 
         // Append instance data
         self.instances.push((
-            instance,
+            instance.into(),
             render_layers.cloned().unwrap_or(RenderLayers::default()),
             not_shadow_caster,
         ));
