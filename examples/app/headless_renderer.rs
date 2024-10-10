@@ -24,6 +24,7 @@ use bevy::{
         texture::{BevyDefault, TextureFormatPixelInfo},
         Extract, Render, RenderApp, RenderSet,
     },
+    winit::WinitPlugin,
 };
 use crossbeam_channel::{Receiver, Sender};
 use std::{
@@ -86,7 +87,9 @@ fn main() {
                     primary_window: None,
                     exit_condition: bevy::window::ExitCondition::DontExit,
                     close_when_requested: false,
-                }),
+                })
+                // WinitPlugin will panic in environments without a display server.
+                .disable::<WinitPlugin>(),
         )
         .add_plugins(ImageCopyPlugin)
         // headless frame capture
