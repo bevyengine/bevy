@@ -1,12 +1,6 @@
-use bevy_asset::{io::Reader, AssetLoader, LoadContext};
-use bevy_ecs::prelude::{FromWorld, World};
+use crate::image::{Image, ImageFormat, ImageType, TextureError};
+use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
 use derive_more::derive::{Display, Error, From};
-
-use crate::{
-    render_asset::RenderAssetUsages,
-    renderer::RenderDevice,
-    texture::{Image, ImageFormat, ImageType, TextureError},
-};
 
 use super::{CompressedImageFormats, ImageSampler};
 use serde::{Deserialize, Serialize};
@@ -15,6 +9,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone)]
 pub struct ImageLoader {
     supported_compressed_formats: CompressedImageFormats,
+}
+
+impl ImageLoader {
+    /// Creates a new image loader that supports the provided formats.
+    pub fn new(supported_compressed_formats: CompressedImageFormats) -> Self {
+        Self {
+            supported_compressed_formats,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Default, Debug)]
@@ -103,19 +106,6 @@ impl AssetLoader for ImageLoader {
 
     fn extensions(&self) -> &[&str] {
         ImageFormat::SUPPORTED_FILE_EXTENSIONS
-    }
-}
-
-impl FromWorld for ImageLoader {
-    fn from_world(world: &mut World) -> Self {
-        let supported_compressed_formats = match world.get_resource::<RenderDevice>() {
-            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
-
-            None => CompressedImageFormats::NONE,
-        };
-        Self {
-            supported_compressed_formats,
-        }
     }
 }
 

@@ -2,7 +2,6 @@
 mod compressed_image_saver;
 mod fallback_image;
 mod gpu_image;
-mod image_loader;
 mod texture_attachment;
 mod texture_cache;
 
@@ -11,6 +10,7 @@ pub use crate::render_resource::DefaultImageSampler;
 pub use bevy_image::ExrTextureLoader;
 #[cfg(feature = "hdr")]
 pub use bevy_image::HdrTextureLoader;
+use bevy_image::ImageLoader;
 pub use bevy_image::{
     BevyDefault, CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageFormat,
     ImageSampler, ImageSamplerDescriptor, ImageType, IntoDynamicImageError, TextureError,
@@ -20,7 +20,6 @@ pub use bevy_image::{
 pub use compressed_image_saver::*;
 pub use fallback_image::*;
 pub use gpu_image::*;
-pub use image_loader::*;
 pub use texture_attachment::*;
 pub use texture_cache::*;
 
@@ -121,7 +120,13 @@ impl Plugin for ImagePlugin {
 
     fn finish(&self, app: &mut App) {
         if !ImageFormat::SUPPORTED.is_empty() {
-            app.init_asset_loader::<ImageLoader>();
+            let supported_compressed_formats = match app.world().get_resource::<RenderDevice>() {
+                Some(render_device) => {
+                    CompressedImageFormats::from_features(render_device.features())
+                }
+                None => CompressedImageFormats::NONE,
+            };
+            app.register_asset_loader(ImageLoader::new(supported_compressed_formats));
         }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {

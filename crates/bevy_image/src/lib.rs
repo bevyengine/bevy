@@ -12,6 +12,7 @@ mod dds;
 mod exr_texture_loader;
 #[cfg(feature = "hdr")]
 mod hdr_texture_loader;
+mod image_loader;
 #[cfg(feature = "ktx2")]
 mod ktx2;
 
@@ -23,6 +24,7 @@ pub use dds::*;
 pub use exr_texture_loader::*;
 #[cfg(feature = "hdr")]
 pub use hdr_texture_loader::*;
+pub use image_loader::*;
 
 pub(crate) mod image_texture_conversion;
 pub use image_texture_conversion::IntoDynamicImageError;
