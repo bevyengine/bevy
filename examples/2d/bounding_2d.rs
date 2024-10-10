@@ -203,20 +203,14 @@ const OFFSET_Y: f32 = 75.;
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(-OFFSET_X, OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(-OFFSET_X, OFFSET_Y, 0.),
         Shape::Circle(Circle::new(45.)),
         DesiredVolume::Aabb,
         Intersects::default(),
     ));
 
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(0., OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(0., OFFSET_Y, 0.),
         Shape::Rectangle(Rectangle::new(80., 80.)),
         Spin,
         DesiredVolume::Circle,
@@ -224,10 +218,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(OFFSET_X, OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(OFFSET_X, OFFSET_Y, 0.),
         Shape::Triangle(Triangle2d::new(
             Vec2::new(-40., -40.),
             Vec2::new(-20., 40.),
@@ -239,10 +230,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(-OFFSET_X, -OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(-OFFSET_X, -OFFSET_Y, 0.),
         Shape::Line(Segment2d::new(Dir2::from_xy(1., 0.3).unwrap(), 90.)),
         Spin,
         DesiredVolume::Circle,
@@ -250,10 +238,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(0., -OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(0., -OFFSET_Y, 0.),
         Shape::Capsule(Capsule2d::new(25., 50.)),
         Spin,
         DesiredVolume::Aabb,
@@ -261,10 +246,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(OFFSET_X, -OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(OFFSET_X, -OFFSET_Y, 0.),
         Shape::Polygon(RegularPolygon::new(50., 6)),
         Spin,
         DesiredVolume::Circle,

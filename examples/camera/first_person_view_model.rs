@@ -108,10 +108,8 @@ fn spawn_view_model(
         .spawn((
             Player,
             CameraSensitivity::default(),
-            SpatialBundle {
-                transform: Transform::from_xyz(0.0, 1.0, 0.0),
-                ..default()
-            },
+            Transform::from_xyz(0.0, 1.0, 0.0),
+            Visibility::default(),
         ))
         .with_children(|parent| {
             parent.spawn((

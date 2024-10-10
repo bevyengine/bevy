@@ -110,8 +110,6 @@ fn star(
         ColoredMesh2d,
         // The `Handle<Mesh>` needs to be wrapped in a `Mesh2d` for 2D rendering
         Mesh2d(meshes.add(star)),
-        // This bundle's components are needed for something to be rendered
-        SpatialBundle::INHERITED_IDENTITY,
     ));
 
     // Spawn the camera

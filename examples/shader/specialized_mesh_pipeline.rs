@@ -80,11 +80,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
             CustomRenderedEntity,
             // We need to add the mesh handle to the entity
             Mesh3d(meshes.add(mesh.clone())),
-            // This bundle's components are needed for something to be rendered
-            SpatialBundle {
-                transform: Transform::from_xyz(x, y, 0.0),
-                ..SpatialBundle::INHERITED_IDENTITY
-            },
+            Transform::from_xyz(x, y, 0.0),
         ));
     }
 

@@ -151,7 +151,8 @@ fn setup(
         .with_children(|p| {
             // This entity is just used for animation, but doesn't display anything
             p.spawn((
-                SpatialBundle::INHERITED_IDENTITY,
+                Transform::default(),
+                Visibility::default(),
                 orbit_controller,
                 AnimationTarget {
                     id: orbit_controller_animation_target_id,

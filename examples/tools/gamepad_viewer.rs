@@ -133,10 +133,10 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     // Buttons
 
     commands
-        .spawn(SpatialBundle {
-            transform: Transform::from_xyz(BUTTONS_X, BUTTONS_Y, 0.),
-            ..default()
-        })
+        .spawn((
+            Transform::from_xyz(BUTTONS_X, BUTTONS_Y, 0.),
+            Visibility::default(),
+        ))
         .with_children(|parent| {
             parent.spawn(GamepadButtonBundle::new(
                 GamepadButton::North,
@@ -189,10 +189,10 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     // D-Pad
 
     commands
-        .spawn(SpatialBundle {
-            transform: Transform::from_xyz(-BUTTONS_X, BUTTONS_Y, 0.),
-            ..default()
-        })
+        .spawn((
+            Transform::from_xyz(-BUTTONS_X, BUTTONS_Y, 0.),
+            Visibility::default(),
+        ))
         .with_children(|parent| {
             parent.spawn(GamepadButtonBundle::new(
                 GamepadButton::DPadUp,
@@ -276,10 +276,7 @@ fn setup_sticks(
 
     let mut spawn_stick = |x_pos, y_pos, x_axis, y_axis, button| {
         commands
-            .spawn(SpatialBundle {
-                transform: Transform::from_xyz(x_pos, y_pos, 0.),
-                ..default()
-            })
+            .spawn((Transform::from_xyz(x_pos, y_pos, 0.), Visibility::default()))
             .with_children(|parent| {
                 // full extent
                 parent.spawn(Sprite::from_color(
