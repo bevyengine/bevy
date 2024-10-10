@@ -100,37 +100,40 @@ unused_qualifications = "warn"
 
 [features]
 default = [
+  "android-game-activity",
+  "android-game-activity",
+  "android_shared_stdcxx",
   "animation",
   "bevy_asset",
-  "bevy_state",
   "bevy_audio",
   "bevy_color",
-  "bevy_gilrs",
-  "bevy_scene",
-  "bevy_winit",
   "bevy_core_pipeline",
+  "bevy_gilrs",
+  "bevy_gizmos",
+  "bevy_gltf",
   "bevy_pbr",
   "bevy_picking",
-  "bevy_sprite_picking_backend",
-  "bevy_ui_picking_backend",
-  "bevy_gltf",
+  "bevy_remote",
   "bevy_render",
+  "bevy_scene",
   "bevy_sprite",
+  "bevy_sprite_picking_backend",
+  "bevy_state",
   "bevy_text",
   "bevy_ui",
-  "bevy_remote",
+  "bevy_ui_picking_backend",
+  "bevy_winit",
+  "custom_cursor",
+  "default_font",
+  "hdr",
   "multi_threaded",
   "png",
-  "hdr",
-  "vorbis",
-  "x11",
-  "bevy_gizmos",
-  "android_shared_stdcxx",
-  "tonemapping_luts",
   "smaa_luts",
-  "default_font",
-  "webgl2",
   "sysinfo_plugin",
+  "tonemapping_luts",
+  "vorbis",
+  "webgl2",
+  "x11",
 ]
 
 # Provides an implementation for picking sprites
@@ -240,38 +243,56 @@ trace_tracy_memory = [
 # Tracing support
 trace = ["bevy_internal/trace"]
 
-# EXR image format support
-exr = ["bevy_internal/exr"]
-
-# HDR image format support
-hdr = ["bevy_internal/hdr"]
-
-# PNG image format support
-png = ["bevy_internal/png"]
-
-# TGA image format support
-tga = ["bevy_internal/tga"]
-
-# JPEG image format support
-jpeg = ["bevy_internal/jpeg"]
-
-# BMP image format support
-bmp = ["bevy_internal/bmp"]
-
-# WebP image format support
-webp = ["bevy_internal/webp"]
+# AVIF image format support
+avif = ["bevy_internal/avif"]
 
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
 
+# BMP image format support
+bmp = ["bevy_internal/bmp"]
+
 # DDS compressed texture support
 dds = ["bevy_internal/dds"]
+
+# EXR image format support
+exr = ["bevy_internal/exr"]
+
+# Farbfeld image format support
+ff = ["bevy_internal/ff"]
+
+# GIF image format support
+gif = ["bevy_internal/gif"]
+
+# HDR image format support
+hdr = ["bevy_internal/hdr"]
 
 # KTX2 compressed texture support
 ktx2 = ["bevy_internal/ktx2"]
 
+# ICO image format support
+ico = ["bevy_internal/ico"]
+
+# JPEG image format support
+jpeg = ["bevy_internal/jpeg"]
+
+# PNG image format support
+png = ["bevy_internal/png"]
+
 # PNM image format support, includes pam, pbm, pgm and ppm
 pnm = ["bevy_internal/pnm"]
+
+# QOI image format support
+qoi = ["bevy_internal/qoi"]
+
+# TGA image format support
+tga = ["bevy_internal/tga"]
+
+# TIFF image format support
+tiff = ["bevy_internal/tiff"]
+
+# WebP image format support
+webp = ["bevy_internal/webp"]
 
 # For KTX2 supercompression
 zlib = ["bevy_internal/zlib"]
@@ -327,6 +348,12 @@ wayland = ["bevy_internal/wayland"]
 # X11 display server support
 x11 = ["bevy_internal/x11"]
 
+# Android NativeActivity support. Legacy, should be avoided for most new Android games.
+android-native-activity = ["bevy_internal/android-native-activity"]
+
+# Android GameActivity support. Default, choose between this and `android-native-activity`.
+android-game-activity = ["bevy_internal/android-game-activity"]
+
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
@@ -339,7 +366,7 @@ android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
 # Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in
 detailed_trace = ["bevy_internal/detailed_trace"]
 
-# Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.
+# Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.
 tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "zstd"]
 
 # Include SMAA Look Up Tables KTX2 Files
@@ -409,6 +436,9 @@ track_change_detection = ["bevy_internal/track_change_detection"]
 
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
+
+# Enable winit custom cursor support
+custom_cursor = ["bevy_internal/custom_cursor"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
@@ -564,6 +594,17 @@ doc-scrape-examples = true
 [package.metadata.example.custom_gltf_vertex_attribute]
 name = "Custom glTF vertex attribute 2D"
 description = "Renders a glTF mesh in 2D with a custom vertex attribute"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "cpu_draw"
+path = "examples/2d/cpu_draw.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.cpu_draw]
+name = "CPU Drawing"
+description = "Manually read/write the pixels of a texture"
 category = "2D Rendering"
 wasm = true
 
@@ -933,6 +974,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "order_independent_transparency"
+path = "examples/3d/order_independent_transparency.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.order_independent_transparency]
+name = "Order Independent Transparency"
+description = "Demonstrates how to use OIT"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "tonemapping"
 path = "examples/3d/tonemapping.rs"
 doc-scrape-examples = true
@@ -1157,7 +1209,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/854eb98353ad94aea1104f355fc24dbe4fda679d/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/8443bbdee0bf517e6c297dede7f6a46ab712ee4c/bunny.meshlet_mesh",
   ],
 ]
 
@@ -1181,6 +1233,17 @@ doc-scrape-examples = true
 hidden = true
 
 # Animation
+[[example]]
+name = "animation_events"
+path = "examples/animation/animation_events.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animation_events]
+name = "Animation Events"
+description = "Demonstrate how to use animation events"
+category = "Animation"
+wasm = true
+
 [[example]]
 name = "animated_fox"
 path = "examples/animation/animated_fox.rs"
@@ -1237,13 +1300,24 @@ category = "Animation"
 wasm = true
 
 [[example]]
-name = "cubic_curve"
-path = "examples/animation/cubic_curve.rs"
+name = "eased_motion"
+path = "examples/animation/eased_motion.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.cubic_curve]
-name = "Cubic Curve"
-description = "Bezier curve example showing a cube following a cubic curve"
+[package.metadata.example.eased_motion]
+name = "Eased Motion"
+description = "Demonstrates the application of easing curves to animate an object"
+category = "Animation"
+wasm = true
+
+[[example]]
+name = "easing_functions"
+path = "examples/animation/easing_functions.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.easing_functions]
+name = "Easing Functions"
+description = "Showcases the built-in easing functions"
 category = "Animation"
 wasm = true
 
@@ -2823,6 +2897,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "box_shadow"
+path = "examples/ui/box_shadow.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.box_shadow]
+name = "Box Shadow"
+description = "Demonstrates how to create a node with a shadow"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "button"
 path = "examples/ui/button.rs"
 doc-scrape-examples = true
@@ -2962,6 +3047,17 @@ doc-scrape-examples = true
 [package.metadata.example.text_wrap_debug]
 name = "Text Wrap Debug"
 description = "Demonstrates text wrapping"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ghost_nodes"
+path = "examples/ui/ghost_nodes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ghost_nodes]
+name = "Ghost Nodes"
+description = "Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy"
 category = "UI (User Interface)"
 wasm = true
 
@@ -3402,6 +3498,18 @@ description = "Shows how to orbit a static scene using pitch, yaw, and roll."
 category = "Camera"
 wasm = true
 
+[[example]]
+name = "2d_screen_shake"
+path = "examples/camera/2d_screen_shake.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.2d_screen_shake]
+name = "Screen Shake"
+description = "A simple 2D screen shake effect"
+category = "Camera"
+wasm = true
+
+
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
@@ -3429,6 +3537,17 @@ name = "Screen Space Reflections"
 description = "Demonstrates screen space reflections with water ripples"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "camera_sub_view"
+path = "examples/3d/camera_sub_view.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.camera_sub_view]
+name = "Camera sub view"
+description = "Demonstrates using different sub view effects on a camera"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "color_grading"

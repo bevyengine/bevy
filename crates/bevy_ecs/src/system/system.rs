@@ -1,6 +1,6 @@
 use bevy_utils::tracing::warn;
 use core::fmt::Debug;
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 use crate::{
     archetype::ArchetypeComponentId,
@@ -117,7 +117,7 @@ pub trait System: Send + Sync + 'static {
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool;
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool;
 
     /// Safe version of [`System::validate_param_unsafe`].
     /// that runs on exclusive, single-threaded `world` pointer.
@@ -271,7 +271,7 @@ where
 /// let entity = world.run_system_once(|mut commands: Commands| {
 ///     commands.spawn_empty().id()
 /// }).unwrap();
-/// # assert!(world.get_entity(entity).is_some());
+/// # assert!(world.get_entity(entity).is_ok());
 /// ```
 ///
 /// ## Immediate Queries
@@ -357,12 +357,13 @@ impl RunSystemOnce for &mut World {
 }
 
 /// Running system failed.
-#[derive(Error)]
+#[derive(Error, Display)]
 pub enum RunSystemError {
     /// System could not be run due to parameters that failed validation.
     ///
     /// This can occur because the data required by the system was not present in the world.
-    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
+    #[display("The data required by the system {_0:?} was not found in the world and the system did not run due to failed parameter validation.")]
+    #[error(ignore)]
     InvalidParams(Cow<'static, str>),
 }
 

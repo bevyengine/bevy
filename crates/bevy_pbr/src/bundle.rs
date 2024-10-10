@@ -1,8 +1,9 @@
+#![expect(deprecated)]
+
 use crate::{
-    CascadeShadowConfig, Cascades, DirectionalLight, Material, PointLight, SpotLight,
-    StandardMaterial,
+    CascadeShadowConfig, Cascades, DirectionalLight, Material, MeshMaterial3d, PointLight,
+    SpotLight, StandardMaterial,
 };
-use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     bundle::Bundle,
@@ -12,21 +13,29 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    mesh::Mesh,
+    mesh::Mesh3d,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
+    sync_world::SyncToRenderWorld,
     view::{InheritedVisibility, ViewVisibility, Visibility},
-    world_sync::SyncToRenderWorld,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
-/// A component bundle for PBR entities with a [`Mesh`] and a [`StandardMaterial`].
+/// A component bundle for PBR entities with a [`Mesh3d`] and a [`MeshMaterial3d<StandardMaterial>`].
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Mesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."
+)]
 pub type PbrBundle = MaterialMeshBundle<StandardMaterial>;
 
-/// A component bundle for entities with a [`Mesh`] and a [`Material`].
+/// A component bundle for entities with a [`Mesh3d`] and a [`MeshMaterial3d`].
 #[derive(Bundle, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Mesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."
+)]
 pub struct MaterialMeshBundle<M: Material> {
-    pub mesh: Handle<Mesh>,
-    pub material: Handle<M>,
+    pub mesh: Mesh3d,
+    pub material: MeshMaterial3d<M>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
@@ -97,6 +106,10 @@ pub struct CascadesVisibleEntities {
 
 /// A component bundle for [`PointLight`] entities.
 #[derive(Debug, Bundle, Default, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `PointLight` component instead. Inserting it will now also insert the other components required by it automatically."
+)]
 pub struct PointLightBundle {
     pub point_light: PointLight,
     pub cubemap_visible_entities: CubemapVisibleEntities,
@@ -115,6 +128,10 @@ pub struct PointLightBundle {
 
 /// A component bundle for spot light entities
 #[derive(Debug, Bundle, Default, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `SpotLight` component instead. Inserting it will now also insert the other components required by it automatically."
+)]
 pub struct SpotLightBundle {
     pub spot_light: SpotLight,
     pub visible_entities: VisibleMeshEntities,
@@ -133,6 +150,10 @@ pub struct SpotLightBundle {
 
 /// A component bundle for [`DirectionalLight`] entities.
 #[derive(Debug, Bundle, Default, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `DirectionalLight` component instead. Inserting it will now also insert the other components required by it automatically."
+)]
 pub struct DirectionalLightBundle {
     pub directional_light: DirectionalLight,
     pub frusta: CascadesFrusta,

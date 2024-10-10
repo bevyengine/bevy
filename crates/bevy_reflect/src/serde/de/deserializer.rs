@@ -1,5 +1,6 @@
 #[cfg(feature = "debug_stack")]
 use crate::serde::de::error_utils::TYPE_INFO_STACK;
+use crate::serde::{ReflectDeserializeWithRegistry, SerializationData};
 use crate::{
     serde::{
         de::{
@@ -9,7 +10,7 @@ use crate::{
         },
         TypeRegistrationDeserializer,
     },
-    PartialReflect, ReflectDeserialize, TypeInfo, TypeRegistration, TypeRegistry,
+    PartialReflect, ReflectDeserialize, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
 use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
@@ -231,9 +232,26 @@ pub struct TypedReflectDeserializer<'a> {
 }
 
 impl<'a> TypedReflectDeserializer<'a> {
+    /// Creates a new [`TypedReflectDeserializer`] for the given type registration.
     pub fn new(registration: &'a TypeRegistration, registry: &'a TypeRegistry) -> Self {
         #[cfg(feature = "debug_stack")]
         TYPE_INFO_STACK.set(crate::type_info_stack::TypeInfoStack::new());
+
+        Self {
+            registration,
+            registry,
+        }
+    }
+
+    /// Creates a new [`TypedReflectDeserializer`] for the given type `T`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` is not registered in the given [`TypeRegistry`].
+    pub fn of<T: TypePath>(registry: &'a TypeRegistry) -> Self {
+        let registration = registry
+            .get(core::any::TypeId::of::<T>())
+            .unwrap_or_else(|| panic!("no registration found for type `{}`", T::type_path()));
 
         Self {
             registration,
@@ -269,6 +287,13 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 return Ok(value.into_partial_reflect());
             }
 
+            if let Some(deserialize_reflect) =
+                self.registration.data::<ReflectDeserializeWithRegistry>()
+            {
+                let value = deserialize_reflect.deserialize(deserializer, self.registry)?;
+                return Ok(value);
+            }
+
             match self.registration.type_info() {
                 TypeInfo::Struct(struct_info) => {
                     let mut dynamic_struct = deserializer.deserialize_struct(
@@ -280,15 +305,29 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     Ok(Box::new(dynamic_struct))
                 }
                 TypeInfo::TupleStruct(tuple_struct_info) => {
-                    let mut dynamic_tuple_struct = deserializer.deserialize_tuple_struct(
-                        tuple_struct_info.type_path_table().ident().unwrap(),
-                        tuple_struct_info.field_len(),
-                        TupleStructVisitor::new(
-                            tuple_struct_info,
-                            self.registration,
-                            self.registry,
-                        ),
-                    )?;
+                    let mut dynamic_tuple_struct = if tuple_struct_info.field_len() == 1
+                        && self.registration.data::<SerializationData>().is_none()
+                    {
+                        deserializer.deserialize_newtype_struct(
+                            tuple_struct_info.type_path_table().ident().unwrap(),
+                            TupleStructVisitor::new(
+                                tuple_struct_info,
+                                self.registration,
+                                self.registry,
+                            ),
+                        )?
+                    } else {
+                        deserializer.deserialize_tuple_struct(
+                            tuple_struct_info.type_path_table().ident().unwrap(),
+                            tuple_struct_info.field_len(),
+                            TupleStructVisitor::new(
+                                tuple_struct_info,
+                                self.registration,
+                                self.registry,
+                            ),
+                        )?
+                    };
+
                     dynamic_tuple_struct.set_represented_type(Some(self.registration.type_info()));
                     Ok(Box::new(dynamic_tuple_struct))
                 }

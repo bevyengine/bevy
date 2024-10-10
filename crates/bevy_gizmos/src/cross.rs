@@ -31,7 +31,13 @@ where
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn cross(&mut self, isometry: Isometry3d, half_size: f32, color: impl Into<Color>) {
+    pub fn cross(
+        &mut self,
+        isometry: impl Into<Isometry3d>,
+        half_size: f32,
+        color: impl Into<Color>,
+    ) {
+        let isometry = isometry.into();
         let color: Color = color.into();
         [Vec3::X, Vec3::Y, Vec3::Z]
             .map(|axis| axis * half_size)
@@ -60,7 +66,13 @@ where
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn cross_2d(&mut self, isometry: Isometry2d, half_size: f32, color: impl Into<Color>) {
+    pub fn cross_2d(
+        &mut self,
+        isometry: impl Into<Isometry2d>,
+        half_size: f32,
+        color: impl Into<Color>,
+    ) {
+        let isometry = isometry.into();
         let color: Color = color.into();
         [Vec2::X, Vec2::Y]
             .map(|axis| axis * half_size)

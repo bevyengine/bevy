@@ -5,7 +5,6 @@
 use bevy::{
     math::bounding::{Aabb2d, BoundingCircle, BoundingVolume, IntersectsVolume},
     prelude::*,
-    sprite::MaterialMesh2dBundle,
 };
 
 mod stepping;
@@ -107,7 +106,8 @@ struct CollisionSound(Handle<AudioSource>);
 struct WallBundle {
     // You can nest bundles inside of other bundles like this
     // Allowing you to compose their functionality
-    sprite_bundle: SpriteBundle,
+    sprite: Sprite,
+    transform: Transform,
     collider: Collider,
 }
 
@@ -154,21 +154,15 @@ impl WallBundle {
     // making our code easier to read and less prone to bugs when we change the logic
     fn new(location: WallLocation) -> WallBundle {
         WallBundle {
-            sprite_bundle: SpriteBundle {
-                transform: Transform {
-                    // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
-                    // This is used to determine the order of our sprites
-                    translation: location.position().extend(0.0),
-                    // The z-scale of 2D objects must always be 1.0,
-                    // or their ordering will be affected in surprising ways.
-                    // See https://github.com/bevyengine/bevy/issues/4149
-                    scale: location.size().extend(1.0),
-                    ..default()
-                },
-                sprite: Sprite {
-                    color: WALL_COLOR,
-                    ..default()
-                },
+            sprite: Sprite::from_color(WALL_COLOR, Vec2::ONE),
+            transform: Transform {
+                // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
+                // This is used to determine the order of our sprites
+                translation: location.position().extend(0.0),
+                // The z-scale of 2D objects must always be 1.0,
+                // or their ordering will be affected in surprising ways.
+                // See https://github.com/bevyengine/bevy/issues/4149
+                scale: location.size().extend(1.0),
                 ..default()
             },
             collider: Collider,
@@ -191,7 +185,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // Camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Sound
     let ball_collision_sound = asset_server.load("sounds/breakout_collision.ogg");
@@ -201,16 +195,10 @@ fn setup(
     let paddle_y = BOTTOM_WALL + GAP_BETWEEN_PADDLE_AND_FLOOR;
 
     commands.spawn((
-        SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(0.0, paddle_y, 0.0),
-                scale: PADDLE_SIZE.extend(1.0),
-                ..default()
-            },
-            sprite: Sprite {
-                color: PADDLE_COLOR,
-                ..default()
-            },
+        Sprite::from_color(PADDLE_COLOR, Vec2::ONE),
+        Transform {
+            translation: Vec3::new(0.0, paddle_y, 0.0),
+            scale: PADDLE_SIZE.extend(1.0),
             ..default()
         },
         Paddle,
@@ -219,42 +207,39 @@ fn setup(
 
     // Ball
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(Circle::default()).into(),
-            material: materials.add(BALL_COLOR),
-            transform: Transform::from_translation(BALL_STARTING_POSITION)
-                .with_scale(Vec2::splat(BALL_DIAMETER).extend(1.)),
-            ..default()
-        },
+        Mesh2d(meshes.add(Circle::default())),
+        MeshMaterial2d(materials.add(BALL_COLOR)),
+        Transform::from_translation(BALL_STARTING_POSITION)
+            .with_scale(Vec2::splat(BALL_DIAMETER).extend(1.)),
         Ball,
         Velocity(INITIAL_BALL_DIRECTION.normalize() * BALL_SPEED),
     ));
 
     // Scoreboard
-    commands.spawn((
-        ScoreboardUi,
-        TextBundle::from_sections([
-            TextSection::new(
-                "Score: ",
-                TextStyle {
-                    font_size: SCOREBOARD_FONT_SIZE,
-                    color: TEXT_COLOR,
-                    ..default()
-                },
-            ),
-            TextSection::from_style(TextStyle {
+    commands
+        .spawn((
+            Text::new("Score: "),
+            TextStyle {
+                font_size: SCOREBOARD_FONT_SIZE,
+                color: TEXT_COLOR,
+                ..default()
+            },
+            ScoreboardUi,
+            Style {
+                position_type: PositionType::Absolute,
+                top: SCOREBOARD_TEXT_PADDING,
+                left: SCOREBOARD_TEXT_PADDING,
+                ..default()
+            },
+        ))
+        .with_child((
+            TextSpan::default(),
+            TextStyle {
                 font_size: SCOREBOARD_FONT_SIZE,
                 color: SCORE_COLOR,
                 ..default()
-            }),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: SCOREBOARD_TEXT_PADDING,
-            left: SCOREBOARD_TEXT_PADDING,
-            ..default()
-        }),
-    ));
+            },
+        ));
 
     // Walls
     commands.spawn(WallBundle::new(WallLocation::Left));
@@ -298,16 +283,13 @@ fn setup(
 
             // brick
             commands.spawn((
-                SpriteBundle {
-                    sprite: Sprite {
-                        color: BRICK_COLOR,
-                        ..default()
-                    },
-                    transform: Transform {
-                        translation: brick_position.extend(0.0),
-                        scale: Vec3::new(BRICK_SIZE.x, BRICK_SIZE.y, 1.0),
-                        ..default()
-                    },
+                Sprite {
+                    color: BRICK_COLOR,
+                    ..default()
+                },
+                Transform {
+                    translation: brick_position.extend(0.0),
+                    scale: Vec3::new(BRICK_SIZE.x, BRICK_SIZE.y, 1.0),
                     ..default()
                 },
                 Brick,
@@ -352,9 +334,12 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>
     }
 }
 
-fn update_scoreboard(score: Res<Score>, mut query: Query<&mut Text, With<ScoreboardUi>>) {
-    let mut text = query.single_mut();
-    text.sections[1].value = score.to_string();
+fn update_scoreboard(
+    score: Res<Score>,
+    query: Query<Entity, (With<ScoreboardUi>, With<Text>)>,
+    mut writer: UiTextWriter,
+) {
+    *writer.text(query.single(), 1) = score.to_string();
 }
 
 fn check_for_collisions(
@@ -420,11 +405,7 @@ fn play_collision_sound(
     if !collision_events.is_empty() {
         // This prevents events staying active on the next frame.
         collision_events.clear();
-        commands.spawn(AudioBundle {
-            source: sound.clone(),
-            // auto-despawn the entity when playback finishes
-            settings: PlaybackSettings::DESPAWN,
-        });
+        commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
     }
 }
 

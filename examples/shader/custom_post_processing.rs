@@ -314,13 +314,10 @@ fn setup(
 ) {
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 5.0))
-                .looking_at(Vec3::default(), Vec3::Y),
-            camera: Camera {
-                clear_color: Color::WHITE.into(),
-                ..default()
-            },
+        Camera3d::default(),
+        Transform::from_translation(Vec3::new(0.0, 0.0, 5.0)).looking_at(Vec3::default(), Vec3::Y),
+        Camera {
+            clear_color: Color::WHITE.into(),
             ..default()
         },
         // Add the setting to the camera.
@@ -333,20 +330,14 @@ fn setup(
 
     // cube
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-            transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
+        Transform::from_xyz(0.0, 0.5, 0.0),
         Rotates,
     ));
     // light
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            illuminance: 1_000.,
-            ..default()
-        },
+    commands.spawn(DirectionalLight {
+        illuminance: 1_000.,
         ..default()
     });
 }

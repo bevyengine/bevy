@@ -2,16 +2,16 @@
     meshlet_bindings::{
         meshlet_cluster_meshlet_ids,
         meshlets,
-        meshlet_vertex_ids,
-        meshlet_vertex_data,
         meshlet_cluster_instance_ids,
         meshlet_instance_uniforms,
         meshlet_raster_clusters,
         meshlet_software_raster_cluster_count,
         meshlet_visibility_buffer,
         view,
-        get_meshlet_index,
-        unpack_meshlet_vertex,
+        get_meshlet_vertex_count,
+        get_meshlet_triangle_count,
+        get_meshlet_vertex_id,
+        get_meshlet_vertex_position,
     },
     mesh_functions::mesh_position_local_to_world,
     view_transformations::ndc_to_uv,
@@ -42,7 +42,7 @@ fn rasterize_cluster(
 
     let cluster_id = meshlet_raster_clusters[workgroup_id_1d];
     let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
-    let meshlet = meshlets[meshlet_id];
+    var meshlet = meshlets[meshlet_id];
 
     let instance_id = meshlet_cluster_instance_ids[cluster_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
@@ -51,12 +51,11 @@ fn rasterize_cluster(
     // Load and project 1 vertex per thread, and then again if there are more than 128 vertices in the meshlet
     for (var i = 0u; i <= 128u; i += 128u) {
         let vertex_id = local_invocation_index + i;
-        if vertex_id < meshlet.vertex_count {
-            let meshlet_vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + vertex_id];
-            let vertex = unpack_meshlet_vertex(meshlet_vertex_data[meshlet_vertex_id]);
+        if vertex_id < get_meshlet_vertex_count(&meshlet) {
+            let vertex_position = get_meshlet_vertex_position(&meshlet, vertex_id);
 
             // Project vertex to viewport space
-            let world_position = mesh_position_local_to_world(world_from_local, vec4(vertex.position, 1.0));
+            let world_position = mesh_position_local_to_world(world_from_local, vec4(vertex_position, 1.0));
             let clip_position = view.clip_from_world * vec4(world_position.xyz, 1.0);
             var ndc_position = clip_position.xyz / clip_position.w;
 #ifdef DEPTH_CLAMP_ORTHO
@@ -72,9 +71,9 @@ fn rasterize_cluster(
 
     // Load 1 triangle's worth of vertex data per thread
     let triangle_id = local_invocation_index;
-    if triangle_id >= meshlet.triangle_count { return; }
+    if triangle_id >= get_meshlet_triangle_count(&meshlet) { return; }
     let index_ids = meshlet.start_index_id + (triangle_id * 3u) + vec3(0u, 1u, 2u);
-    let vertex_ids = vec3(get_meshlet_index(index_ids[0]), get_meshlet_index(index_ids[1]), get_meshlet_index(index_ids[2]));
+    let vertex_ids = vec3(get_meshlet_vertex_id(index_ids[0]), get_meshlet_vertex_id(index_ids[1]), get_meshlet_vertex_id(index_ids[2]));
     let vertex_0 = viewport_vertices[vertex_ids[2]];
     let vertex_1 = viewport_vertices[vertex_ids[1]];
     let vertex_2 = viewport_vertices[vertex_ids[0]];

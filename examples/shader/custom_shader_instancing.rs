@@ -47,7 +47,7 @@ fn main() {
 
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn((
-        meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
+        Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
         SpatialBundle::INHERITED_IDENTITY,
         InstanceMaterialData(
             (1..=10)
@@ -70,10 +70,10 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 #[derive(Component, Deref)]

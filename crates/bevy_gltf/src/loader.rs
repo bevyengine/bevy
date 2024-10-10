@@ -9,7 +9,7 @@ use bevy_asset::{
 };
 use bevy_color::{Color, LinearRgba};
 use bevy_core::Name;
-use bevy_core_pipeline::prelude::Camera3dBundle;
+use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     world::World,
@@ -17,8 +17,8 @@ use bevy_ecs::{
 use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
-    DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle, SpotLight,
-    SpotLightBundle, StandardMaterial, UvChannel, MAX_JOINTS,
+    DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial, UvChannel,
+    MAX_JOINTS,
 };
 use bevy_render::{
     alpha::AlphaMode,
@@ -26,7 +26,7 @@ use bevy_render::{
     mesh::{
         morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        Indices, Mesh, MeshVertexAttribute, VertexAttributeValues,
+        Indices, Mesh, Mesh3d, MeshVertexAttribute, VertexAttributeValues,
     },
     prelude::SpatialBundle,
     primitives::Aabb,
@@ -45,6 +45,7 @@ use bevy_utils::{
     tracing::{error, info_span, warn},
     HashMap, HashSet,
 };
+use derive_more::derive::{Display, Error, From};
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -59,7 +60,6 @@ use std::{
     io::Error,
     path::{Path, PathBuf},
 };
-use thiserror::Error;
 #[cfg(feature = "bevy_animation")]
 use {
     bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId},
@@ -67,53 +67,59 @@ use {
 };
 
 /// An error that occurs when loading a glTF file.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum GltfError {
     /// Unsupported primitive mode.
-    #[error("unsupported primitive mode")]
+    #[display("unsupported primitive mode")]
     UnsupportedPrimitive {
         /// The primitive mode.
         mode: Mode,
     },
     /// Invalid glTF file.
-    #[error("invalid glTF file: {0}")]
-    Gltf(#[from] gltf::Error),
+    #[display("invalid glTF file: {_0}")]
+    Gltf(gltf::Error),
     /// Binary blob is missing.
-    #[error("binary blob is missing")]
+    #[display("binary blob is missing")]
     MissingBlob,
     /// Decoding the base64 mesh data failed.
-    #[error("failed to decode base64 mesh data")]
-    Base64Decode(#[from] base64::DecodeError),
+    #[display("failed to decode base64 mesh data")]
+    Base64Decode(base64::DecodeError),
     /// Unsupported buffer format.
-    #[error("unsupported buffer format")]
+    #[display("unsupported buffer format")]
     BufferFormatUnsupported,
     /// Invalid image mime type.
-    #[error("invalid image mime type: {0}")]
+    #[display("invalid image mime type: {_0}")]
+    #[error(ignore)]
+    #[from(ignore)]
     InvalidImageMimeType(String),
     /// Error when loading a texture. Might be due to a disabled image file format feature.
-    #[error("You may need to add the feature for the file format: {0}")]
-    ImageError(#[from] TextureError),
+    #[display("You may need to add the feature for the file format: {_0}")]
+    ImageError(TextureError),
     /// Failed to read bytes from an asset path.
-    #[error("failed to read bytes from an asset path: {0}")]
-    ReadAssetBytesError(#[from] ReadAssetBytesError),
+    #[display("failed to read bytes from an asset path: {_0}")]
+    ReadAssetBytesError(ReadAssetBytesError),
     /// Failed to load asset from an asset path.
-    #[error("failed to load asset from an asset path: {0}")]
-    AssetLoadError(#[from] AssetLoadError),
+    #[display("failed to load asset from an asset path: {_0}")]
+    AssetLoadError(AssetLoadError),
     /// Missing sampler for an animation.
-    #[error("Missing sampler for animation {0}")]
+    #[display("Missing sampler for animation {_0}")]
+    #[error(ignore)]
+    #[from(ignore)]
     MissingAnimationSampler(usize),
     /// Failed to generate tangents.
-    #[error("failed to generate tangents: {0}")]
-    GenerateTangentsError(#[from] bevy_render::mesh::GenerateTangentsError),
+    #[display("failed to generate tangents: {_0}")]
+    GenerateTangentsError(bevy_render::mesh::GenerateTangentsError),
     /// Failed to generate morph targets.
-    #[error("failed to generate morph targets: {0}")]
-    MorphTarget(#[from] bevy_render::mesh::morph::MorphBuildError),
+    #[display("failed to generate morph targets: {_0}")]
+    MorphTarget(bevy_render::mesh::morph::MorphBuildError),
     /// Circular children in Nodes
-    #[error("GLTF model must be a tree, found cycle instead at node indices: {0:?}")]
+    #[display("GLTF model must be a tree, found cycle instead at node indices: {_0:?}")]
+    #[error(ignore)]
+    #[from(ignore)]
     CircularChildren(String),
     /// Failed to load a file.
-    #[error("failed to load file: {0}")]
-    Io(#[from] Error),
+    #[display("failed to load file: {_0}")]
+    Io(Error),
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
@@ -179,11 +185,11 @@ impl AssetLoader for GltfLoader {
     type Asset = Gltf;
     type Settings = GltfLoaderSettings;
     type Error = GltfError;
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn Reader,
-        settings: &'a GltfLoaderSettings,
-        load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        settings: &GltfLoaderSettings,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Gltf, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -268,7 +274,9 @@ async fn load_gltf<'a, 'b, 'c>(
 
     #[cfg(feature = "bevy_animation")]
     let (animations, named_animations, animation_roots) = {
-        use bevy_animation::Interpolation;
+        use bevy_animation::{animation_curves::*, gltf_curves::*, VariableCurve};
+        use bevy_math::curve::{constant_curve, Interval, UnevenSampleAutoCurve};
+        use bevy_math::{Quat, Vec4};
         use gltf::animation::util::ReadOutputs;
         let mut animations = vec![];
         let mut named_animations = HashMap::default();
@@ -276,12 +284,8 @@ async fn load_gltf<'a, 'b, 'c>(
         for animation in gltf.animations() {
             let mut animation_clip = AnimationClip::default();
             for channel in animation.channels() {
-                let interpolation = match channel.sampler().interpolation() {
-                    gltf::animation::Interpolation::Linear => Interpolation::Linear,
-                    gltf::animation::Interpolation::Step => Interpolation::Step,
-                    gltf::animation::Interpolation::CubicSpline => Interpolation::CubicSpline,
-                };
                 let node = channel.target().node();
+                let interpolation = channel.sampler().interpolation();
                 let reader = channel.reader(|buffer| Some(&buffer_data[buffer.index()]));
                 let keyframe_timestamps: Vec<f32> = if let Some(inputs) = reader.read_inputs() {
                     match inputs {
@@ -296,26 +300,150 @@ async fn load_gltf<'a, 'b, 'c>(
                     return Err(GltfError::MissingAnimationSampler(animation.index()));
                 };
 
-                let keyframes = if let Some(outputs) = reader.read_outputs() {
+                if keyframe_timestamps.is_empty() {
+                    warn!("Tried to load animation with no keyframe timestamps");
+                    continue;
+                }
+
+                let maybe_curve: Option<VariableCurve> = if let Some(outputs) =
+                    reader.read_outputs()
+                {
                     match outputs {
                         ReadOutputs::Translations(tr) => {
-                            Box::new(TranslationKeyframes(tr.map(Vec3::from).collect()))
-                                as Box<dyn Keyframes>
+                            let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
+                            if keyframe_timestamps.len() == 1 {
+                                #[allow(clippy::unnecessary_map_on_constructor)]
+                                Some(constant_curve(Interval::EVERYWHERE, translations[0]))
+                                    .map(TranslationCurve)
+                                    .map(VariableCurve::new)
+                            } else {
+                                match interpolation {
+                                    gltf::animation::Interpolation::Linear => {
+                                        UnevenSampleAutoCurve::new(
+                                            keyframe_timestamps.into_iter().zip(translations),
+                                        )
+                                        .ok()
+                                        .map(TranslationCurve)
+                                        .map(VariableCurve::new)
+                                    }
+                                    gltf::animation::Interpolation::Step => {
+                                        SteppedKeyframeCurve::new(
+                                            keyframe_timestamps.into_iter().zip(translations),
+                                        )
+                                        .ok()
+                                        .map(TranslationCurve)
+                                        .map(VariableCurve::new)
+                                    }
+                                    gltf::animation::Interpolation::CubicSpline => {
+                                        CubicKeyframeCurve::new(keyframe_timestamps, translations)
+                                            .ok()
+                                            .map(TranslationCurve)
+                                            .map(VariableCurve::new)
+                                    }
+                                }
+                            }
                         }
-                        ReadOutputs::Rotations(rots) => Box::new(RotationKeyframes(
-                            rots.into_f32().map(bevy_math::Quat::from_array).collect(),
-                        ))
-                            as Box<dyn Keyframes>,
+                        ReadOutputs::Rotations(rots) => {
+                            let rotations: Vec<Quat> =
+                                rots.into_f32().map(Quat::from_array).collect();
+                            if keyframe_timestamps.len() == 1 {
+                                #[allow(clippy::unnecessary_map_on_constructor)]
+                                Some(constant_curve(Interval::EVERYWHERE, rotations[0]))
+                                    .map(RotationCurve)
+                                    .map(VariableCurve::new)
+                            } else {
+                                match interpolation {
+                                    gltf::animation::Interpolation::Linear => {
+                                        UnevenSampleAutoCurve::new(
+                                            keyframe_timestamps.into_iter().zip(rotations),
+                                        )
+                                        .ok()
+                                        .map(RotationCurve)
+                                        .map(VariableCurve::new)
+                                    }
+                                    gltf::animation::Interpolation::Step => {
+                                        SteppedKeyframeCurve::new(
+                                            keyframe_timestamps.into_iter().zip(rotations),
+                                        )
+                                        .ok()
+                                        .map(RotationCurve)
+                                        .map(VariableCurve::new)
+                                    }
+                                    gltf::animation::Interpolation::CubicSpline => {
+                                        CubicRotationCurve::new(
+                                            keyframe_timestamps,
+                                            rotations.into_iter().map(Vec4::from),
+                                        )
+                                        .ok()
+                                        .map(RotationCurve)
+                                        .map(VariableCurve::new)
+                                    }
+                                }
+                            }
+                        }
                         ReadOutputs::Scales(scale) => {
-                            Box::new(ScaleKeyframes(scale.map(Vec3::from).collect()))
-                                as Box<dyn Keyframes>
+                            let scales: Vec<Vec3> = scale.map(Vec3::from).collect();
+                            if keyframe_timestamps.len() == 1 {
+                                #[allow(clippy::unnecessary_map_on_constructor)]
+                                Some(constant_curve(Interval::EVERYWHERE, scales[0]))
+                                    .map(ScaleCurve)
+                                    .map(VariableCurve::new)
+                            } else {
+                                match interpolation {
+                                    gltf::animation::Interpolation::Linear => {
+                                        UnevenSampleAutoCurve::new(
+                                            keyframe_timestamps.into_iter().zip(scales),
+                                        )
+                                        .ok()
+                                        .map(ScaleCurve)
+                                        .map(VariableCurve::new)
+                                    }
+                                    gltf::animation::Interpolation::Step => {
+                                        SteppedKeyframeCurve::new(
+                                            keyframe_timestamps.into_iter().zip(scales),
+                                        )
+                                        .ok()
+                                        .map(ScaleCurve)
+                                        .map(VariableCurve::new)
+                                    }
+                                    gltf::animation::Interpolation::CubicSpline => {
+                                        CubicKeyframeCurve::new(keyframe_timestamps, scales)
+                                            .ok()
+                                            .map(ScaleCurve)
+                                            .map(VariableCurve::new)
+                                    }
+                                }
+                            }
                         }
                         ReadOutputs::MorphTargetWeights(weights) => {
-                            let weights: Vec<_> = weights.into_f32().collect();
-                            Box::new(MorphWeightsKeyframes {
-                                morph_target_count: weights.len() / keyframe_timestamps.len(),
-                                weights,
-                            }) as Box<dyn Keyframes>
+                            let weights: Vec<f32> = weights.into_f32().collect();
+                            if keyframe_timestamps.len() == 1 {
+                                #[allow(clippy::unnecessary_map_on_constructor)]
+                                Some(constant_curve(Interval::EVERYWHERE, weights))
+                                    .map(WeightsCurve)
+                                    .map(VariableCurve::new)
+                            } else {
+                                match interpolation {
+                                    gltf::animation::Interpolation::Linear => {
+                                        WideLinearKeyframeCurve::new(keyframe_timestamps, weights)
+                                            .ok()
+                                            .map(WeightsCurve)
+                                            .map(VariableCurve::new)
+                                    }
+                                    gltf::animation::Interpolation::Step => {
+                                        WideSteppedKeyframeCurve::new(keyframe_timestamps, weights)
+                                            .ok()
+                                            .map(WeightsCurve)
+                                            .map(VariableCurve::new)
+                                    }
+                                    gltf::animation::Interpolation::CubicSpline => {
+                                        WideCubicKeyframeCurve::new(keyframe_timestamps, weights)
+                                            .ok()
+                                            .map(WeightsCurve)
+                                            .map(VariableCurve::new)
+                                    }
+                                }
+                            }
                         }
                     }
                 } else {
@@ -323,15 +451,19 @@ async fn load_gltf<'a, 'b, 'c>(
                     return Err(GltfError::MissingAnimationSampler(animation.index()));
                 };
 
+                let Some(curve) = maybe_curve else {
+                    warn!(
+                        "Invalid keyframe data for node {}; curve could not be constructed",
+                        node.index()
+                    );
+                    continue;
+                };
+
                 if let Some((root_index, path)) = paths.get(&node.index()) {
                     animation_roots.insert(*root_index);
-                    animation_clip.add_curve_to_target(
+                    animation_clip.add_variable_curve_to_target(
                         AnimationTargetId::from_names(path.iter()),
-                        VariableCurve {
-                            keyframe_timestamps,
-                            keyframes,
-                            interpolation,
-                        },
+                        curve,
                     );
                 } else {
                     warn!(
@@ -1287,15 +1419,15 @@ fn load_node(
                     Projection::Perspective(perspective_projection)
                 }
             };
-            node.insert(Camera3dBundle {
+            node.insert((
+                Camera3d::default(),
                 projection,
                 transform,
-                camera: Camera {
+                Camera {
                     is_active: !*active_camera_found,
                     ..Default::default()
                 },
-                ..Default::default()
-            });
+            ));
 
             *active_camera_found = true;
         }
@@ -1331,12 +1463,13 @@ fn load_node(
                     };
                     let bounds = primitive.bounding_box();
 
-                    let mut mesh_entity = parent.spawn(PbrBundle {
+                    let mut mesh_entity = parent.spawn((
                         // TODO: handle missing label handle errors here?
-                        mesh: load_context.get_label_handle(primitive_label.to_string()),
-                        material: load_context.get_label_handle(&material_label),
-                        ..Default::default()
-                    });
+                        Mesh3d(load_context.get_label_handle(primitive_label.to_string())),
+                        MeshMaterial3d::<StandardMaterial>(
+                            load_context.get_label_handle(&material_label),
+                        ),
+                    ));
 
                     let target_count = primitive.morph_targets().len();
                     if target_count != 0 {
@@ -1397,14 +1530,11 @@ fn load_node(
             if let Some(light) = gltf_node.light() {
                 match light.kind() {
                     gltf::khr_lights_punctual::Kind::Directional => {
-                        let mut entity = parent.spawn(DirectionalLightBundle {
-                            directional_light: DirectionalLight {
-                                color: Color::srgb_from_array(light.color()),
-                                // NOTE: KHR_punctual_lights defines the intensity units for directional
-                                // lights in lux (lm/m^2) which is what we need.
-                                illuminance: light.intensity(),
-                                ..Default::default()
-                            },
+                        let mut entity = parent.spawn(DirectionalLight {
+                            color: Color::srgb_from_array(light.color()),
+                            // NOTE: KHR_punctual_lights defines the intensity units for directional
+                            // lights in lux (lm/m^2) which is what we need.
+                            illuminance: light.intensity(),
                             ..Default::default()
                         });
                         if let Some(name) = light.name() {
@@ -1417,17 +1547,14 @@ fn load_node(
                         }
                     }
                     gltf::khr_lights_punctual::Kind::Point => {
-                        let mut entity = parent.spawn(PointLightBundle {
-                            point_light: PointLight {
-                                color: Color::srgb_from_array(light.color()),
-                                // NOTE: KHR_punctual_lights defines the intensity units for point lights in
-                                // candela (lm/sr) which is luminous intensity and we need luminous power.
-                                // For a point light, luminous power = 4 * pi * luminous intensity
-                                intensity: light.intensity() * core::f32::consts::PI * 4.0,
-                                range: light.range().unwrap_or(20.0),
-                                radius: 0.0,
-                                ..Default::default()
-                            },
+                        let mut entity = parent.spawn(PointLight {
+                            color: Color::srgb_from_array(light.color()),
+                            // NOTE: KHR_punctual_lights defines the intensity units for point lights in
+                            // candela (lm/sr) which is luminous intensity and we need luminous power.
+                            // For a point light, luminous power = 4 * pi * luminous intensity
+                            intensity: light.intensity() * core::f32::consts::PI * 4.0,
+                            range: light.range().unwrap_or(20.0),
+                            radius: 0.0,
                             ..Default::default()
                         });
                         if let Some(name) = light.name() {
@@ -1443,19 +1570,16 @@ fn load_node(
                         inner_cone_angle,
                         outer_cone_angle,
                     } => {
-                        let mut entity = parent.spawn(SpotLightBundle {
-                            spot_light: SpotLight {
-                                color: Color::srgb_from_array(light.color()),
-                                // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
-                                // candela (lm/sr) which is luminous intensity and we need luminous power.
-                                // For a spot light, we map luminous power = 4 * pi * luminous intensity
-                                intensity: light.intensity() * core::f32::consts::PI * 4.0,
-                                range: light.range().unwrap_or(20.0),
-                                radius: light.range().unwrap_or(0.0),
-                                inner_angle: inner_cone_angle,
-                                outer_angle: outer_cone_angle,
-                                ..Default::default()
-                            },
+                        let mut entity = parent.spawn(SpotLight {
+                            color: Color::srgb_from_array(light.color()),
+                            // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
+                            // candela (lm/sr) which is luminous intensity and we need luminous power.
+                            // For a spot light, we map luminous power = 4 * pi * luminous intensity
+                            intensity: light.intensity() * core::f32::consts::PI * 4.0,
+                            range: light.range().unwrap_or(20.0),
+                            radius: light.range().unwrap_or(0.0),
+                            inner_angle: inner_cone_angle,
+                            outer_angle: outer_cone_angle,
                             ..Default::default()
                         });
                         if let Some(name) = light.name() {
@@ -2105,7 +2229,7 @@ mod test {
         AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
     use bevy_core::TaskPoolPlugin;
-    use bevy_ecs::world::World;
+    use bevy_ecs::{system::Resource, world::World};
     use bevy_log::LogPlugin;
     use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};
     use bevy_scene::ScenePlugin;
@@ -2146,6 +2270,10 @@ mod test {
     }
 
     fn load_gltf_into_app(gltf_path: &str, gltf: &str) -> App {
+        #[expect(unused)]
+        #[derive(Resource)]
+        struct GltfHandle(Handle<Gltf>);
+
         let dir = Dir::default();
         dir.insert_asset_text(Path::new(gltf_path), gltf);
         let mut app = test_app(dir);
@@ -2153,7 +2281,7 @@ mod test {
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<Gltf> = asset_server.load(gltf_path.to_string());
         let handle_id = handle.id();
-        app.world_mut().spawn(handle.clone());
+        app.insert_resource(GltfHandle(handle));
         app.update();
         run_app_until(&mut app, |_world| {
             let load_state = asset_server.get_load_state(handle_id).unwrap();
@@ -2385,7 +2513,6 @@ mod test {
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<Gltf> = asset_server.load(gltf_path);
         let handle_id = handle.id();
-        app.world_mut().spawn(handle.clone());
         app.update();
         run_app_until(&mut app, |_world| {
             let load_state = asset_server.get_load_state(handle_id).unwrap();
@@ -2428,7 +2555,6 @@ mod test {
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<Gltf> = asset_server.load(gltf_path);
         let handle_id = handle.id();
-        app.world_mut().spawn(handle.clone());
         app.update();
         run_app_until(&mut app, |_world| {
             let load_state = asset_server.get_load_state(handle_id).unwrap();

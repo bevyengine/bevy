@@ -34,6 +34,7 @@ mod light;
 mod light_probe;
 mod lightmap;
 mod material;
+mod mesh_material;
 mod parallax;
 mod pbr_material;
 mod prepass;
@@ -53,6 +54,7 @@ pub use light::*;
 pub use light_probe::*;
 pub use lightmap::*;
 pub use material::*;
+pub use mesh_material::*;
 pub use parallax::*;
 pub use pbr_material::*;
 pub use prepass::*;
@@ -68,6 +70,7 @@ pub use volumetric_fog::{
 /// The PBR prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -82,6 +85,7 @@ pub mod prelude {
             LightProbe,
         },
         material::{Material, MaterialPlugin},
+        mesh_material::MeshMaterial3d,
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
         ssao::ScreenSpaceAmbientOcclusionPlugin,
@@ -123,6 +127,7 @@ use bevy_render::{
     render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_resource::Shader,
+    sync_component::SyncComponentPlugin,
     texture::{GpuImage, Image},
     view::{check_visibility, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
@@ -153,6 +158,9 @@ pub const PBR_DEFERRED_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128
 pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(2659010996143919192);
 const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(2325134235233421);
+
+const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 23;
+const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 24;
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -307,7 +315,6 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
-            .register_type::<DistanceFog>()
             .register_type::<ShadowFilteringMethod>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisibleClusterableObjects>()
@@ -338,6 +345,11 @@ impl Plugin for PbrPlugin {
                 },
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
+            ))
+            .add_plugins((
+                SyncComponentPlugin::<DirectionalLight>::default(),
+                SyncComponentPlugin::<PointLight>::default(),
+                SyncComponentPlugin::<SpotLight>::default(),
             ))
             .configure_sets(
                 PostUpdate,
@@ -410,13 +422,13 @@ impl Plugin for PbrPlugin {
             app.add_plugins(DeferredPbrLightingPlugin);
         }
 
+        // Initialize the default material.
         app.world_mut()
             .resource_mut::<Assets<StandardMaterial>>()
             .insert(
                 &Handle::<StandardMaterial>::default(),
                 StandardMaterial {
-                    base_color: Color::srgb(1.0, 0.0, 0.5),
-                    unlit: true,
+                    base_color: Color::WHITE,
                     ..Default::default()
                 },
             );
@@ -427,7 +439,14 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .add_systems(ExtractSchedule, (extract_clusters, extract_lights))
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_clusters,
+                    extract_lights,
+                    extract_default_materials.after(clear_material_instances::<StandardMaterial>),
+                ),
+            )
             .add_systems(
                 Render,
                 (
@@ -439,8 +458,10 @@ impl Plugin for PbrPlugin {
             )
             .init_resource::<LightMeta>();
 
-        render_app.world_mut().observe(add_light_view_entities);
-        render_app.world_mut().observe(remove_light_view_entities);
+        render_app.world_mut().add_observer(add_light_view_entities);
+        render_app
+            .world_mut()
+            .add_observer(remove_light_view_entities);
 
         let shadow_pass_node = ShadowPassNode::new(render_app.world_mut());
         let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();

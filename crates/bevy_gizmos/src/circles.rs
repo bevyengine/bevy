@@ -51,13 +51,13 @@ where
     #[inline]
     pub fn ellipse(
         &mut self,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         half_size: Vec2,
         color: impl Into<Color>,
     ) -> EllipseBuilder<'_, Config, Clear> {
         EllipseBuilder {
             gizmos: self,
-            isometry,
+            isometry: isometry.into(),
             half_size,
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
@@ -92,13 +92,13 @@ where
     #[inline]
     pub fn ellipse_2d(
         &mut self,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         half_size: Vec2,
         color: impl Into<Color>,
     ) -> Ellipse2dBuilder<'_, Config, Clear> {
         Ellipse2dBuilder {
             gizmos: self,
-            isometry,
+            isometry: isometry.into(),
             half_size,
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
@@ -131,13 +131,13 @@ where
     #[inline]
     pub fn circle(
         &mut self,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         radius: f32,
         color: impl Into<Color>,
     ) -> EllipseBuilder<'_, Config, Clear> {
         EllipseBuilder {
             gizmos: self,
-            isometry,
+            isometry: isometry.into(),
             half_size: Vec2::splat(radius),
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
@@ -172,13 +172,13 @@ where
     #[inline]
     pub fn circle_2d(
         &mut self,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         radius: f32,
         color: impl Into<Color>,
     ) -> Ellipse2dBuilder<'_, Config, Clear> {
         Ellipse2dBuilder {
             gizmos: self,
-            isometry,
+            isometry: isometry.into(),
             half_size: Vec2::splat(radius),
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
@@ -214,14 +214,14 @@ where
     #[inline]
     pub fn sphere(
         &mut self,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         radius: f32,
         color: impl Into<Color>,
     ) -> SphereBuilder<'_, Config, Clear> {
         SphereBuilder {
             gizmos: self,
             radius,
-            isometry,
+            isometry: isometry.into(),
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
         }

@@ -2014,7 +2014,6 @@ pub struct AnyOf<T>(PhantomData<T>);
 
 macro_rules! impl_tuple_query_data {
     ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
-
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
         $(#[$meta])*
@@ -2023,6 +2022,7 @@ macro_rules! impl_tuple_query_data {
             type ReadOnly = ($($name::ReadOnly,)*);
         }
 
+        $(#[$meta])*
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for ($($name,)*) {}
 

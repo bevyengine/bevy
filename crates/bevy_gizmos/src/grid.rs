@@ -218,14 +218,14 @@ where
     /// ```
     pub fn grid(
         &mut self,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         cell_count: UVec2,
         spacing: Vec2,
         color: impl Into<Color>,
     ) -> GridBuilder2d<'_, Config, Clear> {
         GridBuilder2d {
             gizmos: self,
-            isometry,
+            isometry: isometry.into(),
             spacing,
             cell_count,
             skew: Vec2::ZERO,
@@ -272,14 +272,14 @@ where
     /// ```
     pub fn grid_3d(
         &mut self,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         cell_count: UVec3,
         spacing: Vec3,
         color: impl Into<Color>,
     ) -> GridBuilder3d<'_, Config, Clear> {
         GridBuilder3d {
             gizmos: self,
-            isometry,
+            isometry: isometry.into(),
             spacing,
             cell_count,
             skew: Vec3::ZERO,
@@ -326,11 +326,12 @@ where
     /// ```
     pub fn grid_2d(
         &mut self,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         cell_count: UVec2,
         spacing: Vec2,
         color: impl Into<Color>,
     ) -> GridBuilder2d<'_, Config, Clear> {
+        let isometry = isometry.into();
         GridBuilder2d {
             gizmos: self,
             isometry: Isometry3d::new(

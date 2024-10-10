@@ -1,13 +1,13 @@
 //! A module for the [`GizmoConfig<T>`] [`Resource`].
 
-use crate as bevy_gizmos;
+use crate::{self as bevy_gizmos, LineGizmoAsset};
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
 #[cfg(all(
     feature = "bevy_render",
     any(feature = "bevy_pbr", feature = "bevy_sprite")
 ))]
-use bevy_ecs::component::Component;
+use {bevy_asset::Handle, bevy_ecs::component::Component};
 
 use bevy_ecs::{reflect::ReflectResource, system::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
@@ -220,19 +220,5 @@ pub(crate) struct GizmoMeshConfig {
     pub line_style: GizmoLineStyle,
     pub line_joints: GizmoLineJoint,
     pub render_layers: bevy_render::view::RenderLayers,
-}
-
-#[cfg(all(
-    feature = "bevy_render",
-    any(feature = "bevy_pbr", feature = "bevy_sprite")
-))]
-impl From<&GizmoConfig> for GizmoMeshConfig {
-    fn from(item: &GizmoConfig) -> Self {
-        GizmoMeshConfig {
-            line_perspective: item.line.perspective,
-            line_style: item.line.style,
-            render_layers: item.render_layers.clone(),
-            line_joints: item.line.joints,
-        }
-    }
+    pub handle: Handle<LineGizmoAsset>,
 }

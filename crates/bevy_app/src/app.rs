@@ -4,6 +4,7 @@ use crate::{
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
+    component::RequiredComponentsError,
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
@@ -14,11 +15,11 @@ use bevy_ecs::{
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
+use derive_more::derive::{Display, Error};
 use std::{
     panic::{catch_unwind, resume_unwind},
     process::{ExitCode, Termination},
 };
-use thiserror::Error;
 
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
@@ -31,9 +32,9 @@ pub use bevy_ecs::label::DynEq;
 /// A shorthand for `Interned<dyn AppLabel>`.
 pub type InternedAppLabel = Interned<dyn AppLabel>;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub(crate) enum AppError {
-    #[error("duplicate plugin {plugin_name:?}")]
+    #[display("duplicate plugin {plugin_name:?}")]
     DuplicatePlugin { plugin_name: String },
 }
 
@@ -753,6 +754,260 @@ impl App {
         self
     }
 
+    /// Registers the given component `R` as a [required component] for `T`.
+    ///
+    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// if `R` was not already provided. The [`Default`] `constructor` will be used for the creation of `R`.
+    /// If a custom constructor is desired, use [`App::register_required_components_with`] instead.
+    ///
+    /// For the non-panicking version, see [`App::try_register_required_components`].
+    ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. Commonly, this is done in plugins. This limitation may be fixed in the future.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Panics
+    ///
+    /// Panics if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// will only be overwritten if the new requirement is more specific.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_app::{App, NoopPluginGroup as MinimalPlugins, Startup};
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct B(usize);
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct C(u32);
+    ///
+    /// # let mut app = App::new();
+    /// # app.add_plugins(MinimalPlugins).add_systems(Startup, setup);
+    /// // Register B as required by A and C as required by B.
+    /// app.register_required_components::<A, B>();
+    /// app.register_required_components::<B, C>();
+    ///
+    /// fn setup(mut commands: Commands) {
+    ///     // This will implicitly also insert B and C with their Default constructors.
+    ///     commands.spawn(A);
+    /// }
+    ///
+    /// fn validate(query: Query<(&A, &B, &C)>) {
+    ///     let (a, b, c) = query.single();
+    ///     assert_eq!(b, &B(0));
+    ///     assert_eq!(c, &C(0));
+    /// }
+    /// # app.update();
+    /// ```
+    pub fn register_required_components<T: Component, R: Component + Default>(
+        &mut self,
+    ) -> &mut Self {
+        self.world_mut().register_required_components::<T, R>();
+        self
+    }
+
+    /// Registers the given component `R` as a [required component] for `T`.
+    ///
+    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// if `R` was not already provided. The given `constructor` will be used for the creation of `R`.
+    /// If a [`Default`] constructor is desired, use [`App::register_required_components`] instead.
+    ///
+    /// For the non-panicking version, see [`App::try_register_required_components_with`].
+    ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. Commonly, this is done in plugins. This limitation may be fixed in the future.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Panics
+    ///
+    /// Panics if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// will only be overwritten if the new requirement is more specific.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_app::{App, NoopPluginGroup as MinimalPlugins, Startup};
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct B(usize);
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct C(u32);
+    ///
+    /// # let mut app = App::new();
+    /// # app.add_plugins(MinimalPlugins).add_systems(Startup, setup);
+    /// // Register B and C as required by A and C as required by B.
+    /// // A requiring C directly will overwrite the indirect requirement through B.
+    /// app.register_required_components::<A, B>();
+    /// app.register_required_components_with::<B, C>(|| C(1));
+    /// app.register_required_components_with::<A, C>(|| C(2));
+    ///
+    /// fn setup(mut commands: Commands) {
+    ///     // This will implicitly also insert B with its Default constructor and C
+    ///     // with the custom constructor defined by A.
+    ///     commands.spawn(A);
+    /// }
+    ///
+    /// fn validate(query: Query<(&A, &B, &C)>) {
+    ///     let (a, b, c) = query.single();
+    ///     assert_eq!(b, &B(0));
+    ///     assert_eq!(c, &C(2));
+    /// }
+    /// # app.update();
+    /// ```
+    pub fn register_required_components_with<T: Component, R: Component>(
+        &mut self,
+        constructor: fn() -> R,
+    ) -> &mut Self {
+        self.world_mut()
+            .register_required_components_with::<T, R>(constructor);
+        self
+    }
+
+    /// Tries to register the given component `R` as a [required component] for `T`.
+    ///
+    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// if `R` was not already provided. The [`Default`] `constructor` will be used for the creation of `R`.
+    /// If a custom constructor is desired, use [`App::register_required_components_with`] instead.
+    ///
+    /// For the panicking version, see [`App::register_required_components`].
+    ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. Commonly, this is done in plugins. This limitation may be fixed in the future.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`RequiredComponentsError`] if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// will only be overwritten if the new requirement is more specific.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_app::{App, NoopPluginGroup as MinimalPlugins, Startup};
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct B(usize);
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct C(u32);
+    ///
+    /// # let mut app = App::new();
+    /// # app.add_plugins(MinimalPlugins).add_systems(Startup, setup);
+    /// // Register B as required by A and C as required by B.
+    /// app.register_required_components::<A, B>();
+    /// app.register_required_components::<B, C>();
+    ///
+    /// // Duplicate registration! This will fail.
+    /// assert!(app.try_register_required_components::<A, B>().is_err());
+    ///
+    /// fn setup(mut commands: Commands) {
+    ///     // This will implicitly also insert B and C with their Default constructors.
+    ///     commands.spawn(A);
+    /// }
+    ///
+    /// fn validate(query: Query<(&A, &B, &C)>) {
+    ///     let (a, b, c) = query.single();
+    ///     assert_eq!(b, &B(0));
+    ///     assert_eq!(c, &C(0));
+    /// }
+    /// # app.update();
+    /// ```
+    pub fn try_register_required_components<T: Component, R: Component + Default>(
+        &mut self,
+    ) -> Result<(), RequiredComponentsError> {
+        self.world_mut().try_register_required_components::<T, R>()
+    }
+
+    /// Tries to register the given component `R` as a [required component] for `T`.
+    ///
+    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// if `R` was not already provided. The given `constructor` will be used for the creation of `R`.
+    /// If a [`Default`] constructor is desired, use [`App::register_required_components`] instead.
+    ///
+    /// For the panicking version, see [`App::register_required_components_with`].
+    ///
+    /// Note that requirements must currently be registered before `T` is inserted into the world
+    /// for the first time. Commonly, this is done in plugins. This limitation may be fixed in the future.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`RequiredComponentsError`] if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// on an entity before the registration.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// will only be overwritten if the new requirement is more specific.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_app::{App, NoopPluginGroup as MinimalPlugins, Startup};
+    /// # use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct B(usize);
+    ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct C(u32);
+    ///
+    /// # let mut app = App::new();
+    /// # app.add_plugins(MinimalPlugins).add_systems(Startup, setup);
+    /// // Register B and C as required by A and C as required by B.
+    /// // A requiring C directly will overwrite the indirect requirement through B.
+    /// app.register_required_components::<A, B>();
+    /// app.register_required_components_with::<B, C>(|| C(1));
+    /// app.register_required_components_with::<A, C>(|| C(2));
+    ///
+    /// // Duplicate registration! Even if the constructors were different, this would fail.
+    /// assert!(app.try_register_required_components_with::<B, C>(|| C(1)).is_err());
+    ///
+    /// fn setup(mut commands: Commands) {
+    ///     // This will implicitly also insert B with its Default constructor and C
+    ///     // with the custom constructor defined by A.
+    ///     commands.spawn(A);
+    /// }
+    ///
+    /// fn validate(query: Query<(&A, &B, &C)>) {
+    ///     let (a, b, c) = query.single();
+    ///     assert_eq!(b, &B(0));
+    ///     assert_eq!(c, &C(2));
+    /// }
+    /// # app.update();
+    /// ```
+    pub fn try_register_required_components_with<T: Component, R: Component>(
+        &mut self,
+        constructor: fn() -> R,
+    ) -> Result<(), RequiredComponentsError> {
+        self.world_mut()
+            .try_register_required_components_with::<T, R>(constructor)
+    }
+
     /// Returns a reference to the [`World`].
     pub fn world(&self) -> &World {
         self.main().world()
@@ -1012,7 +1267,7 @@ impl App {
     /// # struct Friend;
     /// #
     /// // An observer system can be any system where the first parameter is a trigger
-    /// app.observe(|trigger: Trigger<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
+    /// app.add_observer(|trigger: Trigger<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
     ///     if trigger.event().friends_allowed {
     ///         for friend in friends.iter() {
     ///             commands.trigger_targets(Invite, friend);
@@ -1020,11 +1275,11 @@ impl App {
     ///     }
     /// });
     /// ```
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
-        self.world_mut().observe(observer);
+        self.world_mut().add_observer(observer);
         self
     }
 }

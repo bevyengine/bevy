@@ -269,7 +269,7 @@ where
     /// ```
     pub fn rounded_rect(
         &mut self,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         size: Vec2,
         color: impl Into<Color>,
     ) -> RoundedRectBuilder<'_, Config, Clear> {
@@ -277,7 +277,7 @@ where
         RoundedRectBuilder {
             gizmos: self,
             config: RoundedBoxConfig {
-                isometry,
+                isometry: isometry.into(),
                 color: color.into(),
                 corner_radius,
                 arc_resolution: DEFAULT_ARC_RESOLUTION,
@@ -323,10 +323,11 @@ where
     /// ```
     pub fn rounded_rect_2d(
         &mut self,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         size: Vec2,
         color: impl Into<Color>,
     ) -> RoundedRectBuilder<'_, Config, Clear> {
+        let isometry = isometry.into();
         let corner_radius = size.min_element() * DEFAULT_CORNER_RADIUS;
         RoundedRectBuilder {
             gizmos: self,
@@ -380,7 +381,7 @@ where
     /// ```
     pub fn rounded_cuboid(
         &mut self,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         size: Vec3,
         color: impl Into<Color>,
     ) -> RoundedCuboidBuilder<'_, Config, Clear> {
@@ -388,7 +389,7 @@ where
         RoundedCuboidBuilder {
             gizmos: self,
             config: RoundedBoxConfig {
-                isometry,
+                isometry: isometry.into(),
                 color: color.into(),
                 corner_radius,
                 arc_resolution: DEFAULT_ARC_RESOLUTION,

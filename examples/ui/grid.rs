@@ -17,7 +17,7 @@ fn main() {
 
 fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Top-level grid (app frame)
     commands
@@ -136,15 +136,13 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|builder| {
-                    builder.spawn(TextBundle::from_section(
-                        "Sidebar",
+                    builder.spawn((Text::new("Sidebar"),
                         TextStyle {
                             font: font.clone(),
                             ..default()
                         },
                     ));
-                    builder.spawn(TextBundle::from_section(
-                        "A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely.",
+                    builder.spawn((Text::new("A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely."),
                         TextStyle {
                             font: font.clone(),
                             font_size: 13.0,
@@ -210,8 +208,8 @@ fn item_rect(builder: &mut ChildBuilder, color: Srgba) {
 }
 
 fn spawn_nested_text_bundle(builder: &mut ChildBuilder, font: Handle<Font>, text: &str) {
-    builder.spawn(TextBundle::from_section(
-        text,
+    builder.spawn((
+        Text::new(text),
         TextStyle {
             font,
             color: Color::BLACK,

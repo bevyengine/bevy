@@ -23,7 +23,11 @@ fn find_top_material_and_mesh(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     time: Res<Time>,
-    mat_query: Query<(&Handle<StandardMaterial>, &Handle<Mesh>, &GltfMaterialName)>,
+    mat_query: Query<(
+        &MeshMaterial3d<StandardMaterial>,
+        &Mesh3d,
+        &GltfMaterialName,
+    )>,
 ) {
     for (mat_handle, mesh_handle, name) in mat_query.iter() {
         // locate a material by material name
@@ -54,11 +58,8 @@ fn find_top_material_and_mesh(
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.6, 1.6, 11.3)
-                .looking_at(Vec3::new(0.0, 0.0, 3.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0.6, 1.6, 11.3).looking_at(Vec3::new(0.0, 0.0, 3.0), Vec3::Y),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -67,8 +68,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
     ));
 
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             shadows_enabled: true,
             ..default()
         },
@@ -76,21 +77,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // cascade bounds than the default for better quality.
         // We also adjusted the shadow map to be larger since we're
         // only using a single cascade.
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             num_cascades: 1,
             maximum_distance: 1.6,
             ..default()
         }
-        .into(),
-        ..default()
-    });
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/GltfPrimitives/gltf_primitives.glb")),
-        transform: Transform {
+        .build(),
+    ));
+    commands.spawn((
+        SceneRoot(asset_server.load(
+            GltfAssetLabel::Scene(0).from_asset("models/GltfPrimitives/gltf_primitives.glb"),
+        )),
+        Transform {
             rotation: Quat::from_rotation_y(-90.0 / 180.0 * PI),
             ..default()
         },
-        ..default()
-    });
+    ));
 }

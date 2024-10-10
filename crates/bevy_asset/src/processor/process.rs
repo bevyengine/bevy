@@ -12,8 +12,8 @@ use crate::{
 };
 use bevy_utils::{BoxedFuture, ConditionalSendFuture};
 use core::marker::PhantomData;
+use derive_more::derive::{Display, Error, From};
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 /// Asset "processor" logic that reads input asset bytes (stored on [`ProcessContext`]), processes the value in some way,
 /// and then writes the final processed bytes with [`Writer`]. The resulting bytes must be loadable with the given [`Process::OutputLoader`].
@@ -27,11 +27,11 @@ pub trait Process: Send + Sync + Sized + 'static {
     type OutputLoader: AssetLoader;
     /// Processes the asset stored on `context` in some way using the settings stored on `meta`. The results are written to `writer`. The
     /// final written processed asset is loadable using [`Process::OutputLoader`]. This load will use the returned [`AssetLoader::Settings`].
-    fn process<'a>(
-        &'a self,
-        context: &'a mut ProcessContext,
+    fn process(
+        &self,
+        context: &mut ProcessContext,
         meta: AssetMeta<(), Self>,
-        writer: &'a mut Writer,
+        writer: &mut Writer,
     ) -> impl ConditionalSendFuture<
         Output = Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>,
     >;
@@ -126,46 +126,46 @@ pub type LoadAndSaveSettings<LoaderSettings, SaverSettings> =
     LoadTransformAndSaveSettings<LoaderSettings, (), SaverSettings>;
 
 /// An error that is encountered during [`Process::process`].
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum ProcessError {
-    #[error(transparent)]
-    MissingAssetLoaderForExtension(#[from] MissingAssetLoaderForExtensionError),
-    #[error(transparent)]
-    MissingAssetLoaderForTypeName(#[from] MissingAssetLoaderForTypeNameError),
-    #[error("The processor '{0}' does not exist")]
+    MissingAssetLoaderForExtension(MissingAssetLoaderForExtensionError),
+    MissingAssetLoaderForTypeName(MissingAssetLoaderForTypeNameError),
+    #[display("The processor '{_0}' does not exist")]
+    #[error(ignore)]
+    #[from(ignore)]
     MissingProcessor(String),
-    #[error("Encountered an AssetReader error for '{path}': {err}")]
+    #[display("Encountered an AssetReader error for '{path}': {err}")]
+    #[from(ignore)]
     AssetReaderError {
         path: AssetPath<'static>,
         err: AssetReaderError,
     },
-    #[error("Encountered an AssetWriter error for '{path}': {err}")]
+    #[display("Encountered an AssetWriter error for '{path}': {err}")]
+    #[from(ignore)]
     AssetWriterError {
         path: AssetPath<'static>,
         err: AssetWriterError,
     },
-    #[error(transparent)]
-    MissingAssetWriterError(#[from] MissingAssetWriterError),
-    #[error(transparent)]
-    MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
-    #[error(transparent)]
-    MissingProcessedAssetWriterError(#[from] MissingProcessedAssetWriterError),
-    #[error("Failed to read asset metadata for {path}: {err}")]
+    MissingAssetWriterError(MissingAssetWriterError),
+    MissingProcessedAssetReaderError(MissingProcessedAssetReaderError),
+    MissingProcessedAssetWriterError(MissingProcessedAssetWriterError),
+    #[display("Failed to read asset metadata for {path}: {err}")]
+    #[from(ignore)]
     ReadAssetMetaError {
         path: AssetPath<'static>,
         err: AssetReaderError,
     },
-    #[error(transparent)]
-    DeserializeMetaError(#[from] DeserializeMetaError),
-    #[error(transparent)]
-    AssetLoadError(#[from] AssetLoadError),
-    #[error("The wrong meta type was passed into a processor. This is probably an internal implementation error.")]
+    DeserializeMetaError(DeserializeMetaError),
+    AssetLoadError(AssetLoadError),
+    #[display("The wrong meta type was passed into a processor. This is probably an internal implementation error.")]
     WrongMetaType,
-    #[error("Encountered an error while saving the asset: {0}")]
-    AssetSaveError(#[from] Box<dyn core::error::Error + Send + Sync + 'static>),
-    #[error("Encountered an error while transforming the asset: {0}")]
+    #[display("Encountered an error while saving the asset: {_0}")]
+    #[from(ignore)]
+    AssetSaveError(Box<dyn core::error::Error + Send + Sync + 'static>),
+    #[display("Encountered an error while transforming the asset: {_0}")]
+    #[from(ignore)]
     AssetTransformError(Box<dyn core::error::Error + Send + Sync + 'static>),
-    #[error("Assets without extensions are not supported.")]
+    #[display("Assets without extensions are not supported.")]
     ExtensionRequired,
 }
 
@@ -179,11 +179,11 @@ where
         LoadTransformAndSaveSettings<Loader::Settings, Transformer::Settings, Saver::Settings>;
     type OutputLoader = Saver::OutputLoader;
 
-    async fn process<'a>(
-        &'a self,
-        context: &'a mut ProcessContext<'_>,
+    async fn process(
+        &self,
+        context: &mut ProcessContext<'_>,
         meta: AssetMeta<(), Self>,
-        writer: &'a mut Writer,
+        writer: &mut Writer,
     ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
         let AssetAction::Process { settings, .. } = meta.asset else {
             return Err(ProcessError::WrongMetaType);

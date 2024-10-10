@@ -82,19 +82,20 @@ fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
 fn setup(mut commands: Commands) {
     warn!(include_str!("warning_string.txt"));
 
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(3., 1., 5.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(3., 1., 5.).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
@@ -107,7 +108,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
         return;
     };
 
-    text.sections[0].value = format!(
+    **text = format!(
         "Line count: {}\n\
         FPS: {:.0}\n\n\
         Controls:\n\

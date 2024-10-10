@@ -147,7 +147,8 @@ pub(crate) mod test_setup {
     pub(crate) fn update_text(
         mut frame: Local<usize>,
         mode: Res<ExampleMode>,
-        mut query: Query<&mut Text, With<ModeText>>,
+        query: Query<Entity, With<ModeText>>,
+        mut writer: UiTextWriter,
     ) {
         *frame += 1;
         let mode = match *mode {
@@ -158,9 +159,9 @@ pub(crate) mod test_setup {
             }
             ExampleMode::ApplicationWithWakeUp => "desktop_app(), reactive, WakeUp sent",
         };
-        let mut text = query.single_mut();
-        text.sections[1].value = mode.to_string();
-        text.sections[3].value = frame.to_string();
+        let text = query.single();
+        *writer.text(text, 2) = mode.to_string();
+        *writer.text(text, 4) = frame.to_string();
     }
 
     /// Set up a scene with a cube and some text
@@ -171,53 +172,55 @@ pub(crate) mod test_setup {
         mut event: EventWriter<RequestRedraw>,
     ) {
         commands.spawn((
-            PbrBundle {
-                mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-                material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-                ..default()
-            },
+            Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
+            MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
             Rotator,
         ));
 
-        commands.spawn(DirectionalLightBundle {
-            transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        });
-        commands.spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        });
-        event.send(RequestRedraw);
         commands.spawn((
-            TextBundle::from_sections([
-                TextSection::new(
-                    "Press space bar to cycle modes\n",
-                    TextStyle { ..default() },
-                ),
-                TextSection::from_style(TextStyle {
-                    color: LIME.into(),
+            DirectionalLight::default(),
+            Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ));
+        commands.spawn((
+            Camera3d::default(),
+            Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ));
+        event.send(RequestRedraw);
+        commands
+            .spawn((
+                Text::default(),
+                Style {
+                    align_self: AlignSelf::FlexStart,
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(12.0),
+                    left: Val::Px(12.0),
                     ..default()
-                }),
-                TextSection::new(
-                    "\nFrame: ",
+                },
+                ModeText,
+            ))
+            .with_children(|p| {
+                p.spawn(TextSpan::new("Press space bar to cycle modes\n"));
+                p.spawn((
+                    TextSpan::default(),
+                    TextStyle {
+                        color: LIME.into(),
+                        ..default()
+                    },
+                ));
+                p.spawn((
+                    TextSpan::new("\nFrame: "),
                     TextStyle {
                         color: YELLOW.into(),
                         ..default()
                     },
-                ),
-                TextSection::from_style(TextStyle {
-                    color: YELLOW.into(),
-                    ..default()
-                }),
-            ])
-            .with_style(Style {
-                align_self: AlignSelf::FlexStart,
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            }),
-            ModeText,
-        ));
+                ));
+                p.spawn((
+                    TextSpan::new(""),
+                    TextStyle {
+                        color: YELLOW.into(),
+                        ..default()
+                    },
+                ));
+            });
     }
 }

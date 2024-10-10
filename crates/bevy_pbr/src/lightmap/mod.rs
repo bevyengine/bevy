@@ -6,10 +6,10 @@
 //! with an addon like [The Lightmapper]. The tools in the [`bevy-baked-gi`]
 //! project support other lightmap baking methods.
 //!
-//! When a [`Lightmap`] component is added to an entity with a [`Mesh`] and a
-//! [`StandardMaterial`](crate::StandardMaterial), Bevy applies the lightmap when rendering. The brightness
+//! When a [`Lightmap`] component is added to an entity with a [`Mesh3d`] and a
+//! [`MeshMaterial3d<StandardMaterial>`], Bevy applies the lightmap when rendering. The brightness
 //! of the lightmap may be controlled with the `lightmap_exposure` field on
-//! `StandardMaterial`.
+//! [`StandardMaterial`].
 //!
 //! During the rendering extraction phase, we extract all lightmaps into the
 //! [`RenderLightmaps`] table, which lives in the render world. Mesh bindgroup
@@ -25,7 +25,9 @@
 //! appropriately.
 //!
 //! [The Lightmapper]: https://github.com/Naxela/The_Lightmapper
-//!
+//! [`Mesh3d`]: bevy_render::mesh::Mesh3d
+//! [`MeshMaterial3d<StandardMaterial>`]: crate::StandardMaterial
+//! [`StandardMaterial`]: crate::StandardMaterial
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
 use bevy_app::{App, Plugin};
@@ -61,10 +63,10 @@ pub struct LightmapPlugin;
 /// A component that applies baked indirect diffuse global illumination from a
 /// lightmap.
 ///
-/// When assigned to an entity that contains a [`Mesh`] and a
-/// [`StandardMaterial`](crate::StandardMaterial), if the mesh has a second UV
-/// layer ([`ATTRIBUTE_UV_1`](bevy_render::mesh::Mesh::ATTRIBUTE_UV_1)), then
-/// the lightmap will render using those UVs.
+/// When assigned to an entity that contains a [`Mesh3d`](bevy_render::mesh::Mesh3d) and a
+/// [`MeshMaterial3d<StandardMaterial>`](crate::StandardMaterial), if the mesh
+/// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_render::mesh::Mesh::ATTRIBUTE_UV_1)),
+/// then the lightmap will render using those UVs.
 #[derive(Component, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Lightmap {

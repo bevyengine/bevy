@@ -47,14 +47,14 @@ where
     #[inline]
     pub fn arc_2d(
         &mut self,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         arc_angle: f32,
         radius: f32,
         color: impl Into<Color>,
     ) -> Arc2dBuilder<'_, Config, Clear> {
         Arc2dBuilder {
             gizmos: self,
-            isometry,
+            isometry: isometry.into(),
             arc_angle,
             radius,
             color: color.into(),
@@ -173,13 +173,13 @@ where
         &mut self,
         angle: f32,
         radius: f32,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Arc3dBuilder<'_, Config, Clear> {
         Arc3dBuilder {
             gizmos: self,
             start_vertex: Vec3::X,
-            isometry,
+            isometry: isometry.into(),
             angle,
             radius,
             color: color.into(),

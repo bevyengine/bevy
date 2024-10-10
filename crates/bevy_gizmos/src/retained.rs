@@ -96,7 +96,7 @@ pub(crate) fn extract_linegizmos(
     query: Extract<Query<(&LineGizmo, &GlobalTransform, Option<&RenderLayers>)>>,
 ) {
     use bevy_math::Affine3;
-    use bevy_render::world_sync::TemporaryRenderEntity;
+    use bevy_render::sync_world::TemporaryRenderEntity;
 
     let mut values = Vec::with_capacity(*previous_len);
     for (linegizmo, transform, render_layers) in &query {
@@ -115,13 +115,13 @@ pub(crate) fn extract_linegizmos(
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
-            linegizmo.handle.clone_weak(),
             #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
             crate::config::GizmoMeshConfig {
                 line_perspective: linegizmo.config.perspective,
                 line_style: linegizmo.config.style,
                 line_joints: linegizmo.config.joints,
                 render_layers: render_layers.cloned().unwrap_or_default(),
+                handle: linegizmo.handle.clone_weak(),
             },
             TemporaryRenderEntity,
         ));

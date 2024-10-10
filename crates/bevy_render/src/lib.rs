@@ -38,9 +38,10 @@ pub mod renderer;
 pub mod settings;
 mod spatial_bundle;
 pub mod storage;
+pub mod sync_component;
+pub mod sync_world;
 pub mod texture;
 pub mod view;
-pub mod world_sync;
 
 /// The render prelude.
 ///
@@ -54,10 +55,13 @@ pub mod prelude {
             Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
         },
-        mesh::{morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh},
+        mesh::{
+            morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d,
+            Mesh3d,
+        },
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
-        texture::{image_texture_conversion::IntoDynamicImageError, Image, ImagePlugin},
+        texture::{Image, ImagePlugin, IntoDynamicImageError},
         view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
         ExtractSchedule,
     };
@@ -74,14 +78,14 @@ use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
-use world_sync::{
-    despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, WorldSyncPlugin,
+use sync_world::{
+    despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, SyncWorldPlugin,
 };
 
 use crate::gpu_readback::GpuReadbackPlugin;
 use crate::{
     camera::CameraPlugin,
-    mesh::{morph::MorphPlugin, MeshPlugin, RenderMesh},
+    mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance, WgpuWrapper},
@@ -368,7 +372,7 @@ impl Plugin for RenderPlugin {
             GlobalsPlugin,
             MorphPlugin,
             BatchingPlugin,
-            WorldSyncPlugin,
+            SyncWorldPlugin,
             StoragePlugin,
             GpuReadbackPlugin::default(),
         ));

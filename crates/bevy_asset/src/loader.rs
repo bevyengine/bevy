@@ -1,6 +1,6 @@
 use crate::{
     io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
-    loader_builders::NestedLoader,
+    loader_builders::{Deferred, NestedLoader, StaticTyped},
     meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal, Settings},
     path::AssetPath,
     Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
@@ -10,11 +10,11 @@ use atomicow::CowArc;
 use bevy_ecs::world::World;
 use bevy_utils::{BoxedFuture, ConditionalSendFuture, HashMap, HashSet};
 use core::any::{Any, TypeId};
+use derive_more::derive::{Display, Error, From};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use thiserror::Error;
 
 /// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
 /// should be loaded.
@@ -30,11 +30,11 @@ pub trait AssetLoader: Send + Sync + 'static {
     /// The type of [error](`std::error::Error`) which could be encountered by this loader.
     type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
     /// Asynchronously loads [`AssetLoader::Asset`] (and any other labeled assets) from the bytes provided by [`Reader`].
-    fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn Reader,
-        settings: &'a Self::Settings,
-        load_context: &'a mut LoadContext,
+    fn load(
+        &self,
+        reader: &mut dyn Reader,
+        settings: &Self::Settings,
+        load_context: &mut LoadContext,
     ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>>;
 
     /// Returns a list of extensions supported by this [`AssetLoader`], without the preceding dot.
@@ -290,20 +290,25 @@ impl<A: Asset> AssetContainer for A {
     }
 }
 
-/// An error that occurs when attempting to call [`DirectNestedLoader::load`](crate::DirectNestedLoader::load)
-#[derive(Error, Debug)]
-#[error("Failed to load dependency {dependency:?} {error}")]
+/// An error that occurs when attempting to call [`NestedLoader::load`] which
+/// is configured to work [immediately].
+///
+/// [`NestedLoader::load`]: crate::NestedLoader::load
+/// [immediately]: crate::Immediate
+#[derive(Error, Display, Debug)]
+#[display("Failed to load dependency {dependency:?} {error}")]
 pub struct LoadDirectError {
     pub dependency: AssetPath<'static>,
     pub error: AssetLoadError,
 }
 
 /// An error that occurs while deserializing [`AssetMeta`].
-#[derive(Error, Debug, Clone, PartialEq, Eq)]
+#[derive(Error, Display, Debug, Clone, PartialEq, Eq, From)]
 pub enum DeserializeMetaError {
-    #[error("Failed to deserialize asset meta: {0:?}")]
-    DeserializeSettings(#[from] SpannedError),
-    #[error("Failed to deserialize minimal asset meta: {0:?}")]
+    #[display("Failed to deserialize asset meta: {_0:?}")]
+    DeserializeSettings(SpannedError),
+    #[display("Failed to deserialize minimal asset meta: {_0:?}")]
+    #[from(ignore)]
     DeserializeMinimal(SpannedError),
 }
 
@@ -363,7 +368,7 @@ impl<'a> LoadContext<'a> {
     ///         (i.to_string(), labeled.finish(Image::default(), None))
     ///     }));
     /// }
-
+    ///
     /// for handle in handles {
     ///     let (label, loaded_asset) = handle.join().unwrap();
     ///     load_context.add_loaded_labeled_asset(label, loaded_asset);
@@ -550,7 +555,7 @@ impl<'a> LoadContext<'a> {
 
     /// Create a builder for loading nested assets in this context.
     #[must_use]
-    pub fn loader(&mut self) -> NestedLoader<'a, '_> {
+    pub fn loader(&mut self) -> NestedLoader<'a, '_, StaticTyped, Deferred> {
         NestedLoader::new(self)
     }
 
@@ -568,23 +573,18 @@ impl<'a> LoadContext<'a> {
 }
 
 /// An error produced when calling [`LoadContext::read_asset_bytes`]
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum ReadAssetBytesError {
-    #[error(transparent)]
-    DeserializeMetaError(#[from] DeserializeMetaError),
-    #[error(transparent)]
-    AssetReaderError(#[from] AssetReaderError),
-    #[error(transparent)]
-    MissingAssetSourceError(#[from] MissingAssetSourceError),
-    #[error(transparent)]
-    MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
+    DeserializeMetaError(DeserializeMetaError),
+    AssetReaderError(AssetReaderError),
+    MissingAssetSourceError(MissingAssetSourceError),
+    MissingProcessedAssetReaderError(MissingProcessedAssetReaderError),
     /// Encountered an I/O error while loading an asset.
-    #[error("Encountered an io error while loading asset at `{path}`: {source}")]
+    #[display("Encountered an io error while loading asset at `{}`: {source}", path.display())]
     Io {
         path: PathBuf,
-        #[source]
         source: std::io::Error,
     },
-    #[error("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
+    #[display("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
     MissingAssetHash,
 }

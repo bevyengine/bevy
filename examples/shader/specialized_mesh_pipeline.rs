@@ -79,7 +79,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
             // with our specialized pipeline
             CustomRenderedEntity,
             // We need to add the mesh handle to the entity
-            meshes.add(mesh.clone()),
+            Mesh3d(meshes.add(mesh.clone())),
             // This bundle's components are needed for something to be rendered
             SpatialBundle {
                 transform: Transform::from_xyz(x, y, 0.0),
@@ -89,11 +89,11 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     }
 
     // Spawn the camera.
-    commands.spawn(Camera3dBundle {
+    commands.spawn((
+        Camera3d::default(),
         // Move the camera back a bit to see all the triangles
-        transform: Transform::from_xyz(0.0, 0.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+        Transform::from_xyz(0.0, 0.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 // When writing custom rendering code it's generally recommended to use a plugin.
