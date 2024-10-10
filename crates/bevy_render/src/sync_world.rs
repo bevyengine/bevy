@@ -85,12 +85,12 @@ pub struct SyncWorldPlugin;
 impl Plugin for SyncWorldPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity>();
-        app.observe(
+        app.add_observer(
             |trigger: Trigger<OnAdd, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(trigger.entity()));
             },
         );
-        app.observe(
+        app.add_observer(
             |trigger: Trigger<OnRemove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
@@ -248,12 +248,12 @@ mod tests {
         let mut render_world = World::new();
         main_world.init_resource::<PendingSyncEntity>();
 
-        main_world.observe(
+        main_world.add_observer(
             |trigger: Trigger<OnAdd, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(trigger.entity()));
             },
         );
-        main_world.observe(
+        main_world.add_observer(
             |trigger: Trigger<OnRemove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {

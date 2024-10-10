@@ -40,11 +40,7 @@ use bevy_render::{
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
 #[cfg(feature = "bevy_text")]
-use bevy_text::PositionedGlyph;
-#[cfg(feature = "bevy_text")]
-use bevy_text::Text;
-#[cfg(feature = "bevy_text")]
-use bevy_text::TextLayoutInfo;
+use bevy_text::{ComputedTextBlock, PositionedGlyph, TextLayoutInfo, TextStyle};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use box_shadow::BoxShadowPlugin;
@@ -593,18 +589,26 @@ pub fn extract_text_sections(
             &ViewVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
-            &Text,
+            &ComputedTextBlock,
             &TextLayoutInfo,
         )>,
     >,
+    text_styles: Extract<Query<&TextStyle>>,
     mapping: Extract<Query<&RenderEntity>>,
 ) {
     let mut start = 0;
     let mut end = 1;
 
     let default_ui_camera = default_ui_camera.get();
-    for (uinode, global_transform, view_visibility, clip, camera, text, text_layout_info) in
-        &uinode_query
+    for (
+        uinode,
+        global_transform,
+        view_visibility,
+        clip,
+        camera,
+        computed_block,
+        text_layout_info,
+    ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
             continue;
@@ -642,16 +646,31 @@ pub fn extract_text_sections(
         transform.translation = transform.translation.round();
         transform.translation *= inverse_scale_factor;
 
+        let mut color = LinearRgba::WHITE;
+        let mut current_span = usize::MAX;
         for (
             i,
             PositionedGlyph {
                 position,
                 atlas_info,
-                section_index,
+                span_index,
                 ..
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
+            if *span_index != current_span {
+                color = text_styles
+                    .get(
+                        computed_block
+                            .entities()
+                            .get(*span_index)
+                            .map(|t| t.entity)
+                            .unwrap_or(Entity::PLACEHOLDER),
+                    )
+                    .map(|style| LinearRgba::from(style.color))
+                    .unwrap_or_default();
+                current_span = *span_index;
+            }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
             let mut rect = atlas.textures[atlas_info.location.glyph_index].as_rect();
@@ -668,8 +687,7 @@ pub fn extract_text_sections(
                 .glyphs
                 .get(i + 1)
                 .map(|info| {
-                    info.section_index != *section_index
-                        || info.atlas_info.texture != atlas_info.texture
+                    info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
                 })
                 .unwrap_or(true)
             {
@@ -679,7 +697,7 @@ pub fn extract_text_sections(
                     id,
                     ExtractedUiNode {
                         stack_index: uinode.stack_index,
-                        color: LinearRgba::from(text.sections[*section_index].style.color),
+                        color,
                         image: atlas_info.texture.id(),
                         clip: clip.map(|clip| clip.clip),
                         camera_entity: render_camera_entity.id(),
@@ -1158,7 +1176,7 @@ pub fn prepare_uinodes(
                                         position: positions_clipped[i].into(),
                                         uv: uvs[i].into(),
                                         color,
-                                        flags: shader_flags::TEXTURED,
+                                        flags: shader_flags::TEXTURED | shader_flags::CORNERS[i],
                                         radius: [0.0; 4],
                                         border: [0.0; 4],
                                         size: size.into(),

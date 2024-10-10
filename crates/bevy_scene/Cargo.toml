@@ -29,7 +29,11 @@ bevy_render = { path = "../bevy_render", version = "0.15.0-dev", optional = true
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
 uuid = { version = "1.1", features = ["v4"] }
-thiserror = "1.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+] }
 
 [dev-dependencies]
 postcard = { version = "1.0", features = ["alloc"] }

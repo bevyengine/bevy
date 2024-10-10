@@ -7,12 +7,10 @@ use crate::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
     prelude::*,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
-    system::lifetimeless::Read,
 };
 use core::{marker::PhantomData, ops::Deref};
 
@@ -194,17 +192,6 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
                 render_app.add_systems(ExtractSchedule, extract_components::<C>);
             }
         }
-    }
-}
-
-impl<T: Asset> ExtractComponent for Handle<T> {
-    type QueryData = Read<Handle<T>>;
-    type QueryFilter = ();
-    type Out = Handle<T>;
-
-    #[inline]
-    fn extract_component(handle: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
-        Some(handle.clone_weak())
     }
 }
 

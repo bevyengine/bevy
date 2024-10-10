@@ -1,6 +1,6 @@
 use bevy_utils::tracing::warn;
 use core::fmt::Debug;
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 use crate::{
     archetype::ArchetypeComponentId,
@@ -357,12 +357,13 @@ impl RunSystemOnce for &mut World {
 }
 
 /// Running system failed.
-#[derive(Error)]
+#[derive(Error, Display)]
 pub enum RunSystemError {
     /// System could not be run due to parameters that failed validation.
     ///
     /// This can occur because the data required by the system was not present in the world.
-    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
+    #[display("The data required by the system {_0:?} was not found in the world and the system did not run due to failed parameter validation.")]
+    #[error(ignore)]
     InvalidParams(Cow<'static, str>),
 }
 

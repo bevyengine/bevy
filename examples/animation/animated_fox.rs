@@ -24,7 +24,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, setup_scene_once_loaded.before(animate_targets))
         .add_systems(Update, (keyboard_animation_control, simulate_particles))
-        .observe(observe_on_step)
+        .add_observer(observe_on_step)
         .run();
 }
 

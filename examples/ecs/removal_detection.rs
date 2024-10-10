@@ -17,7 +17,7 @@ fn main() {
         // This system will remove a component after two seconds.
         .add_systems(Update, remove_component)
         // This observer will react to the removal of the component.
-        .observe(react_on_removal)
+        .add_observer(react_on_removal)
         .run();
 }
 
@@ -29,10 +29,7 @@ struct MyComponent;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
-            ..default()
-        },
+        Sprite::from_image(asset_server.load("branding/icon.png")),
         // Add the `Component`.
         MyComponent,
     ));

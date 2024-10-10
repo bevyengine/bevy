@@ -367,22 +367,6 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
         .iter()
         .find_map(|(entity, camera)| camera.is_active.then_some(entity))
         .expect("run condition ensures existence");
-    let text = format!("{text}", text = PrimitiveSelected::default());
-    let style = TextStyle::default();
-    let instructions = "Press 'C' to switch between 2D and 3D mode\n\
-        Press 'Up' or 'Down' to switch to the next/previous primitive";
-    let text = [
-        TextSection::new("Primitive: ", style.clone()),
-        TextSection::new(text, style.clone()),
-        TextSection::new("\n\n", style.clone()),
-        TextSection::new(instructions, style.clone()),
-        TextSection::new("\n\n", style.clone()),
-        TextSection::new(
-            "(If nothing is displayed, there's no rendering support yet)",
-            style.clone(),
-        ),
-    ];
-
     commands
         .spawn((
             HeaderNode,
@@ -396,22 +380,40 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
             },
             TargetCamera(active_camera),
         ))
-        .with_children(|parent| {
-            parent.spawn((
+        .with_children(|p| {
+            p.spawn((
+                Text::default(),
                 HeaderText,
-                TextBundle::from_sections(text).with_text_justify(JustifyText::Center),
-            ));
+                TextLayout::new_with_justify(JustifyText::Center),
+            ))
+            .with_children(|p| {
+                p.spawn(TextSpan::new("Primitive: "));
+                p.spawn(TextSpan(format!(
+                    "{text}",
+                    text = PrimitiveSelected::default()
+                )));
+                p.spawn(TextSpan::new("\n\n"));
+                p.spawn(TextSpan::new(
+                    "Press 'C' to switch between 2D and 3D mode\n\
+                    Press 'Up' or 'Down' to switch to the next/previous primitive",
+                ));
+                p.spawn(TextSpan::new("\n\n"));
+                p.spawn(TextSpan::new(
+                    "(If nothing is displayed, there's no rendering support yet)",
+                ));
+            });
         });
 }
 
 fn update_text(
     primitive_state: Res<State<PrimitiveSelected>>,
-    mut header: Query<&mut Text, With<HeaderText>>,
+    header: Query<Entity, With<HeaderText>>,
+    mut writer: UiTextWriter,
 ) {
     let new_text = format!("{text}", text = primitive_state.get());
-    header.iter_mut().for_each(|mut header_text| {
-        if let Some(kind) = header_text.sections.get_mut(1) {
-            kind.value.clone_from(&new_text);
+    header.iter().for_each(|header_text| {
+        if let Some(mut text) = writer.get_text(header_text, 2) {
+            (*text).clone_from(&new_text);
         };
     });
 }

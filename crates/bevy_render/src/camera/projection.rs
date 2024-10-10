@@ -11,6 +11,7 @@ use bevy_reflect::{
     std_traits::ReflectDefault, GetTypeRegistration, Reflect, ReflectDeserialize, ReflectSerialize,
 };
 use bevy_transform::{components::GlobalTransform, TransformSystem};
+use derive_more::derive::From;
 use serde::{Deserialize, Serialize};
 
 /// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
@@ -98,23 +99,11 @@ pub trait CameraProjection {
 }
 
 /// A configurable [`CameraProjection`] that can select its projection type at runtime.
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect, From)]
 #[reflect(Component, Default, Debug)]
 pub enum Projection {
     Perspective(PerspectiveProjection),
     Orthographic(OrthographicProjection),
-}
-
-impl From<PerspectiveProjection> for Projection {
-    fn from(p: PerspectiveProjection) -> Self {
-        Self::Perspective(p)
-    }
-}
-
-impl From<OrthographicProjection> for Projection {
-    fn from(p: OrthographicProjection) -> Self {
-        Self::Orthographic(p)
-    }
 }
 
 impl CameraProjection for Projection {

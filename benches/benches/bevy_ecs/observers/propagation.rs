@@ -106,15 +106,15 @@ fn add_listeners_to_hierarchy<const DENSITY: usize, const N: usize>(
     world: &mut World,
 ) {
     for e in roots.iter() {
-        world.entity_mut(*e).observe_entity(empty_listener::<N>);
+        world.entity_mut(*e).observe(empty_listener::<N>);
     }
     for e in leaves.iter() {
-        world.entity_mut(*e).observe_entity(empty_listener::<N>);
+        world.entity_mut(*e).observe(empty_listener::<N>);
     }
     let mut rng = deterministic_rand();
     for e in nodes.iter() {
         if rng.gen_bool(DENSITY as f64 / 100.0) {
-            world.entity_mut(*e).observe_entity(empty_listener::<N>);
+            world.entity_mut(*e).observe(empty_listener::<N>);
         }
     }
 }

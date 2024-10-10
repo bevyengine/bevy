@@ -1255,6 +1255,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationPlayer>()
             .register_type::<AnimationTarget>()
             .register_type::<AnimationTransitions>()
+            .register_type::<AnimationGraphHandle>()
             .register_type::<NodeIndex>()
             .register_type::<ThreadedAnimationGraphs>()
             .init_resource::<ThreadedAnimationGraphs>()

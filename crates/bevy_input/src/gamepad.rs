@@ -17,7 +17,7 @@ use bevy_utils::{
     tracing::{info, warn},
     Duration, HashMap,
 };
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
 
 /// A gamepad event.
 ///
@@ -26,7 +26,7 @@ use thiserror::Error;
 /// the in-frame relative ordering of events is important.
 ///
 /// This event is produced by `bevy_input`
-#[derive(Event, Debug, Clone, PartialEq)]
+#[derive(Event, Debug, Clone, PartialEq, From)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -42,24 +42,6 @@ pub enum GamepadEvent {
     Axis(GamepadAxisChangedEvent),
 }
 
-impl From<GamepadConnectionEvent> for GamepadEvent {
-    fn from(value: GamepadConnectionEvent) -> Self {
-        Self::Connection(value)
-    }
-}
-
-impl From<GamepadButtonChangedEvent> for GamepadEvent {
-    fn from(value: GamepadButtonChangedEvent) -> Self {
-        Self::Button(value)
-    }
-}
-
-impl From<GamepadAxisChangedEvent> for GamepadEvent {
-    fn from(value: GamepadAxisChangedEvent) -> Self {
-        Self::Axis(value)
-    }
-}
-
 /// A raw gamepad event.
 ///
 /// This event type is used over the [`GamepadConnectionEvent`],
@@ -67,7 +49,7 @@ impl From<GamepadAxisChangedEvent> for GamepadEvent {
 /// the in-frame relative ordering of events is important.
 ///
 /// This event type is used by `bevy_input` to feed its components.
-#[derive(Event, Debug, Clone, PartialEq, Reflect)]
+#[derive(Event, Debug, Clone, PartialEq, Reflect, From)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -81,24 +63,6 @@ pub enum RawGamepadEvent {
     Button(RawGamepadButtonChangedEvent),
     /// An axis of the gamepad has been triggered.
     Axis(RawGamepadAxisChangedEvent),
-}
-
-impl From<GamepadConnectionEvent> for RawGamepadEvent {
-    fn from(value: GamepadConnectionEvent) -> Self {
-        Self::Connection(value)
-    }
-}
-
-impl From<RawGamepadButtonChangedEvent> for RawGamepadEvent {
-    fn from(value: RawGamepadButtonChangedEvent) -> Self {
-        Self::Button(value)
-    }
-}
-
-impl From<RawGamepadAxisChangedEvent> for RawGamepadEvent {
-    fn from(value: RawGamepadAxisChangedEvent) -> Self {
-        Self::Axis(value)
-    }
 }
 
 /// [`GamepadButton`] changed event unfiltered by [`GamepadSettings`]
@@ -281,22 +245,26 @@ impl GamepadAxisChangedEvent {
 }
 
 /// Errors that occur when setting axis settings for gamepad input.
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Display, Debug, PartialEq)]
 pub enum AxisSettingsError {
     /// The given parameter `livezone_lowerbound` was not in range -1.0..=0.0.
-    #[error("invalid livezone_lowerbound {0}, expected value [-1.0..=0.0]")]
+    #[display("invalid livezone_lowerbound {_0}, expected value [-1.0..=0.0]")]
+    #[error(ignore)]
     LiveZoneLowerBoundOutOfRange(f32),
     /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
-    #[error("invalid deadzone_lowerbound {0}, expected value [-1.0..=0.0]")]
+    #[display("invalid deadzone_lowerbound {_0}, expected value [-1.0..=0.0]")]
+    #[error(ignore)]
     DeadZoneLowerBoundOutOfRange(f32),
     /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
-    #[error("invalid deadzone_upperbound {0}, expected value [0.0..=1.0]")]
+    #[display("invalid deadzone_upperbound {_0}, expected value [0.0..=1.0]")]
+    #[error(ignore)]
     DeadZoneUpperBoundOutOfRange(f32),
     /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
-    #[error("invalid livezone_upperbound {0}, expected value [0.0..=1.0]")]
+    #[display("invalid livezone_upperbound {_0}, expected value [0.0..=1.0]")]
+    #[error(ignore)]
     LiveZoneUpperBoundOutOfRange(f32),
     /// Parameter `livezone_lowerbound` was not less than or equal to parameter `deadzone_lowerbound`.
-    #[error("invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound", .livezone_lowerbound, .deadzone_lowerbound)]
+    #[display("invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound", livezone_lowerbound, deadzone_lowerbound)]
     LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
         /// The value of the `livezone_lowerbound` parameter.
         livezone_lowerbound: f32,
@@ -304,7 +272,7 @@ pub enum AxisSettingsError {
         deadzone_lowerbound: f32,
     },
     ///  Parameter `deadzone_upperbound` was not less than or equal to parameter `livezone_upperbound`.
-    #[error("invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound", .livezone_upperbound, .deadzone_upperbound)]
+    #[display("invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound", livezone_upperbound, deadzone_upperbound)]
     DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
         /// The value of the `livezone_upperbound` parameter.
         livezone_upperbound: f32,
@@ -312,21 +280,24 @@ pub enum AxisSettingsError {
         deadzone_upperbound: f32,
     },
     /// The given parameter was not in range 0.0..=2.0.
-    #[error("invalid threshold {0}, expected 0.0 <= threshold <= 2.0")]
+    #[display("invalid threshold {_0}, expected 0.0 <= threshold <= 2.0")]
+    #[error(ignore)]
     Threshold(f32),
 }
 
 /// Errors that occur when setting button settings for gamepad input.
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Display, Debug, PartialEq)]
 pub enum ButtonSettingsError {
     /// The given parameter was not in range 0.0..=1.0.
-    #[error("invalid release_threshold {0}, expected value [0.0..=1.0]")]
+    #[display("invalid release_threshold {_0}, expected value [0.0..=1.0]")]
+    #[error(ignore)]
     ReleaseThresholdOutOfRange(f32),
     /// The given parameter was not in range 0.0..=1.0.
-    #[error("invalid press_threshold {0}, expected [0.0..=1.0]")]
+    #[display("invalid press_threshold {_0}, expected [0.0..=1.0]")]
+    #[error(ignore)]
     PressThresholdOutOfRange(f32),
     /// Parameter `release_threshold` was not less than or equal to `press_threshold`.
-    #[error("invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold", .release_threshold, .press_threshold)]
+    #[display("invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold", release_threshold, press_threshold)]
     ReleaseThresholdGreaterThanPressThreshold {
         /// The value of the `press_threshold` parameter.
         press_threshold: f32,
@@ -716,25 +687,13 @@ impl GamepadAxis {
 
 /// Encapsulation over [`GamepadAxis`] and [`GamepadButton`]
 // This is done so Gamepad can share a single Axis<T> and simplifies the API by having only one get/get_unclamped method
-#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq, From)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub enum GamepadInput {
     /// A [`GamepadAxis`]
     Axis(GamepadAxis),
     /// A [`GamepadButton`]
     Button(GamepadButton),
-}
-
-impl From<GamepadAxis> for GamepadInput {
-    fn from(value: GamepadAxis) -> Self {
-        GamepadInput::Axis(value)
-    }
-}
-
-impl From<GamepadButton> for GamepadInput {
-    fn from(value: GamepadButton) -> Self {
-        GamepadInput::Button(value)
-    }
 }
 
 /// Gamepad settings component.

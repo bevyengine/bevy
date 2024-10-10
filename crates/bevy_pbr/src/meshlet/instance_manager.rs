@@ -1,9 +1,9 @@
-use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh};
+use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d};
 use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
     PreviousGlobalTransform, RenderMaterialInstances,
 };
-use bevy_asset::{AssetEvent, AssetServer, Assets, Handle, UntypedAssetId};
+use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_ecs::{
     entity::{Entities, Entity, EntityHashMap},
     event::EventReader,
@@ -168,7 +168,7 @@ pub fn extract_meshlet_mesh_entities(
             SystemState<(
                 Query<(
                     Entity,
-                    &Handle<MeshletMesh>,
+                    &MeshletMesh3d,
                     &GlobalTransform,
                     Option<&PreviousGlobalTransform>,
                     Option<&RenderLayers>,
