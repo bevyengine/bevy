@@ -173,7 +173,7 @@ pub(crate) mod test_setup {
     ) {
         commands.spawn((
             Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
-            MeshMaterialHandle(materials.add(Color::srgb(0.8, 0.7, 0.6))),
+            MeshMaterial3dHandle(materials.add(Color::srgb(0.8, 0.7, 0.6))),
             Rotator,
         ));
 

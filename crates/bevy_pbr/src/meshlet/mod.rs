@@ -56,7 +56,7 @@ use self::{
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
-use crate::{graph::NodePbr, Material, MeshMaterialHandle};
+use crate::{graph::NodePbr, Material, MeshMaterial3dHandle};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetApp, AssetId, Handle};
 use bevy_core_pipeline::{
@@ -303,11 +303,11 @@ impl_handle_wrapper!(MeshletMeshHandle, MeshletMesh);
 #[derive(Bundle, Clone)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use the `MeshletMeshHandle` and `MeshMaterialHandle` components instead. Inserting them will now also insert the other components required by them automatically."
+    note = "Use the `MeshletMeshHandle` and `MeshMaterial3dHandle` components instead. Inserting them will now also insert the other components required by them automatically."
 )]
 pub struct MaterialMeshletMeshBundle<M: Material> {
     pub meshlet_mesh: MeshletMeshHandle,
-    pub material: MeshMaterialHandle<M>,
+    pub material: MeshMaterial3dHandle<M>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible

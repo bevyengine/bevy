@@ -46,22 +46,22 @@ fn setup(
     });
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterialHandle(material.clone()),
+        MeshMaterial3dHandle(material.clone()),
         Transform::from_xyz(0.0, 0.0, 1.0),
     ));
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterialHandle(material.clone()),
+        MeshMaterial3dHandle(material.clone()),
         Transform::from_xyz(0.0, -1.0, 0.0),
     ));
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterialHandle(material),
+        MeshMaterial3dHandle(material),
         Transform::from_xyz(1.0, 0.0, 0.0),
     ));
     commands.spawn((
         Mesh3d(meshes.add(Sphere::new(0.4).mesh().uv(72, 36))),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             base_color: Color::srgb(0.4, 0.4, 0.4),
             perceptual_roughness: 1.0,
             reflectance: 0.0,

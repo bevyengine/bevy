@@ -95,7 +95,7 @@ fn setup(
     // Plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
-        MeshMaterialHandle(forward_mat_h.clone()),
+        MeshMaterial3dHandle(forward_mat_h.clone()),
     ));
 
     let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
@@ -104,12 +104,12 @@ fn setup(
     // Cubes
     commands.spawn((
         Mesh3d(cube_h.clone()),
-        MeshMaterialHandle(forward_mat_h.clone()),
+        MeshMaterial3dHandle(forward_mat_h.clone()),
         Transform::from_xyz(-0.3, 0.5, -0.2),
     ));
     commands.spawn((
         Mesh3d(cube_h),
-        MeshMaterialHandle(forward_mat_h),
+        MeshMaterial3dHandle(forward_mat_h),
         Transform::from_xyz(0.2, 0.5, 0.2),
     ));
 
@@ -120,7 +120,7 @@ fn setup(
     unlit_mat.unlit = true;
     commands.spawn((
         Mesh3d(sphere_h.clone()),
-        MeshMaterialHandle(materials.add(unlit_mat)),
+        MeshMaterial3dHandle(materials.add(unlit_mat)),
         sphere_pos,
         NotShadowCaster,
     ));
@@ -164,7 +164,7 @@ fn setup(
         };
         commands.spawn((
             Mesh3d(sphere_h.clone()),
-            MeshMaterialHandle(material),
+            MeshMaterial3dHandle(material),
             Transform::from_xyz(
                 j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } - 0.4,
                 0.125,
@@ -176,7 +176,7 @@ fn setup(
     // sky
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(2.0, 1.0, 1.0))),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             base_color: Srgba::hex("888888").unwrap().into(),
             unlit: true,
             cull_mode: None,
@@ -251,7 +251,7 @@ fn setup_parallax(
     });
     commands.spawn((
         Mesh3d(meshes.add(cube)),
-        MeshMaterialHandle(parallax_material),
+        MeshMaterial3dHandle(parallax_material),
         Transform::from_xyz(0.4, 0.2, -0.8),
         Spin { speed: 0.3 },
     ));

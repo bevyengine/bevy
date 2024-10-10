@@ -135,7 +135,7 @@ fn setup(
     let planet_entity = commands
         .spawn((
             Mesh3d(meshes.add(Sphere::default())),
-            MeshMaterialHandle(materials.add(Color::srgb(0.8, 0.7, 0.6))),
+            MeshMaterial3dHandle(materials.add(Color::srgb(0.8, 0.7, 0.6))),
             // Add the animation graph and player
             planet,
             AnimationGraphHandle(graphs.add(graph)),
@@ -162,7 +162,7 @@ fn setup(
                 // The satellite, placed at a distance of the planet
                 p.spawn((
                     Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
-                    MeshMaterialHandle(materials.add(Color::srgb(0.3, 0.9, 0.3))),
+                    MeshMaterial3dHandle(materials.add(Color::srgb(0.3, 0.9, 0.3))),
                     Transform::from_xyz(1.5, 0.0, 0.0),
                     AnimationTarget {
                         id: satellite_animation_target_id,

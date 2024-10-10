@@ -92,7 +92,7 @@ fn setup(
     // Plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0))),
-        MeshMaterialHandle(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        MeshMaterial3dHandle(materials.add(Color::srgb(0.3, 0.5, 0.3))),
     ));
 
     // Light
@@ -296,7 +296,7 @@ fn spawn_particle<M: Material>(
                 velocity,
             },
             Mesh3d(mesh),
-            MeshMaterialHandle(material),
+            MeshMaterial3dHandle(material),
             Transform {
                 translation,
                 scale: Vec3::splat(size),

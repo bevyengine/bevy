@@ -34,7 +34,7 @@ fn setup(
     // sound emitter
     commands.spawn((
         Mesh2d(meshes.add(Circle::new(15.0))),
-        MeshMaterial2d(materials.add(Color::from(BLUE))),
+        MeshMaterial2dHandle(materials.add(Color::from(BLUE))),
         Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
         Emitter::default(),
         AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),

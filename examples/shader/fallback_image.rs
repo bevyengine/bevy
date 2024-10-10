@@ -31,7 +31,7 @@ fn setup(
 ) {
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterialHandle(materials.add(FallbackTestMaterial {
+        MeshMaterial3dHandle(materials.add(FallbackTestMaterial {
             image_1d: None,
             image_2d: None,
             image_2d_array: None,

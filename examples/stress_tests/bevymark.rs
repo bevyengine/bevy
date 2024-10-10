@@ -476,7 +476,7 @@ fn spawn_birds(
                         };
                     (
                         Mesh2d(bird_resources.quad.clone()),
-                        MeshMaterial2d(material),
+                        MeshMaterial2dHandle(material),
                         transform,
                         Bird { velocity },
                     )

@@ -45,7 +45,7 @@ fn setup(
     // cube
     commands.spawn((
         Mesh3d(meshes.add(mesh)),
-        MeshMaterialHandle(materials.add(CustomMaterial {
+        MeshMaterial3dHandle(materials.add(CustomMaterial {
             color: LinearRgba::WHITE,
         })),
         Transform::from_xyz(0.0, 0.5, 0.0),

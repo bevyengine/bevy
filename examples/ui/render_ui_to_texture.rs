@@ -106,7 +106,7 @@ fn setup(
     // Cube with material containing the rendered UI texture.
     commands.spawn((
         Mesh3d(cube_handle),
-        MeshMaterialHandle(material_handle),
+        MeshMaterial3dHandle(material_handle),
         Transform::from_xyz(0.0, 0.0, 1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
         Cube,
     ));

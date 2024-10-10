@@ -86,7 +86,7 @@ fn setup(
     for x in -2..=2 {
         commands.spawn((
             MeshletMeshHandle(meshlet_mesh_handle.clone()),
-            MeshMaterialHandle(standard_materials.add(StandardMaterial {
+            MeshMaterial3dHandle(standard_materials.add(StandardMaterial {
                 base_color: match x {
                     -2 => Srgba::hex("#dc2626").unwrap().into(),
                     -1 => Srgba::hex("#ea580c").unwrap().into(),
@@ -106,7 +106,7 @@ fn setup(
     for x in -2..=2 {
         commands.spawn((
             MeshletMeshHandle(meshlet_mesh_handle.clone()),
-            MeshMaterialHandle(debug_material.clone()),
+            MeshMaterial3dHandle(debug_material.clone()),
             Transform::default()
                 .with_scale(Vec3::splat(0.2))
                 .with_rotation(Quat::from_rotation_y(PI))
@@ -116,7 +116,7 @@ fn setup(
 
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
-        MeshMaterialHandle(standard_materials.add(StandardMaterial {
+        MeshMaterial3dHandle(standard_materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
             ..default()

@@ -55,7 +55,7 @@ fn setup(
 
     commands.spawn((
         Mesh3d(meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap())),
-        MeshMaterialHandle(materials.add(Color::WHITE)),
+        MeshMaterial3dHandle(materials.add(Color::WHITE)),
         Transform::from_scale(Vec3::NEG_ONE),
     ));
 
@@ -104,7 +104,7 @@ fn setup(
     // also serves as a reference point during rotation
     commands.spawn((
         Mesh3d(mesh),
-        MeshMaterialHandle(material),
+        MeshMaterial3dHandle(material),
         Transform {
             translation: Vec3::new(0.0, RADIUS, 0.0),
             scale: Vec3::splat(5.0),

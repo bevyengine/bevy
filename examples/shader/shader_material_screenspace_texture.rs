@@ -29,13 +29,13 @@ fn setup(
 ) {
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
-        MeshMaterialHandle(standard_materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        MeshMaterial3dHandle(standard_materials.add(Color::srgb(0.3, 0.5, 0.3))),
     ));
     commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 8.0, 4.0)));
 
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterialHandle(custom_materials.add(CustomMaterial {
+        MeshMaterial3dHandle(custom_materials.add(CustomMaterial {
             texture: asset_server.load(
                 "models/FlightHelmet/FlightHelmet_Materials_LensesMat_OcclusionRoughMetal.png",
             ),

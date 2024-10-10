@@ -125,7 +125,7 @@ fn spawn_sphere(
     // Create a sphere.
     commands.spawn((
         Mesh3d(sphere_mesh.clone()),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             base_color: Srgba::hex("#ffd891").unwrap().into(),
             metallic: 1.0,
             perceptual_roughness: 0.0,

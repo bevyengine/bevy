@@ -61,7 +61,7 @@ fn setup_pyramid_scene(
     for (x, z) in &[(-1.5, -1.5), (1.5, -1.5), (1.5, 1.5), (-1.5, 1.5)] {
         commands.spawn((
             Mesh3d(meshes.add(Cuboid::new(1.0, 3.0, 1.0))),
-            MeshMaterialHandle(stone.clone()),
+            MeshMaterial3dHandle(stone.clone()),
             Transform::from_xyz(*x, 1.5, *z),
         ));
     }
@@ -69,7 +69,7 @@ fn setup_pyramid_scene(
     // orb
     commands.spawn((
         Mesh3d(meshes.add(Sphere::default())),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             base_color: Srgba::hex("126212CC").unwrap().into(),
             reflectance: 1.0,
             perceptual_roughness: 0.0,
@@ -88,7 +88,7 @@ fn setup_pyramid_scene(
         let y = -i as f32 / 2.0;
         commands.spawn((
             Mesh3d(meshes.add(Cuboid::new(2.0 * half_size, 0.5, 2.0 * half_size))),
-            MeshMaterialHandle(stone.clone()),
+            MeshMaterial3dHandle(stone.clone()),
             Transform::from_xyz(0.0, y + 0.25, 0.0),
         ));
     }
@@ -96,7 +96,7 @@ fn setup_pyramid_scene(
     // sky
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(2.0, 1.0, 1.0))),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             base_color: Srgba::hex("888888").unwrap().into(),
             unlit: true,
             cull_mode: None,

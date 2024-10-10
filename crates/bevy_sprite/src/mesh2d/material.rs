@@ -34,7 +34,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::tracing::error;
+use bevy_utils::{impl_generic_handle_wrapper, tracing::error};
 use core::{hash::Hash, marker::PhantomData};
 use derive_more::derive::From;
 
@@ -45,7 +45,7 @@ use crate::{
 
 use super::ColorMaterial;
 
-/// Materials are used alongside [`Material2dPlugin`], [`Mesh2d`], and [`MeshMaterial2d`]
+/// Materials are used alongside [`Material2dPlugin`], [`Mesh2d`], and [`MeshMaterial2dHandle`]
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
 /// way to render [`Mesh2d`] entities with custom shader logic.
 ///
@@ -58,7 +58,7 @@ use super::ColorMaterial;
 /// check out the [`AsBindGroup`] documentation.
 ///
 /// ```
-/// # use bevy_sprite::{Material2d, MeshMaterial2d};
+/// # use bevy_sprite::{Material2d, MeshMaterial2dHandle};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::TypePath;
 /// # use bevy_render::{mesh::{Mesh, Mesh2d}, render_resource::{AsBindGroup, ShaderRef}, texture::Image};
@@ -97,7 +97,7 @@ use super::ColorMaterial;
 /// ) {
 ///     commands.spawn((
 ///         Mesh2d(meshes.add(Circle::new(50.0))),
-///         MeshMaterial2d(materials.add(CustomMaterial {
+///         MeshMaterial2dHandle(materials.add(CustomMaterial {
 ///             color: RED.into(),
 ///             color_texture: asset_server.load("some_image.png"),
 ///         })),
@@ -158,7 +158,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// # Example
 ///
 /// ```
-/// # use bevy_sprite::{ColorMaterial, MeshMaterial2d};
+/// # use bevy_sprite::{ColorMaterial, MeshMaterial2dHandle};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::mesh::{Mesh, Mesh2d};
 /// # use bevy_color::palettes::basic::RED;
@@ -173,17 +173,17 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// ) {
 ///     commands.spawn((
 ///         Mesh2d(meshes.add(Circle::new(50.0))),
-///         MeshMaterial2d(materials.add(ColorMaterial::from_color(RED))),
+///         MeshMaterial2dHandle(materials.add(ColorMaterial::from_color(RED))),
 ///     ));
 /// }
 /// ```
 ///
-/// [`MeshMaterial2d`]: crate::MeshMaterial2d
+/// [`MeshMaterial2dHandle`]: crate::MeshMaterial2dHandle
 /// [`ColorMaterial`]: crate::ColorMaterial
 ///
 /// ## Default Material
 ///
-/// Meshes without a [`MeshMaterial2d`] are rendered with a default [`ColorMaterial`].
+/// Meshes without a [`MeshMaterial2dHandle`] are rendered with a default [`ColorMaterial`].
 /// This material can be overridden by inserting a custom material for the default asset handle.
 ///
 /// ```
@@ -213,30 +213,14 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 #[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
 #[require(HasMaterial2d)]
-pub struct MeshMaterial2d<M: Material2d>(pub Handle<M>);
+pub struct MeshMaterial2dHandle<M: Material2d>(pub Handle<M>);
 
-impl<M: Material2d> Default for MeshMaterial2d<M> {
-    fn default() -> Self {
-        Self(Handle::default())
-    }
-}
+impl_generic_handle_wrapper!(MeshMaterial2dHandle, Handle, M, Material2d);
 
-impl<M: Material2d> From<MeshMaterial2d<M>> for AssetId<M> {
-    fn from(material: MeshMaterial2d<M>) -> Self {
-        material.id()
-    }
-}
-
-impl<M: Material2d> From<&MeshMaterial2d<M>> for AssetId<M> {
-    fn from(material: &MeshMaterial2d<M>) -> Self {
-        material.id()
-    }
-}
-
-/// A component that marks an entity as having a [`MeshMaterial2d`].
+/// A component that marks an entity as having a [`MeshMaterial2dHandle`].
 /// [`Mesh2d`] entities without this component are rendered with a [default material].
 ///
-/// [default material]: crate::MeshMaterial2d#default-material
+/// [default material]: crate::MeshMaterial2dHandle#default-material
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct HasMaterial2d;
@@ -283,7 +267,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
-            .register_type::<MeshMaterial2d<M>>()
+            .register_type::<MeshMaterial2dHandle<M>>()
             .register_type::<HasMaterial2d>()
             .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default());
 
@@ -335,7 +319,7 @@ pub(crate) fn clear_material_2d_instances<M: Material2d>(
 
 fn extract_mesh_materials_2d<M: Material2d>(
     mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
-    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial2d<M>), With<Mesh2d>>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial2dHandle<M>), With<Mesh2d>>>,
 ) {
     for (entity, view_visibility, material) in &query {
         if view_visibility.get() {
@@ -344,7 +328,7 @@ fn extract_mesh_materials_2d<M: Material2d>(
     }
 }
 
-/// Extracts default materials for 2D meshes with no [`MeshMaterial2d`].
+/// Extracts default materials for 2D meshes with no [`MeshMaterial2dHandle`].
 pub(crate) fn extract_default_materials_2d(
     mut material_instances: ResMut<RenderMaterial2dInstances<ColorMaterial>>,
     query: Extract<Query<(Entity, &ViewVisibility), (With<Mesh2d>, Without<HasMaterial2d>)>>,
@@ -741,15 +725,15 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
     }
 }
 
-/// A component bundle for entities with a [`Mesh2d`] and a [`MeshMaterial2d`].
+/// A component bundle for entities with a [`Mesh2d`] and a [`MeshMaterial2dHandle`].
 #[derive(Bundle, Clone)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use the `Mesh2d` and `MeshMaterial2d` components instead. Inserting them will now also insert the other components required by them automatically."
+    note = "Use the `Mesh2d` and `MeshMaterial2dHandle` components instead. Inserting them will now also insert the other components required by them automatically."
 )]
 pub struct MaterialMesh2dBundle<M: Material2d> {
     pub mesh: Mesh2d,
-    pub material: MeshMaterial2d<M>,
+    pub material: MeshMaterial2dHandle<M>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible

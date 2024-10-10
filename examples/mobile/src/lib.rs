@@ -70,18 +70,18 @@ fn setup_scene(
     // plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
-        MeshMaterialHandle(materials.add(Color::srgb(0.1, 0.2, 0.1))),
+        MeshMaterial3dHandle(materials.add(Color::srgb(0.1, 0.2, 0.1))),
     ));
     // cube
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterialHandle(materials.add(Color::srgb(0.5, 0.4, 0.3))),
+        MeshMaterial3dHandle(materials.add(Color::srgb(0.5, 0.4, 0.3))),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
     // sphere
     commands.spawn((
         Mesh3d(meshes.add(Sphere::new(0.5).mesh().ico(4).unwrap())),
-        MeshMaterialHandle(materials.add(Color::srgb(0.1, 0.4, 0.8))),
+        MeshMaterial3dHandle(materials.add(Color::srgb(0.1, 0.4, 0.8))),
         Transform::from_xyz(1.5, 1.5, 1.5),
     ));
     // light

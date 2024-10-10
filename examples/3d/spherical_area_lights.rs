@@ -27,7 +27,7 @@ fn setup(
     // plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             base_color: Color::srgb(0.2, 0.2, 0.2),
             perceptual_roughness: 0.08,
             ..default()
@@ -49,7 +49,7 @@ fn setup(
         commands
             .spawn((
                 Mesh3d(mesh.clone()),
-                MeshMaterialHandle(materials.add(StandardMaterial {
+                MeshMaterial3dHandle(materials.add(StandardMaterial {
                     base_color: Color::srgb(0.5, 0.5, 1.0),
                     unlit: true,
                     ..default()

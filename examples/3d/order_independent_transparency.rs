@@ -134,7 +134,7 @@ fn spawn_spheres(
 
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             base_color: RED.with_alpha(alpha).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -144,7 +144,7 @@ fn spawn_spheres(
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             base_color: GREEN.with_alpha(alpha).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -154,7 +154,7 @@ fn spawn_spheres(
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             base_color: BLUE.with_alpha(alpha).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -182,13 +182,13 @@ fn spawn_occlusion_test(
     let x = -2.5;
     commands.spawn((
         Mesh3d(cube_handle.clone()),
-        MeshMaterialHandle(cube_material.clone()),
+        MeshMaterial3dHandle(cube_material.clone()),
         Transform::from_xyz(x, 0.0, 2.0),
         render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             base_color: RED.with_alpha(0.5).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -200,13 +200,13 @@ fn spawn_occlusion_test(
     // intersection
     commands.spawn((
         Mesh3d(cube_handle.clone()),
-        MeshMaterialHandle(cube_material.clone()),
+        MeshMaterial3dHandle(cube_material.clone()),
         Transform::from_xyz(x, 0.0, 1.0),
         render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             base_color: RED.with_alpha(0.5).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -219,13 +219,13 @@ fn spawn_occlusion_test(
     let x = 2.5;
     commands.spawn((
         Mesh3d(cube_handle.clone()),
-        MeshMaterialHandle(cube_material.clone()),
+        MeshMaterial3dHandle(cube_material.clone()),
         Transform::from_xyz(x, 0.0, -2.0),
         render_layers.clone(),
     ));
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             base_color: RED.with_alpha(0.5).into(),
             alpha_mode: AlphaMode::Blend,
             ..default()

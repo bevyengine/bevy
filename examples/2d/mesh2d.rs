@@ -17,7 +17,7 @@ fn setup(
     commands.spawn(Camera2d);
     commands.spawn((
         Mesh2d(meshes.add(Rectangle::default())),
-        MeshMaterial2d(materials.add(Color::from(PURPLE))),
+        MeshMaterial2dHandle(materials.add(Color::from(PURPLE))),
         Transform::default().with_scale(Vec3::splat(128.)),
     ));
 }

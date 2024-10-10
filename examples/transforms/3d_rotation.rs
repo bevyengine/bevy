@@ -26,7 +26,7 @@ fn setup(
     // Spawn a cube to rotate.
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterialHandle(materials.add(Color::WHITE)),
+        MeshMaterial3dHandle(materials.add(Color::WHITE)),
         Transform::from_translation(Vec3::ZERO),
         Rotatable { speed: 0.3 },
     ));

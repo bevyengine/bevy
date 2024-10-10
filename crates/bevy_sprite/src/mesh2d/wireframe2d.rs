@@ -9,7 +9,7 @@ use bevy_render::{
     render_resource::*,
 };
 
-use super::MeshMaterial2d;
+use super::MeshMaterial2dHandle;
 
 pub const WIREFRAME_2D_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(6920362697190520314);
 
@@ -128,7 +128,7 @@ fn global_color_changed(
 fn wireframe_color_changed(
     mut materials: ResMut<Assets<Wireframe2dMaterial>>,
     mut colors_changed: Query<
-        (&mut MeshMaterial2d<Wireframe2dMaterial>, &Wireframe2dColor),
+        (&mut MeshMaterial2dHandle<Wireframe2dMaterial>, &Wireframe2dColor),
         (With<Wireframe2d>, Changed<Wireframe2dColor>),
     >,
 ) {
@@ -148,14 +148,14 @@ fn apply_wireframe_material(
         (Entity, Option<&Wireframe2dColor>),
         (
             With<Wireframe2d>,
-            Without<MeshMaterial2d<Wireframe2dMaterial>>,
+            Without<MeshMaterial2dHandle<Wireframe2dMaterial>>,
         ),
     >,
     no_wireframes: Query<
         Entity,
         (
             With<NoWireframe2d>,
-            With<MeshMaterial2d<Wireframe2dMaterial>>,
+            With<MeshMaterial2dHandle<Wireframe2dMaterial>>,
         ),
     >,
     mut removed_wireframes: RemovedComponents<Wireframe2d>,
@@ -163,7 +163,7 @@ fn apply_wireframe_material(
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
         if let Some(mut commands) = commands.get_entity(e) {
-            commands.remove::<MeshMaterial2d<Wireframe2dMaterial>>();
+            commands.remove::<MeshMaterial2dHandle<Wireframe2dMaterial>>();
         }
     }
 
@@ -177,7 +177,7 @@ fn apply_wireframe_material(
             // If there's no color specified we can use the global material since it's already set to use the default_color
             global_material.handle.clone()
         };
-        wireframes_to_spawn.push((e, MeshMaterial2d(material)));
+        wireframes_to_spawn.push((e, MeshMaterial2dHandle(material)));
     }
     commands.insert_or_spawn_batch(wireframes_to_spawn);
 }
@@ -192,12 +192,12 @@ fn apply_global_wireframe_material(
         Entity,
         (
             Wireframe2dFilter,
-            Without<MeshMaterial2d<Wireframe2dMaterial>>,
+            Without<MeshMaterial2dHandle<Wireframe2dMaterial>>,
         ),
     >,
     meshes_with_global_material: Query<
         Entity,
-        (Wireframe2dFilter, With<MeshMaterial2d<Wireframe2dMaterial>>),
+        (Wireframe2dFilter, With<MeshMaterial2dHandle<Wireframe2dMaterial>>),
     >,
     global_material: Res<GlobalWireframe2dMaterial>,
 ) {
@@ -206,14 +206,14 @@ fn apply_global_wireframe_material(
         for e in &meshes_without_material {
             // We only add the material handle but not the Wireframe component
             // This makes it easy to detect which mesh is using the global material and which ones are user specified
-            material_to_spawn.push((e, MeshMaterial2d(global_material.handle.clone())));
+            material_to_spawn.push((e, MeshMaterial2dHandle(global_material.handle.clone())));
         }
         commands.insert_or_spawn_batch(material_to_spawn);
     } else {
         for e in &meshes_with_global_material {
             commands
                 .entity(e)
-                .remove::<MeshMaterial2d<Wireframe2dMaterial>>();
+                .remove::<MeshMaterial2dHandle<Wireframe2dMaterial>>();
         }
     }
 }

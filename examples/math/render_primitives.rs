@@ -531,7 +531,7 @@ fn spawn_primitive_2d(
                     primitive_state: state,
                 },
                 Mesh2d(meshes.add(mesh)),
-                MeshMaterial2d(material.clone()),
+                MeshMaterial2dHandle(material.clone()),
                 Transform::from_translation(POSITION),
             ));
         }
@@ -575,7 +575,7 @@ fn spawn_primitive_3d(
                     primitive_state: state,
                 },
                 Mesh3d(meshes.add(mesh)),
-                MeshMaterialHandle(material.clone()),
+                MeshMaterial3dHandle(material.clone()),
                 Transform::from_translation(POSITION),
             ));
         }

@@ -64,7 +64,7 @@ fn setup(
     // Action! (Our cubes that are going to move)
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(1., 1., 1.))),
-        MeshMaterialHandle(materials.add(Color::srgb(0.8, 0.7, 0.6))),
+        MeshMaterial3dHandle(materials.add(Color::srgb(0.8, 0.7, 0.6))),
         ShowAxes,
         TransformTracking {
             initial_transform: default(),
@@ -75,7 +75,7 @@ fn setup(
 
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
-        MeshMaterialHandle(materials.add(Color::srgb(0.6, 0.7, 0.8))),
+        MeshMaterial3dHandle(materials.add(Color::srgb(0.6, 0.7, 0.8))),
         ShowAxes,
         TransformTracking {
             initial_transform: default(),
@@ -87,7 +87,7 @@ fn setup(
     // A plane to give a sense of place
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(20., 20.))),
-        MeshMaterialHandle(materials.add(Color::srgb(0.1, 0.1, 0.1))),
+        MeshMaterial3dHandle(materials.add(Color::srgb(0.1, 0.1, 0.1))),
         Transform::from_xyz(0., -2., 0.),
     ));
 

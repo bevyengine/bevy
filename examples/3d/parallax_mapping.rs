@@ -233,14 +233,14 @@ fn setup(
             let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
             commands.spawn((
                 Mesh3d(mesh),
-                MeshMaterialHandle(materials.add(Color::WHITE)),
+                MeshMaterial3dHandle(materials.add(Color::WHITE)),
             ));
         });
 
     // Plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             // standard material derived from dark green, but
             // with roughness and reflectance set.
             perceptual_roughness: 0.45,
@@ -275,7 +275,7 @@ fn setup(
                     .unwrap(),
             ),
         ),
-        MeshMaterialHandle(parallax_material.clone()),
+        MeshMaterial3dHandle(parallax_material.clone()),
         Spin { speed: 0.3 },
     ));
 
@@ -288,7 +288,7 @@ fn setup(
     let background_cube_bundle = |translation| {
         (
             Mesh3d(background_cube.clone()),
-            MeshMaterialHandle(parallax_material.clone()),
+            MeshMaterial3dHandle(parallax_material.clone()),
             Transform::from_translation(translation),
             Spin { speed: -0.1 },
         )

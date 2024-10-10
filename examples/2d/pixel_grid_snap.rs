@@ -75,7 +75,7 @@ fn setup_mesh(
 ) {
     commands.spawn((
         Mesh2d(meshes.add(Capsule2d::default())),
-        MeshMaterial2d(materials.add(Color::BLACK)),
+        MeshMaterial2dHandle(materials.add(Color::BLACK)),
         Transform::from_xyz(40., 0., 2.).with_scale(Vec3::splat(32.)),
         Rotate,
         PIXEL_PERFECT_LAYERS,

@@ -1,4 +1,4 @@
-use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin, MeshMaterialHandle};
+use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin, MeshMaterial3dHandle};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
@@ -131,7 +131,7 @@ fn global_color_changed(
 fn wireframe_color_changed(
     mut materials: ResMut<Assets<WireframeMaterial>>,
     mut colors_changed: Query<
-        (&mut MeshMaterialHandle<WireframeMaterial>, &WireframeColor),
+        (&mut MeshMaterial3dHandle<WireframeMaterial>, &WireframeColor),
         (With<Wireframe>, Changed<WireframeColor>),
     >,
 ) {
@@ -151,14 +151,14 @@ fn apply_wireframe_material(
         (Entity, Option<&WireframeColor>),
         (
             With<Wireframe>,
-            Without<MeshMaterialHandle<WireframeMaterial>>,
+            Without<MeshMaterial3dHandle<WireframeMaterial>>,
         ),
     >,
     no_wireframes: Query<
         Entity,
         (
             With<NoWireframe>,
-            With<MeshMaterialHandle<WireframeMaterial>>,
+            With<MeshMaterial3dHandle<WireframeMaterial>>,
         ),
     >,
     mut removed_wireframes: RemovedComponents<Wireframe>,
@@ -166,14 +166,14 @@ fn apply_wireframe_material(
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
         if let Some(mut commands) = commands.get_entity(e) {
-            commands.remove::<MeshMaterialHandle<WireframeMaterial>>();
+            commands.remove::<MeshMaterial3dHandle<WireframeMaterial>>();
         }
     }
 
     let mut material_to_spawn = vec![];
     for (e, maybe_color) in &wireframes {
         let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
-        material_to_spawn.push((e, MeshMaterialHandle(material)));
+        material_to_spawn.push((e, MeshMaterial3dHandle(material)));
     }
     commands.insert_or_spawn_batch(material_to_spawn);
 }
@@ -188,12 +188,12 @@ fn apply_global_wireframe_material(
         (Entity, Option<&WireframeColor>),
         (
             WireframeFilter,
-            Without<MeshMaterialHandle<WireframeMaterial>>,
+            Without<MeshMaterial3dHandle<WireframeMaterial>>,
         ),
     >,
     meshes_with_global_material: Query<
         Entity,
-        (WireframeFilter, With<MeshMaterialHandle<WireframeMaterial>>),
+        (WireframeFilter, With<MeshMaterial3dHandle<WireframeMaterial>>),
     >,
     global_material: Res<GlobalWireframeMaterial>,
     mut materials: ResMut<Assets<WireframeMaterial>>,
@@ -204,14 +204,14 @@ fn apply_global_wireframe_material(
             let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
             // We only add the material handle but not the Wireframe component
             // This makes it easy to detect which mesh is using the global material and which ones are user specified
-            material_to_spawn.push((e, MeshMaterialHandle(material)));
+            material_to_spawn.push((e, MeshMaterial3dHandle(material)));
         }
         commands.insert_or_spawn_batch(material_to_spawn);
     } else {
         for e in &meshes_with_global_material {
             commands
                 .entity(e)
-                .remove::<MeshMaterialHandle<WireframeMaterial>>();
+                .remove::<MeshMaterial3dHandle<WireframeMaterial>>();
         }
     }
 }

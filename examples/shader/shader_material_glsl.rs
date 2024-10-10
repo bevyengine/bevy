@@ -33,7 +33,7 @@ fn setup(
     // cube
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterialHandle(materials.add(CustomMaterial {
+        MeshMaterial3dHandle(materials.add(CustomMaterial {
             color: LinearRgba::BLUE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,

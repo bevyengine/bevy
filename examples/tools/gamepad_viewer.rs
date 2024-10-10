@@ -45,8 +45,8 @@ struct ConnectedGamepadsText;
 
 #[derive(Resource)]
 struct ButtonMaterials {
-    normal: MeshMaterial2d<ColorMaterial>,
-    active: MeshMaterial2d<ColorMaterial>,
+    normal: MeshMaterial2dHandle<ColorMaterial>,
+    active: MeshMaterial2dHandle<ColorMaterial>,
 }
 impl FromWorld for ButtonMaterials {
     fn from_world(world: &mut World) -> Self {
@@ -79,7 +79,7 @@ impl FromWorld for ButtonMeshes {
 #[derive(Bundle)]
 struct GamepadButtonBundle {
     mesh: Mesh2d,
-    material: MeshMaterial2d<ColorMaterial>,
+    material: MeshMaterial2dHandle<ColorMaterial>,
     transform: Transform,
     react_to: ReactTo,
 }
@@ -88,7 +88,7 @@ impl GamepadButtonBundle {
     pub fn new(
         button_type: GamepadButton,
         mesh: Mesh2d,
-        material: MeshMaterial2d<ColorMaterial>,
+        material: MeshMaterial2dHandle<ColorMaterial>,
         x: f32,
         y: f32,
     ) -> Self {
@@ -394,7 +394,7 @@ fn setup_connected(mut commands: Commands) {
 fn update_buttons(
     gamepads: Query<&Gamepad>,
     materials: Res<ButtonMaterials>,
-    mut query: Query<(&mut MeshMaterial2d<ColorMaterial>, &ReactTo)>,
+    mut query: Query<(&mut MeshMaterial2dHandle<ColorMaterial>, &ReactTo)>,
 ) {
     for buttons in &gamepads {
         for (mut handle, react_to) in query.iter_mut() {

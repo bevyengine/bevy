@@ -150,7 +150,7 @@ fn spawn_cube(
     commands
         .spawn((
             Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-            MeshMaterialHandle(standard_materials.add(StandardMaterial {
+            MeshMaterial3dHandle(standard_materials.add(StandardMaterial {
                 base_color: Color::from(WHITE),
                 base_color_texture: Some(asset_server.load("branding/icon.png")),
                 ..default()
@@ -182,7 +182,7 @@ fn spawn_water(
 ) {
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0)))),
-        MeshMaterialHandle(water_materials.add(ExtendedMaterial {
+        MeshMaterial3dHandle(water_materials.add(ExtendedMaterial {
             base: StandardMaterial {
                 base_color: BLACK.into(),
                 perceptual_roughness: 0.0,

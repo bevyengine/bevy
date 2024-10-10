@@ -270,7 +270,7 @@ fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {
     commands
         .spawn((
             Mesh3d(assets.main_sphere.clone()),
-            MeshMaterialHandle(assets.main_sphere_material.clone()),
+            MeshMaterial3dHandle(assets.main_sphere_material.clone()),
             Transform::from_xyz(0.0, SPHERE_SCALE, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
         ))
         .insert(MainObject);
@@ -583,7 +583,7 @@ fn create_cubes(
                     let voxel_cube = commands
                         .spawn((
                             Mesh3d(example_assets.voxel_cube.clone()),
-                            MeshMaterialHandle(voxel_cube_material.clone()),
+                            MeshMaterial3dHandle(voxel_cube_material.clone()),
                             Transform::from_scale(Vec3::splat(VOXEL_CUBE_SCALE))
                                 .with_translation(pos),
                         ))

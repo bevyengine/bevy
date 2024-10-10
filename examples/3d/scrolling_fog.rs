@@ -78,7 +78,7 @@ fn setup(
     // Spawn ground mesh.
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(64.0, 1.0, 64.0))),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             base_color: Color::BLACK,
             perceptual_roughness: 1.0,
             ..default()
@@ -89,7 +89,7 @@ fn setup(
     // Spawn pillar standing between the camera and the sun.
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(2.0, 9.0, 2.0))),
-        MeshMaterialHandle(materials.add(Color::BLACK)),
+        MeshMaterial3dHandle(materials.add(Color::BLACK)),
         Transform::from_xyz(-10.0, 4.5, -11.0),
     ));
 

@@ -31,7 +31,7 @@ fn setup(
     // blue cube
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterialHandle(materials.add(CustomMaterial {
+        MeshMaterial3dHandle(materials.add(CustomMaterial {
             color: LinearRgba::BLUE,
             is_red: false,
         })),
@@ -41,7 +41,7 @@ fn setup(
     // red cube (with green color overridden by the IS_RED "shader def")
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterialHandle(materials.add(CustomMaterial {
+        MeshMaterial3dHandle(materials.add(CustomMaterial {
             color: LinearRgba::GREEN,
             is_red: true,
         })),

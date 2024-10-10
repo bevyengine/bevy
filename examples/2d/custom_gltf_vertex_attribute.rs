@@ -55,7 +55,7 @@ fn setup(
     );
     commands.spawn((
         Mesh2d(mesh),
-        MeshMaterial2d(materials.add(CustomMaterial {})),
+        MeshMaterial2dHandle(materials.add(CustomMaterial {})),
         Transform::from_scale(150.0 * Vec3::ONE),
     ));
 

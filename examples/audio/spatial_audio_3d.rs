@@ -25,7 +25,7 @@ fn setup(
     // sound emitter
     commands.spawn((
         Mesh3d(meshes.add(Sphere::new(0.2).mesh().uv(32, 18))),
-        MeshMaterialHandle(materials.add(Color::from(BLUE))),
+        MeshMaterial3dHandle(materials.add(Color::from(BLUE))),
         Transform::from_xyz(0.0, 0.0, 0.0),
         Emitter::default(),
         AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
@@ -39,14 +39,14 @@ fn setup(
             // left ear indicator
             parent.spawn((
                 Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
-                MeshMaterialHandle(materials.add(Color::from(RED))),
+                MeshMaterial3dHandle(materials.add(Color::from(RED))),
                 Transform::from_translation(listener.left_ear_offset),
             ));
 
             // right ear indicator
             parent.spawn((
                 Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
-                MeshMaterialHandle(materials.add(Color::from(LIME))),
+                MeshMaterial3dHandle(materials.add(Color::from(LIME))),
                 Transform::from_translation(listener.right_ear_offset),
             ));
         });

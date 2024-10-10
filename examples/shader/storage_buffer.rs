@@ -47,7 +47,7 @@ fn setup(
         for j in -3..=3 {
             commands.spawn((
                 Mesh3d(meshes.add(Cuboid::from_size(Vec3::splat(0.3)))),
-                MeshMaterialHandle(material_handle.clone()),
+                MeshMaterial3dHandle(material_handle.clone()),
                 Transform::from_xyz(i as f32, j as f32, 0.0),
             ));
         }

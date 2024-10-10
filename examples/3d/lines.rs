@@ -37,7 +37,7 @@ fn setup(
                 (Vec3::new(1.0, 1.0, 0.0), Vec3::new(1.0, 0.0, 0.0)),
             ],
         })),
-        MeshMaterialHandle(materials.add(LineMaterial {
+        MeshMaterial3dHandle(materials.add(LineMaterial {
             color: LinearRgba::GREEN,
         })),
         Transform::from_xyz(-1.5, 0.0, 0.0),
@@ -52,7 +52,7 @@ fn setup(
                 Vec3::new(1.0, 0.0, 0.0),
             ],
         })),
-        MeshMaterialHandle(materials.add(LineMaterial {
+        MeshMaterial3dHandle(materials.add(LineMaterial {
             color: LinearRgba::BLUE,
         })),
         Transform::from_xyz(0.5, 0.0, 0.0),

@@ -6,18 +6,18 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 use derive_more::derive::From;
 
-/// A component for rendering 2D meshes, typically with a [`MeshMaterial2d`] using a [`ColorMaterial`].
+/// A component for rendering 2D meshes, typically with a [`MeshMaterial2dHandle`] using a [`ColorMaterial`].
 ///
-/// Meshes without a [`MeshMaterial2d`] will be rendered with a [default material].
+/// Meshes without a [`MeshMaterial2dHandle`] will be rendered with a [default material].
 ///
-/// [`MeshMaterial2d`]: <https://docs.rs/bevy/latest/bevy/sprite/struct.MeshMaterial2d.html>
+/// [`MeshMaterial2dHandle`]: <https://docs.rs/bevy/latest/bevy/sprite/struct.MeshMaterial2dHandle.html>
 /// [`ColorMaterial`]: <https://docs.rs/bevy/latest/bevy/sprite/struct.ColorMaterial.html>
-/// [default material]: <https://docs.rs/bevy/latest/bevy/sprite/struct.MeshMaterial2d.html#default-material>
+/// [default material]: <https://docs.rs/bevy/latest/bevy/sprite/struct.MeshMaterial2dHandle.html#default-material>
 ///
 /// # Example
 ///
 /// ```ignore
-/// # use bevy_sprite::{ColorMaterial, Mesh2d, MeshMaterial2d};
+/// # use bevy_sprite::{ColorMaterial, Mesh2d, MeshMaterial2dHandle};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::mesh::Mesh;
 /// # use bevy_color::palettes::basic::RED;
@@ -32,7 +32,7 @@ use derive_more::derive::From;
 /// ) {
 ///     commands.spawn((
 ///         Mesh2d(meshes.add(Circle::new(50.0))),
-///         MeshMaterial2d(materials.add(ColorMaterial::from_color(RED))),
+///         MeshMaterial2dHandle(materials.add(ColorMaterial::from_color(RED))),
 ///     ));
 /// }
 /// ```
@@ -53,18 +53,18 @@ impl From<&Mesh2d> for AssetId<Mesh> {
     }
 }
 
-/// A component for rendering 3D meshes, typically with a [`MeshMaterialHandle`] using a [`StandardMaterial`].
+/// A component for rendering 3D meshes, typically with a [`MeshMaterial3dHandle`] using a [`StandardMaterial`].
 ///
-/// Meshes without a [`MeshMaterialHandle`] will be rendered with a [default material].
+/// Meshes without a [`MeshMaterial3dHandle`] will be rendered with a [default material].
 ///
-/// [`MeshMaterialHandle`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterialHandle.html>
+/// [`MeshMaterial3dHandle`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterial3dHandle.html>
 /// [`StandardMaterial`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.StandardMaterial.html>
-/// [default material]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterialHandle.html#default-material>
+/// [default material]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterial3dHandle.html#default-material>
 ///
 /// # Example
 ///
 /// ```ignore
-/// # use bevy_pbr::{Material, MeshMaterialHandle, StandardMaterial};
+/// # use bevy_pbr::{Material, MeshMaterial3dHandle, StandardMaterial};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::mesh::{Mesh, Mesh3d};
 /// # use bevy_color::palettes::basic::RED;
@@ -79,7 +79,7 @@ impl From<&Mesh2d> for AssetId<Mesh> {
 /// ) {
 ///     commands.spawn((
 ///         Mesh3d(meshes.add(Capsule3d::default())),
-///         MeshMaterialHandle(materials.add(StandardMaterial {
+///         MeshMaterial3dHandle(materials.add(StandardMaterial {
 ///             base_color: RED.into(),
 ///             ..Default::default()
 ///         })),

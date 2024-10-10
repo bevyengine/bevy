@@ -15,7 +15,7 @@ use derive_more::derive::From;
 /// # Example
 ///
 /// ```
-/// # use bevy_pbr::{Material, MeshMaterialHandle, StandardMaterial};
+/// # use bevy_pbr::{Material, MeshMaterial3dHandle, StandardMaterial};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::mesh::{Mesh, Mesh3d};
 /// # use bevy_color::palettes::basic::RED;
@@ -30,7 +30,7 @@ use derive_more::derive::From;
 /// ) {
 ///     commands.spawn((
 ///         Mesh3d(meshes.add(Capsule3d::default())),
-///         MeshMaterialHandle(materials.add(StandardMaterial {
+///         MeshMaterial3dHandle(materials.add(StandardMaterial {
 ///             base_color: RED.into(),
 ///             ..Default::default()
 ///         })),
@@ -40,11 +40,11 @@ use derive_more::derive::From;
 ///
 /// ## Default Material
 ///
-/// Meshes without a [`MeshMaterialHandle`] are rendered with a default [`StandardMaterial`].
+/// Meshes without a [`MeshMaterial3dHandle`] are rendered with a default [`StandardMaterial`].
 /// This material can be overridden by inserting a custom material for the default asset handle.
 ///
 /// ```
-/// # use bevy_pbr::{Material, MeshMaterialHandle, StandardMaterial};
+/// # use bevy_pbr::{Material, MeshMaterial3dHandle, StandardMaterial};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::mesh::{Mesh, Mesh3d};
 /// # use bevy_color::Color;
@@ -72,15 +72,15 @@ use derive_more::derive::From;
 #[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
 #[require(HasMaterial3d)]
-pub struct MeshMaterialHandle<M: Material>(pub Handle<M>);
+pub struct MeshMaterial3dHandle<M: Material>(pub Handle<M>);
 
-impl_generic_handle_wrapper!(MeshMaterialHandle, Handle, M, Material);
+impl_generic_handle_wrapper!(MeshMaterial3dHandle, Handle, M, Material);
 
-/// A component that marks an entity as having a [`MeshMaterialHandle`].
+/// A component that marks an entity as having a [`MeshMaterial3dHandle`].
 /// [`Mesh3d`] entities without this component are rendered with a [default material].
 ///
 /// [`Mesh3d`]: bevy_render::mesh::Mesh3d
-/// [default material]: crate::MeshMaterialHandle#default-material
+/// [default material]: crate::MeshMaterial3dHandle#default-material
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct HasMaterial3d;

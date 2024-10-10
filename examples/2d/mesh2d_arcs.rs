@@ -68,7 +68,7 @@ fn setup(
             });
         commands.spawn((
             Mesh2d(meshes.add(sector_mesh)),
-            MeshMaterial2d(material.clone()),
+            MeshMaterial2dHandle(material.clone()),
             Transform {
                 translation: Vec3::new(FIRST_X + OFFSET * i as f32, 2.0 * UPPER_Y, 0.0),
                 rotation: Quat::from_rotation_z(sector_angle),
@@ -92,7 +92,7 @@ fn setup(
             });
         commands.spawn((
             Mesh2d(meshes.add(segment_mesh)),
-            MeshMaterial2d(material.clone()),
+            MeshMaterial2dHandle(material.clone()),
             Transform {
                 translation: Vec3::new(FIRST_X + OFFSET * i as f32, LOWER_Y, 0.0),
                 rotation: Quat::from_rotation_z(segment_angle),

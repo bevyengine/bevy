@@ -42,7 +42,7 @@ fn setup(
     // ground plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(100.0, 100.0))),
-        MeshMaterialHandle(materials.add(Color::WHITE)),
+        MeshMaterial3dHandle(materials.add(Color::WHITE)),
         Movable,
     ));
 
@@ -62,7 +62,7 @@ fn setup(
 
             (
                 Mesh3d(cube_mesh.clone()),
-                MeshMaterialHandle(blue.clone()),
+                MeshMaterial3dHandle(blue.clone()),
                 Transform::from_xyz(x, y, z),
                 Movable,
             )
@@ -104,11 +104,11 @@ fn setup(
                 .with_children(|builder| {
                     builder.spawn((
                         Mesh3d(sphere_mesh.clone()),
-                        MeshMaterialHandle(red_emissive.clone()),
+                        MeshMaterial3dHandle(red_emissive.clone()),
                     ));
                     builder.spawn((
                         Mesh3d(sphere_mesh_direction.clone()),
-                        MeshMaterialHandle(maroon_emissive.clone()),
+                        MeshMaterial3dHandle(maroon_emissive.clone()),
                         Transform::from_translation(Vec3::Z * -0.1),
                         NotShadowCaster,
                     ));

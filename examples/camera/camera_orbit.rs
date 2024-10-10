@@ -57,7 +57,7 @@ fn setup(
     commands.spawn((
         Name::new("Plane"),
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             base_color: Color::srgb(0.3, 0.5, 0.3),
             // Turning off culling keeps the plane visible when viewed from beneath.
             cull_mode: None,
@@ -68,7 +68,7 @@ fn setup(
     commands.spawn((
         Name::new("Cube"),
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterialHandle(materials.add(Color::srgb(0.8, 0.7, 0.6))),
+        MeshMaterial3dHandle(materials.add(Color::srgb(0.8, 0.7, 0.6))),
         Transform::from_xyz(1.5, 0.51, 1.5),
     ));
 

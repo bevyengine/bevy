@@ -36,14 +36,14 @@ fn setup_scene(
     // World where we move the player
     commands.spawn((
         Mesh2d(meshes.add(Rectangle::new(1000., 700.))),
-        MeshMaterial2d(materials.add(Color::srgb(0.2, 0.2, 0.3))),
+        MeshMaterial2dHandle(materials.add(Color::srgb(0.2, 0.2, 0.3))),
     ));
 
     // Player
     commands.spawn((
         Player,
         Mesh2d(meshes.add(Circle::new(25.))),
-        MeshMaterial2d(materials.add(Color::srgb(6.25, 9.4, 9.1))), // RGB values exceed 1 to achieve a bright color for the bloom effect
+        MeshMaterial2dHandle(materials.add(Color::srgb(6.25, 9.4, 9.1))), // RGB values exceed 1 to achieve a bright color for the bloom effect
         Transform::from_xyz(0., 0., 2.),
     ));
 }

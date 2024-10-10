@@ -76,7 +76,7 @@ fn setup_scene(
 
             commands.spawn((
                 Mesh3d(mesh.clone()),
-                MeshMaterialHandle(material),
+                MeshMaterial3dHandle(material),
                 Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0),
                 Bouncing,
             ));

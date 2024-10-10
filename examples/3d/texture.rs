@@ -55,19 +55,19 @@ fn setup(
     // textured quad - normal
     commands.spawn((
         Mesh3d(quad_handle.clone()),
-        MeshMaterialHandle(material_handle),
+        MeshMaterial3dHandle(material_handle),
         Transform::from_xyz(0.0, 0.0, 1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
     ));
     // textured quad - modulated
     commands.spawn((
         Mesh3d(quad_handle.clone()),
-        MeshMaterialHandle(red_material_handle),
+        MeshMaterial3dHandle(red_material_handle),
         Transform::from_rotation(Quat::from_rotation_x(-PI / 5.0)),
     ));
     // textured quad - modulated
     commands.spawn((
         Mesh3d(quad_handle),
-        MeshMaterialHandle(blue_material_handle),
+        MeshMaterial3dHandle(blue_material_handle),
         Transform::from_xyz(0.0, 0.0, -1.5).with_rotation(Quat::from_rotation_x(-PI / 5.0)),
     ));
     // camera

@@ -73,7 +73,7 @@ fn setup_terrain_scene(
     // Sky
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(2.0, 1.0, 1.0))),
-        MeshMaterialHandle(materials.add(StandardMaterial {
+        MeshMaterial3dHandle(materials.add(StandardMaterial {
             base_color: Srgba::hex("888888").unwrap().into(),
             unlit: true,
             cull_mode: None,

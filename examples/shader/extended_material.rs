@@ -29,7 +29,7 @@ fn setup(
     // sphere
     commands.spawn((
         Mesh3d(meshes.add(Sphere::new(1.0))),
-        MeshMaterialHandle(materials.add(ExtendedMaterial {
+        MeshMaterial3dHandle(materials.add(ExtendedMaterial {
             base: StandardMaterial {
                 base_color: RED.into(),
                 // can be used in forward or deferred mode.

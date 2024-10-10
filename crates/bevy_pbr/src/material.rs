@@ -45,7 +45,7 @@ use core::{
 
 use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 
-/// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterialHandle`]
+/// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3dHandle`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
 /// way to render [`Mesh3d`] entities with custom shader logic.
 ///
@@ -58,7 +58,7 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 /// check out the [`AsBindGroup`] documentation.
 ///
 /// ```
-/// # use bevy_pbr::{Material, MeshMaterialHandle};
+/// # use bevy_pbr::{Material, MeshMaterial3dHandle};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::TypePath;
 /// # use bevy_render::{mesh::{Mesh, Mesh3d}, render_resource::{AsBindGroup, ShaderRef}, texture::Image};
@@ -97,7 +97,7 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 /// ) {
 ///     commands.spawn((
 ///         Mesh3d(meshes.add(Capsule3d::default())),
-///         MeshMaterialHandle(materials.add(CustomMaterial {
+///         MeshMaterial3dHandle(materials.add(CustomMaterial {
 ///             color: RED.into(),
 ///             color_texture: asset_server.load("some_image.png"),
 ///         })),
@@ -269,7 +269,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
-            .register_type::<MeshMaterialHandle<M>>()
+            .register_type::<MeshMaterial3dHandle<M>>()
             .register_type::<HasMaterial3d>()
             .add_plugins(RenderAssetPlugin::<PreparedMaterial<M>>::default());
 
@@ -558,7 +558,7 @@ pub(super) fn clear_material_instances<M: Material>(
 
 fn extract_mesh_materials<M: Material>(
     mut material_instances: ResMut<RenderMaterialInstances<M>>,
-    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterialHandle<M>)>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial3dHandle<M>)>>,
 ) {
     for (entity, view_visibility, material) in &query {
         if view_visibility.get() {
@@ -567,7 +567,7 @@ fn extract_mesh_materials<M: Material>(
     }
 }
 
-/// Extracts default materials for 3D meshes with no [`MeshMaterialHandle`].
+/// Extracts default materials for 3D meshes with no [`MeshMaterial3dHandle`].
 pub(super) fn extract_default_materials(
     mut material_instances: ResMut<RenderMaterialInstances<StandardMaterial>>,
     query: Extract<Query<(Entity, &ViewVisibility), (With<Mesh3d>, Without<HasMaterial3d>)>>,

@@ -42,14 +42,14 @@ fn setup(
     // sphere - initially a caster
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
-        MeshMaterialHandle(materials.add(Color::from(RED))),
+        MeshMaterial3dHandle(materials.add(Color::from(RED))),
         Transform::from_xyz(-1.0, spawn_height, 0.0),
     ));
 
     // sphere - initially not a caster
     commands.spawn((
         Mesh3d(sphere_handle),
-        MeshMaterialHandle(materials.add(Color::from(BLUE))),
+        MeshMaterial3dHandle(materials.add(Color::from(BLUE))),
         Transform::from_xyz(1.0, spawn_height, 0.0),
         NotShadowCaster,
     ));
@@ -57,7 +57,7 @@ fn setup(
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
-        MeshMaterialHandle(materials.add(Color::from(LIME))),
+        MeshMaterial3dHandle(materials.add(Color::from(LIME))),
         Transform::from_xyz(0.0, 1.0, -10.0),
         NotShadowCaster,
         NotShadowReceiver,
@@ -66,7 +66,7 @@ fn setup(
     // lower ground plane - initially a shadow receiver
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
-        MeshMaterialHandle(white_handle),
+        MeshMaterial3dHandle(white_handle),
     ));
 
     println!("Using DirectionalLight");

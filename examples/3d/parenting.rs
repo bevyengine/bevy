@@ -38,7 +38,7 @@ fn setup(
     commands
         .spawn((
             Mesh3d(cube_handle.clone()),
-            MeshMaterialHandle(cube_material_handle.clone()),
+            MeshMaterial3dHandle(cube_material_handle.clone()),
             Transform::from_xyz(0.0, 0.0, 1.0),
             Rotator,
         ))
@@ -46,7 +46,7 @@ fn setup(
             // child cube
             parent.spawn((
                 Mesh3d(cube_handle),
-                MeshMaterialHandle(cube_material_handle),
+                MeshMaterial3dHandle(cube_material_handle),
                 Transform::from_xyz(0.0, 0.0, 3.0),
             ));
         });

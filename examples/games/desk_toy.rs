@@ -139,7 +139,7 @@ fn setup(
                 // eye outline
                 commands.spawn((
                     Mesh2d(circle.clone()),
-                    MeshMaterial2d(outline_material.clone()),
+                    MeshMaterial2dHandle(outline_material.clone()),
                     Transform::from_xyz(x, y - 1.0, 1.0)
                         .with_scale(Vec2::splat(radius + 2.0).extend(1.0)),
                 ));
@@ -153,7 +153,7 @@ fn setup(
                         // sclera
                         commands.spawn((
                             Mesh2d(circle.clone()),
-                            MeshMaterial2d(sclera_material.clone()),
+                            MeshMaterial2dHandle(sclera_material.clone()),
                             Transform::from_scale(Vec3::new(radius, radius, 0.0)),
                         ));
 
@@ -174,7 +174,7 @@ fn setup(
                                 // pupil main
                                 commands.spawn((
                                     Mesh2d(circle.clone()),
-                                    MeshMaterial2d(pupil_material.clone()),
+                                    MeshMaterial2dHandle(pupil_material.clone()),
                                     Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::new(
                                         pupil_radius,
                                         pupil_radius,
@@ -185,7 +185,7 @@ fn setup(
                                 // pupil highlight
                                 commands.spawn((
                                     Mesh2d(circle.clone()),
-                                    MeshMaterial2d(pupil_highlight_material.clone()),
+                                    MeshMaterial2dHandle(pupil_highlight_material.clone()),
                                     Transform::from_xyz(
                                         -pupil_highlight_offset,
                                         pupil_highlight_offset,

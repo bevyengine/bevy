@@ -84,10 +84,10 @@ fn spawn_tasks(mut commands: Commands) {
 
                         world
                             .entity_mut(entity)
-                            // Add our new `Mesh3d` and `MeshMaterialHandle` to our tagged entity
+                            // Add our new `Mesh3d` and `MeshMaterial3dHandle` to our tagged entity
                             .insert((
                                 Mesh3d(box_mesh_handle),
-                                MeshMaterialHandle(box_material_handle),
+                                MeshMaterial3dHandle(box_material_handle),
                                 transform,
                             ))
                             // Task is complete, so remove task component from entity
@@ -106,7 +106,7 @@ fn spawn_tasks(mut commands: Commands) {
 
 /// This system queries for entities that have our Task<Transform> component. It polls the
 /// tasks to see if they're complete. If the task is complete it takes the result, adds a
-/// new [`Mesh3d`] and [`MeshMaterialHandle`] to the entity using the result from the task's work, and
+/// new [`Mesh3d`] and [`MeshMaterial3dHandle`] to the entity using the result from the task's work, and
 /// removes the task component from the entity.
 fn handle_tasks(mut commands: Commands, mut transform_tasks: Query<&mut ComputeTransform>) {
     for mut task in &mut transform_tasks {

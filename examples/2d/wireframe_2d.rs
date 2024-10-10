@@ -61,20 +61,20 @@ fn setup(
             Vec2::new(-50.0, -50.0),
             Vec2::new(50.0, -50.0),
         ))),
-        MeshMaterial2d(materials.add(Color::BLACK)),
+        MeshMaterial2dHandle(materials.add(Color::BLACK)),
         Transform::from_xyz(-150.0, 0.0, 0.0),
         NoWireframe2d,
     ));
     // Rectangle: Follows global wireframe setting
     commands.spawn((
         Mesh2d(meshes.add(Rectangle::new(100.0, 100.0))),
-        MeshMaterial2d(materials.add(Color::BLACK)),
+        MeshMaterial2dHandle(materials.add(Color::BLACK)),
         Transform::from_xyz(0.0, 0.0, 0.0),
     ));
     // Circle: Always renders a wireframe
     commands.spawn((
         Mesh2d(meshes.add(Circle::new(50.0))),
-        MeshMaterial2d(materials.add(Color::BLACK)),
+        MeshMaterial2dHandle(materials.add(Color::BLACK)),
         Transform::from_xyz(150.0, 0.0, 0.0),
         Wireframe2d,
         // This lets you configure the wireframe color of this entity.

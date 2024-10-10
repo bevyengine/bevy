@@ -33,7 +33,7 @@ fn setup(
     // quad
     commands.spawn((
         Mesh2d(meshes.add(Rectangle::default())),
-        MeshMaterial2d(materials.add(CustomMaterial {
+        MeshMaterial2dHandle(materials.add(CustomMaterial {
             color: LinearRgba::BLUE,
             color_texture: Some(asset_server.load("branding/icon.png")),
         })),

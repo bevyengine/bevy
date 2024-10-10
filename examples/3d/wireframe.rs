@@ -57,20 +57,20 @@ fn setup(
     // Red cube: Never renders a wireframe
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterialHandle(materials.add(Color::from(RED))),
+        MeshMaterial3dHandle(materials.add(Color::from(RED))),
         Transform::from_xyz(-1.0, 0.5, -1.0),
         NoWireframe,
     ));
     // Orange cube: Follows global wireframe setting
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterialHandle(materials.add(Color::from(ORANGE))),
+        MeshMaterial3dHandle(materials.add(Color::from(ORANGE))),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
     // Green cube: Always renders a wireframe
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
-        MeshMaterialHandle(materials.add(Color::from(LIME))),
+        MeshMaterial3dHandle(materials.add(Color::from(LIME))),
         Transform::from_xyz(1.0, 0.5, 1.0),
         Wireframe,
         // This lets you configure the wireframe color of this entity.
@@ -81,7 +81,7 @@ fn setup(
     // plane
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
-        MeshMaterialHandle(materials.add(Color::from(BLUE))),
+        MeshMaterial3dHandle(materials.add(Color::from(BLUE))),
         // You can insert this component without the `Wireframe` component
         // to override the color of the global wireframe for this mesh
         WireframeColor {

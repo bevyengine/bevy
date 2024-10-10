@@ -75,19 +75,19 @@ fn setup(
     // torus
     commands.spawn((
         Mesh3d(torus_handle),
-        MeshMaterialHandle(material_handle.clone()),
+        MeshMaterial3dHandle(material_handle.clone()),
         Transform::from_xyz(-3.0, 0.0, 0.0),
     ));
     // cube
     commands.spawn((
         Mesh3d(cube_handle),
-        MeshMaterialHandle(material_handle.clone()),
+        MeshMaterial3dHandle(material_handle.clone()),
         Transform::from_xyz(0.0, 0.0, 0.0),
     ));
     // sphere
     commands.spawn((
         Mesh3d(sphere_handle),
-        MeshMaterialHandle(material_handle),
+        MeshMaterial3dHandle(material_handle),
         Transform::from_xyz(3.0, 0.0, 0.0),
     ));
     // light

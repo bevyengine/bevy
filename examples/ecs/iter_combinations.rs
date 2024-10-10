@@ -29,7 +29,7 @@ struct Star;
 #[derive(Bundle, Default)]
 struct BodyBundle {
     mesh: Mesh3d,
-    material: MeshMaterialHandle<StandardMaterial>,
+    material: MeshMaterial3dHandle<StandardMaterial>,
     mass: Mass,
     last_pos: LastPos,
     acceleration: Acceleration,
@@ -65,7 +65,7 @@ fn generate_bodies(
         commands.spawn((
             BodyBundle {
                 mesh: Mesh3d(mesh.clone()),
-                material: MeshMaterialHandle(materials.add(Color::srgb(
+                material: MeshMaterial3dHandle(materials.add(Color::srgb(
                     rng.gen_range(color_range.clone()),
                     rng.gen_range(color_range.clone()),
                     rng.gen_range(color_range.clone()),
@@ -95,7 +95,7 @@ fn generate_bodies(
         .spawn((
             BodyBundle {
                 mesh: Mesh3d(meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap())),
-                material: MeshMaterialHandle(materials.add(StandardMaterial {
+                material: MeshMaterial3dHandle(materials.add(StandardMaterial {
                     base_color: ORANGE_RED.into(),
                     emissive: LinearRgba::from(ORANGE_RED) * 2.,
                     ..default()

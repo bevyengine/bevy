@@ -24,7 +24,7 @@ fn find_top_material_and_mesh(
     mut meshes: ResMut<Assets<Mesh>>,
     time: Res<Time>,
     mat_query: Query<(
-        &MeshMaterialHandle<StandardMaterial>,
+        &MeshMaterial3dHandle<StandardMaterial>,
         &Mesh3d,
         &GltfMaterialName,
     )>,
