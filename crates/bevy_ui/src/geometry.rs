@@ -175,6 +175,73 @@ impl Neg for Val {
     }
 }
 
+/// Helper trait that allows for easier conversion into the different Val variants, especially when writing Ui code
+///
+/// # Example
+///
+/// ```
+/// # use bevy_ui::{UiRect, Val, AsVal};
+/// #
+/// let ui_rect = UiRect::new(
+///     10.0.px(),
+///     20.px(),
+///     30.percent(),
+///     40.0.percent(),
+/// );
+///
+/// assert_eq!(ui_rect.left, Val::Px(10.0));
+/// assert_eq!(ui_rect.right, Val::Px(20.0));
+/// assert_eq!(ui_rect.top, Val::Percent(30.0));
+/// assert_eq!(ui_rect.bottom, Val::Percent(40.0));
+/// ```
+pub trait AsVal {
+    /// turn the value into Val::Px(self)
+    fn px(self) -> Val;
+    /// turn the value into Val::Percent(self)
+    fn percent(self) -> Val;
+    /// turn the value into Val::Vw(self)
+    fn vw(self) -> Val;
+    /// turn the value into Val::Vh(self)
+    fn vh(self) -> Val;
+    /// turn the value into Val::VMin(self)
+    fn vmin(self) -> Val;
+    /// turn the value into Val::VMax(self)
+    fn vmax(self) -> Val;
+}
+
+macro_rules! impl_asval {
+    ($($t:ty),+) => {
+        $(
+            impl AsVal for $t {
+                fn px(self) -> Val {
+                    Val::Px(self as _)
+                }
+
+                fn percent(self) -> Val {
+                    Val::Percent(self as _)
+                }
+
+                fn vw(self) -> Val {
+                    Val::Vw(self as _)
+                }
+
+                fn vh(self) -> Val {
+                    Val::Vh(self as _)
+                }
+
+                fn vmin(self) -> Val {
+                    Val::VMin(self as _)
+                }
+
+                fn vmax(self) -> Val {
+                    Val::VMax(self as _)
+                }
+            }
+        )+
+    };
+}
+impl_asval!(f32, f64, usize, u32, u64, i32, i64);
+
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error, Display)]
 pub enum ValArithmeticError {
     #[display("the variants of the Vals don't match")]
