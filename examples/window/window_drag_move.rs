@@ -68,19 +68,16 @@ fn setup(mut commands: Commands) {
             },
             GlobalZIndex(i32::MAX),
         ))
-        .with_children(|c| {
-            c.spawn(TextBundle::from_sections([
-                TextSection::new(
-                    "Demonstrate drag and drag resize without window decorations.\n\nControls:\n",
-                    style.clone(),
-                ),
-                TextSection::new("A - change left click action [", style.clone()),
-                TextSection::new("Drag", style.clone()),
-                TextSection::new("]\n", style.clone()),
-                TextSection::new("S / D - change resize direction [", style.clone()),
-                TextSection::new("NorthWest", style.clone()),
-                TextSection::new("]\n", style.clone()),
-            ]));
+        .with_children(|p| {
+            p.spawn(Text::default()).with_children(|p| {
+                p.spawn(TextSpan::new("Demonstrate drag and drag resize without window decorations.\n\nControls:\n"));
+                p.spawn(TextSpan::new("A - change left click action ["));
+                p.spawn(TextSpan::new("Drag"));
+                p.spawn(TextSpan::new("]\n"));
+                p.spawn(TextSpan::new("S / D - change resize direction ["));
+                p.spawn(TextSpan::new("NorthWest"));
+                p.spawn(TextSpan::new("]\n"));
+            });
         });
 }
 
@@ -88,7 +85,8 @@ fn handle_input(
     input: Res<ButtonInput<KeyCode>>,
     mut action: ResMut<LeftClickAction>,
     mut dir: ResMut<ResizeDir>,
-    mut example_text: Query<&mut Text>,
+    example_text: Query<Entity, With<Text>>,
+    mut writer: UiTextWriter,
 ) {
     use LeftClickAction::*;
     if input.just_pressed(KeyCode::KeyA) {
@@ -97,8 +95,7 @@ fn handle_input(
             Resize => Nothing,
             Nothing => Drag,
         };
-        let mut example_text = example_text.single_mut();
-        example_text.sections[2].value = format!("{:?}", *action);
+        *writer.text(example_text.single(), 3) = format!("{:?}", *action);
     }
 
     if input.just_pressed(KeyCode::KeyS) {
@@ -106,14 +103,12 @@ fn handle_input(
             .0
             .checked_sub(1)
             .unwrap_or(DIRECTIONS.len().saturating_sub(1));
-        let mut example_text = example_text.single_mut();
-        example_text.sections[5].value = format!("{:?}", DIRECTIONS[dir.0]);
+        *writer.text(example_text.single(), 6) = format!("{:?}", DIRECTIONS[dir.0]);
     }
 
     if input.just_pressed(KeyCode::KeyD) {
         dir.0 = (dir.0 + 1) % DIRECTIONS.len();
-        let mut example_text = example_text.single_mut();
-        example_text.sections[5].value = format!("{:?}", DIRECTIONS[dir.0]);
+        *writer.text(example_text.single(), 6) = format!("{:?}", DIRECTIONS[dir.0]);
     }
 }
 
