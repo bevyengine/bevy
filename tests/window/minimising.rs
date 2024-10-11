@@ -1,6 +1,6 @@
 //! A test to confirm that `bevy` allows minimising the window
 //! This is run in CI to ensure that this doesn't regress again.
-use bevy::prelude::*;
+use bevy::{core::FrameCount, prelude::*};
 
 fn main() {
     // TODO: Combine this with `resizing` once multiple_windows is simpler than
@@ -18,13 +18,19 @@ fn main() {
         .run();
 }
 
-fn minimise_automatically(mut windows: Query<&mut Window>, mut frames: Local<u32>) {
-    if *frames == 60 {
-        let mut window = windows.single_mut();
-        window.set_minimized(true);
-    } else {
-        *frames += 1;
+fn minimise_automatically(
+    mut windows: Query<&mut Window>,
+    frames: Res<FrameCount>,
+    mut done: Local<bool>,
+) {
+    if *done || frames.0 < 60 {
+        return;
     }
+
+    let mut window = windows.single_mut();
+    window.set_minimized(true);
+
+    *done = true
 }
 
 /// A simple 3d scene, taken from the `3d_scene` example
