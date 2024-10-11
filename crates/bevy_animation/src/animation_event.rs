@@ -58,7 +58,7 @@ pub(crate) fn trigger_animation_event(
 ///     let mut player = AnimationPlayer::default();
 ///     player.play(animation_index).repeat();
 ///     
-///     commands.spawn((graphs.add(graph), player));
+///     commands.spawn((AnimationGraphHandle(graphs.add(graph)), player));
 /// }
 /// #
 /// # bevy_ecs::system::assert_is_system(setup_animation);

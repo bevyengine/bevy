@@ -77,7 +77,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 color: YELLOW.into(),
                 ..default()
             },
-            TextBlock::new_with_justify(JustifyText::Right),
+            TextLayout::new_with_justify(JustifyText::Right),
             Style {
                 max_width: Val::Px(300.),
                 ..default()
@@ -121,7 +121,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 color: Color::srgb(0.8, 0.2, 0.7),
                 ..default()
             },
-            TextBlock::new_with_justify(JustifyText::Center),
+            TextLayout::new_with_justify(JustifyText::Center),
             Style {
                 max_width: Val::Px(400.),
                 ..default()
@@ -136,7 +136,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 color: YELLOW.into(),
                 ..default()
             },
-            TextBlock::new_with_justify(JustifyText::Left),
+            TextLayout::new_with_justify(JustifyText::Left),
             Style {
                 max_width: Val::Px(300.),
                 ..default()
@@ -152,7 +152,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 color: GREEN_YELLOW.into(),
                 ..default()
             },
-            TextBlock::new_with_justify(JustifyText::Justified),
+            TextLayout::new_with_justify(JustifyText::Justified),
             Style {
                 max_width: Val::Px(300.),
                 ..default()

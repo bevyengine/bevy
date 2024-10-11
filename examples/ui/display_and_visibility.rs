@@ -96,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     }).with_children(|parent| {
         parent.spawn((Text::new("Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left"),
             text_style.clone(),
-            TextBlock::new_with_justify(JustifyText::Center),
+            TextLayout::new_with_justify(JustifyText::Center),
             Style {
                 margin: UiRect::bottom(Val::Px(10.)),
                 ..Default::default()
@@ -153,12 +153,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 };
 
                 builder.spawn((Text::new("Display::None\nVisibility::Hidden\nVisibility::Inherited"),
-                        TextFont { color: HIDDEN_COLOR, ..text_style.clone() },
-                        TextBlock::new_with_justify(JustifyText::Center),
+                        text_style.clone(),
+                        TextColor(HIDDEN_COLOR),
+                        TextLayout::new_with_justify(JustifyText::Center),
                 ));
                 builder.spawn((Text::new("-\n-\n-"),
-                        TextFont { color: DARK_GRAY.into(), ..text_style.clone() },
-                        TextBlock::new_with_justify(JustifyText::Center),
+                        text_style.clone(),
+                        TextColor(DARK_GRAY.into()),
+                        TextLayout::new_with_justify(JustifyText::Center),
                 ));
                 builder.spawn((Text::new("The UI Node and its descendants will not be visible and will not be allotted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible."),
                     text_style
@@ -414,7 +416,7 @@ where
             builder.spawn((
                 Text(format!("{}::{:?}", Target::<T>::NAME, T::default())),
                 text_style,
-                TextBlock::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(JustifyText::Center),
             ));
         });
 }

@@ -280,7 +280,7 @@ fn create_label(
     commands.spawn((
         Text2d::new(text),
         text_style,
-        TextBlock::new_with_justify(JustifyText::Center),
+        TextLayout::new_with_justify(JustifyText::Center),
         Transform {
             translation: Vec3::new(translation.0, translation.1, translation.2),
             ..default()

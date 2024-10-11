@@ -18,6 +18,7 @@ use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::render_phase::ViewSortedRenderPhases;
+use bevy_render::sync_world::MainEntity;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::{
     camera::Camera,
@@ -167,6 +168,7 @@ pub struct ExtractedUiNode {
     // Nodes with ambiguous camera will be ignored.
     pub camera_entity: Entity,
     pub item: ExtractedUiItem,
+    pub main_entity: MainEntity,
 }
 
 /// The type of UI node.
@@ -224,6 +226,7 @@ pub fn extract_uinode_background_colors(
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<(
+            Entity,
             &Node,
             &GlobalTransform,
             &ViewVisibility,
@@ -234,7 +237,9 @@ pub fn extract_uinode_background_colors(
     >,
     mapping: Extract<Query<&RenderEntity>>,
 ) {
-    for (uinode, transform, view_visibility, clip, camera, background_color) in &uinode_query {
+    for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
+        &uinode_query
+    {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -270,6 +275,7 @@ pub fn extract_uinode_background_colors(
                     border_radius: uinode.border_radius(),
                     node_type: NodeType::Rect,
                 },
+                main_entity: entity.into(),
             },
         );
     }
@@ -284,6 +290,7 @@ pub fn extract_uinode_images(
     uinode_query: Extract<
         Query<
             (
+                Entity,
                 &Node,
                 &GlobalTransform,
                 &ViewVisibility,
@@ -297,7 +304,7 @@ pub fn extract_uinode_images(
     >,
     mapping: Extract<Query<&RenderEntity>>,
 ) {
-    for (uinode, transform, view_visibility, clip, camera, image, atlas) in &uinode_query {
+    for (entity, uinode, transform, view_visibility, clip, camera, image, atlas) in &uinode_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -360,6 +367,7 @@ pub fn extract_uinode_images(
                     border_radius: uinode.border_radius,
                     node_type: NodeType::Rect,
                 },
+                main_entity: entity.into(),
             },
         );
     }
@@ -371,6 +379,7 @@ pub fn extract_uinode_borders(
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<(
+            Entity,
             &Node,
             &GlobalTransform,
             &ViewVisibility,
@@ -384,6 +393,7 @@ pub fn extract_uinode_borders(
     let image = AssetId::<Image>::default();
 
     for (
+        entity,
         uinode,
         global_transform,
         view_visibility,
@@ -435,6 +445,7 @@ pub fn extract_uinode_borders(
                             border_radius: uinode.border_radius(),
                             node_type: NodeType::Border,
                         },
+                        main_entity: entity.into(),
                     },
                 );
             }
@@ -463,6 +474,7 @@ pub fn extract_uinode_borders(
                         border_radius: uinode.outline_radius(),
                         node_type: NodeType::Border,
                     },
+                    main_entity: entity.into(),
                 },
             );
         }
@@ -584,6 +596,7 @@ pub fn extract_text_sections(
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
+            Entity,
             &Node,
             &GlobalTransform,
             &ViewVisibility,
@@ -601,6 +614,7 @@ pub fn extract_text_sections(
 
     let default_ui_camera = default_ui_camera.get();
     for (
+        entity,
         uinode,
         global_transform,
         view_visibility,
@@ -706,6 +720,7 @@ pub fn extract_text_sections(
                             atlas_scaling: Vec2::splat(inverse_scale_factor),
                             range: start..end,
                         },
+                        main_entity: entity.into(),
                     },
                 );
                 start = end;
@@ -809,7 +824,7 @@ pub fn queue_uinodes(
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
-            entity: *entity,
+            entity: (*entity, extracted_uinode.main_entity),
             sort_key: (
                 FloatOrd(extracted_uinode.stack_index as f32),
                 entity.index(),
@@ -875,7 +890,7 @@ pub fn prepare_uinodes(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(&item.entity) {
+                if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(&item.entity()) {
                     let mut existing_batch = batches.last_mut();
 
                     if batch_image_handle == AssetId::invalid()
@@ -896,7 +911,7 @@ pub fn prepare_uinodes(
                                 camera: extracted_uinode.camera_entity,
                             };
 
-                            batches.push((item.entity, new_batch));
+                            batches.push((item.entity(), new_batch));
 
                             image_bind_groups
                                 .values
@@ -1176,7 +1191,7 @@ pub fn prepare_uinodes(
                                         position: positions_clipped[i].into(),
                                         uv: uvs[i].into(),
                                         color,
-                                        flags: shader_flags::TEXTURED,
+                                        flags: shader_flags::TEXTURED | shader_flags::CORNERS[i],
                                         radius: [0.0; 4],
                                         border: [0.0; 4],
                                         size: size.into(),

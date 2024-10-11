@@ -405,7 +405,7 @@ impl Schedule {
         if self.graph.changed {
             self.graph.initialize(world);
             let ignored_ambiguities = world
-                .get_resource_or_insert_with::<Schedules>(Schedules::default)
+                .get_resource_or_init::<Schedules>()
                 .ignored_scheduling_ambiguities
                 .clone();
             self.graph.update_schedule(

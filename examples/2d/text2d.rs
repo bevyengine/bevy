@@ -47,21 +47,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Text2d::new("translation"),
         text_style.clone(),
-        TextBlock::new_with_justify(text_justification),
+        TextLayout::new_with_justify(text_justification),
         AnimateTranslation,
     ));
     // Demonstrate changing rotation
     commands.spawn((
         Text2d::new("rotation"),
         text_style.clone(),
-        TextBlock::new_with_justify(text_justification),
+        TextLayout::new_with_justify(text_justification),
         AnimateRotation,
     ));
     // Demonstrate changing scale
     commands.spawn((
         Text2d::new("scale"),
         text_style,
-        TextBlock::new_with_justify(text_justification),
+        TextLayout::new_with_justify(text_justification),
         Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
         AnimateScale,
     ));
@@ -82,7 +82,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder.spawn((
                 Text2d::new("this text wraps in the box\n(Unicode linebreaks)"),
                 slightly_smaller_text_style.clone(),
-                TextBlock::new(JustifyText::Left, LineBreak::WordBoundary),
+                TextLayout::new(JustifyText::Left, LineBreak::WordBoundary),
                 // Wrap text in the rectangle
                 TextBounds::from(box_size),
                 // ensure the text is drawn on top of the box
@@ -101,7 +101,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder.spawn((
                 Text2d::new("this text wraps in the box\n(AnyCharacter linebreaks)"),
                 slightly_smaller_text_style.clone(),
-                TextBlock::new(JustifyText::Left, LineBreak::AnyCharacter),
+                TextLayout::new(JustifyText::Left, LineBreak::AnyCharacter),
                 // Wrap text in the rectangle
                 TextBounds::from(other_box_size),
                 // ensure the text is drawn on top of the box

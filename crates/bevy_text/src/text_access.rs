@@ -42,7 +42,7 @@ impl TextIterScratch {
     }
 }
 
-/// System parameter for reading text spans in a [`TextBlock`](crate::TextBlock).
+/// System parameter for reading text spans in a text block.
 ///
 /// `R` is the root text component, and `S` is the text span component on children.
 #[derive(SystemParam)]
@@ -184,7 +184,7 @@ impl<'a, R: TextRoot> Drop for TextSpanIter<'a, R> {
     }
 }
 
-/// System parameter for reading and writing text spans in a [`TextBlock`](crate::TextBlock).
+/// System parameter for reading and writing text spans in a text block.
 ///
 /// `R` is the root text component, and `S` is the text span component on children.
 #[derive(SystemParam)]

@@ -341,7 +341,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                                 } else {
                                     selected_button_text_style.clone()
                                 },
-                                TextBlock::new_with_justify(JustifyText::Center),
+                                TextLayout::new_with_justify(JustifyText::Center),
                                 Style {
                                     flex_grow: 1.0,
                                     margin: UiRect::vertical(Val::Px(3.0)),

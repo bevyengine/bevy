@@ -1,5 +1,9 @@
 #![expect(deprecated)]
 
+use crate::{
+    DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
+    SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
@@ -8,12 +12,13 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::EntityHashMap,
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_math::FloatOrd;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::sync_world::MainEntityHashMap;
+use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     mesh::{MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{
@@ -30,18 +35,13 @@ use bevy_render::{
         SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
-    view::{ExtractedView, InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibleEntities},
+    view::{ExtractedView, InheritedVisibility, Msaa, ViewVisibility, Visibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
 use core::{hash::Hash, marker::PhantomData};
 use derive_more::derive::From;
-
-use crate::{
-    DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
-    SetMesh2dBindGroup, SetMesh2dViewBindGroup,
-};
 
 use super::ColorMaterial;
 
@@ -319,7 +319,7 @@ where
 }
 
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterial2dInstances<M: Material2d>(EntityHashMap<AssetId<M>>);
+pub struct RenderMaterial2dInstances<M: Material2d>(MainEntityHashMap<AssetId<M>>);
 
 impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
     fn default() -> Self {
@@ -339,7 +339,7 @@ fn extract_mesh_materials_2d<M: Material2d>(
 ) {
     for (entity, view_visibility, material) in &query {
         if view_visibility.get() {
-            material_instances.insert(entity, material.id());
+            material_instances.insert(entity.into(), material.id());
         }
     }
 }
@@ -353,7 +353,7 @@ pub(crate) fn extract_default_materials_2d(
 
     for (entity, view_visibility) in &query {
         if view_visibility.get() {
-            material_instances.insert(entity, default_material);
+            material_instances.insert(entity.into(), default_material);
         }
     }
 }
@@ -501,7 +501,7 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     ) -> RenderCommandResult {
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();
-        let Some(material_instance) = material_instances.get(&item.entity()) else {
+        let Some(material_instance) = material_instances.get(&item.main_entity()) else {
             return RenderCommandResult::Skip;
         };
         let Some(material2d) = materials.get(*material_instance) else {
@@ -553,7 +553,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     views: Query<(
         Entity,
         &ExtractedView,
-        &VisibleEntities,
+        &RenderVisibleEntities,
         &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
@@ -592,7 +592,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
             }
         }
-        for visible_entity in visible_entities.iter::<With<Mesh2d>>() {
+        for (render_entity, visible_entity) in visible_entities.iter::<With<Mesh2d>>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
@@ -640,7 +640,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                     };
                     opaque_phase.add(
                         bin_key,
-                        *visible_entity,
+                        (*render_entity, *visible_entity),
                         BinnedRenderPhaseType::mesh(mesh_instance.automatic_batching),
                     );
                 }
@@ -653,13 +653,13 @@ pub fn queue_material2d_meshes<M: Material2d>(
                     };
                     alpha_mask_phase.add(
                         bin_key,
-                        *visible_entity,
+                        (*render_entity, *visible_entity),
                         BinnedRenderPhaseType::mesh(mesh_instance.automatic_batching),
                     );
                 }
                 AlphaMode2d::Blend => {
                     transparent_phase.add(Transparent2d {
-                        entity: *visible_entity,
+                        entity: (*render_entity, *visible_entity),
                         draw_function: draw_transparent_2d,
                         pipeline: pipeline_id,
                         // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the

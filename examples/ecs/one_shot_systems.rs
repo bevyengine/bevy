@@ -94,7 +94,7 @@ fn setup_ui(mut commands: Commands) {
     commands
         .spawn((
             Text::default(),
-            TextBlock::new_with_justify(JustifyText::Center),
+            TextLayout::new_with_justify(JustifyText::Center),
             Style {
                 align_self: AlignSelf::Center,
                 justify_self: JustifySelf::Center,

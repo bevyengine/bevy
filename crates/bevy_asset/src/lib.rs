@@ -314,7 +314,7 @@ impl Plugin for AssetPlugin {
         {
             let mut sources = app
                 .world_mut()
-                .get_resource_or_insert_with::<AssetSourceBuilders>(Default::default);
+                .get_resource_or_init::<AssetSourceBuilders>();
             sources.init_default_source(
                 &self.file_path,
                 (!matches!(self.mode, AssetMode::Unprocessed))
@@ -519,7 +519,7 @@ impl AssetApp for App {
         {
             let mut sources = self
                 .world_mut()
-                .get_resource_or_insert_with(AssetSourceBuilders::default);
+                .get_resource_or_init::<AssetSourceBuilders>();
             sources.insert(id, source);
         }
 
@@ -900,7 +900,6 @@ mod tests {
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = handle.id();
-        let entity = app.world_mut().spawn(handle).id();
         app.update();
         {
             let a_text = get::<CoolText>(app.world(), a_id);
@@ -1090,7 +1089,8 @@ mod tests {
             a.text = "Changed".to_string();
         }
 
-        app.world_mut().despawn(entity);
+        drop(handle);
+
         app.update();
         assert_eq!(
             app.world().resource::<Assets<CoolText>>().len(),
@@ -1225,7 +1225,6 @@ mod tests {
             );
         }
 
-        app.world_mut().spawn(handle);
         gate_opener.open(a_path);
         gate_opener.open(b_path);
         gate_opener.open(c_path);
@@ -1345,7 +1344,6 @@ mod tests {
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = handle.id();
-        app.world_mut().spawn(handle);
 
         gate_opener.open(a_path);
         run_app_until(&mut app, |world| {
@@ -1745,8 +1743,6 @@ mod tests {
         let a_path = format!("unstable://{a_path}");
         let a_handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = a_handle.id();
-
-        app.world_mut().spawn(a_handle);
 
         run_app_until(&mut app, |world| {
             let tracker = world.resource::<ErrorTracker>();

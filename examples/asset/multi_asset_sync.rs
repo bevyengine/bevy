@@ -59,7 +59,7 @@ pub struct OneHundredThings([Handle<Gltf>; 100]);
 ///
 /// For sync only the easiest implementation is
 /// [`Arc<()>`] and use [`Arc::strong_count`] for completion.
-/// [`Arc<Atomic*>`] is a more robust alternative.
+/// [`Arc<Atomic>`] is a more robust alternative.
 #[derive(Debug, Resource, Deref)]
 pub struct AssetBarrier(Arc<AssetBarrierInner>);
 
@@ -187,7 +187,7 @@ fn setup_ui(mut commands: Commands) {
                     color: Color::BLACK,
                     ..Default::default()
                 },
-                TextBlock::new_with_justify(JustifyText::Right),
+                TextLayout::new_with_justify(JustifyText::Right),
                 LoadingText,
             ));
         });

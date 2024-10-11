@@ -177,7 +177,7 @@ fn setup_image_viewer_scene(
             color: Color::BLACK,
             ..default()
         },
-        TextBlock::new_with_justify(JustifyText::Center),
+        TextLayout::new_with_justify(JustifyText::Center),
         Style {
             align_self: AlignSelf::Center,
             margin: UiRect::all(Val::Auto),

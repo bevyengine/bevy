@@ -25,18 +25,20 @@ impl Default for CosmicBuffer {
     }
 }
 
-/// A sub-entity of a [`TextBlock`].
+/// A sub-entity of a [`ComputedTextBlock`].
 ///
 /// Returned by [`ComputedTextBlock::entities`].
 #[derive(Debug, Copy, Clone)]
 pub struct TextEntity {
     /// The entity.
     pub entity: Entity,
-    /// Records the hierarchy depth of the entity within a `TextBlock`.
+    /// Records the hierarchy depth of the entity within a `TextLayout`.
     pub depth: usize,
 }
 
-/// Computed information for a [`TextBlock`].
+/// Computed information for a text block.
+///
+/// See [`TextLayout`].
 ///
 /// Automatically updated by 2d and UI text systems.
 #[derive(Component, Debug, Clone)]
@@ -45,7 +47,7 @@ pub struct ComputedTextBlock {
     ///
     /// This is private because buffer contents are always refreshed from ECS state when writing glyphs to
     /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextBlock` and instead manually implement the conversion to
+    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
     /// `TextLayoutInfo`.
     pub(crate) buffer: CosmicBuffer,
     /// Entities for all text spans in the block, including the root-level text.
@@ -55,12 +57,12 @@ pub struct ComputedTextBlock {
     /// Flag set when any change has been made to this block that should cause it to be rerendered.
     ///
     /// Includes:
-    /// - [`TextBlock`] changes.
-    /// - [`TextStyle`] or `Text2d`/`Text`/`TextSpan` changes anywhere in the block's entity hierarchy.
+    /// - [`TextLayout`] changes.
+    /// - [`TextFont`] or `Text2d`/`Text`/`TextSpan` changes anywhere in the block's entity hierarchy.
     // TODO: This encompasses both structural changes like font size or justification and non-structural
     // changes like text color and font smoothing. This field currently causes UI to 'remeasure' text, even if
     // the actual changes are non-structural and can be handled by only rerendering and not remeasuring. A full
-    // solution would probably require splitting TextBlock and TextStyle into structural/non-structural
+    // solution would probably require splitting TextLayout and TextFont into structural/non-structural
     // components for more granular change detection. A cost/benefit analysis is needed.
     pub(crate) needs_rerender: bool,
 }
@@ -68,7 +70,7 @@ pub struct ComputedTextBlock {
 impl ComputedTextBlock {
     /// Accesses entities in this block.
     ///
-    /// Can be used to look up [`TextStyle`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
+    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
     /// stored there.
     pub fn entities(&self) -> &[TextEntity] {
         &self.entities
@@ -95,7 +97,7 @@ impl Default for ComputedTextBlock {
 
 /// Component with text format settings for a block of text.
 ///
-/// A block of text is composed of text spans, which each have a separate string value and [`TextStyle`]. Text
+/// A block of text is composed of text spans, which each have a separate string value and [`TextFont`]. Text
 /// spans associated with a text block are collected into [`ComputedTextBlock`] for layout, and then inserted
 /// to [`TextLayoutInfo`] for rendering.
 ///
@@ -103,7 +105,7 @@ impl Default for ComputedTextBlock {
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(ComputedTextBlock, TextLayoutInfo)]
-pub struct TextBlock {
+pub struct TextLayout {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
     pub justify: JustifyText,
@@ -111,41 +113,41 @@ pub struct TextBlock {
     pub linebreak: LineBreak,
 }
 
-impl TextBlock {
-    /// Makes a new [`TextBlock`].
+impl TextLayout {
+    /// Makes a new [`TextLayout`].
     pub const fn new(justify: JustifyText, linebreak: LineBreak) -> Self {
         Self { justify, linebreak }
     }
 
-    /// Makes a new [`TextBlock`] with the specified [`JustifyText`].
+    /// Makes a new [`TextLayout`] with the specified [`JustifyText`].
     pub fn new_with_justify(justify: JustifyText) -> Self {
         Self::default().with_justify(justify)
     }
 
-    /// Makes a new [`TextBlock`] with the specified [`LineBreak`].
+    /// Makes a new [`TextLayout`] with the specified [`LineBreak`].
     pub fn new_with_linebreak(linebreak: LineBreak) -> Self {
         Self::default().with_linebreak(linebreak)
     }
 
-    /// Makes a new [`TextBlock`] with soft wrapping disabled.
+    /// Makes a new [`TextLayout`] with soft wrapping disabled.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
     pub fn new_with_no_wrap() -> Self {
         Self::default().with_no_wrap()
     }
 
-    /// Returns this [`TextBlock`] with the specified [`JustifyText`].
+    /// Returns this [`TextLayout`] with the specified [`JustifyText`].
     pub const fn with_justify(mut self, justify: JustifyText) -> Self {
         self.justify = justify;
         self
     }
 
-    /// Returns this [`TextBlock`] with the specified [`LineBreak`].
+    /// Returns this [`TextLayout`] with the specified [`LineBreak`].
     pub const fn with_linebreak(mut self, linebreak: LineBreak) -> Self {
         self.linebreak = linebreak;
         self
     }
 
-    /// Returns this [`TextBlock`] with soft wrapping disabled.
+    /// Returns this [`TextLayout`] with soft wrapping disabled.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
     pub const fn with_no_wrap(mut self) -> Self {
         self.linebreak = LineBreak::NoWrap;
@@ -153,7 +155,7 @@ impl TextBlock {
     }
 }
 
-/// A span of UI text in a tree of spans under an entity with [`TextBlock`], such as `Text` or `Text2d`.
+/// A span of UI text in a tree of spans under an entity with [`TextLayout`] and `Text` or `Text2d`.
 ///
 /// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
 ///
@@ -163,14 +165,14 @@ impl TextBlock {
 # use bevy_color::Color;
 # use bevy_color::palettes::basic::{RED, BLUE};
 # use bevy_ecs::World;
-# use bevy_text::{Font, TextBlock, TextStyle, TextSection};
+# use bevy_text::{Font, TextLayout, TextFont, TextSection};
 
 # let font_handle: Handle<Font> = Default::default();
 # let mut world = World::default();
 #
 world.spawn((
-    TextBlock::default(),
-    TextStyle {
+    TextLayout::default(),
+    TextFont {
         font: font_handle.clone().into(),
         font_size: 60.0,
         color: BLUE.into(),
@@ -178,7 +180,7 @@ world.spawn((
 ))
 .with_child((
     TextSpan::new("Hello!"),
-    TextStyle {
+    TextFont {
         font: font_handle.into(),
         font_size: 60.0,
         color: RED.into(),
@@ -257,7 +259,7 @@ impl From<JustifyText> for cosmic_text::Align {
     }
 }
 
-/// `TextStyle` determines the style of a text span within a [`TextBlock`], specifically
+/// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
 /// the font face, the font size, and the color.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
@@ -283,7 +285,7 @@ pub struct TextFont {
 }
 
 impl TextFont {
-    /// Returns this [`TextBlock`] with the specified [`FontSmoothing`].
+    /// Returns this [`TextFont`] with the specified [`FontSmoothing`].
     pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
         self.font_smoothing = font_smoothing;
         self
@@ -303,7 +305,7 @@ impl Default for TextFont {
 /// The color of the text for this section.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
-pub struct TextColor(Color);
+pub struct TextColor(pub Color);
 
 impl Default for TextColor {
     fn default() -> Self {
@@ -366,23 +368,23 @@ pub fn detect_text_needs_rerender<Root: Component>(
             Or<(
                 Changed<Root>,
                 Changed<TextFont>,
-                Changed<TextBlock>,
+                Changed<TextLayout>,
                 Changed<Children>,
             )>,
             With<Root>,
             With<TextFont>,
-            With<TextBlock>,
+            With<TextLayout>,
         ),
     >,
     changed_spans: Query<
-        (Entity, Option<&Parent>, Has<TextBlock>),
+        (Entity, Option<&Parent>, Has<TextLayout>),
         (
             Or<(
                 Changed<TextSpan>,
                 Changed<TextFont>,
                 Changed<Children>,
                 Changed<Parent>, // Included to detect broken text block hierarchies.
-                Added<TextBlock>,
+                Added<TextLayout>,
             )>,
             With<TextSpan>,
             With<TextFont>,
@@ -396,8 +398,8 @@ pub fn detect_text_needs_rerender<Root: Component>(
 ) {
     // Root entity:
     // - Root component changed.
-    // - TextStyle on root changed.
-    // - TextBlock changed.
+    // - TextFont on root changed.
+    // - TextLayout changed.
     // - Root children changed (can include additions and removals).
     for root in changed_roots.iter() {
         let Ok((_, Some(mut computed), _)) = computed.get_mut(root) else {
@@ -410,11 +412,11 @@ pub fn detect_text_needs_rerender<Root: Component>(
 
     // Span entity:
     // - Span component changed.
-    // - Span TextStyle changed.
+    // - Span TextFont changed.
     // - Span children changed (can include additions and removals).
     for (entity, maybe_span_parent, has_text_block) in changed_spans.iter() {
         if has_text_block {
-            warn_once!("found entity {:?} with a TextSpan that has a TextBlock, which should only be on root \
+            warn_once!("found entity {:?} with a TextSpan that has a TextLayout, which should only be on root \
                 text entities (that have {}); this warning only prints once",
                 entity, core::any::type_name::<Root>());
         }

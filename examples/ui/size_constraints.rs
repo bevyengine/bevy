@@ -279,7 +279,7 @@ fn spawn_button(
                         },
                         ..text_style
                     },
-                    TextBlock::new_with_justify(JustifyText::Center),
+                    TextLayout::new_with_justify(JustifyText::Center),
                 ));
         });
 }

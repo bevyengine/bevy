@@ -216,7 +216,7 @@ fn setup(
                         bottom: Val::ZERO,
                         ..default()
                     },
-                    TextBlock::default().with_no_wrap(),
+                    TextLayout::default().with_no_wrap(),
                 ));
             });
     };

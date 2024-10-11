@@ -384,7 +384,7 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
             p.spawn((
                 Text::default(),
                 HeaderText,
-                TextBlock::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(JustifyText::Center),
             ))
             .with_children(|p| {
                 p.spawn(TextSpan::new("Primitive: "));

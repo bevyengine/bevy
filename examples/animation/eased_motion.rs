@@ -43,7 +43,7 @@ fn setup(
             Transform::from_translation(vec3(-6., 2., 0.)),
             animation_target_name,
             animation_player,
-            animation_graph,
+            AnimationGraphHandle(animation_graph),
         ))
         .id();
 

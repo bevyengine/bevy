@@ -1,6 +1,7 @@
 use alloc::sync::Arc;
 
 use bevy_asset::{AssetId, Assets};
+use bevy_color::Color;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -17,7 +18,7 @@ use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, JustifyText,
-    LineBreak, PositionedGlyph, TextBlock, TextBounds, TextEntity, TextFont, YAxisOrientation,
+    LineBreak, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout, YAxisOrientation,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -83,7 +84,7 @@ impl TextPipeline {
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont)>,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
         linebreak: LineBreak,
         justify: JustifyText,
         bounds: TextBounds,
@@ -96,15 +97,15 @@ impl TextPipeline {
         // Collect span information into a vec. This is necessary because font loading requires mut access
         // to FontSystem, which the cosmic-text Buffer also needs.
         let mut font_size: f32 = 0.;
-        let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo)> =
+        let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo, Color)> =
             core::mem::take(&mut self.spans_buffer)
                 .into_iter()
-                .map(|_| -> (usize, &str, &TextFont, FontFaceInfo) { unreachable!() })
+                .map(|_| -> (usize, &str, &TextFont, FontFaceInfo, Color) { unreachable!() })
                 .collect();
 
         computed.entities.clear();
 
-        for (span_index, (entity, depth, span, style)) in text_spans.enumerate() {
+        for (span_index, (entity, depth, span, style, color)) in text_spans.enumerate() {
             // Return early if a font is not loaded yet.
             if !fonts.contains(style.font.id()) {
                 spans.clear();
@@ -134,7 +135,7 @@ impl TextPipeline {
             if scale_factor <= 0.0 || style.font_size <= 0.0 {
                 continue;
             }
-            spans.push((span_index, span, style, face_info));
+            spans.push((span_index, span, style, face_info, color));
         }
 
         let line_height = font_size * 1.2;
@@ -151,12 +152,14 @@ impl TextPipeline {
         // The section index is stored in the metadata of the spans, and could be used
         // to look up the section the span came from and is not used internally
         // in cosmic-text.
-        let spans_iter = spans.iter().map(|(span_index, span, style, font_info)| {
-            (
-                *span,
-                get_attrs(*span_index, style, font_info, scale_factor),
-            )
-        });
+        let spans_iter = spans
+            .iter()
+            .map(|(span_index, span, style, font_info, color)| {
+                (
+                    *span,
+                    get_attrs(*span_index, style, *color, font_info, scale_factor),
+                )
+            });
 
         // Update the buffer.
         let buffer = &mut computed.buffer;
@@ -201,9 +204,9 @@ impl TextPipeline {
         &mut self,
         layout_info: &mut TextLayoutInfo,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont)>,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
         scale_factor: f64,
-        block: &TextBlock,
+        layout: &TextLayout,
         bounds: TextBounds,
         font_atlas_sets: &mut FontAtlasSets,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
@@ -222,15 +225,15 @@ impl TextPipeline {
         // Extract font ids from the iterator while traversing it.
         let mut glyph_info = core::mem::take(&mut self.glyph_info);
         glyph_info.clear();
-        let text_spans = text_spans.inspect(|(_, _, _, style)| {
+        let text_spans = text_spans.inspect(|(_, _, _, style, _)| {
             glyph_info.push((style.font.id(), style.font_smoothing));
         });
 
         let update_result = self.update_buffer(
             fonts,
             text_spans,
-            block.linebreak,
-            block.justify,
+            layout.linebreak,
+            layout.justify,
             bounds,
             scale_factor,
             computed,
@@ -335,9 +338,9 @@ impl TextPipeline {
         &mut self,
         entity: Entity,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont)>,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
         scale_factor: f64,
-        block: &TextBlock,
+        layout: &TextLayout,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
     ) -> Result<TextMeasureInfo, TextError> {
@@ -350,8 +353,8 @@ impl TextPipeline {
         self.update_buffer(
             fonts,
             text_spans,
-            block.linebreak,
-            block.justify,
+            layout.linebreak,
+            layout.justify,
             MIN_WIDTH_CONTENT_BOUNDS,
             scale_factor,
             computed,
@@ -386,7 +389,7 @@ impl TextPipeline {
 /// Render information for a corresponding text block.
 ///
 /// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`] when an entity has
-/// [`TextBlock`] and [`ComputedTextBlock`] components.
+/// [`TextLayout`] and [`ComputedTextBlock`] components.
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct TextLayoutInfo {

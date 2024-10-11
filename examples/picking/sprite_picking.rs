@@ -6,7 +6,7 @@ use std::fmt::Debug;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, (setup, setup_atlas))
         .add_systems(Update, (move_sprite, animate_sprite))
         .run();
@@ -99,15 +99,20 @@ struct AnimationTimer(Timer);
 
 fn animate_sprite(
     time: Res<Time>,
-    mut query: Query<(&AnimationIndices, &mut AnimationTimer, &mut TextureAtlas)>,
+    mut query: Query<(&AnimationIndices, &mut AnimationTimer, &mut Sprite)>,
 ) {
     for (indices, mut timer, mut sprite) in &mut query {
+        let Some(texture_atlas) = &mut sprite.texture_atlas else {
+            continue;
+        };
+
         timer.tick(time.delta());
+
         if timer.just_finished() {
-            sprite.index = if sprite.index == indices.last {
+            texture_atlas.index = if texture_atlas.index == indices.last {
                 indices.first
             } else {
-                sprite.index + 1
+                texture_atlas.index + 1
             };
         }
     }
