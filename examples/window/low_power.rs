@@ -200,27 +200,9 @@ pub(crate) mod test_setup {
             ))
             .with_children(|p| {
                 p.spawn(TextSpan::new("Press space bar to cycle modes\n"));
-                p.spawn((
-                    TextSpan::default(),
-                    TextFont {
-                        color: LIME.into(),
-                        ..default()
-                    },
-                ));
-                p.spawn((
-                    TextSpan::new("\nFrame: "),
-                    TextFont {
-                        color: YELLOW.into(),
-                        ..default()
-                    },
-                ));
-                p.spawn((
-                    TextSpan::new(""),
-                    TextFont {
-                        color: YELLOW.into(),
-                        ..default()
-                    },
-                ));
+                p.spawn((TextSpan::default(), TextColor(LIME.into())));
+                p.spawn((TextSpan::new("\nFrame: "), TextColor(YELLOW.into())));
+                p.spawn((TextSpan::new(""), TextColor(YELLOW.into())));
             });
     }
 }

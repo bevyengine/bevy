@@ -64,10 +64,8 @@ fn setup(
                 .spawn((Text::new("press "), text_style.clone()))
                 .with_child((
                     TextSpan::new("space"),
-                    TextFont {
-                        color: YELLOW.into(),
-                        ..text_style.clone()
-                    },
+                    TextColor(YELLOW.into()),
+                    text_style.clone(),
                 ))
                 .with_child((TextSpan::new(" to advance frames"), text_style));
         });
