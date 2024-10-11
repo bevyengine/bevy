@@ -1,3 +1,4 @@
+use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
@@ -17,20 +18,15 @@ use bevy_utils::{
     HashMap, HashSet,
 };
 use core::{future::Future, hash::Hash, mem, ops::Deref};
+use derive_more::derive::{Display, Error, From};
 use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
-use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
 use wgpu::{
     DownlevelFlags, Features, PipelineCompilationOptions,
     VertexBufferLayout as RawVertexBufferLayout,
 };
-
-use crate::render_resource::resource_macros::*;
-
-render_resource_wrapper!(ErasedShaderModule, ShaderModule);
-render_resource_wrapper!(ErasedPipelineLayout, PipelineLayout);
 
 /// A descriptor for a [`Pipeline`].
 ///
@@ -126,7 +122,7 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Box<[ShaderDefVal]>, ErasedShaderModule>,
+    processed_shaders: HashMap<Box<[ShaderDefVal]>, Arc<WgpuWrapper<ShaderModule>>>,
     resolved_imports: HashMap<ShaderImport, AssetId<Shader>>,
     dependents: HashSet<AssetId<Shader>>,
 }
@@ -225,7 +221,7 @@ impl ShaderCache {
         pipeline: CachedPipelineId,
         id: AssetId<Shader>,
         shader_defs: &[ShaderDefVal],
-    ) -> Result<ErasedShaderModule, PipelineCacheError> {
+    ) -> Result<Arc<WgpuWrapper<ShaderModule>>, PipelineCacheError> {
         let shader = self
             .shaders
             .get(&id)
@@ -338,7 +334,7 @@ impl ShaderCache {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
 
-                entry.insert(ErasedShaderModule::new(shader_module))
+                entry.insert(Arc::new(WgpuWrapper::new(shader_module)))
             }
         };
 
@@ -410,7 +406,7 @@ impl ShaderCache {
 type LayoutCacheKey = (Vec<BindGroupLayoutId>, Vec<PushConstantRange>);
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<LayoutCacheKey, ErasedPipelineLayout>,
+    layouts: HashMap<LayoutCacheKey, Arc<WgpuWrapper<PipelineLayout>>>,
 }
 
 impl LayoutCache {
@@ -419,7 +415,7 @@ impl LayoutCache {
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
         push_constant_ranges: Vec<PushConstantRange>,
-    ) -> ErasedPipelineLayout {
+    ) -> Arc<WgpuWrapper<PipelineLayout>> {
         let bind_group_ids = bind_group_layouts.iter().map(BindGroupLayout::id).collect();
         self.layouts
             .entry((bind_group_ids, push_constant_ranges))
@@ -428,13 +424,13 @@ impl LayoutCache {
                     .iter()
                     .map(BindGroupLayout::value)
                     .collect::<Vec<_>>();
-                ErasedPipelineLayout::new(render_device.create_pipeline_layout(
+                Arc::new(WgpuWrapper::new(render_device.create_pipeline_layout(
                     &PipelineLayoutDescriptor {
                         bind_group_layouts: &bind_group_layouts,
                         push_constant_ranges,
                         ..default()
                     },
-                ))
+                )))
             })
             .clone()
     }
@@ -746,7 +742,7 @@ impl PipelineCache {
                     multiview: None,
                     depth_stencil: descriptor.depth_stencil.clone(),
                     label: descriptor.label.as_deref(),
-                    layout: layout.as_deref(),
+                    layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
                     multisample: descriptor.multisample,
                     primitive: descriptor.primitive,
                     vertex: RawVertexState {
@@ -814,7 +810,7 @@ impl PipelineCache {
 
                 let descriptor = RawComputePipelineDescriptor {
                     label: descriptor.label.as_deref(),
-                    layout: layout.as_deref(),
+                    layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
                     module: &compute_module,
                     entry_point: &descriptor.entry_point,
                     // TODO: Expose this somehow
@@ -977,17 +973,19 @@ fn create_pipeline_task(
 }
 
 /// Type of error returned by a [`PipelineCache`] when the creation of a GPU pipeline object failed.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum PipelineCacheError {
-    #[error(
-        "Pipeline could not be compiled because the following shader could not be loaded: {0:?}"
+    #[display(
+        "Pipeline could not be compiled because the following shader could not be loaded: {_0:?}"
     )]
+    #[error(ignore)]
     ShaderNotLoaded(AssetId<Shader>),
-    #[error(transparent)]
-    ProcessShaderError(#[from] naga_oil::compose::ComposerError),
-    #[error("Shader import not yet available.")]
+
+    ProcessShaderError(naga_oil::compose::ComposerError),
+    #[display("Shader import not yet available.")]
     ShaderImportNotYetAvailable,
-    #[error("Could not create shader module: {0}")]
+    #[display("Could not create shader module: {_0}")]
+    #[error(ignore)]
     CreateShaderModule(String),
 }
 

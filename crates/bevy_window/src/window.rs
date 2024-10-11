@@ -1,7 +1,7 @@
 use core::num::NonZero;
 
 use bevy_ecs::{
-    entity::{Entity, EntityMapper, MapEntities},
+    entity::{Entity, VisitEntities, VisitEntitiesMut},
     prelude::{Component, ReflectComponent},
 };
 use bevy_math::{DVec2, IVec2, UVec2, Vec2};
@@ -58,14 +58,21 @@ impl WindowRef {
     }
 }
 
-impl MapEntities for WindowRef {
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+impl VisitEntities for WindowRef {
+    fn visit_entities<F: FnMut(Entity)>(&self, mut f: F) {
         match self {
-            Self::Entity(entity) => {
-                *entity = entity_mapper.map_entity(*entity);
-            }
+            Self::Entity(entity) => f(*entity),
             Self::Primary => {}
-        };
+        }
+    }
+}
+
+impl VisitEntitiesMut for WindowRef {
+    fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, mut f: F) {
+        match self {
+            Self::Entity(entity) => f(entity),
+            Self::Primary => {}
+        }
     }
 }
 
@@ -358,6 +365,22 @@ impl Window {
     /// Setting to false will attempt to un-minimize the window.
     pub fn set_minimized(&mut self, minimized: bool) {
         self.internal.minimize_request = Some(minimized);
+    }
+
+    /// Calling this will attempt to start a drag-move of the window.
+    ///
+    /// There is no guarantee that this will work unless the left mouse button was
+    /// pressed immediately before this function was called.
+    pub fn start_drag_move(&mut self) {
+        self.internal.drag_move_request = true;
+    }
+
+    /// Calling this will attempt to start a drag-resize of the window.
+    ///
+    /// There is no guarantee that this will work unless the left mouse button was
+    /// pressed immediately before this function was called.
+    pub fn start_drag_resize(&mut self, direction: ResizeDirection) {
+        self.internal.drag_resize_request = Some(direction);
     }
 
     /// The window's client area width in logical pixels.
@@ -890,6 +913,32 @@ pub enum CursorGrabMode {
     Locked,
 }
 
+/// Defines the orientation in which a window resize will be performed.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Reflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum ResizeDirection {
+    /// Resize the window to the west.
+    West,
+    /// Resize the window to the north.
+    North,
+    /// Resize the window to the east.
+    East,
+    /// Resize the window to the south.
+    South,
+    /// Resize the window to the northwest.
+    Northwest,
+    /// Resize the window to the northeast.
+    Northeast,
+    /// Resize the window to the southwest.
+    Southwest,
+    /// Resize the window to the southeast.
+    Southeast,
+}
+
 /// Stores internal [`Window`] state that isn't directly accessible.
 #[derive(Default, Debug, Copy, Clone, PartialEq, Reflect)]
 #[cfg_attr(
@@ -903,6 +952,10 @@ pub struct InternalWindowState {
     minimize_request: Option<bool>,
     /// If this is true then next frame we will ask to maximize/un-maximize the window depending on `maximized`.
     maximize_request: Option<bool>,
+    /// If this is true then next frame we will ask to drag-move the window.
+    drag_move_request: bool,
+    /// If this is `Some` then the next frame we will ask to drag-resize the window.
+    drag_resize_request: Option<ResizeDirection>,
     /// Unscaled cursor position.
     physical_cursor_position: Option<DVec2>,
 }
@@ -916,6 +969,16 @@ impl InternalWindowState {
     /// Consumes the current minimize request, if it exists. This should only be called by window backends.
     pub fn take_minimize_request(&mut self) -> Option<bool> {
         self.minimize_request.take()
+    }
+
+    /// Consumes the current move request, if it exists. This should only be called by window backends.
+    pub fn take_move_request(&mut self) -> bool {
+        core::mem::take(&mut self.drag_move_request)
+    }
+
+    /// Consumes the current resize request, if it exists. This should only be called by window backends.
+    pub fn take_resize_request(&mut self) -> Option<ResizeDirection> {
+        self.drag_resize_request.take()
     }
 }
 

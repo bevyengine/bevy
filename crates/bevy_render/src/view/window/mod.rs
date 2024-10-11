@@ -15,12 +15,10 @@ use core::{
     num::NonZero,
     ops::{Deref, DerefMut},
 };
-use cursor::CursorPlugin;
 use wgpu::{
     SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
 };
 
-pub mod cursor;
 pub mod screenshot;
 
 use screenshot::{ScreenshotPlugin, ScreenshotToScreenPipeline};
@@ -29,7 +27,7 @@ pub struct WindowRenderPlugin;
 
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((ScreenshotPlugin, CursorPlugin));
+        app.add_plugins(ScreenshotPlugin);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

@@ -1,11 +1,12 @@
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::all_tuples;
 
+use crate::generics::impl_generic_info_methods;
 use crate::{
     self as bevy_reflect, type_info::impl_type_methods, utility::GenericTypePathCell, ApplyError,
-    FromReflect, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
-    UnnamedField,
+    FromReflect, Generics, GetTypeRegistration, MaybeTyped, PartialReflect, Reflect, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
+    Typed, UnnamedField,
 };
 use core::{
     any::Any,
@@ -142,6 +143,7 @@ impl GetTupleField for dyn Tuple {
 #[derive(Clone, Debug)]
 pub struct TupleInfo {
     ty: Type,
+    generics: Generics,
     fields: Box<[UnnamedField]>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -156,6 +158,7 @@ impl TupleInfo {
     pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
             ty: Type::of::<T>(),
+            generics: Generics::new(),
             fields: fields.to_vec().into_boxed_slice(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -190,6 +193,8 @@ impl TupleInfo {
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_generic_info_methods!(generics);
 }
 
 /// A tuple which allows fields to be added at runtime.
@@ -671,6 +676,7 @@ impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J,
 
 macro_rules! impl_type_path_tuple {
     ($(#[$meta:meta])*) => {
+        $(#[$meta])*
         impl TypePath for () {
             fn type_path() -> &'static str {
                 "()"
@@ -732,29 +738,50 @@ all_tuples!(
 #[cfg(feature = "functions")]
 const _: () = {
     macro_rules! impl_get_ownership_tuple {
-    ($($name: ident),*) => {
+    ($(#[$meta:meta])* $($name: ident),*) => {
+        $(#[$meta])*
         $crate::func::args::impl_get_ownership!(($($name,)*); <$($name),*>);
     };
 }
 
-    all_tuples!(impl_get_ownership_tuple, 0, 12, P);
+    all_tuples!(
+        #[doc(fake_variadic)]
+        impl_get_ownership_tuple,
+        0,
+        12,
+        P
+    );
 
     macro_rules! impl_from_arg_tuple {
-    ($($name: ident),*) => {
+    ($(#[$meta:meta])* $($name: ident),*) => {
+        $(#[$meta])*
         $crate::func::args::impl_from_arg!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
     };
 }
 
-    all_tuples!(impl_from_arg_tuple, 0, 12, P);
+    all_tuples!(
+        #[doc(fake_variadic)]
+        impl_from_arg_tuple,
+        0,
+        12,
+        P
+    );
 
     macro_rules! impl_into_return_tuple {
-    ($($name: ident),+) => {
+    ($(#[$meta:meta])* $($name: ident),+) => {
+        $(#[$meta])*
         $crate::func::impl_into_return!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
     };
 }
 
     // The unit type (i.e. `()`) is special-cased, so we skip implementing it here.
-    all_tuples!(impl_into_return_tuple, 1, 12, P);
+    all_tuples!(
+        #[doc(fake_variadic)]
+        impl_into_return_tuple,
+        1,
+        12,
+        P
+    );
 };
 
 #[cfg(test)]

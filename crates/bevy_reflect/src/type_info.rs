@@ -1,14 +1,14 @@
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, EnumInfo, ListInfo, MapInfo, PartialReflect, Reflect, ReflectKind, SetInfo,
-    StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
+    DynamicTupleStruct, EnumInfo, Generics, ListInfo, MapInfo, PartialReflect, Reflect,
+    ReflectKind, SetInfo, StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
 };
 use core::{
     any::{Any, TypeId},
     fmt::{Debug, Formatter},
     hash::Hash,
 };
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 /// A static accessor to compile-time type information.
 ///
@@ -163,12 +163,12 @@ impl<T: Typed> DynamicTyped for T {
 }
 
 /// A [`TypeInfo`]-specific error.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub enum TypeInfoError {
     /// Caused when a type was expected to be of a certain [kind], but was not.
     ///
     /// [kind]: ReflectKind
-    #[error("kind mismatch: expected {expected:?}, received {received:?}")]
+    #[display("kind mismatch: expected {expected:?}, received {received:?}")]
     KindMismatch {
         expected: ReflectKind,
         received: ReflectKind,
@@ -293,6 +293,20 @@ impl TypeInfo {
             Self::Opaque(_) => ReflectKind::Opaque,
         }
     }
+
+    impl_generic_info_methods!(self => {
+        match self {
+            Self::Struct(info) => info.generics(),
+            Self::TupleStruct(info) => info.generics(),
+            Self::Tuple(info) => info.generics(),
+            Self::List(info) => info.generics(),
+            Self::Array(info) => info.generics(),
+            Self::Map(info) => info.generics(),
+            Self::Set(info) => info.generics(),
+            Self::Enum(info) => info.generics(),
+            Self::Opaque(info) => info.generics(),
+        }
+    });
 }
 
 macro_rules! impl_cast_method {
@@ -467,19 +481,26 @@ impl Hash for Type {
 }
 
 macro_rules! impl_type_methods {
+    // Generates the type methods based off a single field.
     ($field:ident) => {
+        $crate::type_info::impl_type_methods!(self => {
+            &self.$field
+        });
+    };
+    // Generates the type methods based off a custom expression.
+    ($self:ident => $expr:expr) => {
         /// The underlying Rust [type].
         ///
         /// [type]: crate::type_info::Type
-        pub fn ty(&self) -> &$crate::type_info::Type {
-            &self.$field
+        pub fn ty(&$self) -> &$crate::type_info::Type {
+            $expr
         }
 
         /// The [`TypeId`] of this type.
         ///
         /// [`TypeId`]: std::any::TypeId
         pub fn type_id(&self) -> ::core::any::TypeId {
-            self.$field.id()
+            self.ty().id()
         }
 
         /// The [stable, full type path] of this type.
@@ -489,7 +510,7 @@ macro_rules! impl_type_methods {
         /// [stable, full type path]: TypePath
         /// [`type_path_table`]: Self::type_path_table
         pub fn type_path(&self) -> &'static str {
-            self.$field.path()
+            self.ty().path()
         }
 
         /// A representation of the type path of this type.
@@ -498,7 +519,7 @@ macro_rules! impl_type_methods {
         ///
         /// [`TypePath`]: crate::type_path::TypePath
         pub fn type_path_table(&self) -> &$crate::type_path::TypePathTable {
-            &self.$field.type_path_table()
+            &self.ty().type_path_table()
         }
 
         /// Check if the given type matches this one.
@@ -510,11 +531,12 @@ macro_rules! impl_type_methods {
         /// [`TypeId`]: std::any::TypeId
         /// [`TypePath`]: crate::type_path::TypePath
         pub fn is<T: ::core::any::Any>(&self) -> bool {
-            self.$field.is::<T>()
+            self.ty().is::<T>()
         }
     };
 }
 
+use crate::generics::impl_generic_info_methods;
 pub(crate) use impl_type_methods;
 
 /// A container for compile-time info related to reflection-opaque types, including primitives.
@@ -528,6 +550,7 @@ pub(crate) use impl_type_methods;
 #[derive(Debug, Clone)]
 pub struct OpaqueInfo {
     ty: Type,
+    generics: Generics,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -536,6 +559,7 @@ impl OpaqueInfo {
     pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
         Self {
             ty: Type::of::<T>(),
+            generics: Generics::new(),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -554,6 +578,8 @@ impl OpaqueInfo {
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_generic_info_methods!(generics);
 }
 
 #[cfg(test)]

@@ -69,7 +69,7 @@ fn setup(
 
     // Spawns the camera
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Builds and spawns the sprites
     for y in -half_y..half_y {
@@ -82,18 +82,15 @@ fn setup(
             timer.set_elapsed(Duration::from_secs_f32(rng.gen::<f32>()));
 
             commands.spawn((
-                SpriteBundle {
-                    texture: texture_handle.clone(),
-                    transform: Transform {
-                        translation,
-                        rotation,
-                        scale,
-                    },
-                    sprite: Sprite {
-                        custom_size: Some(tile_size),
-                        ..default()
-                    },
+                Sprite {
+                    image: texture_handle.clone(),
+                    custom_size: Some(tile_size),
                     ..default()
+                },
+                Transform {
+                    translation,
+                    rotation,
+                    scale,
                 },
                 TextureAtlas::from(texture_atlas_handle.clone()),
                 AnimationTimer(timer),

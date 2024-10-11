@@ -1,8 +1,8 @@
 use crate::{
-    mesh::{MeshVertexBufferLayoutRef, MissingVertexAttributeError},
+    mesh::{MeshVertexBufferLayoutRef, MissingVertexAttributeError, VertexBufferLayout},
     render_resource::{
         CachedComputePipelineId, CachedRenderPipelineId, ComputePipelineDescriptor, PipelineCache,
-        RenderPipelineDescriptor, VertexBufferLayout,
+        RenderPipelineDescriptor,
     },
 };
 use bevy_ecs::system::Resource;
@@ -13,7 +13,7 @@ use bevy_utils::{
     Entry, HashMap,
 };
 use core::{fmt::Debug, hash::Hash};
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
 
 pub trait SpecializedRenderPipeline {
     type Key: Clone + Hash + PartialEq + Eq;
@@ -183,8 +183,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum SpecializedMeshPipelineError {
-    #[error(transparent)]
-    MissingVertexAttribute(#[from] MissingVertexAttributeError),
+    MissingVertexAttribute(MissingVertexAttributeError),
 }

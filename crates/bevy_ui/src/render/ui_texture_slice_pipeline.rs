@@ -1,5 +1,6 @@
 use core::{hash::Hash, ops::Range};
 
+use crate::*;
 use bevy_asset::*;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_ecs::{
@@ -11,11 +12,13 @@ use bevy_ecs::{
     },
 };
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
+    sync_world::{RenderEntity, TemporaryRenderEntity},
     texture::{BevyDefault, GpuImage, Image, TRANSPARENT_IMAGE_HANDLE},
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
@@ -28,8 +31,6 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
-
-use crate::*;
 
 pub const UI_SLICER_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11156288772117983964);
 
@@ -234,6 +235,7 @@ pub struct ExtractedUiTextureSlice {
     pub image_scale_mode: ImageScaleMode,
     pub flip_x: bool,
     pub flip_y: bool,
+    pub main_entity: MainEntity,
 }
 
 #[derive(Resource, Default)]
@@ -248,6 +250,7 @@ pub fn extract_ui_texture_slices(
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     slicers_query: Extract<
         Query<(
+            Entity,
             &Node,
             &GlobalTransform,
             &ViewVisibility,
@@ -258,12 +261,26 @@ pub fn extract_ui_texture_slices(
             Option<&TextureAtlas>,
         )>,
     >,
+    mapping: Extract<Query<&RenderEntity>>,
 ) {
-    for (uinode, transform, view_visibility, clip, camera, image, image_scale_mode, atlas) in
-        &slicers_query
+    for (
+        entity,
+        uinode,
+        transform,
+        view_visibility,
+        clip,
+        camera,
+        image,
+        image_scale_mode,
+        atlas,
+    ) in &slicers_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
+            continue;
+        };
+
+        let Ok(&camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -291,7 +308,7 @@ pub fn extract_ui_texture_slices(
         };
 
         extracted_ui_slicers.slices.insert(
-            commands.spawn_empty().id(),
+            commands.spawn(TemporaryRenderEntity).id(),
             ExtractedUiTextureSlice {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
@@ -302,11 +319,12 @@ pub fn extract_ui_texture_slices(
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: image.texture.id(),
-                camera_entity,
+                camera_entity: camera_entity.id(),
                 image_scale_mode: image_scale_mode.clone(),
                 atlas_rect,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
+                main_entity: entity.into(),
             },
         );
     }
@@ -340,7 +358,7 @@ pub fn queue_ui_slices(
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
-            entity: *entity,
+            entity: (*entity, extracted_slicer.main_entity),
             sort_key: (
                 FloatOrd(extracted_slicer.stack_index as f32),
                 entity.index(),
@@ -401,7 +419,7 @@ pub fn prepare_ui_slices(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(texture_slices) = extracted_slices.slices.get(item.entity) {
+                if let Some(texture_slices) = extracted_slices.slices.get(item.entity()) {
                     let mut existing_batch = batches.last_mut();
 
                     if batch_image_handle == AssetId::invalid()
@@ -423,7 +441,7 @@ pub fn prepare_ui_slices(
                                 camera: texture_slices.camera_entity,
                             };
 
-                            batches.push((item.entity, new_batch));
+                            batches.push((item.entity(), new_batch));
 
                             image_bind_groups
                                 .values

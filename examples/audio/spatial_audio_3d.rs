@@ -24,17 +24,12 @@ fn setup(
 
     // sound emitter
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Sphere::new(0.2).mesh().uv(32, 18)),
-            material: materials.add(Color::from(BLUE)),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Sphere::new(0.2).mesh().uv(32, 18))),
+        MeshMaterial3d(materials.add(Color::from(BLUE))),
+        Transform::from_xyz(0.0, 0.0, 0.0),
         Emitter::default(),
-        AudioBundle {
-            source: asset_server.load("sounds/Windless Slopes.ogg"),
-            settings: PlaybackSettings::LOOP.with_spatial(true),
-        },
+        AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
+        PlaybackSettings::LOOP.with_spatial(true),
     ));
 
     let listener = SpatialListener::new(gap);
@@ -42,47 +37,42 @@ fn setup(
         .spawn((SpatialBundle::default(), listener.clone()))
         .with_children(|parent| {
             // left ear indicator
-            parent.spawn(PbrBundle {
-                mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
-                material: materials.add(Color::from(RED)),
-                transform: Transform::from_translation(listener.left_ear_offset),
-                ..default()
-            });
+            parent.spawn((
+                Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
+                MeshMaterial3d(materials.add(Color::from(RED))),
+                Transform::from_translation(listener.left_ear_offset),
+            ));
 
             // right ear indicator
-            parent.spawn(PbrBundle {
-                mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
-                material: materials.add(Color::from(LIME)),
-                transform: Transform::from_translation(listener.right_ear_offset),
-                ..default()
-            });
+            parent.spawn((
+                Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
+                MeshMaterial3d(materials.add(Color::from(LIME))),
+                Transform::from_translation(listener.right_ear_offset),
+            ));
         });
 
     // light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // example instructions
-    commands.spawn(
-        TextBundle::from_section(
-            "Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new("Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement"),
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 #[derive(Component, Default)]

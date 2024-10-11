@@ -282,17 +282,16 @@ fn setup(
     commands.insert_resource(RandomSource(seeded_rng));
 
     // Make a plane for establishing space.
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::srgb(0.3, 0.5, 0.3),
             perceptual_roughness: 0.95,
             metallic: 0.0,
             ..default()
-        }),
-        transform: Transform::from_xyz(0.0, -2.5, 0.0),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, -2.5, 0.0),
+    ));
 
     let shape_material = materials.add(StandardMaterial {
         base_color: Color::srgba(0.2, 0.1, 0.6, 0.3),
@@ -305,55 +304,48 @@ fn setup(
     // Spawn shapes to be sampled
     for (shape, translation) in shapes.0.iter() {
         // The sampled shape shown transparently:
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(shape.mesh()),
-            material: shape_material.clone(),
-            transform: Transform::from_translation(*translation),
-            ..default()
-        });
+        commands.spawn((
+            Mesh3d(meshes.add(shape.mesh())),
+            MeshMaterial3d(shape_material.clone()),
+            Transform::from_translation(*translation),
+        ));
 
         // Lights which work as the bulk lighting of the fireflies:
         commands.spawn((
-            PointLightBundle {
-                point_light: PointLight {
-                    range: 4.0,
-                    radius: 0.6,
-                    intensity: 1.0,
-                    shadows_enabled: false,
-                    color: Color::LinearRgba(INSIDE_POINT_COLOR),
-                    ..default()
-                },
-                transform: Transform::from_translation(*translation),
+            PointLight {
+                range: 4.0,
+                radius: 0.6,
+                intensity: 1.0,
+                shadows_enabled: false,
+                color: Color::LinearRgba(INSIDE_POINT_COLOR),
                 ..default()
             },
+            Transform::from_translation(*translation),
             FireflyLights,
         ));
     }
 
     // Global light:
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             color: SKY_COLOR,
             intensity: 2_000.0,
             shadows_enabled: false,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
     // A camera:
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true, // HDR is required for bloom
-                clear_color: ClearColorConfig::Custom(SKY_COLOR),
-                ..default()
-            },
-            tonemapping: Tonemapping::TonyMcMapface,
-            transform: Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Camera3d::default(),
+        Camera {
+            hdr: true, // HDR is required for bloom
+            clear_color: ClearColorConfig::Custom(SKY_COLOR),
             ..default()
         },
+        Tonemapping::TonyMcMapface,
+        Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         Bloom::NATURAL,
         CameraRig {
             yaw: 0.56,
@@ -383,8 +375,8 @@ fn setup(
     });
 
     // Instructions for the example:
-    commands.spawn(
-        TextBundle::from_section(
+    commands.spawn((
+        Text::new(
             "Controls:\n\
             M: Toggle between sampling boundary and interior.\n\
             A: Toggle automatic spawning & despawning of points.\n\
@@ -395,15 +387,14 @@ fn setup(
             Zoom camera by scrolling via mouse or +/-.\n\
             Move camera by L/R arrow keys.\n\
             Tab: Toggle this text",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+        ),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
     // No points are scheduled to spawn initially.
     commands.insert_resource(SpawnQueue(0));
@@ -600,15 +591,12 @@ fn spawn_points(
 
         // Spawn a sphere at the random location:
         commands.spawn((
-            PbrBundle {
-                mesh: sample_mesh.0.clone(),
-                material: match *mode {
-                    SamplingMode::Interior => sample_material.interior.clone(),
-                    SamplingMode::Boundary => sample_material.boundary.clone(),
-                },
-                transform: Transform::from_translation(sample).with_scale(Vec3::ZERO),
-                ..default()
-            },
+            Mesh3d(sample_mesh.0.clone()),
+            MeshMaterial3d(match *mode {
+                SamplingMode::Interior => sample_material.interior.clone(),
+                SamplingMode::Boundary => sample_material.boundary.clone(),
+            }),
+            Transform::from_translation(sample).with_scale(Vec3::ZERO),
             SamplePoint,
             SpawningPoint { progress: 0.0 },
         ));

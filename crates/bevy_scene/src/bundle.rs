@@ -1,4 +1,5 @@
-use bevy_asset::Handle;
+#![expect(deprecated)]
+
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     bundle::Bundle,
@@ -11,21 +12,25 @@ use bevy_ecs::{
 use bevy_render::prelude::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_transform::components::{GlobalTransform, Transform};
 
-use crate::{DynamicScene, InstanceId, Scene, SceneSpawner};
+use crate::{DynamicSceneRoot, InstanceId, SceneRoot, SceneSpawner};
 
 /// [`InstanceId`] of a spawned scene. It can be used with the [`SceneSpawner`] to
 /// interact with the spawned scene.
 #[derive(Component, Deref, DerefMut)]
 pub struct SceneInstance(pub(crate) InstanceId);
 
-/// A component bundle for a [`Scene`] root.
+/// A component bundle for a [`Scene`](crate::Scene) root.
 ///
 /// The scene from `scene` will be spawned as a child of the entity with this component.
 /// Once it's spawned, the entity will have a [`SceneInstance`] component.
 #[derive(Default, Bundle, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `SceneRoot` component instead. Inserting `SceneRoot` will also insert the other components required by scenes automatically."
+)]
 pub struct SceneBundle {
     /// Handle to the scene to spawn.
-    pub scene: Handle<Scene>,
+    pub scene: SceneRoot,
     /// Transform of the scene root entity.
     pub transform: Transform,
     /// Global transform of the scene root entity.
@@ -42,14 +47,18 @@ pub struct SceneBundle {
     pub view_visibility: ViewVisibility,
 }
 
-/// A component bundle for a [`DynamicScene`] root.
+/// A component bundle for a [`DynamicScene`](crate::DynamicScene) root.
 ///
 /// The dynamic scene from `scene` will be spawn as a child of the entity with this component.
 /// Once it's spawned, the entity will have a [`SceneInstance`] component.
 #[derive(Default, Bundle, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `DynamicSceneRoot` component instead. Inserting `DynamicSceneRoot` will also insert the other components required by scenes automatically."
+)]
 pub struct DynamicSceneBundle {
     /// Handle to the scene to spawn.
-    pub scene: Handle<DynamicScene>,
+    pub scene: DynamicSceneRoot,
     /// Transform of the scene root entity.
     pub transform: Transform,
     /// Global transform of the scene root entity.
@@ -66,21 +75,21 @@ pub struct DynamicSceneBundle {
     pub view_visibility: ViewVisibility,
 }
 
-/// System that will spawn scenes from [`SceneBundle`].
+/// System that will spawn scenes from the [`SceneRoot`] and [`DynamicSceneRoot`] components.
 pub fn scene_spawner(
     mut commands: Commands,
     mut scene_to_spawn: Query<
-        (Entity, &Handle<Scene>, Option<&mut SceneInstance>),
-        (Changed<Handle<Scene>>, Without<Handle<DynamicScene>>),
+        (Entity, &SceneRoot, Option<&mut SceneInstance>),
+        (Changed<SceneRoot>, Without<DynamicSceneRoot>),
     >,
     mut dynamic_scene_to_spawn: Query<
-        (Entity, &Handle<DynamicScene>, Option<&mut SceneInstance>),
-        (Changed<Handle<DynamicScene>>, Without<Handle<Scene>>),
+        (Entity, &DynamicSceneRoot, Option<&mut SceneInstance>),
+        (Changed<DynamicSceneRoot>, Without<SceneRoot>),
     >,
     mut scene_spawner: ResMut<SceneSpawner>,
 ) {
     for (entity, scene, instance) in &mut scene_to_spawn {
-        let new_instance = scene_spawner.spawn_as_child(scene.clone(), entity);
+        let new_instance = scene_spawner.spawn_as_child(scene.0.clone(), entity);
         if let Some(mut old_instance) = instance {
             scene_spawner.despawn_instance(**old_instance);
             *old_instance = SceneInstance(new_instance);
@@ -89,7 +98,7 @@ pub fn scene_spawner(
         }
     }
     for (entity, dynamic_scene, instance) in &mut dynamic_scene_to_spawn {
-        let new_instance = scene_spawner.spawn_dynamic_as_child(dynamic_scene.clone(), entity);
+        let new_instance = scene_spawner.spawn_dynamic_as_child(dynamic_scene.0.clone(), entity);
         if let Some(mut old_instance) = instance {
             scene_spawner.despawn_instance(**old_instance);
             *old_instance = SceneInstance(new_instance);
@@ -101,7 +110,7 @@ pub fn scene_spawner(
 
 #[cfg(test)]
 mod tests {
-    use crate::{DynamicScene, DynamicSceneBundle, ScenePlugin, SceneSpawner};
+    use crate::{DynamicScene, DynamicSceneRoot, ScenePlugin, SceneSpawner};
     use bevy_app::{App, ScheduleRunnerPlugin};
     use bevy_asset::{AssetPlugin, Assets};
     use bevy_ecs::{
@@ -111,7 +120,6 @@ mod tests {
     };
     use bevy_hierarchy::{Children, HierarchyPlugin};
     use bevy_reflect::Reflect;
-    use bevy_utils::default;
 
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
@@ -143,13 +151,10 @@ mod tests {
             .resource_mut::<Assets<DynamicScene>>()
             .add(scene);
 
-        // spawn the scene as a child of `entity` using the `DynamicSceneBundle`
+        // spawn the scene as a child of `entity` using `DynamicSceneRoot`
         let entity = app
             .world_mut()
-            .spawn(DynamicSceneBundle {
-                scene: scene_handle.clone(),
-                ..default()
-            })
+            .spawn(DynamicSceneRoot(scene_handle.clone()))
             .id();
 
         // run the app's schedule once, so that the scene gets spawned
@@ -175,7 +180,7 @@ mod tests {
         app.update();
 
         // the scene entity does not exist anymore
-        assert!(app.world().get_entity(scene_entity).is_none());
+        assert!(app.world().get_entity(scene_entity).is_err());
 
         // the root entity does not have any children anymore
         assert!(app.world().entity(entity).get::<Children>().is_none());

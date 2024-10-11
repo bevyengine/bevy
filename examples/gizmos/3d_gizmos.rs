@@ -26,38 +26,33 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
         CameraController::default(),
     ));
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
     // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-        material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
     // example instructions
-    commands.spawn(
-        TextBundle::from_section(
+    commands.spawn((
+        Text::new(
             "Press 'T' to toggle drawing gizmos on top of everything else in the scene\n\
             Press 'P' to toggle perspective for line gizmos\n\
             Hold 'Left' or 'Right' to change the line width of straight gizmos\n\
@@ -66,15 +61,14 @@ fn setup(
             Press 'B' to show all AABB boxes\n\
             Press 'U' or 'I' to cycle through line styles for straight or round gizmos\n\
             Press 'J' or 'K' to cycle through line joins for straight or round gizmos",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+        ),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn draw_example_collection(
@@ -83,19 +77,19 @@ fn draw_example_collection(
     time: Res<Time>,
 ) {
     gizmos.grid(
-        Isometry3d::from_rotation(Quat::from_rotation_x(PI / 2.)),
+        Quat::from_rotation_x(PI / 2.),
         UVec2::splat(20),
         Vec2::new(2., 2.),
         // Light gray
         LinearRgba::gray(0.65),
     );
     gizmos.grid(
-        Isometry3d::new(Vec3::ONE * 10.0, Quat::from_rotation_x(PI / 3. * 2.)),
+        Isometry3d::new(Vec3::splat(10.0), Quat::from_rotation_x(PI / 3. * 2.)),
         UVec2::splat(20),
         Vec2::new(2., 2.),
         PURPLE,
     );
-    gizmos.sphere(Isometry3d::from_translation(Vec3::ONE * 10.0), 1.0, PURPLE);
+    gizmos.sphere(Vec3::splat(10.0), 1.0, PURPLE);
 
     gizmos
         .primitive_3d(
@@ -104,7 +98,7 @@ fn draw_example_collection(
                 half_size: Vec2::splat(1.0),
             },
             Isometry3d::new(
-                Vec3::ONE * 4.0 + Vec2::from(ops::sin_cos(time.elapsed_seconds())).extend(0.0),
+                Vec3::splat(4.0) + Vec2::from(ops::sin_cos(time.elapsed_seconds())).extend(0.0),
                 Quat::from_rotation_x(PI / 2. + time.elapsed_seconds()),
             ),
             GREEN,
@@ -125,11 +119,7 @@ fn draw_example_collection(
         LIME,
     );
 
-    gizmos.cross(
-        Isometry3d::from_translation(Vec3::new(-1., 1., 1.)),
-        0.5,
-        FUCHSIA,
-    );
+    gizmos.cross(Vec3::new(-1., 1., 1.), 0.5, FUCHSIA);
 
     let domain = Interval::EVERYWHERE;
     let curve = function_curve(domain, |t| {
@@ -142,18 +132,10 @@ fn draw_example_collection(
         .map(|t| (t, TEAL.mix(&HOT_PINK, t / 5.0)));
     gizmos.curve_gradient_3d(curve, times_and_colors);
 
-    my_gizmos.sphere(
-        Isometry3d::from_translation(Vec3::new(1., 0.5, 0.)),
-        0.5,
-        RED,
-    );
+    my_gizmos.sphere(Vec3::new(1., 0.5, 0.), 0.5, RED);
 
     my_gizmos
-        .rounded_cuboid(
-            Isometry3d::from_translation(Vec3::new(-2.0, 0.75, -0.75)),
-            Vec3::splat(0.9),
-            TURQUOISE,
-        )
+        .rounded_cuboid(Vec3::new(-2.0, 0.75, -0.75), Vec3::splat(0.9), TURQUOISE)
         .edge_radius(0.1)
         .arc_resolution(4);
 
@@ -178,24 +160,17 @@ fn draw_example_collection(
         .resolution(10);
 
     // Circles have 32 line-segments by default.
-    my_gizmos.circle(
-        Isometry3d::from_rotation(Quat::from_rotation_arc(Vec3::Z, Vec3::Y)),
-        3.,
-        BLACK,
-    );
+    my_gizmos.circle(Quat::from_rotation_arc(Vec3::Z, Vec3::Y), 3., BLACK);
+
     // You may want to increase this for larger circles or spheres.
     my_gizmos
-        .circle(
-            Isometry3d::from_rotation(Quat::from_rotation_arc(Vec3::Z, Vec3::Y)),
-            3.1,
-            NAVY,
-        )
+        .circle(Quat::from_rotation_arc(Vec3::Z, Vec3::Y), 3.1, NAVY)
         .resolution(64);
     my_gizmos
         .sphere(Isometry3d::IDENTITY, 3.2, BLACK)
         .resolution(64);
 
-    gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, YELLOW);
+    gizmos.arrow(Vec3::ZERO, Vec3::splat(1.5), YELLOW);
 
     // You can create more complex arrows using the arrow builder.
     gizmos

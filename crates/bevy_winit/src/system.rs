@@ -6,10 +6,11 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
+use bevy_input::keyboard::KeyboardFocusLost;
 use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
     ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
-    WindowClosing, WindowCreated, WindowMode, WindowResized, WindowWrapper,
+    WindowClosing, WindowCreated, WindowFocused, WindowMode, WindowResized, WindowWrapper,
 };
 
 use winit::{
@@ -27,7 +28,8 @@ use winit::platform::web::WindowExtWebSys;
 
 use crate::{
     converters::{
-        convert_enabled_buttons, convert_window_level, convert_window_theme, convert_winit_theme,
+        convert_enabled_buttons, convert_resize_direction, convert_window_level,
+        convert_window_theme, convert_winit_theme,
     },
     get_best_videomode, get_fitting_videomode, select_monitor,
     state::react_to_resize,
@@ -119,6 +121,26 @@ pub fn create_windows<F: QueryFilter + 'static>(
         }
 
         window_created_events.send(WindowCreated { window: entity });
+    }
+}
+
+/// Check whether keyboard focus was lost. This is different from window
+/// focus in that swapping between Bevy windows keeps window focus.
+pub(crate) fn check_keyboard_focus_lost(
+    mut focus_events: EventReader<WindowFocused>,
+    mut keyboard_focus: EventWriter<KeyboardFocusLost>,
+) {
+    let mut focus_lost = false;
+    let mut focus_gained = false;
+    for e in focus_events.read() {
+        if e.focused {
+            focus_gained = true;
+        } else {
+            focus_lost = true;
+        }
+    }
+    if focus_lost & !focus_gained {
+        keyboard_focus.send(KeyboardFocusLost);
     }
 }
 
@@ -439,6 +461,20 @@ pub(crate) fn changed_windows(
 
         if let Some(minimized) = window.internal.take_minimize_request() {
             winit_window.set_minimized(minimized);
+        }
+
+        if window.internal.take_move_request() {
+            if let Err(e) = winit_window.drag_window() {
+                warn!("Winit returned an error while attempting to drag the window: {e}");
+            }
+        }
+
+        if let Some(resize_direction) = window.internal.take_resize_request() {
+            if let Err(e) =
+                winit_window.drag_resize_window(convert_resize_direction(resize_direction))
+            {
+                warn!("Winit returned an error while attempting to drag resize the window: {e}");
+            }
         }
 
         if window.focused != cache.window.focused && window.focused {

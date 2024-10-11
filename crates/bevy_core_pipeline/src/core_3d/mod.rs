@@ -74,6 +74,7 @@ pub use main_transparent_pass_3d_node::*;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
@@ -89,6 +90,7 @@ use bevy_render::{
         Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
     },
     renderer::RenderDevice,
+    sync_world::RenderEntity,
     texture::{BevyDefault, ColorAttachment, Image, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -213,7 +215,7 @@ pub struct Opaque3d {
     pub key: Opaque3dBinKey,
     /// An entity from which data will be fetched, including the mesh if
     /// applicable.
-    pub representative_entity: Entity,
+    pub representative_entity: (Entity, MainEntity),
     /// The ranges of instances.
     pub batch_range: Range<u32>,
     /// An extra index, which is either a dynamic offset or an index in the
@@ -248,7 +250,12 @@ pub struct Opaque3dBinKey {
 impl PhaseItem for Opaque3d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    #[inline]
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
@@ -281,7 +288,7 @@ impl BinnedPhaseItem for Opaque3d {
     #[inline]
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
@@ -303,7 +310,7 @@ impl CachedRenderPipelinePhaseItem for Opaque3d {
 
 pub struct AlphaMask3d {
     pub key: OpaqueNoLightmap3dBinKey,
-    pub representative_entity: Entity,
+    pub representative_entity: (Entity, MainEntity),
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
 }
@@ -311,7 +318,11 @@ pub struct AlphaMask3d {
 impl PhaseItem for AlphaMask3d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
@@ -346,7 +357,7 @@ impl BinnedPhaseItem for AlphaMask3d {
     #[inline]
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
@@ -369,7 +380,7 @@ impl CachedRenderPipelinePhaseItem for AlphaMask3d {
 pub struct Transmissive3d {
     pub distance: f32,
     pub pipeline: CachedRenderPipelineId,
-    pub entity: Entity,
+    pub entity: (Entity, MainEntity),
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
@@ -389,7 +400,12 @@ impl PhaseItem for Transmissive3d {
 
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.entity.0
+    }
+
+    #[inline]
+    fn main_entity(&self) -> MainEntity {
+        self.entity.1
     }
 
     #[inline]
@@ -443,7 +459,7 @@ impl CachedRenderPipelinePhaseItem for Transmissive3d {
 pub struct Transparent3d {
     pub distance: f32,
     pub pipeline: CachedRenderPipelineId,
-    pub entity: Entity,
+    pub entity: (Entity, MainEntity),
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
@@ -452,7 +468,11 @@ pub struct Transparent3d {
 impl PhaseItem for Transparent3d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.entity.1
     }
 
     #[inline]
@@ -504,23 +524,21 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
 }
 
 pub fn extract_core_3d_camera_phases(
-    mut commands: Commands,
     mut opaque_3d_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    cameras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(&RenderEntity, &Camera), With<Camera3d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
 
-    for (entity, camera) in &cameras_3d {
+    for (render_entity, camera) in &cameras_3d {
         if !camera.is_active {
             continue;
         }
 
-        commands.get_or_spawn(entity);
-
+        let entity = render_entity.id();
         opaque_3d_phases.insert_or_clear(entity);
         alpha_mask_3d_phases.insert_or_clear(entity);
         transmissive_3d_phases.insert_or_clear(entity);
@@ -545,7 +563,7 @@ pub fn extract_camera_prepass_phase(
     cameras_3d: Extract<
         Query<
             (
-                Entity,
+                &RenderEntity,
                 &Camera,
                 Has<DepthPrepass>,
                 Has<NormalPrepass>,
@@ -559,13 +577,20 @@ pub fn extract_camera_prepass_phase(
 ) {
     live_entities.clear();
 
-    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
-        cameras_3d.iter()
+    for (
+        render_entity,
+        camera,
+        depth_prepass,
+        normal_prepass,
+        motion_vector_prepass,
+        deferred_prepass,
+    ) in cameras_3d.iter()
     {
         if !camera.is_active {
             continue;
         }
 
+        let entity = render_entity.id();
         if depth_prepass || normal_prepass || motion_vector_prepass {
             opaque_3d_prepass_phases.insert_or_clear(entity);
             alpha_mask_3d_prepass_phases.insert_or_clear(entity);
@@ -581,11 +606,11 @@ pub fn extract_camera_prepass_phase(
             opaque_3d_deferred_phases.remove(&entity);
             alpha_mask_3d_deferred_phases.remove(&entity);
         }
-
         live_entities.insert(entity);
 
         commands
-            .get_or_spawn(entity)
+            .get_entity(entity)
+            .expect("Camera entity wasn't synced.")
             .insert_if(DepthPrepass, || depth_prepass)
             .insert_if(NormalPrepass, || normal_prepass)
             .insert_if(MotionVectorPrepass, || motion_vector_prepass)

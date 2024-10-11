@@ -81,16 +81,18 @@ impl Drop for RenderAppChannels {
 /// The plugin is dependent on the [`RenderApp`] added by [`crate::RenderPlugin`] and so must
 /// be added after that plugin. If it is not added after, the plugin will do nothing.
 ///
-/// A single frame of execution looks something like below    
+/// A single frame of execution looks something like below
 ///
 /// ```text
-/// |--------------------------------------------------------------------|
-/// |         | RenderExtractApp schedule | winit events | main schedule |
-/// | extract |----------------------------------------------------------|
-/// |         | extract commands | rendering schedule                    |
-/// |--------------------------------------------------------------------|
+/// |---------------------------------------------------------------------------|
+/// |      |         | RenderExtractApp schedule | winit events | main schedule |
+/// | sync | extract |----------------------------------------------------------|
+/// |      |         | extract commands | rendering schedule                    |
+/// |---------------------------------------------------------------------------|
 /// ```
 ///
+/// - `sync` is the step where the entity-entity mapping between the main and render world is updated.
+///     This is run on the main app's thread. For more information checkout [`SyncWorldPlugin`].
 /// - `extract` is the step where data is copied from the main world to the render world.
 ///     This is run on the main app's thread.
 /// - On the render thread, we first apply the `extract commands`. This is not run during extract, so the
@@ -101,6 +103,8 @@ impl Drop for RenderAppChannels {
 /// - Next all the `winit events` are processed.
 /// - And finally the `main app schedule` is run.
 /// - Once both the `main app schedule` and the `render schedule` are finished running, `extract` is run again.
+///
+/// [`SyncWorldPlugin`]: crate::sync_world::SyncWorldPlugin
 #[derive(Default)]
 pub struct PipelinedRenderingPlugin;
 

@@ -6,7 +6,9 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_window::{EnabledButtons, SystemCursorIcon, WindowLevel, WindowTheme};
+#[cfg(feature = "custom_cursor")]
+use bevy_window::SystemCursorIcon;
+use bevy_window::{EnabledButtons, ResizeDirection, WindowLevel, WindowTheme};
 use winit::keyboard::{Key, NamedKey, NativeKey};
 
 pub fn convert_keyboard_input(
@@ -628,6 +630,7 @@ pub fn convert_native_key(native_key: &NativeKey) -> bevy_input::keyboard::Nativ
     }
 }
 
+#[cfg(feature = "custom_cursor")]
 /// Converts a [`SystemCursorIcon`] to a [`winit::window::CursorIcon`].
 pub fn convert_system_cursor_icon(cursor_icon: SystemCursorIcon) -> winit::window::CursorIcon {
     match cursor_icon {
@@ -702,4 +705,19 @@ pub fn convert_enabled_buttons(enabled_buttons: EnabledButtons) -> winit::window
         window_buttons.insert(winit::window::WindowButtons::CLOSE);
     }
     window_buttons
+}
+
+pub fn convert_resize_direction(
+    resize_direction: ResizeDirection,
+) -> winit::window::ResizeDirection {
+    match resize_direction {
+        ResizeDirection::West => winit::window::ResizeDirection::West,
+        ResizeDirection::North => winit::window::ResizeDirection::North,
+        ResizeDirection::East => winit::window::ResizeDirection::East,
+        ResizeDirection::South => winit::window::ResizeDirection::South,
+        ResizeDirection::Northwest => winit::window::ResizeDirection::NorthWest,
+        ResizeDirection::Northeast => winit::window::ResizeDirection::NorthEast,
+        ResizeDirection::Southwest => winit::window::ResizeDirection::SouthWest,
+        ResizeDirection::Southeast => winit::window::ResizeDirection::SouthEast,
+    }
 }

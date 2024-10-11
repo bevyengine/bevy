@@ -13,7 +13,7 @@ use bevy::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
-    sprite::{AlphaMode2d, MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::AlphaMode2d,
     utils::Duration,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -208,7 +208,7 @@ fn scheduled_spawner(
 struct BirdResources {
     textures: Vec<Handle<Image>>,
     materials: Vec<Handle<ColorMaterial>>,
-    quad: Mesh2dHandle,
+    quad: Handle<Mesh>,
     color_rng: ChaCha8Rng,
     material_rng: ChaCha8Rng,
     velocity_rng: ChaCha8Rng,
@@ -246,9 +246,7 @@ fn setup(
     let mut bird_resources = BirdResources {
         textures,
         materials,
-        quad: meshes
-            .add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32)))
-            .into(),
+        quad: meshes.add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32))),
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
         // This isn't strictly required in practical use unless you need your app to be deterministic.
         color_rng: ChaCha8Rng::seed_from_u64(42),
@@ -257,43 +255,43 @@ fn setup(
         transform_rng: ChaCha8Rng::seed_from_u64(42),
     };
 
-    let text_section = move |color: Srgba, value: &str| {
-        TextSection::new(
-            value,
-            TextStyle {
-                font_size: 40.0,
-                color: color.into(),
-                ..default()
-            },
-        )
+    let lime_text = TextStyle {
+        font_size: 40.0,
+        color: LIME.into(),
+        ..default()
     };
 
-    commands.spawn(Camera2dBundle::default());
+    let aqua_text = TextStyle {
+        font_size: 40.0,
+        color: LIME.into(),
+        ..default()
+    };
+
+    commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                padding: UiRect::all(Val::Px(5.0)),
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    padding: UiRect::all(Val::Px(5.0)),
+                    ..default()
+                },
+                background_color: Color::BLACK.with_alpha(0.75).into(),
                 ..default()
             },
-            z_index: ZIndex::Global(i32::MAX),
-            background_color: Color::BLACK.with_alpha(0.75).into(),
-            ..default()
-        })
-        .with_children(|c| {
-            c.spawn((
-                TextBundle::from_sections([
-                    text_section(LIME, "Bird Count: "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (raw): "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (SMA): "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (EMA): "),
-                    text_section(AQUA, ""),
-                ]),
-                StatsText,
-            ));
+            GlobalZIndex(i32::MAX),
+        ))
+        .with_children(|p| {
+            p.spawn((Text::default(), StatsText)).with_children(|p| {
+                p.spawn((TextSpan::new("Bird Count: "), lime_text.clone()));
+                p.spawn((TextSpan::new(""), aqua_text.clone()));
+                p.spawn((TextSpan::new("\nFPS (raw): "), lime_text.clone()));
+                p.spawn((TextSpan::new(""), aqua_text.clone()));
+                p.spawn((TextSpan::new("\nFPS (SMA): "), lime_text.clone()));
+                p.spawn((TextSpan::new(""), aqua_text.clone()));
+                p.spawn((TextSpan::new("\nFPS (EMA): "), lime_text.clone()));
+                p.spawn((TextSpan::new(""), aqua_text.clone()));
+            });
         });
 
     let mut scheduled = BirdScheduled {
@@ -433,16 +431,16 @@ fn spawn_birds(
                         color
                     };
                     (
-                        SpriteBundle {
-                            texture: bird_resources
+                        Sprite {
+                            image: bird_resources
                                 .textures
                                 .choose(&mut bird_resources.material_rng)
                                 .unwrap()
                                 .clone(),
-                            transform,
-                            sprite: Sprite { color, ..default() },
+                            color,
                             ..default()
                         },
+                        transform,
                         Bird { velocity },
                     )
                 })
@@ -477,12 +475,9 @@ fn spawn_birds(
                             bird_resources.materials[wave % bird_resources.materials.len()].clone()
                         };
                     (
-                        MaterialMesh2dBundle {
-                            mesh: bird_resources.quad.clone(),
-                            material,
-                            transform,
-                            ..default()
-                        },
+                        Mesh2d(bird_resources.quad.clone()),
+                        MeshMaterial2d(material),
+                        transform,
                         Bird { velocity },
                     )
                 })
@@ -547,23 +542,24 @@ fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &
 fn counter_system(
     diagnostics: Res<DiagnosticsStore>,
     counter: Res<BevyCounter>,
-    mut query: Query<&mut Text, With<StatsText>>,
+    query: Query<Entity, With<StatsText>>,
+    mut writer: UiTextWriter,
 ) {
-    let mut text = query.single_mut();
+    let text = query.single();
 
     if counter.is_changed() {
-        text.sections[1].value = counter.count.to_string();
+        *writer.text(text, 2) = counter.count.to_string();
     }
 
     if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(raw) = fps.value() {
-            text.sections[3].value = format!("{raw:.2}");
+            *writer.text(text, 4) = format!("{raw:.2}");
         }
         if let Some(sma) = fps.average() {
-            text.sections[5].value = format!("{sma:.2}");
+            *writer.text(text, 6) = format!("{sma:.2}");
         }
         if let Some(ema) = fps.smoothed() {
-            text.sections[7].value = format!("{ema:.2}");
+            *writer.text(text, 8) = format!("{ema:.2}");
         }
     };
 }

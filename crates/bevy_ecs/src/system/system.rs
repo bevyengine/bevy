@@ -1,6 +1,6 @@
 use bevy_utils::tracing::warn;
 use core::fmt::Debug;
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 use crate::{
     archetype::ArchetypeComponentId,
@@ -50,7 +50,7 @@ pub trait System: Send + Sync + 'static {
     /// Returns true if the system must be run exclusively.
     fn is_exclusive(&self) -> bool;
 
-    /// Returns true if system as deferred buffers
+    /// Returns true if system has deferred buffers.
     fn has_deferred(&self) -> bool;
 
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
@@ -106,7 +106,7 @@ pub trait System: Send + Sync + 'static {
     /// should provide their own safety mechanism to prevent undefined behavior.
     ///
     /// This method has to be called directly before [`System::run_unsafe`] with no other (relevant)
-    /// world mutations inbetween. Otherwise, while it won't lead to any undefined behavior,
+    /// world mutations in between. Otherwise, while it won't lead to any undefined behavior,
     /// the validity of the param may change.
     ///
     /// # Safety
@@ -117,7 +117,7 @@ pub trait System: Send + Sync + 'static {
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool;
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool;
 
     /// Safe version of [`System::validate_param_unsafe`].
     /// that runs on exclusive, single-threaded `world` pointer.
@@ -271,7 +271,7 @@ where
 /// let entity = world.run_system_once(|mut commands: Commands| {
 ///     commands.spawn_empty().id()
 /// }).unwrap();
-/// # assert!(world.get_entity(entity).is_some());
+/// # assert!(world.get_entity(entity).is_ok());
 /// ```
 ///
 /// ## Immediate Queries
@@ -357,12 +357,13 @@ impl RunSystemOnce for &mut World {
 }
 
 /// Running system failed.
-#[derive(Error)]
+#[derive(Error, Display)]
 pub enum RunSystemError {
     /// System could not be run due to parameters that failed validation.
     ///
     /// This can occur because the data required by the system was not present in the world.
-    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
+    #[display("The data required by the system {_0:?} was not found in the world and the system did not run due to failed parameter validation.")]
+    #[error(ignore)]
     InvalidParams(Cow<'static, str>),
 }
 

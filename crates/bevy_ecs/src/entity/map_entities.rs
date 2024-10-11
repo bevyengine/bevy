@@ -4,7 +4,7 @@ use crate::{
     world::World,
 };
 
-use super::EntityHashMap;
+use super::{EntityHashMap, VisitEntitiesMut};
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -15,8 +15,15 @@ use super::EntityHashMap;
 /// (usually by using an [`EntityHashMap<Entity>`] between source entities and entities in the
 /// current world).
 ///
+/// This trait is similar to [`VisitEntitiesMut`]. They differ in that [`VisitEntitiesMut`] operates
+/// on `&mut Entity` and allows for in-place modification, while this trait makes no assumption that
+/// such in-place modification is occurring, which is impossible for types such as [`HashSet<Entity>`]
+/// and [`EntityHashMap`] which must be rebuilt when their contained [`Entity`]s are remapped.
+///
 /// Implementing this trait correctly is required for properly loading components
 /// with entity references from scenes.
+///
+/// [`HashSet<Entity>`]: bevy_utils::HashSet
 ///
 /// ## Example
 ///
@@ -45,15 +52,20 @@ pub trait MapEntities {
     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M);
 }
 
+impl<T: VisitEntitiesMut> MapEntities for T {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+        self.visit_entities_mut(|entity| {
+            *entity = entity_mapper.map_entity(*entity);
+        });
+    }
+}
+
 /// An implementor of this trait knows how to map an [`Entity`] into another [`Entity`].
 ///
 /// Usually this is done by using an [`EntityHashMap<Entity>`] to map source entities
 /// (mapper inputs) to the current world's entities (mapper outputs).
 ///
 /// More generally, this can be used to map [`Entity`] references between any two [`Worlds`](World).
-///
-/// Note that this trait is _not_ [object safe](https://doc.rust-lang.org/reference/items/traits.html#object-safety).
-/// Please see [`DynEntityMapper`] for an object safe alternative.
 ///
 /// ## Example
 ///
@@ -71,54 +83,16 @@ pub trait MapEntities {
 ///     fn map_entity(&mut self, entity: Entity) -> Entity {
 ///         self.map.get(&entity).copied().unwrap_or(entity)
 ///     }
-///
-///     fn mappings(&self) -> impl Iterator<Item = (Entity, Entity)> {
-///         self.map.iter().map(|(&source, &target)| (source, target))
-///     }
 /// }
 /// ```
 pub trait EntityMapper {
     /// Map an entity to another entity
     fn map_entity(&mut self, entity: Entity) -> Entity;
-
-    /// Iterate over all entity to entity mappings.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use bevy_ecs::entity::{Entity, EntityMapper};
-    /// # fn example(mapper: impl EntityMapper) {
-    /// for (source, target) in mapper.mappings() {
-    ///     println!("Will map from {source} to {target}");
-    /// }
-    /// # }
-    /// ```
-    fn mappings(&self) -> impl Iterator<Item = (Entity, Entity)>;
 }
 
-/// An [object safe](https://doc.rust-lang.org/reference/items/traits.html#object-safety) version
-/// of [`EntityMapper`]. This trait is automatically implemented for type that implements `EntityMapper`.
-pub trait DynEntityMapper {
-    /// Map an entity to another entity.
-    ///
-    /// This is an [object safe](https://doc.rust-lang.org/reference/items/traits.html#object-safety)
-    /// alternative to [`EntityMapper::map_entity`].
-    fn dyn_map_entity(&mut self, entity: Entity) -> Entity;
-
-    /// Iterate over all entity to entity mappings.
-    ///
-    /// This is an [object safe](https://doc.rust-lang.org/reference/items/traits.html#object-safety)
-    /// alternative to [`EntityMapper::mappings`].
-    fn dyn_mappings(&self) -> Vec<(Entity, Entity)>;
-}
-
-impl<T: EntityMapper> DynEntityMapper for T {
-    fn dyn_map_entity(&mut self, entity: Entity) -> Entity {
-        <T as EntityMapper>::map_entity(self, entity)
-    }
-
-    fn dyn_mappings(&self) -> Vec<(Entity, Entity)> {
-        <T as EntityMapper>::mappings(self).collect()
+impl EntityMapper for &mut dyn EntityMapper {
+    fn map_entity(&mut self, entity: Entity) -> Entity {
+        (*self).map_entity(entity)
     }
 }
 
@@ -142,18 +116,13 @@ impl EntityMapper for SceneEntityMapper<'_> {
 
         new
     }
-
-    fn mappings(&self) -> impl Iterator<Item = (Entity, Entity)> {
-        self.map.iter().map(|(&source, &target)| (source, target))
-    }
 }
 
 /// A wrapper for [`EntityHashMap<Entity>`], augmenting it with the ability to allocate new [`Entity`] references in a destination
 /// world. These newly allocated references are guaranteed to never point to any living entity in that world.
 ///
 /// References are allocated by returning increasing generations starting from an internally initialized base
-/// [`Entity`]. After it is finished being used by [`MapEntities`] implementations, this entity is despawned and the
-/// requisite number of generations reserved.
+/// [`Entity`]. After it is finished being used, this entity is despawned and the requisite number of generations reserved.
 pub struct SceneEntityMapper<'m> {
     /// A mapping from one set of entities to another.
     ///
@@ -225,10 +194,9 @@ impl<'m> SceneEntityMapper<'m> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::{DynEntityMapper, Entity, EntityHashMap, EntityMapper, SceneEntityMapper},
+        entity::{Entity, EntityHashMap, EntityMapper, SceneEntityMapper},
         world::World,
     };
-    use bevy_utils::assert_object_safe;
 
     #[test]
     fn entity_mapper() {
@@ -276,26 +244,6 @@ mod tests {
     }
 
     #[test]
-    fn entity_mapper_iteration() {
-        let mut old_world = World::new();
-        let mut new_world = World::new();
-
-        let mut map = EntityHashMap::default();
-        let mut mapper = SceneEntityMapper::new(&mut map, &mut new_world);
-
-        assert_eq!(mapper.mappings().collect::<Vec<_>>(), vec![]);
-
-        let old_entity = old_world.spawn_empty().id();
-
-        let new_entity = mapper.map_entity(old_entity);
-
-        assert_eq!(
-            mapper.mappings().collect::<Vec<_>>(),
-            vec![(old_entity, new_entity)]
-        );
-    }
-
-    #[test]
     fn entity_mapper_no_panic() {
         let mut world = World::new();
         // "Dirty" the `Entities`, requiring a flush afterward.
@@ -310,10 +258,5 @@ mod tests {
 
         // The SceneEntityMapper should leave `Entities` in a flushed state.
         assert!(!world.entities.needs_flush());
-    }
-
-    #[test]
-    fn dyn_entity_mapper_object_safe() {
-        assert_object_safe::<dyn DynEntityMapper>();
     }
 }

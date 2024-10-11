@@ -20,6 +20,7 @@ use bevy_render::{
         UniformBuffer,
     },
     renderer::{RenderDevice, RenderQueue},
+    sync_world::RenderEntity,
     Extract,
 };
 use bevy_utils::{hashbrown::HashSet, tracing::warn};
@@ -525,7 +526,8 @@ pub(crate) fn clusterable_object_order(
 /// Extracts clusters from the main world from the render world.
 pub fn extract_clusters(
     mut commands: Commands,
-    views: Extract<Query<(Entity, &Clusters, &Camera)>>,
+    views: Extract<Query<(&RenderEntity, &Clusters, &Camera)>>,
+    mapper: Extract<Query<&RenderEntity>>,
 ) {
     for (entity, clusters, camera) in &views {
         if !camera.is_active {
@@ -544,20 +546,25 @@ pub fn extract_clusters(
                 cluster_objects.spot_light_count as u32,
             ));
             for clusterable_entity in &cluster_objects.entities {
-                data.push(ExtractedClusterableObjectElement::ClusterableObjectEntity(
-                    *clusterable_entity,
-                ));
+                if let Ok(entity) = mapper.get(*clusterable_entity) {
+                    data.push(ExtractedClusterableObjectElement::ClusterableObjectEntity(
+                        entity.id(),
+                    ));
+                }
             }
         }
 
-        commands.get_or_spawn(entity).insert((
-            ExtractedClusterableObjects { data },
-            ExtractedClusterConfig {
-                near: clusters.near,
-                far: clusters.far,
-                dimensions: clusters.dimensions,
-            },
-        ));
+        commands
+            .get_entity(entity.id())
+            .expect("Clusters entity wasn't synced.")
+            .insert((
+                ExtractedClusterableObjects { data },
+                ExtractedClusterConfig {
+                    near: clusters.near,
+                    far: clusters.far,
+                    dimensions: clusters.dimensions,
+                },
+            ));
     }
 }
 
@@ -613,7 +620,7 @@ pub fn prepare_clusters(
 
         view_clusters_bindings.write_buffers(render_device, &render_queue);
 
-        commands.get_or_spawn(entity).insert(view_clusters_bindings);
+        commands.entity(entity).insert(view_clusters_bindings);
     }
 }
 

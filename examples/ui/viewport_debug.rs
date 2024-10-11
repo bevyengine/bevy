@@ -60,7 +60,7 @@ fn update(
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     spawn_with_viewport_coords(&mut commands);
     spawn_with_pixel_coords(&mut commands);
 }

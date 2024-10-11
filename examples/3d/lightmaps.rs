@@ -12,16 +12,14 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb")),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb"),
+    )));
 
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-278.0, 273.0, 800.0),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-278.0, 273.0, 800.0),
+    ));
 }
 
 fn add_lightmaps_to_meshes(
@@ -29,8 +27,8 @@ fn add_lightmaps_to_meshes(
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     meshes: Query<
-        (Entity, &Name, &Handle<StandardMaterial>),
-        (With<Handle<Mesh>>, Without<Lightmap>),
+        (Entity, &Name, &MeshMaterial3d<StandardMaterial>),
+        (With<Mesh3d>, Without<Lightmap>),
     >,
 ) {
     let exposure = 250.0;

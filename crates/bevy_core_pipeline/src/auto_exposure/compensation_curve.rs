@@ -10,7 +10,7 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
 };
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 const LUT_SIZE: usize = 256;
 
@@ -40,16 +40,16 @@ pub struct AutoExposureCompensationCurve {
 }
 
 /// Various errors that can occur when constructing an [`AutoExposureCompensationCurve`].
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 pub enum AutoExposureCompensationCurveError {
     /// The curve couldn't be built in the first place.
-    #[error("curve could not be constructed from the given data")]
+    #[display("curve could not be constructed from the given data")]
     InvalidCurve,
     /// A discontinuity was found in the curve.
-    #[error("discontinuity found between curve segments")]
+    #[display("discontinuity found between curve segments")]
     DiscontinuityFound,
     /// The curve is not monotonically increasing on the x-axis.
-    #[error("curve is not monotonically increasing on the x-axis")]
+    #[display("curve is not monotonically increasing on the x-axis")]
     NotMonotonic,
 }
 

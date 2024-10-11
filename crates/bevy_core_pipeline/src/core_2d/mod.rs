@@ -38,9 +38,11 @@ pub use camera_2d::*;
 pub use main_opaque_pass_2d_node::*;
 pub use main_transparent_pass_2d_node::*;
 
+use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
@@ -55,12 +57,11 @@ use bevy_render::{
         TextureFormat, TextureUsages,
     },
     renderer::RenderDevice,
+    sync_world::RenderEntity,
     texture::TextureCache,
     view::{Msaa, ViewDepthTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-
-use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 
 use self::graph::{Core2d, Node2d};
 
@@ -128,7 +129,7 @@ pub struct Opaque2d {
     pub key: Opaque2dBinKey,
     /// An entity from which data will be fetched, including the mesh if
     /// applicable.
-    pub representative_entity: Entity,
+    pub representative_entity: (Entity, MainEntity),
     /// The ranges of instances.
     pub batch_range: Range<u32>,
     /// An extra index, which is either a dynamic offset or an index in the
@@ -155,7 +156,11 @@ pub struct Opaque2dBinKey {
 impl PhaseItem for Opaque2d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
@@ -187,7 +192,7 @@ impl BinnedPhaseItem for Opaque2d {
 
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
@@ -213,7 +218,7 @@ pub struct AlphaMask2d {
     pub key: AlphaMask2dBinKey,
     /// An entity from which data will be fetched, including the mesh if
     /// applicable.
-    pub representative_entity: Entity,
+    pub representative_entity: (Entity, MainEntity),
     /// The ranges of instances.
     pub batch_range: Range<u32>,
     /// An extra index, which is either a dynamic offset or an index in the
@@ -240,7 +245,12 @@ pub struct AlphaMask2dBinKey {
 impl PhaseItem for AlphaMask2d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    #[inline]
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
@@ -272,7 +282,7 @@ impl BinnedPhaseItem for AlphaMask2d {
 
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
@@ -295,7 +305,7 @@ impl CachedRenderPipelinePhaseItem for AlphaMask2d {
 /// Transparent 2D [`SortedPhaseItem`]s.
 pub struct Transparent2d {
     pub sort_key: FloatOrd,
-    pub entity: Entity,
+    pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
@@ -305,7 +315,12 @@ pub struct Transparent2d {
 impl PhaseItem for Transparent2d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.entity.0
+    }
+
+    #[inline]
+    fn main_entity(&self) -> MainEntity {
+        self.entity.1
     }
 
     #[inline]
@@ -357,11 +372,10 @@ impl CachedRenderPipelinePhaseItem for Transparent2d {
 }
 
 pub fn extract_core_2d_camera_phases(
-    mut commands: Commands,
     mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut opaque_2d_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
     mut alpha_mask_2d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
-    cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
+    cameras_2d: Extract<Query<(&RenderEntity, &Camera), With<Camera2d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
@@ -370,8 +384,7 @@ pub fn extract_core_2d_camera_phases(
         if !camera.is_active {
             continue;
         }
-
-        commands.get_or_spawn(entity);
+        let entity = entity.id();
         transparent_2d_phases.insert_or_clear(entity);
         opaque_2d_phases.insert_or_clear(entity);
         alpha_mask_2d_phases.insert_or_clear(entity);
