@@ -28,7 +28,7 @@ fn main() {
                         font_smoothing: FontSmoothing::default(),
                     },
                     // We can also change color of the overlay
-                    text_color: OverlayColor::GREEN.into(),
+                    text_color: OverlayColor::GREEN,
                     enabled: true,
                 },
             },
