@@ -42,15 +42,15 @@ fn setup(
             },
         )
         .observe(
-            |evt: Trigger<Pointer<Out>>, mut texts: Query<&mut TextFont>| {
-                let mut style = texts.get_mut(evt.entity()).unwrap();
-                style.color = Color::WHITE;
+            |evt: Trigger<Pointer<Out>>, mut texts: Query<&mut TextColor>| {
+                let mut color = texts.get_mut(evt.entity()).unwrap();
+                color.0 = Color::WHITE;
             },
         )
         .observe(
-            |evt: Trigger<Pointer<Over>>, mut texts: Query<&mut TextFont>| {
-                let mut style = texts.get_mut(evt.entity()).unwrap();
-                style.color = CYAN_400.into();
+            |evt: Trigger<Pointer<Over>>, mut texts: Query<&mut TextColor>| {
+                let mut color = texts.get_mut(evt.entity()).unwrap();
+                color.0 = CYAN_400.into();
             },
         );
     // circular base

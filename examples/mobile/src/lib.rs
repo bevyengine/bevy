@@ -134,9 +134,9 @@ fn setup_scene(
             Text::new("Test Button"),
             TextFont {
                 font_size: 30.0,
-                color: Color::BLACK,
                 ..default()
             },
+            TextColor::BLACK,
             TextLayout::new_with_justify(JustifyText::Center),
         ));
 }
