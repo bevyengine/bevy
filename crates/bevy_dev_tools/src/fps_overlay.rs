@@ -134,6 +134,7 @@ fn customize_text(
         writer.for_each_font(entity, |mut font| {
             *font = overlay_config.text_config.clone();
         });
+        writer.for_each_color(root_entity, |mut color| *color = overlay_config.text_color);
     }
 }
 
