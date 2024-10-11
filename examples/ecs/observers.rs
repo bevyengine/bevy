@@ -76,10 +76,6 @@ fn setup(mut commands: Commands) {
             "Click on a \"Mine\" to trigger it.\n\
             When it explodes it will trigger all overlapping mines.",
         ),
-        TextFont {
-            color: Color::WHITE,
-            ..default()
-        },
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),

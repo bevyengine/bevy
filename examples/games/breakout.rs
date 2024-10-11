@@ -221,9 +221,9 @@ fn setup(
             Text::new("Score: "),
             TextFont {
                 font_size: SCOREBOARD_FONT_SIZE,
-                color: TEXT_COLOR,
                 ..default()
             },
+            TextColor(TEXT_COLOR),
             ScoreboardUi,
             Style {
                 position_type: PositionType::Absolute,
@@ -236,9 +236,9 @@ fn setup(
             TextSpan::default(),
             TextFont {
                 font_size: SCOREBOARD_FONT_SIZE,
-                color: SCORE_COLOR,
                 ..default()
             },
+            TextColor(SCORE_COLOR),
         ));
 
     // Walls

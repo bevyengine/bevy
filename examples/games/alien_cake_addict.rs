@@ -179,9 +179,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         Text::new("Score:"),
         TextFont {
             font_size: 33.0,
-            color: Color::srgb(0.5, 0.5, 1.0),
             ..default()
         },
+        TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(5.0),
@@ -407,8 +407,8 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
             Text::new(format!("Cake eaten: {}", game.cake_eaten)),
             TextFont {
                 font_size: 67.0,
-                color: Color::srgb(0.5, 0.5, 1.0),
                 ..default()
             },
+            TextColor(Color::srgb(0.5, 0.5, 1.0)),
         ));
 }
