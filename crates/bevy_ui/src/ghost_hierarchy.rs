@@ -106,6 +106,11 @@ impl<'w, 's> UiChildren<'w, 's> {
                 .iter_ghost_nodes(entity)
                 .any(|entity| self.changed_children_query.contains(entity))
     }
+
+    /// Returns `true` if the given entity is either a [`Node`] or a [`GhostNode`].
+    pub fn is_ui_node(&'s self, entity: Entity) -> bool {
+        self.ui_children_query.contains(entity)
+    }
 }
 
 pub struct UiChildrenIter<'w, 's> {
