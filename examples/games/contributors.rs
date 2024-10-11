@@ -128,7 +128,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
-    let text_style = TextStyle {
+    let text_style = TextFont {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 60.0,
         ..default()
@@ -148,7 +148,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_child((
             TextSpan::default(),
-            TextStyle {
+            TextFont {
                 font_size: 30.,
                 ..text_style
             },

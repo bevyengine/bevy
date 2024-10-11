@@ -16,7 +16,7 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-    let text_style = TextStyle {
+    let text_style = TextFont {
         font_size: 10.0,
         ..default()
     };
@@ -64,7 +64,7 @@ fn setup(mut commands: Commands) {
             commands
                 .spawn((
                     Text2d(format!("{:?}", function)),
-                    TextStyle {
+                    TextFont {
                         color,
                         ..text_style.clone()
                     },

@@ -23,7 +23,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
-    let text_style = TextStyle {
+    let text_style = TextFont {
         font_size: 13.,
         color: Color::BLACK,
         ..default()

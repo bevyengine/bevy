@@ -76,7 +76,7 @@ impl TargetUpdate for Target<Visibility> {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let palette: [Color; 4] = PALETTE.map(|hex| Srgba::hex(hex).unwrap().into());
 
-    let text_style = TextStyle {
+    let text_style = TextFont {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         ..default()
     };
@@ -147,17 +147,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 ..default() })
             .with_children(|builder| {
-                let text_style = TextStyle {
+                let text_style = TextFont {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     ..default()
                 };
 
                 builder.spawn((Text::new("Display::None\nVisibility::Hidden\nVisibility::Inherited"),
-                        TextStyle { color: HIDDEN_COLOR, ..text_style.clone() },
+                        TextFont { color: HIDDEN_COLOR, ..text_style.clone() },
                         TextBlock::new_with_justify(JustifyText::Center),
                 ));
                 builder.spawn((Text::new("-\n-\n-"),
-                        TextStyle { color: DARK_GRAY.into(), ..text_style.clone() },
+                        TextFont { color: DARK_GRAY.into(), ..text_style.clone() },
                         TextBlock::new_with_justify(JustifyText::Center),
                 ));
                 builder.spawn((Text::new("The UI Node and its descendants will not be visible and will not be allotted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible."),
@@ -275,7 +275,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
 
 fn spawn_right_panel(
     parent: &mut ChildBuilder,
-    text_style: TextStyle,
+    text_style: TextFont,
     palette: &[Color; 4],
     mut target_ids: Vec<Entity>,
 ) {
@@ -392,7 +392,7 @@ fn spawn_right_panel(
         });
 }
 
-fn spawn_button<T>(parent: &mut ChildBuilder, text_style: TextStyle, target: Entity)
+fn spawn_button<T>(parent: &mut ChildBuilder, text_style: TextFont, target: Entity)
 where
     T: Default + std::fmt::Debug + Send + Sync + 'static,
     Target<T>: TargetUpdate,
@@ -422,7 +422,7 @@ where
 fn buttons_handler<T>(
     mut left_panel_query: Query<&mut <Target<T> as TargetUpdate>::TargetComponent>,
     mut visibility_button_query: Query<(&Target<T>, &Interaction, &Children), Changed<Interaction>>,
-    mut text_query: Query<(&mut Text, &mut TextStyle)>,
+    mut text_query: Query<(&mut Text, &mut TextFont)>,
 ) where
     T: Send + Sync,
     Target<T>: TargetUpdate + Component,
@@ -446,7 +446,7 @@ fn buttons_handler<T>(
 
 fn text_hover(
     mut button_query: Query<(&Interaction, &mut BackgroundColor, &Children), Changed<Interaction>>,
-    mut text_query: Query<(&Text, &mut TextStyle)>,
+    mut text_query: Query<(&Text, &mut TextFont)>,
 ) {
     for (interaction, mut color, children) in button_query.iter_mut() {
         match interaction {

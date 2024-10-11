@@ -42,7 +42,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
     commands.spawn(Camera2d);
 
-    let text_style = TextStyle {
+    let text_style = TextFont {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 33.0,
         color: Color::srgb(0.9, 0.9, 0.9),
@@ -150,7 +150,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
         });
 }
 
-fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_style: TextStyle) {
+fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_style: TextFont) {
     let label = match constraint {
         Constraint::FlexBasis => "flex_basis",
         Constraint::Width => "size",
@@ -229,7 +229,7 @@ fn spawn_button(
     constraint: Constraint,
     action: ButtonValue,
     label: String,
-    text_style: TextStyle,
+    text_style: TextFont,
     active: bool,
 ) {
     parent
@@ -271,7 +271,7 @@ fn spawn_button(
                 })
                 .with_child((
                     Text::new(label),
-                    TextStyle {
+                    TextFont {
                         color: if active {
                             ACTIVE_TEXT_COLOR
                         } else {
@@ -290,7 +290,7 @@ fn update_buttons(
         Changed<Interaction>,
     >,
     mut bar_query: Query<&mut Style, With<Bar>>,
-    mut text_query: Query<&mut TextStyle>,
+    mut text_query: Query<&mut TextFont>,
     children_query: Query<&Children>,
     mut button_activated_event: EventWriter<ButtonActivatedEvent>,
 ) {
@@ -353,7 +353,7 @@ fn update_radio_buttons_colors(
     button_query: Query<(Entity, &Constraint, &Interaction)>,
     mut border_query: Query<&mut BorderColor>,
     mut color_query: Query<&mut BackgroundColor>,
-    mut text_query: Query<&mut TextStyle>,
+    mut text_query: Query<&mut TextFont>,
     children_query: Query<&Children>,
 ) {
     for &ButtonActivatedEvent(button_id) in event_reader.read() {

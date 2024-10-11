@@ -106,7 +106,7 @@ fn setup_ui(mut commands: Commands) {
             p.spawn(TextSpan::new("Last Triggered: "));
             p.spawn((
                 TextSpan::new("-"),
-                TextStyle {
+                TextFont {
                     color: bevy::color::palettes::css::ORANGE.into(),
                     ..default()
                 },

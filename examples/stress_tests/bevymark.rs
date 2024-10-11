@@ -255,13 +255,13 @@ fn setup(
         transform_rng: ChaCha8Rng::seed_from_u64(42),
     };
 
-    let lime_text = TextStyle {
+    let lime_text = TextFont {
         font_size: 40.0,
         color: LIME.into(),
         ..default()
     };
 
-    let aqua_text = TextStyle {
+    let aqua_text = TextFont {
         font_size: 40.0,
         color: LIME.into(),
         ..default()

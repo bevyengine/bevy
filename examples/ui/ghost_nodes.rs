@@ -87,10 +87,10 @@ fn create_button() -> ButtonBundle {
     }
 }
 
-fn create_label(text: &str, font: Handle<Font>) -> (Text, TextStyle) {
+fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont) {
     (
         Text::new(text),
-        TextStyle {
+        TextFont {
             font,
             font_size: 33.0,
             color: Color::srgb(0.9, 0.9, 0.9),

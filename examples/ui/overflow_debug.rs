@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Instructions
 
-    let text_style = TextStyle::default();
+    let text_style = TextFont::default();
 
     commands
         .spawn((
@@ -168,7 +168,7 @@ fn spawn_text(
     spawn_container(parent, update_transform, |parent| {
         parent.spawn((
             Text::new("Bevy"),
-            TextStyle {
+            TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 100.0,
                 ..default()

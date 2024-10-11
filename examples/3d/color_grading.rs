@@ -316,7 +316,7 @@ fn add_help_text(
 ) {
     commands.spawn((
         Text::new(create_help_text(currently_selected_option)),
-        TextStyle {
+        TextFont {
             font: font.clone(),
             ..default()
         },
@@ -339,7 +339,7 @@ fn add_text<'a>(
 ) -> EntityCommands<'a> {
     parent.spawn((
         Text::new(label),
-        TextStyle {
+        TextFont {
             font: font.clone(),
             font_size: 15.0,
             color,

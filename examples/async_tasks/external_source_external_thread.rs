@@ -54,7 +54,7 @@ fn read_stream(receiver: Res<StreamReceiver>, mut events: EventWriter<StreamEven
 }
 
 fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
-    let text_style = TextStyle::default();
+    let text_style = TextFont::default();
 
     for (per_frame, event) in reader.read().enumerate() {
         commands.spawn((

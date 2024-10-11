@@ -237,16 +237,16 @@ fn setup_ui(mut commands: Commands) {
 // The button will automatically become a child of the parent that owns the
 // given `ChildBuilder`.
 fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, mask_group_id: u32) {
-    let button_text_style = TextStyle {
+    let button_text_style = TextFont {
         font_size: 14.0,
         color: Color::WHITE,
         ..default()
     };
-    let selected_button_text_style = TextStyle {
+    let selected_button_text_style = TextFont {
         color: Color::BLACK,
         ..button_text_style.clone()
     };
-    let label_text_style = TextStyle {
+    let label_text_style = TextFont {
         color: Color::Srgba(LIGHT_GRAY),
         ..button_text_style.clone()
     };

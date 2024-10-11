@@ -46,7 +46,7 @@ fn setup(mut commands: Commands) {
 
     commands.spawn(Camera2d);
     let text_string = "0123456789".repeat(10_000);
-    let text_style = TextStyle {
+    let text_style = TextFont {
         font_size: 4.,
         ..Default::default()
     };
@@ -79,7 +79,7 @@ fn setup(mut commands: Commands) {
 
     commands.spawn((
         Text2d::new(text_string),
-        TextStyle {
+        TextFont {
             color: RED.into(),
             ..text_style
         },

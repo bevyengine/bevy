@@ -182,7 +182,7 @@ fn setup_ui(mut commands: Commands) {
         .with_children(|b| {
             b.spawn((
                 Text::new("Loading...".to_owned()),
-                TextStyle {
+                TextFont {
                     font_size: 53.0,
                     color: Color::BLACK,
                     ..Default::default()

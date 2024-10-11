@@ -188,7 +188,7 @@ world.spawn((
 */
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(TextStyle)]
+#[require(TextFont)]
 pub struct TextSpan(pub String);
 
 impl TextSpan {
@@ -261,7 +261,7 @@ impl From<JustifyText> for cosmic_text::Align {
 /// the font face, the font size, and the color.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
-pub struct TextStyle {
+pub struct TextFont {
     /// The specific font face to use, as a `Handle` to a [`Font`] asset.
     ///
     /// If the `font` is not specified, then
@@ -278,13 +278,11 @@ pub struct TextStyle {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
-    /// The color of the text for this section.
-    pub color: Color,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
 }
 
-impl TextStyle {
+impl TextFont {
     /// Returns this [`TextBlock`] with the specified [`FontSmoothing`].
     pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
         self.font_smoothing = font_smoothing;
@@ -292,14 +290,24 @@ impl TextStyle {
     }
 }
 
-impl Default for TextStyle {
+impl Default for TextFont {
     fn default() -> Self {
         Self {
             font: Default::default(),
             font_size: 20.0,
-            color: Color::WHITE,
             font_smoothing: Default::default(),
         }
+    }
+}
+
+/// The color of the text for this section.
+#[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct TextColor(Color);
+
+impl Default for TextColor {
+    fn default() -> Self {
+        Self(Color::WHITE)
     }
 }
 
@@ -357,12 +365,12 @@ pub fn detect_text_needs_rerender<Root: Component>(
         (
             Or<(
                 Changed<Root>,
-                Changed<TextStyle>,
+                Changed<TextFont>,
                 Changed<TextBlock>,
                 Changed<Children>,
             )>,
             With<Root>,
-            With<TextStyle>,
+            With<TextFont>,
             With<TextBlock>,
         ),
     >,
@@ -371,13 +379,13 @@ pub fn detect_text_needs_rerender<Root: Component>(
         (
             Or<(
                 Changed<TextSpan>,
-                Changed<TextStyle>,
+                Changed<TextFont>,
                 Changed<Children>,
                 Changed<Parent>, // Included to detect broken text block hierarchies.
                 Added<TextBlock>,
             )>,
             With<TextSpan>,
-            With<TextStyle>,
+            With<TextFont>,
         ),
     >,
     mut computed: Query<(

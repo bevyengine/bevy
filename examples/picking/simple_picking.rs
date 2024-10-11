@@ -42,13 +42,13 @@ fn setup(
             },
         )
         .observe(
-            |evt: Trigger<Pointer<Out>>, mut texts: Query<&mut TextStyle>| {
+            |evt: Trigger<Pointer<Out>>, mut texts: Query<&mut TextFont>| {
                 let mut style = texts.get_mut(evt.entity()).unwrap();
                 style.color = WHITE.into();
             },
         )
         .observe(
-            |evt: Trigger<Pointer<Over>>, mut texts: Query<&mut TextStyle>| {
+            |evt: Trigger<Pointer<Over>>, mut texts: Query<&mut TextFont>| {
                 let mut style = texts.get_mut(evt.entity()).unwrap();
                 style.color = BLUE.into();
             },

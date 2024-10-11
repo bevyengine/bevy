@@ -219,7 +219,7 @@ fn setup(
     commands
         .spawn((
             Text::new("Score: "),
-            TextStyle {
+            TextFont {
                 font_size: SCOREBOARD_FONT_SIZE,
                 color: TEXT_COLOR,
                 ..default()
@@ -234,7 +234,7 @@ fn setup(
         ))
         .with_child((
             TextSpan::default(),
-            TextStyle {
+            TextFont {
                 font_size: SCOREBOARD_FONT_SIZE,
                 color: SCORE_COLOR,
                 ..default()

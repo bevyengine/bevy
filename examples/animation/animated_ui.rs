@@ -40,7 +40,7 @@ fn main() {
 }
 
 impl AnimatableProperty for FontSizeProperty {
-    type Component = TextStyle;
+    type Component = TextFont;
 
     type Property = f32;
 
@@ -50,7 +50,7 @@ impl AnimatableProperty for FontSizeProperty {
 }
 
 impl AnimatableProperty for TextColorProperty {
-    type Component = TextStyle;
+    type Component = TextFont;
 
     type Property = Srgba;
 
@@ -172,7 +172,7 @@ fn setup(
             builder
                 .spawn((
                     Text::new("Bevy"),
-                    TextStyle {
+                    TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 24.0,
                         color: Color::Srgba(Srgba::RED),

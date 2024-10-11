@@ -17,7 +17,7 @@ use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, JustifyText,
-    LineBreak, PositionedGlyph, TextBlock, TextBounds, TextEntity, TextStyle, YAxisOrientation,
+    LineBreak, PositionedGlyph, TextBlock, TextBounds, TextEntity, TextFont, YAxisOrientation,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -70,7 +70,7 @@ pub struct TextPipeline {
     /// Buffered vec for collecting spans.
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
-    spans_buffer: Vec<(usize, &'static str, &'static TextStyle, FontFaceInfo)>,
+    spans_buffer: Vec<(usize, &'static str, &'static TextFont, FontFaceInfo)>,
     /// Buffered vec for collecting info for glyph assembly.
     glyph_info: Vec<(AssetId<Font>, FontSmoothing)>,
 }
@@ -83,7 +83,7 @@ impl TextPipeline {
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextStyle)>,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont)>,
         linebreak: LineBreak,
         justify: JustifyText,
         bounds: TextBounds,
@@ -96,10 +96,10 @@ impl TextPipeline {
         // Collect span information into a vec. This is necessary because font loading requires mut access
         // to FontSystem, which the cosmic-text Buffer also needs.
         let mut font_size: f32 = 0.;
-        let mut spans: Vec<(usize, &str, &TextStyle, FontFaceInfo)> =
+        let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo)> =
             core::mem::take(&mut self.spans_buffer)
                 .into_iter()
-                .map(|_| -> (usize, &str, &TextStyle, FontFaceInfo) { unreachable!() })
+                .map(|_| -> (usize, &str, &TextFont, FontFaceInfo) { unreachable!() })
                 .collect();
 
         computed.entities.clear();
@@ -111,7 +111,7 @@ impl TextPipeline {
                 self.spans_buffer = spans
                     .into_iter()
                     .map(
-                        |_| -> (usize, &'static str, &'static TextStyle, FontFaceInfo) {
+                        |_| -> (usize, &'static str, &'static TextFont, FontFaceInfo) {
                             unreachable!()
                         },
                     )
@@ -186,7 +186,7 @@ impl TextPipeline {
         spans.clear();
         self.spans_buffer = spans
             .into_iter()
-            .map(|_| -> (usize, &'static str, &'static TextStyle, FontFaceInfo) { unreachable!() })
+            .map(|_| -> (usize, &'static str, &'static TextFont, FontFaceInfo) { unreachable!() })
             .collect();
 
         Ok(())
@@ -201,7 +201,7 @@ impl TextPipeline {
         &mut self,
         layout_info: &mut TextLayoutInfo,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextStyle)>,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont)>,
         scale_factor: f64,
         block: &TextBlock,
         bounds: TextBounds,
@@ -335,7 +335,7 @@ impl TextPipeline {
         &mut self,
         entity: Entity,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextStyle)>,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont)>,
         scale_factor: f64,
         block: &TextBlock,
         computed: &mut ComputedTextBlock,
@@ -427,7 +427,7 @@ impl TextMeasureInfo {
 }
 
 fn load_font_to_fontdb(
-    style: &TextStyle,
+    style: &TextFont,
     font_system: &mut cosmic_text::FontSystem,
     map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     fonts: &Assets<Font>,
@@ -464,7 +464,8 @@ fn load_font_to_fontdb(
 /// Translates [`TextStyle`] to [`Attrs`].
 fn get_attrs<'a>(
     span_index: usize,
-    style: &TextStyle,
+    style: &TextFont,
+    color: Color,
     face_info: &'a FontFaceInfo,
     scale_factor: f64,
 ) -> Attrs<'a> {
@@ -475,7 +476,7 @@ fn get_attrs<'a>(
         .style(face_info.style)
         .weight(face_info.weight)
         .metrics(Metrics::relative(style.font_size, 1.2).scale(scale_factor as f32))
-        .color(cosmic_text::Color(style.color.to_linear().as_u32()));
+        .color(cosmic_text::Color(color.to_linear().as_u32()));
     attrs
 }
 

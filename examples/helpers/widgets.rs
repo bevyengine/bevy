@@ -134,7 +134,7 @@ pub fn spawn_ui_text<'a>(
 ) -> EntityCommands<'a> {
     parent.spawn((
         Text::new(label),
-        TextStyle {
+        TextFont {
             font_size: 18.0,
             color,
             ..default()

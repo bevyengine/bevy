@@ -264,7 +264,7 @@ fn spawn_button(
         builder.with_children(|parent| {
             parent.spawn((
                 Text(format!("{column}, {row}")),
-                TextStyle {
+                TextFont {
                     font_size: FONT_SIZE,
                     color: Color::srgb(0.2, 0.2, 0.2),
                     ..default()

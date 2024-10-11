@@ -122,7 +122,7 @@ fn setup_scene(
         })
         .with_child((
             Text::new("Test Button"),
-            TextStyle {
+            TextFont {
                 font_size: 30.0,
                 color: Color::BLACK,
                 ..default()

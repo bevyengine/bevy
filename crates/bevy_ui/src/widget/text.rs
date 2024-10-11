@@ -19,8 +19,8 @@ use bevy_render::{camera::Camera, texture::Image, view::Visibility};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
-    TextBlock, TextBounds, TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader,
-    TextRoot, TextSpanAccess, TextStyle, TextWriter, YAxisOrientation,
+    TextBlock, TextBounds, TextError, TextFont, TextLayoutInfo, TextMeasureInfo, TextPipeline,
+    TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
 };
 use bevy_transform::components::Transform;
 use bevy_utils::{tracing::error, Entry};
@@ -92,7 +92,7 @@ world.spawn((
 #[reflect(Component, Default, Debug)]
 #[require(
     TextBlock,
-    TextStyle,
+    TextFont,
     TextNodeFlags,
     Node,
     Style, // TODO: Remove when Node uses required components.
@@ -204,7 +204,7 @@ fn create_text_measure<'a>(
     entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
-    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextStyle)>,
+    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont)>,
     block: Ref<TextBlock>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,

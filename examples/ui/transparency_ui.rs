@@ -43,7 +43,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Button 1"),
-                        TextStyle {
+                        TextFont {
                             font: font_handle.clone(),
                             font_size: 33.0,
                             // Alpha channel of the color controls transparency.
@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Button 2"),
-                        TextStyle {
+                        TextFont {
                             font: font_handle.clone(),
                             font_size: 33.0,
                             // Alpha channel of the color controls transparency.

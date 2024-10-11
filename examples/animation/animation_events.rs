@@ -37,7 +37,7 @@ impl AnimationEvent for MessageEvent {
 
 fn edit_message(
     mut event_reader: EventReader<MessageEvent>,
-    text: Single<(&mut Text2d, &mut TextStyle), With<MessageText>>,
+    text: Single<(&mut Text2d, &mut TextFont), With<MessageText>>,
 ) {
     let (mut text, mut style) = text.into_inner();
     for event in event_reader.read() {
@@ -69,7 +69,7 @@ fn setup(
     commands.spawn((
         MessageText,
         Text2d::default(),
-        TextStyle {
+        TextFont {
             font_size: 119.0,
             color: Color::NONE,
             ..default()
@@ -108,7 +108,7 @@ fn setup(
 }
 
 // Slowly fade out the text opacity.
-fn animate_text_opacity(mut styles: Query<&mut TextStyle>, time: Res<Time>) {
+fn animate_text_opacity(mut styles: Query<&mut TextFont>, time: Res<Time>) {
     for mut style in &mut styles {
         let a = style.color.alpha();
         style.color.set_alpha(a - time.delta_seconds());

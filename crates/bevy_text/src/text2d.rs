@@ -2,7 +2,7 @@ use crate::pipeline::CosmicFontSystem;
 use crate::{
     ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBlock,
     TextBounds, TextError, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
-    TextStyle, TextWriter, YAxisOrientation,
+    TextFont, TextWriter, YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
@@ -79,7 +79,7 @@ world.spawn((
 #[reflect(Component, Default, Debug)]
 #[require(
     TextBlock,
-    TextStyle,
+    TextFont,
     TextBounds,
     Anchor,
     SpriteSource,
@@ -141,7 +141,7 @@ pub fn extract_text2d_sprite(
             &GlobalTransform,
         )>,
     >,
-    text_styles: Extract<Query<&TextStyle>>,
+    text_styles: Extract<Query<&TextFont>>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows

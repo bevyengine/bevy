@@ -40,7 +40,7 @@ use bevy_render::{
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
 #[cfg(feature = "bevy_text")]
-use bevy_text::{ComputedTextBlock, PositionedGlyph, TextLayoutInfo, TextStyle};
+use bevy_text::{ComputedTextBlock, PositionedGlyph, TextLayoutInfo, TextFont};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use box_shadow::BoxShadowPlugin;
@@ -593,7 +593,7 @@ pub fn extract_text_sections(
             &TextLayoutInfo,
         )>,
     >,
-    text_styles: Extract<Query<&TextStyle>>,
+    text_styles: Extract<Query<&TextFont>>,
     mapping: Extract<Query<&RenderEntity>>,
 ) {
     let mut start = 0;

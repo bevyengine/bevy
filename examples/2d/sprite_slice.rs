@@ -14,7 +14,7 @@ fn spawn_sprites(
     texture_handle: Handle<Image>,
     mut position: Vec3,
     slice_border: f32,
-    style: TextStyle,
+    style: TextFont,
     gap: f32,
 ) {
     let cases = [
@@ -100,7 +100,7 @@ fn spawn_sprites(
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let style = TextStyle {
+    let style = TextFont {
         font: font.clone(),
         ..default()
     };

@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{BuildChildren, ChildBuild};
 use bevy_render::view::Visibility;
-use bevy_text::{Font, TextSpan, TextStyle};
+use bevy_text::{Font, TextSpan, TextFont};
 use bevy_ui::{
     node_bundles::NodeBundle,
     widget::{Text, UiTextWriter},
@@ -62,7 +62,7 @@ impl Plugin for FpsOverlayPlugin {
 #[derive(Resource, Clone)]
 pub struct FpsOverlayConfig {
     /// Configuration of text in the overlay.
-    pub text_config: TextStyle,
+    pub text_config: TextFont,
     /// Displays the FPS overlay if true.
     pub enabled: bool,
 }
@@ -70,7 +70,7 @@ pub struct FpsOverlayConfig {
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
         FpsOverlayConfig {
-            text_config: TextStyle {
+            text_config: TextFont {
                 font: Handle::<Font>::default(),
                 font_size: 32.0,
                 color: Color::WHITE,

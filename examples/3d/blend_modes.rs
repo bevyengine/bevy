@@ -162,12 +162,12 @@ fn setup(
     // We need the full version of this font so we can use box drawing characters.
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
 
-    let text_style = TextStyle {
+    let text_style = TextFont {
         font: font.clone(),
         ..default()
     };
 
-    let label_text_style = TextStyle {
+    let label_text_style = TextFont {
         font,
         color: ORANGE.into(),
         ..default()

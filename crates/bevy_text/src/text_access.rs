@@ -4,7 +4,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::Children;
 
-use crate::{TextSpan, TextStyle};
+use crate::{TextSpan, TextFont};
 
 /// Helper trait for using the [`TextReader`] and [`TextWriter`] system params.
 pub trait TextSpanAccess: Component {
@@ -49,13 +49,13 @@ impl TextIterScratch {
 pub struct TextReader<'w, 's, R: TextRoot> {
     // This is a local to avoid system ambiguities when TextReaders run in parallel.
     scratch: Local<'s, TextIterScratch>,
-    roots: Query<'w, 's, (&'static R, &'static TextStyle, Option<&'static Children>)>,
+    roots: Query<'w, 's, (&'static R, &'static TextFont, Option<&'static Children>)>,
     spans: Query<
         'w,
         's,
         (
             &'static TextSpan,
-            &'static TextStyle,
+            &'static TextFont,
             Option<&'static Children>,
         ),
     >,
@@ -80,7 +80,7 @@ impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
         &mut self,
         root_entity: Entity,
         index: usize,
-    ) -> Option<(Entity, usize, &str, &TextStyle)> {
+    ) -> Option<(Entity, usize, &str, &TextFont)> {
         self.iter(root_entity).nth(index)
     }
 
@@ -90,7 +90,7 @@ impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
     }
 
     /// Gets the [`TextStyle`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_style(&mut self, root_entity: Entity, index: usize) -> Option<&TextStyle> {
+    pub fn get_style(&mut self, root_entity: Entity, index: usize) -> Option<&TextFont> {
         self.get(root_entity, index).map(|(_, _, _, style)| style)
     }
 
@@ -104,7 +104,7 @@ impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
     /// Gets the [`TextStyle`] of a text span within a text block at a specific index in the flattened span list.
     ///
     /// Panics if there is no span at the requested index.
-    pub fn style(&mut self, root_entity: Entity, index: usize) -> &TextStyle {
+    pub fn style(&mut self, root_entity: Entity, index: usize) -> &TextFont {
         self.get_style(root_entity, index).unwrap()
     }
 }
@@ -119,13 +119,13 @@ pub struct TextSpanIter<'a, R: TextRoot> {
     root_entity: Option<Entity>,
     /// Stack of (children, next index into children).
     stack: Vec<(&'a Children, usize)>,
-    roots: &'a Query<'a, 'a, (&'static R, &'static TextStyle, Option<&'static Children>)>,
+    roots: &'a Query<'a, 'a, (&'static R, &'static TextFont, Option<&'static Children>)>,
     spans: &'a Query<
         'a,
         'a,
         (
             &'static TextSpan,
-            &'static TextStyle,
+            &'static TextFont,
             Option<&'static Children>,
         ),
     >,
@@ -133,7 +133,7 @@ pub struct TextSpanIter<'a, R: TextRoot> {
 
 impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
     /// Item = (entity in text block, hierarchy depth in the block, span text, span style).
-    type Item = (Entity, usize, &'a str, &'a TextStyle);
+    type Item = (Entity, usize, &'a str, &'a TextFont);
     fn next(&mut self) -> Option<Self::Item> {
         // Root
         if let Some(root_entity) = self.root_entity.take() {
@@ -191,8 +191,8 @@ impl<'a, R: TextRoot> Drop for TextSpanIter<'a, R> {
 pub struct TextWriter<'w, 's, R: TextRoot> {
     // This is a resource because two TextWriters can't run in parallel.
     scratch: ResMut<'w, TextIterScratch>,
-    roots: Query<'w, 's, (&'static mut R, &'static mut TextStyle), Without<TextSpan>>,
-    spans: Query<'w, 's, (&'static mut TextSpan, &'static mut TextStyle), Without<R>>,
+    roots: Query<'w, 's, (&'static mut R, &'static mut TextFont), Without<TextSpan>>,
+    spans: Query<'w, 's, (&'static mut TextSpan, &'static mut TextFont), Without<R>>,
     children: Query<'w, 's, &'static Children>,
 }
 
@@ -202,7 +202,7 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
         &mut self,
         root_entity: Entity,
         index: usize,
-    ) -> Option<(Entity, usize, Mut<String>, Mut<TextStyle>)> {
+    ) -> Option<(Entity, usize, Mut<String>, Mut<TextFont>)> {
         // Root
         if index == 0 {
             let (text, style) = self.roots.get_mut(root_entity).ok()?;
@@ -267,7 +267,7 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     }
 
     /// Gets the [`TextStyle`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_style(&mut self, root_entity: Entity, index: usize) -> Option<Mut<TextStyle>> {
+    pub fn get_style(&mut self, root_entity: Entity, index: usize) -> Option<Mut<TextFont>> {
         self.get(root_entity, index).map(|(_, _, _, style)| style)
     }
 
@@ -281,7 +281,7 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     /// Gets the [`TextStyle`] of a text span within a text block at a specific index in the flattened span list.
     ///
     /// Panics if there is no span at the requested index.
-    pub fn style(&mut self, root_entity: Entity, index: usize) -> Mut<TextStyle> {
+    pub fn style(&mut self, root_entity: Entity, index: usize) -> Mut<TextFont> {
         self.get_style(root_entity, index).unwrap()
     }
 
@@ -289,7 +289,7 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     pub fn for_each(
         &mut self,
         root_entity: Entity,
-        mut callback: impl FnMut(Entity, usize, Mut<String>, Mut<TextStyle>),
+        mut callback: impl FnMut(Entity, usize, Mut<String>, Mut<TextFont>),
     ) {
         self.for_each_until(root_entity, |a, b, c, d| {
             (callback)(a, b, c, d);
@@ -308,7 +308,7 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     pub fn for_each_style(
         &mut self,
         root_entity: Entity,
-        mut callback: impl FnMut(Mut<TextStyle>),
+        mut callback: impl FnMut(Mut<TextFont>),
     ) {
         self.for_each(root_entity, |_, _, _, style| {
             (callback)(style);
@@ -322,7 +322,7 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     pub fn for_each_until(
         &mut self,
         root_entity: Entity,
-        mut callback: impl FnMut(Entity, usize, Mut<String>, Mut<TextStyle>) -> bool,
+        mut callback: impl FnMut(Entity, usize, Mut<String>, Mut<TextFont>) -> bool,
     ) {
         // Root
         let Ok((text, style)) = self.roots.get_mut(root_entity) else {

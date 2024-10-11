@@ -32,7 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("hello\nbevy!"),
-        TextStyle {
+        TextFont {
             // This font is loaded and will be used instead of the default font.
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 67.0,
@@ -55,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             // Create a Text with multiple child spans.
             Text::new("FPS: "),
-            TextStyle {
+            TextFont {
                 // This font is loaded and will be used instead of the default font.
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 42.0,
@@ -65,7 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_child((
             TextSpan::default(),
             if cfg!(feature = "default_font") {
-                TextStyle {
+                TextFont {
                     font_size: 33.0,
                     color: GOLD.into(),
                     // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 }
             } else {
                 // "default_font" feature is unavailable, load a font to use instead.
-                TextStyle {
+                TextFont {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: 33.0,
                     color: GOLD.into(),
@@ -99,7 +99,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     #[cfg(not(feature = "default_font"))]
     commands.spawn((
         Text::new("Default font disabled"),
-        TextStyle {
+        TextFont {
             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
             ..default()
         },
@@ -112,7 +112,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn text_color_system(time: Res<Time>, mut query: Query<&mut TextStyle, With<ColorText>>) {
+fn text_color_system(time: Res<Time>, mut query: Query<&mut TextFont, With<ColorText>>) {
     for mut style in &mut query {
         let seconds = time.elapsed_seconds();
 
