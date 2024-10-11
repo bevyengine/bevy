@@ -57,39 +57,38 @@ impl Default for TextNodeFlags {
 ///
 /// Note that [`Transform`] on this entity is managed automatically by the UI layout system.
 ///
-/*
-```
-# use bevy_asset::Handle;
-# use bevy_color::Color;
-# use bevy_color::palettes::basic::BLUE;
-# use bevy_ecs::World;
-# use bevy_text::{Font, JustifyText, TextLayout, TextFont, TextColor};
-# use bevy_ui::Text;
-#
-# let font_handle: Handle<Font> = Default::default();
-# let mut world = World::default();
-#
-// Basic usage.
-world.spawn(Text::new("hello world!"));
-
-// With non-default style.
-world.spawn((
-    Text::new("hello world!"),
-    TextFont {
-        font: font_handle.clone().into(),
-        font_size: 60.0,
-        ..default()
-    },
-    TextColor(BLUE.into()),
-));
-
-// With text justification.
-world.spawn((
-    Text::new("hello world\nand bevy!"),
-    TextLayout::new_with_justify(JustifyText::Center)
-));
-```
-*/
+///
+/// ```
+/// # use bevy_asset::Handle;
+/// # use bevy_color::Color;
+/// # use bevy_color::palettes::basic::BLUE;
+/// # use bevy_ecs::World;
+/// # use bevy_text::{Font, JustifyText, TextLayout, TextFont, TextColor};
+/// # use bevy_ui::Text;
+/// #
+/// # let font_handle: Handle<Font> = Default::default();
+/// # let mut world = World::default();
+/// #
+/// // Basic usage.
+/// world.spawn(Text::new("hello world!"));
+///
+/// // With non-default style.
+/// world.spawn((
+///     Text::new("hello world!"),
+///     TextFont {
+///         font: font_handle.clone().into(),
+///         font_size: 60.0,
+///         ..default()
+///     },
+///     TextColor(BLUE.into()),
+/// ));
+///
+/// // With text justification.
+/// world.spawn((
+///     Text::new("hello world\nand bevy!"),
+///     TextLayout::new_with_justify(JustifyText::Center)
+/// ));
+/// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(

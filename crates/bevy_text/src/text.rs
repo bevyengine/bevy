@@ -159,35 +159,33 @@ impl TextLayout {
 ///
 /// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
 ///
-/*
-```
-# use bevy_asset::Handle;
-# use bevy_color::Color;
-# use bevy_color::palettes::basic::{RED, BLUE};
-# use bevy_ecs::World;
-# use bevy_text::{Font, TextLayout, TextFont, TextSection};
-
-# let font_handle: Handle<Font> = Default::default();
-# let mut world = World::default();
-#
-world.spawn((
-    TextLayout::default(),
-    TextFont {
-        font: font_handle.clone().into(),
-        font_size: 60.0,
-        color: BLUE.into(),
-    }
-))
-.with_child((
-    TextSpan::new("Hello!"),
-    TextFont {
-        font: font_handle.into(),
-        font_size: 60.0,
-        color: RED.into(),
-    }
-));
-```
-*/
+/// ```
+/// # use bevy_asset::Handle;
+/// # use bevy_color::Color;
+/// # use bevy_color::palettes::basic::{RED, BLUE};
+/// # use bevy_ecs::World;
+/// # use bevy_text::{Font, TextLayout, TextFont, TextSection};
+///
+/// # let font_handle: Handle<Font> = Default::default();
+/// # let mut world = World::default();
+/// #
+/// world.spawn((
+///     TextLayout::default(),
+///     TextFont {
+///         font: font_handle.clone().into(),
+///         font_size: 60.0,
+///     },
+///     TextColor(BLUE.into()),
+/// ))
+/// .with_child((
+///     TextSpan::new("Hello!"),
+///     TextFont {
+///         font: font_handle.into(),
+///         font_size: 60.0,
+///     },
+///     TextColor(RED.into()),
+/// ));
+/// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(TextFont, TextColor)]
