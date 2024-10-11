@@ -527,11 +527,13 @@ mod menu {
             ..default()
         };
 
-        let button_text_style = TextFont {
-            font_size: 33.0,
-            color: TEXT_COLOR,
-            ..default()
-        };
+        let button_text_style = (
+            TextFont {
+                font_size: 33.0,
+                ..default()
+            },
+            TextColor(TEXT_COLOR),
+        );
 
         commands
             .spawn((
@@ -590,11 +592,13 @@ mod menu {
             align_items: AlignItems::Center,
             ..default()
         };
-        let button_text_style = TextFont {
-            font_size: 33.0,
-            color: TEXT_COLOR,
-            ..default()
-        };
+        let button_text_style = (
+            TextFont {
+                font_size: 33.0,
+                ..default()
+            },
+            TextColor(TEXT_COLOR),
+        );
 
         commands
             .spawn((
@@ -694,11 +698,13 @@ mod menu {
             align_items: AlignItems::Center,
             ..default()
         };
-        let button_text_style = TextFont {
-            font_size: 33.0,
-            color: TEXT_COLOR,
-            ..default()
-        };
+        let button_text_style = (
+            TextFont {
+                font_size: 33.0,
+                ..default()
+            },
+            TextColor(TEXT_COLOR),
+        );
 
         commands
             .spawn((
