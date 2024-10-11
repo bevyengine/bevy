@@ -378,7 +378,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// This uses [`slice::sort`] internally.
     ///
-    /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
+    /// Defining the lens works like [`transmute`](crate::system::Query::transmute).
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
     ///
@@ -540,7 +540,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// This uses [`slice::sort_unstable`] internally.
     ///
-    /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
+    /// Defining the lens works like [`transmute`](crate::system::Query::transmute).
     /// This includes the allowed parameter type changes listed under [allowed transmutes]..
     /// However, the lens uses the filter of the original query when present.
     ///
@@ -632,7 +632,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// This uses [`slice::sort_by`] internally.
     ///
-    /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
+    /// Defining the lens works like [`transmute`](crate::system::Query::transmute).
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
     ///
@@ -730,7 +730,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// This uses [`slice::sort_unstable_by`] internally.
     ///
-    /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
+    /// Defining the lens works like [`transmute`](crate::system::Query::transmute).
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
     ///
@@ -796,7 +796,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// This uses [`slice::sort_by_key`] internally.
     ///
-    /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
+    /// Defining the lens works like [`transmute`](crate::system::Query::transmute).
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
     ///
@@ -925,7 +925,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// This uses [`slice::sort_unstable_by_key`] internally.
     ///
-    /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
+    /// Defining the lens works like [`transmute`](crate::system::Query::transmute).
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
     ///
@@ -994,7 +994,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// This uses [`slice::sort_by_cached_key`] internally.
     ///
-    /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
+    /// Defining the lens works like [`transmute`](crate::system::Query::transmute).
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
     ///

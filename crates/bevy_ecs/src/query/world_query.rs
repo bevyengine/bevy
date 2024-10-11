@@ -104,7 +104,10 @@ pub unsafe trait WorldQuery {
     /// Sets available accesses for implementors with dynamic access such as [`FilteredEntityRef`](crate::world::FilteredEntityRef)
     /// or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
     ///
-    /// Called when constructing a [`QueryLens`](crate::system::QueryLens) or calling [`QueryState::from_builder`](super::QueryState::from_builder)
+    /// Called inside [`Query::transmute`], [`Query::join`], and [`QueryState::from_builder`](super::QueryState::from_builder)
+    ///
+    /// [`Query::transmute`]: crate::system::Query::transmute
+    /// [`Query::join`]: crate::system::Query::join
     fn set_access(_state: &mut Self::State, _access: &FilteredAccess<ComponentId>) {}
 
     /// Fetch [`Self::Item`](`WorldQuery::Item`) for either the given `entity` in the current [`Table`],

@@ -663,7 +663,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Use this to transform a [`QueryState`] into a more generic [`QueryState`].
     /// This can be useful for passing to another function that might take the more general form.
-    /// See [`Query::transmute_lens`](crate::system::Query::transmute_lens) for more details.
+    /// See [`Query::transmute`](crate::system::Query::transmute) for more details.
     ///
     /// You should not call [`update_archetypes`](Self::update_archetypes) on the returned [`QueryState`] as the result will be unpredictable.
     /// You might end up with a mix of archetypes that only matched the original query + archetypes that only match

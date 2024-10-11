@@ -1345,13 +1345,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         }
     }
 
-    /// Returns a [`QueryLens`] that can be used to get a query with a more general fetch.
+    /// Returns a [`Query`] that can be used to get a query with a more general fetch.
     ///
     /// For example, this can transform a `Query<(&A, &mut B)>` to a `Query<&B>`.
     /// This can be useful for passing the query to another function. Note that since
     /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added) and
     /// [`Changed`](crate::query::Changed) will not be respected. To maintain or change filter
-    /// terms see [`Self::transmute_lens_filtered`]
+    /// terms see [`Self::transmute_filtered`]
     ///
     /// ## Panics
     ///
@@ -1361,7 +1361,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// ```rust
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::system::QueryLens;
     /// #
     /// # #[derive(Component)]
     /// # struct A(usize);
@@ -1373,19 +1372,19 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// #
     /// # world.spawn((A(10), B(5)));
     /// #
-    /// fn reusable_function(lens: &mut QueryLens<&A>) {
-    ///     assert_eq!(lens.query().single().0, 10);
+    /// fn reusable_function(lens: &mut Query<&A>) {
+    ///     assert_eq!(lens.single().0, 10);
     /// }
     ///
     /// // We can use the function in a system that takes the exact query.
     /// fn system_1(mut query: Query<&A>) {
-    ///     reusable_function(&mut query.as_query_lens());
+    ///     reusable_function(&mut query);
     /// }
     ///
     /// // We can also use it with a query that does not match exactly
     /// // by transmuting it.
     /// fn system_2(mut query: Query<(&mut A, &B)>) {
-    ///     let mut lens = query.transmute_lens::<&A>();
+    ///     let mut lens = query.transmute::<&A>();
     ///     reusable_function(&mut lens);
     /// }
     ///
@@ -1410,35 +1409,30 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`EntityLocation`]: crate::entity::EntityLocation
     /// [`&Archetype`]: crate::archetype::Archetype
     #[track_caller]
-    pub fn transmute_lens<NewD: QueryData>(&mut self) -> QueryLens<'_, NewD> {
-        self.transmute_lens_filtered::<NewD, ()>()
+    pub fn transmute<NewD: QueryData>(&mut self) -> Query<'_, 'static, NewD> {
+        self.transmute_filtered::<NewD, ()>()
     }
 
-    /// Equivalent to [`Self::transmute_lens`] but also includes a [`QueryFilter`] type.
+    /// Equivalent to [`Self::transmute`] but also includes a [`QueryFilter`] type.
     ///
     /// Note that the lens will iterate the same tables and archetypes as the original query. This means that
     /// additional archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without)
     /// will not necessarily be respected and non-archetypal terms like [`Added`](crate::query::Added) and
     /// [`Changed`](crate::query::Changed) will only be respected if they are in the type signature.
     #[track_caller]
-    pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
+    pub fn transmute_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
-    ) -> QueryLens<'_, NewD, NewF> {
+    ) -> Query<'_, 'static, NewD, NewF> {
         let state = self.state.transmute_filtered::<NewD, NewF>(self.world);
-        QueryLens {
+        Query {
             world: self.world,
-            state,
+            state: Cow::Owned(state),
             last_run: self.last_run,
             this_run: self.this_run,
         }
     }
 
-    /// Gets a [`QueryLens`] with the same accesses as the existing query
-    pub fn as_query_lens(&mut self) -> QueryLens<'_, D> {
-        self.transmute_lens()
-    }
-
-    /// Returns a [`QueryLens`] that can be used to get a query with the combined fetch.
+    /// Returns a [`Query`] that can be used to get a query with the combined fetch.
     ///
     /// For example, this can take a `Query<&A>` and a `Query<&B>` and return a `Query<(&A, &B)>`.
     /// The returned query will only return items with both `A` and `B`. Note that since filters
@@ -1449,7 +1443,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// ```rust
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::system::QueryLens;
     /// #
     /// # #[derive(Component)]
     /// # struct Transform;
@@ -1469,13 +1462,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     mut players: Query<&Player>,
     ///     mut enemies: Query<&Enemy>
     /// ) {
-    ///     let mut players_transforms: QueryLens<(&Transform, &Player)> = transforms.join(&mut players);
-    ///     for (transform, player) in &players_transforms.query() {
+    ///     let mut players_transforms: Query<(&Transform, &Player)> = transforms.join(&mut players);
+    ///     for (transform, player) in &players_transforms {
     ///         // do something with a and b
     ///     }
     ///
-    ///     let mut enemies_transforms: QueryLens<(&Transform, &Enemy)> = transforms.join(&mut enemies);
-    ///     for (transform, enemy) in &enemies_transforms.query() {
+    ///     let mut enemies_transforms: Query<(&Transform, &Enemy)> = transforms.join(&mut enemies);
+    ///     for (transform, enemy) in &enemies_transforms {
     ///         // do something with a and b
     ///     }
     /// }
@@ -1490,12 +1483,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// ## Allowed Transmutes
     ///
-    /// Like `transmute_lens` the query terms can be changed with some restrictions.
-    /// See [`Self::transmute_lens`] for more details.
+    /// Like `transmute` the query terms can be changed with some restrictions.
+    /// See [`Self::transmute`] for more details.
     pub fn join<OtherD: QueryData, NewD: QueryData>(
         &mut self,
         other: &mut Query<OtherD>,
-    ) -> QueryLens<'_, NewD> {
+    ) -> Query<'_, 'static, NewD> {
         self.join_filtered(other)
     }
 
@@ -1514,13 +1507,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     >(
         &mut self,
         other: &mut Query<OtherD, OtherF>,
-    ) -> QueryLens<'_, NewD, NewF> {
+    ) -> Query<'_, 'static, NewD, NewF> {
         let state = self
             .state
             .join_filtered::<OtherD, OtherF, NewD, NewF>(self.world, other.state.as_ref());
-        QueryLens {
+        Query {
             world: self.world,
-            state,
+            state: Cow::Owned(state),
             last_run: self.last_run,
             this_run: self.this_run,
         }
@@ -1624,44 +1617,6 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 .as_readonly()
                 .iter_unchecked_manual(self.world, self.last_run, self.this_run)
         }
-    }
-}
-
-/// Type returned from [`Query::transmute_lens`] containing the new [`QueryState`].
-///
-/// Call [`query`](QueryLens::query) or [`into`](Into::into) to construct the resulting [`Query`]
-pub struct QueryLens<'w, Q: QueryData, F: QueryFilter = ()> {
-    world: UnsafeWorldCell<'w>,
-    state: QueryState<Q, F>,
-    last_run: Tick,
-    this_run: Tick,
-}
-
-impl<'w, Q: QueryData, F: QueryFilter> QueryLens<'w, Q, F> {
-    /// Create a [`Query`] from the underlying [`QueryState`].
-    pub fn query(&mut self) -> Query<'w, '_, Q, F> {
-        Query {
-            world: self.world,
-            state: Cow::Borrowed(&self.state),
-            last_run: self.last_run,
-            this_run: self.this_run,
-        }
-    }
-}
-
-impl<'w, 's, Q: QueryData, F: QueryFilter> From<&'s mut QueryLens<'w, Q, F>>
-    for Query<'w, 's, Q, F>
-{
-    fn from(value: &'s mut QueryLens<'w, Q, F>) -> Query<'w, 's, Q, F> {
-        value.query()
-    }
-}
-
-impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
-    for QueryLens<'q, Q, F>
-{
-    fn from(value: &'q mut Query<'w, '_, Q, F>) -> QueryLens<'q, Q, F> {
-        value.transmute_lens_filtered()
     }
 }
 
