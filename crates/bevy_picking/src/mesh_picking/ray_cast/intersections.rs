@@ -48,10 +48,16 @@ pub(super) fn ray_intersection_over_mesh(
 
     // Get the vertex positions and normals from the mesh.
     let vertex_positions: &Vec<[f32; 3]> = match mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
-        None => panic!("Mesh does not contain vertex positions"),
+        None => {
+            error!("Mesh does not contain vertex positions");
+            return None;
+        }
         Some(vertex_values) => match &vertex_values {
             VertexAttributeValues::Float32x3(positions) => positions,
-            _ => panic!("Unexpected types in {:?}", Mesh::ATTRIBUTE_POSITION),
+            _ => {
+                error!("Unexpected types in {:?}", Mesh::ATTRIBUTE_POSITION);
+                return None;
+            }
         },
     };
     let vertex_normals: Option<&[[f32; 3]]> =
@@ -144,7 +150,7 @@ pub fn ray_mesh_intersection(
         // Now that we're in the vector of vertex indices, we want to look at the vertex
         // positions for each triangle, so we'll take indices in chunks of three, where each
         // chunk of three indices are references to the three vertices of a triangle.
-        for index in indices.chunks(3) {
+        for index in indices.chunks_exact(3) {
             let triangle_index = Some(index[0].into_usize());
             let tri_vertex_positions = [
                 Vec3A::from(vertex_positions[index[0].into_usize()]),
@@ -188,13 +194,12 @@ pub fn ray_mesh_intersection(
             closest_hit_distance = hit.distance;
         }
     } else {
-        for i in (0..vertex_positions.len()).step_by(3) {
+        for (i, chunk) in vertex_positions.chunks_exact(3).enumerate() {
+            let &[a, b, c] = chunk else {
+                continue;
+            };
             let triangle_index = Some(i);
-            let tri_vertex_positions = [
-                Vec3A::from(vertex_positions[i]),
-                Vec3A::from(vertex_positions[i + 1]),
-                Vec3A::from(vertex_positions[i + 2]),
-            ];
+            let tri_vertex_positions = [Vec3A::from(a), Vec3A::from(b), Vec3A::from(c)];
             let tri_normals = vertex_normals.map(|normals| {
                 [
                     Vec3A::from(normals[i]),

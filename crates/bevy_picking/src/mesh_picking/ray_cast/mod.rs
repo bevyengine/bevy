@@ -300,7 +300,7 @@ impl<'w, 's> MeshRayCast<'w, 's> {
         self.hits.retain(|(dist, _)| *dist <= nearest_blocking_hit);
         self.hits.sort_by_key(|(k, _)| *k);
         let hits = self.hits.iter().map(|(_, (e, i))| (*e, i.to_owned()));
-        *self.output = hits.collect();
+        self.output.extend(hits);
         self.output.as_ref()
     }
 }
