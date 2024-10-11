@@ -62,9 +62,9 @@ impl Default for TextNodeFlags {
 /// # use bevy_asset::Handle;
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
-/// # use bevy_ecs::World;
+/// # use bevy_ecs::world::World;
 /// # use bevy_text::{Font, JustifyText, TextLayout, TextFont, TextColor};
-/// # use bevy_ui::Text;
+/// # use bevy_ui::prelude::Text;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -78,7 +78,7 @@ impl Default for TextNodeFlags {
 ///     TextFont {
 ///         font: font_handle.clone().into(),
 ///         font_size: 60.0,
-///         ..default()
+///         ..Default::default()
 ///     },
 ///     TextColor(BLUE.into()),
 /// ));
