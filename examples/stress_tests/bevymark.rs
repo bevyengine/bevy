@@ -287,19 +287,19 @@ fn setup(
                     font.clone(),
                     TextColor(LIME.into()),
                 ));
-                p.spawn((TextSpan::new(""), font.clone(), TextColor(LIME.into())));
+                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
                 p.spawn((
                     TextSpan::new("\nFPS (SMA): "),
                     font.clone(),
                     TextColor(LIME.into()),
                 ));
-                p.spawn((TextSpan::new(""), font.clone(), TextColor(LIME.into())));
+                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
                 p.spawn((
                     TextSpan::new("\nFPS (EMA): "),
                     font.clone(),
                     TextColor(LIME.into()),
                 ));
-                p.spawn((TextSpan::new(""), font.clone(), TextColor(LIME.into())));
+                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
             });
         });
 
