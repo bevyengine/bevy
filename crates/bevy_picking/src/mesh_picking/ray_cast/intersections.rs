@@ -8,7 +8,7 @@ use bevy_utils::tracing::{error, warn};
 
 use super::Backfaces;
 
-/// A ray intersection with a mesh.
+/// Hit data for an intersection between a ray and a mesh.
 #[derive(Debug, Clone, Reflect)]
 pub struct RayMeshHit {
     /// The point of intersection in world space.
@@ -25,7 +25,7 @@ pub struct RayMeshHit {
     pub triangle_index: Option<usize>,
 }
 
-/// A hit result from a ray cast on a triangle.
+/// Hit data for an intersection between a ray and a triangle.
 #[derive(Default, Debug)]
 pub struct RayTriangleHit {
     pub distance: f32,
