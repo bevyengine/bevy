@@ -2520,7 +2520,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 /// Marker for controlling whether Ui is rendered with or without anti-aliasing
 /// in a camera. By default, Ui is always anti-aliased.
 ///
-/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextStyle`](bevy_text::TextStyle) component.
+/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextFont`](bevy_text::TextFont) component.
 ///
 /// ```
 /// use bevy_core_pipeline::prelude::*;
