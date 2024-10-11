@@ -118,11 +118,18 @@ impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
         self.get_text(root_entity, index).unwrap()
     }
 
-    /// Gets the [`TextStyle`] of a text span within a text block at a specific index in the flattened span list.
+    /// Gets the [`TextFont`] of a text span within a text block at a specific index in the flattened span list.
     ///
     /// Panics if there is no span at the requested index.
-    pub fn style(&mut self, root_entity: Entity, index: usize) -> &TextFont {
+    pub fn font(&mut self, root_entity: Entity, index: usize) -> &TextFont {
         self.get_font(root_entity, index).unwrap()
+    }
+
+    /// Gets the [`TextColor`] of a text span within a text block at a specific index in the flattened span list.
+    ///
+    /// Panics if there is no span at the requested index.
+    pub fn color(&mut self, root_entity: Entity, index: usize) -> Color {
+        self.get_color(root_entity, index).unwrap()
     }
 }
 
