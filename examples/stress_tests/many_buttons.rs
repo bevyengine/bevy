@@ -70,7 +70,7 @@ fn main() {
         focused_mode: UpdateMode::Continuous,
         unfocused_mode: UpdateMode::Continuous,
     })
-    .add_systems(Update, button_system);
+    .add_systems(Update, (button_system, set_text_colors_changed));
 
     if args.grid {
         app.add_systems(Startup, setup_grid);
@@ -95,6 +95,12 @@ fn main() {
     }
 
     app.insert_resource(args).run();
+}
+
+fn set_text_colors_changed(mut colors: Query<&mut TextColor>) {
+    for mut text_color in colors.iter_mut() {
+        text_color.set_changed();
+    }
 }
 
 #[derive(Component)]

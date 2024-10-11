@@ -88,9 +88,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 33.0,
-                        color: Color::srgb(0.9, 0.9, 0.9),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
                 ));
         });
 }
