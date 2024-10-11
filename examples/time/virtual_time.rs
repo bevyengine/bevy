@@ -105,9 +105,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                 Text::new("CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down"),
                 TextFont {
                     font_size,
-                    color: Color::srgb(0.85, 0.85, 0.85),
                     ..default()
                 },
+                TextColor(Color::srgb(0.85, 0.85, 0.85)),
                 TextLayout::new_with_justify(JustifyText::Center),
             ));
 
@@ -116,9 +116,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                 Text::default(),
                 TextFont {
                     font_size,
-                    color: virtual_color,
                     ..default()
                 },
+                TextColor(virtual_color),
                 TextLayout::new_with_justify(JustifyText::Right),
                 VirtualTime,
             ));
