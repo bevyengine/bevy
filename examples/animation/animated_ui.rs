@@ -50,12 +50,12 @@ impl AnimatableProperty for FontSizeProperty {
 }
 
 impl AnimatableProperty for TextColorProperty {
-    type Component = TextFont;
+    type Component = TextColor;
 
     type Property = Srgba;
 
     fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-        match component.color {
+        match component.0 {
             Color::Srgba(ref mut color) => Some(color),
             _ => None,
         }
@@ -175,9 +175,9 @@ fn setup(
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 24.0,
-                        color: Color::Srgba(Srgba::RED),
                         ..default()
                     },
+                    TextColor(Color::Srgba(Srgba::RED)),
                     TextLayout::new_with_justify(JustifyText::Center),
                 ))
                 // Mark as an animation target.
