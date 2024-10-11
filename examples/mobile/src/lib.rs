@@ -3,6 +3,7 @@
 use bevy::{
     color::palettes::basic::*,
     input::{gestures::RotationGesture, touch::TouchPhase},
+    log::{Level, LogPlugin},
     prelude::*,
     window::{AppLifecycle, WindowMode},
 };
@@ -11,17 +12,26 @@ use bevy::{
 #[bevy_main]
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            resizable: false,
-            mode: WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
-            // on iOS, gestures must be enabled.
-            // This doesn't work on Android
-            recognize_rotation_gesture: true,
-            ..default()
-        }),
-        ..default()
-    }))
+    app.add_plugins(
+        DefaultPlugins
+            .set(LogPlugin {
+                // This will show some log events from Bevy to the native logger.
+                level: Level::DEBUG,
+                filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
+                ..Default::default()
+            })
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    resizable: false,
+                    mode: WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
+                    // on iOS, gestures must be enabled.
+                    // This doesn't work on Android
+                    recognize_rotation_gesture: true,
+                    ..default()
+                }),
+                ..default()
+            }),
+    )
     .add_systems(Startup, (setup_scene, setup_music))
     .add_systems(Update, (touch_camera, button_handler, handle_lifetime))
     .run();
@@ -120,19 +130,15 @@ fn setup_scene(
             },
             ..default()
         })
-        .with_children(|b| {
-            b.spawn(
-                TextBundle::from_section(
-                    "Test Button",
-                    TextStyle {
-                        font_size: 30.0,
-                        color: Color::BLACK,
-                        ..default()
-                    },
-                )
-                .with_text_justify(JustifyText::Center),
-            );
-        });
+        .with_child((
+            Text::new("Test Button"),
+            TextStyle {
+                font_size: 30.0,
+                color: Color::BLACK,
+                ..default()
+            },
+            TextLayout::new_with_justify(JustifyText::Center),
+        ));
 }
 
 fn button_handler(

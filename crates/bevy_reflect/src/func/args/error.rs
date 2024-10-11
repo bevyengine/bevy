@@ -1,23 +1,25 @@
 use alloc::borrow::Cow;
 
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 use crate::func::args::Ownership;
 
 /// An error that occurs when converting an [argument].
 ///
 /// [argument]: crate::func::args::Arg
-#[derive(Debug, Error, PartialEq)]
+#[derive(Debug, Error, Display, PartialEq)]
 pub enum ArgError {
     /// The argument is not the expected type.
-    #[error("expected `{expected}` but received `{received}` (@ argument index {index})")]
+    #[display("expected `{expected}` but received `{received}` (@ argument index {index})")]
     UnexpectedType {
         index: usize,
         expected: Cow<'static, str>,
         received: Cow<'static, str>,
     },
     /// The argument has the wrong ownership.
-    #[error("expected {expected} value but received {received} value (@ argument index {index})")]
+    #[display(
+        "expected {expected} value but received {received} value (@ argument index {index})"
+    )]
     InvalidOwnership {
         index: usize,
         expected: Ownership,
@@ -26,6 +28,6 @@ pub enum ArgError {
     /// Occurs when attempting to access an argument from an empty [`ArgList`].
     ///
     /// [`ArgList`]: crate::func::args::ArgList
-    #[error("expected an argument but received none")]
+    #[display("expected an argument but received none")]
     EmptyArgList,
 }

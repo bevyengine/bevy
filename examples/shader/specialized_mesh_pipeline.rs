@@ -29,7 +29,7 @@ use bevy::{
             SpecializedMeshPipelines, TextureFormat, VertexState,
         },
         texture::BevyDefault as _,
-        view::{self, ExtractedView, ViewTarget, VisibilitySystems, VisibleEntities},
+        view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilitySystems},
         Render, RenderApp, RenderSet,
     },
 };
@@ -79,7 +79,7 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
             // with our specialized pipeline
             CustomRenderedEntity,
             // We need to add the mesh handle to the entity
-            meshes.add(mesh.clone()),
+            Mesh3d(meshes.add(mesh.clone())),
             // This bundle's components are needed for something to be rendered
             SpatialBundle {
                 transform: Transform::from_xyz(x, y, 0.0),
@@ -280,7 +280,7 @@ fn queue_custom_mesh_pipeline(
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     mut specialized_mesh_pipelines: ResMut<SpecializedMeshPipelines<CustomMeshPipeline>>,
-    views: Query<(Entity, &VisibleEntities, &ExtractedView, &Msaa), With<ExtractedView>>,
+    views: Query<(Entity, &RenderVisibleEntities, &ExtractedView, &Msaa), With<ExtractedView>>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
 ) {
@@ -303,7 +303,7 @@ fn queue_custom_mesh_pipeline(
 
         // Find all the custom rendered entities that are visible from this
         // view.
-        for &visible_entity in view_visible_entities
+        for &(render_entity, visible_entity) in view_visible_entities
             .get::<WithCustomRenderedEntity>()
             .iter()
         {
@@ -348,7 +348,7 @@ fn queue_custom_mesh_pipeline(
                     material_bind_group_id: None,
                     lightmap_image: None,
                 },
-                visible_entity,
+                (render_entity, visible_entity),
                 // This example supports batching, but if your pipeline doesn't
                 // support it you can use `BinnedRenderPhaseType::UnbatchableMesh`
                 BinnedRenderPhaseType::BatchableMesh,

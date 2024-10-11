@@ -1,9 +1,9 @@
 use crate::{Image, TextureFormatPixelInfo};
 use bevy_asset::RenderAssetUsages;
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
+use derive_more::derive::{Display, Error, From};
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads HDR textures as Texture assets
@@ -16,12 +16,12 @@ pub struct HdrTextureLoaderSettings {
 }
 
 #[non_exhaustive]
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display, From)]
 pub enum HdrTextureLoaderError {
-    #[error("Could load texture: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("Could not extract image: {0}")]
-    Image(#[from] image::ImageError),
+    #[display("Could load texture: {_0}")]
+    Io(std::io::Error),
+    #[display("Could not extract image: {_0}")]
+    Image(image::ImageError),
 }
 
 impl AssetLoader for HdrTextureLoader {
@@ -54,10 +54,10 @@ impl AssetLoader for HdrTextureLoader {
         for rgb in image_buffer.pixels() {
             let alpha = 1.0f32;
 
-            rgba_data.extend_from_slice(&rgb.0[0].to_ne_bytes());
-            rgba_data.extend_from_slice(&rgb.0[1].to_ne_bytes());
-            rgba_data.extend_from_slice(&rgb.0[2].to_ne_bytes());
-            rgba_data.extend_from_slice(&alpha.to_ne_bytes());
+            rgba_data.extend_from_slice(&rgb.0[0].to_le_bytes());
+            rgba_data.extend_from_slice(&rgb.0[1].to_le_bytes());
+            rgba_data.extend_from_slice(&rgb.0[2].to_le_bytes());
+            rgba_data.extend_from_slice(&alpha.to_le_bytes());
         }
 
         Ok(Image::new(

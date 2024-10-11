@@ -15,7 +15,7 @@ use bevy_utils::HashMap;
 #[derive(Debug)]
 pub struct TextureAtlasSources {
     /// Maps from a specific image handle to the index in `textures` where they can be found.
-    pub(crate) texture_ids: HashMap<AssetId<Image>, usize>,
+    pub texture_ids: HashMap<AssetId<Image>, usize>,
 }
 impl TextureAtlasSources {
     /// Retrieves the texture *section* index of the given `texture` handle.

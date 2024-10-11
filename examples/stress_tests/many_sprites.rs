@@ -81,14 +81,9 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
             let rotation = Quat::from_rotation_z(rng.gen::<f32>());
             let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
 
-            sprites.push(SpriteBundle {
-                texture: sprite_handle.clone(),
-                transform: Transform {
-                    translation,
-                    rotation,
-                    scale,
-                },
-                sprite: Sprite {
+            sprites.push((
+                Sprite {
+                    image: sprite_handle.clone(),
                     custom_size: Some(tile_size),
                     color: if color_tint.0 {
                         COLORS[rng.gen_range(0..3)]
@@ -97,8 +92,12 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
                     },
                     ..default()
                 },
-                ..default()
-            });
+                Transform {
+                    translation,
+                    rotation,
+                    scale,
+                },
+            ));
         }
     }
     commands.spawn_batch(sprites);

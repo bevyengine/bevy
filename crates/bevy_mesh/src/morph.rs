@@ -6,7 +6,7 @@ use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
 use core::iter;
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 const MAX_TEXTURE_WIDTH: u32 = 2048;
@@ -17,9 +17,9 @@ const MAX_COMPONENTS: u32 = MAX_TEXTURE_WIDTH * MAX_TEXTURE_WIDTH;
 /// Max target count available for [morph targets](MorphWeights).
 pub const MAX_MORPH_WEIGHTS: usize = 64;
 
-#[derive(Error, Clone, Debug)]
+#[derive(Error, Display, Clone, Debug)]
 pub enum MorphBuildError {
-    #[error(
+    #[display(
         "Too many vertex×components in morph target, max is {MAX_COMPONENTS}, \
         got {vertex_count}×{component_count} = {}",
         *vertex_count * *component_count as usize
@@ -28,7 +28,7 @@ pub enum MorphBuildError {
         vertex_count: usize,
         component_count: u32,
     },
-    #[error(
+    #[display(
         "Bevy only supports up to {} morph targets (individual poses), tried to \
         create a model with {target_count} morph targets",
         MAX_MORPH_WEIGHTS

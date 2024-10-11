@@ -133,11 +133,8 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn((
         Name::new("Player"),
-        SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
-            transform: Transform::from_scale(Vec3::splat(0.3)),
-            ..default()
-        },
+        Sprite::from_image(asset_server.load("branding/icon.png")),
+        Transform::from_scale(Vec3::splat(0.3)),
         AccumulatedInput::default(),
         Velocity::default(),
         PhysicalTranslation::default(),
@@ -157,15 +154,13 @@ fn spawn_text(mut commands: Commands) {
             },
             ..default()
         })
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Move the player with WASD",
-                TextStyle {
-                    font_size: 25.0,
-                    ..default()
-                },
-            ));
-        });
+        .with_child((
+            Text::new("Move the player with WASD"),
+            TextStyle {
+                font_size: 25.0,
+                ..default()
+            },
+        ));
 }
 
 /// Handle keyboard input and accumulate it in the `AccumulatedInput` component.

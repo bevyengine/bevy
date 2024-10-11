@@ -1,4 +1,4 @@
-use bevy_render::{view::Visibility, world_sync::SyncToRenderWorld};
+use bevy_render::view::Visibility;
 
 use super::*;
 
@@ -57,8 +57,7 @@ use super::*;
     CascadeShadowConfig,
     CascadesVisibleEntities,
     Transform,
-    Visibility,
-    SyncToRenderWorld
+    Visibility
 )]
 pub struct DirectionalLight {
     /// The color of the light.
