@@ -15,6 +15,7 @@ fn main() {
     app.add_plugins(
         DefaultPlugins
             .set(LogPlugin {
+                // This will show some log events from Bevy to the native logger.
                 level: Level::DEBUG,
                 filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
                 ..Default::default()
