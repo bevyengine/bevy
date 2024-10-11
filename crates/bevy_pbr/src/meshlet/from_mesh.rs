@@ -9,7 +9,7 @@ use bevy_render::{
 };
 use bevy_utils::HashMap;
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
-use core::ops::Range;
+use core::{iter, ops::Range};
 use derive_more::derive::{Display, Error};
 use half::f16;
 use itertools::Itertools;
@@ -18,7 +18,6 @@ use meshopt::{
 };
 use metis::Graph;
 use smallvec::SmallVec;
-use std::iter;
 
 /// Default vertex position quantization factor for use with [`MeshletMesh::from_mesh`].
 ///
