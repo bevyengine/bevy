@@ -314,7 +314,9 @@ impl Default for TextColor {
 }
 
 impl TextColor {
+    /// Black colored text
     pub const BLACK: Self = TextColor(Color::BLACK);
+    /// White colored text
     pub const WHITE: Self = TextColor(Color::WHITE);
 }
 
