@@ -598,8 +598,8 @@ fn update_ui_state(
             Color::WHITE
         };
 
-        writer.for_each_font(entity, |mut style| {
-            style.color = color;
+        writer.for_each_color(entity, |mut text_color| {
+            text_color.0 = color;
         });
 
         // Update the displayed value, if this is the currently-selected option.
