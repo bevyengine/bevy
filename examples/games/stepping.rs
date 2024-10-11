@@ -118,9 +118,9 @@ fn build_ui(
             TextSpan(format!("{label:?}\n")),
             TextFont {
                 font: asset_server.load(FONT_BOLD),
-                color: FONT_COLOR,
                 ..default()
             },
+            TextColor(FONT_COLOR),
         ));
 
         // grab the list of systems in the schedule, in the order the
@@ -144,19 +144,15 @@ fn build_ui(
             // Add a text section for displaying the cursor for this system
             text_spans.push((
                 TextSpan::new("   "),
-                TextFont {
-                    color: FONT_COLOR,
-                    ..default()
-                },
+                TextFont::default(),
+                TextColor(FONT_COLOR),
             ));
 
             // add the name of the system to the ui
             text_spans.push((
                 TextSpan(format!("{}\n", system.name())),
-                TextFont {
-                    color: FONT_COLOR,
-                    ..default()
-                },
+                TextFont::default(),
+                TextColor(FONT_COLOR),
             ));
         }
     }
@@ -198,9 +194,9 @@ fn build_stepping_hint(mut commands: Commands) {
         Text::new(hint_text),
         TextFont {
             font_size: 15.0,
-            color: FONT_COLOR,
             ..default()
         },
+        TextColor(FONT_COLOR),
         Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
