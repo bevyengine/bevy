@@ -309,8 +309,13 @@ pub struct TextColor(pub Color);
 
 impl Default for TextColor {
     fn default() -> Self {
-        Self(Color::WHITE)
+        Self::WHITE
     }
+}
+
+impl TextColor {
+    pub const BLACK: Self = TextColor(Color::BLACK);
+    pub const WHITE: Self = TextColor(Color::WHITE);
 }
 
 /// Determines how lines will be broken when preventing text from running out of bounds.
