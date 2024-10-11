@@ -63,7 +63,7 @@ impl Default for TextNodeFlags {
 # use bevy_color::Color;
 # use bevy_color::palettes::basic::BLUE;
 # use bevy_ecs::World;
-# use bevy_text::{Font, JustifyText, TextLayout, TextStyle};
+# use bevy_text::{Font, JustifyText, TextLayout, TextFont, TextColor};
 # use bevy_ui::Text;
 #
 # let font_handle: Handle<Font> = Default::default();
@@ -75,11 +75,12 @@ world.spawn(Text::new("hello world!"));
 // With non-default style.
 world.spawn((
     Text::new("hello world!"),
-    TextStyle {
+    TextFont {
         font: font_handle.clone().into(),
         font_size: 60.0,
-        color: BLUE.into(),
-    }
+        ..default()
+    },
+    TextColor(BLUE.into()),
 ));
 
 // With text justification.

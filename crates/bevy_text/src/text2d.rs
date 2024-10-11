@@ -50,7 +50,7 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 # use bevy_color::Color;
 # use bevy_color::palettes::basic::BLUE;
 # use bevy_ecs::World;
-# use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextStyle};
+# use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor};
 #
 # let font_handle: Handle<Font> = Default::default();
 # let mut world = World::default();
@@ -61,11 +61,12 @@ world.spawn(Text2d::new("hello world!"));
 // With non-default style.
 world.spawn((
     Text2d::new("hello world!"),
-    TextStyle {
+    TextFont {
         font: font_handle.clone().into(),
         font_size: 60.0,
-        color: BLUE.into(),
-    }
+        ..default()
+    },
+    TextColor(BLUE.into()),
 ));
 
 // With text justification.

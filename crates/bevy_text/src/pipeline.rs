@@ -464,7 +464,7 @@ fn load_font_to_fontdb(
     }
 }
 
-/// Translates [`TextStyle`] to [`Attrs`].
+/// Translates [`TextFont`] to [`Attrs`].
 fn get_attrs<'a>(
     span_index: usize,
     style: &TextFont,
