@@ -79,10 +79,7 @@ fn setup(mut commands: Commands) {
 
     commands.spawn((
         Text2d::new(text_string),
-        TextFont {
-            color: RED.into(),
-            ..text_style
-        },
+        TextColor(RED.into()),
         bevy::sprite::Anchor::Center,
         TextBounds::new_horizontal(1000.),
         text_block,
