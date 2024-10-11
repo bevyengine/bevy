@@ -188,6 +188,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             is_dense: self.is_dense,
             fetch_state: self.fetch_state,
             filter_state: self.filter_state,
+            #[cfg(feature = "trace")]
+            par_iter_span: self.par_iter_span,
         }
     }
 
