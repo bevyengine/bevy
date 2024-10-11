@@ -131,8 +131,8 @@ fn customize_text(
     mut writer: UiTextWriter,
 ) {
     for entity in &query {
-        writer.for_each_font(entity, |mut style| {
-            *style = overlay_config.text_config.clone();
+        writer.for_each_font(entity, |mut font| {
+            *font = overlay_config.text_config.clone();
         });
     }
 }
