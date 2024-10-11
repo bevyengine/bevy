@@ -41,7 +41,7 @@ use bevy_render::{
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
 #[cfg(feature = "bevy_text")]
-use bevy_text::{ComputedTextBlock, PositionedGlyph, TextLayoutInfo, TextFont};
+use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextFont, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use box_shadow::BoxShadowPlugin;
@@ -606,7 +606,7 @@ pub fn extract_text_sections(
             &TextLayoutInfo,
         )>,
     >,
-    text_styles: Extract<Query<&TextFont>>,
+    text_styles: Extract<Query<&TextColor>>,
     mapping: Extract<Query<&RenderEntity>>,
 ) {
     let mut start = 0;
@@ -681,7 +681,7 @@ pub fn extract_text_sections(
                             .map(|t| t.entity)
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
-                    .map(|style| LinearRgba::from(style.color))
+                    .map(|text_color| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
                 current_span = *span_index;
             }

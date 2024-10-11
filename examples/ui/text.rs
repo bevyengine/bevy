@@ -67,18 +67,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             if cfg!(feature = "default_font") {
                 TextFont {
                     font_size: 33.0,
-                    color: GOLD.into(),
                     // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
                     ..default()
-                }
+                },
+                TextColor(GOLD.into())
             } else {
                 // "default_font" feature is unavailable, load a font to use instead.
                 TextFont {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: 33.0,
-                    color: GOLD.into(),
                     ..default()
                 }
+                TextColor(GOLD.into())
             },
             FpsText,
         ));

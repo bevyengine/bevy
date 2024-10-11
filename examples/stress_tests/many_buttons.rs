@@ -5,6 +5,7 @@ use bevy::{
     color::palettes::css::ORANGE_RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
+    text::TextColor,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -266,9 +267,9 @@ fn spawn_button(
                 Text(format!("{column}, {row}")),
                 TextFont {
                     font_size: FONT_SIZE,
-                    color: Color::srgb(0.2, 0.2, 0.2),
                     ..default()
                 },
+                TextColor(Color::srgb(0.2, 0.2, 0.2)),
             ));
         });
     }
