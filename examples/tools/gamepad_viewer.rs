@@ -465,7 +465,7 @@ fn update_connected(
         .collect::<Vec<_>>()
         .join("\n");
 
-    *writer.text(query.single(), 2) = if !formatted.is_empty() {
+    *writer.text(query.single(), 1) = if !formatted.is_empty() {
         formatted
     } else {
         "None".to_string()
