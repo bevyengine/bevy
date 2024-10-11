@@ -147,7 +147,6 @@ jobs:
           key: ${{ runner.os }}-cargo-check-compiles-no-std-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
           targets: x86_64-unknown-none
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
