@@ -63,9 +63,9 @@ fn cull_clusters(
     }
 
     // Check LOD cut (cluster group error imperceptible, and parent group error not imperceptible)
-    let simplification_errors = meshlet_simplification_errors[meshlet_id];
-    if !lod_error_is_imperceptible(bounding_spheres.lod_group_sphere, simplification_errors.group_error, world_from_local, world_scale) { return; }
-    if lod_error_is_imperceptible(bounding_spheres.lod_parent_group_sphere, simplification_errors.parent_group_error, world_from_local, world_scale) { return; }
+    let simplification_errors = unpack2x16float(meshlet_simplification_errors[meshlet_id]);
+    if !lod_error_is_imperceptible(bounding_spheres.lod_group_sphere, simplification_errors.x, world_from_local, world_scale) { return; }
+    if lod_error_is_imperceptible(bounding_spheres.lod_parent_group_sphere, simplification_errors.y, world_from_local, world_scale) { return; }
 #endif
 
     // Project the culling bounding sphere to view-space for occlusion culling

@@ -35,11 +35,6 @@ struct MeshletBoundingSphere {
     radius: f32,
 }
 
-struct MeshletSimplificationError {
-    group_error: f32,
-    parent_group_error: f32,
-}
-
 struct DispatchIndirectArgs {
     x: atomic<u32>,
     y: u32,
@@ -67,7 +62,7 @@ var<push_constant> cluster_count: u32;
 var<push_constant> meshlet_raster_cluster_rightmost_slot: u32;
 @group(0) @binding(0) var<storage, read> meshlet_cluster_meshlet_ids: array<u32>; // Per cluster
 @group(0) @binding(1) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSpheres>; // Per meshlet
-@group(0) @binding(2) var<storage, read> meshlet_simplification_errors: array<MeshletSimplificationError>; // Per meshlet
+@group(0) @binding(2) var<storage, read> meshlet_simplification_errors: array<u32>; // Per meshlet
 @group(0) @binding(3) var<storage, read> meshlet_cluster_instance_ids: array<u32>; // Per cluster
 @group(0) @binding(4) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 @group(0) @binding(5) var<storage, read> meshlet_view_instance_visibility: array<u32>; // 1 bit per entity instance, packed as a bitmask

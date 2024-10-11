@@ -11,6 +11,7 @@ use bevy_utils::HashMap;
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
 use core::ops::Range;
 use derive_more::derive::{Display, Error};
+use half::f16;
 use itertools::Itertools;
 use meshopt::{
     build_meshlets, ffi::meshopt_Meshlet, simplify, Meshlets, SimplifyOptions, VertexDataAdapter,
@@ -80,8 +81,8 @@ impl MeshletMesh {
             })
             .collect::<Vec<_>>();
         let mut simplification_errors = iter::repeat(MeshletSimplificationError {
-            group_error: 0.0,
-            parent_group_error: f32::MAX,
+            group_error: f16::ZERO,
+            parent_group_error: f16::MAX,
         })
         .take(meshlets.len())
         .collect::<Vec<_>>();
@@ -140,7 +141,7 @@ impl MeshletMesh {
                 simplification_errors.extend(
                     iter::repeat(MeshletSimplificationError {
                         group_error,
-                        parent_group_error: f32::MAX,
+                        parent_group_error: f16::MAX,
                     })
                     .take(new_meshlet_ids.len()),
                 );
@@ -300,7 +301,7 @@ fn simplify_meshlet_group(
     group_meshlets: &[usize],
     meshlets: &Meshlets,
     vertices: &VertexDataAdapter<'_>,
-) -> Option<(Vec<u32>, f32)> {
+) -> Option<(Vec<u32>, f16)> {
     // Build a new index buffer into the mesh vertex data by combining all meshlet data in the group
     let mut group_indices = Vec::new();
     for meshlet_id in group_meshlets {
@@ -327,12 +328,12 @@ fn simplify_meshlet_group(
         return None;
     }
 
-    Some((simplified_group_indices, error))
+    Some((simplified_group_indices, f16::from_f32(error)))
 }
 
 fn compute_lod_group_data(
     group_meshlets: &[usize],
-    group_error: &mut f32,
+    group_error: &mut f16,
     bounding_spheres: &mut [MeshletBoundingSpheres],
     simplification_errors: &mut [MeshletSimplificationError],
 ) -> MeshletBoundingSphere {

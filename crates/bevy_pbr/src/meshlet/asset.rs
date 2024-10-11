@@ -9,6 +9,7 @@ use bevy_reflect::TypePath;
 use bevy_tasks::block_on;
 use bytemuck::{Pod, Zeroable};
 use derive_more::derive::{Display, Error, From};
+use half::f16;
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
 use std::io::{Read, Write};
 
@@ -51,7 +52,7 @@ pub struct MeshletMesh {
     pub(crate) meshlets: Arc<[Meshlet]>,
     /// Spherical bounding volumes.
     pub(crate) meshlet_bounding_spheres: Arc<[MeshletBoundingSpheres]>,
-    /// Meshlet simplification errors.
+    /// Meshlet group and parent group simplification errors.
     pub(crate) meshlet_simplification_errors: Arc<[MeshletSimplificationError]>,
 }
 
@@ -109,14 +110,13 @@ pub struct MeshletBoundingSphere {
 }
 
 /// Simplification error used for choosing level of detail for a [`Meshlet`].
-// TODO: pack2x16float
 #[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct MeshletSimplificationError {
     /// Simplification error used for determining if this meshlet's group is at the correct level of detail for a given view.
-    pub group_error: f32,
+    pub group_error: f16,
     /// Simplification error used for determining if this meshlet's parent group is at the correct level of detail for a given view.
-    pub parent_group_error: f32,
+    pub parent_group_error: f16,
 }
 
 /// An [`AssetSaver`] for `.meshlet_mesh` [`MeshletMesh`] assets.
