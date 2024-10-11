@@ -48,7 +48,7 @@ pub unsafe trait WorldQuery {
     /// State used to construct a [`Self::Fetch`](WorldQuery::Fetch). This will be cached inside [`QueryState`](crate::query::QueryState),
     /// so it is best to move as much data / computation here as possible to reduce the cost of
     /// constructing [`Self::Fetch`](WorldQuery::Fetch).
-    type State: Send + Sync + Sized;
+    type State: Clone + Send + Sync + Sized;
 
     /// This function manually implements subtyping for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;

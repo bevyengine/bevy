@@ -1,3 +1,4 @@
+use alloc::borrow::Cow;
 use core::ops::Deref;
 
 use crate::{
@@ -260,7 +261,7 @@ impl<'w> DeferredWorld<'w> {
             let world_cell = self.world;
             Query::new(
                 world_cell,
-                state,
+                Cow::Borrowed(state),
                 world_cell.last_change_tick(),
                 world_cell.change_tick(),
             )

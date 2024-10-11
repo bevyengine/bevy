@@ -16,6 +16,7 @@ use crate::{
         FromWorld, World,
     },
 };
+use alloc::borrow::Cow;
 use bevy_ecs_macros::impl_param_set;
 pub use bevy_ecs_macros::{Resource, SystemParam};
 use bevy_ptr::UnsafeCellDeref;
@@ -318,7 +319,14 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
-        unsafe { Query::new(world, state, system_meta.last_run, change_tick) }
+        unsafe {
+            Query::new(
+                world,
+                Cow::Borrowed(state),
+                system_meta.last_run,
+                change_tick,
+            )
+        }
     }
 }
 

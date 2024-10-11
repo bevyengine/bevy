@@ -80,6 +80,24 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     par_iter_span: Span,
 }
 
+impl<D: QueryData, F: QueryFilter> Clone for QueryState<D, F> {
+    fn clone(&self) -> Self {
+        Self {
+            world_id: self.world_id,
+            archetype_generation: self.archetype_generation,
+            matched_tables: self.matched_tables.clone(),
+            matched_archetypes: self.matched_archetypes.clone(),
+            component_access: self.component_access.clone(),
+            matched_storage_ids: self.matched_storage_ids.clone(),
+            is_dense: self.is_dense,
+            fetch_state: self.fetch_state.clone(),
+            filter_state: self.filter_state.clone(),
+            #[cfg(feature = "trace")]
+            par_iter_span: self.par_iter_span.clone(),
+        }
+    }
+}
+
 impl<D: QueryData, F: QueryFilter> fmt::Debug for QueryState<D, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryState")
