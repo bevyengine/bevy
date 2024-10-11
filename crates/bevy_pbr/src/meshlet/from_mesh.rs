@@ -349,10 +349,7 @@ fn compute_lod_group_data(
             meshlet_lod_bounding_sphere.center * meshlet_lod_bounding_sphere.radius;
         weight += meshlet_lod_bounding_sphere.radius;
     }
-    // TODO: Check needed?
-    // if weight > 0.0 {
     group_bounding_sphere.center /= weight;
-    // }
 
     // Force parent group sphere to contain all child group spheres (we're currently building the parent from its children)
     // TODO: This does not produce the absolute minimal bounding sphere. Doing so is non-trivial.
