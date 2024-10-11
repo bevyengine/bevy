@@ -65,20 +65,24 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_child((
             TextSpan::default(),
             if cfg!(feature = "default_font") {
-                TextFont {
-                    font_size: 33.0,
-                    // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
-                    ..default()
-                },
-                TextColor(GOLD.into())
+                (
+                    TextFont {
+                        font_size: 33.0,
+                        // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
+                        ..default()
+                    },
+                    TextColor(GOLD.into()),
+                )
             } else {
-                // "default_font" feature is unavailable, load a font to use instead.
-                TextFont {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                    font_size: 33.0,
-                    ..default()
-                }
-                TextColor(GOLD.into())
+                (
+                    // "default_font" feature is unavailable, load a font to use instead.
+                    TextFont {
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font_size: 33.0,
+                        ..Default::default()
+                    },
+                    TextColor(GOLD.into()),
+                )
             },
             FpsText,
         ));
@@ -112,12 +116,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn text_color_system(time: Res<Time>, mut query: Query<&mut TextFont, With<ColorText>>) {
-    for mut style in &mut query {
+fn text_color_system(time: Res<Time>, mut query: Query<&mut TextColor, With<ColorText>>) {
+    for mut text_color in &mut query {
         let seconds = time.elapsed_seconds();
 
         // Update the color of the ColorText span.
-        style.color = Color::srgb(
+        text_color.0 = Color::srgb(
             ops::sin(1.25 * seconds) / 2.0 + 0.5,
             ops::sin(0.75 * seconds) / 2.0 + 0.5,
             ops::sin(0.50 * seconds) / 2.0 + 0.5,
