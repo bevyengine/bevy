@@ -117,7 +117,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             "This text is very long, has a limited width, is center-justified, is positioned in the top right and is also colored pink."),
             TextFont {
                 font: font.clone(),
-                font_size: 33.0,                
+                font_size: 33.0,
                 ..default()
             },
             TextColor(Color::srgb(0.8, 0.2, 0.7)),
@@ -184,7 +184,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextSpan::new(" this text has zero fontsize"),
                 TextFont {
                     font: font.clone(),
-                    font_size: 0.0,                    
+                    font_size: 0.0,
                     ..default()
                 },
                 TextColor(BLUE.into()),
@@ -202,7 +202,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextSpan::default(),
                 TextFont {
                     font: font.clone(),
-                    font_size: 21.0,                    
+                    font_size: 21.0,
                     ..default()
                 },
                 TextColor(ORANGE_RED.into()),
