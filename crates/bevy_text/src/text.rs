@@ -163,8 +163,9 @@ impl TextLayout {
 /// # use bevy_asset::Handle;
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::{RED, BLUE};
-/// # use bevy_ecs::World;
-/// # use bevy_text::{Font, TextLayout, TextFont, TextSection};
+/// # use bevy_ecs::world::World;
+/// # use bevy_text::{Font, TextLayout, TextFont, TextSpan, TextColor};
+/// # use bevy_hierarchy::BuildChildren;
 ///
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -174,6 +175,7 @@ impl TextLayout {
 ///     TextFont {
 ///         font: font_handle.clone().into(),
 ///         font_size: 60.0,
+///         ..Default::default()
 ///     },
 ///     TextColor(BLUE.into()),
 /// ))
@@ -182,6 +184,7 @@ impl TextLayout {
 ///     TextFont {
 ///         font: font_handle.into(),
 ///         font_size: 60.0,
+///         ..Default::default()
 ///     },
 ///     TextColor(RED.into()),
 /// ));

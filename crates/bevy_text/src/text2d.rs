@@ -44,38 +44,37 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 /// relative position, which is controlled by the [`Anchor`] component.
 /// This means that for a block of text consisting of only one line that doesn't wrap, the `justify` field will have no effect.
 ///
-/*
-```
-# use bevy_asset::Handle;
-# use bevy_color::Color;
-# use bevy_color::palettes::basic::BLUE;
-# use bevy_ecs::World;
-# use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor};
-#
-# let font_handle: Handle<Font> = Default::default();
-# let mut world = World::default();
-#
-// Basic usage.
-world.spawn(Text2d::new("hello world!"));
-
-// With non-default style.
-world.spawn((
-    Text2d::new("hello world!"),
-    TextFont {
-        font: font_handle.clone().into(),
-        font_size: 60.0,
-        ..default()
-    },
-    TextColor(BLUE.into()),
-));
-
-// With text justification.
-world.spawn((
-    Text2d::new("hello world\nand bevy!"),
-    TextLayout::new_with_justify(JustifyText::Center)
-));
-```
-*/
+///
+/// ```
+/// # use bevy_asset::Handle;
+/// # use bevy_color::Color;
+/// # use bevy_color::palettes::basic::BLUE;
+/// # use bevy_ecs::world::World;
+/// # use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor};
+/// #
+/// # let font_handle: Handle<Font> = Default::default();
+/// # let mut world = World::default();
+/// #
+/// // Basic usage.
+/// world.spawn(Text2d::new("hello world!"));
+///
+/// // With non-default style.
+/// world.spawn((
+///     Text2d::new("hello world!"),
+///     TextFont {
+///         font: font_handle.clone().into(),
+///         font_size: 60.0,
+///         ..Default::default()
+///     },
+///     TextColor(BLUE.into()),
+/// ));
+///
+/// // With text justification.
+/// world.spawn((
+///     Text2d::new("hello world\nand bevy!"),
+///     TextLayout::new_with_justify(JustifyText::Center)
+/// ));
+/// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(
