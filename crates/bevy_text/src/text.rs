@@ -303,7 +303,7 @@ impl Default for TextFont {
 }
 
 /// The color of the text for this section.
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct TextColor(pub Color);
 
