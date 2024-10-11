@@ -140,17 +140,22 @@ fn cull_clusters(
     meshlet_raster_clusters[buffer_slot] = cluster_id;
 }
 
-fn lod_error_is_imperceptible(sphere: MeshletBoundingSphere, error: f32, world_from_local: mat4x4<f32>, world_scale: f32) -> bool {
-    let cp_world = world_from_local * vec4(sphere.center, 1.0);
-    let r_view = world_scale * sphere.radius;
-    let cp_view = (view.view_from_world * vec4(cp_world.xyz, 1.0)).xyz;
+// TODO: This doesn't account for perspective and other edge cases as well as Nanite does
+// https://github.com/zeux/meshoptimizer/blob/1e48e96c7e8059321de492865165e9ef071bffba/demo/nanite.cpp#L115
+fn lod_error_is_imperceptible(lod_sphere: MeshletBoundingSphere, simplification_error: f32, world_from_local: mat4x4<f32>, world_scale: f32) -> bool {
+    let sphere_world_space = (world_from_local * vec4(lod_sphere.center, 1.0)).xyz;
+    let radius_world_space = world_scale * lod_sphere.radius;
+    let error_world_space = world_scale * simplification_error;
 
-    // TODO: Handle view clipping / being inside sphere bounds
-    let aabb = project_view_space_sphere_to_screen_space_aabb(cp_view, r_view);
-    let screen_size = max(aabb.z - aabb.x, aabb.w - aabb.y);
-    let meters_per_pixel = sphere.radius / screen_size;
+    let distance_to_closest_point_on_sphere = distance(sphere_world_space, view.world_position) - radius_world_space;
+    let distance_to_closest_point_on_sphere_clamped_to_znear = max(distance_to_closest_point_on_sphere, view.clip_from_view[3][2]);
+    var projected_error = error_world_space / distance_to_closest_point_on_sphere_clamped_to_znear;
+    if view.clip_from_view[3][3] != 1.0 {
+        projected_error *= view.clip_from_view[1][1];
+    }
+    projected_error *= view.viewport.w;
 
-    return error < meters_per_pixel;
+    return projected_error < 1.0;
 }
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds
