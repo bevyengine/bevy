@@ -133,7 +133,13 @@ fn spawn_enemy_using_input_resource() {
     app.update();
 
     // Check resulting changes, one entity has been spawned with `Enemy` component
-    assert_eq!(app.world_mut().query_state::<&Enemy>().iter(app.world()).len(), 1);
+    assert_eq!(
+        app.world_mut()
+            .query_state::<&Enemy>()
+            .iter(app.world())
+            .len(),
+        1
+    );
 
     // Clear the `just_pressed` status for all `KeyCode`s
     app.world_mut()
@@ -144,7 +150,13 @@ fn spawn_enemy_using_input_resource() {
     app.update();
 
     // Check resulting changes, no new entity has been spawned
-    assert_eq!(app.world_mut().query_state::<&Enemy>().iter(app.world()).len(), 1);
+    assert_eq!(
+        app.world_mut()
+            .query_state::<&Enemy>()
+            .iter(app.world())
+            .len(),
+        1
+    );
 }
 
 #[test]
