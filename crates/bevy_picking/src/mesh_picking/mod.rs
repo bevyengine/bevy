@@ -1,11 +1,10 @@
 //! A [mesh ray casting](ray_cast) backend for [`bevy_picking`](crate).
 //!
-//! If a pointer passes through this camera's render target, it will automatically shoot rays into
-//! the scene and be able to pick meshes.
+//! By default, all meshes are pickable. Picking can be disabled for individual entities
+//! by adding [`PickingBehavior::IGNORE`].
 //!
-//! To ignore an entity for picking, you can add [`PickingBehavior::IGNORE`] to it. You can also configure
-//! [`MeshPickingBackendSettings::require_markers`] to only perform ray casts between cameras and meshes
-//! marked with the [`RayCastPickable`] component.
+//! To make mesh picking entirely opt-in, set [`MeshPickingBackendSettings::require_markers`]
+//! to `true` and add a [`RayCastPickable`] component to the desired camera and target entities.
 //!
 //! To manually perform mesh ray casts independent of picking, use the [`MeshRayCast`] system parameter.
 
@@ -27,15 +26,17 @@ use ray_cast::{MeshRayCast, RayCastSettings, RayCastVisibility, SimplifiedMesh};
 #[reflect(Resource, Default)]
 pub struct MeshPickingBackendSettings {
     /// When set to `true` ray casting will only happen between cameras and entities marked with
-    /// [`RayCastPickable`]. Off by default.
+    /// [`RayCastPickable`]. `false` by default.
     ///
     /// This setting is provided to give you fine-grained control over which cameras and entities
-    /// should be used by the ray cast backend at runtime.
+    /// should be used by the mesh picking backend at runtime.
     pub require_markers: bool,
 
-    /// When set to [`RayCastVisibility::Any`], hidden meshes can be ray casted against.
+    /// Determines how mesh picking should consider [`Visibility`]. When set to [`RayCastVisibility::Any`],
+    /// ray casts can be performed against both visible and hidden entities.
     ///
-    /// See [`RayCastSettings::visibility`] for more information.
+    /// Defaults to [`RayCastVisibility::VisibleInView`], only performing picking against visible entities
+    /// that are in the view of a camera.
     pub ray_cast_visibility: RayCastVisibility,
 }
 
@@ -48,8 +49,8 @@ impl Default for MeshPickingBackendSettings {
     }
 }
 
-/// An optional component that marks cameras and target entities that should be used in the ray cast picking backend.
-/// Only needed if [`MeshPickingBackendSettings::require_markers`] is set to `true`.
+/// An optional component that marks cameras and target entities that should be used in the [`MeshPickingBackend`].
+/// Only needed if [`MeshPickingBackendSettings::require_markers`] is set to `true`, and ignored otherwise.
 #[derive(Debug, Clone, Default, Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct RayCastPickable;
