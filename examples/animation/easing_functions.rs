@@ -64,10 +64,7 @@ fn setup(mut commands: Commands) {
             commands
                 .spawn((
                     Text2d(format!("{:?}", function)),
-                    TextFont {
-                        color,
-                        ..text_style.clone()
-                    },
+                    text_style.clone(),
                     Transform::from_xyz(
                         i as f32 * 113.0 - 1280.0 / 2.0 + 25.0,
                         -100.0 - ((j as f32 * 250.0) - 300.0),

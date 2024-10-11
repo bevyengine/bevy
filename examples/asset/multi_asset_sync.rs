@@ -184,9 +184,9 @@ fn setup_ui(mut commands: Commands) {
                 Text::new("Loading...".to_owned()),
                 TextFont {
                     font_size: 53.0,
-                    color: Color::BLACK,
                     ..Default::default()
                 },
+                TextColor(Color::BLACK),
                 TextLayout::new_with_justify(JustifyText::Right),
                 LoadingText,
             ));

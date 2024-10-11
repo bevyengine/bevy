@@ -22,13 +22,13 @@ fn main() {
                     text_config: TextFont {
                         // Here we define size of our overlay
                         font_size: 42.0,
-                        // We can also change color of the overlay
-                        color: OverlayColor::GREEN,
                         // If we want, we can use a custom font
                         font: default(),
                         // We could also disable font smoothing,
                         font_smoothing: FontSmoothing::default(),
                     },
+                    // We can also change color of the overlay
+                    text_color: OverlayColor::GREEN.into(),
                     enabled: true,
                 },
             },
