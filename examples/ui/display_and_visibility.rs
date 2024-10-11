@@ -448,24 +448,24 @@ fn buttons_handler<T>(
 
 fn text_hover(
     mut button_query: Query<(&Interaction, &mut BackgroundColor, &Children), Changed<Interaction>>,
-    mut text_query: Query<(&Text, &mut TextFont)>,
+    mut text_query: Query<(&Text, &mut TextColor)>,
 ) {
     for (interaction, mut color, children) in button_query.iter_mut() {
         match interaction {
             Interaction::Hovered => {
                 *color = Color::BLACK.with_alpha(0.6).into();
                 for &child in children {
-                    if let Ok((_, mut style)) = text_query.get_mut(child) {
+                    if let Ok((_, mut text_color)) = text_query.get_mut(child) {
                         // Bypass change detection to avoid recomputation of the text when only changing the color
-                        style.bypass_change_detection().color = YELLOW.into();
+                        text_color.bypass_change_detection().0 = YELLOW.into();
                     }
                 }
             }
             _ => {
                 *color = Color::BLACK.with_alpha(0.5).into();
                 for &child in children {
-                    if let Ok((text, mut style)) = text_query.get_mut(child) {
-                        style.bypass_change_detection().color =
+                    if let Ok((text, mut text_color)) = text_query.get_mut(child) {
+                        text_color.bypass_change_detection().0 =
                             if text.contains("None") || text.contains("Hidden") {
                                 HIDDEN_COLOR
                             } else {
