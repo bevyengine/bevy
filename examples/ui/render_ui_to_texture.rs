@@ -85,9 +85,9 @@ fn setup(
                 Text::new("This is a cube"),
                 TextFont {
                     font_size: 40.0,
-                    color: Color::BLACK,
                     ..default()
                 },
+                TextColor::BLACK,
             ));
         });
 

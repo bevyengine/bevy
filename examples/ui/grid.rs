@@ -210,10 +210,7 @@ fn item_rect(builder: &mut ChildBuilder, color: Srgba) {
 fn spawn_nested_text_bundle(builder: &mut ChildBuilder, font: Handle<Font>, text: &str) {
     builder.spawn((
         Text::new(text),
-        TextFont {
-            font,
-            color: Color::BLACK,
-            ..default()
-        },
+        TextFont { font, ..default() },
+        TextColor::BLACK,
     ));
 }

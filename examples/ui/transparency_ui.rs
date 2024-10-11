@@ -46,10 +46,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font_handle.clone(),
                             font_size: 33.0,
-                            // Alpha channel of the color controls transparency.
-                            color: Color::srgba(1.0, 1.0, 1.0, 0.2),
                             ..default()
                         },
+                        // Alpha channel of the color controls transparency.
+                        TextColor(Color::srgba(1.0, 1.0, 1.0, 0.2)),
                     ));
                 });
 
@@ -73,10 +73,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font_handle.clone(),
                             font_size: 33.0,
-                            // Alpha channel of the color controls transparency.
-                            color: Color::srgba(1.0, 1.0, 1.0, 0.2),
                             ..default()
                         },
+                        // Alpha channel of the color controls transparency.
+                        TextColor(Color::srgba(1.0, 1.0, 1.0, 0.2)),
                     ));
                 });
         });
