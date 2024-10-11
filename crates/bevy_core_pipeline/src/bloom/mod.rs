@@ -127,6 +127,9 @@ impl ViewNode for BloomNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if !camera.hdr {
+            return Ok(());
+        }
         if bloom_settings.intensity == 0.0 {
             return Ok(());
         }
