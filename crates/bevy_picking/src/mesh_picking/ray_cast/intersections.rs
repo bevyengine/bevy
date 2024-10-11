@@ -1,9 +1,6 @@
-use bevy_math::{Dir3, Mat4, Ray3d, Vec3, Vec3A};
+use bevy_math::{bounding::Aabb3d, Dir3, Mat4, Ray3d, Vec3, Vec3A};
 use bevy_reflect::Reflect;
-use bevy_render::{
-    mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues},
-    primitives::Aabb,
-};
+use bevy_render::mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
 use bevy_utils::tracing::{error, warn};
 
 use super::Backfaces;
@@ -322,53 +319,43 @@ fn ray_triangle_intersection(
     })
 }
 
-// TODO: It'd be nice to use `RayCast3d` from `bevy_math` instead. It caches the direction reciprocal.
-/// Checks if the ray intersects with an AABB of a mesh, returning `[near, far]` if it does.
-pub(crate) fn ray_aabb_intersection_3d(
-    ray: Ray3d,
-    aabb: &Aabb,
-    model_to_world: &Mat4,
-) -> Option<[f32; 2]> {
+// TODO: It'd be nice to reuse `RayCast3d::aabb_intersection_at`, but it assumes a normalized ray.
+//       In our case, the ray is transformed to model space, which could involve scaling.
+/// Checks if the ray intersects with the AABB of a mesh, returning the distance to the point of intersection.
+/// The distance is zero if the ray starts inside the AABB.
+pub fn ray_aabb_intersection_3d(ray: Ray3d, aabb: &Aabb3d, model_to_world: &Mat4) -> Option<f32> {
     // Transform the ray to model space
     let world_to_model = model_to_world.inverse();
-    let ray_dir: Vec3A = world_to_model.transform_vector3(*ray.direction).into();
-    let ray_dir_recip = ray_dir.recip();
-    let ray_origin: Vec3A = world_to_model.transform_point3(ray.origin).into();
+    let ray_direction: Vec3A = world_to_model.transform_vector3a((*ray.direction).into());
+    let ray_direction_recip = ray_direction.recip();
+    let ray_origin: Vec3A = world_to_model.transform_point3a(ray.origin.into());
 
     // Check if the ray intersects the mesh's AABB. It's useful to work in model space
     // because we can do an AABB intersection test, instead of an OBB intersection test.
 
-    let t_0: Vec3A = (aabb.min() - ray_origin) * ray_dir_recip;
-    let t_1: Vec3A = (aabb.max() - ray_origin) * ray_dir_recip;
-    let t_min: Vec3A = t_0.min(t_1);
-    let t_max: Vec3A = t_0.max(t_1);
+    // NOTE: This is largely copied from `RayCast3d::aabb_intersection_at`.
+    let positive = ray_direction.signum().cmpgt(Vec3A::ZERO);
+    let min = Vec3A::select(positive, aabb.min, aabb.max);
+    let max = Vec3A::select(positive, aabb.max, aabb.min);
 
-    let mut hit_near = t_min.x;
-    let mut hit_far = t_max.x;
+    // Calculate the minimum/maximum time for each axis based on how much the direction goes that
+    // way. These values can get arbitrarily large, or even become NaN, which is handled by the
+    // min/max operations below
+    let tmin = (min - ray_origin) * ray_direction_recip;
+    let tmax = (max - ray_origin) * ray_direction_recip;
 
-    if hit_near > t_max.y || t_min.y > hit_far {
-        return None;
-    }
+    // An axis that is not relevant to the ray direction will be NaN. When one of the arguments
+    // to min/max is NaN, the other argument is used.
+    // An axis for which the direction is the wrong way will return an arbitrarily large
+    // negative value.
+    let tmin = tmin.max_element().max(0.0);
+    let tmax = tmax.min_element();
 
-    if t_min.y > hit_near {
-        hit_near = t_min.y;
+    if tmin <= tmax {
+        Some(tmin)
+    } else {
+        None
     }
-    if t_max.y < hit_far {
-        hit_far = t_max.y;
-    }
-
-    if (hit_near > t_max.z) || (t_min.z > hit_far) {
-        return None;
-    }
-
-    if t_min.z > hit_near {
-        hit_near = t_min.z;
-    }
-    if t_max.z < hit_far {
-        hit_far = t_max.z;
-    }
-
-    Some([hit_near, hit_far])
 }
 
 #[cfg(test)]
