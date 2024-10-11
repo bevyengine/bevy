@@ -2934,7 +2934,6 @@ name = "window_fallthrough"
 path = "examples/ui/window_fallthrough.rs"
 doc-scrape-examples = true
 
-
 [package.metadata.example.window_fallthrough]
 name = "Window Fallthrough"
 description = "Illustrates how to access `winit::window::Window`'s `hittest` functionality."
