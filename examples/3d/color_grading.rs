@@ -342,9 +342,9 @@ fn add_text<'a>(
         TextFont {
             font: font.clone(),
             font_size: 15.0,
-            color,
             ..default()
         },
+        TextColor(color),
     ))
 }
 
@@ -598,7 +598,7 @@ fn update_ui_state(
             Color::WHITE
         };
 
-        writer.for_each_style(entity, |mut style| {
+        writer.for_each_font(entity, |mut style| {
             style.color = color;
         });
 

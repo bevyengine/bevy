@@ -171,7 +171,7 @@ pub fn update_ui_radio_button(background_color: &mut BackgroundColor, selected: 
 pub fn update_ui_radio_button_text(entity: Entity, writer: &mut UiTextWriter, selected: bool) {
     let text_color = if selected { Color::BLACK } else { Color::WHITE };
 
-    writer.for_each_style(entity, |mut style| {
+    writer.for_each_font(entity, |mut style| {
         style.color = text_color;
     });
 }

@@ -424,7 +424,7 @@ where
 fn buttons_handler<T>(
     mut left_panel_query: Query<&mut <Target<T> as TargetUpdate>::TargetComponent>,
     mut visibility_button_query: Query<(&Target<T>, &Interaction, &Children), Changed<Interaction>>,
-    mut text_query: Query<(&mut Text, &mut TextFont)>,
+    mut text_query: Query<(&mut Text, &mut TextColor)>,
 ) where
     T: Send + Sync,
     Target<T>: TargetUpdate + Component,
@@ -433,9 +433,9 @@ fn buttons_handler<T>(
         if matches!(interaction, Interaction::Pressed) {
             let mut target_value = left_panel_query.get_mut(target.id).unwrap();
             for &child in children {
-                if let Ok((mut text, mut style)) = text_query.get_mut(child) {
+                if let Ok((mut text, mut text_color)) = text_query.get_mut(child) {
                     **text = target.update_target(target_value.as_mut());
-                    style.color = if text.contains("None") || text.contains("Hidden") {
+                    text_color.0 = if text.contains("None") || text.contains("Hidden") {
                         Color::srgb(1.0, 0.7, 0.7)
                     } else {
                         Color::WHITE

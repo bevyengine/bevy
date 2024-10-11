@@ -160,18 +160,12 @@ fn setup(
     // Controls Text
 
     // We need the full version of this font so we can use box drawing characters.
-    let font = asset_server.load("fonts/FiraMono-Medium.ttf");
-
     let text_style = TextFont {
-        font: font.clone(),
+        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
         ..default()
     };
 
-    let label_text_style = TextFont {
-        font,
-        color: ORANGE.into(),
-        ..default()
-    };
+    let label_text_style = (text_style.clone(), TextColor(ORANGE.into()));
 
     commands.spawn((Text::new("Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors"),
             text_style.clone(),

@@ -229,7 +229,7 @@ fn toggle_prepass_view(
         };
         let text = text.single();
         *writer.text(text, 1) = format!("Prepass Output: {label}\n");
-        writer.for_each_style(text, |mut style| {
+        writer.for_each_font(text, |mut style| {
             style.color = Color::WHITE;
         });
 

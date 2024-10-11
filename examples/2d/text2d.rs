@@ -126,10 +126,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ] {
         commands.spawn((
             Text2d::new(format!(" Anchor::{text_anchor:?} ")),
-            TextFont {
-                color,
-                ..slightly_smaller_text_style.clone()
-            },
+            slightly_smaller_text_style.clone(),
+            TextColor(color),
             Transform::from_translation(250. * Vec3::Y),
             text_anchor,
         ));

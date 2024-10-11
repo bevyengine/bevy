@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{BuildChildren, ChildBuild};
 use bevy_render::view::Visibility;
-use bevy_text::{Font, TextSpan, TextFont};
+use bevy_text::{Font, TextFont, TextSpan};
 use bevy_ui::{
     node_bundles::NodeBundle,
     widget::{Text, UiTextWriter},
@@ -128,7 +128,7 @@ fn customize_text(
     mut writer: UiTextWriter,
 ) {
     for entity in &query {
-        writer.for_each_style(entity, |mut style| {
+        writer.for_each_font(entity, |mut style| {
             *style = overlay_config.text_config.clone();
         });
     }
