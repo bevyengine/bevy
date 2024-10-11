@@ -175,16 +175,16 @@ world.spawn((
     TextFont {
         font: font_handle.clone().into(),
         font_size: 60.0,
-        color: BLUE.into(),
-    }
+    },
+    TextColor(BLUE.into()),
 ))
 .with_child((
     TextSpan::new("Hello!"),
     TextFont {
         font: font_handle.into(),
         font_size: 60.0,
-        color: RED.into(),
-    }
+    },
+    TextColor(RED.into()),
 ));
 ```
 */
