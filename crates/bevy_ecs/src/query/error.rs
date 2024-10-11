@@ -122,7 +122,7 @@ mod test {
         let entity = world.spawn((Present1, Present2)).id();
 
         let err = world
-            .query::<&NotPresent>()
+            .query_state::<&NotPresent>()
             .get(&world, entity)
             .unwrap_err();
 

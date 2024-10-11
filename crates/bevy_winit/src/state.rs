@@ -415,7 +415,9 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             _ => {}
         }
 
-        let mut windows = self.world_mut().query::<(&mut Window, &mut CachedWindow)>();
+        let mut windows = self
+            .world_mut()
+            .query_state::<(&mut Window, &mut CachedWindow)>();
         if let Ok((window_component, mut cache)) = windows.get_mut(self.world_mut(), window) {
             if window_component.is_changed() {
                 cache.window = window_component.clone();
@@ -482,7 +484,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 // This will trigger the surface destruction.
                 let mut query = self
                     .world_mut()
-                    .query_filtered::<Entity, With<PrimaryWindow>>();
+                    .query_state_filtered::<Entity, With<PrimaryWindow>>();
                 let entity = query.single(&self.world());
                 self.world_mut()
                     .entity_mut(entity)
@@ -502,7 +504,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 // Get windows that are cached but without raw handles. Those window were already created, but got their
                 // handle wrapper removed when the app was suspended.
                 let mut query = self.world_mut()
-                    .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
+                    .query_state_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
                 if let Ok((entity, window)) = query.get_single(&self.world()) {
                     let window = window.clone();
 

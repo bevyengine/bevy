@@ -32,7 +32,7 @@ impl<'w> Benchmark<'w> {
             world.entity_mut(e).despawn();
         }
 
-        let query = world.query::<(&mut TableData, &SparseData)>();
+        let query = world.query_state::<(&mut TableData, &SparseData)>();
         Self(world, query)
     }
 

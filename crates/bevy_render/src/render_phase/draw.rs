@@ -291,8 +291,8 @@ impl<P: PhaseItem, C: RenderCommand<P>> RenderCommandState<P, C> {
     pub fn new(world: &mut World) -> Self {
         Self {
             state: SystemState::new(world),
-            view: world.query(),
-            entity: world.query(),
+            view: world.query_state(),
+            entity: world.query_state(),
         }
     }
 }

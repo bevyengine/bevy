@@ -268,7 +268,7 @@ mod tests {
         queue.apply(&mut world);
 
         let mut results = world
-            .query::<(&N, &Idx)>()
+            .query_state::<(&N, &Idx)>()
             .iter(&world)
             .map(|(a, b)| (a.clone(), *b))
             .collect::<Vec<_>>();

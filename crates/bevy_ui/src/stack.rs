@@ -227,7 +227,7 @@ mod tests {
         schedule.add_systems(ui_stack_system);
         schedule.run(&mut world);
 
-        let mut query = world.query::<&Label>();
+        let mut query = world.query_state::<&Label>();
         let ui_stack = world.resource::<UiStack>();
         let actual_result = ui_stack
             .uinodes
@@ -283,7 +283,7 @@ mod tests {
         schedule.add_systems(ui_stack_system);
         schedule.run(&mut world);
 
-        let mut query = world.query::<&Label>();
+        let mut query = world.query_state::<&Label>();
         let ui_stack = world.resource::<UiStack>();
         let actual_result = ui_stack
             .uinodes

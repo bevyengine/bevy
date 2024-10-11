@@ -701,7 +701,7 @@ mod tests {
 
         let mut count = 0;
 
-        let mut q = world.query::<&Zst>();
+        let mut q = world.query_state::<&Zst>();
         for zst in q.iter(&world) {
             // Ensure that the references returned are properly aligned.
             assert_eq!(

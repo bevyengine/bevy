@@ -715,7 +715,7 @@ mod test {
         schedule.run(&mut world);
         world.clear_trackers();
 
-        let mut q = world.query::<Ref<InheritedVisibility>>();
+        let mut q = world.query_state::<Ref<InheritedVisibility>>();
 
         assert!(!q.get(&world, id1).unwrap().is_changed());
         assert!(!q.get(&world, id2).unwrap().is_changed());

@@ -503,11 +503,11 @@ mod tests {
         // start test
         world.spawn(A(42));
 
-        assert_eq!(world.query::<&A>().iter(&world).len(), 1);
+        assert_eq!(world.query_state::<&A>().iter(&world).len(), 1);
 
         // clone only existing entity
         let mut scene_spawner = SceneSpawner::default();
-        let entity = world.query_filtered::<Entity, With<A>>().single(&world);
+        let entity = world.query_state_filtered::<Entity, With<A>>().single(&world);
         let scene = DynamicSceneBuilder::from_world(&world)
             .extract_entity(entity)
             .build();
@@ -518,7 +518,7 @@ mod tests {
             .unwrap();
 
         // verify we spawned exactly one new entity with our expected component
-        assert_eq!(world.query::<&A>().iter(&world).len(), 2);
+        assert_eq!(world.query_state::<&A>().iter(&world).len(), 2);
 
         // verify that we can get this newly-spawned entity by the instance ID
         let new_entity = scene_spawner
@@ -531,7 +531,7 @@ mod tests {
 
         // verify this new entity contains the same data as the original entity
         let [old_a, new_a] = world
-            .query::<&A>()
+            .query_state::<&A>()
             .get_many(&world, [entity, new_entity])
             .unwrap();
         assert_eq!(old_a, new_a);

@@ -51,7 +51,7 @@ impl<'w> Benchmark<'w> {
 
         create_entities!(world; A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z);
 
-        let query = world.query();
+        let query = world.query_state();
         Self(world, query)
     }
 

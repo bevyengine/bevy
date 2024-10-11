@@ -31,7 +31,7 @@ impl<'w> Benchmark<'w> {
             .take(10_000),
         );
 
-        let query = world.query::<(&Velocity, &mut Position)>();
+        let query = world.query_state::<(&Velocity, &mut Position)>();
         Self(world, query)
     }
 

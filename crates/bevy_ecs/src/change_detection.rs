@@ -1282,7 +1282,7 @@ mod tests {
 
         // Since the world is always ahead, as long as changes can't get older than `u32::MAX` (which we ensure),
         // the wrapping difference will always be positive, so wraparound doesn't matter.
-        let mut query = world.query::<Ref<C>>();
+        let mut query = world.query_state::<Ref<C>>();
         assert!(query.single(&world).is_changed());
     }
 
@@ -1297,7 +1297,7 @@ mod tests {
         *world.change_tick.get_mut() += MAX_CHANGE_AGE + CHECK_TICK_THRESHOLD;
         let change_tick = world.change_tick();
 
-        let mut query = world.query::<Ref<C>>();
+        let mut query = world.query_state::<Ref<C>>();
         for tracker in query.iter(&world) {
             let ticks_since_insert = change_tick.relative_to(*tracker.ticks.added).get();
             let ticks_since_change = change_tick.relative_to(*tracker.ticks.changed).get();

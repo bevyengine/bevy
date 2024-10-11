@@ -2001,7 +2001,7 @@ mod tests {
     fn query_sorts() {
         let mut world = World::new();
 
-        let mut query = world.query::<Entity>();
+        let mut query = world.query_state::<Entity>();
 
         let sort = query.iter(&world).sort::<Entity>().collect::<Vec<_>>();
 
@@ -2074,7 +2074,7 @@ mod tests {
         world.spawn((A(2.22),));
 
         {
-            let mut query = world.query::<&A>();
+            let mut query = world.query_state::<&A>();
             let mut iter = query.iter(&world);
             println!(
                 "archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
@@ -2104,7 +2104,7 @@ mod tests {
         world.spawn((Sparse(33),));
 
         {
-            let mut query = world.query::<&Sparse>();
+            let mut query = world.query_state::<&Sparse>();
             let mut iter = query.iter(&world);
             println!(
                 "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
@@ -2129,7 +2129,7 @@ mod tests {
     fn empty_query_sort_after_next_does_not_panic() {
         let mut world = World::new();
         {
-            let mut query = world.query::<(&A, &Sparse)>();
+            let mut query = world.query_state::<(&A, &Sparse)>();
             let mut iter = query.iter(&world);
             println!(
                 "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
@@ -2157,7 +2157,7 @@ mod tests {
         world.spawn((A(1.1), Sparse(22)));
         world.spawn((A(2.22), Sparse(33)));
         {
-            let mut query = world.query::<(&A, &Sparse)>();
+            let mut query = world.query_state::<(&A, &Sparse)>();
             let mut iter = query.iter(&world);
             println!(
                 "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",

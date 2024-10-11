@@ -1271,7 +1271,7 @@ mod tests {
             .add_children(&[child])
             .id();
 
-        let mut query = world.query::<&Children>();
+        let mut query = world.query_state::<&Children>();
         let children = query.get(&world, parent).unwrap();
         assert_eq!(**children, [child]);
     }
@@ -1281,7 +1281,7 @@ mod tests {
         let mut world = World::new();
         let parent = world.spawn_empty().add_children(&[]).id();
 
-        let mut query = world.query::<&Children>();
+        let mut query = world.query_state::<&Children>();
         let children = query.get(&world, parent);
         assert!(children.is_err());
     }
