@@ -44,7 +44,7 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::{Commands, Resource},
+    system::{Commands, Query, Resource},
     world::{
         command_queue::RawCommandQueue,
         error::{EntityFetchError, TryRunScheduleError},
@@ -1579,8 +1579,21 @@ impl World {
         self.last_change_tick = self.increment_change_tick();
     }
 
+    /// Returns a [`Query`] for the given [`QueryData`].
+    pub fn query<D: QueryData>(&mut self) -> Query<'_, 'static, D, ()> {
+        self.query_state_filtered::<D, ()>().into_query(self)
+    }
+
+    /// Returns a [`Query`] for the given filtered [`QueryData`].
+    pub fn query_filtered<D: QueryData, F: QueryFilter>(&mut self) -> Query<'_, 'static, D, F> {
+        self.query_state_filtered::<D, F>().into_query(self)
+    }
+
     /// Returns [`QueryState`] for the given [`QueryData`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
+    ///
+    /// # Examples
+    ///
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World};
     ///
@@ -1648,6 +1661,9 @@ impl World {
 
     /// Returns [`QueryState`] for the given filtered [`QueryData`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
+    ///
+    /// # Examples
+    ///
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World, query::With};
     ///

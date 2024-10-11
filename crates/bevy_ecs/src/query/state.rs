@@ -8,8 +8,10 @@ use crate::{
         Access, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter,
     },
     storage::{SparseSetIndex, TableId},
+    system::Query,
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
+use alloc::borrow::Cow;
 use bevy_utils::tracing::warn;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Span;
@@ -154,6 +156,41 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &*ptr::from_ref(self).cast::<QueryState<NewD, NewF>>()
     }
 
+    /// Converts this `QueryState` into a `QueryState` that does not access anything mutably.
+    pub fn into_readonly(self) -> QueryState<D::ReadOnly, F> {
+        // SAFETY: invariant on `WorldQuery` trait upholds that `D::ReadOnly` and `F::ReadOnly`
+        // have a subset of the access, and match the exact same archetypes/tables as `D`/`F` respectively.
+        unsafe { self.into_transmuted_state::<D::ReadOnly, F>() }
+    }
+
+    /// Converts this `QueryState` into any other `QueryState` with
+    /// the same `WorldQuery::State` associated types.
+    ///
+    /// Consider using `into_readonly` or `into_nop` instead which are safe functions.
+    ///s
+    /// # Safety
+    ///
+    /// `NewD` must have a subset of the access that `D` does and match the exact same archetypes/tables
+    /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
+    pub(crate) unsafe fn into_transmuted_state<
+        NewD: QueryData<State = D::State>,
+        NewF: QueryFilter<State = F::State>,
+    >(
+        self,
+    ) -> QueryState<NewD, NewF> {
+        QueryState {
+            world_id: self.world_id,
+            archetype_generation: self.archetype_generation,
+            matched_tables: self.matched_tables,
+            matched_archetypes: self.matched_archetypes,
+            component_access: self.component_access,
+            matched_storage_ids: self.matched_storage_ids,
+            is_dense: self.is_dense,
+            fetch_state: self.fetch_state,
+            filter_state: self.filter_state,
+        }
+    }
+
     /// Returns the components accessed by this query.
     pub fn component_access(&self) -> &FilteredAccess<ComponentId> {
         &self.component_access
@@ -267,6 +304,62 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         };
         state.update_archetypes(builder.world());
         state
+    }
+
+    /// Creates a [`Query`] using this state and the given [`World`].
+    pub fn as_query<'w>(&mut self, world: &'w mut World) -> Query<'w, '_, D, F> {
+        let (last_run, this_run) = (world.last_change_tick(), world.change_tick());
+        // SAFETY: `&mut World` ensures that we have exclusive access to the world.
+        unsafe {
+            Query::new(
+                world.as_unsafe_world_cell(),
+                Cow::Borrowed(self),
+                last_run,
+                this_run,
+            )
+        }
+    }
+
+    /// Creates a [`Query`] with read-only access using this state and the given [`World`].
+    pub fn as_readonly_query<'w>(&self, world: &'w World) -> Query<'w, '_, D::ReadOnly, F> {
+        let (last_run, this_run) = (world.last_change_tick(), world.read_change_tick());
+        // SAFETY: `&World` ensures that we have read-only access to the world.
+        unsafe {
+            Query::new(
+                world.as_unsafe_world_cell_readonly(),
+                Cow::Borrowed(self.as_readonly()),
+                last_run,
+                this_run,
+            )
+        }
+    }
+
+    /// Creates a [`Query`] using this state and the given [`World`].
+    pub fn into_query(self, world: &mut World) -> Query<'_, 'static, D, F> {
+        let (last_run, this_run) = (world.last_change_tick(), world.change_tick());
+        // SAFETY: `&mut World` ensures that we have exclusive access to the world.
+        unsafe {
+            Query::new(
+                world.as_unsafe_world_cell(),
+                Cow::Owned(self),
+                last_run,
+                this_run,
+            )
+        }
+    }
+
+    /// Creates a [`Query`] with read-only access using this state and the given [`World`].
+    pub fn into_readonly_query(self, world: &World) -> Query<'_, 'static, D::ReadOnly, F> {
+        let (last_run, this_run) = (world.last_change_tick(), world.read_change_tick());
+        // SAFETY: `&World` ensures that we have read-only access to the world.
+        unsafe {
+            Query::new(
+                world.as_unsafe_world_cell_readonly(),
+                Cow::Owned(self.into_readonly()),
+                last_run,
+                this_run,
+            )
+        }
     }
 
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
@@ -1731,6 +1824,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D, F> {
     fn from(mut value: QueryBuilder<D, F>) -> Self {
         QueryState::from_builder(&mut value)
+    }
+}
+
+impl<D: QueryData, F: QueryFilter> From<Query<'_, '_, D, F>> for QueryState<D, F> {
+    fn from(query: Query<'_, '_, D, F>) -> Self {
+        query.into_state()
     }
 }
 

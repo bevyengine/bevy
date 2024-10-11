@@ -463,6 +463,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         }
     }
 
+    /// Returns the backing [`QueryState`] of this query.
+    /// If the state was borrowed when this query was created,
+    /// a clone of the state will be returned.
+    pub fn into_state(self) -> QueryState<D, F> {
+        self.state.into_owned()
+    }
+
     /// Returns an [`Iterator`] over the read-only query items.
     ///
     /// This iterator is always guaranteed to return results from each matching entity once and only once.
