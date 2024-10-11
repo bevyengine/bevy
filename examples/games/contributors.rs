@@ -216,7 +216,7 @@ fn select(
         contributor.num_commits,
         if contributor.num_commits > 1 { "s" } else { "" }
     );
-    writer.style(entity, 0).color = sprite.color;
+    writer.color(entity, 0).0 = sprite.color;
 }
 
 /// Change the tint color to the "deselected" color and push

@@ -339,8 +339,15 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     /// Gets the [`TextStyle`] of a text span within a text block at a specific index in the flattened span list.
     ///
     /// Panics if there is no span at the requested index.
-    pub fn style(&mut self, root_entity: Entity, index: usize) -> Mut<TextFont> {
+    pub fn font(&mut self, root_entity: Entity, index: usize) -> Mut<TextFont> {
         self.get_font(root_entity, index).unwrap()
+    }
+
+    /// Gets the [`TextColor`] of a text span within a text block at a specific index in the flattened span list.
+    ///
+    /// Panics if there is no span at the requested index.
+    pub fn color(&mut self, root_entity: Entity, index: usize) -> Mut<TextColor> {
+        self.get_color(root_entity, index).unwrap()
     }
 
     /// Invokes a callback on each span in a text block, starting with the root entity.
