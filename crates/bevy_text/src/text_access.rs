@@ -100,10 +100,15 @@ impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
         self.get(root_entity, index).map(|(_, _, text, _, _)| text)
     }
 
-    /// Gets the [`TextStyle`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_style(&mut self, root_entity: Entity, index: usize) -> Option<&TextFont> {
+    /// Gets the [`TextFont`] of a text span within a text block at a specific index in the flattened span list.
+    pub fn get_font(&mut self, root_entity: Entity, index: usize) -> Option<&TextFont> {
+        self.get(root_entity, index).map(|(_, _, _, font, _)| font)
+    }
+
+    /// Gets the [`TextColor`] of a text span within a text block at a specific index in the flattened span list.
+    pub fn get_color(&mut self, root_entity: Entity, index: usize) -> Option<Color> {
         self.get(root_entity, index)
-            .map(|(_, _, _, style, _)| style)
+            .map(|(_, _, _, _, color)| color)
     }
 
     /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
@@ -117,7 +122,7 @@ impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
     ///
     /// Panics if there is no span at the requested index.
     pub fn style(&mut self, root_entity: Entity, index: usize) -> &TextFont {
-        self.get_style(root_entity, index).unwrap()
+        self.get_font(root_entity, index).unwrap()
     }
 }
 
