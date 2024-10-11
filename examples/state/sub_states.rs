@@ -187,9 +187,9 @@ mod ui {
                             Text::new("Play"),
                             TextFont {
                                 font_size: 33.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
             })
@@ -239,9 +239,9 @@ mod ui {
                             Text::new("Paused"),
                             TextFont {
                                 font_size: 33.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
             });

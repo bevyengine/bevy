@@ -372,9 +372,9 @@ mod ui {
                             Text::new("Play"),
                             TextFont {
                                 font_size: 33.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
 
@@ -404,9 +404,9 @@ mod ui {
                             Text::new("Tutorial"),
                             TextFont {
                                 font_size: 33.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
             })
@@ -502,9 +502,9 @@ mod ui {
                             Text::new("Paused"),
                             TextFont {
                                 font_size: 33.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
             });
@@ -534,9 +534,9 @@ mod ui {
                     Text::new("TURBO MODE"),
                     TextFont {
                         font_size: 33.0,
-                        color: Color::srgb(0.9, 0.3, 0.1),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.9, 0.3, 0.1)),
                 ));
             });
     }
@@ -576,35 +576,35 @@ mod ui {
                     Text::new("Move the bevy logo with the arrow keys"),
                     TextFont {
                         font_size: 33.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
                 parent.spawn((
                     Text::new("Press T to enter TURBO MODE"),
                     TextFont {
                         font_size: 33.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
 
                 parent.spawn((
                     Text::new("Press SPACE to pause"),
                     TextFont {
                         font_size: 33.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
 
                 parent.spawn((
                     Text::new("Press ESCAPE to return to the menu"),
                     TextFont {
                         font_size: 33.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
             });
     }
@@ -633,18 +633,18 @@ mod ui {
                     Text::new("Press SPACE to resume"),
                     TextFont {
                         font_size: 33.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
 
                 parent.spawn((
                     Text::new("Press ESCAPE to return to the menu"),
                     TextFont {
                         font_size: 33.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
             });
     }

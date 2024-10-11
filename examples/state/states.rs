@@ -82,9 +82,9 @@ fn setup_menu(mut commands: Commands) {
                         Text::new("Play"),
                         TextFont {
                             font_size: 33.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
                             ..default()
                         },
+                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
                     ));
                 });
         })

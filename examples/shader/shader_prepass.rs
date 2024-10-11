@@ -229,8 +229,8 @@ fn toggle_prepass_view(
         };
         let text = text.single();
         *writer.text(text, 1) = format!("Prepass Output: {label}\n");
-        writer.for_each_font(text, |mut style| {
-            style.color = Color::WHITE;
+        writer.for_each_color(text, |mut color| {
+            color.0 = Color::WHITE;
         });
 
         let handle = material_handle.single();
