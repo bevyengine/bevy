@@ -274,9 +274,9 @@ fn setup_node_rects(commands: &mut Commands) {
                 Text::new(node_string),
                 TextFont {
                     font_size: 16.0,
-                    color: ANTIQUE_WHITE.into(),
                     ..default()
                 },
+                TextColor(ANTIQUE_WHITE.into()),
                 TextLayout::new_with_justify(JustifyText::Center),
             ))
             .id();

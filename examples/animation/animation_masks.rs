@@ -237,19 +237,18 @@ fn setup_ui(mut commands: Commands) {
 // The button will automatically become a child of the parent that owns the
 // given `ChildBuilder`.
 fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, mask_group_id: u32) {
-    let button_text_style = TextFont {
-        font_size: 14.0,
-        color: Color::WHITE,
-        ..default()
-    };
-    let selected_button_text_style = TextFont {
-        color: Color::BLACK,
-        ..button_text_style.clone()
-    };
-    let label_text_style = TextFont {
-        color: Color::Srgba(LIGHT_GRAY),
-        ..button_text_style.clone()
-    };
+    let button_text_style = (
+        TextFont {
+            font_size: 14.0,
+            ..default()
+        },
+        TextColor::WHITE,
+    );
+    let selected_button_text_style = (button_text_style.0.clone(), TextColor::BLACK);
+    let label_text_style = (
+        button_text_style.0.clone(),
+        TextColor(Color::Srgba(LIGHT_GRAY)),
+    );
 
     parent
         .spawn(NodeBundle {
@@ -493,8 +492,8 @@ fn update_ui(
                 continue;
             };
 
-            writer.for_each_font(text, |mut style| {
-                style.color = if enabled { Color::BLACK } else { Color::WHITE };
+            writer.for_each_color(text, |mut color| {
+                color.0 = if enabled { Color::BLACK } else { Color::WHITE };
             });
         }
     }
