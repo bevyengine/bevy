@@ -30,7 +30,7 @@ fn minimise_automatically(
     let mut window = windows.single_mut();
     window.set_minimized(true);
 
-    *done = true
+    *done = true;
 }
 
 /// A simple 3d scene, taken from the `3d_scene` example
