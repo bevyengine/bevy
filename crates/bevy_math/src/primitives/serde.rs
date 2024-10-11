@@ -41,9 +41,9 @@ pub(crate) mod array {
         {
             let mut data = [const { Option::<T>::None }; N];
 
-            for i in 0..N {
+            for element in data.iter_mut() {
                 match (seq.next_element())? {
-                    Some(val) => data[i] = Some(val),
+                    Some(val) => *element = Some(val),
                     None => return Err(serde::de::Error::invalid_length(N, &self)),
                 }
             }
