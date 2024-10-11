@@ -283,7 +283,7 @@ impl Arc2d {
 )]
 pub struct CircularSector {
     /// The arc defining the sector
-    #[cfg_attr(feature = "serialize", serde(flatten))]
+    #[cfg_attr(all(feature = "serialize", feature = "alloc"), serde(flatten))]
     pub arc: Arc2d,
 }
 impl Primitive2d for CircularSector {}
@@ -416,7 +416,7 @@ impl CircularSector {
 )]
 pub struct CircularSegment {
     /// The arc defining the segment
-    #[cfg_attr(feature = "serialize", serde(flatten))]
+    #[cfg_attr(all(feature = "serialize", feature = "alloc"), serde(flatten))]
     pub arc: Arc2d,
 }
 impl Primitive2d for CircularSegment {}

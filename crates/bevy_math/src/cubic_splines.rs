@@ -1248,7 +1248,7 @@ impl<P: VectorSpace> CubicCurve<P> {
     }
 }
 
-#[cfg(feature = "curve")]
+#[cfg(all(feature = "curve", feature = "alloc"))]
 impl<P: VectorSpace> Curve<P> for CubicCurve<P> {
     #[inline]
     fn domain(&self) -> Interval {
@@ -1583,7 +1583,7 @@ impl<P: VectorSpace> RationalCurve<P> {
     }
 }
 
-#[cfg(feature = "curve")]
+#[cfg(all(feature = "curve", feature = "alloc"))]
 impl<P: VectorSpace> Curve<P> for RationalCurve<P> {
     #[inline]
     fn domain(&self) -> Interval {

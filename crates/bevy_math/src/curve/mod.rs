@@ -7,21 +7,27 @@ pub mod cores;
 pub mod easing;
 pub mod interval;
 pub mod iterable;
+
+#[cfg(feature = "alloc")]
 pub mod sample_curves;
 
 // bevy_math::curve re-exports all commonly-needed curve-related items.
 pub use adaptors::*;
 pub use easing::*;
 pub use interval::{interval, Interval};
-pub use sample_curves::*;
 
-use cores::{EvenCore, UnevenCore};
+#[cfg(feature = "alloc")]
+pub use {
+    crate::StableInterpolate,
+    cores::{EvenCore, UnevenCore},
+    itertools::Itertools,
+    sample_curves::*,
+};
 
-use crate::{StableInterpolate, VectorSpace};
+use crate::VectorSpace;
 use core::{marker::PhantomData, ops::Deref};
 use derive_more::derive::{Display, Error};
 use interval::InvalidIntervalError;
-use itertools::Itertools;
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 ///
@@ -437,6 +443,7 @@ pub trait Curve<T> {
     /// // A curve which only stores three data points and uses `nlerp` to interpolate them:
     /// let resampled_rotation = quarter_rotation.resample(3, |x, y, t| x.nlerp(*y, t));
     /// ```
+    #[cfg(feature = "alloc")]
     fn resample<I>(
         &self,
         segments: usize,
@@ -464,6 +471,7 @@ pub trait Curve<T> {
     /// domain, then a [`ResamplingError`] is returned.
     ///
     /// [automatic interpolation]: crate::common_traits::StableInterpolate
+    #[cfg(feature = "alloc")]
     fn resample_auto(&self, segments: usize) -> Result<SampleAutoCurve<T>, ResamplingError>
     where
         Self: Sized,
@@ -515,6 +523,7 @@ pub trait Curve<T> {
     /// The interpolation takes two values by reference together with a scalar parameter and
     /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
     /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
+    #[cfg(feature = "alloc")]
     fn resample_uneven<I>(
         &self,
         sample_times: impl IntoIterator<Item = f32>,
@@ -553,6 +562,7 @@ pub trait Curve<T> {
     /// sample times of the iterator.
     ///
     /// [automatic interpolation]: crate::common_traits::StableInterpolate
+    #[cfg(feature = "alloc")]
     fn resample_uneven_auto(
         &self,
         sample_times: impl IntoIterator<Item = f32>,
