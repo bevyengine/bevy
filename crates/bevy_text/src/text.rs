@@ -190,7 +190,7 @@ world.spawn((
 */
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(TextFont)]
+#[require(TextFont, TextColor)]
 pub struct TextSpan(pub String);
 
 impl TextSpan {
