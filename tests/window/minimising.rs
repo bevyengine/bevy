@@ -18,17 +18,13 @@ fn main() {
         .run();
 }
 
-fn minimise_automatically(
-    mut windows: Query<&mut Window>,
-    frames: Res<FrameCount>,
-) {
+fn minimise_automatically(mut windows: Query<&mut Window>, frames: Res<FrameCount>) {
     if frames.0 != 60 {
         return;
     }
 
     let mut window = windows.single_mut();
     window.set_minimized(true);
-
 }
 
 /// A simple 3d scene, taken from the `3d_scene` example
