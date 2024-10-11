@@ -95,39 +95,24 @@ pub(super) fn ray_intersection_over_mesh(
             mesh_transform,
             vertex_positions,
             vertex_normals,
-            None::<&Vec<u32>>,
+            None::<&[usize]>,
             backface_culling,
         )
     }
 }
 
-/// A trait for converting a value into a [`usize`].
-pub trait IntoUsize: Copy {
-    /// Converts the value into a [`usize`].
-    fn into_usize(self) -> usize;
-}
-
-impl IntoUsize for u16 {
-    fn into_usize(self) -> usize {
-        self as usize
-    }
-}
-
-impl IntoUsize for u32 {
-    fn into_usize(self) -> usize {
-        self as usize
-    }
-}
-
 /// Checks if a ray intersects a mesh, and returns the nearest intersection if one exists.
-pub fn ray_mesh_intersection(
+pub fn ray_mesh_intersection<Index: Clone + Copy>(
     ray: Ray3d,
     mesh_transform: &Mat4,
     vertex_positions: &[[f32; 3]],
     vertex_normals: Option<&[[f32; 3]]>,
-    indices: Option<&Vec<impl IntoUsize>>,
+    indices: Option<&[Index]>,
     backface_culling: Backfaces,
-) -> Option<RayMeshHit> {
+) -> Option<RayMeshHit>
+where
+    usize: TryFrom<Index>,
+{
     // The ray cast can hit the same mesh many times, so we need to track which hit is
     // closest to the camera, and record that.
     let mut closest_hit_distance = f32::MAX;
@@ -150,18 +135,23 @@ pub fn ray_mesh_intersection(
         // Now that we're in the vector of vertex indices, we want to look at the vertex
         // positions for each triangle, so we'll take indices in chunks of three, where each
         // chunk of three indices are references to the three vertices of a triangle.
-        for index in indices.chunks_exact(3) {
-            let triangle_index = Some(index[0].into_usize());
+        for index_chunk in indices.chunks_exact(3) {
+            let [index1, index2, index3] = [
+                usize::try_from(index_chunk[0]).ok()?,
+                usize::try_from(index_chunk[1]).ok()?,
+                usize::try_from(index_chunk[2]).ok()?,
+            ];
+            let triangle_index = Some(index1);
             let tri_vertex_positions = [
-                Vec3A::from(vertex_positions[index[0].into_usize()]),
-                Vec3A::from(vertex_positions[index[1].into_usize()]),
-                Vec3A::from(vertex_positions[index[2].into_usize()]),
+                Vec3A::from(vertex_positions[index1]),
+                Vec3A::from(vertex_positions[index2]),
+                Vec3A::from(vertex_positions[index3]),
             ];
             let tri_normals = vertex_normals.map(|normals| {
                 [
-                    Vec3A::from(normals[index[0].into_usize()]),
-                    Vec3A::from(normals[index[1].into_usize()]),
-                    Vec3A::from(normals[index[2].into_usize()]),
+                    Vec3A::from(normals[index1]),
+                    Vec3A::from(normals[index2]),
+                    Vec3A::from(normals[index3]),
                 ]
             });
 
