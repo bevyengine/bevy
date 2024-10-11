@@ -42,12 +42,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
     commands.spawn(Camera2d);
 
-    let text_style = TextFont {
-        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-        font_size: 33.0,
-        color: Color::srgb(0.9, 0.9, 0.9),
-        ..default()
-    };
+    let text_style = (
+        TextFont {
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 33.0,
+            ..Default::default()
+        },
+        TextColor(Color::srgb(0.9, 0.9, 0.9)),
+    );
 
     commands
         .spawn(NodeBundle {
@@ -150,7 +152,11 @@ fn spawn_bar(parent: &mut ChildBuilder) {
         });
 }
 
-fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_style: TextFont) {
+fn spawn_button_row(
+    parent: &mut ChildBuilder,
+    constraint: Constraint,
+    text_style: (TextFont, TextColor),
+) {
     let label = match constraint {
         Constraint::FlexBasis => "flex_basis",
         Constraint::Width => "size",
@@ -229,7 +235,7 @@ fn spawn_button(
     constraint: Constraint,
     action: ButtonValue,
     label: String,
-    text_style: TextFont,
+    text_style: (TextFont, TextColor),
     active: bool,
 ) {
     parent
@@ -271,14 +277,12 @@ fn spawn_button(
                 })
                 .with_child((
                     Text::new(label),
-                    TextFont {
-                        color: if active {
-                            ACTIVE_TEXT_COLOR
-                        } else {
-                            UNHOVERED_TEXT_COLOR
-                        },
-                        ..text_style
-                    },
+                    text_style.0,
+                    TextColor(if active {
+                        ACTIVE_TEXT_COLOR
+                    } else {
+                        UNHOVERED_TEXT_COLOR
+                    }),
                     TextLayout::new_with_justify(JustifyText::Center),
                 ));
         });
@@ -290,7 +294,7 @@ fn update_buttons(
         Changed<Interaction>,
     >,
     mut bar_query: Query<&mut Style, With<Bar>>,
-    mut text_query: Query<&mut TextFont>,
+    mut text_query: Query<&mut TextColor>,
     children_query: Query<&Children>,
     mut button_activated_event: EventWriter<ButtonActivatedEvent>,
 ) {
@@ -319,9 +323,9 @@ fn update_buttons(
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
                             for &grandchild in grand_children {
-                                if let Ok(mut style) = text_query.get_mut(grandchild) {
-                                    if style.color != ACTIVE_TEXT_COLOR {
-                                        style.color = HOVERED_TEXT_COLOR;
+                                if let Ok(mut text_color) = text_query.get_mut(grandchild) {
+                                    if text_color.0 != ACTIVE_TEXT_COLOR {
+                                        text_color.0 = HOVERED_TEXT_COLOR;
                                     }
                                 }
                             }
@@ -334,9 +338,9 @@ fn update_buttons(
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
                             for &grandchild in grand_children {
-                                if let Ok(mut style) = text_query.get_mut(grandchild) {
-                                    if style.color != ACTIVE_TEXT_COLOR {
-                                        style.color = UNHOVERED_TEXT_COLOR;
+                                if let Ok(mut text_color) = text_query.get_mut(grandchild) {
+                                    if text_color.0 != ACTIVE_TEXT_COLOR {
+                                        text_color.0 = UNHOVERED_TEXT_COLOR;
                                     }
                                 }
                             }
@@ -353,14 +357,14 @@ fn update_radio_buttons_colors(
     button_query: Query<(Entity, &Constraint, &Interaction)>,
     mut border_query: Query<&mut BorderColor>,
     mut color_query: Query<&mut BackgroundColor>,
-    mut text_query: Query<&mut TextFont>,
+    mut text_query: Query<&mut TextColor>,
     children_query: Query<&Children>,
 ) {
     for &ButtonActivatedEvent(button_id) in event_reader.read() {
         let (_, target_constraint, _) = button_query.get(button_id).unwrap();
         for (id, constraint, interaction) in button_query.iter() {
             if target_constraint == constraint {
-                let (border_color, inner_color, text_color) = if id == button_id {
+                let (border_color, inner_color, label_color) = if id == button_id {
                     (ACTIVE_BORDER_COLOR, ACTIVE_INNER_COLOR, ACTIVE_TEXT_COLOR)
                 } else {
                     (
@@ -378,8 +382,8 @@ fn update_radio_buttons_colors(
                 for &child in children_query.get(id).into_iter().flatten() {
                     color_query.get_mut(child).unwrap().0 = inner_color;
                     for &grandchild in children_query.get(child).into_iter().flatten() {
-                        if let Ok(mut style) = text_query.get_mut(grandchild) {
-                            style.color = text_color;
+                        if let Ok(mut text_color) = text_query.get_mut(grandchild) {
+                            text_color.0 = label_color;
                         }
                     }
                 }

@@ -74,9 +74,9 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextFont {
                 font: font.clone(),
                 font_size: 25.0,
-                color: YELLOW.into(),
                 ..default()
             },
+            TextColor(YELLOW.into()),
             TextLayout::new_with_justify(JustifyText::Right),
             Style {
                 max_width: Val::Px(300.),
@@ -117,10 +117,10 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             "This text is very long, has a limited width, is center-justified, is positioned in the top right and is also colored pink."),
             TextFont {
                 font: font.clone(),
-                font_size: 33.0,
-                color: Color::srgb(0.8, 0.2, 0.7),
+                font_size: 33.0,                
                 ..default()
             },
+            TextColor(Color::srgb(0.8, 0.2, 0.7)),
             TextLayout::new_with_justify(JustifyText::Center),
             Style {
                 max_width: Val::Px(400.),
@@ -133,9 +133,9 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextFont {
                 font: font.clone(),
                 font_size: 29.0,
-                color: YELLOW.into(),
                 ..default()
             },
+            TextColor(YELLOW.into()),
             TextLayout::new_with_justify(JustifyText::Left),
             Style {
                 max_width: Val::Px(300.),
@@ -149,10 +149,10 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextFont {
                 font: font.clone(),
                 font_size: 29.0,
-                color: GREEN_YELLOW.into(),
                 ..default()
             },
             TextLayout::new_with_justify(JustifyText::Justified),
+            TextColor(GREEN_YELLOW.into()),
             Style {
                 max_width: Val::Px(300.),
                 ..default()
@@ -184,64 +184,64 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextSpan::new(" this text has zero fontsize"),
                 TextFont {
                     font: font.clone(),
-                    font_size: 0.0,
-                    color: BLUE.into(),
+                    font_size: 0.0,                    
                     ..default()
                 },
+                TextColor(BLUE.into()),
             ));
             p.spawn((
                 TextSpan::new("\nThis text changes in the bottom right - "),
                 TextFont {
                     font: font.clone(),
                     font_size: 21.0,
-                    color: RED.into(),
                     ..default()
                 },
+                TextColor(RED.into()),
             ));
             p.spawn((
                 TextSpan::default(),
                 TextFont {
                     font: font.clone(),
-                    font_size: 21.0,
-                    color: ORANGE_RED.into(),
+                    font_size: 21.0,                    
                     ..default()
-                }
+                },
+                TextColor(ORANGE_RED.into()),
             ));
             p.spawn((
                 TextSpan::new(" fps, "),
                 TextFont {
                     font: font.clone(),
                     font_size: 10.0,
-                    color: YELLOW.into(),
                     ..default()
                 },
+                TextColor(YELLOW.into()),
             ));
             p.spawn((
                 TextSpan::default(),
                 TextFont {
                     font: font.clone(),
                     font_size: 21.0,
-                    color: LIME.into(),
                     ..default()
-                }
+                },
+                TextColor(LIME.into()),
             ));
             p.spawn((
                 TextSpan::new(" ms/frame"),
                 TextFont {
                     font: font.clone(),
                     font_size: 42.0,
-                    color: BLUE.into(),
                     ..default()
                 },
+                TextColor(BLUE.into()),
             ));
             p.spawn((
                 TextSpan::new(" this text has negative fontsize"),
                 TextFont {
                     font: font.clone(),
                     font_size: -42.0,
-                    color: BLUE.into(),
                     ..default()
                 },
+                TextColor(BLUE.into()),
             ));
         });
     })
