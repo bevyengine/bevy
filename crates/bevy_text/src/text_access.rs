@@ -376,7 +376,7 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
         });
     }
 
-    /// Invokes a callback on each span's [`TextStyle`] in a text block, starting with the root entity.
+    /// Invokes a callback on each span's [`TextFont`] in a text block, starting with the root entity.
     pub fn for_each_font(&mut self, root_entity: Entity, mut callback: impl FnMut(Mut<TextFont>)) {
         self.for_each(root_entity, |_, _, _, font, _| {
             (callback)(font);
