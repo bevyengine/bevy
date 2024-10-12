@@ -154,10 +154,10 @@ impl TextPipeline {
         // in cosmic-text.
         let spans_iter = spans
             .iter()
-            .map(|(span_index, span, style, font_info, color)| {
+            .map(|(span_index, span, text_font, font_info, color)| {
                 (
                     *span,
-                    get_attrs(*span_index, style, *color, font_info, scale_factor),
+                    get_attrs(*span_index, text_font, *color, font_info, scale_factor),
                 )
             });
 
@@ -225,8 +225,8 @@ impl TextPipeline {
         // Extract font ids from the iterator while traversing it.
         let mut glyph_info = core::mem::take(&mut self.glyph_info);
         glyph_info.clear();
-        let text_spans = text_spans.inspect(|(_, _, _, style, _)| {
-            glyph_info.push((style.font.id(), style.font_smoothing));
+        let text_spans = text_spans.inspect(|(_, _, _, text_font, _)| {
+            glyph_info.push((text_font.font.id(), text_font.font_smoothing));
         });
 
         let update_result = self.update_buffer(
@@ -430,12 +430,12 @@ impl TextMeasureInfo {
 }
 
 fn load_font_to_fontdb(
-    style: &TextFont,
+    text_font: &TextFont,
     font_system: &mut cosmic_text::FontSystem,
     map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     fonts: &Assets<Font>,
 ) -> FontFaceInfo {
-    let font_handle = style.font.clone();
+    let font_handle = text_font.font.clone();
     let (face_id, family_name) = map_handle_to_font_id
         .entry(font_handle.id())
         .or_insert_with(|| {
@@ -467,7 +467,7 @@ fn load_font_to_fontdb(
 /// Translates [`TextFont`] to [`Attrs`].
 fn get_attrs<'a>(
     span_index: usize,
-    style: &TextFont,
+    text_font: &TextFont,
     color: Color,
     face_info: &'a FontFaceInfo,
     scale_factor: f64,
@@ -478,7 +478,7 @@ fn get_attrs<'a>(
         .stretch(face_info.stretch)
         .style(face_info.style)
         .weight(face_info.weight)
-        .metrics(Metrics::relative(style.font_size, 1.2).scale(scale_factor as f32))
+        .metrics(Metrics::relative(text_font.font_size, 1.2).scale(scale_factor as f32))
         .color(cosmic_text::Color(color.to_linear().as_u32()));
     attrs
 }
