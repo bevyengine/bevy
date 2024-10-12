@@ -237,7 +237,7 @@ pub unsafe trait SystemParam: Sized {
     ) -> Option<Self::Item<'world, 'state>>;
 
     /// Check if param can be acquired.
-    /// The default implementation relies on [`Self::get_param`],
+    /// The default implementation relies on [`SystemParam::get_param`],
     /// but has to be overwritten in cases like [`NonSend`].
     ///
     /// # Safety

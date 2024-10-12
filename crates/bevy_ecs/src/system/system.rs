@@ -94,21 +94,23 @@ pub trait System: Send + Sync + 'static {
         result
     }
 
-    /// Checks if all parameters can be acquired.
+    /// Checks if initial system params can be acquired.
+    /// When running multiple chained, combined, etc. systems, this
+    /// only checks whether the first system can acquire it's params.
     ///
     /// # Safety
     ///
     /// - Same as [`System::run_unsafe`]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool;
+    unsafe fn can_run_unsafe(&mut self, world: UnsafeWorldCell) -> bool;
 
-    /// Like [`System::validate_param_unsafe`] if all parameters can be acquired.
-    fn validate_param(&mut self, world: &mut World) -> bool {
+    /// Like [`System::can_run_unsafe`], but safe.
+    fn can_run(&mut self, world: &mut World) -> bool {
         let world_cell = world.as_unsafe_world_cell();
         self.update_archetype_component_access(world_cell);
         // SAFETY:
         // - We have exclusive access to the entire world.
         // - `update_archetype_component_access` has been called.
-        unsafe { self.validate_param_unsafe(world_cell) }
+        unsafe { self.can_run_unsafe(world_cell) }
     }
 
     /// Applies any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers) of this system to the world.

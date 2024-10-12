@@ -164,9 +164,9 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn can_run_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
         // SAFETY: Delegate to existing `System` implementations.
-        self.system.validate_param_unsafe(world)
+        self.system.can_run_unsafe(world)
     }
 
     #[inline]
