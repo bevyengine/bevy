@@ -432,6 +432,6 @@ fn make_demo_image(
     let image_handle = image_assets.add(image);
 
     for mut demo_image in &mut demo_images {
-        *demo_image = image_handle.clone();
+        demo_image.image = image_handle.clone();
     }
 }
