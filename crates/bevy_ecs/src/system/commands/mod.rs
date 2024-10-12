@@ -619,7 +619,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
     /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
     ///
-    /// When the command is applied, for each (`Entity, Bundle`) pair in the given batch,
+    /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
     /// the `Bundle` is added to the `Entity`, overwriting any existing components shared by the `Bundle`.
     ///
     /// This method is equivalent to iterating the batch,
@@ -646,7 +646,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
     /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
     ///
-    /// When the command is applied, for each (`Entity, Bundle`) pair in the given batch,
+    /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
     /// the `Bundle` is added to the `Entity`, except for any components already present on the `Entity`.
     ///
     /// This method is equivalent to iterating the batch,
@@ -673,7 +673,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
     /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
     ///
-    /// When the command is applied, for each (`Entity, Bundle`) pair in the given batch,
+    /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
     /// the `Bundle` is added to the `Entity`, overwriting any existing components shared by the `Bundle`.
     ///
     /// This method is equivalent to iterating the batch,
@@ -698,7 +698,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
     /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
     ///
-    /// When the command is applied, for each (`Entity, Bundle`) pair in the given batch,
+    /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
     /// the `Bundle` is added to the `Entity`, except for any components already present on the `Entity`.
     ///
     /// This method is equivalent to iterating the batch,
