@@ -354,7 +354,7 @@ mod tests {
         world.entity_mut(a1).add_children(&[a3]);
 
         let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
-        let (children_query, a_query) = system_state.get(world);
+        let (children_query, a_query) = system_state.get(world).unwrap();
 
         let result: Vec<_> = a_query
             .iter_many(children_query.iter_descendants_depth_first(a0))
@@ -390,7 +390,7 @@ mod tests {
         world.entity_mut(a1).add_children(&[a2]);
 
         let mut system_state = SystemState::<Query<&Parent>>::new(world);
-        let parent_query = system_state.get(world);
+        let parent_query = system_state.get(world).unwrap();
 
         assert_eq!(a0, parent_query.root_ancestor(a2));
         assert_eq!(a0, parent_query.root_ancestor(a1));
@@ -407,7 +407,7 @@ mod tests {
         world.entity_mut(a1).add_children(&[a3]);
 
         let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
-        let (children_query, a_query) = system_state.get(world);
+        let (children_query, a_query) = system_state.get(world).unwrap();
 
         let result: Vec<_> = a_query.iter_many(children_query.iter_leaves(a0)).collect();
 
@@ -425,7 +425,7 @@ mod tests {
 
         let mut system_state =
             SystemState::<(Query<(Option<&Parent>, Option<&Children>)>, Query<&A>)>::new(world);
-        let (hierarchy_query, a_query) = system_state.get(world);
+        let (hierarchy_query, a_query) = system_state.get(world).unwrap();
 
         let result: Vec<_> = a_query
             .iter_many(hierarchy_query.iter_siblings(a1))
