@@ -47,7 +47,7 @@ impl<P: ReflectSerializerProcessor> Serialize for TupleStructSerializer<'_, P> {
             let field = self.tuple_struct.field(0).unwrap();
             return serializer.serialize_newtype_struct(
                 tuple_struct_info.type_path_table().ident().unwrap(),
-                &TypedReflectSerializer::new_internal(field, self.registry),
+                &TypedReflectSerializer::new_internal(field, self.registry, self.processor),
             );
         }
 
