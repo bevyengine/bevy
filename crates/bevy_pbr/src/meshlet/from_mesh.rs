@@ -159,7 +159,7 @@ impl MeshletMesh {
         let mut vertex_uvs = Vec::new();
         let mut bevy_meshlets = Vec::with_capacity(meshlets.len());
         for (i, meshlet) in meshlets.meshlets.iter().enumerate() {
-            build_and_compress_meshlet_vertex_data(
+            build_and_compress_per_meshlet_vertex_data(
                 meshlet,
                 meshlets.get(i).vertices,
                 &vertex_buffer,
@@ -415,7 +415,7 @@ fn split_simplified_group_into_new_meshlets(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn build_and_compress_meshlet_vertex_data(
+fn build_and_compress_per_meshlet_vertex_data(
     meshlet: &meshopt_Meshlet,
     meshlet_vertex_ids: &[u32],
     vertex_buffer: &[u8],
