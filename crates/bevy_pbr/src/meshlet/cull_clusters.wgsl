@@ -141,7 +141,6 @@ fn cull_clusters(
     meshlet_raster_clusters[buffer_slot] = cluster_id;
 }
 
-// TODO: This doesn't account for perspective and other edge cases as well as Nanite does
 // https://github.com/zeux/meshoptimizer/blob/1e48e96c7e8059321de492865165e9ef071bffba/demo/nanite.cpp#L115
 fn lod_error_is_imperceptible(lod_sphere: MeshletBoundingSphere, simplification_error: f32, world_from_local: mat4x4<f32>, world_scale: f32) -> bool {
     let sphere_world_space = (world_from_local * vec4(lod_sphere.center, 1.0)).xyz;
