@@ -263,7 +263,6 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     // Project the world position of the mesh into screen position
     let model = mesh2d_functions::get_world_from_local(vertex.instance_index);
     out.clip_position = mesh2d_functions::mesh2d_position_local_to_clip(model, vec4<f32>(vertex.position, 1.0));
-    // Unpack the `u32` from the vertex buffer into the `vec4<f32>` used by the fragment shader
     out.color = vertex.color;
     return out;
 }
