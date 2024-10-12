@@ -97,6 +97,7 @@ use {
     crate::retained::extract_linegizmos,
     bevy_ecs::{
         component::Component,
+        entity::Entity,
         query::ROQueryItem,
         system::{
             lifetimeless::{Read, SRes},
@@ -113,7 +114,7 @@ use {
             ShaderStages, ShaderType, VertexFormat,
         },
         renderer::RenderDevice,
-        sync_world::TemporaryRenderEntity,
+        sync_world::{MainEntity, TemporaryRenderEntity},
         Extract, ExtractSchedule, Render, RenderApp, RenderSet,
     },
     bytemuck::cast_slice,

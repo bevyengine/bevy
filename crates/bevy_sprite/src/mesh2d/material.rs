@@ -17,7 +17,7 @@ use bevy_ecs::{
 };
 use bevy_math::FloatOrd;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
+use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     mesh::{MeshVertexBufferLayoutRef, RenderMesh},
@@ -501,8 +501,7 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     ) -> RenderCommandResult {
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();
-        let Some(material_instance) = material_instances.get(&MainEntity::from(item.entity()))
-        else {
+        let Some(material_instance) = material_instances.get(&item.main_entity()) else {
             return RenderCommandResult::Skip;
         };
         let Some(material2d) = materials.get(*material_instance) else {
