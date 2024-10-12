@@ -24,9 +24,12 @@ use smallvec::SmallVec;
 /// Snaps vertices to the nearest 1/16th of a centimeter (1/2^4).
 pub const DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR: u8 = 4;
 
-const TARGET_MESHLETS_PER_GROUP: usize = 8;
 const MESHLET_VERTEX_SIZE_IN_BYTES: usize = 32;
 const CENTIMETERS_PER_METER: f32 = 100.0;
+
+const TARGET_MESHLETS_PER_GROUP: usize = 8;
+// Reject groups that keep at least 95% of their original triangles
+const SIMPLIFICATION_FAILURE_PERCENTAGE: f32 = 0.95;
 
 impl MeshletMesh {
     /// Process a [`Mesh`] to generate a [`MeshletMesh`].
@@ -325,8 +328,10 @@ fn simplify_meshlet_group(
         Some(&mut error),
     );
 
-    // Check if we were able to simplify at least a little (95% of the original triangle count)
-    if simplified_group_indices.len() as f32 / group_indices.len() as f32 > 0.95 {
+    // Check if we were able to simplify at least a little
+    if simplified_group_indices.len() as f32 / group_indices.len() as f32
+        > SIMPLIFICATION_FAILURE_PERCENTAGE
+    {
         return None;
     }
 
