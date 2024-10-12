@@ -147,15 +147,19 @@ fn lod_error_is_imperceptible(lod_sphere: MeshletBoundingSphere, simplification_
     let radius_world_space = world_scale * lod_sphere.radius;
     let error_world_space = world_scale * simplification_error;
 
-    let distance_to_closest_point_on_sphere = distance(sphere_world_space, view.world_position) - radius_world_space;
-    let distance_to_closest_point_on_sphere_clamped_to_znear = max(distance_to_closest_point_on_sphere, view.clip_from_view[3][2]);
-    var projected_error = error_world_space / distance_to_closest_point_on_sphere_clamped_to_znear;
+    var projected_error = error_world_space;
     if view.clip_from_view[3][3] != 1.0 {
-        projected_error *= view.clip_from_view[1][1];
+        // Perspective
+        let distance_to_closest_point_on_sphere = distance(sphere_world_space, view.world_position) - radius_world_space;
+        let distance_to_closest_point_on_sphere_clamped_to_znear = max(distance_to_closest_point_on_sphere, view.clip_from_view[3][2]);
+        projected_error *= view.clip_from_view[1][1] / distance_to_closest_point_on_sphere_clamped_to_znear;
+    } else {
+        // Orthographic
+        projected_error *= view.clip_from_view[1][1] * 0.5;
     }
     projected_error *= view.viewport.w;
 
-    return projected_error < 1.0;
+    return projected_error < 0.5;
 }
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds
