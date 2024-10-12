@@ -343,7 +343,11 @@ fn toggle_transparency(
     // Remove the primary window's decorations (e.g. borders), make it always on top of other desktop windows, and set the clear color to transparent
     // only if window transparency is enabled
     let clear_color;
-    (primary_window.decorations, primary_window.window_level, clear_color) = if window_transparency.0 {
+    (
+        primary_window.decorations,
+        primary_window.window_level,
+        clear_color,
+    ) = if window_transparency.0 {
         (false, WindowLevel::AlwaysOnTop, Color::NONE)
     } else {
         (true, WindowLevel::Normal, WINDOW_CLEAR_COLOR)

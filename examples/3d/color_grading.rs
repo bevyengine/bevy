@@ -581,10 +581,7 @@ fn update_ui_state(
         }
     }
 
-    let value_label = format!(
-        "{:.3}",
-        currently_selected_option.get(cameras.as_ref())
-    );
+    let value_label = format!("{:.3}", currently_selected_option.get(cameras.as_ref()));
 
     // Update the buttons.
     for (entity, widget) in button_text.iter() {

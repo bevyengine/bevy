@@ -327,7 +327,8 @@ mod tests {
             Schedule,
         },
         system::{
-            Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut, Resource, Single, StaticSystemParam, System, SystemState
+            Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
+            Resource, Single, StaticSystemParam, System, SystemState,
         },
         world::{EntityMut, FromWorld, World},
     };
@@ -1156,8 +1157,11 @@ mod tests {
         world.insert_resource(A(42));
         world.spawn(B(7));
 
-        let mut system_state: SystemState<(Res<A>, Option<Single<&B>>, ParamSet<(Query<&C>, Query<&D>)>)> =
-            SystemState::new(&mut world);
+        let mut system_state: SystemState<(
+            Res<A>,
+            Option<Single<&B>>,
+            ParamSet<(Query<&C>, Query<&D>)>,
+        )> = SystemState::new(&mut world);
         let (a, query, _) = system_state.get(&world);
         assert_eq!(*a, A(42), "returned resource matches initial value");
         assert_eq!(
@@ -1202,7 +1206,8 @@ mod tests {
         let mut world = World::default();
         let entity = world.spawn(A(1)).id();
 
-        let mut system_state: SystemState<Option<Single<&A, Changed<A>>>> = SystemState::new(&mut world);
+        let mut system_state: SystemState<Option<Single<&A, Changed<A>>>> =
+            SystemState::new(&mut world);
         {
             let query = system_state.get(&world);
             assert_eq!(**query.unwrap(), A(1));

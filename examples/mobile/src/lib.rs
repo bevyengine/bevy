@@ -52,8 +52,8 @@ fn touch_camera(
             **camera_transform = Transform::from_xyz(
                 camera_transform.translation.x
                     + (touch.position.x - last_position.x) / window.width() * 5.0,
-                    camera_transform.translation.y,
-                    camera_transform.translation.z
+                camera_transform.translation.y,
+                camera_transform.translation.z
                     + (touch.position.y - last_position.y) / window.height() * 5.0,
             )
             .looking_at(Vec3::ZERO, Vec3::Y);
