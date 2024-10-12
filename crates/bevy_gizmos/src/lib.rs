@@ -476,9 +476,9 @@ struct LineGizmoUniform {
     _padding: f32,
 }
 
-/// A collection of lines.
+/// A collection of gizmos.
 ///
-/// Has the same line drawing API as [`Gizmos`](crate::gizmos::Gizmos).
+/// Has the same gizmo drawing API as [`Gizmos`](crate::gizmos::Gizmos).
 #[derive(Asset, Debug, Clone, TypePath)]
 pub struct GizmoAsset {
     /// vertex buffers.
@@ -487,7 +487,7 @@ pub struct GizmoAsset {
 }
 
 impl GizmoAsset {
-    /// Create a new [`LineGizmoAsset`].
+    /// Create a new [`GizmoAsset`].
     pub fn new() -> Self {
         GizmoAsset {
             buffer: GizmoBuffer::default(),

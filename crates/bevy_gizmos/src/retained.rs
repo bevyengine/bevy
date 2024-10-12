@@ -38,7 +38,7 @@ impl DerefMut for GizmoAsset {
     }
 }
 
-/// A component that draws the lines of a [`LineGizmoAsset`].
+/// A component that draws the gizmos of a [`GizmoAsset`].
 ///
 /// When drawing a greater number of static lines a [`Gizmo`] component can
 /// have far better performance than the [`Gizmos`] system parameter,
