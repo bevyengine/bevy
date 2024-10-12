@@ -13,6 +13,12 @@ use crate::time::Time;
 /// [`TimePlugin`](crate::TimePlugin) and updated with time instants according
 /// to [`TimeUpdateStrategy`](crate::TimeUpdateStrategy).
 ///
+/// Note:
+/// Using [`TimeUpdateStrategy::ManualDuration`](crate::TimeUpdateStrategy::ManualDuration)
+/// allows for mocking the wall clock for testing purposes.
+/// Besides this use case, it is not recommended to do this, as it will no longer
+/// represent "wall clock" time as intended.
+///
 /// The [`delta()`](Time::delta) and [`elapsed()`](Time::elapsed) values of this
 /// clock should be used for anything which deals specifically with real time
 /// (wall clock time). It will not be affected by relative game speed
