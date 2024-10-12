@@ -404,14 +404,14 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
         mut callback: impl FnMut(Entity, usize, Mut<String>, Mut<TextFont>, Mut<TextColor>) -> bool,
     ) {
         // Root
-        let Ok((text, style, color)) = self.roots.get_mut(root_entity) else {
+        let Ok((text, font, color)) = self.roots.get_mut(root_entity) else {
             return;
         };
         if !(callback)(
             root_entity,
             0,
             text.map_unchanged(|t| t.write_span()),
-            style,
+            font,
             color,
         ) {
             return;
@@ -442,7 +442,7 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
                 *idx += 1;
 
                 let entity = *child;
-                let Ok((text, style, color)) = self.spans.get_mut(entity) else {
+                let Ok((text, font, color)) = self.spans.get_mut(entity) else {
                     continue;
                 };
 
@@ -450,7 +450,7 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
                     entity,
                     depth,
                     text.map_unchanged(|t| t.write_span()),
-                    style,
+                    font,
                     color,
                 ) {
                     self.scratch.recover(stack);
