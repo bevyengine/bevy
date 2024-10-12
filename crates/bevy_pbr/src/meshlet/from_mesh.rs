@@ -24,6 +24,7 @@ use smallvec::SmallVec;
 /// Snaps vertices to the nearest 1/16th of a centimeter (1/2^4).
 pub const DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR: u8 = 4;
 
+const TARGET_MESHLETS_PER_GROUP: usize = 8;
 const MESHLET_VERTEX_SIZE_IN_BYTES: usize = 32;
 const CENTIMETERS_PER_METER: f32 = 100.0;
 
@@ -265,7 +266,7 @@ fn find_connected_meshlets(
 fn group_meshlets(
     simplification_queue: Range<usize>,
     connected_meshlets_per_meshlet: &[Vec<(usize, usize)>],
-) -> Vec<Vec<usize>> {
+) -> Vec<SmallVec<[usize; TARGET_MESHLETS_PER_GROUP]>> {
     let mut xadj = Vec::with_capacity(simplification_queue.len() + 1);
     let mut adjncy = Vec::new();
     let mut adjwgt = Vec::new();
@@ -281,15 +282,17 @@ fn group_meshlets(
     xadj.push(adjncy.len() as i32);
 
     let mut group_per_meshlet = vec![0; simplification_queue.len()];
-    let partition_count = simplification_queue.len().div_ceil(4); // TODO: Nanite uses groups of 8-32, probably based on some kind of heuristic
+    let partition_count = simplification_queue
+        .len()
+        .div_ceil(TARGET_MESHLETS_PER_GROUP); // TODO: Nanite uses groups of 8-32, probably based on some kind of heuristic
     Graph::new(1, partition_count as i32, &xadj, &adjncy)
         .unwrap()
+        .set_option(metis::option::Seed(17))
         .set_adjwgt(&adjwgt)
         .part_kway(&mut group_per_meshlet)
         .unwrap();
 
-    let mut groups = vec![Vec::new(); partition_count];
-
+    let mut groups = vec![SmallVec::new(); partition_count];
     for (i, meshlet_group) in group_per_meshlet.into_iter().enumerate() {
         groups[meshlet_group as usize].push(i + simplification_queue.start);
     }
