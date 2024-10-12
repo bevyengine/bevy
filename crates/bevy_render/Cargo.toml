@@ -22,7 +22,7 @@ shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
 shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
 
 # Enable SPIR-V shader passthrough
-spirv_shader_passthrough = ["shader_format_spirv"]
+spirv_shader_passthrough = ["wgpu/spirv"]
 
 trace = ["profiling"]
 tracing-tracy = []
