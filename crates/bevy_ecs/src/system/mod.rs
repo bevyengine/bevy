@@ -1221,7 +1221,7 @@ mod tests {
         world.entity_mut(entity).get_mut::<A>().unwrap().0 = 2;
         {
             let query = system_state.get(&world);
-            assert_eq!(**query.unwrap(), A(1));
+            assert_eq!(**query.unwrap(), A(2));
         }
     }
 
