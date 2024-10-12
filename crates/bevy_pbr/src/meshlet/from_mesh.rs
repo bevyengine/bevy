@@ -111,8 +111,8 @@ impl MeshletMesh {
                 &position_only_vertex_remap,
             );
 
-            // Group meshlets into roughly groups of 4, grouping meshlets with a high number of shared vertices
-            // http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/manual.pdf
+            // Group meshlets into roughly groups of size TARGET_MESHLETS_PER_GROUP,
+            // grouping meshlets with a high number of shared vertices
             let groups = group_meshlets(
                 simplification_queue.clone(),
                 &connected_meshlets_per_meshlet,
@@ -272,6 +272,7 @@ fn find_connected_meshlets(
     connected_meshlets
 }
 
+// METIS manual: http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/manual.pdf
 fn group_meshlets(
     simplification_queue: Range<usize>,
     connected_meshlets_per_meshlet: &[Vec<(usize, usize)>],
