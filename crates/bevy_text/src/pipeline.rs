@@ -105,9 +105,9 @@ impl TextPipeline {
 
         computed.entities.clear();
 
-        for (span_index, (entity, depth, span, style, color)) in text_spans.enumerate() {
+        for (span_index, (entity, depth, span, text_font, color)) in text_spans.enumerate() {
             // Return early if a font is not loaded yet.
-            if !fonts.contains(style.font.id()) {
+            if !fonts.contains(text_font.font.id()) {
                 spans.clear();
                 self.spans_buffer = spans
                     .into_iter()
@@ -125,17 +125,21 @@ impl TextPipeline {
             computed.entities.push(TextEntity { entity, depth });
 
             // Get max font size for use in cosmic Metrics.
-            font_size = font_size.max(style.font_size);
+            font_size = font_size.max(text_font.font_size);
 
             // Load Bevy fonts into cosmic-text's font system.
-            let face_info =
-                load_font_to_fontdb(style, font_system, &mut self.map_handle_to_font_id, fonts);
+            let face_info = load_font_to_fontdb(
+                text_font,
+                font_system,
+                &mut self.map_handle_to_font_id,
+                fonts,
+            );
 
             // Save spans that aren't zero-sized.
-            if scale_factor <= 0.0 || style.font_size <= 0.0 {
+            if scale_factor <= 0.0 || text_font.font_size <= 0.0 {
                 continue;
             }
-            spans.push((span_index, span, style, face_info, color));
+            spans.push((span_index, span, text_font, face_info, color));
         }
 
         let line_height = font_size * 1.2;
