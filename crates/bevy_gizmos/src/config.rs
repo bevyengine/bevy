@@ -7,7 +7,7 @@ pub use bevy_gizmos_macros::GizmoConfigGroup;
     feature = "bevy_render",
     any(feature = "bevy_pbr", feature = "bevy_sprite")
 ))]
-use {crate::LineGizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
+use {crate::GizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
 
 use bevy_ecs::{reflect::ReflectResource, system::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
@@ -145,7 +145,7 @@ pub struct GizmoConfig {
     /// Defaults to `true`.
     pub enabled: bool,
     /// Line settings.
-    pub line: LineGizmoConfig,
+    pub line: GizmoLineConfig,
     /// How closer to the camera than real geometry the gizmos should be.
     ///
     /// In 2D this setting has no effect and is effectively always -1.
@@ -180,7 +180,7 @@ impl Default for GizmoConfig {
 
 /// A struct that stores configuration for gizmos.
 #[derive(Clone, Reflect, Debug)]
-pub struct LineGizmoConfig {
+pub struct GizmoLineConfig {
     /// Line width specified in pixels.
     ///
     /// If `perspective` is `true` then this is the size in pixels at the camera's near plane.
@@ -199,7 +199,7 @@ pub struct LineGizmoConfig {
     pub joints: GizmoLineJoint,
 }
 
-impl Default for LineGizmoConfig {
+impl Default for GizmoLineConfig {
     fn default() -> Self {
         Self {
             width: 2.,
@@ -220,5 +220,5 @@ pub(crate) struct GizmoMeshConfig {
     pub line_style: GizmoLineStyle,
     pub line_joints: GizmoLineJoint,
     pub render_layers: bevy_render::view::RenderLayers,
-    pub handle: Handle<LineGizmoAsset>,
+    pub handle: Handle<GizmoAsset>,
 }

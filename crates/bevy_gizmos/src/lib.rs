@@ -63,12 +63,12 @@ pub mod prelude {
     pub use crate::{
         config::{
             DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore,
-            GizmoLineJoint, GizmoLineStyle, LineGizmoConfig,
+            GizmoLineConfig, GizmoLineJoint, GizmoLineStyle,
         },
         gizmos::Gizmos,
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
-        retained::LineGizmo,
-        AppGizmoBuilder, LineGizmoAsset,
+        retained::Gizmo,
+        AppGizmoBuilder, GizmoAsset,
     };
 
     #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
@@ -161,8 +161,8 @@ impl Plugin for GizmoPlugin {
 
         app.register_type::<GizmoConfig>()
             .register_type::<GizmoConfigStore>()
-            .init_asset::<LineGizmoAsset>()
-            .init_resource::<LineGizmoHandles>()
+            .init_asset::<GizmoAsset>()
+            .init_resource::<GizmoHandles>()
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>();
 
@@ -248,12 +248,12 @@ impl AppGizmoBuilder for App {
             .get_resource_or_init::<GizmoConfigStore>()
             .register::<Config>();
 
-        let mut handles = self.world_mut().get_resource_or_init::<LineGizmoHandles>();
+        let mut handles = self.world_mut().get_resource_or_init::<GizmoHandles>();
 
         handles.handles.insert(TypeId::of::<Config>(), None);
 
         // These handles are safe to mutate in any order
-        self.allow_ambiguous_resource::<LineGizmoHandles>();
+        self.allow_ambiguous_resource::<GizmoHandles>();
 
         self.init_resource::<GizmoStorage<Config, ()>>()
             .init_resource::<GizmoStorage<Config, Fixed>>()
@@ -302,8 +302,8 @@ impl AppGizmoBuilder for App {
 // That way iteration order is stable across executions and depends on the order of configuration
 // group creation.
 #[derive(Resource, Default)]
-struct LineGizmoHandles {
-    handles: TypeIdMap<Option<Handle<LineGizmoAsset>>>,
+struct GizmoHandles {
+    handles: TypeIdMap<Option<Handle<GizmoAsset>>>,
 }
 
 /// Start a new gizmo clearing context.
@@ -379,22 +379,22 @@ pub struct UpdateGizmoMeshes;
 ///
 /// This also clears the default `GizmoStorage`.
 fn update_gizmo_meshes<Config: GizmoConfigGroup>(
-    mut line_gizmos: ResMut<Assets<LineGizmoAsset>>,
-    mut handles: ResMut<LineGizmoHandles>,
+    mut gizmo_assets: ResMut<Assets<GizmoAsset>>,
+    mut handles: ResMut<GizmoHandles>,
     mut storage: ResMut<GizmoStorage<Config, ()>>,
 ) {
     if storage.list_positions.is_empty() && storage.strip_positions.is_empty() {
         handles.handles.insert(TypeId::of::<Config>(), None);
     } else if let Some(handle) = handles.handles.get_mut(&TypeId::of::<Config>()) {
         if let Some(handle) = handle {
-            let linegizmo = line_gizmos.get_mut(handle.id()).unwrap();
+            let gizmo = gizmo_assets.get_mut(handle.id()).unwrap();
 
-            linegizmo.buffer.list_positions = mem::take(&mut storage.list_positions);
-            linegizmo.buffer.list_colors = mem::take(&mut storage.list_colors);
-            linegizmo.buffer.strip_positions = mem::take(&mut storage.strip_positions);
-            linegizmo.buffer.strip_colors = mem::take(&mut storage.strip_colors);
+            gizmo.buffer.list_positions = mem::take(&mut storage.list_positions);
+            gizmo.buffer.list_colors = mem::take(&mut storage.list_colors);
+            gizmo.buffer.strip_positions = mem::take(&mut storage.strip_positions);
+            gizmo.buffer.strip_colors = mem::take(&mut storage.strip_colors);
         } else {
-            let linegizmo = LineGizmoAsset {
+            let gizmo = GizmoAsset {
                 config_ty: TypeId::of::<Config>(),
                 buffer: GizmoBuffer {
                     enabled: true,
@@ -406,7 +406,7 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
                 },
             };
 
-            *handle = Some(line_gizmos.add(linegizmo));
+            *handle = Some(gizmo_assets.add(gizmo));
         }
     }
 }
@@ -414,7 +414,7 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
 #[cfg(feature = "bevy_render")]
 fn extract_gizmo_data(
     mut commands: Commands,
-    handles: Extract<Res<LineGizmoHandles>>,
+    handles: Extract<Res<GizmoHandles>>,
     config: Extract<Res<GizmoConfigStore>>,
 ) {
     use bevy_ecs::entity::Entity;
@@ -482,16 +482,16 @@ struct LineGizmoUniform {
 ///
 /// Has the same line drawing API as [`Gizmos`](crate::gizmos::Gizmos).
 #[derive(Asset, Debug, Clone, TypePath)]
-pub struct LineGizmoAsset {
+pub struct GizmoAsset {
     /// vertex buffers.
     buffer: GizmoBuffer<ErasedGizmoConfigGroup, ()>,
     config_ty: TypeId,
 }
 
-impl LineGizmoAsset {
+impl GizmoAsset {
     /// Create a new [`LineGizmoAsset`].
     pub fn new() -> Self {
-        LineGizmoAsset {
+        GizmoAsset {
             buffer: GizmoBuffer::default(),
             config_ty: TypeId::of::<ErasedGizmoConfigGroup>(),
         }
@@ -503,9 +503,9 @@ impl LineGizmoAsset {
     }
 }
 
-impl Default for LineGizmoAsset {
+impl Default for GizmoAsset {
     fn default() -> Self {
-        LineGizmoAsset::new()
+        GizmoAsset::new()
     }
 }
 
@@ -522,7 +522,7 @@ struct GpuLineGizmo {
 
 #[cfg(feature = "bevy_render")]
 impl RenderAsset for GpuLineGizmo {
-    type SourceAsset = LineGizmoAsset;
+    type SourceAsset = GizmoAsset;
     type Param = SRes<RenderDevice>;
 
     fn prepare_asset(
