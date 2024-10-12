@@ -95,7 +95,7 @@ impl MeshletMesh {
         let (position_only_vertex_count, position_only_vertex_remap) = generate_vertex_remap_multi(
             vertices.vertex_count,
             &[VertexStream::new_with_stride::<Vec3, _>(
-                &vertex_buffer,
+                vertex_buffer.as_ptr(),
                 vertex_stride,
             )],
             Some(&indices),
