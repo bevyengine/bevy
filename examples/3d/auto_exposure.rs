@@ -39,14 +39,12 @@ fn setup(
     let metering_mask = asset_server.load("textures/basic_metering_mask.png");
 
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(1.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Camera3d::default(),
+        Camera {
+            hdr: true,
             ..default()
         },
+        Transform::from_xyz(1.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         AutoExposure {
             metering_mask: metering_mask.clone(),
             ..default()
@@ -98,7 +96,7 @@ fn setup(
                     ),
                     ..default()
                 })),
-                Transform::from_translation(side * 2.0 + height),
+                Transform::from_translation(side * 2.0 + height).looking_at(height, Vec3::Y),
             ));
         }
     }
@@ -131,26 +129,24 @@ fn setup(
 
     let text_style = TextStyle::default();
 
-    commands.spawn(
-        TextBundle::from_section(
-            "Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask",
-            text_style.clone(),
-        )
-        .with_style(Style {
+    commands.spawn((Text::new("Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask"),
+            text_style.clone(), Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
+        })
     );
 
     commands.spawn((
-        TextBundle::from_section("", text_style).with_style(Style {
+        Text::default(),
+        text_style,
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             right: Val::Px(12.0),
             ..default()
-        }),
+        },
         ExampleDisplay,
     ));
 }
@@ -209,7 +205,7 @@ fn example_control_system(
     };
 
     let mut display = display.single_mut();
-    display.sections[0].value = format!(
+    **display = format!(
         "Compensation Curve: {}\nMetering Mask: {}",
         if auto_exposure.compensation_curve == resources.basic_compensation_curve {
             "Enabled"

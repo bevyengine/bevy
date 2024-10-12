@@ -68,11 +68,11 @@ use bevy_utils::{
     tracing::{info_span, instrument::Instrument},
     ConditionalSendFuture,
 };
+use derive_more::derive::{Display, Error};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use parking_lot::RwLock;
 use std::path::{Path, PathBuf};
-use thiserror::Error;
 
 /// A "background" asset processor that reads asset values from a source [`AssetSource`] (which corresponds to an [`AssetReader`](crate::io::AssetReader) / [`AssetWriter`](crate::io::AssetWriter) pair),
 /// processes them in some way, and writes them to a destination [`AssetSource`].
@@ -1413,12 +1413,10 @@ pub enum ProcessorState {
 }
 
 /// An error that occurs when initializing the [`AssetProcessor`].
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 pub enum InitializeError {
-    #[error(transparent)]
     FailedToReadSourcePaths(AssetReaderError),
-    #[error(transparent)]
     FailedToReadDestinationPaths(AssetReaderError),
-    #[error("Failed to validate asset log: {0}")]
+    #[display("Failed to validate asset log: {_0}")]
     ValidateLogError(ValidateLogError),
 }

@@ -93,20 +93,21 @@ fn setup(
     commands.spawn((PointLight::default(), Transform::from_xyz(2.0, 4.0, 2.0)));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // Text used to show controls
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 /// This system let's you toggle various wireframe settings
@@ -116,7 +117,7 @@ fn update_colors(
     mut wireframe_colors: Query<&mut WireframeColor, With<Wireframe>>,
     mut text: Query<&mut Text>,
 ) {
-    text.single_mut().sections[0].value = format!(
+    **text.single_mut() = format!(
         "Controls
 ---------------
 Z - Toggle global

@@ -1,16 +1,16 @@
-use crate::{render_asset::RenderAssetUsages, render_resource::*, texture::DefaultImageSampler};
+use crate::{
+    render_asset::RenderAssetUsages,
+    render_resource::*,
+    renderer::{RenderDevice, RenderQueue},
+    texture::{DefaultImageSampler, GpuImage},
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},
     system::{Resource, SystemParam},
 };
+use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_utils::HashMap;
-
-use crate::{
-    prelude::Image,
-    renderer::{RenderDevice, RenderQueue},
-    texture::{image::TextureFormatPixelInfo, BevyDefault, GpuImage, ImageSampler},
-};
 
 /// A [`RenderApp`](crate::RenderApp) resource that contains the default "fallback image",
 /// which can be used in situations where an image was not explicitly defined. The most common

@@ -255,18 +255,19 @@ fn setup(
         transform_rng: ChaCha8Rng::seed_from_u64(42),
     };
 
-    let text_section = move |color: Srgba, value: &str| {
-        TextSection::new(
-            value,
-            TextStyle {
-                font_size: 40.0,
-                color: color.into(),
-                ..default()
-            },
-        )
+    let lime_text = TextStyle {
+        font_size: 40.0,
+        color: LIME.into(),
+        ..default()
     };
 
-    commands.spawn(Camera2dBundle::default());
+    let aqua_text = TextStyle {
+        font_size: 40.0,
+        color: LIME.into(),
+        ..default()
+    };
+
+    commands.spawn(Camera2d);
     commands
         .spawn((
             NodeBundle {
@@ -280,20 +281,17 @@ fn setup(
             },
             GlobalZIndex(i32::MAX),
         ))
-        .with_children(|c| {
-            c.spawn((
-                TextBundle::from_sections([
-                    text_section(LIME, "Bird Count: "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (raw): "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (SMA): "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (EMA): "),
-                    text_section(AQUA, ""),
-                ]),
-                StatsText,
-            ));
+        .with_children(|p| {
+            p.spawn((Text::default(), StatsText)).with_children(|p| {
+                p.spawn((TextSpan::new("Bird Count: "), lime_text.clone()));
+                p.spawn((TextSpan::new(""), aqua_text.clone()));
+                p.spawn((TextSpan::new("\nFPS (raw): "), lime_text.clone()));
+                p.spawn((TextSpan::new(""), aqua_text.clone()));
+                p.spawn((TextSpan::new("\nFPS (SMA): "), lime_text.clone()));
+                p.spawn((TextSpan::new(""), aqua_text.clone()));
+                p.spawn((TextSpan::new("\nFPS (EMA): "), lime_text.clone()));
+                p.spawn((TextSpan::new(""), aqua_text.clone()));
+            });
         });
 
     let mut scheduled = BirdScheduled {
@@ -433,16 +431,16 @@ fn spawn_birds(
                         color
                     };
                     (
-                        SpriteBundle {
-                            texture: bird_resources
+                        Sprite {
+                            image: bird_resources
                                 .textures
                                 .choose(&mut bird_resources.material_rng)
                                 .unwrap()
                                 .clone(),
-                            transform,
-                            sprite: Sprite { color, ..default() },
+                            color,
                             ..default()
                         },
+                        transform,
                         Bird { velocity },
                     )
                 })
@@ -544,23 +542,24 @@ fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &
 fn counter_system(
     diagnostics: Res<DiagnosticsStore>,
     counter: Res<BevyCounter>,
-    mut query: Query<&mut Text, With<StatsText>>,
+    query: Query<Entity, With<StatsText>>,
+    mut writer: UiTextWriter,
 ) {
-    let mut text = query.single_mut();
+    let text = query.single();
 
     if counter.is_changed() {
-        text.sections[1].value = counter.count.to_string();
+        *writer.text(text, 2) = counter.count.to_string();
     }
 
     if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(raw) = fps.value() {
-            text.sections[3].value = format!("{raw:.2}");
+            *writer.text(text, 4) = format!("{raw:.2}");
         }
         if let Some(sma) = fps.average() {
-            text.sections[5].value = format!("{sma:.2}");
+            *writer.text(text, 6) = format!("{sma:.2}");
         }
         if let Some(ema) = fps.smoothed() {
-            text.sections[7].value = format!("{ema:.2}");
+            *writer.text(text, 8) = format!("{ema:.2}");
         }
     };
 }

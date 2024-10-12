@@ -53,10 +53,10 @@ fn setup(
     let mut seeded_rng = ChaCha8Rng::seed_from_u64(19878367467712);
 
     // A camera looking at the origin
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(3., 2.5, 4.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(3., 2.5, 4.).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // A plane that we can sit on top of
     commands.spawn((
@@ -93,7 +93,7 @@ fn setup(
 
     // Instructions for the example
     commands.spawn((
-        TextBundle::from_section(
+        Text::new(
             "The bright red axis is the primary alignment axis, and it will always be\n\
             made to coincide with the primary target direction (white) exactly.\n\
             The fainter red axis is the secondary alignment axis, and it is made to\n\
@@ -102,14 +102,13 @@ fn setup(
             Press 'T' to align the ship to those directions.\n\
             Click and drag the mouse to rotate the camera.\n\
             Press 'H' to hide/show these instructions.",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+        ),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
+        },
         Instructions,
     ));
 

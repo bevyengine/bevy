@@ -4,8 +4,8 @@ use core::{
     cmp::{max_by, min_by},
     ops::RangeInclusive,
 };
+use derive_more::derive::{Display, Error};
 use itertools::Either;
-use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -29,26 +29,26 @@ pub struct Interval {
 }
 
 /// An error that indicates that an operation would have returned an invalid [`Interval`].
-#[derive(Debug, Error)]
-#[error("The resulting interval would be invalid (empty or with a NaN endpoint)")]
+#[derive(Debug, Error, Display)]
+#[display("The resulting interval would be invalid (empty or with a NaN endpoint)")]
 pub struct InvalidIntervalError;
 
 /// An error indicating that spaced points could not be extracted from an unbounded interval.
-#[derive(Debug, Error)]
-#[error("Cannot extract spaced points from an unbounded interval")]
+#[derive(Debug, Error, Display)]
+#[display("Cannot extract spaced points from an unbounded interval")]
 pub struct SpacedPointsError;
 
 /// An error indicating that a linear map between intervals could not be constructed because of
 /// unboundedness.
-#[derive(Debug, Error)]
-#[error("Could not construct linear function to map between intervals")]
+#[derive(Debug, Error, Display)]
+#[display("Could not construct linear function to map between intervals")]
 pub(super) enum LinearMapError {
     /// The source interval being mapped out of was unbounded.
-    #[error("The source interval is unbounded")]
+    #[display("The source interval is unbounded")]
     SourceUnbounded,
 
     /// The target interval being mapped into was unbounded.
-    #[error("The target interval is unbounded")]
+    #[display("The target interval is unbounded")]
     TargetUnbounded,
 }
 

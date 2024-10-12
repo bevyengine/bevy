@@ -58,7 +58,7 @@ struct Player {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn 2D camera.
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Spawn player.
     let texture = asset_server.load("textures/simplespace/ship_C.png");
@@ -68,15 +68,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             rotation_speed: 2.0,
             min_follow_radius: 50.0,
         },
-        SpriteBundle {
-            sprite: Sprite {
-                color: bevy::color::palettes::tailwind::BLUE_800.into(),
-                ..default()
-            },
-            transform: Transform::from_translation(Vec3::ZERO),
-            texture,
-            ..default()
+        Sprite {
+            image: texture,
+            color: bevy::color::palettes::tailwind::BLUE_800.into(),
+            ..Default::default()
         },
+        Transform::from_translation(Vec3::ZERO),
     ));
 }
 
@@ -99,15 +96,12 @@ fn user_input(
                 rotation: rng.gen_range(0.0..std::f32::consts::TAU),
                 rotation_speed: rng.gen_range(0.5..1.5),
             },
-            SpriteBundle {
-                sprite: Sprite {
-                    color: bevy::color::palettes::tailwind::RED_800.into(),
-                    ..default()
-                },
-                transform: Transform::from_translation(Vec3::ZERO),
-                texture,
+            Sprite {
+                image: texture,
+                color: bevy::color::palettes::tailwind::RED_800.into(),
                 ..default()
             },
+            Transform::from_translation(Vec3::ZERO),
         ));
     }
 
@@ -134,9 +128,9 @@ fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<
 /// If there is one, player will track it.
 /// If there are too many enemies, the player will cease all action (the system will not run).
 fn move_pointer(
-    // `QuerySingle` ensures the system runs ONLY when exactly one matching entity exists.
+    // `Single` ensures the system runs ONLY when exactly one matching entity exists.
     mut player: Single<(&mut Transform, &Player)>,
-    // `Option<QuerySingle>` ensures that the system runs ONLY when zero or one matching entity exists.
+    // `Option<Single>` ensures that the system runs ONLY when zero or one matching entity exists.
     enemy: Option<Single<&Transform, (With<Enemy>, Without<Player>)>>,
     time: Res<Time>,
 ) {

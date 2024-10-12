@@ -25,7 +25,7 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     // camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     // root node
     commands
         .spawn(NodeBundle {
@@ -50,22 +50,18 @@ fn setup(mut commands: Commands) {
                     background_color: Color::srgb(0.65, 0.65, 0.65).into(),
                     ..default()
                 })
-                .with_children(|parent| {
-                    parent.spawn((
-                        CustomText,
-                        TextBundle::from_section(
-                            "Example text",
-                            TextStyle {
-                                font_size: 25.0,
-                                ..default()
-                            },
-                        )
-                        .with_style(Style {
-                            align_self: AlignSelf::FlexEnd,
-                            ..default()
-                        }),
-                    ));
-                });
+                .with_child((
+                    CustomText,
+                    Text::new("Example text"),
+                    TextStyle {
+                        font_size: 25.0,
+                        ..default()
+                    },
+                    Style {
+                        align_self: AlignSelf::FlexEnd,
+                        ..default()
+                    },
+                ));
         });
 }
 
@@ -87,9 +83,7 @@ fn display_override(
     );
 
     window.title.clone_from(&text);
-
-    let mut custom_text = custom_text.single_mut();
-    custom_text.sections[0].value = text;
+    **custom_text.single_mut() = text;
 }
 
 /// This system toggles scale factor overrides when enter is pressed

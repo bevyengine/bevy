@@ -50,10 +50,8 @@ fn setup(
 ) {
     commands.spawn((
         Name::new("Camera"),
-        Camera3dBundle {
-            transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     commands.spawn((
@@ -97,18 +95,9 @@ fn instructions(mut commands: Commands) {
             },
         ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Mouse up or down: pitch",
-                TextStyle::default(),
-            ));
-            parent.spawn(TextBundle::from_section(
-                "Mouse left or right: yaw",
-                TextStyle::default(),
-            ));
-            parent.spawn(TextBundle::from_section(
-                "Mouse buttons: roll",
-                TextStyle::default(),
-            ));
+            parent.spawn(Text::new("Mouse up or down: pitch"));
+            parent.spawn(Text::new("Mouse left or right: yaw"));
+            parent.spawn(Text::new("Mouse buttons: roll"));
         });
 }
 

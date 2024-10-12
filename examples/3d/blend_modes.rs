@@ -152,10 +152,10 @@ fn setup(
     commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 8.0, 4.0)));
 
     // Camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 2.5, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 2.5, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // Controls Text
 
@@ -173,26 +173,25 @@ fn setup(
         ..default()
     };
 
-    commands.spawn(
-        TextBundle::from_section(
-            "Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors",
+    commands.spawn((Text::new("Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors"),
             text_style.clone(),
-        )
-        .with_style(Style {
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
+        })
     );
 
     commands.spawn((
-        TextBundle::from_section("", text_style).with_style(Style {
+        Text::default(),
+        text_style,
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             right: Val::Px(12.0),
             ..default()
-        }),
+        },
         ExampleDisplay,
     ));
 
@@ -209,15 +208,16 @@ fn setup(
                 ExampleLabel { entity },
             ))
             .with_children(|parent| {
-                parent.spawn(
-                    TextBundle::from_section(label, label_text_style.clone())
-                        .with_style(Style {
-                            position_type: PositionType::Absolute,
-                            bottom: Val::ZERO,
-                            ..default()
-                        })
-                        .with_no_wrap(),
-                );
+                parent.spawn((
+                    Text::new(label),
+                    label_text_style.clone(),
+                    Style {
+                        position_type: PositionType::Absolute,
+                        bottom: Val::ZERO,
+                        ..default()
+                    },
+                    TextLayout::default().with_no_wrap(),
+                ));
             });
     };
 
@@ -328,7 +328,7 @@ fn example_control_system(
     }
 
     let mut display = display.single_mut();
-    display.sections[0].value = format!(
+    **display = format!(
         "  HDR: {}\nAlpha: {:.2}",
         if camera.hdr { "ON " } else { "OFF" },
         state.alpha

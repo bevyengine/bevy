@@ -18,7 +18,7 @@ fn main() {
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn((
-        Camera3dBundle::default(),
+        Camera3d::default(),
         // Add the `MotionBlur` component to a camera to enable motion blur.
         // Motion blur requires the depth and motion vector prepass, which this bundle adds.
         // Configure the amount and quality of motion blur per-camera using this component.
@@ -231,29 +231,30 @@ fn spawn_trees(
 }
 
 fn setup_ui(mut commands: Commands) {
-    let style = TextStyle::default();
-
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new(String::new(), style.clone()),
-            TextSection::new(String::new(), style.clone()),
-            TextSection::new("1/2: -/+ shutter angle (blur amount)\n", style.clone()),
-            TextSection::new("3/4: -/+ sample count (blur quality)\n", style.clone()),
-            TextSection::new("Spacebar: cycle camera\n", style.clone()),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-    );
+    commands
+        .spawn((
+            Text::default(),
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+        ))
+        .with_children(|p| {
+            p.spawn(TextSpan::default());
+            p.spawn(TextSpan::default());
+            p.spawn(TextSpan::new("1/2: -/+ shutter angle (blur amount)\n"));
+            p.spawn(TextSpan::new("3/4: -/+ sample count (blur quality)\n"));
+            p.spawn(TextSpan::new("Spacebar: cycle camera\n"));
+        });
 }
 
 fn keyboard_inputs(
     mut motion_blur: Query<&mut MotionBlur>,
     presses: Res<ButtonInput<KeyCode>>,
-    mut text: Query<&mut Text>,
+    text: Query<Entity, With<Text>>,
+    mut writer: UiTextWriter,
     mut camera: ResMut<CameraMode>,
 ) {
     let mut motion_blur = motion_blur.single_mut();
@@ -273,9 +274,9 @@ fn keyboard_inputs(
     }
     motion_blur.shutter_angle = motion_blur.shutter_angle.clamp(0.0, 1.0);
     motion_blur.samples = motion_blur.samples.clamp(0, 64);
-    let mut text = text.single_mut();
-    text.sections[0].value = format!("Shutter angle: {:.2}\n", motion_blur.shutter_angle);
-    text.sections[1].value = format!("Samples: {:.5}\n", motion_blur.samples);
+    let entity = text.single();
+    *writer.text(entity, 1) = format!("Shutter angle: {:.2}\n", motion_blur.shutter_angle);
+    *writer.text(entity, 2) = format!("Samples: {:.5}\n", motion_blur.samples);
 }
 
 /// Parametric function for a looping race track. `offset` will return the point offset

@@ -27,15 +27,13 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            msaa: Msaa::Off,
+        Camera3d::default(),
+        Camera {
+            hdr: true,
             ..default()
         },
+        Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Msaa::Off,
         ScreenSpaceAmbientOcclusion::default(),
         TemporalAntiAliasing::default(),
     ));
@@ -80,14 +78,15 @@ fn setup(
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
     ));
 
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn update(
@@ -168,7 +167,6 @@ fn update(
     }
 
     let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
     text.clear();
 
     let (o, l, m, h, u) = match ssao.map(|s| s.quality_level) {

@@ -116,7 +116,7 @@ fn log_system() {
 struct LogViewerRoot;
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     commands.spawn((
         NodeBundle {
@@ -143,10 +143,7 @@ fn print_logs(
 
     commands.entity(root_entity).with_children(|child| {
         for event in events.read() {
-            child.spawn(TextBundle::from_section(
-                &event.message,
-                TextStyle::default(),
-            ));
+            child.spawn(Text::new(&event.message));
         }
     });
 }

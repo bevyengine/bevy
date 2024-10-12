@@ -121,12 +121,6 @@ impl UiSurface {
         for child in children {
             if let Some(taffy_node) = self.entity_to_taffy.get(&child) {
                 self.taffy_children_scratch.push(*taffy_node);
-            } else {
-                warn!(
-                    "Unstyled child `{child}` in a UI entity hierarchy. You are using an entity \
-without UI components as a child of an entity with UI components, results may be unexpected. \
-If this is intentional, consider adding a GhostNode component to this entity."
-                );
             }
         }
 
@@ -206,7 +200,7 @@ If this is intentional, consider adding a GhostNode component to this entity."
         camera: Entity,
         render_target_resolution: UVec2,
         #[cfg(feature = "bevy_text")] buffer_query: &'a mut bevy_ecs::prelude::Query<
-            &mut bevy_text::CosmicBuffer,
+            &mut bevy_text::ComputedTextBlock,
         >,
         #[cfg(feature = "bevy_text")] font_system: &'a mut bevy_text::cosmic_text::FontSystem,
     ) {
@@ -296,8 +290,8 @@ If this is intentional, consider adding a GhostNode component to this entity."
                 .map_err(LayoutError::TaffyError)
         } else {
             warn!(
-                "Styled child in a non-UI entity hierarchy. You are using an entity \
-with UI components as a child of an entity without UI components, results may be unexpected."
+                "Styled child ({entity}) in a non-UI entity hierarchy. You are using an entity \
+with UI components as a child of an entity without UI components, your UI layout may be broken."
             );
             Err(LayoutError::InvalidHierarchy)
         }
@@ -308,8 +302,8 @@ with UI components as a child of an entity without UI components, results may be
 fn get_text_buffer<'a>(
     needs_buffer: bool,
     ctx: &mut NodeMeasure,
-    query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::CosmicBuffer>,
-) -> Option<&'a mut bevy_text::cosmic_text::Buffer> {
+    query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
+) -> Option<&'a mut bevy_text::ComputedTextBlock> {
     // We avoid a query lookup whenever the buffer is not required.
     if !needs_buffer {
         return None;
@@ -317,8 +311,8 @@ fn get_text_buffer<'a>(
     let NodeMeasure::Text(crate::widget::TextMeasure { info }) = ctx else {
         return None;
     };
-    let Ok(buffer) = query.get_mut(info.entity) else {
+    let Ok(computed) = query.get_mut(info.entity) else {
         return None;
     };
-    Some(buffer.into_inner())
+    Some(computed.into_inner())
 }

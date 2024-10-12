@@ -200,8 +200,7 @@ impl HalfSpace {
 /// This process is called frustum culling, and entities can opt out of it using
 /// the [`NoFrustumCulling`] component.
 ///
-/// The frustum component is typically added from a bundle, either the `Camera2dBundle`
-/// or the `Camera3dBundle`.
+/// The frustum component is typically added automatically for cameras, either `Camera2d` or `Camera3d`.
 /// It is usually updated automatically by [`update_frusta`] from the
 /// [`CameraProjection`] component and [`GlobalTransform`] of the camera entity.
 ///

@@ -73,32 +73,32 @@ fn spawn_sprites(
 
     for (label, text_style, size, scale_mode) in cases {
         position.x += 0.5 * size.x;
-        let mut cmd = commands.spawn(SpriteBundle {
-            transform: Transform::from_translation(position),
-            texture: texture_handle.clone(),
-            sprite: Sprite {
+        let mut cmd = commands.spawn((
+            Sprite {
+                image: texture_handle.clone(),
                 custom_size: Some(size),
                 ..default()
             },
-            ..default()
-        });
+            Transform::from_translation(position),
+        ));
         if let Some(scale_mode) = scale_mode {
             cmd.insert(scale_mode);
         }
         cmd.with_children(|builder| {
-            builder.spawn(Text2dBundle {
-                text: Text::from_section(label, text_style).with_justify(JustifyText::Center),
-                transform: Transform::from_xyz(0., -0.5 * size.y - 10., 0.0),
-                text_anchor: bevy::sprite::Anchor::TopCenter,
-                ..default()
-            });
+            builder.spawn((
+                Text2d::new(label),
+                text_style,
+                TextLayout::new_with_justify(JustifyText::Center),
+                Transform::from_xyz(0., -0.5 * size.y - 10., 0.0),
+                bevy::sprite::Anchor::TopCenter,
+            ));
         });
         position.x += 0.5 * size.x + gap;
     }
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let style = TextStyle {
         font: font.clone(),

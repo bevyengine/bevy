@@ -1,3 +1,5 @@
+#![expect(deprecated)]
+
 use crate::{
     core_3d::graph::Core3d,
     tonemapping::{DebandDither, Tonemapping},
@@ -9,18 +11,28 @@ use bevy_render::{
     extract_component::ExtractComponent,
     primitives::Frustum,
     render_resource::{LoadOp, TextureUsages},
+    sync_world::SyncToRenderWorld,
     view::{ColorGrading, Msaa, VisibleEntities},
-    world_sync::SyncToRenderWorld,
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
-/// Configuration for the "main 3d render graph".
-/// The camera coordinate space is right-handed x-right, y-up, z-back.
+/// A 3D camera component. Enables the main 3D render graph for a [`Camera`].
+///
+/// The camera coordinate space is right-handed X-right, Y-up, Z-back.
 /// This means "forward" is -Z.
 #[derive(Component, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component, Default)]
+#[require(
+    Camera,
+    DebandDither(|| DebandDither::Enabled),
+    CameraRenderGraph(|| CameraRenderGraph::new(Core3d)),
+    Projection,
+    Tonemapping,
+    ColorGrading,
+    Exposure
+)]
 pub struct Camera3d {
     /// The depth clear operation to perform for the main 3d pass.
     pub depth_load_op: Camera3dDepthLoadOp,
@@ -139,6 +151,10 @@ pub enum ScreenSpaceTransmissionQuality {
 /// The camera coordinate space is right-handed x-right, y-up, z-back.
 /// This means "forward" is -Z.
 #[derive(Bundle, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Camera3d` component instead. Inserting it will now also insert the other components required by it automatically."
+)]
 pub struct Camera3dBundle {
     pub camera: Camera,
     pub camera_render_graph: CameraRenderGraph,

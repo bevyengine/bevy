@@ -3,6 +3,7 @@ use bevy_asset::{AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use derive_more::derive::From;
 
 /// A [material](Material) for a [`Mesh3d`].
 ///
@@ -67,7 +68,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// ```
 ///
 /// [`StandardMaterial`]: crate::StandardMaterial
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
 #[require(HasMaterial3d)]
 pub struct MeshMaterial3d<M: Material>(pub Handle<M>);
@@ -75,12 +76,6 @@ pub struct MeshMaterial3d<M: Material>(pub Handle<M>);
 impl<M: Material> Default for MeshMaterial3d<M> {
     fn default() -> Self {
         Self(Handle::default())
-    }
-}
-
-impl<M: Material> From<Handle<M>> for MeshMaterial3d<M> {
-    fn from(handle: Handle<M>) -> Self {
-        Self(handle)
     }
 }
 

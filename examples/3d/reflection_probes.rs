@@ -103,14 +103,14 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
 
 // Spawns the camera.
 fn spawn_camera(commands: &mut Commands) {
-    commands.spawn(Camera3dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
             hdr: true,
             ..default()
         },
-        transform: Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+        Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 // Creates the sphere mesh and spawns it.
@@ -136,37 +136,31 @@ fn spawn_sphere(
 
 // Spawns the reflection probe.
 fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
-    commands.spawn(ReflectionProbeBundle {
-        spatial: SpatialBundle {
-            // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
-            transform: Transform::from_scale(Vec3::splat(2.0)),
-            ..SpatialBundle::default()
-        },
-        light_probe: LightProbe,
-        environment_map: EnvironmentMapLight {
+    commands.spawn((
+        LightProbe,
+        EnvironmentMapLight {
             diffuse_map: cubemaps.diffuse.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),
             intensity: 5000.0,
             ..default()
         },
-    });
+        // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
+        Transform::from_scale(Vec3::splat(2.0)),
+    ));
 }
 
 // Spawns the help text.
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
     // Create the text.
-    commands.spawn(
-        TextBundle {
-            text: app_status.create_text(),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        app_status.create_text(),
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // Adds a world environment map to the camera. This separate system is needed because the camera is
@@ -279,13 +273,11 @@ impl AppStatus {
             START_ROTATION_HELP_TEXT
         };
 
-        Text::from_section(
-            format!(
-                "{}\n{}\n{}",
-                self.reflection_mode, rotation_help_text, REFLECTION_MODE_HELP_TEXT
-            ),
-            TextStyle::default(),
+        format!(
+            "{}\n{}\n{}",
+            self.reflection_mode, rotation_help_text, REFLECTION_MODE_HELP_TEXT
         )
+        .into()
     }
 }
 

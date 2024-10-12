@@ -11,24 +11,27 @@ extern crate alloc;
 
 pub mod animatable;
 pub mod animation_curves;
+pub mod animation_event;
 pub mod gltf_curves;
 pub mod graph;
 pub mod transition;
 mod util;
 
+use animation_event::{trigger_animation_event, AnimationEvent, AnimationEventData};
 use core::{
     any::{Any, TypeId},
     cell::RefCell,
     fmt::Debug,
     hash::{Hash, Hasher},
-    iter,
+    iter, slice,
 };
+use graph::AnimationNodeType;
 use prelude::AnimationCurveEvaluator;
 
-use crate::graph::ThreadedAnimationGraphs;
+use crate::graph::{AnimationGraphHandle, ThreadedAnimationGraphs};
 
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{Asset, AssetApp, Assets, Handle};
+use bevy_asset::{Asset, AssetApp, Assets};
 use bevy_core::Name;
 use bevy_ecs::{
     entity::{VisitEntities, VisitEntitiesMut},
@@ -36,6 +39,7 @@ use bevy_ecs::{
     reflect::{ReflectMapEntities, ReflectVisitEntities, ReflectVisitEntitiesMut},
     world::EntityMutExcept,
 };
+use bevy_math::FloatOrd;
 use bevy_reflect::{
     prelude::ReflectDefault, utility::NonGenericTypeInfoCell, ApplyError, DynamicTupleStruct,
     FromReflect, FromType, GetTypeRegistration, PartialReflect, Reflect, ReflectFromPtr,
@@ -44,7 +48,6 @@ use bevy_reflect::{
 };
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
-use bevy_ui::UiSystem;
 use bevy_utils::{
     hashbrown::HashMap,
     tracing::{trace, warn},
@@ -61,8 +64,12 @@ use uuid::Uuid;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        animatable::*, animation_curves::*, graph::*, transition::*, AnimationClip,
-        AnimationPlayer, AnimationPlugin, VariableCurve,
+        animatable::*,
+        animation_curves::*,
+        animation_event::{AnimationEvent, ReflectAnimationEvent},
+        graph::*,
+        transition::*,
+        AnimationClip, AnimationPlayer, AnimationPlugin, VariableCurve,
     };
 }
 
@@ -77,7 +84,7 @@ use crate::{
 /// [UUID namespace]: https://en.wikipedia.org/wiki/Universally_unique_identifier#Versions_3_and_5_(namespace_name-based)
 pub static ANIMATION_TARGET_NAMESPACE: Uuid = Uuid::from_u128(0x3179f519d9274ff2b5966fd077023911);
 
-/// Contains an [animation curve] which is used to animate entities.
+/// Contains an [animation curve] which is used to animate a property of an entity.
 ///
 /// [animation curve]: AnimationCurve
 #[derive(Debug, TypePath)]
@@ -275,8 +282,23 @@ impl Typed for VariableCurve {
 #[derive(Asset, Reflect, Clone, Debug, Default)]
 pub struct AnimationClip {
     curves: AnimationCurves,
+    events: AnimationEvents,
     duration: f32,
 }
+
+#[derive(Reflect, Debug, Clone)]
+struct TimedAnimationEvent {
+    time: f32,
+    event: AnimationEventData,
+}
+
+#[derive(Reflect, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
+enum AnimationEventTarget {
+    Root,
+    Node(AnimationTargetId),
+}
+
+type AnimationEvents = HashMap<AnimationEventTarget, Vec<TimedAnimationEvent>>;
 
 /// A mapping from [`AnimationTargetId`] (e.g. bone in a skinned mesh) to the
 /// animation curves.
@@ -400,6 +422,20 @@ impl AnimationClip {
     /// If the curve extends beyond the current duration of this clip, this
     /// method lengthens this clip to include the entire time span that the
     /// curve covers.
+    ///
+    /// More specifically:
+    /// - This clip will be sampled on the interval `[0, duration]`.
+    /// - Each curve in the clip is sampled by first clamping the sample time to its [domain].
+    /// - Curves that extend forever never contribute to the duration.
+    ///
+    /// For example, a curve with domain `[2, 5]` will extend the clip to cover `[0, 5]`
+    /// when added and will produce the same output on the entire interval `[0, 2]` because
+    /// these time values all get clamped to `2`.
+    ///
+    /// By contrast, a curve with domain `[-10, ∞]` will never extend the clip duration when
+    /// added and will be sampled only on `[0, duration]`, ignoring all negative time values.
+    ///
+    /// [domain]: AnimationCurve::domain
     pub fn add_curve_to_target(
         &mut self,
         target_id: AnimationTargetId,
@@ -434,6 +470,50 @@ impl AnimationClip {
             .entry(target_id)
             .or_default()
             .push(variable_curve);
+    }
+
+    /// Add an [`AnimationEvent`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
+    ///
+    /// The `event` will trigger on the entity matching the target once the `time` (in seconds)
+    /// is reached in the animation.
+    ///
+    /// Use [`add_event`](Self::add_event) instead if you don't have a specific target.
+    pub fn add_event_to_target(
+        &mut self,
+        target_id: AnimationTargetId,
+        time: f32,
+        event: impl AnimationEvent,
+    ) {
+        self.add_event_to_target_inner(AnimationEventTarget::Node(target_id), time, event);
+    }
+
+    /// Add a untargeted [`AnimationEvent`] to this [`AnimationClip`].
+    ///
+    /// The `event` will trigger on the [`AnimationPlayer`] entity once the `time` (in seconds)
+    /// is reached in the animation.
+    ///
+    /// See also [`add_event_to_target`](Self::add_event_to_target).
+    pub fn add_event(&mut self, time: f32, event: impl AnimationEvent) {
+        self.add_event_to_target_inner(AnimationEventTarget::Root, time, event);
+    }
+
+    fn add_event_to_target_inner(
+        &mut self,
+        target: AnimationEventTarget,
+        time: f32,
+        event: impl AnimationEvent,
+    ) {
+        self.duration = self.duration.max(time);
+        let triggers = self.events.entry(target).or_default();
+        match triggers.binary_search_by_key(&FloatOrd(time), |e| FloatOrd(e.time)) {
+            Ok(index) | Err(index) => triggers.insert(
+                index,
+                TimedAnimationEvent {
+                    time,
+                    event: AnimationEventData::new(event),
+                },
+            ),
+        }
     }
 }
 
@@ -479,8 +559,6 @@ pub enum AnimationEvaluationError {
 pub struct ActiveAnimation {
     /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
     weight: f32,
-    /// The mask groups that are masked out (i.e. won't be animated) this frame,
-    /// taking the `AnimationGraph` into account.
     repeat: RepeatAnimation,
     speed: f32,
     /// Total time the animation has been played.
@@ -491,9 +569,13 @@ pub struct ActiveAnimation {
     ///
     /// Note: This will always be in the range [0.0, animation clip duration]
     seek_time: f32,
+    /// The `seek_time` of the previous tick, if any.
+    last_seek_time: Option<f32>,
     /// Number of times the animation has completed.
     /// If the animation is playing in reverse, this increments when the animation passes the start.
     completions: u32,
+    /// `true` if the animation was completed at least once this tick.
+    just_completed: bool,
     paused: bool,
 }
 
@@ -505,7 +587,9 @@ impl Default for ActiveAnimation {
             speed: 1.0,
             elapsed: 0.0,
             seek_time: 0.0,
+            last_seek_time: None,
             completions: 0,
+            just_completed: false,
             paused: false,
         }
     }
@@ -527,6 +611,9 @@ impl ActiveAnimation {
     /// Update the animation given the delta time and the duration of the clip being played.
     #[inline]
     fn update(&mut self, delta: f32, clip_duration: f32) {
+        self.just_completed = false;
+        self.last_seek_time = Some(self.seek_time);
+
         if self.is_finished() {
             return;
         }
@@ -538,6 +625,7 @@ impl ActiveAnimation {
         let under_time = self.speed < 0.0 && self.seek_time < 0.0;
 
         if over_time || under_time {
+            self.just_completed = true;
             self.completions += 1;
 
             if self.is_finished() {
@@ -555,8 +643,10 @@ impl ActiveAnimation {
 
     /// Reset back to the initial state as if no time has elapsed.
     pub fn replay(&mut self) {
+        self.just_completed = false;
         self.completions = 0;
         self.elapsed = 0.0;
+        self.last_seek_time = None;
         self.seek_time = 0.0;
     }
 
@@ -641,13 +731,33 @@ impl ActiveAnimation {
     }
 
     /// Seeks to a specific time in the animation.
+    ///
+    /// This will not trigger events between the current time and `seek_time`.
+    /// Use [`seek_to`](Self::seek_to) if this is desired.
+    pub fn set_seek_time(&mut self, seek_time: f32) -> &mut Self {
+        self.last_seek_time = Some(seek_time);
+        self.seek_time = seek_time;
+        self
+    }
+
+    /// Seeks to a specific time in the animation.
+    ///
+    /// Note that any events between the current time and `seek_time`
+    /// will be triggered on the next update.
+    /// Use [`set_seek_time`](Self::set_seek_time) if this is undisered.
     pub fn seek_to(&mut self, seek_time: f32) -> &mut Self {
+        self.last_seek_time = Some(self.seek_time);
         self.seek_time = seek_time;
         self
     }
 
     /// Seeks to the beginning of the animation.
+    ///
+    /// Note that any events between the current time and `0.0`
+    /// will be triggered on the next update.
+    /// Use [`set_seek_time`](Self::set_seek_time) if this is undisered.
     pub fn rewind(&mut self) -> &mut Self {
+        self.last_seek_time = Some(self.seek_time);
         self.seek_time = 0.0;
         self
     }
@@ -841,12 +951,59 @@ impl AnimationPlayer {
     }
 }
 
+/// A system that triggers untargeted animation events for the currently-playing animations.
+fn trigger_untargeted_animation_events(
+    mut commands: Commands,
+    clips: Res<Assets<AnimationClip>>,
+    graphs: Res<Assets<AnimationGraph>>,
+    players: Query<(Entity, &AnimationPlayer, &AnimationGraphHandle)>,
+) {
+    for (entity, player, graph_id) in &players {
+        // The graph might not have loaded yet. Safely bail.
+        let Some(graph) = graphs.get(graph_id) else {
+            return;
+        };
+
+        for (index, active_animation) in player.active_animations.iter() {
+            if active_animation.paused {
+                continue;
+            }
+
+            let Some(clip) = graph
+                .get(*index)
+                .and_then(|node| match &node.node_type {
+                    AnimationNodeType::Clip(handle) => Some(handle),
+                    AnimationNodeType::Blend | AnimationNodeType::Add => None,
+                })
+                .and_then(|id| clips.get(id))
+            else {
+                continue;
+            };
+
+            let Some(triggered_events) =
+                TriggeredEvents::from_animation(AnimationEventTarget::Root, clip, active_animation)
+            else {
+                continue;
+            };
+
+            for TimedAnimationEvent { time, event } in triggered_events.iter() {
+                commands.queue(trigger_animation_event(
+                    entity,
+                    *time,
+                    active_animation.weight,
+                    event.clone().0,
+                ));
+            }
+        }
+    }
+}
+
 /// A system that advances the time for all playing animations.
 pub fn advance_animations(
     time: Res<Time>,
     animation_clips: Res<Assets<AnimationClip>>,
     animation_graphs: Res<Assets<AnimationGraph>>,
-    mut players: Query<(&mut AnimationPlayer, &Handle<AnimationGraph>)>,
+    mut players: Query<(&mut AnimationPlayer, &AnimationGraphHandle)>,
 ) {
     let delta_seconds = time.delta_seconds();
     players
@@ -869,7 +1026,7 @@ pub fn advance_animations(
                 if let Some(active_animation) = active_animations.get_mut(&node_index) {
                     // Tick the animation if necessary.
                     if !active_animation.paused {
-                        if let Some(ref clip_handle) = node.clip {
+                        if let AnimationNodeType::Clip(ref clip_handle) = node.node_type {
                             if let Some(clip) = animation_clips.get(clip_handle) {
                                 active_animation.update(delta_seconds, clip.duration);
                             }
@@ -887,24 +1044,30 @@ pub type AnimationEntityMut<'w> = EntityMutExcept<
         AnimationTarget,
         Transform,
         AnimationPlayer,
-        Handle<AnimationGraph>,
+        AnimationGraphHandle,
     ),
 >;
 
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
 pub fn animate_targets(
+    par_commands: ParallelCommands,
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
-    players: Query<(&AnimationPlayer, &Handle<AnimationGraph>)>,
-    mut targets: Query<(&AnimationTarget, Option<&mut Transform>, AnimationEntityMut)>,
+    players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
+    mut targets: Query<(
+        Entity,
+        &AnimationTarget,
+        Option<&mut Transform>,
+        AnimationEntityMut,
+    )>,
     animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
     // Evaluate all animation targets in parallel.
     targets
         .par_iter_mut()
-        .for_each(|(target, transform, entity_mut)| {
+        .for_each(|(entity, target, transform, entity_mut)| {
             let &AnimationTarget {
                 id: target_id,
                 player: player_id,
@@ -952,8 +1115,8 @@ pub fn animate_targets(
                     continue;
                 };
 
-                match animation_graph_node.clip {
-                    None => {
+                match animation_graph_node.node_type {
+                    AnimationNodeType::Blend => {
                         // This is a blend node.
                         for edge_index in threaded_animation_graph.sorted_edge_ranges
                             [animation_graph_node_index.index()]
@@ -974,7 +1137,28 @@ pub fn animate_targets(
                         }
                     }
 
-                    Some(ref animation_clip_handle) => {
+                    AnimationNodeType::Add => {
+                        // This is an additive blend node.
+                        for edge_index in threaded_animation_graph.sorted_edge_ranges
+                            [animation_graph_node_index.index()]
+                        .clone()
+                        {
+                            if let Err(err) = evaluation_state
+                                .add_all(threaded_animation_graph.sorted_edges[edge_index as usize])
+                            {
+                                warn!("Failed to blend animation: {:?}", err);
+                            }
+                        }
+
+                        if let Err(err) = evaluation_state.push_blend_register_all(
+                            animation_graph_node.weight,
+                            animation_graph_node_index,
+                        ) {
+                            warn!("Animation blending failed: {:?}", err);
+                        }
+                    }
+
+                    AnimationNodeType::Clip(ref animation_clip_handle) => {
                         // This is a clip node.
                         let Some(active_animation) = animation_player
                             .active_animations
@@ -998,11 +1182,35 @@ pub fn animate_targets(
                             continue;
                         };
 
+                        if !active_animation.paused {
+                            // Trigger all animation events that occurred this tick, if any.
+                            if let Some(triggered_events) = TriggeredEvents::from_animation(
+                                AnimationEventTarget::Node(target_id),
+                                clip,
+                                active_animation,
+                            ) {
+                                if !triggered_events.is_empty() {
+                                    par_commands.command_scope(move |mut commands| {
+                                        for TimedAnimationEvent { time, event } in
+                                            triggered_events.iter()
+                                        {
+                                            commands.queue(trigger_animation_event(
+                                                entity,
+                                                *time,
+                                                active_animation.weight,
+                                                event.clone().0,
+                                            ));
+                                        }
+                                    });
+                                }
+                            }
+                        }
+
                         let Some(curves) = clip.curves_for_target(target_id) else {
                             continue;
                         };
 
-                        let weight = active_animation.weight;
+                        let weight = active_animation.weight * animation_graph_node.weight;
                         let seek_time = active_animation.seek_time;
 
                         for curve in curves {
@@ -1043,6 +1251,10 @@ pub fn animate_targets(
         });
 }
 
+/// Animation system set
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct Animation;
+
 /// Adds animation support to an app
 #[derive(Default)]
 pub struct AnimationPlugin;
@@ -1057,6 +1269,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationPlayer>()
             .register_type::<AnimationTarget>()
             .register_type::<AnimationTransitions>()
+            .register_type::<AnimationGraphHandle>()
             .register_type::<NodeIndex>()
             .register_type::<ThreadedAnimationGraphs>()
             .init_resource::<ThreadedAnimationGraphs>()
@@ -1073,13 +1286,14 @@ impl Plugin for AnimationPlugin {
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
                     animate_targets
-                        .after(bevy_render::mesh::morph::inherit_weights)
+                        .after(bevy_render::mesh::inherit_weights)
                         .ambiguous_with_all(),
+                    trigger_untargeted_animation_events,
                     expire_completed_transitions,
                 )
                     .chain()
-                    .before(TransformSystem::TransformPropagate)
-                    .before(UiSystem::Prepare),
+                    .in_set(Animation)
+                    .before(TransformSystem::TransformPropagate),
             );
     }
 }
@@ -1105,6 +1319,22 @@ impl AnimationTargetId {
     }
 }
 
+impl<T: AsRef<str>> FromIterator<T> for AnimationTargetId {
+    /// Creates a new [`AnimationTargetId`] by hashing a list of strings.
+    ///
+    /// Typically, this will be the path from the animation root to the
+    /// animation target (e.g. bone) that is to be animated.
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut blake3 = blake3::Hasher::new();
+        blake3.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
+        for str in iter {
+            blake3.update(str.as_ref().as_bytes());
+        }
+        let hash = blake3.finalize().as_bytes()[0..16].try_into().unwrap();
+        Self(*uuid::Builder::from_sha1_bytes(hash).as_uuid())
+    }
+}
+
 impl From<&Name> for AnimationTargetId {
     fn from(name: &Name) -> Self {
         AnimationTargetId::from_name(name)
@@ -1125,6 +1355,20 @@ impl AnimationEvaluationState {
                 .get_mut(curve_evaluator_type)
                 .unwrap()
                 .blend(node_index)?;
+        }
+        Ok(())
+    }
+
+    /// Calls [`AnimationCurveEvaluator::add`] on all curve evaluator types
+    /// that we've been building up for a single target.
+    ///
+    /// The given `node_index` is the node that we're evaluating.
+    fn add_all(&mut self, node_index: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
+        for curve_evaluator_type in self.current_curve_evaluator_types.keys() {
+            self.curve_evaluators
+                .get_mut(curve_evaluator_type)
+                .unwrap()
+                .add(node_index)?;
         }
         Ok(())
     }
@@ -1169,5 +1413,295 @@ impl AnimationEvaluationState {
                 )?;
         }
         Ok(())
+    }
+}
+
+/// All the events from an [`AnimationClip`] that occurred this tick.
+#[derive(Debug, Clone)]
+struct TriggeredEvents<'a> {
+    direction: TriggeredEventsDir,
+    lower: &'a [TimedAnimationEvent],
+    upper: &'a [TimedAnimationEvent],
+}
+
+impl<'a> TriggeredEvents<'a> {
+    fn from_animation(
+        target: AnimationEventTarget,
+        clip: &'a AnimationClip,
+        active_animation: &ActiveAnimation,
+    ) -> Option<Self> {
+        let events = clip.events.get(&target)?;
+        let reverse = active_animation.is_playback_reversed();
+        let is_finished = active_animation.is_finished();
+
+        // Return early if the animation have finished on a previous tick.
+        if is_finished && !active_animation.just_completed {
+            return None;
+        }
+
+        // The animation completed this tick, while still playing.
+        let looping = active_animation.just_completed && !is_finished;
+        let direction = match (reverse, looping) {
+            (false, false) => TriggeredEventsDir::Forward,
+            (false, true) => TriggeredEventsDir::ForwardLooping,
+            (true, false) => TriggeredEventsDir::Reverse,
+            (true, true) => TriggeredEventsDir::ReverseLooping,
+        };
+
+        let last_time = active_animation.last_seek_time?;
+        let this_time = active_animation.seek_time;
+
+        let (lower, upper) = match direction {
+            // Return all events where last_time <= event.time < this_time.
+            TriggeredEventsDir::Forward => {
+                let start = events.partition_point(|event| event.time < last_time);
+                // The animation finished this tick, return any remaining events.
+                if is_finished {
+                    (&events[start..], &events[0..0])
+                } else {
+                    let end = events.partition_point(|event| event.time < this_time);
+                    (&events[start..end], &events[0..0])
+                }
+            }
+            // Return all events where this_time < event.time <= last_time.
+            TriggeredEventsDir::Reverse => {
+                let end = events.partition_point(|event| event.time <= last_time);
+                // The animation finished, return any remaining events.
+                if is_finished {
+                    (&events[..end], &events[0..0])
+                } else {
+                    let start = events.partition_point(|event| event.time <= this_time);
+                    (&events[start..end], &events[0..0])
+                }
+            }
+            // The animation is looping this tick and we have to return events where
+            // either last_tick <= event.time or event.time < this_tick.
+            TriggeredEventsDir::ForwardLooping => {
+                let upper_start = events.partition_point(|event| event.time < last_time);
+                let lower_end = events.partition_point(|event| event.time < this_time);
+
+                let upper = &events[upper_start..];
+                let lower = &events[..lower_end];
+                (lower, upper)
+            }
+            // The animation is looping this tick and we have to return events where
+            // either last_tick >= event.time or event.time > this_tick.
+            TriggeredEventsDir::ReverseLooping => {
+                let lower_end = events.partition_point(|event| event.time <= last_time);
+                let upper_start = events.partition_point(|event| event.time <= this_time);
+
+                let upper = &events[upper_start..];
+                let lower = &events[..lower_end];
+                (lower, upper)
+            }
+        };
+        Some(Self {
+            direction,
+            lower,
+            upper,
+        })
+    }
+
+    fn is_empty(&self) -> bool {
+        self.lower.is_empty() && self.upper.is_empty()
+    }
+
+    fn iter(&self) -> TriggeredEventsIter {
+        match self.direction {
+            TriggeredEventsDir::Forward => TriggeredEventsIter::Forward(self.lower.iter()),
+            TriggeredEventsDir::Reverse => TriggeredEventsIter::Reverse(self.lower.iter().rev()),
+            TriggeredEventsDir::ForwardLooping => TriggeredEventsIter::ForwardLooping {
+                upper: self.upper.iter(),
+                lower: self.lower.iter(),
+            },
+            TriggeredEventsDir::ReverseLooping => TriggeredEventsIter::ReverseLooping {
+                lower: self.lower.iter().rev(),
+                upper: self.upper.iter().rev(),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum TriggeredEventsDir {
+    /// The animation is playing normally
+    Forward,
+    /// The animation is playing in reverse
+    Reverse,
+    /// The animation is looping this tick
+    ForwardLooping,
+    /// The animation playing in reverse and looping this tick
+    ReverseLooping,
+}
+
+#[derive(Debug, Clone)]
+enum TriggeredEventsIter<'a> {
+    Forward(slice::Iter<'a, TimedAnimationEvent>),
+    Reverse(iter::Rev<slice::Iter<'a, TimedAnimationEvent>>),
+    ForwardLooping {
+        upper: slice::Iter<'a, TimedAnimationEvent>,
+        lower: slice::Iter<'a, TimedAnimationEvent>,
+    },
+    ReverseLooping {
+        lower: iter::Rev<slice::Iter<'a, TimedAnimationEvent>>,
+        upper: iter::Rev<slice::Iter<'a, TimedAnimationEvent>>,
+    },
+}
+
+impl<'a> Iterator for TriggeredEventsIter<'a> {
+    type Item = &'a TimedAnimationEvent;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            TriggeredEventsIter::Forward(iter) => iter.next(),
+            TriggeredEventsIter::Reverse(rev) => rev.next(),
+            TriggeredEventsIter::ForwardLooping { upper, lower } => {
+                upper.next().or_else(|| lower.next())
+            }
+            TriggeredEventsIter::ReverseLooping { lower, upper } => {
+                lower.next().or_else(|| upper.next())
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Event, Reflect, Clone)]
+    struct A;
+
+    impl AnimationEvent for A {
+        fn trigger(&self, _time: f32, _weight: f32, target: Entity, world: &mut World) {
+            world.entity_mut(target).trigger(self.clone());
+        }
+    }
+
+    #[track_caller]
+    fn assert_triggered_events_with(
+        active_animation: &ActiveAnimation,
+        clip: &AnimationClip,
+        expected: impl Into<Vec<f32>>,
+    ) {
+        let Some(events) =
+            TriggeredEvents::from_animation(AnimationEventTarget::Root, clip, active_animation)
+        else {
+            assert_eq!(expected.into(), Vec::<f32>::new());
+            return;
+        };
+        let got: Vec<_> = events.iter().map(|t| t.time).collect();
+        assert_eq!(
+            expected.into(),
+            got,
+            "\n{events:#?}\nlast_time: {:?}\nthis_time:{}",
+            active_animation.last_seek_time,
+            active_animation.seek_time
+        );
+    }
+
+    #[test]
+    fn test_multiple_events_triggers() {
+        let mut active_animation = ActiveAnimation {
+            repeat: RepeatAnimation::Forever,
+            ..Default::default()
+        };
+        let mut clip = AnimationClip {
+            duration: 1.0,
+            ..Default::default()
+        };
+        clip.add_event(0.5, A);
+        clip.add_event(0.5, A);
+        clip.add_event(0.5, A);
+
+        assert_triggered_events_with(&active_animation, &clip, []);
+        active_animation.update(0.8, clip.duration); // 0.0 : 0.8
+        assert_triggered_events_with(&active_animation, &clip, [0.5, 0.5, 0.5]);
+
+        clip.add_event(1.0, A);
+        clip.add_event(0.0, A);
+        clip.add_event(1.0, A);
+        clip.add_event(0.0, A);
+
+        active_animation.update(0.4, clip.duration); // 0.8 : 0.2
+        assert_triggered_events_with(&active_animation, &clip, [1.0, 1.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn test_events_triggers() {
+        let mut active_animation = ActiveAnimation::default();
+        let mut clip = AnimationClip::default();
+        clip.add_event(0.2, A);
+        clip.add_event(0.0, A);
+        assert_eq!(0.2, clip.duration);
+
+        assert_triggered_events_with(&active_animation, &clip, []);
+        active_animation.update(0.1, clip.duration); // 0.0 : 0.1
+        assert_triggered_events_with(&active_animation, &clip, [0.0]);
+        active_animation.update(0.1, clip.duration); // 0.1 : 0.2
+        assert_triggered_events_with(&active_animation, &clip, [0.2]);
+        active_animation.update(0.1, clip.duration); // 0.2 : 0.2
+        assert_triggered_events_with(&active_animation, &clip, []);
+        active_animation.update(0.1, clip.duration); // 0.2 : 0.2
+        assert_triggered_events_with(&active_animation, &clip, []);
+
+        active_animation.speed = -1.0;
+        active_animation.completions = 0;
+        assert_triggered_events_with(&active_animation, &clip, []);
+        active_animation.update(0.1, clip.duration); // 0.2 : 0.1
+        assert_triggered_events_with(&active_animation, &clip, [0.2]);
+        active_animation.update(0.1, clip.duration); // 0.1 : 0.0
+        assert_triggered_events_with(&active_animation, &clip, []);
+        active_animation.update(0.1, clip.duration); // 0.0 : 0.0
+        assert_triggered_events_with(&active_animation, &clip, [0.0]);
+        active_animation.update(0.1, clip.duration); // 0.0 : 0.0
+        assert_triggered_events_with(&active_animation, &clip, []);
+    }
+
+    #[test]
+    fn test_events_triggers_looping() {
+        let mut active_animation = ActiveAnimation {
+            repeat: RepeatAnimation::Forever,
+            ..Default::default()
+        };
+        let mut clip = AnimationClip::default();
+        clip.add_event(0.3, A);
+        clip.add_event(0.0, A);
+        clip.add_event(0.2, A);
+        assert_eq!(0.3, clip.duration);
+
+        assert_triggered_events_with(&active_animation, &clip, []);
+        active_animation.update(0.1, clip.duration); // 0.0 : 0.1
+        assert_triggered_events_with(&active_animation, &clip, [0.0]);
+        active_animation.update(0.1, clip.duration); // 0.1 : 0.2
+        assert_triggered_events_with(&active_animation, &clip, []);
+        active_animation.update(0.1, clip.duration); // 0.2 : 0.3
+        assert_triggered_events_with(&active_animation, &clip, [0.2, 0.3]);
+        active_animation.update(0.1, clip.duration); // 0.3 : 0.1
+        assert_triggered_events_with(&active_animation, &clip, [0.0]);
+        active_animation.update(0.1, clip.duration); // 0.1 : 0.2
+        assert_triggered_events_with(&active_animation, &clip, []);
+
+        active_animation.speed = -1.0;
+        active_animation.update(0.1, clip.duration); // 0.2 : 0.1
+        assert_triggered_events_with(&active_animation, &clip, [0.2]);
+        active_animation.update(0.1, clip.duration); // 0.1 : 0.0
+        assert_triggered_events_with(&active_animation, &clip, []);
+        active_animation.update(0.1, clip.duration); // 0.0 : 0.2
+        assert_triggered_events_with(&active_animation, &clip, [0.0, 0.3]);
+        active_animation.update(0.1, clip.duration); // 0.2 : 0.1
+        assert_triggered_events_with(&active_animation, &clip, [0.2]);
+        active_animation.update(0.1, clip.duration); // 0.1 : 0.0
+        assert_triggered_events_with(&active_animation, &clip, []);
+
+        active_animation.replay();
+        active_animation.update(clip.duration, clip.duration); // 0.0 : 0.0
+        assert_triggered_events_with(&active_animation, &clip, [0.0, 0.3, 0.2]);
+
+        active_animation.replay();
+        active_animation.seek_time = clip.duration;
+        active_animation.last_seek_time = Some(clip.duration);
+        active_animation.update(clip.duration, clip.duration); // 0.3 : 0.0
+        assert_triggered_events_with(&active_animation, &clip, [0.3, 0.2]);
     }
 }

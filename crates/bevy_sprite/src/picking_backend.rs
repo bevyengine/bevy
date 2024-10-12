@@ -4,7 +4,7 @@
 
 use core::cmp::Reverse;
 
-use crate::{Sprite, TextureAtlas, TextureAtlasLayout};
+use crate::{Sprite, TextureAtlasLayout};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_ecs::prelude::*;
@@ -32,19 +32,23 @@ pub fn sprite_picking(
     sprite_query: Query<(
         Entity,
         &Sprite,
-        Option<&TextureAtlas>,
-        &Handle<Image>,
         &GlobalTransform,
-        Option<&Pickable>,
+        Option<&PickingBehavior>,
         &ViewVisibility,
     )>,
     mut output: EventWriter<PointerHits>,
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
-        .filter(|x| !x.4.affine().is_nan())
+        .filter_map(|(entity, sprite, transform, picking_behavior, vis)| {
+            if !transform.affine().is_nan() && vis.get() {
+                Some((entity, sprite, transform, picking_behavior))
+            } else {
+                None
+            }
+        })
         .collect();
-    sorted_sprites.sort_by_key(|x| Reverse(FloatOrd(x.4.translation().z)));
+    sorted_sprites.sort_by_key(|x| Reverse(FloatOrd(x.2.translation().z)));
 
     let primary_window = primary_window.get_single().ok();
 
@@ -76,83 +80,81 @@ pub fn sprite_picking(
         let picks: Vec<(Entity, HitData)> = sorted_sprites
             .iter()
             .copied()
-            .filter(|(.., visibility)| visibility.get())
-            .filter_map(
-                |(entity, sprite, atlas, image, sprite_transform, pickable, ..)| {
-                    if blocked {
-                        return None;
-                    }
+            .filter_map(|(entity, sprite, sprite_transform, picking_behavior)| {
+                if blocked {
+                    return None;
+                }
 
-                    // Hit box in sprite coordinate system
-                    let extents = match (sprite.custom_size, atlas) {
-                        (Some(custom_size), _) => custom_size,
-                        (None, None) => images.get(image)?.size().as_vec2(),
-                        (None, Some(atlas)) => texture_atlas_layout
-                            .get(&atlas.layout)
-                            .and_then(|layout| layout.textures.get(atlas.index))
-                            // Dropped atlas layouts and indexes out of bounds are rendered as a sprite
-                            .map_or(images.get(image)?.size().as_vec2(), |rect| {
-                                rect.size().as_vec2()
-                            }),
-                    };
-                    let anchor = sprite.anchor.as_vec();
-                    let center = -anchor * extents;
-                    let rect = Rect::from_center_half_size(center, extents / 2.0);
+                // Hit box in sprite coordinate system
+                let extents = match (sprite.custom_size, &sprite.texture_atlas) {
+                    (Some(custom_size), _) => custom_size,
+                    (None, None) => images.get(&sprite.image)?.size().as_vec2(),
+                    (None, Some(atlas)) => texture_atlas_layout
+                        .get(&atlas.layout)
+                        .and_then(|layout| layout.textures.get(atlas.index))
+                        // Dropped atlas layouts and indexes out of bounds are rendered as a sprite
+                        .map_or(images.get(&sprite.image)?.size().as_vec2(), |rect| {
+                            rect.size().as_vec2()
+                        }),
+                };
+                let anchor = sprite.anchor.as_vec();
+                let center = -anchor * extents;
+                let rect = Rect::from_center_half_size(center, extents / 2.0);
 
-                    // Transform cursor line segment to sprite coordinate system
-                    let world_to_sprite = sprite_transform.affine().inverse();
-                    let cursor_start_sprite =
-                        world_to_sprite.transform_point3(cursor_ray_world.origin);
-                    let cursor_end_sprite = world_to_sprite.transform_point3(cursor_ray_end);
+                // Transform cursor line segment to sprite coordinate system
+                let world_to_sprite = sprite_transform.affine().inverse();
+                let cursor_start_sprite = world_to_sprite.transform_point3(cursor_ray_world.origin);
+                let cursor_end_sprite = world_to_sprite.transform_point3(cursor_ray_end);
 
-                    // Find where the cursor segment intersects the plane Z=0 (which is the sprite's
-                    // plane in sprite-local space). It may not intersect if, for example, we're
-                    // viewing the sprite side-on
-                    if cursor_start_sprite.z == cursor_end_sprite.z {
-                        // Cursor ray is parallel to the sprite and misses it
-                        return None;
-                    }
-                    let lerp_factor =
-                        f32::inverse_lerp(cursor_start_sprite.z, cursor_end_sprite.z, 0.0);
-                    if !(0.0..=1.0).contains(&lerp_factor) {
-                        // Lerp factor is out of range, meaning that while an infinite line cast by
-                        // the cursor would intersect the sprite, the sprite is not between the
-                        // camera's near and far planes
-                        return None;
-                    }
-                    // Otherwise we can interpolate the xy of the start and end positions by the
-                    // lerp factor to get the cursor position in sprite space!
-                    let cursor_pos_sprite = cursor_start_sprite
-                        .lerp(cursor_end_sprite, lerp_factor)
-                        .xy();
+                // Find where the cursor segment intersects the plane Z=0 (which is the sprite's
+                // plane in sprite-local space). It may not intersect if, for example, we're
+                // viewing the sprite side-on
+                if cursor_start_sprite.z == cursor_end_sprite.z {
+                    // Cursor ray is parallel to the sprite and misses it
+                    return None;
+                }
+                let lerp_factor =
+                    f32::inverse_lerp(cursor_start_sprite.z, cursor_end_sprite.z, 0.0);
+                if !(0.0..=1.0).contains(&lerp_factor) {
+                    // Lerp factor is out of range, meaning that while an infinite line cast by
+                    // the cursor would intersect the sprite, the sprite is not between the
+                    // camera's near and far planes
+                    return None;
+                }
+                // Otherwise we can interpolate the xy of the start and end positions by the
+                // lerp factor to get the cursor position in sprite space!
+                let cursor_pos_sprite = cursor_start_sprite
+                    .lerp(cursor_end_sprite, lerp_factor)
+                    .xy();
 
-                    let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
+                let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
 
-                    blocked = is_cursor_in_sprite
-                        && pickable.map(|p| p.should_block_lower) != Some(false);
+                blocked = is_cursor_in_sprite
+                    && picking_behavior
+                        .map(|p| p.should_block_lower)
+                        .unwrap_or(true);
 
-                    is_cursor_in_sprite.then(|| {
-                        let hit_pos_world =
-                            sprite_transform.transform_point(cursor_pos_sprite.extend(0.0));
-                        // Transform point from world to camera space to get the Z distance
-                        let hit_pos_cam = cam_transform
-                            .affine()
-                            .inverse()
-                            .transform_point3(hit_pos_world);
-                        // HitData requires a depth as calculated from the camera's near clipping plane
-                        let depth = -cam_ortho.near - hit_pos_cam.z;
-                        (
-                            entity,
-                            HitData::new(
-                                cam_entity,
-                                depth,
-                                Some(hit_pos_world),
-                                Some(*sprite_transform.back()),
-                            ),
-                        )
-                    })
-                },
-            )
+                is_cursor_in_sprite.then(|| {
+                    let hit_pos_world =
+                        sprite_transform.transform_point(cursor_pos_sprite.extend(0.0));
+                    // Transform point from world to camera space to get the Z distance
+                    let hit_pos_cam = cam_transform
+                        .affine()
+                        .inverse()
+                        .transform_point3(hit_pos_world);
+                    // HitData requires a depth as calculated from the camera's near clipping plane
+                    let depth = -cam_ortho.near - hit_pos_cam.z;
+                    (
+                        entity,
+                        HitData::new(
+                            cam_entity,
+                            depth,
+                            Some(hit_pos_world),
+                            Some(*sprite_transform.back()),
+                        ),
+                    )
+                })
+            })
             .collect();
 
         let order = camera.order as f32;

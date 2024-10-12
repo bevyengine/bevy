@@ -302,25 +302,23 @@ fn setup(
 
     // Camera
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
-            color_grading: ColorGrading {
-                global: ColorGradingGlobal {
-                    post_saturation: 1.2,
-                    ..default()
-                },
-                ..default()
-            },
-            tonemapping: Tonemapping::TonyMcMapface,
-            exposure: Exposure { ev100: 6.0 },
-            #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-            msaa: Msaa::Off,
+        Camera3d::default(),
+        Camera {
+            hdr: true,
             ..default()
         },
+        Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ColorGrading {
+            global: ColorGradingGlobal {
+                post_saturation: 1.2,
+                ..default()
+            },
+            ..default()
+        },
+        Tonemapping::TonyMcMapface,
+        Exposure { ev100: 6.0 },
+        #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+        Msaa::Off,
         #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
         TemporalAntiAliasing::default(),
         EnvironmentMapLight {
@@ -333,15 +331,14 @@ fn setup(
     ));
 
     // Controls Text
-    let text_style = TextStyle::default();
-
     commands.spawn((
-        TextBundle::from_section("", text_style).with_style(Style {
+        Text::default(),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
+        },
         ExampleDisplay,
     ));
 }
@@ -551,8 +548,7 @@ fn example_control_system(
         Quat::from_euler(EulerRot::XYZ, 0.0, rotation, 0.0),
     );
 
-    let mut display = display.single_mut();
-    display.sections[0].value = format!(
+    **display.single_mut() = format!(
         concat!(
             " J / K / L / ;  Screen Space Specular Transmissive Quality: {:?}\n",
             "         O / P  Screen Space Specular Transmissive Steps: {}\n",
