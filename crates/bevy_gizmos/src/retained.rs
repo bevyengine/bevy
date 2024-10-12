@@ -62,7 +62,7 @@ impl DerefMut for GizmoAsset {
 ///
 ///     commands.spawn(Gizmo {
 ///         handle: gizmo_assets.add(gizmo),
-///         line_config: LineGizmoConfig {
+///         line_config: GizmoLineConfig {
 ///             width: 4.,
 ///             ..default()
 ///         },

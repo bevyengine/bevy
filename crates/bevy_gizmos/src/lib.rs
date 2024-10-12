@@ -104,6 +104,7 @@ use {
             Commands, SystemParamItem,
         },
     },
+    bevy_math::{Affine3, Affine3A},
     bevy_render::{
         extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -418,10 +419,6 @@ fn extract_gizmo_data(
     handles: Extract<Res<GizmoHandles>>,
     config: Extract<Res<GizmoConfigStore>>,
 ) {
-    use bevy_ecs::entity::Entity;
-    use bevy_math::{Affine3, Affine3A};
-    use bevy_render::sync_world::MainEntity;
-
     for (group_type_id, handle) in &handles.handles {
         let Some((config, _)) = config.get_config_dyn(group_type_id) else {
             continue;
