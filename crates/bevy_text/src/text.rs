@@ -314,6 +314,12 @@ impl Default for TextColor {
     }
 }
 
+impl<T: Into<Color>> From<T> for TextColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
+    }
+}
+
 impl TextColor {
     /// Black colored text
     pub const BLACK: Self = TextColor(Color::BLACK);
