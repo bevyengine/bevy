@@ -46,7 +46,7 @@ fn setup(mut commands: Commands) {
 
     commands.spawn(Camera2d);
     let text_string = "0123456789".repeat(10_000);
-    let text_style = TextFont {
+    let text_font = TextFont {
         font_size: 4.,
         ..Default::default()
     };
@@ -74,7 +74,7 @@ fn setup(mut commands: Commands) {
                     },
                     ..Default::default()
                 })
-                .with_child((Text(text_string.clone()), text_style.clone(), text_block));
+                .with_child((Text(text_string.clone()), text_font.clone(), text_block));
         });
 
     commands.spawn((

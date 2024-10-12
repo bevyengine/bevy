@@ -42,7 +42,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
     commands.spawn(Camera2d);
 
-    let text_style = (
+    let text_font = (
         TextFont {
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 33.0,
@@ -77,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Size Constraints Example"),
-                        text_style.clone(),
+                        text_font.clone(),
                         Style {
                             margin: UiRect::bottom(Val::Px(25.)),
                             ..Default::default()
@@ -105,7 +105,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Constraint::Width,
                                 Constraint::MaxWidth,
                             ] {
-                                spawn_button_row(parent, constraint, text_style.clone());
+                                spawn_button_row(parent, constraint, text_font.clone());
                             }
                         });
                 });
