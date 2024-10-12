@@ -150,7 +150,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             // Position
             VertexFormat::Float32x3,
             // Color
-            VertexFormat::Uint32,
+            VertexFormat::Float32x4,
         ];
 
         let vertex_layout =
@@ -246,7 +246,7 @@ const COLORED_MESH2D_SHADER: &str = r"
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
     @location(0) position: vec3<f32>,
-    @location(1) color: u32,
+    @location(1) color: vec4<f32>,
 };
 
 struct VertexOutput {
@@ -264,7 +264,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     let model = mesh2d_functions::get_world_from_local(vertex.instance_index);
     out.clip_position = mesh2d_functions::mesh2d_position_local_to_clip(model, vec4<f32>(vertex.position, 1.0));
     // Unpack the `u32` from the vertex buffer into the `vec4<f32>` used by the fragment shader
-    out.color = vec4<f32>((vec4<u32>(vertex.color) >> vec4<u32>(0u, 8u, 16u, 24u)) & vec4<u32>(255u)) / 255.0;
+    out.color = vertex.color;
     return out;
 }
 
