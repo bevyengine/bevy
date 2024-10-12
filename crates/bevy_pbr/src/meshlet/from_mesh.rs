@@ -19,17 +19,17 @@ use meshopt::{
 use metis::Graph;
 use smallvec::SmallVec;
 
+// Aim to have 8 meshlets per group
+const TARGET_MESHLETS_PER_GROUP: usize = 8;
+// Reject groups that keep at least 95% of their original triangles
+const SIMPLIFICATION_FAILURE_PERCENTAGE: f32 = 0.95;
+
 /// Default vertex position quantization factor for use with [`MeshletMesh::from_mesh`].
 ///
 /// Snaps vertices to the nearest 1/16th of a centimeter (1/2^4).
 pub const DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR: u8 = 4;
 
-const MESHLET_VERTEX_SIZE_IN_BYTES: usize = 32;
 const CENTIMETERS_PER_METER: f32 = 100.0;
-
-const TARGET_MESHLETS_PER_GROUP: usize = 8;
-// Reject groups that keep at least 95% of their original triangles
-const SIMPLIFICATION_FAILURE_PERCENTAGE: f32 = 0.95;
 
 impl MeshletMesh {
     /// Process a [`Mesh`] to generate a [`MeshletMesh`].
@@ -163,6 +163,7 @@ impl MeshletMesh {
                 meshlet,
                 meshlets.get(i).vertices,
                 &vertex_buffer,
+                vertex_stride,
                 &mut vertex_positions,
                 &mut vertex_normals,
                 &mut vertex_uvs,
@@ -418,6 +419,7 @@ fn build_and_compress_meshlet_vertex_data(
     meshlet: &meshopt_Meshlet,
     meshlet_vertex_ids: &[u32],
     vertex_buffer: &[u8],
+    vertex_stride: usize,
     vertex_positions: &mut BitVec<u32, Lsb0>,
     vertex_normals: &mut Vec<u32>,
     vertex_uvs: &mut Vec<Vec2>,
@@ -437,9 +439,8 @@ fn build_and_compress_meshlet_vertex_data(
     let mut quantized_positions = [IVec3::ZERO; 255];
     for (i, vertex_id) in meshlet_vertex_ids.iter().enumerate() {
         // Load source vertex attributes
-        let vertex_id_byte = *vertex_id as usize * MESHLET_VERTEX_SIZE_IN_BYTES;
-        let vertex_data =
-            &vertex_buffer[vertex_id_byte..(vertex_id_byte + MESHLET_VERTEX_SIZE_IN_BYTES)];
+        let vertex_id_byte = *vertex_id as usize * vertex_stride;
+        let vertex_data = &vertex_buffer[vertex_id_byte..(vertex_id_byte + vertex_stride)];
         let position = Vec3::from_slice(bytemuck::cast_slice(&vertex_data[0..12]));
         let normal = Vec3::from_slice(bytemuck::cast_slice(&vertex_data[12..24]));
         let uv = Vec2::from_slice(bytemuck::cast_slice(&vertex_data[24..32]));
