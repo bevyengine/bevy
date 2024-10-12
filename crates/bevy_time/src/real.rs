@@ -37,7 +37,7 @@ use crate::time::Time;
 /// [`last_update()`](Time::last_update) are recorded and accessible.
 ///
 /// [^disclaimer]: When using [`TimeUpdateStrategy::ManualDuration`](crate::TimeUpdateStrategy::ManualDuration),
-///     `Time<Real>` is only a *mock* of wall clock time.
+///     [`Time<Real>#impl-Time<Real>`] is only a *mock* of wall clock time.
 ///
 #[derive(Debug, Copy, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
