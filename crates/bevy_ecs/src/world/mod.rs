@@ -2469,6 +2469,9 @@ impl World {
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
     /// adds the `Bundle` of components to each `Entity`.
     /// This is faster than doing equivalent operations one-by-one.
+    /// 
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
     ///
     /// This will overwrite any previous values of components shared by the `Bundle`.
     /// See [`World::insert_batch_if_new`] to keep the old values instead.
@@ -2479,14 +2482,14 @@ impl World {
     ///
     /// For the non-panicking version, see [`World::try_insert_batch`].
     #[track_caller]
-    pub fn insert_batch<I, B>(&mut self, iter: I)
+    pub fn insert_batch<I, B>(&mut self, batch: I)
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
     {
         self.insert_batch_with_caller(
-            iter,
+            batch,
             InsertMode::Replace,
             #[cfg(feature = "track_change_detection")]
             Location::caller(),
@@ -2496,6 +2499,9 @@ impl World {
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
     /// adds the `Bundle` of components to each `Entity` without overwriting.
     /// This is faster than doing equivalent operations one-by-one.
+    /// 
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
     ///
     /// This is the same as [`World::insert_batch`], but in case of duplicate
     /// components it will leave the old values instead of replacing them with new ones.
@@ -2506,24 +2512,27 @@ impl World {
     ///
     /// For the non-panicking version, see [`World::try_insert_batch_if_new`].
     #[track_caller]
-    pub fn insert_batch_if_new<I, B>(&mut self, iter: I)
+    pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
     {
         self.insert_batch_with_caller(
-            iter,
+            batch,
             InsertMode::Keep,
             #[cfg(feature = "track_change_detection")]
             Location::caller(),
         );
     }
 
-    /// Split into a new function so we can pass the calling location into the function when using
-    /// as a command.
+    /// Split into a new function so we can differentiate the calling location.
     ///
-    /// This is called by [`World::insert_batch`] and [`World::insert_batch_if_new`]
+    /// This can be called by:
+    /// - [`World::insert_batch`]
+    /// - [`World::insert_batch_if_new`]
+    /// - [`Commands::insert_batch`]
+    /// - [`Commands::insert_batch_if_new`]
     #[inline]
     pub(crate) fn insert_batch_with_caller<I, B>(
         &mut self,
@@ -2617,6 +2626,9 @@ impl World {
     /// adds the `Bundle` of components to each `Entity`.
     /// This is faster than doing equivalent operations one-by-one.
     ///
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    ///
     /// This will overwrite any previous values of components shared by the `Bundle`.
     /// See [`World::try_insert_batch_if_new`] to keep the old values instead.
     ///
@@ -2624,14 +2636,14 @@ impl World {
     ///
     /// For the panicking version, see [`World::insert_batch`].
     #[track_caller]
-    pub fn try_insert_batch<I, B>(&mut self, iter: I)
+    pub fn try_insert_batch<I, B>(&mut self, batch: I)
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
     {
         self.try_insert_batch_with_caller(
-            iter,
+            batch,
             InsertMode::Replace,
             #[cfg(feature = "track_change_detection")]
             Location::caller(),
@@ -2641,6 +2653,9 @@ impl World {
     /// adds the `Bundle` of components to each `Entity` without overwriting.
     /// This is faster than doing equivalent operations one-by-one.
     ///
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    ///
     /// This is the same as [`World::try_insert_batch`], but in case of duplicate
     /// components it will leave the old values instead of replacing them with new ones.
     ///
@@ -2648,24 +2663,27 @@ impl World {
     ///
     /// For the panicking version, see [`World::insert_batch_if_new`].
     #[track_caller]
-    pub fn try_insert_batch_if_new<I, B>(&mut self, iter: I)
+    pub fn try_insert_batch_if_new<I, B>(&mut self, batch: I)
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
     {
         self.try_insert_batch_with_caller(
-            iter,
+            batch,
             InsertMode::Keep,
             #[cfg(feature = "track_change_detection")]
             Location::caller(),
         );
     }
 
-    /// Split into a new function so we can pass the calling location into the function when using
-    /// as a command.
+    /// Split into a new function so we can differentiate the calling location.
     ///
-    /// This is called by [`World::try_insert_batch`] and [`World::try_insert_batch_if_new`]
+    /// This can be called by:
+    /// - [`World::try_insert_batch`]
+    /// - [`World::try_insert_batch_if_new`]
+    /// - [`Commands::try_insert_batch`]
+    /// - [`Commands::try_insert_batch_if_new`]
     #[inline]
     pub(crate) fn try_insert_batch_with_caller<I, B>(
         &mut self,
