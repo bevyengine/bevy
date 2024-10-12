@@ -32,7 +32,7 @@ use crate::time::Time;
 /// zero must be handled without errors in application logic, as it may
 /// theoretically also happen at other times.
 ///
-/// [`std::time::Instant`]s for [`startup()`](Time::startup),
+/// [`Instant`]s for [`startup()`](Time::startup),
 /// [`first_update()`](Time::first_update) and
 /// [`last_update()`](Time::last_update) are recorded and accessible.
 ///
