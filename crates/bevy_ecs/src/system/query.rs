@@ -1119,8 +1119,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # struct Player;
     /// # #[derive(Component)]
     /// # struct Position(f32, f32);
-    /// fn player_system(query: Query<&Position, With<Player>>) {
-    ///     let player_position = query.single();
+    /// fn player_system(query: Single<&Position, With<Player>>) {
     ///     // do something with player_position
     /// }
     /// # bevy_ecs::system::assert_is_system(player_system);
@@ -1196,8 +1195,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # #[derive(Component)]
     /// # struct Health(u32);
     /// #
-    /// fn regenerate_player_health_system(mut query: Query<&mut Health, With<Player>>) {
-    ///     let mut health = query.single_mut();
+    /// fn regenerate_player_health_system(mut query: Single<&mut Health, With<Player>>) {
     ///     health.0 += 1;
     /// }
     /// # bevy_ecs::system::assert_is_system(regenerate_player_health_system);
@@ -1384,7 +1382,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * `&mut T` -> `&T`
     /// * `&mut T` -> `Ref<T>`
     /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
-    ///  
+    ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
     /// [`&Archetype`]: crate::archetype::Archetype
     #[track_caller]

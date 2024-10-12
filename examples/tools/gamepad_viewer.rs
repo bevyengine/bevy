@@ -451,7 +451,7 @@ fn update_axes(
 fn update_connected(
     mut connected: EventReader<GamepadConnectionEvent>,
     gamepads: Query<(Entity, &Gamepad)>,
-    query: Query<Entity, With<ConnectedGamepadsText>>,
+    text: Single<Entity, With<ConnectedGamepadsText>>,
     mut writer: UiTextWriter,
 ) {
     if connected.is_empty() {
@@ -465,7 +465,7 @@ fn update_connected(
         .collect::<Vec<_>>()
         .join("\n");
 
-    *writer.text(query.single(), 1) = if !formatted.is_empty() {
+    *writer.text(*text, 1) = if !formatted.is_empty() {
         formatted
     } else {
         "None".to_string()

@@ -58,7 +58,7 @@ fn check_for_gltf_extras(
         Option<&GltfMeshExtras>,
         Option<&GltfMaterialExtras>,
     )>,
-    mut display: Query<&mut Text, With<ExampleDisplay>>,
+    mut display: Single<&mut Text, With<ExampleDisplay>>,
 ) {
     let mut gltf_extra_infos_lines: Vec<String> = vec![];
 
@@ -86,6 +86,6 @@ fn check_for_gltf_extras(
             );
             gltf_extra_infos_lines.push(formatted_extras);
         }
-        **display.single_mut() = gltf_extra_infos_lines.join("\n");
+        display.0 = gltf_extra_infos_lines.join("\n");
     }
 }

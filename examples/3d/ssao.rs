@@ -90,7 +90,7 @@ fn setup(
 }
 
 fn update(
-    camera: Query<
+    camera: Single<
         (
             Entity,
             Option<&ScreenSpaceAmbientOcclusion>,
@@ -98,16 +98,15 @@ fn update(
         ),
         With<Camera>,
     >,
-    mut text: Query<&mut Text>,
-    mut sphere: Query<&mut Transform, With<SphereMarker>>,
+    mut text: Single<&mut Text>,
+    mut sphere: Single<&mut Transform, With<SphereMarker>>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let mut sphere = sphere.single_mut();
     sphere.translation.y = ops::sin(time.elapsed_seconds() / 1.7) * 0.7;
 
-    let (camera_entity, ssao, temporal_jitter) = camera.single();
+    let (camera_entity, ssao, temporal_jitter) = camera.into_inner();
     let current_ssao = ssao.cloned().unwrap_or_default();
 
     let mut commands = commands.entity(camera_entity);
@@ -166,7 +165,6 @@ fn update(
         }
     }
 
-    let mut text = text.single_mut();
     text.clear();
 
     let (o, l, m, h, u) = match ssao.map(|s| s.quality_level) {

@@ -100,22 +100,20 @@ fn update_positions(
 fn update_listener(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut listeners: Query<&mut Transform, With<SpatialListener>>,
+    mut listeners: Single<&mut Transform, With<SpatialListener>>,
 ) {
-    let mut transform = listeners.single_mut();
-
     let speed = 2.;
 
     if keyboard.pressed(KeyCode::ArrowRight) {
-        transform.translation.x += speed * time.delta_seconds();
+        listeners.translation.x += speed * time.delta_seconds();
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        transform.translation.x -= speed * time.delta_seconds();
+        listeners.translation.x -= speed * time.delta_seconds();
     }
     if keyboard.pressed(KeyCode::ArrowDown) {
-        transform.translation.z += speed * time.delta_seconds();
+        listeners.translation.z += speed * time.delta_seconds();
     }
     if keyboard.pressed(KeyCode::ArrowUp) {
-        transform.translation.z -= speed * time.delta_seconds();
+        listeners.translation.z -= speed * time.delta_seconds();
     }
 }

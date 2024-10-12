@@ -282,7 +282,7 @@ enum DefaultRenderMode {
 
 #[allow(clippy::too_many_arguments)]
 fn switch_mode(
-    mut text: Query<&mut Text>,
+    mut text: Single<&mut Text>,
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
@@ -292,8 +292,6 @@ fn switch_mode(
     mut hide_ui: Local<bool>,
     mut mode: Local<DefaultRenderMode>,
 ) {
-    let mut text = text.single_mut();
-
     text.clear();
 
     if keys.just_pressed(KeyCode::Space) {

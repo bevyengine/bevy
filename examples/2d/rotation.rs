@@ -102,9 +102,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn player_movement_system(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&Player, &mut Transform)>,
+    query: Single<(&Player, &mut Transform)>,
 ) {
-    let (ship, mut transform) = query.single_mut();
+    let (ship, mut transform) = query.into_inner();
 
     let mut rotation_factor = 0.0;
     let mut movement_factor = 0.0;
@@ -143,9 +143,9 @@ fn player_movement_system(
 /// Demonstrates snapping the enemy ship to face the player ship immediately.
 fn snap_to_player_system(
     mut query: Query<&mut Transform, (With<SnapToPlayer>, Without<Player>)>,
-    player_query: Query<&Transform, With<Player>>,
+    player_query: Single<&Transform, With<Player>>,
 ) {
-    let player_transform = player_query.single();
+    let player_transform = player_query.into_inner();
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();
 
@@ -186,9 +186,9 @@ fn snap_to_player_system(
 fn rotate_to_player_system(
     time: Res<Time>,
     mut query: Query<(&RotateToPlayer, &mut Transform), Without<Player>>,
-    player_query: Query<&Transform, With<Player>>,
+    player_query: Single<&Transform, With<Player>>,
 ) {
-    let player_transform = player_query.single();
+    let player_transform = player_query.into_inner();
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();
 

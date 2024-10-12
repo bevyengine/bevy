@@ -258,7 +258,7 @@ fn update_transform<T: UpdateTransform + Component>(
 
 fn toggle_overflow(
     mut containers: Query<&mut Style, With<Container>>,
-    mut instructions: Query<Entity, With<Instructions>>,
+    instructions: Single<Entity, With<Instructions>>,
     mut writer: UiTextWriter,
 ) {
     for mut style in &mut containers {
@@ -278,7 +278,7 @@ fn toggle_overflow(
             _ => Overflow::visible(),
         };
 
-        let entity = instructions.single_mut();
+        let entity = *instructions;
         *writer.text(entity, 1) = format!("{:?}", style.overflow);
     }
 }

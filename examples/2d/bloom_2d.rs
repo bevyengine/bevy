@@ -71,14 +71,14 @@ fn setup(
 // ------------------------------------------------------------------------------------------------
 
 fn update_bloom_settings(
-    mut camera: Query<(Entity, Option<&mut Bloom>), With<Camera>>,
-    mut text: Query<&mut Text>,
+    camera: Single<(Entity, Option<&mut Bloom>), With<Camera>>,
+    text: Single<&mut Text>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let bloom = camera.single_mut();
-    let mut text = text.single_mut();
+    let bloom = camera.into_inner();
+    let mut text = text.into_inner();
 
     match bloom {
         (entity, Some(mut bloom)) => {

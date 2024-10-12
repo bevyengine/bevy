@@ -81,7 +81,7 @@ fn update_parallax_depth_scale(
     mut target_depth: Local<TargetDepth>,
     mut depth_update: Local<bool>,
     mut writer: UiTextWriter,
-    text: Query<Entity, With<Text>>,
+    text: Single<Entity, With<Text>>,
 ) {
     if input.just_pressed(KeyCode::Digit1) {
         target_depth.0 -= DEPTH_UPDATE_STEP;
@@ -98,7 +98,7 @@ fn update_parallax_depth_scale(
             let current_depth = mat.parallax_depth_scale;
             let new_depth = current_depth.lerp(target_depth.0, DEPTH_CHANGE_RATE);
             mat.parallax_depth_scale = new_depth;
-            *writer.text(text.single(), 1) = format!("Parallax depth scale: {new_depth:.5}\n");
+            *writer.text(*text, 1) = format!("Parallax depth scale: {new_depth:.5}\n");
             if (new_depth - current_depth).abs() <= 0.000000001 {
                 *depth_update = false;
             }
@@ -109,7 +109,7 @@ fn update_parallax_depth_scale(
 fn switch_method(
     input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    text: Query<Entity, With<Text>>,
+    text: Single<Entity, With<Text>>,
     mut writer: UiTextWriter,
     mut current: Local<CurrentMethod>,
 ) {
@@ -118,7 +118,7 @@ fn switch_method(
     } else {
         return;
     }
-    let text_entity = text.single();
+    let text_entity = *text;
     *writer.text(text_entity, 3) = format!("Method: {}\n", *current);
 
     for (_, mat) in materials.iter_mut() {
@@ -130,7 +130,7 @@ fn update_parallax_layers(
     input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_layers: Local<TargetLayers>,
-    text: Query<Entity, With<Text>>,
+    text: Single<Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     if input.just_pressed(KeyCode::Digit3) {
@@ -142,7 +142,7 @@ fn update_parallax_layers(
         return;
     }
     let layer_count = ops::exp2(target_layers.0);
-    let text_entity = text.single();
+    let text_entity = *text;
     *writer.text(text_entity, 2) = format!("Layers: {layer_count:.0}\n");
 
     for (_, mat) in materials.iter_mut() {
@@ -183,11 +183,10 @@ const CAMERA_POSITIONS: &[Transform] = &[
 ];
 
 fn move_camera(
-    mut camera: Query<&mut Transform, With<CameraController>>,
+    mut camera: Single<&mut Transform, With<CameraController>>,
     mut current_view: Local<usize>,
     button: Res<ButtonInput<MouseButton>>,
 ) {
-    let mut camera = camera.single_mut();
     if button.just_pressed(MouseButton::Left) {
         *current_view = (*current_view + 1) % CAMERA_POSITIONS.len();
     }

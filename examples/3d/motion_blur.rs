@@ -251,13 +251,12 @@ fn setup_ui(mut commands: Commands) {
 }
 
 fn keyboard_inputs(
-    mut motion_blur: Query<&mut MotionBlur>,
+    mut motion_blur: Single<&mut MotionBlur>,
     presses: Res<ButtonInput<KeyCode>>,
-    text: Query<Entity, With<Text>>,
+    text: Single<Entity, With<Text>>,
     mut writer: UiTextWriter,
     mut camera: ResMut<CameraMode>,
 ) {
-    let mut motion_blur = motion_blur.single_mut();
     if presses.just_pressed(KeyCode::Digit1) {
         motion_blur.shutter_angle -= 0.25;
     } else if presses.just_pressed(KeyCode::Digit2) {
@@ -274,7 +273,7 @@ fn keyboard_inputs(
     }
     motion_blur.shutter_angle = motion_blur.shutter_angle.clamp(0.0, 1.0);
     motion_blur.samples = motion_blur.samples.clamp(0, 64);
-    let entity = text.single();
+    let entity = *text;
     *writer.text(entity, 1) = format!("Shutter angle: {:.2}\n", motion_blur.shutter_angle);
     *writer.text(entity, 2) = format!("Samples: {:.5}\n", motion_blur.samples);
 }
@@ -326,12 +325,11 @@ fn move_cars(
 }
 
 fn move_camera(
-    mut camera: Query<(&mut Transform, &mut Projection), Without<CameraTracked>>,
-    tracked: Query<&Transform, With<CameraTracked>>,
+    camera: Single<(&mut Transform, &mut Projection), Without<CameraTracked>>,
+    tracked: Single<&Transform, With<CameraTracked>>,
     mode: Res<CameraMode>,
 ) {
-    let tracked = tracked.single();
-    let (mut transform, mut projection) = camera.single_mut();
+    let (mut transform, mut projection) = camera.into_inner();
     match *mode {
         CameraMode::Track => {
             transform.look_at(tracked.translation, Vec3::Y);
@@ -343,7 +341,7 @@ fn move_camera(
         CameraMode::Chase => {
             transform.translation =
                 tracked.translation + Vec3::new(0.0, 0.15, 0.0) + tracked.back() * 0.6;
-            transform.look_to(*tracked.forward(), Vec3::Y);
+            transform.look_to(tracked.forward(), Vec3::Y);
             if let Projection::Perspective(perspective) = &mut *projection {
                 perspective.fov = 1.0;
             }

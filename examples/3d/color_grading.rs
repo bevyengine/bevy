@@ -560,13 +560,13 @@ fn update_ui_state(
         &ColorGradingOptionWidget,
     )>,
     button_text: Query<(Entity, &ColorGradingOptionWidget), (With<Text>, Without<HelpText>)>,
-    help_text: Query<Entity, With<HelpText>>,
+    help_text: Single<Entity, With<HelpText>>,
     mut writer: UiTextWriter,
-    cameras: Query<Ref<ColorGrading>>,
+    cameras: Single<Ref<ColorGrading>>,
     currently_selected_option: Res<SelectedColorGradingOption>,
 ) {
     // Exit early if the UI didn't change
-    if !currently_selected_option.is_changed() && !cameras.single().is_changed() {
+    if !currently_selected_option.is_changed() && !cameras.is_changed() {
         return;
     }
 
@@ -581,12 +581,10 @@ fn update_ui_state(
         }
     }
 
-    let value_label = cameras.iter().next().map(|color_grading| {
-        format!(
-            "{:.3}",
-            currently_selected_option.get(color_grading.as_ref())
-        )
-    });
+    let value_label = format!(
+        "{:.3}",
+        currently_selected_option.get(cameras.as_ref())
+    );
 
     // Update the buttons.
     for (entity, widget) in button_text.iter() {
@@ -606,16 +604,14 @@ fn update_ui_state(
         if widget.widget_type == ColorGradingOptionWidgetType::Value
             && *currently_selected_option == widget.option
         {
-            if let Some(ref value_label) = value_label {
-                writer.for_each_text(entity, |mut text| {
-                    text.clone_from(value_label);
-                });
-            }
+            writer.for_each_text(entity, |mut text| {
+                text.clone_from(&value_label);
+            });
         }
     }
 
     // Update the help text.
-    *writer.text(help_text.single(), 0) = create_help_text(&currently_selected_option);
+    *writer.text(*help_text, 0) = create_help_text(&currently_selected_option);
 }
 
 /// Creates the help text at the top left of the window.
@@ -626,7 +622,7 @@ fn create_help_text(currently_selected_option: &SelectedColorGradingOption) -> S
 /// Processes keyboard input to change the value of the currently-selected color
 /// grading option.
 fn adjust_color_grading_option(
-    mut cameras: Query<&mut ColorGrading>,
+    mut color_grading: Single<&mut ColorGrading>,
     input: Res<ButtonInput<KeyCode>>,
     currently_selected_option: Res<SelectedColorGradingOption>,
 ) {
@@ -639,8 +635,7 @@ fn adjust_color_grading_option(
     }
 
     if delta != 0.0 {
-        let mut color_grading = cameras.single_mut();
-        let new_value = currently_selected_option.get(&color_grading) + delta;
+        let new_value = currently_selected_option.get(color_grading.as_ref()) + delta;
         currently_selected_option.set(&mut color_grading, new_value);
     }
 }

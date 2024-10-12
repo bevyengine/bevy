@@ -180,13 +180,11 @@ struct BirdScheduled {
 fn scheduled_spawner(
     mut commands: Commands,
     args: Res<Args>,
-    windows: Query<&Window>,
+    window: Single<&Window>,
     mut scheduled: ResMut<BirdScheduled>,
     mut counter: ResMut<BevyCounter>,
     bird_resources: ResMut<BirdResources>,
 ) {
-    let window = windows.single();
-
     if scheduled.waves > 0 {
         let bird_resources = bird_resources.into_inner();
         spawn_birds(
@@ -226,7 +224,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     material_assets: ResMut<Assets<ColorMaterial>>,
     images: ResMut<Assets<Image>>,
-    windows: Query<&Window>,
+    window: Single<&Window>,
     counter: ResMut<BevyCounter>,
 ) {
     warn!(include_str!("warning_string.txt"));
@@ -305,7 +303,7 @@ fn setup(
             spawn_birds(
                 &mut commands,
                 args,
-                &windows.single().resolution,
+                &window.resolution,
                 counter,
                 scheduled.per_wave,
                 &mut bird_resources,
@@ -325,7 +323,7 @@ fn mouse_handler(
     args: Res<Args>,
     time: Res<Time>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
+    window: Single<&Window>,
     bird_resources: ResMut<BirdResources>,
     mut counter: ResMut<BevyCounter>,
     mut rng: Local<Option<ChaCha8Rng>>,
@@ -337,7 +335,6 @@ fn mouse_handler(
         *rng = Some(ChaCha8Rng::seed_from_u64(42));
     }
     let rng = rng.as_mut().unwrap();
-    let window = windows.single();
 
     if mouse_button_input.just_released(MouseButton::Left) {
         counter.color = Color::linear_rgb(rng.gen(), rng.gen(), rng.gen());
@@ -529,9 +526,7 @@ fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3)
         velocity.y = 0.0;
     }
 }
-fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
-    let window = windows.single();
-
+fn collision_system(window: Single<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
     let half_extents = 0.5 * window.size();
 
     for (mut bird, transform) in &mut bird_query {
@@ -542,10 +537,10 @@ fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &
 fn counter_system(
     diagnostics: Res<DiagnosticsStore>,
     counter: Res<BevyCounter>,
-    query: Query<Entity, With<StatsText>>,
+    query: Single<Entity, With<StatsText>>,
     mut writer: UiTextWriter,
 ) {
-    let text = query.single();
+    let text = *query;
 
     if counter.is_changed() {
         *writer.text(text, 2) = counter.count.to_string();

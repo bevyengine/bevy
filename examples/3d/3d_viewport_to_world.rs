@@ -11,15 +11,14 @@ fn main() {
 }
 
 fn draw_cursor(
-    camera_query: Query<(&Camera, &GlobalTransform)>,
-    ground_query: Query<&GlobalTransform, With<Ground>>,
-    windows: Query<&Window>,
+    camera_query: Single<(&Camera, &GlobalTransform)>,
+    ground: Single<&GlobalTransform, With<Ground>>,
+    windows: Single<&Window>,
     mut gizmos: Gizmos,
 ) {
-    let (camera, camera_transform) = camera_query.single();
-    let ground = ground_query.single();
+    let (camera, camera_transform) = camera_query.into_inner();
 
-    let Some(cursor_position) = windows.single().cursor_position() else {
+    let Some(cursor_position) = windows.cursor_position() else {
         return;
     };
 
