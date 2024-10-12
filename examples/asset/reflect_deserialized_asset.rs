@@ -1,3 +1,24 @@
+//! Example showing how to deserialize an asset which contains type-erased
+//! values, which may also contain `Handle`s to other assets.
+//!
+//! Your asset may contain something like a `Vec<Box<dyn Foo>>`, where you don't
+//! actually know the type of values in that `Vec`, and where each value may be
+//! of a different type. This is useful for e.g. an animation graph, where each
+//! node is of a different type. You may have an "animation clip" node and an
+//! "adjust speed" node, which have different types, but both implement
+//! `AnimationNode`.
+//!
+//! To deserialize a value like this, the type of the value must be stored
+//! alongside the actual data, and a custom deserializer should be used which
+//! can create the value from reflection. (`AnimationNode` must also be
+//! `Reflect`). This example shows how to write such a deserializer.
+//!
+//! In addition, if you're loading this as an asset, some of those values may
+//! reference other assets via `Handle`s. Normally, these would be deserialized
+//! as `Handle::default`, but that's useless if you want to actually start a
+//! load operation for that asset. This example shows how to use a
+//! `ReflectDeserializerProcessor` to deserialize `Handle`s properly.
+//!
 //! Let's imagine we want to make a system where we can take an image, pass it
 //! through a series of operations (a pipeline), and get back a new transformed
 //! image.
@@ -387,8 +408,8 @@ fn setup(
 
     // draw the demo image
     commands.spawn(Camera2d);
-    commands.spawn(SpriteBundle {
-        texture: Handle::default(),
+    commands.spawn(Sprite {
+        image: Handle::default(),
         ..default()
     });
 }
@@ -396,7 +417,7 @@ fn setup(
 /// Updates the demo image entity to render with the output of the
 /// [`DemoImagePipeline`].
 fn make_demo_image(
-    mut demo_images: Query<&mut Handle<Image>>,
+    mut demo_images: Query<&mut Sprite>,
     image_pipeline_assets: Res<Assets<ImagePipeline>>,
     mut image_assets: ResMut<Assets<Image>>,
     demo_image_pipeline: Res<DemoImagePipeline>,
