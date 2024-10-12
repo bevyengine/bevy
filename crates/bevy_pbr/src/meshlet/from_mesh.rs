@@ -14,7 +14,8 @@ use derive_more::derive::{Display, Error};
 use half::f16;
 use itertools::Itertools;
 use meshopt::{
-    build_meshlets, ffi::meshopt_Meshlet, simplify, Meshlets, SimplifyOptions, VertexDataAdapter,
+    build_meshlets, ffi::meshopt_Meshlet, generate_vertex_remap_multi, simplify, Meshlets,
+    SimplifyOptions, VertexDataAdapter, VertexStream,
 };
 use metis::Graph;
 use smallvec::SmallVec;
@@ -90,14 +91,27 @@ impl MeshletMesh {
         .take(meshlets.len())
         .collect::<Vec<_>>();
 
+        // Generate a position-only vertex buffer for determining what meshlets are connected for use in grouping
+        let (_, position_only_vertex_remap) = generate_vertex_remap_multi(
+            vertices.vertex_count,
+            &[VertexStream::new_with_stride::<Vec3, _>(
+                &vertex_buffer,
+                vertex_stride,
+            )],
+            Some(&indices),
+        );
+
         // Build further LODs
         let mut simplification_queue = 0..meshlets.len();
         while simplification_queue.len() > 1 {
-            // For each meshlet build a list of connected meshlets (meshlets that share a triangle edge)
-            let connected_meshlets_per_meshlet =
-                find_connected_meshlets(simplification_queue.clone(), &meshlets);
+            // For each meshlet build a list of connected meshlets (meshlets that share a vertex)
+            let connected_meshlets_per_meshlet = find_connected_meshlets(
+                simplification_queue.clone(),
+                &meshlets,
+                &position_only_vertex_remap,
+            );
 
-            // Group meshlets into roughly groups of 4, grouping meshlets with a high number of shared edges
+            // Group meshlets into roughly groups of 4, grouping meshlets with a high number of shared vertices
             // http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/manual.pdf
             let groups = group_meshlets(
                 simplification_queue.clone(),
@@ -212,47 +226,38 @@ fn compute_meshlets(indices: &[u32], vertices: &VertexDataAdapter) -> Meshlets {
 fn find_connected_meshlets(
     simplification_queue: Range<usize>,
     meshlets: &Meshlets,
+    position_only_vertex_remap: &[u32],
 ) -> Vec<Vec<(usize, usize)>> {
-    // For each edge, gather all meshlets that use it
-    let mut edges_to_meshlets = HashMap::new();
-
+    // For each vertex, build a list of all meshlets that use it
+    let mut vertices_to_meshlets = vec![Vec::new(); position_only_vertex_remap.len()];
     for meshlet_id in simplification_queue.clone() {
         let meshlet = meshlets.get(meshlet_id);
-        for i in meshlet.triangles.chunks(3) {
-            for k in 0..3 {
-                let v0 = meshlet.vertices[i[k] as usize];
-                let v1 = meshlet.vertices[i[(k + 1) % 3] as usize];
-                let edge = (v0.min(v1), v0.max(v1));
-
-                let vec = edges_to_meshlets
-                    .entry(edge)
-                    .or_insert_with(SmallVec::<[usize; 2]>::new);
-                // Meshlets are added in order, so we can just check the last element to deduplicate,
-                // in the case of two triangles sharing the same edge within a single meshlet
-                if vec.last() != Some(&meshlet_id) {
-                    vec.push(meshlet_id);
-                }
+        for index in meshlet.triangles {
+            let vertex_id = position_only_vertex_remap[meshlet.vertices[*index as usize] as usize];
+            let vertex_to_meshlets = &mut vertices_to_meshlets[vertex_id as usize];
+            // Meshlets are added in order, so we can just check the last element to deduplicate,
+            // in the case of two triangles sharing the same vertex within a single meshlet
+            if vertex_to_meshlets.last() != Some(&meshlet_id) {
+                vertex_to_meshlets.push(meshlet_id);
             }
         }
     }
 
-    // For each meshlet pair, count how many edges they share
-    let mut shared_edge_count = HashMap::new();
-
-    for (_, meshlet_ids) in edges_to_meshlets {
-        for (meshlet_id1, meshlet_id2) in meshlet_ids.into_iter().tuple_combinations() {
-            let count = shared_edge_count
+    // For each meshlet pair, count how many vertices they share
+    let mut meshlet_pair_to_shared_vertex_count = HashMap::new();
+    for vertex_meshlet_ids in vertices_to_meshlets {
+        for (meshlet_id1, meshlet_id2) in vertex_meshlet_ids.into_iter().tuple_combinations() {
+            let count = meshlet_pair_to_shared_vertex_count
                 .entry((meshlet_id1.min(meshlet_id2), meshlet_id1.max(meshlet_id2)))
                 .or_insert(0);
             *count += 1;
         }
     }
 
-    // For each meshlet, gather all meshlets that share at least one edge along with shared edge count
+    // For each meshlet, gather all other meshlets that share at least one vertex along with their shared vertex count
     let mut connected_meshlets = vec![Vec::new(); simplification_queue.len()];
-
-    for ((meshlet_id1, meshlet_id2), shared_count) in shared_edge_count {
-        // We record id1->id2 and id2->id1 as adjacency is symmetrical
+    for ((meshlet_id1, meshlet_id2), shared_count) in meshlet_pair_to_shared_vertex_count {
+        // We record both id1->id2 and id2->id1 as adjacency is symmetrical
         connected_meshlets[meshlet_id1 - simplification_queue.start]
             .push((meshlet_id2, shared_count));
         connected_meshlets[meshlet_id2 - simplification_queue.start]
@@ -276,11 +281,12 @@ fn group_meshlets(
     let mut adjwgt = Vec::new();
     for meshlet_id in simplification_queue.clone() {
         xadj.push(adjncy.len() as i32);
-        for (connected_meshlet_id, shared_edge_count) in
+        for (connected_meshlet_id, shared_vertex_count) in
             connected_meshlets_per_meshlet[meshlet_id - simplification_queue.start].iter()
         {
             adjncy.push((connected_meshlet_id - simplification_queue.start) as i32);
-            adjwgt.push(*shared_edge_count as i32);
+            adjwgt.push(*shared_vertex_count as i32);
+            // TODO: Additional weight based on meshlet spatial proximity
         }
     }
     xadj.push(adjncy.len() as i32);
