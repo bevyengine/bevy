@@ -2469,7 +2469,7 @@ impl World {
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
     /// adds the `Bundle` of components to each `Entity`.
     /// This is faster than doing equivalent operations one-by-one.
-    /// 
+    ///
     /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
     /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
     ///
@@ -2499,7 +2499,7 @@ impl World {
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
     /// adds the `Bundle` of components to each `Entity` without overwriting.
     /// This is faster than doing equivalent operations one-by-one.
-    /// 
+    ///
     /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
     /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
     ///
