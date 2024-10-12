@@ -61,7 +61,7 @@ impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for TupleStructVisitor<'
             self.registry,
         )?;
         let reflect_deserializer =
-            TypedReflectDeserializer::new_internal(registration, self.registry);
+            TypedReflectDeserializer::new_internal(registration, self.registry, self.processor);
         let value = reflect_deserializer.deserialize(deserializer)?;
 
         tuple.insert_boxed(value.into_partial_reflect());
