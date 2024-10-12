@@ -92,7 +92,7 @@ impl MeshletMesh {
         .collect::<Vec<_>>();
 
         // Generate a position-only vertex buffer for determining what meshlets are connected for use in grouping
-        let (_, position_only_vertex_remap) = generate_vertex_remap_multi(
+        let (position_only_vertex_count, position_only_vertex_remap) = generate_vertex_remap_multi(
             vertices.vertex_count,
             &[VertexStream::new_with_stride::<Vec3, _>(
                 &vertex_buffer,
@@ -109,6 +109,7 @@ impl MeshletMesh {
                 simplification_queue.clone(),
                 &meshlets,
                 &position_only_vertex_remap,
+                position_only_vertex_count as usize,
             );
 
             // Group meshlets into roughly groups of size TARGET_MESHLETS_PER_GROUP,
@@ -227,9 +228,10 @@ fn find_connected_meshlets(
     simplification_queue: Range<usize>,
     meshlets: &Meshlets,
     position_only_vertex_remap: &[u32],
+    position_only_vertex_count: usize,
 ) -> Vec<Vec<(usize, usize)>> {
     // For each vertex, build a list of all meshlets that use it
-    let mut vertices_to_meshlets = vec![Vec::new(); position_only_vertex_remap.len()];
+    let mut vertices_to_meshlets = vec![Vec::new(); position_only_vertex_count];
     for meshlet_id in simplification_queue.clone() {
         let meshlet = meshlets.get(meshlet_id);
         for index in meshlet.triangles {
