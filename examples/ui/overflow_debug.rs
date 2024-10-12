@@ -81,14 +81,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Instructions
 
-    let text_style = TextFont::default();
+    let text_font = TextFont::default();
 
     commands
         .spawn((
             Text::new(
                 "Next Overflow Setting (O)\nNext Container Size (S)\nToggle Animation (space)\n\n",
             ),
-            text_style.clone(),
+            text_font.clone(),
             Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
@@ -99,7 +99,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_child((
             TextSpan::new(format!("{:?}", Overflow::clip())),
-            text_style.clone(),
+            text_font.clone(),
         ));
 
     // Overflow Debug

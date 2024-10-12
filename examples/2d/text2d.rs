@@ -35,7 +35,7 @@ struct AnimateScale;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let text_style = TextFont {
+    let text_font = TextFont {
         font: font.clone(),
         font_size: 50.0,
         ..default()
@@ -46,21 +46,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing translation
     commands.spawn((
         Text2d::new("translation"),
-        text_style.clone(),
+        text_font.clone(),
         TextLayout::new_with_justify(text_justification),
         AnimateTranslation,
     ));
     // Demonstrate changing rotation
     commands.spawn((
         Text2d::new("rotation"),
-        text_style.clone(),
+        text_font.clone(),
         TextLayout::new_with_justify(text_justification),
         AnimateRotation,
     ));
     // Demonstrate changing scale
     commands.spawn((
         Text2d::new("scale"),
-        text_style,
+        text_font,
         TextLayout::new_with_justify(text_justification),
         Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
         AnimateScale,

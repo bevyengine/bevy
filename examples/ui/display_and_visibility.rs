@@ -76,7 +76,7 @@ impl TargetUpdate for Target<Visibility> {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let palette: [Color; 4] = PALETTE.map(|hex| Srgba::hex(hex).unwrap().into());
 
-    let text_style = TextFont {
+    let text_font = TextFont {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         ..default()
     };
@@ -95,7 +95,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..Default::default()
     }).with_children(|parent| {
         parent.spawn((Text::new("Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left"),
-            text_style.clone(),
+            text_font.clone(),
             TextLayout::new_with_justify(JustifyText::Center),
             Style {
                 margin: UiRect::bottom(Val::Px(10.)),
@@ -133,7 +133,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     ..Default::default()
                 }).with_children(|parent| {
-                    spawn_right_panel(parent, text_style, &palette, target_ids);
+                    spawn_right_panel(parent, text_font, &palette, target_ids);
                 });
             });
 
@@ -147,23 +147,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 ..default() })
             .with_children(|builder| {
-                let text_style = TextFont {
+                let text_font = TextFont {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     ..default()
                 };
 
                 builder.spawn((Text::new("Display::None\nVisibility::Hidden\nVisibility::Inherited"),
-                        text_style.clone(),
+                        text_font.clone(),
                         TextColor(HIDDEN_COLOR),
                         TextLayout::new_with_justify(JustifyText::Center),
                 ));
                 builder.spawn((Text::new("-\n-\n-"),
-                        text_style.clone(),
+                        text_font.clone(),
                         TextColor(DARK_GRAY.into()),
                         TextLayout::new_with_justify(JustifyText::Center),
                 ));
                 builder.spawn((Text::new("The UI Node and its descendants will not be visible and will not be allotted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible."),
-                    text_style
+                    text_font
                 ));
             });
     });
@@ -277,13 +277,13 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
 
 fn spawn_right_panel(
     parent: &mut ChildBuilder,
-    text_style: TextFont,
+    text_font: TextFont,
     palette: &[Color; 4],
     mut target_ids: Vec<Entity>,
 ) {
     let spawn_buttons = |parent: &mut ChildBuilder, target_id| {
-        spawn_button::<Display>(parent, text_style.clone(), target_id);
-        spawn_button::<Visibility>(parent, text_style.clone(), target_id);
+        spawn_button::<Display>(parent, text_font.clone(), target_id);
+        spawn_button::<Visibility>(parent, text_font.clone(), target_id);
     };
     parent
         .spawn(NodeBundle {
@@ -394,7 +394,7 @@ fn spawn_right_panel(
         });
 }
 
-fn spawn_button<T>(parent: &mut ChildBuilder, text_style: TextFont, target: Entity)
+fn spawn_button<T>(parent: &mut ChildBuilder, text_font: TextFont, target: Entity)
 where
     T: Default + std::fmt::Debug + Send + Sync + 'static,
     Target<T>: TargetUpdate,
@@ -415,7 +415,7 @@ where
         .with_children(|builder| {
             builder.spawn((
                 Text(format!("{}::{:?}", Target::<T>::NAME, T::default())),
-                text_style,
+                text_font,
                 TextLayout::new_with_justify(JustifyText::Center),
             ));
         });
