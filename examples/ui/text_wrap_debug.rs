@@ -45,7 +45,7 @@ fn main() {
 fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
-    let text_style = TextFont {
+    let text_font = TextFont {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 12.0,
         ..default()
@@ -121,7 +121,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             for (j, message) in messages.into_iter().enumerate() {
                 commands.entity(column_id).with_child((
                     Text(message.clone()),
-                    text_style.clone(),
+                    text_font.clone(),
                     TextLayout::new(JustifyText::Left, linebreak),
                     BackgroundColor(Color::srgb(0.8 - j as f32 * 0.2, 0., 0.)),
                 ));
