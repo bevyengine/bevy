@@ -71,7 +71,7 @@ fn setup<T: Component + Default>(entity_count: u32) -> World {
 
 // create a cached query in setup to avoid extra costs in each iter
 fn generic_filter_query<F: QueryFilter>(world: &mut World) -> QueryState<Entity, F> {
-    world.query_filtered::<Entity, F>()
+    world.query_state_filtered::<Entity, F>()
 }
 
 fn generic_bench<P: Copy>(
@@ -135,7 +135,7 @@ fn all_changed_detection_generic<T: Component + Default + BenchModify>(
                 || {
                     let mut world = setup::<T>(entity_count);
                     world.clear_trackers();
-                    let mut query = world.query::<&mut T>();
+                    let mut query = world.query_state::<&mut T>();
                     for mut component in query.iter_mut(&mut world) {
                         black_box(component.bench_modify());
                     }
@@ -185,7 +185,7 @@ fn few_changed_detection_generic<T: Component + Default + BenchModify>(
                 || {
                     let mut world = setup::<T>(entity_count);
                     world.clear_trackers();
-                    let mut query = world.query::<&mut T>();
+                    let mut query = world.query_state::<&mut T>();
                     let mut to_modify: Vec<bevy_ecs::prelude::Mut<T>> =
                         query.iter_mut(&mut world).collect();
                     to_modify.shuffle(&mut deterministic_rand());
@@ -316,7 +316,7 @@ fn multiple_archetype_none_changed_detection_generic<T: Component + Default + Be
                     let mut world = World::new();
                     add_archetypes_entities::<T>(&mut world, archetype_count, entity_count);
                     world.clear_trackers();
-                    let mut query = world.query::<(
+                    let mut query = world.query_state::<(
                         Option<&mut Data<0>>,
                         Option<&mut Data<1>>,
                         Option<&mut Data<2>>,

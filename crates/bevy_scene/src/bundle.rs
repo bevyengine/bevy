@@ -163,7 +163,7 @@ mod tests {
         // make sure that the scene was added as a child of the root entity
         let (scene_entity, scene_component_a) = app
             .world_mut()
-            .query::<(Entity, &ComponentA)>()
+            .query_state::<(Entity, &ComponentA)>()
             .single(app.world());
         assert_eq!(scene_component_a.x, 3.0);
         assert_eq!(scene_component_a.y, 4.0);

@@ -422,7 +422,7 @@ mod test {
         // Note that at this point, the `GlobalTransform`s will not have updated yet, due to `Commands` delay
         app.update();
 
-        let mut state = app.world_mut().query::<&GlobalTransform>();
+        let mut state = app.world_mut().query_state::<&GlobalTransform>();
         for global in state.iter(app.world()) {
             assert_eq!(global, &GlobalTransform::from_translation(translation));
         }

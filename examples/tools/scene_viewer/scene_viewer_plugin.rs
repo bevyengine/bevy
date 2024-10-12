@@ -115,7 +115,7 @@ fn scene_load_check(
 
                 let mut query = scene
                     .world
-                    .query::<(Option<&DirectionalLight>, Option<&PointLight>)>();
+                    .query_state::<(Option<&DirectionalLight>, Option<&PointLight>)>();
                 scene_handle.has_light =
                     query
                         .iter(&scene.world)

@@ -226,7 +226,7 @@ mod tests {
         let e1 = world.spawn_empty().id();
         let name = Name::new("MyName");
         let e2 = world.spawn(name.clone()).id();
-        let mut query = world.query::<NameOrEntity>();
+        let mut query = world.query_state::<NameOrEntity>();
         let d1 = query.get(&world, e1).unwrap();
         let d2 = query.get(&world, e2).unwrap();
         // NameOrEntity Display for entities without a Name should be {index}v{generation}

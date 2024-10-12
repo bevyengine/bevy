@@ -44,7 +44,7 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::{Commands, Resource},
+    system::{Commands, Query, Resource},
     world::{
         command_queue::RawCommandQueue,
         error::{EntityFetchError, TryRunScheduleError},
@@ -1579,8 +1579,21 @@ impl World {
         self.last_change_tick = self.increment_change_tick();
     }
 
+    /// Returns a [`Query`] for the given [`QueryData`].
+    pub fn query<D: QueryData>(&mut self) -> Query<'_, 'static, D, ()> {
+        self.query_state_filtered::<D, ()>().into_query(self)
+    }
+
+    /// Returns a [`Query`] for the given filtered [`QueryData`].
+    pub fn query_filtered<D: QueryData, F: QueryFilter>(&mut self) -> Query<'_, 'static, D, F> {
+        self.query_state_filtered::<D, F>().into_query(self)
+    }
+
     /// Returns [`QueryState`] for the given [`QueryData`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
+    ///
+    /// # Examples
+    ///
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World};
     ///
@@ -1602,7 +1615,7 @@ impl World {
     ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 0.0, y: 1.0 }),
     /// ]).collect::<Vec<Entity>>();
     ///
-    /// let mut query = world.query::<(&mut Position, &Velocity)>();
+    /// let mut query = world.query_state::<(&mut Position, &Velocity)>();
     /// for (mut position, velocity) in query.iter_mut(&mut world) {
     ///    position.x += velocity.x;
     ///    position.y += velocity.y;
@@ -1629,7 +1642,7 @@ impl World {
     /// let a = world.spawn((Order(2), Label("second"))).id();
     /// let b = world.spawn((Order(3), Label("third"))).id();
     /// let c = world.spawn((Order(1), Label("first"))).id();
-    /// let mut entities = world.query::<(Entity, &Order, &Label)>()
+    /// let mut entities = world.query_state::<(Entity, &Order, &Label)>()
     ///     .iter(&world)
     ///     .collect::<Vec<_>>();
     /// // Sort the query results by their `Order` component before comparing
@@ -1642,12 +1655,15 @@ impl World {
     /// ]);
     /// ```
     #[inline]
-    pub fn query<D: QueryData>(&mut self) -> QueryState<D, ()> {
-        self.query_filtered::<D, ()>()
+    pub fn query_state<D: QueryData>(&mut self) -> QueryState<D, ()> {
+        self.query_state_filtered::<D, ()>()
     }
 
     /// Returns [`QueryState`] for the given filtered [`QueryData`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
+    ///
+    /// # Examples
+    ///
     /// ```
     /// use bevy_ecs::{component::Component, entity::Entity, world::World, query::With};
     ///
@@ -1660,13 +1676,13 @@ impl World {
     /// let e1 = world.spawn(A).id();
     /// let e2 = world.spawn((A, B)).id();
     ///
-    /// let mut query = world.query_filtered::<Entity, With<B>>();
+    /// let mut query = world.query_state_filtered::<Entity, With<B>>();
     /// let matching_entities = query.iter(&world).collect::<Vec<Entity>>();
     ///
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
     #[inline]
-    pub fn query_filtered<D: QueryData, F: QueryFilter>(&mut self) -> QueryState<D, F> {
+    pub fn query_state_filtered<D: QueryData, F: QueryFilter>(&mut self) -> QueryState<D, F> {
         QueryState::new(self)
     }
 

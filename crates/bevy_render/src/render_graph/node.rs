@@ -372,7 +372,7 @@ pub struct ViewNodeRunner<N: ViewNode> {
 impl<N: ViewNode> ViewNodeRunner<N> {
     pub fn new(node: N, world: &mut World) -> Self {
         Self {
-            view_query: world.query_filtered(),
+            view_query: world.query_state_filtered(),
             node,
         }
     }

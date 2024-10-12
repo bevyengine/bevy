@@ -61,7 +61,7 @@ impl<'w> Benchmark<'w> {
         create_entities!(world; C70, C71, C72, C73, C74, C75, C76, C77, C78, C79);
         create_entities!(world; C80, C81, C82, C83, C84, C85, C86, C87, C88, C89);
         create_entities!(world; C90, C91, C92, C93, C94, C95, C96, C97, C98, C99);
-        let query = world.query();
+        let query = world.query_state();
         Self(world, query)
     }
 

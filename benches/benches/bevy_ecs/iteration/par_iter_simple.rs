@@ -60,7 +60,7 @@ impl<'w> Benchmark<'w> {
             insert_if_bit_enabled::<15>(&mut e, i);
         }
 
-        let query = world.query::<(&Velocity, &mut Position)>();
+        let query = world.query_state::<(&Velocity, &mut Position)>();
         Self(world, query)
     }
 

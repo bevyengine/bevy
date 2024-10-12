@@ -100,7 +100,7 @@ pub fn world_query_get(criterion: &mut Criterion) {
     for entity_count in RANGE.map(|i| i * 10_000) {
         group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
             let mut world = setup::<Table>(entity_count);
-            let mut query = world.query::<&Table>();
+            let mut query = world.query_state::<&Table>();
 
             bencher.iter(|| {
                 for i in 0..entity_count {
@@ -118,7 +118,7 @@ pub fn world_query_get(criterion: &mut Criterion) {
                 WideTable<4>,
                 WideTable<5>,
             )>(entity_count);
-            let mut query = world.query::<(
+            let mut query = world.query_state::<(
                 &WideTable<0>,
                 &WideTable<1>,
                 &WideTable<2>,
@@ -136,7 +136,7 @@ pub fn world_query_get(criterion: &mut Criterion) {
         });
         group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
             let mut world = setup::<Sparse>(entity_count);
-            let mut query = world.query::<&Sparse>();
+            let mut query = world.query_state::<&Sparse>();
 
             bencher.iter(|| {
                 for i in 0..entity_count {
@@ -156,7 +156,7 @@ pub fn world_query_get(criterion: &mut Criterion) {
                     WideSparse<4>,
                     WideSparse<5>,
                 )>(entity_count);
-                let mut query = world.query::<(
+                let mut query = world.query_state::<(
                     &WideSparse<0>,
                     &WideSparse<1>,
                     &WideSparse<2>,
@@ -186,7 +186,7 @@ pub fn world_query_iter(criterion: &mut Criterion) {
     for entity_count in RANGE.map(|i| i * 10_000) {
         group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
             let mut world = setup::<Table>(entity_count);
-            let mut query = world.query::<&Table>();
+            let mut query = world.query_state::<&Table>();
 
             bencher.iter(|| {
                 let mut count = 0;
@@ -200,7 +200,7 @@ pub fn world_query_iter(criterion: &mut Criterion) {
         });
         group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
             let mut world = setup::<Sparse>(entity_count);
-            let mut query = world.query::<&Sparse>();
+            let mut query = world.query_state::<&Sparse>();
 
             bencher.iter(|| {
                 let mut count = 0;
@@ -225,7 +225,7 @@ pub fn world_query_for_each(criterion: &mut Criterion) {
     for entity_count in RANGE.map(|i| i * 10_000) {
         group.bench_function(format!("{}_entities_table", entity_count), |bencher| {
             let mut world = setup::<Table>(entity_count);
-            let mut query = world.query::<&Table>();
+            let mut query = world.query_state::<&Table>();
 
             bencher.iter(|| {
                 let mut count = 0;
@@ -239,7 +239,7 @@ pub fn world_query_for_each(criterion: &mut Criterion) {
         });
         group.bench_function(format!("{}_entities_sparse", entity_count), |bencher| {
             let mut world = setup::<Sparse>(entity_count);
-            let mut query = world.query::<&Sparse>();
+            let mut query = world.query_state::<&Sparse>();
 
             bencher.iter(|| {
                 let mut count = 0;

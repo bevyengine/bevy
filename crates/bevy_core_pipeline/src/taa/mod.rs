@@ -357,7 +357,7 @@ impl SpecializedRenderPipeline for TaaPipeline {
 }
 
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
-    let mut cameras_3d = main_world.query_filtered::<(
+    let mut cameras_3d = main_world.query_state_filtered::<(
         &RenderEntity,
         &Camera,
         &Projection,

@@ -1547,12 +1547,12 @@ mod tests {
     fn query_validates_world_id() {
         let mut world1 = World::new();
         let world2 = World::new();
-        let qstate = world1.query::<()>();
+        let qstate = world1.query_state::<()>();
         // SAFETY: doesnt access anything
-        let query = unsafe {
+        let query: Query<'_, '_, _, _> = unsafe {
             Query::new(
                 world2.as_unsafe_world_cell_readonly(),
-                &qstate,
+                alloc::borrow::Cow::Borrowed(&qstate),
                 Tick::new(0),
                 Tick::new(0),
             )

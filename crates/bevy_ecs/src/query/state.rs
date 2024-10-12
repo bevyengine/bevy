@@ -8,8 +8,10 @@ use crate::{
         Access, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter,
     },
     storage::{SparseSetIndex, TableId},
+    system::Query,
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
+use alloc::borrow::Cow;
 use bevy_utils::tracing::warn;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Span;
@@ -80,6 +82,24 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     par_iter_span: Span,
 }
 
+impl<D: QueryData, F: QueryFilter> Clone for QueryState<D, F> {
+    fn clone(&self) -> Self {
+        Self {
+            world_id: self.world_id,
+            archetype_generation: self.archetype_generation,
+            matched_tables: self.matched_tables.clone(),
+            matched_archetypes: self.matched_archetypes.clone(),
+            component_access: self.component_access.clone(),
+            matched_storage_ids: self.matched_storage_ids.clone(),
+            is_dense: self.is_dense,
+            fetch_state: self.fetch_state.clone(),
+            filter_state: self.filter_state.clone(),
+            #[cfg(feature = "trace")]
+            par_iter_span: self.par_iter_span.clone(),
+        }
+    }
+}
+
 impl<D: QueryData, F: QueryFilter> fmt::Debug for QueryState<D, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryState")
@@ -95,7 +115,7 @@ impl<D: QueryData, F: QueryFilter> fmt::Debug for QueryState<D, F> {
 
 impl<D: QueryData, F: QueryFilter> FromWorld for QueryState<D, F> {
     fn from_world(world: &mut World) -> Self {
-        world.query_filtered()
+        world.query_state_filtered()
     }
 }
 
@@ -134,6 +154,43 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &self,
     ) -> &QueryState<NewD, NewF> {
         &*ptr::from_ref(self).cast::<QueryState<NewD, NewF>>()
+    }
+
+    /// Converts this `QueryState` into a `QueryState` that does not access anything mutably.
+    pub fn into_readonly(self) -> QueryState<D::ReadOnly, F> {
+        // SAFETY: invariant on `WorldQuery` trait upholds that `D::ReadOnly` and `F::ReadOnly`
+        // have a subset of the access, and match the exact same archetypes/tables as `D`/`F` respectively.
+        unsafe { self.into_transmuted_state::<D::ReadOnly, F>() }
+    }
+
+    /// Converts this `QueryState` into any other `QueryState` with
+    /// the same `WorldQuery::State` associated types.
+    ///
+    /// Consider using `into_readonly` or `into_nop` instead which are safe functions.
+    ///s
+    /// # Safety
+    ///
+    /// `NewD` must have a subset of the access that `D` does and match the exact same archetypes/tables
+    /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
+    pub(crate) unsafe fn into_transmuted_state<
+        NewD: QueryData<State = D::State>,
+        NewF: QueryFilter<State = F::State>,
+    >(
+        self,
+    ) -> QueryState<NewD, NewF> {
+        QueryState {
+            world_id: self.world_id,
+            archetype_generation: self.archetype_generation,
+            matched_tables: self.matched_tables,
+            matched_archetypes: self.matched_archetypes,
+            component_access: self.component_access,
+            matched_storage_ids: self.matched_storage_ids,
+            is_dense: self.is_dense,
+            fetch_state: self.fetch_state,
+            filter_state: self.filter_state,
+            #[cfg(feature = "trace")]
+            par_iter_span: self.par_iter_span,
+        }
     }
 
     /// Returns the components accessed by this query.
@@ -249,6 +306,62 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         };
         state.update_archetypes(builder.world());
         state
+    }
+
+    /// Creates a [`Query`] using this state and the given [`World`].
+    pub fn as_query<'w>(&mut self, world: &'w mut World) -> Query<'w, '_, D, F> {
+        let (last_run, this_run) = (world.last_change_tick(), world.change_tick());
+        // SAFETY: `&mut World` ensures that we have exclusive access to the world.
+        unsafe {
+            Query::new(
+                world.as_unsafe_world_cell(),
+                Cow::Borrowed(self),
+                last_run,
+                this_run,
+            )
+        }
+    }
+
+    /// Creates a [`Query`] with read-only access using this state and the given [`World`].
+    pub fn as_readonly_query<'w>(&self, world: &'w World) -> Query<'w, '_, D::ReadOnly, F> {
+        let (last_run, this_run) = (world.last_change_tick(), world.read_change_tick());
+        // SAFETY: `&World` ensures that we have read-only access to the world.
+        unsafe {
+            Query::new(
+                world.as_unsafe_world_cell_readonly(),
+                Cow::Borrowed(self.as_readonly()),
+                last_run,
+                this_run,
+            )
+        }
+    }
+
+    /// Creates a [`Query`] using this state and the given [`World`].
+    pub fn into_query(self, world: &mut World) -> Query<'_, 'static, D, F> {
+        let (last_run, this_run) = (world.last_change_tick(), world.change_tick());
+        // SAFETY: `&mut World` ensures that we have exclusive access to the world.
+        unsafe {
+            Query::new(
+                world.as_unsafe_world_cell(),
+                Cow::Owned(self),
+                last_run,
+                this_run,
+            )
+        }
+    }
+
+    /// Creates a [`Query`] with read-only access using this state and the given [`World`].
+    pub fn into_readonly_query(self, world: &World) -> Query<'_, 'static, D::ReadOnly, F> {
+        let (last_run, this_run) = (world.last_change_tick(), world.read_change_tick());
+        // SAFETY: `&World` ensures that we have read-only access to the world.
+        unsafe {
+            Query::new(
+                world.as_unsafe_world_cell_readonly(),
+                Cow::Owned(self.into_readonly()),
+                last_run,
+                this_run,
+            )
+        }
     }
 
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
@@ -552,7 +665,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Use this to transform a [`QueryState`] into a more generic [`QueryState`].
     /// This can be useful for passing to another function that might take the more general form.
-    /// See [`Query::transmute_lens`](crate::system::Query::transmute_lens) for more details.
+    /// See [`Query::transmute`](crate::system::Query::transmute) for more details.
     ///
     /// You should not call [`update_archetypes`](Self::update_archetypes) on the returned [`QueryState`] as the result will be unpredictable.
     /// You might end up with a mix of archetypes that only matched the original query + archetypes that only match
@@ -779,7 +892,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// world.spawn(A(73));
     ///
-    /// let mut query_state = world.query::<&A>();
+    /// let mut query_state = world.query_state::<&A>();
     ///
     /// let component_values = query_state.get_many(&world, entities).unwrap();
     ///
@@ -852,7 +965,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// world.spawn(A(73));
     ///
-    /// let mut query_state = world.query::<&mut A>();
+    /// let mut query_state = world.query_state::<&mut A>();
     ///
     /// let mut mutable_component_values = query_state.get_many_mut(&mut world, entities).unwrap();
     ///
@@ -1428,7 +1541,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # let entities: Vec<Entity> = (0..3).map(|i| world.spawn(A(i)).id()).collect();
     /// # let entities: [Entity; 3] = entities.try_into().unwrap();
     ///
-    /// let mut query_state = world.query::<&mut A>();
+    /// let mut query_state = world.query_state::<&mut A>();
     ///
     /// query_state.par_iter_mut(&mut world).for_each(|mut a| {
     ///     a.0 += 5;
@@ -1716,6 +1829,12 @@ impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D
     }
 }
 
+impl<D: QueryData, F: QueryFilter> From<Query<'_, '_, D, F>> for QueryState<D, F> {
+    fn from(query: Query<'_, '_, D, F>) -> Self {
+        query.into_state()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
@@ -1729,7 +1848,7 @@ mod tests {
 
         let entities: Vec<Entity> = (0..10).map(|_| world.spawn_empty().id()).collect();
 
-        let query_state = world.query::<Entity>();
+        let query_state = world.query_state::<Entity>();
 
         // These don't matter for the test
         let last_change_tick = world.last_change_tick();
@@ -1803,7 +1922,7 @@ mod tests {
         let mut world_1 = World::new();
         let world_2 = World::new();
 
-        let mut query_state = world_1.query::<Entity>();
+        let mut query_state = world_1.query_state::<Entity>();
         let _panics = query_state.get(&world_2, Entity::from_raw(0));
     }
 
@@ -1813,7 +1932,7 @@ mod tests {
         let mut world_1 = World::new();
         let world_2 = World::new();
 
-        let mut query_state = world_1.query::<Entity>();
+        let mut query_state = world_1.query_state::<Entity>();
         let _panics = query_state.get_many(&world_2, []);
     }
 
@@ -1823,7 +1942,7 @@ mod tests {
         let mut world_1 = World::new();
         let mut world_2 = World::new();
 
-        let mut query_state = world_1.query::<Entity>();
+        let mut query_state = world_1.query_state::<Entity>();
         let _panics = query_state.get_many_mut(&mut world_2, []);
     }
 
@@ -1841,7 +1960,7 @@ mod tests {
         let mut world = World::new();
         world.spawn((A(1), B(0)));
 
-        let query_state = world.query::<(&A, &B)>();
+        let query_state = world.query_state::<(&A, &B)>();
         let mut new_query_state = query_state.transmute::<&A>(&world);
         assert_eq!(new_query_state.iter(&world).len(), 1);
         let a = new_query_state.single(&world);
@@ -1855,7 +1974,7 @@ mod tests {
         world.spawn((A(0), B(0)));
         world.spawn((A(1), B(0), C(0)));
 
-        let query_state = world.query_filtered::<(&A, &B), Without<C>>();
+        let query_state = world.query_state_filtered::<(&A, &B), Without<C>>();
         let mut new_query_state = query_state.transmute::<&A>(&world);
         // even though we change the query to not have Without<C>, we do not get the component with C.
         let a = new_query_state.single(&world);
@@ -1869,7 +1988,7 @@ mod tests {
         world.register_component::<A>();
         let entity = world.spawn(A(10)).id();
 
-        let q = world.query::<()>();
+        let q = world.query_state::<()>();
         let mut q = q.transmute::<Entity>(&world);
         assert_eq!(q.single(&world), entity);
     }
@@ -1879,11 +1998,11 @@ mod tests {
         let mut world = World::new();
         world.spawn(A(10));
 
-        let q = world.query::<&A>();
+        let q = world.query_state::<&A>();
         let mut new_q = q.transmute::<Ref<A>>(&world);
         assert!(new_q.single(&world).is_added());
 
-        let q = world.query::<Ref<A>>();
+        let q = world.query_state::<Ref<A>>();
         let _ = q.transmute::<&A>(&world);
     }
 
@@ -1892,7 +2011,7 @@ mod tests {
         let mut world = World::new();
         world.spawn(A(0));
 
-        let q = world.query::<&mut A>();
+        let q = world.query_state::<&mut A>();
         let _ = q.transmute::<Ref<A>>(&world);
         let _ = q.transmute::<&A>(&world);
     }
@@ -1902,7 +2021,7 @@ mod tests {
         let mut world = World::new();
         world.spawn(A(0));
 
-        let q: QueryState<EntityMut<'_>> = world.query::<EntityMut>();
+        let q: QueryState<EntityMut<'_>> = world.query_state::<EntityMut>();
         let _ = q.transmute::<EntityRef>(&world);
     }
 
@@ -1911,7 +2030,7 @@ mod tests {
         let mut world = World::new();
         world.spawn((A(0), B(0)));
 
-        let query_state = world.query::<(Option<&A>, &B)>();
+        let query_state = world.query_state::<(Option<&A>, &B)>();
         let _ = query_state.transmute::<Option<&A>>(&world);
         let _ = query_state.transmute::<&B>(&world);
     }
@@ -1926,7 +2045,7 @@ mod tests {
         world.register_component::<B>();
         world.spawn(A(0));
 
-        let query_state = world.query::<&A>();
+        let query_state = world.query_state::<&A>();
         let mut _new_query_state = query_state.transmute::<(&A, &B)>(&world);
     }
 
@@ -1938,7 +2057,7 @@ mod tests {
         let mut world = World::new();
         world.spawn(A(0));
 
-        let query_state = world.query::<&A>();
+        let query_state = world.query_state::<&A>();
         let mut _new_query_state = query_state.transmute::<&mut A>(&world);
     }
 
@@ -1950,7 +2069,7 @@ mod tests {
         let mut world = World::new();
         world.spawn(C(0));
 
-        let query_state = world.query::<Option<&A>>();
+        let query_state = world.query_state::<Option<&A>>();
         let mut new_query_state = query_state.transmute::<&A>(&world);
         let x = new_query_state.single(&world);
         assert_eq!(x.0, 1234);
@@ -1964,7 +2083,7 @@ mod tests {
         let mut world = World::new();
         world.register_component::<A>();
 
-        let q = world.query::<EntityRef>();
+        let q = world.query_state::<EntityRef>();
         let _ = q.transmute::<&A>(&world);
     }
 
@@ -2046,7 +2165,7 @@ mod tests {
         let mut world2 = World::new();
         world2.register_component::<B>();
 
-        world.query::<(&A, &B)>().transmute::<&B>(&world2);
+        world.query_state::<(&A, &B)>().transmute::<&B>(&world2);
     }
 
     /// Regression test for issue #14528
@@ -2065,7 +2184,7 @@ mod tests {
         world.spawn((Dense, Sparse));
 
         let mut query = world
-            .query_filtered::<&Dense, With<Sparse>>()
+            .query_state_filtered::<&Dense, With<Sparse>>()
             .transmute::<&Dense>(&world);
 
         let matched = query.iter(&world).count();
@@ -2086,7 +2205,7 @@ mod tests {
         world.spawn((Dense, Sparse));
 
         let mut query = world
-            .query::<&Dense>()
+            .query_state::<&Dense>()
             .transmute_filtered::<&Dense, With<Sparse>>(&world);
 
         // Note: `transmute_filtered` is supposed to keep the same matched tables/archetypes,

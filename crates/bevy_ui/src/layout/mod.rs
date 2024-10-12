@@ -632,7 +632,7 @@ mod tests {
 
         // despawn all cameras so we can reset ui_surface back to a fresh state
         let camera_entities = world
-            .query_filtered::<Entity, With<Camera>>()
+            .query_state_filtered::<Entity, With<Camera>>()
             .iter(&world)
             .collect::<Vec<_>>();
         for camera_entity in camera_entities {
@@ -849,7 +849,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let overlap_check = world
-            .query_filtered::<(Entity, &Node, &GlobalTransform), Without<Parent>>()
+            .query_state_filtered::<(Entity, &Node, &GlobalTransform), Without<Parent>>()
             .iter(&world)
             .fold(
                 Option::<(Rect, bool)>::None,
@@ -950,7 +950,7 @@ mod tests {
             world.run_system_once_with(new_pos, move_ui_node).unwrap();
             ui_schedule.run(world);
             let (ui_node_entity, TargetCamera(target_camera_entity)) = world
-                .query_filtered::<(Entity, &TargetCamera), With<MovingUiNode>>()
+                .query_state_filtered::<(Entity, &TargetCamera), With<MovingUiNode>>()
                 .get_single(world)
                 .expect("missing MovingUiNode");
             assert_eq!(expected_camera_entity, target_camera_entity);
@@ -994,7 +994,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let pos_inc = Vec2::splat(1.);
-        let total_cameras = world.query::<&Camera>().iter(&world).len();
+        let total_cameras = world.query_state::<&Camera>().iter(&world).len();
         // add total cameras - 1 (the assumed default) to get an idea for how many nodes we should expect
         let expected_max_taffy_node_count = get_taffy_node_count(&world) + total_cameras - 1;
 
@@ -1003,7 +1003,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let viewport_rects = world
-            .query::<(Entity, &Camera)>()
+            .query_state::<(Entity, &Camera)>()
             .iter(&world)
             .map(|(e, c)| (e, c.logical_viewport_rect().expect("missing viewport")))
             .collect::<Vec<_>>();
