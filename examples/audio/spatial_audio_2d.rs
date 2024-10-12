@@ -3,6 +3,7 @@ use bevy::{
     audio::{AudioPlugin, SpatialScale},
     color::palettes::css::*,
     prelude::*,
+    time::Stopwatch,
 };
 
 /// Spatial audio uses the distance to attenuate the sound volume. In 2D with the default camera,
@@ -75,7 +76,7 @@ fn setup(
 
 #[derive(Component, Default)]
 struct Emitter {
-    stopped: bool,
+    stopwatch: Stopwatch,
 }
 
 fn update_emitters(
@@ -85,11 +86,17 @@ fn update_emitters(
 ) {
     for (mut emitter_transform, mut emitter) in emitters.iter_mut() {
         if keyboard.just_pressed(KeyCode::Space) {
-            emitter.stopped = !emitter.stopped;
+            if emitter.stopwatch.paused() {
+                emitter.stopwatch.unpause();
+            } else {
+                emitter.stopwatch.pause();
+            }
         }
 
-        if !emitter.stopped {
-            emitter_transform.translation.x = ops::sin(time.elapsed_seconds()) * 500.0;
+        emitter.stopwatch.tick(time.delta());
+
+        if !emitter.stopwatch.paused() {
+            emitter_transform.translation.x = ops::sin(emitter.stopwatch.elapsed_secs()) * 500.0;
         }
     }
 }
