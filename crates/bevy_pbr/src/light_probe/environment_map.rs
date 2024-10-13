@@ -11,15 +11,13 @@
 //! 1. If attached to a view, they represent the objects located a very far
 //!    distance from the view, in a similar manner to a skybox. Essentially, these
 //!    *view environment maps* represent a higher-quality replacement for
-//!    [`crate::AmbientLight`] for outdoor scenes. The indirect light from such
+//!    [`AmbientLight`](crate::AmbientLight) for outdoor scenes. The indirect light from such
 //!    environment maps are added to every point of the scene, including
 //!    interior enclosed areas.
 //!
 //! 2. If attached to a [`LightProbe`], environment maps represent the immediate
 //!    surroundings of a specific location in the scene. These types of
 //!    environment maps are known as *reflection probes*.
-//!    [`ReflectionProbeBundle`] is available as a mechanism to conveniently add
-//!    these to a scene.
 //!
 //! Typically, environment maps are static (i.e. "baked", calculated ahead of
 //! time) and so only reflect fixed static geometry. The environment maps must
@@ -46,12 +44,15 @@
 //!
 //! [several pre-filtered environment maps]: https://github.com/KhronosGroup/glTF-Sample-Environments
 
+#![expect(deprecated)]
+
 use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{
-    bundle::Bundle, component::Component, query::QueryItem, system::lifetimeless::Read,
+    bundle::Bundle, component::Component, query::QueryItem, reflect::ReflectComponent,
+    system::lifetimeless::Read,
 };
 use bevy_math::Quat;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_instances::ExtractInstance,
     prelude::SpatialBundle,
@@ -65,8 +66,7 @@ use bevy_render::{
     texture::{FallbackImage, GpuImage, Image},
 };
 
-use std::num::NonZeroU32;
-use std::ops::Deref;
+use core::{num::NonZero, ops::Deref};
 
 use crate::{
     add_cubemap_texture_view, binding_arrays_are_usable, EnvironmentMapUniform, LightProbe,
@@ -84,6 +84,7 @@ pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
 ///
 /// See [`crate::environment_map`] for detailed information.
 #[derive(Clone, Component, Reflect)]
+#[reflect(Component, Default)]
 pub struct EnvironmentMapLight {
     /// The blurry image that represents diffuse radiance surrounding a region.
     pub diffuse_map: Handle<Image>,
@@ -136,6 +137,10 @@ pub struct EnvironmentMapIds {
 /// surrounding a region in space. For more information, see
 /// [`crate::environment_map`].
 #[derive(Bundle, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `LightProbe` and `EnvironmentMapLight` components instead. Inserting them will now also insert the other components required by them automatically."
+)]
 pub struct ReflectionProbeBundle {
     /// Contains a transform that specifies the position of this reflection probe in space.
     pub spatial: SpatialBundle,
@@ -217,7 +222,7 @@ pub(crate) fn get_bind_group_layout_entries(
         binding_types::texture_cube(TextureSampleType::Float { filterable: true });
     if binding_arrays_are_usable(render_device) {
         texture_cube_binding =
-            texture_cube_binding.count(NonZeroU32::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
+            texture_cube_binding.count(NonZero::<u32>::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
     }
 
     [

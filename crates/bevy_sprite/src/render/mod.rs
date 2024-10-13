@@ -1,24 +1,26 @@
-use std::ops::Range;
+use core::ops::Range;
 
 use crate::{
-    texture_atlas::{TextureAtlas, TextureAtlasLayout},
-    ComputedTextureSlices, Sprite, WithSprite, SPRITE_SHADER_HANDLE,
+    texture_atlas::TextureAtlasLayout, ComputedTextureSlices, Sprite, WithSprite,
+    SPRITE_SHADER_HANDLE,
 };
-use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
+use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
-    core_2d::Transparent2d,
+    core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, DebandDither, Tonemapping,
         TonemappingLuts,
     },
 };
-use bevy_ecs::{entity::EntityHashMap, query::ROQueryItem};
 use bevy_ecs::{
     prelude::*,
+    query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
+use bevy_render::sync_world::MainEntity;
+use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -30,13 +32,14 @@ use bevy_render::{
         *,
     },
     renderer::{RenderDevice, RenderQueue},
+    sync_world::{RenderEntity, TemporaryRenderEntity},
     texture::{
         BevyDefault, DefaultImageSampler, FallbackImage, GpuImage, Image, ImageSampler,
         TextureFormatPixelInfo,
     },
     view::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
-        ViewVisibility, VisibleEntities,
+        ViewVisibility,
     },
     Extract,
 };
@@ -294,7 +297,25 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
             },
-            depth_stencil: None,
+            // Sprites are always alpha blended so they never need to write to depth.
+            // They just need to read it in case an opaque mesh2d
+            // that wrote to depth is present.
+            depth_stencil: Some(DepthStencilState {
+                format: CORE_2D_DEPTH_FORMAT,
+                depth_write_enabled: false,
+                depth_compare: CompareFunction::GreaterEqual,
+                stencil: StencilState {
+                    front: StencilFaceState::IGNORE,
+                    back: StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: DepthBiasState {
+                    constant: 0,
+                    slope_scale: 0.0,
+                    clamp: 0.0,
+                },
+            }),
             multisample: MultisampleState {
                 count: key.msaa_samples(),
                 mask: !0,
@@ -326,7 +347,7 @@ pub struct ExtractedSprite {
 
 #[derive(Resource, Default)]
 pub struct ExtractedSprites {
-    pub sprites: EntityHashMap<ExtractedSprite>,
+    pub sprites: HashMap<(Entity, MainEntity), ExtractedSprite>,
 }
 
 #[derive(Resource, Default)]
@@ -353,17 +374,17 @@ pub fn extract_sprites(
     sprite_query: Extract<
         Query<(
             Entity,
+            RenderEntity,
             &ViewVisibility,
             &Sprite,
             &GlobalTransform,
-            &Handle<Image>,
-            Option<&TextureAtlas>,
             Option<&ComputedTextureSlices>,
         )>,
     >,
 ) {
     extracted_sprites.sprites.clear();
-    for (entity, view_visibility, sprite, transform, handle, sheet, slices) in sprite_query.iter() {
+    for (original_entity, entity, view_visibility, sprite, transform, slices) in sprite_query.iter()
+    {
         if !view_visibility.get() {
             continue;
         }
@@ -371,12 +392,22 @@ pub fn extract_sprites(
         if let Some(slices) = slices {
             extracted_sprites.sprites.extend(
                 slices
-                    .extract_sprites(transform, entity, sprite, handle)
-                    .map(|e| (commands.spawn_empty().id(), e)),
+                    .extract_sprites(transform, original_entity, sprite)
+                    .map(|e| {
+                        (
+                            (
+                                commands.spawn(TemporaryRenderEntity).id(),
+                                original_entity.into(),
+                            ),
+                            e,
+                        )
+                    }),
             );
         } else {
-            let atlas_rect =
-                sheet.and_then(|s| s.texture_rect(&texture_atlases).map(|r| r.as_rect()));
+            let atlas_rect = sprite
+                .texture_atlas
+                .as_ref()
+                .and_then(|s| s.texture_rect(&texture_atlases).map(|r| r.as_rect()));
             let rect = match (atlas_rect, sprite.rect) {
                 (None, None) => None,
                 (None, Some(sprite_rect)) => Some(sprite_rect),
@@ -391,7 +422,7 @@ pub fn extract_sprites(
 
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.insert(
-                entity,
+                (entity, original_entity.into()),
                 ExtractedSprite {
                     color: sprite.color.into(),
                     transform: *transform,
@@ -400,9 +431,9 @@ pub fn extract_sprites(
                     custom_size: sprite.custom_size,
                     flip_x: sprite.flip_x,
                     flip_y: sprite.flip_y,
-                    image_handle_id: handle.id(),
+                    image_handle_id: sprite.image.id(),
                     anchor: sprite.anchor.as_vec(),
-                    original_entity: None,
+                    original_entity: Some(original_entity),
                 },
             );
         }
@@ -472,26 +503,25 @@ pub fn queue_sprites(
     sprite_pipeline: Res<SpritePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SpritePipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
     extracted_sprites: Res<ExtractedSprites>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut views: Query<(
         Entity,
-        &VisibleEntities,
+        &RenderVisibleEntities,
         &ExtractedView,
+        &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
 ) {
-    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
-
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (view_entity, visible_entities, view, tonemapping, dither) in &mut views {
+    for (view_entity, visible_entities, view, msaa, tonemapping, dither) in &mut views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };
 
+        let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
         let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
 
         if !view.hdr {
@@ -523,14 +553,14 @@ pub fn queue_sprites(
         view_entities.extend(
             visible_entities
                 .iter::<WithSprite>()
-                .map(|e| e.index() as usize),
+                .map(|(_, e)| e.index() as usize),
         );
 
         transparent_phase
             .items
             .reserve(extracted_sprites.sprites.len());
 
-        for (entity, extracted_sprite) in extracted_sprites.sprites.iter() {
+        for ((entity, main_entity), extracted_sprite) in extracted_sprites.sprites.iter() {
             let index = extracted_sprite.original_entity.unwrap_or(*entity).index();
 
             if !view_entities.contains(index as usize) {
@@ -544,7 +574,7 @@ pub fn queue_sprites(
             transparent_phase.add(Transparent2d {
                 draw_function: draw_sprite_function,
                 pipeline,
-                entity: *entity,
+                entity: (*entity, *main_entity),
                 sort_key,
                 // batch_range and dynamic_offset will be calculated in prepare_sprites
                 batch_range: 0..0,
@@ -718,7 +748,7 @@ pub fn prepare_sprite_image_bind_groups(
                 batch_item_index = item_index;
 
                 batches.push((
-                    item.entity,
+                    item.entity(),
                     SpriteBatch {
                         image_handle_id: batch_image_handle,
                         range: index..index,
@@ -805,7 +835,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
         let Some(batch) = batch else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         pass.set_bind_group(
@@ -835,7 +865,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     ) -> RenderCommandResult {
         let sprite_meta = sprite_meta.into_inner();
         let Some(batch) = batch else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         pass.set_index_buffer(

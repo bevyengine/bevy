@@ -7,6 +7,7 @@ mod mut_iterators;
 mod mutator;
 mod reader;
 mod registry;
+mod send_event;
 mod update;
 mod writer;
 
@@ -24,6 +25,7 @@ pub use mut_iterators::{EventMutIterator, EventMutIteratorWithId};
 pub use mutator::EventMutator;
 pub use reader::EventReader;
 pub use registry::{EventRegistry, ShouldUpdateEvents};
+pub use send_event::SendEvent;
 pub use update::{
     event_update_condition, event_update_system, signal_event_update_system, EventUpdates,
 };
@@ -421,7 +423,7 @@ mod tests {
     #[test]
     fn test_event_cursor_par_read() {
         use crate::prelude::*;
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use core::sync::atomic::{AtomicUsize, Ordering};
 
         #[derive(Resource)]
         struct Counter(AtomicUsize);
@@ -463,7 +465,7 @@ mod tests {
     #[test]
     fn test_event_cursor_par_read_mut() {
         use crate::prelude::*;
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use core::sync::atomic::{AtomicUsize, Ordering};
 
         #[derive(Resource)]
         struct Counter(AtomicUsize);

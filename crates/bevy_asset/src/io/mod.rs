@@ -1,8 +1,8 @@
 #[cfg(all(feature = "file_watcher", target_arch = "wasm32"))]
 compile_error!(
     "The \"file_watcher\" feature for hot reloading does not work \
-    on WASM.\nDisable \"file_watcher\" \
-    when compiling to WASM"
+    on Wasm.\nDisable \"file_watcher\" \
+    when compiling to Wasm"
 );
 
 #[cfg(target_os = "android")]
@@ -21,33 +21,34 @@ mod source;
 pub use futures_lite::AsyncWriteExt;
 pub use source::*;
 
+use alloc::sync::Arc;
 use bevy_utils::{BoxedFuture, ConditionalSendFuture};
-use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
-use futures_lite::{ready, Stream};
-use std::io::SeekFrom;
-use std::task::Context;
-use std::{
-    path::{Path, PathBuf},
+use core::{
+    mem::size_of,
     pin::Pin,
-    sync::Arc,
-    task::Poll,
+    task::{Context, Poll},
 };
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
+use futures_io::{AsyncRead, AsyncWrite};
+use futures_lite::{ready, Stream};
+use std::path::{Path, PathBuf};
 
 /// Errors that occur while loading assets.
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Display, Debug, Clone)]
 pub enum AssetReaderError {
     /// Path not found.
-    #[error("Path not found: {0}")]
+    #[display("Path not found: {}", _0.display())]
+    #[error(ignore)]
     NotFound(PathBuf),
 
     /// Encountered an I/O error while loading an asset.
-    #[error("Encountered an I/O error while loading asset: {0}")]
+    #[display("Encountered an I/O error while loading asset: {_0}")]
     Io(Arc<std::io::Error>),
 
     /// The HTTP request completed but returned an unhandled [HTTP response status code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status).
     /// If the request fails before getting a status code (e.g. request timeout, interrupted connection, etc), expect [`AssetReaderError::Io`].
-    #[error("Encountered HTTP status {0:?} when loading asset")]
+    #[display("Encountered HTTP status {_0:?} when loading asset")]
+    #[error(ignore)]
     HttpError(u16),
 }
 
@@ -77,17 +78,55 @@ impl From<std::io::Error> for AssetReaderError {
 // Ideally this would be even smaller (ReadToEndFuture only needs space for two references based on its definition),
 // but compiler optimizations can apparently inflate the stack size of futures due to inlining, which makes
 // a higher maximum necessary.
-pub const STACK_FUTURE_SIZE: usize = 10 * std::mem::size_of::<&()>();
+pub const STACK_FUTURE_SIZE: usize = 10 * size_of::<&()>();
 
 pub use stackfuture::StackFuture;
+
+/// Asynchronously advances the cursor position by a specified number of bytes.
+///
+/// This trait is a simplified version of the [`futures_io::AsyncSeek`] trait, providing
+/// support exclusively for the [`futures_io::SeekFrom::Current`] variant. It allows for relative
+/// seeking from the current cursor position.
+pub trait AsyncSeekForward {
+    /// Attempts to asynchronously seek forward by a specified number of bytes from the current cursor position.
+    ///
+    /// Seeking beyond the end of the stream is allowed and the behavior for this case is defined by the implementation.
+    /// The new position, relative to the beginning of the stream, should be returned upon successful completion
+    /// of the seek operation.
+    ///
+    /// If the seek operation completes successfully,
+    /// the new position relative to the beginning of the stream should be returned.
+    ///
+    /// # Implementation
+    ///
+    /// Implementations of this trait should handle [`Poll::Pending`] correctly, converting
+    /// [`std::io::ErrorKind::WouldBlock`] errors into [`Poll::Pending`] to indicate that the operation is not
+    /// yet complete and should be retried, and either internally retry or convert
+    /// [`std::io::ErrorKind::Interrupted`] into another error kind.
+    fn poll_seek_forward(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        offset: u64,
+    ) -> Poll<futures_io::Result<u64>>;
+}
+
+impl<T: ?Sized + AsyncSeekForward + Unpin> AsyncSeekForward for Box<T> {
+    fn poll_seek_forward(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        offset: u64,
+    ) -> Poll<futures_io::Result<u64>> {
+        Pin::new(&mut **self).poll_seek_forward(cx, offset)
+    }
+}
 
 /// A type returned from [`AssetReader::read`], which is used to read the contents of a file
 /// (or virtual file) corresponding to an asset.
 ///
-/// This is essentially a trait alias for types implementing  [`AsyncRead`] and [`AsyncSeek`].
+/// This is essentially a trait alias for types implementing [`AsyncRead`] and [`AsyncSeekForward`].
 /// The only reason a blanket implementation is not provided for applicable types is to allow
 /// implementors to override the provided implementation of [`Reader::read_to_end`].
-pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {
+pub trait Reader: AsyncRead + AsyncSeekForward + Unpin + Send + Sync {
     /// Reads the entire contents of this reader and appends them to a vec.
     ///
     /// # Note for implementors
@@ -130,7 +169,10 @@ where
 /// API, where asset bytes and asset metadata bytes are both stored and accessible for a given
 /// `path`. This trait is not object safe, if needed use a dyn [`ErasedAssetReader`] instead.
 ///
-/// Also see [`AssetWriter`].
+/// This trait defines asset-agnostic mechanisms to read bytes from a storage system.
+/// For the per-asset-type saving/loading logic, see [`AssetSaver`](crate::saver::AssetSaver) and [`AssetLoader`](crate::loader::AssetLoader).
+///
+/// For a complementary version of this trait that can write assets to storage, see [`AssetWriter`].
 pub trait AssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
     ///
@@ -188,32 +230,35 @@ pub trait ErasedAssetReader: Send + Sync + 'static {
     fn read<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>>;
+    ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>>;
     /// Returns a future to load the full file data at the provided path.
     fn read_meta<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>>;
+    ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>>;
     /// Returns an iterator of directory entry names at the provided path.
     fn read_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<PathStream>, AssetReaderError>>;
+    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>>;
     /// Returns true if the provided path points to a directory.
-    fn is_directory<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<bool, AssetReaderError>>;
+    fn is_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>>;
     /// Reads asset metadata bytes at the given `path` into a [`Vec<u8>`]. This is a convenience
     /// function that wraps [`ErasedAssetReader::read_meta`] by default.
     fn read_meta_bytes<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Vec<u8>, AssetReaderError>>;
+    ) -> BoxedFuture<'a, Result<Vec<u8>, AssetReaderError>>;
 }
 
 impl<T: AssetReader> ErasedAssetReader for T {
     fn read<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>> {
+    ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>> {
         Box::pin(async {
             let reader = Self::read(self, path).await?;
             Ok(Box::new(reader) as Box<dyn Reader>)
@@ -222,7 +267,7 @@ impl<T: AssetReader> ErasedAssetReader for T {
     fn read_meta<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>> {
+    ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>> {
         Box::pin(async {
             let reader = Self::read_meta(self, path).await?;
             Ok(Box::new(reader) as Box<dyn Reader>)
@@ -231,16 +276,19 @@ impl<T: AssetReader> ErasedAssetReader for T {
     fn read_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<PathStream>, AssetReaderError>> {
+    ) -> BoxedFuture<'a, Result<Box<PathStream>, AssetReaderError>> {
         Box::pin(Self::read_directory(self, path))
     }
-    fn is_directory<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<bool, AssetReaderError>> {
+    fn is_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<bool, AssetReaderError>> {
         Box::pin(Self::is_directory(self, path))
     }
     fn read_meta_bytes<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Vec<u8>, AssetReaderError>> {
+    ) -> BoxedFuture<'a, Result<Vec<u8>, AssetReaderError>> {
         Box::pin(Self::read_meta_bytes(self, path))
     }
 }
@@ -250,18 +298,21 @@ pub type Writer = dyn AsyncWrite + Unpin + Send + Sync;
 pub type PathStream = dyn Stream<Item = PathBuf> + Unpin + Send;
 
 /// Errors that occur while loading assets.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum AssetWriterError {
     /// Encountered an I/O error while loading an asset.
-    #[error("encountered an io error while loading asset: {0}")]
-    Io(#[from] std::io::Error),
+    #[display("encountered an io error while loading asset: {_0}")]
+    Io(std::io::Error),
 }
 
 /// Preforms write operations on an asset storage. [`AssetWriter`] exposes a "virtual filesystem"
 /// API, where asset bytes and asset metadata bytes are both stored and accessible for a given
 /// `path`. This trait is not object safe, if needed use a dyn [`ErasedAssetWriter`] instead.
 ///
-/// Also see [`AssetReader`].
+/// This trait defines asset-agnostic mechanisms to write bytes to a storage system.
+/// For the per-asset-type saving/loading logic, see [`AssetSaver`](crate::saver::AssetSaver) and [`AssetLoader`](crate::loader::AssetLoader).
+///
+/// For a complementary version of this trait that can read assets from storage, see [`AssetReader`].
 pub trait AssetWriter: Send + Sync + 'static {
     /// Writes the full asset bytes at the provided path.
     fn write<'a>(
@@ -346,115 +397,127 @@ pub trait AssetWriter: Send + Sync + 'static {
 /// as [`AssetWriter`] isn't currently object safe.
 pub trait ErasedAssetWriter: Send + Sync + 'static {
     /// Writes the full asset bytes at the provided path.
-    fn write<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<Box<Writer>, AssetWriterError>>;
+    fn write<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<Box<Writer>, AssetWriterError>>;
     /// Writes the full asset meta bytes at the provided path.
     /// This _should not_ include storage specific extensions like `.meta`.
     fn write_meta<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<Writer>, AssetWriterError>>;
+    ) -> BoxedFuture<'a, Result<Box<Writer>, AssetWriterError>>;
     /// Removes the asset stored at the given path.
-    fn remove<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<(), AssetWriterError>>;
+    fn remove<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Removes the asset meta stored at the given path.
     /// This _should not_ include storage specific extensions like `.meta`.
-    fn remove_meta<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<(), AssetWriterError>>;
+    fn remove_meta<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Renames the asset at `old_path` to `new_path`
     fn rename<'a>(
         &'a self,
         old_path: &'a Path,
         new_path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>>;
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Renames the asset meta for the asset at `old_path` to `new_path`.
     /// This _should not_ include storage specific extensions like `.meta`.
     fn rename_meta<'a>(
         &'a self,
         old_path: &'a Path,
         new_path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>>;
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Removes the directory at the given path, including all assets _and_ directories in that directory.
-    fn remove_directory<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<(), AssetWriterError>>;
+    fn remove_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Removes the directory at the given path, but only if it is completely empty. This will return an error if the
     /// directory is not empty.
     fn remove_empty_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>>;
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Removes all assets (and directories) in this directory, resulting in an empty directory.
     fn remove_assets_in_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>>;
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Writes the asset `bytes` to the given `path`.
     fn write_bytes<'a>(
         &'a self,
         path: &'a Path,
         bytes: &'a [u8],
-    ) -> BoxedFuture<Result<(), AssetWriterError>>;
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Writes the asset meta `bytes` to the given `path`.
     fn write_meta_bytes<'a>(
         &'a self,
         path: &'a Path,
         bytes: &'a [u8],
-    ) -> BoxedFuture<Result<(), AssetWriterError>>;
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
 }
 
 impl<T: AssetWriter> ErasedAssetWriter for T {
-    fn write<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<Box<Writer>, AssetWriterError>> {
+    fn write<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<Box<Writer>, AssetWriterError>> {
         Box::pin(Self::write(self, path))
     }
     fn write_meta<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<Writer>, AssetWriterError>> {
+    ) -> BoxedFuture<'a, Result<Box<Writer>, AssetWriterError>> {
         Box::pin(Self::write_meta(self, path))
     }
-    fn remove<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<(), AssetWriterError>> {
+    fn remove<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::remove(self, path))
     }
-    fn remove_meta<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<(), AssetWriterError>> {
+    fn remove_meta<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::remove_meta(self, path))
     }
     fn rename<'a>(
         &'a self,
         old_path: &'a Path,
         new_path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>> {
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::rename(self, old_path, new_path))
     }
     fn rename_meta<'a>(
         &'a self,
         old_path: &'a Path,
         new_path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>> {
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::rename_meta(self, old_path, new_path))
     }
-    fn remove_directory<'a>(&'a self, path: &'a Path) -> BoxedFuture<Result<(), AssetWriterError>> {
+    fn remove_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::remove_directory(self, path))
     }
     fn remove_empty_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>> {
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::remove_empty_directory(self, path))
     }
     fn remove_assets_in_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<(), AssetWriterError>> {
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::remove_assets_in_directory(self, path))
     }
     fn write_bytes<'a>(
         &'a self,
         path: &'a Path,
         bytes: &'a [u8],
-    ) -> BoxedFuture<Result<(), AssetWriterError>> {
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::write_bytes(self, path, bytes))
     }
     fn write_meta_bytes<'a>(
         &'a self,
         path: &'a Path,
         bytes: &'a [u8],
-    ) -> BoxedFuture<Result<(), AssetWriterError>> {
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::write_meta_bytes(self, path, bytes))
     }
 }
@@ -520,7 +583,7 @@ impl VecReader {
 impl AsyncRead for VecReader {
     fn poll_read(
         mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<futures_io::Result<usize>> {
         if self.bytes_read >= self.bytes.len() {
@@ -533,32 +596,20 @@ impl AsyncRead for VecReader {
     }
 }
 
-impl AsyncSeek for VecReader {
-    fn poll_seek(
+impl AsyncSeekForward for VecReader {
+    fn poll_seek_forward(
         mut self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
-        pos: SeekFrom,
+        offset: u64,
     ) -> Poll<std::io::Result<u64>> {
-        let result = match pos {
-            SeekFrom::Start(offset) => offset.try_into(),
-            SeekFrom::End(offset) => self.bytes.len().try_into().map(|len: i64| len - offset),
-            SeekFrom::Current(offset) => self
-                .bytes_read
-                .try_into()
-                .map(|bytes_read: i64| bytes_read + offset),
-        };
+        let result = self
+            .bytes_read
+            .try_into()
+            .map(|bytes_read: u64| bytes_read + offset);
 
         if let Ok(new_pos) = result {
-            if new_pos < 0 {
-                Poll::Ready(Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "seek position is out of range",
-                )))
-            } else {
-                self.bytes_read = new_pos as _;
-
-                Poll::Ready(Ok(new_pos as _))
-            }
+            self.bytes_read = new_pos as _;
+            Poll::Ready(Ok(new_pos as _))
         } else {
             Poll::Ready(Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -618,32 +669,21 @@ impl<'a> AsyncRead for SliceReader<'a> {
     }
 }
 
-impl<'a> AsyncSeek for SliceReader<'a> {
-    fn poll_seek(
+impl<'a> AsyncSeekForward for SliceReader<'a> {
+    fn poll_seek_forward(
         mut self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
-        pos: SeekFrom,
+        offset: u64,
     ) -> Poll<std::io::Result<u64>> {
-        let result = match pos {
-            SeekFrom::Start(offset) => offset.try_into(),
-            SeekFrom::End(offset) => self.bytes.len().try_into().map(|len: i64| len - offset),
-            SeekFrom::Current(offset) => self
-                .bytes_read
-                .try_into()
-                .map(|bytes_read: i64| bytes_read + offset),
-        };
+        let result = self
+            .bytes_read
+            .try_into()
+            .map(|bytes_read: u64| bytes_read + offset);
 
         if let Ok(new_pos) = result {
-            if new_pos < 0 {
-                Poll::Ready(Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "seek position is out of range",
-                )))
-            } else {
-                self.bytes_read = new_pos as _;
+            self.bytes_read = new_pos as _;
 
-                Poll::Ready(Ok(new_pos as _))
-            }
+            Poll::Ready(Ok(new_pos as _))
         } else {
             Poll::Ready(Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -690,7 +730,7 @@ impl Stream for EmptyPathStream {
 
     fn poll_next(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         Poll::Ready(None)
     }

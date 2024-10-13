@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
@@ -9,7 +9,6 @@
 
 extern crate proc_macro;
 
-mod app_plugin;
 mod bevy_main;
 mod derefs;
 mod enum_variant_meta;
@@ -17,19 +16,6 @@ mod enum_variant_meta;
 use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
 use quote::format_ident;
-
-/// Generates a dynamic plugin entry point function for the given `Plugin` type.
-///
-/// This is deprecated since 0.14. The current dynamic plugin system is unsound and will be removed in 0.15.
-#[proc_macro_derive(DynamicPlugin)]
-#[deprecated(
-    since = "0.14.0",
-    note = "The current dynamic plugin system is unsound and will be removed in 0.15."
-)]
-pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
-    #[allow(deprecated)]
-    app_plugin::derive_dynamic_plugin(input)
-}
 
 /// Implements [`Deref`] for structs. This is especially useful when utilizing the [newtype] pattern.
 ///

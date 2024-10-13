@@ -21,15 +21,15 @@ use bevy_render::{
     render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
     renderer::{RenderDevice, RenderQueue},
     settings::WgpuFeatures,
+    sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage, Image},
-    view::ExtractedView,
+    view::{ExtractedView, Visibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use bevy_utils::{tracing::error, HashMap};
 
-use std::hash::Hash;
-use std::ops::Deref;
+use core::{hash::Hash, ops::Deref};
 
 use crate::{
     irradiance_volume::IRRADIANCE_VOLUME_SHADER_HANDLE,
@@ -65,14 +65,13 @@ pub struct LightProbePlugin;
 /// A marker component for a light probe, which is a cuboid region that provides
 /// global illumination to all fragments inside it.
 ///
-/// The light probe range is conceptually a unit cube (1×1×1) centered on the
-/// origin.  The [`bevy_transform::prelude::Transform`] applied to this entity
-/// can scale, rotate, or translate that cube so that it contains all fragments
-/// that should take this light probe into account.
-///
 /// Note that a light probe will have no effect unless the entity contains some
 /// kind of illumination, which can either be an [`EnvironmentMapLight`] or an
 /// [`IrradianceVolume`].
+///
+/// The light probe range is conceptually a unit cube (1×1×1) centered on the
+/// origin. The [`Transform`] applied to this entity can scale, rotate, or translate
+/// that cube so that it contains all fragments that should take this light probe into account.
 ///
 /// When multiple sources of indirect illumination can be applied to a fragment,
 /// the highest-quality one is chosen. Diffuse and specular illumination are
@@ -103,7 +102,8 @@ pub struct LightProbePlugin;
 /// specific technique but rather to a class of techniques. Developers familiar
 /// with other engines should be aware of this terminology difference.
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
+#[require(Transform, Visibility)]
 pub struct LightProbe;
 
 /// A GPU type that stores information about a light probe.
@@ -368,10 +368,11 @@ impl Plugin for LightProbePlugin {
 }
 
 /// Extracts [`EnvironmentMapLight`] from views and creates [`EnvironmentMapUniform`] for them.
+///
 /// Compared to the `ExtractComponentPlugin`, this implementation will create a default instance
 /// if one does not already exist.
 fn gather_environment_map_uniform(
-    view_query: Extract<Query<(Entity, Option<&EnvironmentMapLight>), With<Camera3d>>>,
+    view_query: Extract<Query<(RenderEntity, Option<&EnvironmentMapLight>), With<Camera3d>>>,
     mut commands: Commands,
 ) {
     for (view_entity, environment_map_light) in view_query.iter() {
@@ -385,7 +386,8 @@ fn gather_environment_map_uniform(
             EnvironmentMapUniform::default()
         };
         commands
-            .get_or_spawn(view_entity)
+            .get_entity(view_entity)
+            .expect("Environment map light entity wasn't synced.")
             .insert(environment_map_uniform);
     }
 }
@@ -395,7 +397,9 @@ fn gather_environment_map_uniform(
 fn gather_light_probes<C>(
     image_assets: Res<RenderAssets<GpuImage>>,
     light_probe_query: Extract<Query<(&GlobalTransform, &C), With<LightProbe>>>,
-    view_query: Extract<Query<(Entity, &GlobalTransform, &Frustum, Option<&C>), With<Camera3d>>>,
+    view_query: Extract<
+        Query<(RenderEntity, &GlobalTransform, &Frustum, Option<&C>), With<Camera3d>>,
+    >,
     mut reflection_probes: Local<Vec<LightProbeInfo<C>>>,
     mut view_reflection_probes: Local<Vec<LightProbeInfo<C>>>,
     mut commands: Commands,
@@ -436,11 +440,13 @@ fn gather_light_probes<C>(
         // Record the per-view light probes.
         if render_view_light_probes.is_empty() {
             commands
-                .get_or_spawn(view_entity)
+                .get_entity(view_entity)
+                .expect("View entity wasn't synced.")
                 .remove::<RenderViewLightProbes<C>>();
         } else {
             commands
-                .get_or_spawn(view_entity)
+                .get_entity(view_entity)
+                .expect("View entity wasn't synced.")
                 .insert(render_view_light_probes);
         }
     }

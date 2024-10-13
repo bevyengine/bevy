@@ -1,7 +1,7 @@
 //! Specific distances from the camera in which entities are visible, also known
 //! as *hierarchical levels of detail* or *HLOD*s.
 
-use std::{
+use core::{
     hash::{Hash, Hasher},
     ops::Range,
 };
@@ -9,26 +9,29 @@ use std::{
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     component::Component,
-    entity::Entity,
+    entity::{Entity, EntityHashMap},
     query::{Changed, With},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
     system::{Query, Res, ResMut, Resource},
 };
 use bevy_math::{vec4, FloatOrd, Vec4};
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{prelude::default, EntityHashMap, HashMap};
+use bevy_utils::{prelude::default, HashMap};
 use nonmax::NonMaxU16;
 use wgpu::{BufferBindingType, BufferUsages};
 
+use super::{check_visibility, VisibilitySystems};
+use crate::sync_world::{MainEntity, MainEntityHashMap};
 use crate::{
     camera::Camera,
+    mesh::Mesh3d,
+    primitives::Aabb,
     render_resource::BufferVec,
     renderer::{RenderDevice, RenderQueue},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-
-use super::{check_visibility, VisibilitySystems, WithMesh};
 
 /// We need at least 4 storage buffer bindings available to enable the
 /// visibility range buffer.
@@ -55,7 +58,7 @@ impl Plugin for VisibilityRangePlugin {
                 PostUpdate,
                 check_visibility_ranges
                     .in_set(VisibilitySystems::CheckVisibility)
-                    .before(check_visibility::<WithMesh>),
+                    .before(check_visibility::<With<Mesh3d>>),
             );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -109,6 +112,7 @@ impl Plugin for VisibilityRangePlugin {
 /// `start_margin` of the next lower LOD; this is important for the crossfade
 /// effect to function properly.
 #[derive(Component, Clone, PartialEq, Reflect)]
+#[reflect(Component, PartialEq, Hash)]
 pub struct VisibilityRange {
     /// The range of distances, in world units, between which this entity will
     /// smoothly fade into view as the camera zooms out.
@@ -191,7 +195,7 @@ impl VisibilityRange {
 #[derive(Resource)]
 pub struct RenderVisibilityRanges {
     /// Information corresponding to each entity.
-    entities: EntityHashMap<Entity, RenderVisibilityEntityInfo>,
+    entities: MainEntityHashMap<RenderVisibilityEntityInfo>,
 
     /// Maps a [`VisibilityRange`] to its index within the `buffer`.
     ///
@@ -242,7 +246,7 @@ impl RenderVisibilityRanges {
     }
 
     /// Inserts a new entity into the [`RenderVisibilityRanges`].
-    fn insert(&mut self, entity: Entity, visibility_range: &VisibilityRange) {
+    fn insert(&mut self, entity: MainEntity, visibility_range: &VisibilityRange) {
         // Grab a slot in the GPU buffer, or take the existing one if there
         // already is one.
         let buffer_index = *self
@@ -272,14 +276,14 @@ impl RenderVisibilityRanges {
     ///
     /// If the entity has no visible range, returns `None`.
     #[inline]
-    pub fn lod_index_for_entity(&self, entity: Entity) -> Option<NonMaxU16> {
+    pub fn lod_index_for_entity(&self, entity: MainEntity) -> Option<NonMaxU16> {
         self.entities.get(&entity).map(|info| info.buffer_index)
     }
 
     /// Returns true if the entity has a visibility range and it isn't abrupt:
     /// i.e. if it has a crossfade.
     #[inline]
-    pub fn entity_has_crossfading_visibility_ranges(&self, entity: Entity) -> bool {
+    pub fn entity_has_crossfading_visibility_ranges(&self, entity: MainEntity) -> bool {
         self.entities
             .get(&entity)
             .is_some_and(|info| !info.is_abrupt)
@@ -309,13 +313,13 @@ impl RenderVisibilityRanges {
 #[derive(Resource, Default)]
 pub struct VisibleEntityRanges {
     /// Stores which bit index each view corresponds to.
-    views: EntityHashMap<Entity, u8>,
+    views: EntityHashMap<u8>,
 
     /// Stores a bitmask in which each view has a single bit.
     ///
     /// A 0 bit for a view corresponds to "out of range"; a 1 bit corresponds to
     /// "in range".
-    entities: EntityHashMap<Entity, u32>,
+    entities: EntityHashMap<u32>,
 }
 
 impl VisibleEntityRanges {
@@ -364,7 +368,7 @@ impl VisibleEntityRanges {
 pub fn check_visibility_ranges(
     mut visible_entity_ranges: ResMut<VisibleEntityRanges>,
     view_query: Query<(Entity, &GlobalTransform), With<Camera>>,
-    mut entity_query: Query<(Entity, &GlobalTransform, &VisibilityRange)>,
+    mut entity_query: Query<(Entity, &GlobalTransform, Option<&Aabb>, &VisibilityRange)>,
 ) {
     visible_entity_ranges.clear();
 
@@ -383,12 +387,17 @@ pub fn check_visibility_ranges(
 
     // Check each entity/view pair. Only consider entities with
     // [`VisibilityRange`] components.
-    for (entity, entity_transform, visibility_range) in entity_query.iter_mut() {
+    for (entity, entity_transform, maybe_model_aabb, visibility_range) in entity_query.iter_mut() {
         let mut visibility = 0;
         for (view_index, &(_, view_position)) in views.iter().enumerate() {
-            if visibility_range
-                .is_visible_at_all((view_position - entity_transform.translation_vec3a()).length())
-            {
+            let model_pos = if let Some(model_aabb) = maybe_model_aabb {
+                let world_from_local = entity_transform.affine();
+                world_from_local.transform_point3a(model_aabb.center)
+            } else {
+                entity_transform.translation_vec3a()
+            };
+
+            if visibility_range.is_visible_at_all((view_position - model_pos).length()) {
                 visibility |= 1 << view_index;
             }
         }
@@ -414,7 +423,7 @@ pub fn extract_visibility_ranges(
 
     render_visibility_ranges.clear();
     for (entity, visibility_range) in visibility_ranges_query.iter() {
-        render_visibility_ranges.insert(entity, visibility_range);
+        render_visibility_ranges.insert(entity.into(), visibility_range);
     }
 }
 

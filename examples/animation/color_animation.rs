@@ -35,7 +35,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // The color spaces `Oklaba`, `Laba`, `LinearRgba`, `Srgba` and `Xyza` all are either perceptually or physically linear.
     // This property allows us to define curves, e.g. bezier curves through these spaces.
@@ -70,28 +70,16 @@ fn setup(mut commands: Commands) {
 
 fn spawn_curve_sprite<T: CurveColor>(commands: &mut Commands, y: f32, points: [T; 4]) {
     commands.spawn((
-        SpriteBundle {
-            transform: Transform::from_xyz(0., y, 0.),
-            sprite: Sprite {
-                custom_size: Some(Vec2::new(75., 75.)),
-                ..Default::default()
-            },
-            ..Default::default()
-        },
-        Curve(CubicBezier::new([points]).to_curve()),
+        Sprite::sized(Vec2::new(75., 75.)),
+        Transform::from_xyz(0., y, 0.),
+        Curve(CubicBezier::new([points]).to_curve().unwrap()),
     ));
 }
 
 fn spawn_mixed_sprite<T: MixedColor>(commands: &mut Commands, y: f32, colors: [T; 4]) {
     commands.spawn((
-        SpriteBundle {
-            transform: Transform::from_xyz(0., y, 0.),
-            sprite: Sprite {
-                custom_size: Some(Vec2::new(75., 75.)),
-                ..Default::default()
-            },
-            ..Default::default()
-        },
+        Transform::from_xyz(0., y, 0.),
+        Sprite::sized(Vec2::new(75., 75.)),
         Mixed(colors),
     ));
 }
@@ -100,7 +88,7 @@ fn animate_curve<T: CurveColor>(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &mut Sprite, &Curve<T>)>,
 ) {
-    let t = (time.elapsed_seconds().sin() + 1.) / 2.;
+    let t = (ops::sin(time.elapsed_seconds()) + 1.) / 2.;
 
     for (mut transform, mut sprite, cubic_curve) in &mut query {
         // position takes a point from the curve where 0 is the initial point
@@ -114,7 +102,7 @@ fn animate_mixed<T: MixedColor>(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &mut Sprite, &Mixed<T>)>,
 ) {
-    let t = (time.elapsed_seconds().sin() + 1.) / 2.;
+    let t = (ops::sin(time.elapsed_seconds()) + 1.) / 2.;
 
     for (mut transform, mut sprite, mixed) in &mut query {
         sprite.color = {

@@ -1,13 +1,13 @@
-use crate::func::args::{ArgError, FromArg, Ownership};
-use crate::{Reflect, TypePath};
-use std::ops::Deref;
+use crate::{
+    func::args::{ArgError, FromArg, Ownership},
+    PartialReflect, Reflect, TypePath,
+};
+use core::ops::Deref;
 
-/// Represents an argument that can be passed to a [`DynamicFunction`], [`DynamicClosure`],
-/// or [`DynamicClosureMut`].
+/// Represents an argument that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// [`DynamicFunction`]: crate::func::DynamicFunction
-/// [`DynamicClosure`]: crate::func::DynamicClosure
-/// [`DynamicClosureMut`]: crate::func::DynamicClosureMut
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug)]
 pub struct Arg<'a> {
     index: usize,
@@ -83,10 +83,10 @@ impl<'a> Arg<'a> {
     /// ```
     pub fn take_owned<T: Reflect + TypePath>(self) -> Result<T, ArgError> {
         match self.value {
-            ArgValue::Owned(arg) => arg.take().map_err(|arg| ArgError::UnexpectedType {
+            ArgValue::Owned(arg) => arg.try_take().map_err(|arg| ArgError::UnexpectedType {
                 index: self.index,
-                expected: std::borrow::Cow::Borrowed(T::type_path()),
-                received: std::borrow::Cow::Owned(arg.reflect_type_path().to_string()),
+                expected: alloc::borrow::Cow::Borrowed(T::type_path()),
+                received: alloc::borrow::Cow::Owned(arg.reflect_type_path().to_string()),
             }),
             ArgValue::Ref(_) => Err(ArgError::InvalidOwnership {
                 index: self.index,
@@ -124,11 +124,13 @@ impl<'a> Arg<'a> {
                 received: Ownership::Owned,
             }),
             ArgValue::Ref(arg) => {
-                Ok(arg.downcast_ref().ok_or_else(|| ArgError::UnexpectedType {
-                    index: self.index,
-                    expected: std::borrow::Cow::Borrowed(T::type_path()),
-                    received: std::borrow::Cow::Owned(arg.reflect_type_path().to_string()),
-                })?)
+                Ok(arg
+                    .try_downcast_ref()
+                    .ok_or_else(|| ArgError::UnexpectedType {
+                        index: self.index,
+                        expected: alloc::borrow::Cow::Borrowed(T::type_path()),
+                        received: alloc::borrow::Cow::Owned(arg.reflect_type_path().to_string()),
+                    })?)
             }
             ArgValue::Mut(_) => Err(ArgError::InvalidOwnership {
                 index: self.index,
@@ -166,29 +168,32 @@ impl<'a> Arg<'a> {
                 received: Ownership::Ref,
             }),
             ArgValue::Mut(arg) => {
-                let received = std::borrow::Cow::Owned(arg.reflect_type_path().to_string());
-                Ok(arg.downcast_mut().ok_or_else(|| ArgError::UnexpectedType {
-                    index: self.index,
-                    expected: std::borrow::Cow::Borrowed(T::type_path()),
-                    received,
-                })?)
+                let received = alloc::borrow::Cow::Owned(arg.reflect_type_path().to_string());
+                Ok(arg
+                    .try_downcast_mut()
+                    .ok_or_else(|| ArgError::UnexpectedType {
+                        index: self.index,
+                        expected: alloc::borrow::Cow::Borrowed(T::type_path()),
+                        received,
+                    })?)
             }
         }
     }
 }
 
-/// Represents an argument that can be passed to a [`DynamicFunction`].
+/// Represents an argument that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug)]
 pub enum ArgValue<'a> {
-    Owned(Box<dyn Reflect>),
-    Ref(&'a dyn Reflect),
-    Mut(&'a mut dyn Reflect),
+    Owned(Box<dyn PartialReflect>),
+    Ref(&'a dyn PartialReflect),
+    Mut(&'a mut dyn PartialReflect),
 }
 
 impl<'a> Deref for ArgValue<'a> {
-    type Target = dyn Reflect;
+    type Target = dyn PartialReflect;
 
     fn deref(&self) -> &Self::Target {
         match self {

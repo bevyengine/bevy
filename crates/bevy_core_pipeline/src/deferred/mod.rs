@@ -1,9 +1,11 @@
 pub mod copy_lighting_id;
 pub mod node;
 
-use std::ops::Range;
+use core::ops::Range;
 
+use crate::prepass::OpaqueNoLightmap3dBinKey;
 use bevy_ecs::prelude::*;
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem,
@@ -11,8 +13,6 @@ use bevy_render::{
     },
     render_resource::{CachedRenderPipelineId, TextureFormat},
 };
-
-use crate::prepass::OpaqueNoLightmap3dBinKey;
 
 pub const DEFERRED_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgba32Uint;
 pub const DEFERRED_LIGHTING_PASS_ID_FORMAT: TextureFormat = TextureFormat::R8Uint;
@@ -26,7 +26,7 @@ pub const DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT: TextureFormat = TextureFormat:
 #[derive(PartialEq, Eq, Hash)]
 pub struct Opaque3dDeferred {
     pub key: OpaqueNoLightmap3dBinKey,
-    pub representative_entity: Entity,
+    pub representative_entity: (Entity, MainEntity),
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
 }
@@ -34,7 +34,11 @@ pub struct Opaque3dDeferred {
 impl PhaseItem for Opaque3dDeferred {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
@@ -69,7 +73,7 @@ impl BinnedPhaseItem for Opaque3dDeferred {
     #[inline]
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
@@ -96,7 +100,7 @@ impl CachedRenderPipelinePhaseItem for Opaque3dDeferred {
 /// Used to render all meshes with a material with an alpha mask.
 pub struct AlphaMask3dDeferred {
     pub key: OpaqueNoLightmap3dBinKey,
-    pub representative_entity: Entity,
+    pub representative_entity: (Entity, MainEntity),
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
 }
@@ -104,7 +108,12 @@ pub struct AlphaMask3dDeferred {
 impl PhaseItem for AlphaMask3dDeferred {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    #[inline]
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
@@ -138,7 +147,7 @@ impl BinnedPhaseItem for AlphaMask3dDeferred {
 
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {

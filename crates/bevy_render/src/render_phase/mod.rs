@@ -37,6 +37,7 @@ use encase::{internal::WriteInto, ShaderSize};
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
 
+use crate::sync_world::MainEntity;
 use crate::{
     batching::{
         self,
@@ -52,8 +53,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
-use smallvec::SmallVec;
-use std::{
+use core::{
     fmt::{self, Debug, Formatter},
     hash::Hash,
     iter,
@@ -61,6 +61,7 @@ use std::{
     ops::Range,
     slice::SliceIndex,
 };
+use smallvec::SmallVec;
 
 /// Stores the rendering instructions for a single phase that uses bins in all
 /// views.
@@ -100,7 +101,7 @@ where
     ///
     /// Each bin corresponds to a single batch set. For unbatchable entities,
     /// prefer `unbatchable_values` instead.
-    pub(crate) batchable_mesh_values: HashMap<BPI::BinKey, Vec<Entity>>,
+    pub(crate) batchable_mesh_values: HashMap<BPI::BinKey, Vec<(Entity, MainEntity)>>,
 
     /// A list of `BinKey`s for unbatchable items.
     ///
@@ -120,7 +121,7 @@ where
     /// entity are simply called in order at rendering time.
     ///
     /// See the `custom_phase_item` example for an example of how to use this.
-    pub non_mesh_items: Vec<(BPI::BinKey, Entity)>,
+    pub non_mesh_items: Vec<(BPI::BinKey, (Entity, MainEntity))>,
 
     /// Information on each batch set.
     ///
@@ -142,8 +143,7 @@ pub struct BinnedRenderPhaseBatch {
     /// An entity that's *representative* of this batch.
     ///
     /// Bevy uses this to fetch the mesh. It can be any entity in the batch.
-    pub representative_entity: Entity,
-
+    pub representative_entity: (Entity, MainEntity),
     /// The range of instance indices in this batch.
     pub instance_range: Range<u32>,
 
@@ -157,7 +157,7 @@ pub struct BinnedRenderPhaseBatch {
 /// Information about the unbatchable entities in a bin.
 pub(crate) struct UnbatchableBinnedEntities {
     /// The entities.
-    pub(crate) entities: Vec<Entity>,
+    pub(crate) entities: Vec<(Entity, MainEntity)>,
 
     /// The GPU array buffer indices of each unbatchable binned entity.
     pub(crate) buffer_indices: UnbatchableBinnedEntityIndexSet,
@@ -276,7 +276,12 @@ where
     /// The `phase_type` parameter specifies whether the entity is a
     /// preprocessable mesh and whether it can be binned with meshes of the same
     /// type.
-    pub fn add(&mut self, key: BPI::BinKey, entity: Entity, phase_type: BinnedRenderPhaseType) {
+    pub fn add(
+        &mut self,
+        key: BPI::BinKey,
+        entity: (Entity, MainEntity),
+        phase_type: BinnedRenderPhaseType,
+    ) {
         match phase_type {
             BinnedRenderPhaseType::BatchableMesh => {
                 match self.batchable_mesh_values.entry(key.clone()) {
@@ -314,7 +319,7 @@ where
         render_pass: &mut TrackedRenderPass<'w>,
         world: &'w World,
         view: Entity,
-    ) {
+    ) -> Result<(), DrawError> {
         {
             let draw_functions = world.resource::<DrawFunctions<BPI>>();
             let mut draw_functions = draw_functions.write();
@@ -323,9 +328,11 @@ where
             // locks.
         }
 
-        self.render_batchable_meshes(render_pass, world, view);
-        self.render_unbatchable_meshes(render_pass, world, view);
-        self.render_non_meshes(render_pass, world, view);
+        self.render_batchable_meshes(render_pass, world, view)?;
+        self.render_unbatchable_meshes(render_pass, world, view)?;
+        self.render_non_meshes(render_pass, world, view)?;
+
+        Ok(())
     }
 
     /// Renders all batchable meshes queued in this phase.
@@ -334,7 +341,7 @@ where
         render_pass: &mut TrackedRenderPass<'w>,
         world: &'w World,
         view: Entity,
-    ) {
+    ) -> Result<(), DrawError> {
         let draw_functions = world.resource::<DrawFunctions<BPI>>();
         let mut draw_functions = draw_functions.write();
 
@@ -355,9 +362,11 @@ where
                     continue;
                 };
 
-                draw_function.draw(world, render_pass, view, &binned_phase_item);
+                draw_function.draw(world, render_pass, view, &binned_phase_item)?;
             }
         }
+
+        Ok(())
     }
 
     /// Renders all unbatchable meshes queued in this phase.
@@ -366,7 +375,7 @@ where
         render_pass: &mut TrackedRenderPass<'w>,
         world: &'w World,
         view: Entity,
-    ) {
+    ) -> Result<(), DrawError> {
         let draw_functions = world.resource::<DrawFunctions<BPI>>();
         let mut draw_functions = draw_functions.write();
 
@@ -412,9 +421,10 @@ where
                     continue;
                 };
 
-                draw_function.draw(world, render_pass, view, &binned_phase_item);
+                draw_function.draw(world, render_pass, view, &binned_phase_item)?;
             }
         }
+        Ok(())
     }
 
     /// Renders all objects of type [`BinnedRenderPhaseType::NonMesh`].
@@ -425,7 +435,7 @@ where
         render_pass: &mut TrackedRenderPass<'w>,
         world: &'w World,
         view: Entity,
-    ) {
+    ) -> Result<(), DrawError> {
         let draw_functions = world.resource::<DrawFunctions<BPI>>();
         let mut draw_functions = draw_functions.write();
 
@@ -439,8 +449,10 @@ where
                 continue;
             };
 
-            draw_function.draw(world, render_pass, view, &binned_phase_item);
+            draw_function.draw(world, render_pass, view, &binned_phase_item)?;
         }
+
+        Ok(())
     }
 
     pub fn is_empty(&self) -> bool {
@@ -769,8 +781,8 @@ where
         render_pass: &mut TrackedRenderPass<'w>,
         world: &'w World,
         view: Entity,
-    ) {
-        self.render_range(render_pass, world, view, ..);
+    ) -> Result<(), DrawError> {
+        self.render_range(render_pass, world, view, ..)
     }
 
     /// Renders all [`PhaseItem`]s in the provided `range` (based on their index in `self.items`) using their corresponding draw functions.
@@ -780,7 +792,7 @@ where
         world: &'w World,
         view: Entity,
         range: impl SliceIndex<[I], Output = [I]>,
-    ) {
+    ) -> Result<(), DrawError> {
         let items = self
             .items
             .get(range)
@@ -798,10 +810,11 @@ where
                 index += 1;
             } else {
                 let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
-                draw_function.draw(world, render_pass, view, item);
+                draw_function.draw(world, render_pass, view, item)?;
                 index += batch_range.len();
             }
         }
+        Ok(())
     }
 }
 
@@ -837,6 +850,9 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// This is used to fetch the render data of the entity, required by the draw function,
     /// from the render world .
     fn entity(&self) -> Entity;
+
+    /// The main world entity represented by this `PhaseItem`.
+    fn main_entity(&self) -> MainEntity;
 
     /// Specifies the [`Draw`] function used to render the item.
     fn draw_function(&self) -> DrawFunctionId;
@@ -1010,7 +1026,7 @@ pub trait BinnedPhaseItem: PhaseItem {
     /// structures, resulting in significant memory savings.
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self;
@@ -1081,7 +1097,7 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
             pass.set_render_pipeline(pipeline);
             RenderCommandResult::Success
         } else {
-            RenderCommandResult::Failure
+            RenderCommandResult::Skip
         }
     }
 }

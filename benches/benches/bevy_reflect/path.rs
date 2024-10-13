@@ -1,4 +1,4 @@
-use std::{fmt::Write, str, time::Duration};
+use core::{fmt::Write, str, time::Duration};
 
 use bevy_reflect::ParsedPath;
 use criterion::{

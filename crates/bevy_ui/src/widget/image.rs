@@ -12,7 +12,7 @@ use taffy::{MaybeMath, MaybeResolve};
 ///
 /// This component is updated automatically by [`update_image_content_size_system`]
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct UiImageSize {
     /// The size of the image's texture
     ///
@@ -88,7 +88,7 @@ impl Measure for ImageMeasure {
 }
 
 #[cfg(feature = "bevy_text")]
-type UpdateImageFilter = (With<Node>, Without<bevy_text::Text>);
+type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
 #[cfg(not(feature = "bevy_text"))]
 type UpdateImageFilter = With<Node>;
 

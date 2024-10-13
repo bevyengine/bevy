@@ -8,7 +8,11 @@ use crate::{
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use std::borrow::Borrow;
+use core::{
+    borrow::Borrow,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 /// [System parameter] that provides selective access to the [`Component`] data stored in a [`World`].
 ///
@@ -28,6 +32,15 @@ use std::borrow::Borrow;
 ///   This type parameter is optional.
 ///
 /// [`World`]: crate::world::World
+///
+/// # Similar parameters
+///
+/// [`Query`] has few sibling [`SystemParam`](crate::system::system_param::SystemParam)s, which perform additional validation:
+/// - [`Single`] - Exactly one matching query item.
+/// - [`Option<Single>`] - Zero or one matching query item.
+/// - [`Populated`] - At least one matching query item.
+///
+/// Those parameters will prevent systems from running if their requirements aren't met.
 ///
 /// # System parameter declaration
 ///
@@ -354,8 +367,8 @@ pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = ()> {
     this_run: Tick,
 }
 
-impl<D: QueryData, F: QueryFilter> std::fmt::Debug for Query<'_, '_, D, F> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl<D: QueryData, F: QueryFilter> core::fmt::Debug for Query<'_, '_, D, F> {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_struct("Query")
             .field("matched_entities", &self.iter().count())
             .field("state", &self.state)
@@ -403,6 +416,36 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         let new_state = self.state.as_readonly();
         // SAFETY: This is memory safe because it turns the query immutable.
         unsafe { Query::new(self.world, new_state, self.last_run, self.this_run) }
+    }
+
+    /// Returns a new `Query` reborrowing the access from this one. The current query will be unusable
+    /// while the new one exists.
+    ///
+    /// # Example
+    ///
+    /// For example this allows to call other methods or other systems that require an owned `Query` without
+    /// completely giving up ownership of it.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct ComponentA;
+    ///
+    /// fn helper_system(query: Query<&ComponentA>) { /* ... */}
+    ///
+    /// fn system(mut query: Query<&ComponentA>) {
+    ///     helper_system(query.reborrow());
+    ///     // Can still use query here:
+    ///     for component in &query {
+    ///         // ...
+    ///     }
+    /// }
+    /// ```
+    pub fn reborrow(&mut self) -> Query<'_, 's, D, F> {
+        // SAFETY: this query is exclusively borrowed while the new one exists, so
+        // no overlapping access can occur.
+        unsafe { Query::new(self.world, self.state, self.last_run, self.this_run) }
     }
 
     /// Returns an [`Iterator`] over the read-only query items.
@@ -586,13 +629,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
-    pub fn iter_many<EntityList: IntoIterator>(
+    pub fn iter_many<EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, 's, D::ReadOnly, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'_, 's, D::ReadOnly, F, EntityList::IntoIter> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
@@ -640,13 +680,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn iter_many_mut<EntityList: IntoIterator>(
+    pub fn iter_many_mut<EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &mut self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter> {
         // SAFETY: `self.world` has permission to access the required components.
         unsafe {
             self.state.iter_many_unchecked_manual(
@@ -722,13 +759,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to safely access the query items.
-    pub unsafe fn iter_many_unsafe<EntityList: IntoIterator>(
+    pub unsafe fn iter_many_unsafe<EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The caller ensures that this operation will not result in any aliased mutable accesses.
@@ -1350,7 +1384,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * `&mut T` -> `&T`
     /// * `&mut T` -> `Ref<T>`
     /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
-    ///  
+    ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
     /// [`&Archetype`]: crate::archetype::Archetype
     #[track_caller]
@@ -1368,8 +1402,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
     ) -> QueryLens<'_, NewD, NewF> {
-        let components = self.world.components();
-        let state = self.state.transmute_filtered::<NewD, NewF>(components);
+        let state = self.state.transmute_filtered::<NewD, NewF>(self.world);
         QueryLens {
             world: self.world,
             state,
@@ -1460,10 +1493,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         &mut self,
         other: &mut Query<OtherD, OtherF>,
     ) -> QueryLens<'_, NewD, NewF> {
-        let components = self.world.components();
         let state = self
             .state
-            .join_filtered::<OtherD, OtherF, NewD, NewF>(components, other.state);
+            .join_filtered::<OtherD, OtherF, NewD, NewF>(self.world, other.state);
         QueryLens {
             world: self.world,
             state,
@@ -1608,5 +1640,72 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 {
     fn from(value: &'q mut Query<'w, '_, Q, F>) -> QueryLens<'q, Q, F> {
         value.transmute_lens_filtered()
+    }
+}
+
+/// [System parameter] that provides access to single entity's components, much like [`Query::single`]/[`Query::single_mut`].
+///
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if zero or more than one matching entity exists.
+/// This will cause systems that use this parameter to be skipped.
+///
+/// Use [`Option<Single<D, F>>`] instead if zero or one matching entities can exist.
+///
+/// See [`Query`] for more details.
+pub struct Single<'w, D: QueryData, F: QueryFilter = ()> {
+    pub(crate) item: D::Item<'w>,
+    pub(crate) _filter: PhantomData<F>,
+}
+
+impl<'w, D: QueryData, F: QueryFilter> Deref for Single<'w, D, F> {
+    type Target = D::Item<'w>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.item
+    }
+}
+
+impl<'w, D: QueryData, F: QueryFilter> DerefMut for Single<'w, D, F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.item
+    }
+}
+
+impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
+    /// Returns the inner item with ownership.
+    pub fn into_inner(self) -> D::Item<'w> {
+        self.item
+    }
+}
+
+/// [System parameter] that works very much like [`Query`] except it always contains at least one matching entity.
+///
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if no matching entities exist.
+/// This will cause systems that use this parameter to be skipped.
+///
+/// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
+/// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added) or [`Changed`](crate::query::Changed)
+/// which must individually check each query result for a match.
+///
+/// See [`Query`] for more details.
+pub struct Populated<'w, 's, D: QueryData, F: QueryFilter = ()>(pub(crate) Query<'w, 's, D, F>);
+
+impl<'w, 's, D: QueryData, F: QueryFilter> Deref for Populated<'w, 's, D, F> {
+    type Target = Query<'w, 's, D, F>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<D: QueryData, F: QueryFilter> DerefMut for Populated<'_, '_, D, F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> Populated<'w, 's, D, F> {
+    /// Returns the inner item with ownership.
+    pub fn into_inner(self) -> Query<'w, 's, D, F> {
+        self.0
     }
 }

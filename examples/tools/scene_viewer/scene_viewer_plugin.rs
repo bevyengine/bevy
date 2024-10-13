@@ -7,8 +7,7 @@ use bevy::{
     gltf::Gltf, input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId,
 };
 
-use std::f32::consts::*;
-use std::fmt;
+use std::{f32::consts::*, fmt};
 
 use super::camera_controller::*;
 

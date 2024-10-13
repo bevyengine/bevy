@@ -143,8 +143,8 @@ fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &Col
                 flex_direction: FlexDirection::Column,
                 position_type: PositionType::Absolute,
                 row_gap: Val::Px(6.0),
-                left: Val::Px(10.0),
-                bottom: Val::Px(10.0),
+                left: Val::Px(12.0),
+                bottom: Val::Px(12.0),
                 ..default()
             },
             ..default()
@@ -314,23 +314,20 @@ fn add_help_text(
     font: &Handle<Font>,
     currently_selected_option: &SelectedColorGradingOption,
 ) {
-    commands
-        .spawn(TextBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                left: Val::Px(10.0),
-                top: Val::Px(10.0),
-                ..default()
-            },
-            ..TextBundle::from_section(
-                create_help_text(currently_selected_option),
-                TextStyle {
-                    font: font.clone(),
-                    ..default()
-                },
-            )
-        })
-        .insert(HelpText);
+    commands.spawn((
+        Text::new(create_help_text(currently_selected_option)),
+        TextFont {
+            font: font.clone(),
+            ..default()
+        },
+        Style {
+            position_type: PositionType::Absolute,
+            left: Val::Px(12.0),
+            top: Val::Px(12.0),
+            ..default()
+        },
+        HelpText,
+    ));
 }
 
 /// Adds some text to the scene.
@@ -340,29 +337,27 @@ fn add_text<'a>(
     font: &Handle<Font>,
     color: Color,
 ) -> EntityCommands<'a> {
-    parent.spawn(TextBundle::from_section(
-        label,
-        TextStyle {
+    parent.spawn((
+        Text::new(label),
+        TextFont {
             font: font.clone(),
-            font_size: 18.0,
-            color,
+            font_size: 15.0,
+            ..default()
         },
+        TextColor(color),
     ))
 }
 
 fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading: ColorGrading) {
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-            color_grading,
+        Camera3d::default(),
+        Camera {
+            hdr: true,
             ..default()
         },
-        FogSettings {
+        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        color_grading,
+        DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,
@@ -381,43 +376,34 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
 
 fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
     // Spawn the main scene.
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
-        ),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
+    )));
 
     // Spawn the flight helmet.
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-        transform: Transform::from_xyz(0.5, 0.0, -0.5)
-            .with_rotation(Quat::from_rotation_y(-0.15 * PI)),
-        ..default()
-    });
+    commands.spawn((
+        SceneRoot(
+            asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+        ),
+        Transform::from_xyz(0.5, 0.0, -0.5).with_rotation(Quat::from_rotation_y(-0.15 * PI)),
+    ));
 
     // Spawn the light.
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: 15000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI * -0.15,
-            PI * -0.15,
-        )),
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+        CascadeShadowConfigBuilder {
             maximum_distance: 3.0,
             first_cascade_far_bound: 0.9,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 }
 
 impl Display for SelectedGlobalColorGradingOption {
@@ -459,9 +445,9 @@ impl Display for SelectedSectionColorGradingOption {
 impl Display for SelectedColorGradingOption {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            SelectedColorGradingOption::Global(option) => write!(f, "\"{}\"", option),
+            SelectedColorGradingOption::Global(option) => write!(f, "\"{option}\""),
             SelectedColorGradingOption::Section(section, option) => {
-                write!(f, "\"{}\" for \"{}\"", option, section)
+                write!(f, "\"{option}\" for \"{section}\"")
             }
         }
     }
@@ -573,13 +559,14 @@ fn update_ui_state(
         &mut BorderColor,
         &ColorGradingOptionWidget,
     )>,
-    mut button_text: Query<(&mut Text, &ColorGradingOptionWidget), Without<HelpText>>,
-    mut help_text: Query<&mut Text, With<HelpText>>,
-    cameras: Query<Ref<ColorGrading>>,
+    button_text: Query<(Entity, &ColorGradingOptionWidget), (With<Text>, Without<HelpText>)>,
+    help_text: Single<Entity, With<HelpText>>,
+    mut writer: UiTextWriter,
+    cameras: Single<Ref<ColorGrading>>,
     currently_selected_option: Res<SelectedColorGradingOption>,
 ) {
     // Exit early if the UI didn't change
-    if !currently_selected_option.is_changed() && !cameras.single().is_changed() {
+    if !currently_selected_option.is_changed() && !cameras.is_changed() {
         return;
     }
 
@@ -594,15 +581,10 @@ fn update_ui_state(
         }
     }
 
-    let value_label = cameras.iter().next().map(|color_grading| {
-        format!(
-            "{:.3}",
-            currently_selected_option.get(color_grading.as_ref())
-        )
-    });
+    let value_label = format!("{:.3}", currently_selected_option.get(cameras.as_ref()));
 
     // Update the buttons.
-    for (mut text, widget) in button_text.iter_mut() {
+    for (entity, widget) in button_text.iter() {
         // Set the text color.
 
         let color = if *currently_selected_option == widget.option {
@@ -611,35 +593,33 @@ fn update_ui_state(
             Color::WHITE
         };
 
-        for section in &mut text.sections {
-            section.style.color = color;
-        }
+        writer.for_each_color(entity, |mut text_color| {
+            text_color.0 = color;
+        });
 
         // Update the displayed value, if this is the currently-selected option.
         if widget.widget_type == ColorGradingOptionWidgetType::Value
             && *currently_selected_option == widget.option
         {
-            if let Some(ref value_label) = value_label {
-                for section in &mut text.sections {
-                    section.value.clone_from(value_label);
-                }
-            }
+            writer.for_each_text(entity, |mut text| {
+                text.clone_from(&value_label);
+            });
         }
     }
 
     // Update the help text.
-    help_text.single_mut().sections[0].value = create_help_text(&currently_selected_option);
+    *writer.text(*help_text, 0) = create_help_text(&currently_selected_option);
 }
 
 /// Creates the help text at the top left of the window.
 fn create_help_text(currently_selected_option: &SelectedColorGradingOption) -> String {
-    format!("Press Left/Right to adjust {}", currently_selected_option)
+    format!("Press Left/Right to adjust {currently_selected_option}")
 }
 
 /// Processes keyboard input to change the value of the currently-selected color
 /// grading option.
 fn adjust_color_grading_option(
-    mut cameras: Query<&mut ColorGrading>,
+    mut color_grading: Single<&mut ColorGrading>,
     input: Res<ButtonInput<KeyCode>>,
     currently_selected_option: Res<SelectedColorGradingOption>,
 ) {
@@ -652,8 +632,7 @@ fn adjust_color_grading_option(
     }
 
     if delta != 0.0 {
-        let mut color_grading = cameras.single_mut();
-        let new_value = currently_selected_option.get(&color_grading) + delta;
+        let new_value = currently_selected_option.get(color_grading.as_ref()) + delta;
         currently_selected_option.set(&mut color_grading, new_value);
     }
 }

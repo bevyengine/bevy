@@ -1,8 +1,8 @@
 pub use bench_check::*;
-pub use cfg_check::*;
 pub use clippy::*;
 pub use compile::*;
 pub use compile_check::*;
+pub use compile_check_no_std::*;
 pub use compile_fail::*;
 pub use doc::*;
 pub use doc_check::*;
@@ -14,10 +14,10 @@ pub use test::*;
 pub use test_check::*;
 
 mod bench_check;
-mod cfg_check;
 mod clippy;
 mod compile;
 mod compile_check;
+mod compile_check_no_std;
 mod compile_fail;
 mod doc;
 mod doc_check;

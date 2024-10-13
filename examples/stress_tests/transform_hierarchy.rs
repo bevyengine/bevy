@@ -265,17 +265,14 @@ fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut UpdateValue)>)
 
 /// set translation based on the angle `a`
 fn set_translation(translation: &mut Vec3, a: f32) {
-    translation.x = a.cos() * 32.0;
-    translation.y = a.sin() * 32.0;
+    translation.x = ops::cos(a) * 32.0;
+    translation.y = ops::sin(a) * 32.0;
 }
 
 fn setup(mut commands: Commands, cfg: Res<Cfg>) {
     warn!(include_str!("warning_string.txt"));
 
-    let mut cam = Camera2dBundle::default();
-
-    cam.transform.translation.z = 100.0;
-    commands.spawn(cam);
+    commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 100.0)));
 
     let result = match cfg.test_case {
         TestCase::Tree {
@@ -380,7 +377,7 @@ fn spawn_tree(
     }
 
     // insert root
-    ents.push(commands.spawn(TransformBundle::from(root_transform)).id());
+    ents.push(commands.spawn(root_transform).id());
 
     let mut result = InsertResult::default();
     let mut rng = rand::thread_rng();
@@ -426,14 +423,12 @@ fn spawn_tree(
             };
 
             // only insert the components necessary for the transform propagation
-            cmd.insert(TransformBundle::from(transform));
+            cmd.insert(transform);
 
             cmd.id()
         };
 
-        commands
-            .get_or_spawn(ents[parent_idx])
-            .add_child(child_entity);
+        commands.entity(ents[parent_idx]).add_child(child_entity);
 
         ents.push(child_entity);
     }

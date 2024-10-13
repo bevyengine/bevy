@@ -1,10 +1,7 @@
 //! This example demonstrates text wrapping and use of the `LineBreakOn` property.
 
 use argh::FromArgs;
-use bevy::prelude::*;
-use bevy::text::BreakLineOn;
-use bevy::window::WindowResolution;
-use bevy::winit::WinitSettings;
+use bevy::{prelude::*, text::LineBreak, window::WindowResolution, winit::WinitSettings};
 
 #[derive(FromArgs, Resource)]
 /// `text_wrap_debug` demonstrates text wrapping and use of the `LineBreakOn` property
@@ -46,11 +43,11 @@ fn main() {
 }
 
 fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
-    let text_style = TextStyle {
+    let text_font = TextFont {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-        font_size: 14.0,
+        font_size: 12.0,
         ..default()
     };
 
@@ -67,11 +64,11 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .id();
 
-    for linebreak_behavior in [
-        BreakLineOn::AnyCharacter,
-        BreakLineOn::WordBoundary,
-        BreakLineOn::WordOrCharacter,
-        BreakLineOn::NoWrap,
+    for linebreak in [
+        LineBreak::AnyCharacter,
+        LineBreak::WordBoundary,
+        LineBreak::WordOrCharacter,
+        LineBreak::NoWrap,
     ] {
         let row_id = commands
             .spawn(NodeBundle {
@@ -115,29 +112,19 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             let messages = [
                 format!("JustifyContent::{justification:?}"),
-                format!("LineBreakOn::{linebreak_behavior:?}"),
+                format!("LineBreakOn::{linebreak:?}"),
                 "Line 1\nLine 2".to_string(),
                 "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas auctor, nunc ac faucibus fringilla.".to_string(),
                 "pneumonoultramicroscopicsilicovolcanoconiosis".to_string()
             ];
 
             for (j, message) in messages.into_iter().enumerate() {
-                let text = Text {
-                    sections: vec![TextSection {
-                        value: message.clone(),
-                        style: text_style.clone(),
-                    }],
-                    justify: JustifyText::Left,
-                    linebreak_behavior,
-                };
-                let text_id = commands
-                    .spawn(TextBundle {
-                        text,
-                        background_color: Color::srgb(0.8 - j as f32 * 0.2, 0., 0.).into(),
-                        ..Default::default()
-                    })
-                    .id();
-                commands.entity(column_id).add_child(text_id);
+                commands.entity(column_id).with_child((
+                    Text(message.clone()),
+                    text_font.clone(),
+                    TextLayout::new(JustifyText::Left, linebreak),
+                    BackgroundColor(Color::srgb(0.8 - j as f32 * 0.2, 0., 0.)),
+                ));
             }
             commands.entity(row_id).add_child(column_id);
         }
