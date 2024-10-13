@@ -341,7 +341,7 @@ fn lock_group_borders(
                 let vertex_id =
                     position_only_vertex_remap[meshlet.vertices[*index as usize] as usize] as usize;
 
-                // If the vertex not yet claimed by any group, or was already claimed by this group
+                // If the vertex is not yet claimed by any group, or was already claimed by this group
                 if position_only_locks[vertex_id] == -1
                     || position_only_locks[vertex_id] == group_id as i32
                 {
