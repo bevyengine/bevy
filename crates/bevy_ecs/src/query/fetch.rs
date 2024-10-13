@@ -1811,6 +1811,7 @@ unsafe impl<'__w, T: Component> QueryData for Mut<'__w, T> {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::query::QueryData;
 /// # use bevy_ecs::query::DataSet;
+/// # use bevy_ecs::query::QueryItem;
 /// #
 /// # #[derive(Component)]
 /// # struct Transform;
@@ -1825,7 +1826,7 @@ unsafe impl<'__w, T: Component> QueryData for Mut<'__w, T> {
 /// impl Behavior for Run {
 ///     type Data = &'static mut Transform;
 ///
-///     fn update(&mut self, data: &mut Transform) {
+///     fn update(&mut self, data: &mut QueryItem<'_, Self::Data>) {
 ///         // Do something...
 ///     }
 /// }
@@ -1835,7 +1836,7 @@ unsafe impl<'__w, T: Component> QueryData for Mut<'__w, T> {
 /// impl Behavior for Jump {
 ///     type Data = &'static mut Transform;
 ///
-///     fn update(&mut self, data: &mut Transform) {
+///     fn update(&mut self, data: &mut QueryItem<'_, Self::Data>) {
 ///         // Do something different...
 ///     }
 /// }
