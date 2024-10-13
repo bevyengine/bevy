@@ -21,9 +21,13 @@ use bevy_reflect::Reflect;
 /// between the main world and the render world.
 /// It does so by spawning and despawning entities in the render world, to match spawned and despawned entities in the main world.
 /// The link between synced entities is maintained by the [`RenderEntity`] and [`MainEntity`] components.
+///
 /// The [`RenderEntity`] contains the corresponding render world entity of a main world entity, while [`MainEntity`] contains
 /// the corresponding main world entity of a render world entity.
-/// The entities can be accessed by calling `.id()` on either component.
+/// For convenience, [`QueryData`](bevy_ecs::query::QueryData) implementations are provided for both components:
+/// adding [`MainEntity`] to a query (without a `&`) will return the corresponding main world [`Entity`],
+/// and adding [`RenderEntity`] will return the corresponding render world [`Entity`].
+/// If you have access to the component itself, the underlying entities can be accessed by calling `.id()`.
 ///
 /// Synchronization is necessary preparation for extraction ([`ExtractSchedule`](crate::ExtractSchedule)), which copies over component data from the main
 /// to the render world for these entities.
