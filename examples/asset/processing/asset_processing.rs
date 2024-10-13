@@ -45,7 +45,7 @@ fn main() {
 
 /// This [`TextPlugin`] defines two assets types:
 /// * [`CoolText`]: a custom RON text format that supports dependencies and embedded dependencies
-/// * [`Text`]: a "normal" plain text file
+/// * [`TextUi`]: a "normal" plain text file
 ///
 /// It also defines an asset processor that will load [`CoolText`], resolve embedded dependencies, and write the resulting
 /// output to a "normal" plain text file. When the processed asset is loaded, it is loaded as a Text (plaintext) asset.

@@ -50,10 +50,10 @@ impl Default for TextNodeFlags {
 
 /// The top-level UI text component.
 ///
-/// Adding [`Text`] to an entity will pull in required components for setting up a UI text node.
+/// Adding [`TextUi`] to an entity will pull in required components for setting up a UI text node.
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
+/// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`TextUi`].
 ///
 /// Note that [`Transform`] on this entity is managed automatically by the UI layout system.
 ///
@@ -244,7 +244,7 @@ fn create_text_measure<'a>(
     };
 }
 
-/// Generates a new [`Measure`] for a text node on changes to its [`Text`] component.
+/// Generates a new [`Measure`] for a text node on changes to its [`TextUi`] component.
 ///
 /// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
