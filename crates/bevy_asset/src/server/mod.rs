@@ -1486,10 +1486,13 @@ pub(crate) enum InternalAssetEvent {
 pub enum LoadState {
     /// The asset has not started loading yet
     NotLoaded,
+
     /// The asset is in the process of loading.
     Loading,
+
     /// The asset has been loaded and has been added to the [`World`]
     Loaded,
+
     /// The asset failed to load. The underlying [`AssetLoadError`] is
     /// referenced by [`Arc`] clones in all related [`DependencyLoadState`]s
     /// and [`RecursiveDependencyLoadState`]s in the asset's dependency tree.
@@ -1501,20 +1504,10 @@ impl LoadState {
     pub fn is_loading(&self) -> bool {
         matches!(self, Self::Loading)
     }
+
     /// Returns `true` if this instance is [`LoadState::Loaded`]
     pub fn is_loaded(&self) -> bool {
         matches!(self, Self::Loaded)
-    }
-    // NOTE: an `is_not_loaded` method is intentionally not included, as it may mislead some users
-    // into thinking it is complementary to `is_loaded`.
-    // `NotLoaded` is a very specific failure mode and in most cases it is not necessary to directly check for it.
-    // If this is necessary the `matches!` macro can be used instead of a helper method.
-
-    /// Returns `true` if the asset is loaded or in the process of being loaded. If true true,
-    /// then the asset can be considered to be in a "normal" state: the asset either exists
-    /// or will exist, and no errors have been encountered yet.
-    pub fn is_loaded_or_loading(&self) -> bool {
-        self.is_loaded() || self.is_loading()
     }
 
     /// Returns `true` if this instance is [`LoadState::Failed`]
@@ -1528,14 +1521,34 @@ impl LoadState {
 pub enum DependencyLoadState {
     /// The asset has not started loading yet
     NotLoaded,
+
     /// Dependencies are still loading
     Loading,
+
     /// Dependencies have all loaded
     Loaded,
+
     /// One or more dependencies have failed to load. The underlying [`AssetLoadError`]
     /// is referenced by [`Arc`] clones in all related [`LoadState`] and
     /// [`RecursiveDependencyLoadState`]s in the asset's dependency tree.
     Failed(Arc<AssetLoadError>),
+}
+
+impl DependencyLoadState {
+    /// Returns `true` if this instance is [`DependencyLoadState::Loading`]
+    pub fn is_loading(&self) -> bool {
+        matches!(self, Self::Loading)
+    }
+
+    /// Returns `true` if this instance is [`DependencyLoadState::Loaded`]
+    pub fn is_loaded(&self) -> bool {
+        matches!(self, Self::Loaded)
+    }
+
+    /// Returns `true` if this instance is [`DependencyLoadState::Failed`]
+    pub fn is_failed(&self) -> bool {
+        matches!(self, Self::Failed(_))
+    }
 }
 
 /// The recursive load state of an asset's dependencies.
@@ -1543,15 +1556,35 @@ pub enum DependencyLoadState {
 pub enum RecursiveDependencyLoadState {
     /// The asset has not started loading yet
     NotLoaded,
+
     /// Dependencies in this asset's dependency tree are still loading
     Loading,
+
     /// Dependencies in this asset's dependency tree have all loaded
     Loaded,
+
     /// One or more dependencies have failed to load in this asset's dependency
     /// tree. The underlying [`AssetLoadError`] is referenced by [`Arc`] clones
     /// in all related [`LoadState`]s and [`DependencyLoadState`]s in the asset's
     /// dependency tree.
     Failed(Arc<AssetLoadError>),
+}
+
+impl RecursiveDependencyLoadState {
+    /// Returns `true` if this instance is [`RecursiveDependencyLoadState::Loading`]
+    pub fn is_loading(&self) -> bool {
+        matches!(self, Self::Loading)
+    }
+
+    /// Returns `true` if this instance is [`RecursiveDependencyLoadState::Loaded`]
+    pub fn is_loaded(&self) -> bool {
+        matches!(self, Self::Loaded)
+    }
+
+    /// Returns `true` if this instance is [`RecursiveDependencyLoadState::Failed`]
+    pub fn is_failed(&self) -> bool {
+        matches!(self, Self::Failed(_))
+    }
 }
 
 /// An error that occurs during an [`Asset`] load.

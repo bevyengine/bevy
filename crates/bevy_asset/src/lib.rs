@@ -905,15 +905,9 @@ mod tests {
             let a_text = get::<CoolText>(app.world(), a_id);
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert!(a_text.is_none(), "a's asset should not exist yet");
-            assert!(a_load.is_loading(), "a should still be loading");
-            assert!(
-                matches!(a_deps, DependencyLoadState::Loading),
-                "a deps should still be loading"
-            );
-            assert!(
-                matches!(a_rec_deps, RecursiveDependencyLoadState::Loading),
-                "a recursive deps should still be loading"
-            );
+            assert!(a_load.is_loading());
+            assert!(a_deps.is_loaded());
+            assert!(a_rec_deps.is_loading());
         }
 
         // Allow "a" to load ... wait for it to finish loading and validate results
@@ -924,25 +918,25 @@ mod tests {
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert_eq!(a_text.text, "a");
             assert_eq!(a_text.dependencies.len(), 2);
-            assert!(a_load.is_loaded(), "a is loaded");
-            assert!(matches!(a_deps, DependencyLoadState::Loading));
-            assert!(matches!(a_rec_deps, RecursiveDependencyLoadState::Loading));
+            assert!(a_load.is_loaded());
+            assert!(a_deps.is_loaded());
+            assert!(a_rec_deps.is_loaded());
 
             let b_id = a_text.dependencies[0].id();
             let b_text = get::<CoolText>(world, b_id);
             let (b_load, b_deps, b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
             assert!(b_text.is_none(), "b component should not exist yet");
             assert!(b_load.is_loading());
-            assert!(matches!(b_deps, DependencyLoadState::Loading));
-            assert!(matches!(b_rec_deps, RecursiveDependencyLoadState::Loading));
+            assert!(b_deps.is_loaded());
+            assert!(b_rec_deps.is_loading());
 
             let c_id = a_text.dependencies[1].id();
             let c_text = get::<CoolText>(world, c_id);
             let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
             assert!(c_text.is_none(), "c component should not exist yet");
             assert!(c_load.is_loading());
-            assert!(matches!(c_deps, DependencyLoadState::Loading));
-            assert!(matches!(c_rec_deps, RecursiveDependencyLoadState::Loading));
+            assert!(c_deps.is_loaded());
+            assert!(c_rec_deps.is_loading());
             Some(())
         });
 
@@ -955,24 +949,24 @@ mod tests {
             assert_eq!(a_text.text, "a");
             assert_eq!(a_text.dependencies.len(), 2);
             assert!(a_load.is_loaded());
-            assert!(matches!(a_deps, DependencyLoadState::Loading));
-            assert!(matches!(a_rec_deps, RecursiveDependencyLoadState::Loading));
+            assert!(a_deps.is_loaded());
+            assert!(a_rec_deps.is_loading());
 
             let b_id = a_text.dependencies[0].id();
             let b_text = get::<CoolText>(world, b_id)?;
             let (b_load, b_deps, b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
             assert_eq!(b_text.text, "b");
             assert!(b_load.is_loaded());
-            assert!(matches!(b_deps, DependencyLoadState::Loaded));
-            assert!(matches!(b_rec_deps, RecursiveDependencyLoadState::Loaded));
+            assert!(b_deps.is_loaded());
+            assert!(b_rec_deps.is_loaded());
 
             let c_id = a_text.dependencies[1].id();
             let c_text = get::<CoolText>(world, c_id);
             let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
             assert!(c_text.is_none(), "c component should not exist yet");
             assert!(c_load.is_loading());
-            assert!(matches!(c_deps, DependencyLoadState::Loading));
-            assert!(matches!(c_rec_deps, RecursiveDependencyLoadState::Loading));
+            assert!(c_deps.is_loaded());
+            assert!(c_rec_deps.is_loading());
             Some(())
         });
 
@@ -997,8 +991,8 @@ mod tests {
             assert_eq!(b_text.text, "b");
             assert_eq!(b_text.embedded, "");
             assert!(b_load.is_loaded());
-            assert!(matches!(b_deps, DependencyLoadState::Loaded));
-            assert!(matches!(b_rec_deps, RecursiveDependencyLoadState::Loaded));
+            assert!(b_deps.is_loaded());
+            assert!(b_rec_deps.is_loaded());
 
             let c_id = a_text.dependencies[1].id();
             let c_text = get::<CoolText>(world, c_id)?;
@@ -1007,11 +1001,11 @@ mod tests {
             assert_eq!(c_text.embedded, "ab");
             assert!(c_load.is_loaded());
             assert!(
-                matches!(c_deps, DependencyLoadState::Loading),
+                c_deps.is_loaded(),
                 "c deps should not be loaded yet because d has not loaded"
             );
             assert!(
-                matches!(c_rec_deps, RecursiveDependencyLoadState::Loading),
+                c_rec_deps.is_loading(),
                 "c rec deps should not be loaded yet because d has not loaded"
             );
 
@@ -1022,26 +1016,23 @@ mod tests {
             let (sub_text_load, sub_text_deps, sub_text_rec_deps) =
                 asset_server.get_load_states(sub_text_id).unwrap();
             assert!(sub_text_load.is_loaded());
-            assert!(matches!(sub_text_deps, DependencyLoadState::Loaded));
-            assert!(matches!(
-                sub_text_rec_deps,
-                RecursiveDependencyLoadState::Loaded
-            ));
+            assert!(sub_text_deps.is_loaded());
+            assert!(sub_text_rec_deps.is_loaded());
 
             let d_id = c_text.dependencies[0].id();
             let d_text = get::<CoolText>(world, d_id);
             let (d_load, d_deps, d_rec_deps) = asset_server.get_load_states(d_id).unwrap();
             assert!(d_text.is_none(), "d component should not exist yet");
             assert!(d_load.is_loading());
-            assert!(matches!(d_deps, DependencyLoadState::Loading));
-            assert!(matches!(d_rec_deps, RecursiveDependencyLoadState::Loading));
+            assert!(d_deps.is_loaded());
+            assert!(d_rec_deps.is_loaded());
 
             assert!(
-                matches!(a_deps, DependencyLoadState::Loaded),
+                a_deps.is_loaded(),
                 "If c has been loaded, the a deps should all be considered loaded"
             );
             assert!(
-                matches!(a_rec_deps, RecursiveDependencyLoadState::Loading),
+                a_rec_deps.is_loading(),
                 "d is not loaded, so a's recursive deps should still be loading"
             );
             world.insert_resource(IdResults { b_id, c_id, d_id });
@@ -1065,15 +1056,15 @@ mod tests {
             assert_eq!(d_text.embedded, "");
 
             assert!(c_load.is_loaded());
-            assert!(matches!(c_deps, DependencyLoadState::Loaded));
-            assert!(matches!(c_rec_deps, RecursiveDependencyLoadState::Loaded));
+            assert!(c_deps.is_loaded());
+            assert!(c_rec_deps.is_loaded());
 
             assert!(d_load.is_loaded());
-            assert!(matches!(d_deps, DependencyLoadState::Loaded));
-            assert!(matches!(d_rec_deps, RecursiveDependencyLoadState::Loaded));
+            assert!(d_deps.is_loaded());
+            assert!(d_rec_deps.is_loaded());
 
             assert!(
-                matches!(a_rec_deps, RecursiveDependencyLoadState::Loaded),
+                a_rec_deps.is_loaded(),
                 "d is loaded, so a's recursive deps should be loaded"
             );
             Some(())
@@ -1241,49 +1232,37 @@ mod tests {
             let d_id = c_text.dependencies[0].id();
             let d_text = get::<CoolText>(world, d_id);
             let (d_load, d_deps, d_rec_deps) = asset_server.get_load_states(d_id).unwrap();
-            if !matches!(d_load, LoadState::Failed(_)) {
+
+            if !d_load.is_failed() {
                 // wait until d has exited the loading state
                 return None;
             }
 
             assert!(d_text.is_none());
-            assert!(matches!(d_load, LoadState::Failed(_)));
-            assert!(matches!(d_deps, DependencyLoadState::Failed(_)));
-            assert!(matches!(
-                d_rec_deps,
-                RecursiveDependencyLoadState::Failed(_)
-            ));
+            assert!(d_load.is_failed());
+            assert!(d_deps.is_failed());
+            assert!(d_rec_deps.is_failed());
 
             assert_eq!(a_text.text, "a");
             assert!(a_load.is_loaded());
-            assert!(matches!(a_deps, DependencyLoadState::Loaded));
-            assert!(matches!(
-                a_rec_deps,
-                RecursiveDependencyLoadState::Failed(_)
-            ));
+            assert!(a_deps.is_loaded());
+            assert!(a_rec_deps.is_failed());
 
             assert_eq!(b_text.text, "b");
             assert!(b_load.is_loaded());
-            assert!(matches!(b_deps, DependencyLoadState::Loaded));
-            assert!(matches!(b_rec_deps, RecursiveDependencyLoadState::Loaded));
+            assert!(b_deps.is_loaded());
+            assert!(b_rec_deps.is_loaded());
 
             assert_eq!(c_text.text, "c");
-            assert!(matches!(c_load, LoadState::Loaded));
-            assert!(matches!(c_deps, DependencyLoadState::Failed(_)));
-            assert!(matches!(
-                c_rec_deps,
-                RecursiveDependencyLoadState::Failed(_)
-            ));
+            assert!(c_load.is_loaded());
+            assert!(c_deps.is_failed());
+            assert!(c_rec_deps.is_failed());
 
-            assert!(matches!(asset_server.load_state(a_id), LoadState::Loaded));
-            assert!(matches!(
-                asset_server.dependency_load_state(a_id),
-                DependencyLoadState::Loaded
-            ));
-            assert!(matches!(
-                asset_server.recursive_dependency_load_state(a_id),
-                RecursiveDependencyLoadState::Failed(_)
-            ));
+            assert!(asset_server.load_state(a_id).is_loaded());
+            assert!(asset_server.dependency_load_state(a_id).is_loaded());
+            assert!(asset_server
+                .recursive_dependency_load_state(a_id)
+                .is_failed());
 
             assert!(asset_server.is_loaded(a_id));
             assert!(asset_server.is_loaded_with_direct_dependencies(a_id));
@@ -1345,9 +1324,9 @@ mod tests {
         run_app_until(&mut app, |world| {
             let _a_text = get::<CoolText>(world, a_id)?;
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
-            assert!(matches!(a_load, LoadState::Loaded));
-            assert!(matches!(a_deps, DependencyLoadState::Loading));
-            assert!(matches!(a_rec_deps, RecursiveDependencyLoadState::Loading));
+            assert!(a_load.is_loaded());
+            assert!(a_deps.is_loaded());
+            assert!(a_rec_deps.is_loading());
             Some(())
         });
 
@@ -1357,18 +1336,15 @@ mod tests {
             let b_id = a_text.dependencies[0].id();
 
             let (b_load, _b_deps, _b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
-            if !matches!(b_load, LoadState::Failed(_)) {
+            if !b_load.is_failed() {
                 // wait until b fails
                 return None;
             }
 
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
-            assert!(matches!(a_load, LoadState::Loaded));
-            assert!(matches!(a_deps, DependencyLoadState::Failed(_)));
-            assert!(matches!(
-                a_rec_deps,
-                RecursiveDependencyLoadState::Failed(_)
-            ));
+            assert!(a_load.is_loaded());
+            assert!(a_deps.is_failed());
+            assert!(a_rec_deps.is_failed());
             Some(())
         });
 
@@ -1380,13 +1356,13 @@ mod tests {
             let _c_text = get::<CoolText>(world, c_id)?;
 
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
-            assert!(matches!(a_load, LoadState::Loaded));
+            assert!(a_load.is_loaded());
             assert!(
-                matches!(a_deps, DependencyLoadState::Failed(_)),
+                a_deps.is_failed(),
                 "Successful dependency load should not overwrite a previous failure"
             );
             assert!(
-                matches!(a_rec_deps, RecursiveDependencyLoadState::Failed(_)),
+                a_rec_deps.is_failed(),
                 "Successful dependency load should not overwrite a previous failure"
             );
             Some(())
@@ -1677,7 +1653,7 @@ mod tests {
             // Check what just failed
             for error in errors.read() {
                 let (load_state, _, _) = server.get_load_states(error.id).unwrap();
-                assert!(matches!(load_state, LoadState::Failed(_)));
+                assert!(load_state.is_failed());
                 assert_eq!(*error.path.source(), AssetSourceId::Name("unstable".into()));
                 match &error.error {
                     AssetLoadError::AssetReaderError(read_error) => match read_error {
