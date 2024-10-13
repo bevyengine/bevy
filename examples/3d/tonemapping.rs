@@ -406,7 +406,7 @@ fn update_ui(
         return;
     }
 
-    let (tonemapping, color_grading) = settings.into_inner();
+    let (tonemapping, color_grading) = *settings;
     let tonemapping = *tonemapping;
 
     let mut text = String::with_capacity(text_query.len());

@@ -189,7 +189,7 @@ fn update_ui(
     >,
     mut ui: Single<&mut Text>,
 ) {
-    let (fxaa, smaa, taa, cas, msaa) = camera.into_inner();
+    let (fxaa, smaa, taa, cas, msaa) = *camera;
 
     let ui = &mut ui.0;
     *ui = "Antialias Method\n".to_string();

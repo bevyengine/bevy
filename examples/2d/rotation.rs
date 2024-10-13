@@ -143,9 +143,8 @@ fn player_movement_system(
 /// Demonstrates snapping the enemy ship to face the player ship immediately.
 fn snap_to_player_system(
     mut query: Query<&mut Transform, (With<SnapToPlayer>, Without<Player>)>,
-    player_query: Single<&Transform, With<Player>>,
+    player_transform: Single<&Transform, With<Player>>,
 ) {
-    let player_transform = player_query.into_inner();
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();
 
@@ -186,9 +185,8 @@ fn snap_to_player_system(
 fn rotate_to_player_system(
     time: Res<Time>,
     mut query: Query<(&RotateToPlayer, &mut Transform), Without<Player>>,
-    player_query: Single<&Transform, With<Player>>,
+    player_transform: Single<&Transform, With<Player>>,
 ) {
-    let player_transform = player_query.into_inner();
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();
 

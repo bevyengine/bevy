@@ -106,7 +106,7 @@ fn update(
 ) {
     sphere.translation.y = ops::sin(time.elapsed_seconds() / 1.7) * 0.7;
 
-    let (camera_entity, ssao, temporal_jitter) = camera.into_inner();
+    let (camera_entity, ssao, temporal_jitter) = *camera;
     let current_ssao = ssao.cloned().unwrap_or_default();
 
     let mut commands = commands.entity(camera_entity);

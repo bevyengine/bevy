@@ -175,7 +175,7 @@ fn handle_click(
     windows: Single<&Window>,
     mut commands: Commands,
 ) {
-    let (camera, camera_transform) = camera.into_inner();
+    let (camera, camera_transform) = *camera;
     if let Some(pos) = windows
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor).ok())

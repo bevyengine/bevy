@@ -70,7 +70,7 @@ fn toggle_oit(
     mut text_writer: UiTextWriter,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyT) {
-        let (e, has_oit) = q.into_inner();
+        let (e, has_oit) = *q;
         *text_writer.text(*text, 2) = if has_oit {
             // Removing the component will completely disable OIT for this camera
             commands

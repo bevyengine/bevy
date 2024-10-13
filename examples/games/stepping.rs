@@ -243,7 +243,7 @@ fn update_ui(
     mut writer: UiTextWriter,
 ) {
     // ensure the UI is only visible when stepping is enabled
-    let (ui, vis) = ui.into_inner();
+    let (ui, vis) = *ui;
     match (vis, stepping.is_enabled()) {
         (Visibility::Hidden, true) => {
             commands.entity(ui).insert(Visibility::Inherited);

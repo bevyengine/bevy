@@ -16,7 +16,7 @@ fn draw_cursor(
     windows: Single<&Window>,
     mut gizmos: Gizmos,
 ) {
-    let (camera, camera_transform) = camera_query.into_inner();
+    let (camera, camera_transform) = *camera_query;
 
     let Some(cursor_position) = windows.cursor_position() else {
         return;
