@@ -202,7 +202,7 @@ mod tests {
     #[derive(Default, Resource)]
     struct ExecTracker(Vec<u32>);
 
-    /// Regression test: https://github.com/bevyengine/bevy/pull/15606
+    /// Regression test: <https://github.com/bevyengine/bevy/pull/15606>
     #[test]
     fn skip_on_first_system() {
         for executor in EXECUTORS {
@@ -223,7 +223,7 @@ mod tests {
         assert_eq!(world.resource::<ExecTracker>().0, &[]);
     }
 
-    /// Regression test: https://github.com/bevyengine/bevy/pull/15606
+    /// Regression test: <https://github.com/bevyengine/bevy/pull/15606>
     #[test]
     fn skip_on_second_system() {
         for executor in EXECUTORS {
@@ -244,7 +244,7 @@ mod tests {
         assert_eq!(world.resource::<ExecTracker>().0, &[0]);
     }
 
-    /// Regression test: https://github.com/bevyengine/bevy/pull/15606
+    /// Regression test: <https://github.com/bevyengine/bevy/pull/15606>
     #[test]
     fn run_full_combined_system() {
         for executor in EXECUTORS {
