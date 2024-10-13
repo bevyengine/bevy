@@ -1,3 +1,4 @@
+use crate::*;
 use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
@@ -8,7 +9,7 @@ use bevy_ecs::{
     system::lifetimeless::Read,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::sync_world::RenderEntity;
+use bevy_render::sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
@@ -30,8 +31,6 @@ use bevy_utils::{
     tracing::{error, warn},
 };
 use core::{hash::Hash, ops::Range};
-
-use crate::*;
 
 #[derive(Component)]
 pub struct ExtractedPointLight {
@@ -269,9 +268,15 @@ pub fn extract_lights(
         if !view_visibility.get() {
             continue;
         }
-        // TODO: This is very much not ideal. We should be able to re-use the vector memory.
-        // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
-        let render_cubemap_visible_entities = cubemap_visible_entities.clone();
+        let render_cubemap_visible_entities = RenderCubemapVisibleEntities {
+            data: cubemap_visible_entities
+                .iter()
+                .map(|v| create_render_visible_mesh_entities(&mut commands, &mapper, v))
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+        };
+
         let extracted_point_light = ExtractedPointLight {
             color: point_light.color.into(),
             // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
@@ -319,9 +324,9 @@ pub fn extract_lights(
             if !view_visibility.get() {
                 continue;
             }
-            // TODO: This is very much not ideal. We should be able to re-use the vector memory.
-            // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
-            let render_visible_entities = visible_entities.clone();
+            let render_visible_entities =
+                create_render_visible_mesh_entities(&mut commands, &mapper, visible_entities);
+
             let texel_size =
                 2.0 * ops::tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
 
@@ -397,7 +402,12 @@ pub fn extract_lights(
         }
         for (e, v) in visible_entities.entities.iter() {
             if let Ok(entity) = mapper.get(*e) {
-                cascade_visible_entities.insert(entity.id(), v.clone());
+                cascade_visible_entities.insert(
+                    entity.id(),
+                    v.iter()
+                        .map(|v| create_render_visible_mesh_entities(&mut commands, &mapper, v))
+                        .collect(),
+                );
             } else {
                 break;
             }
@@ -423,10 +433,29 @@ pub fn extract_lights(
                     frusta: extracted_frusta,
                     render_layers: maybe_layers.unwrap_or_default().clone(),
                 },
-                CascadesVisibleEntities {
+                RenderCascadesVisibleEntities {
                     entities: cascade_visible_entities,
                 },
             ));
+    }
+}
+
+fn create_render_visible_mesh_entities(
+    commands: &mut Commands,
+    mapper: &Extract<Query<&RenderEntity>>,
+    visible_entities: &VisibleMeshEntities,
+) -> RenderVisibleMeshEntities {
+    RenderVisibleMeshEntities {
+        entities: visible_entities
+            .iter()
+            .map(|e| {
+                let render_entity = mapper
+                    .get(*e)
+                    .map(RenderEntity::id)
+                    .unwrap_or_else(|_| commands.spawn(TemporaryRenderEntity).id());
+                (render_entity, MainEntity::from(*e))
+            })
+            .collect(),
     }
 }
 
@@ -1352,9 +1381,12 @@ pub fn queue_shadows<M: Material>(
     render_lightmaps: Res<RenderLightmaps>,
     view_lights: Query<(Entity, &ViewLightEntities)>,
     view_light_entities: Query<&LightEntity>,
-    point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
-    directional_light_entities: Query<&CascadesVisibleEntities, With<ExtractedDirectionalLight>>,
-    spot_light_entities: Query<&VisibleMeshEntities, With<ExtractedPointLight>>,
+    point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
+    directional_light_entities: Query<
+        &RenderCascadesVisibleEntities,
+        With<ExtractedDirectionalLight>,
+    >,
+    spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -1398,8 +1430,8 @@ pub fn queue_shadows<M: Material>(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
 
-            for entity in visible_entities.iter().copied() {
-                let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(entity)
+            for (entity, main_entity) in visible_entities.iter().copied() {
+                let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(main_entity)
                 else {
                     continue;
                 };
@@ -1409,7 +1441,7 @@ pub fn queue_shadows<M: Material>(
                 {
                     continue;
                 }
-                let Some(material_asset_id) = render_material_instances.get(&entity) else {
+                let Some(material_asset_id) = render_material_instances.get(&main_entity) else {
                     continue;
                 };
                 let Some(material) = render_materials.get(*material_asset_id) else {
@@ -1427,7 +1459,7 @@ pub fn queue_shadows<M: Material>(
                 // we need to include the appropriate flag in the mesh pipeline key
                 // to ensure that the necessary bind group layout entries are
                 // present.
-                if render_lightmaps.render_lightmaps.contains_key(&entity) {
+                if render_lightmaps.render_lightmaps.contains_key(&main_entity) {
                     mesh_key |= MeshPipelineKey::LIGHTMAPPED;
                 }
 
@@ -1467,7 +1499,7 @@ pub fn queue_shadows<M: Material>(
                         pipeline: pipeline_id,
                         asset_id: mesh_instance.mesh_asset_id.into(),
                     },
-                    entity,
+                    (entity, main_entity),
                     BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                 );
             }
@@ -1477,7 +1509,7 @@ pub fn queue_shadows<M: Material>(
 
 pub struct Shadow {
     pub key: ShadowBinKey,
-    pub representative_entity: Entity,
+    pub representative_entity: (Entity, MainEntity),
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
 }
@@ -1498,7 +1530,11 @@ pub struct ShadowBinKey {
 impl PhaseItem for Shadow {
     #[inline]
     fn entity(&self) -> Entity {
-        self.representative_entity
+        self.representative_entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
     }
 
     #[inline]
@@ -1533,7 +1569,7 @@ impl BinnedPhaseItem for Shadow {
     #[inline]
     fn new(
         key: Self::BinKey,
-        representative_entity: Entity,
+        representative_entity: (Entity, MainEntity),
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {

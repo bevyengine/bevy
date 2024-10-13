@@ -246,7 +246,7 @@ fn setup_ui(mut commands: Commands) {
             p.spawn(TextSpan::default());
             p.spawn(TextSpan::new("1/2: -/+ shutter angle (blur amount)\n"));
             p.spawn(TextSpan::new("3/4: -/+ sample count (blur quality)\n"));
-            p.spawn(TextSpan::new("3/4: -/+ sample count (blur quality)\n"));
+            p.spawn(TextSpan::new("Spacebar: cycle camera\n"));
         });
 }
 

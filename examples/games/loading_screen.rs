@@ -275,15 +275,15 @@ fn load_loading_screen(mut commands: Commands) {
 
 // Determines when to show the loading screen
 fn display_loading_screen(
-    mut loading_screen: Query<&mut Visibility, With<LoadingScreen>>,
+    mut loading_screen: Query<&mut Visibility, (With<LoadingScreen>, With<Node>)>,
     loading_state: Res<LoadingState>,
 ) {
-    match loading_state.as_ref() {
-        LoadingState::LevelLoading => {
-            *loading_screen.get_single_mut().unwrap() = Visibility::Visible;
-        }
-        LoadingState::LevelReady => *loading_screen.get_single_mut().unwrap() = Visibility::Hidden,
+    let visibility = match loading_state.as_ref() {
+        LoadingState::LevelLoading => Visibility::Visible,
+        LoadingState::LevelReady => Visibility::Hidden,
     };
+
+    *loading_screen.single_mut() = visibility;
 }
 
 mod pipelines_ready {
