@@ -36,7 +36,7 @@ use core::ops::{Deref, DerefMut};
 /// # struct Cloud;
 /// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<RenderEntity, With<Cloud>>>) {
 ///     for cloud in &clouds {
-///         commands.entity(cloud.id()).insert(Cloud);
+///         commands.entity(cloud).insert(Cloud);
 ///     }
 /// }
 /// ```
