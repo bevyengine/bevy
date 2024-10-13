@@ -184,17 +184,14 @@ mod __rust_begin_short_backtrace {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        prelude::{IntoSystemConfigs, IntoSystemSetConfigs, Resource, Schedule, SystemSet},
+        prelude::{Resource, Schedule},
         schedule::ExecutorKind,
-        system::{Commands, In, IntoSystem, Res},
+        system::{In, IntoSystem, Res, ResMut},
         world::World,
     };
 
     #[derive(Resource)]
     struct R1;
-
-    #[derive(Resource)]
-    struct R2;
 
     const EXECUTORS: [ExecutorKind; 3] = [
         ExecutorKind::Simple,
@@ -202,65 +199,69 @@ mod tests {
         ExecutorKind::MultiThreaded,
     ];
 
+    #[derive(Default, Resource)]
+    struct ExecTracker(Vec<u32>);
+
+    /// Regression test: https://github.com/bevyengine/bevy/pull/15606
     #[test]
-    fn invalid_system_param_skips() {
+    fn skip_on_first_system() {
         for executor in EXECUTORS {
-            invalid_system_param_skips_core(executor);
+            skip_on_first_system_inner(executor);
         }
     }
 
-    fn invalid_system_param_skips_core(executor: ExecutorKind) {
+    fn skip_on_first_system_inner(executor: ExecutorKind) {
         let mut world = World::new();
+        world.init_resource::<ExecTracker>();
         let mut schedule = Schedule::default();
         schedule.set_executor_kind(executor);
         schedule.add_systems(
-            (
-                // Combined systems get skipped together.
-                (|mut commands: Commands| {
-                    commands.insert_resource(R1);
-                })
-                .pipe(|_: In<()>, _: Res<R1>| {}),
-                // This system depends on a system that is always skipped.
-                |mut commands: Commands| {
-                    commands.insert_resource(R2);
-                },
-            )
-                .chain(),
+            (|mut t: ResMut<ExecTracker>, _: Res<R1>| t.0.push(0))
+                .pipe(|_: In<()>, mut t: ResMut<ExecTracker>, _: Res<R1>| t.0.push(1)),
         );
         schedule.run(&mut world);
-        assert!(world.get_resource::<R1>().is_none());
-        assert!(world.get_resource::<R2>().is_some());
+        assert_eq!(world.resource::<ExecTracker>().0, &[]);
     }
 
-    #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
-    struct S1;
-
+    /// Regression test: https://github.com/bevyengine/bevy/pull/15606
     #[test]
-    fn invalid_condition_param_skips_system() {
+    fn skip_on_second_system() {
         for executor in EXECUTORS {
-            invalid_condition_param_skips_system_core(executor);
+            skip_on_second_system_inner(executor);
         }
     }
 
-    fn invalid_condition_param_skips_system_core(executor: ExecutorKind) {
+    fn skip_on_second_system_inner(executor: ExecutorKind) {
         let mut world = World::new();
+        world.init_resource::<ExecTracker>();
         let mut schedule = Schedule::default();
         schedule.set_executor_kind(executor);
-        schedule.configure_sets(S1.run_if(|_: Res<R1>| true));
-        schedule.add_systems((
-            // System gets skipped if system set run conditions fail validation.
-            (|mut commands: Commands| {
-                commands.insert_resource(R1);
-            })
-            .in_set(S1),
-            // System gets skipped if run conditions fail validation.
-            (|mut commands: Commands| {
-                commands.insert_resource(R2);
-            })
-            .run_if(|_: Res<R2>| true),
-        ));
+        schedule.add_systems(
+            (|mut t: ResMut<ExecTracker>| t.0.push(0))
+                .pipe(|_: In<()>, mut t: ResMut<ExecTracker>, _: Res<R1>| t.0.push(1)),
+        );
         schedule.run(&mut world);
-        assert!(world.get_resource::<R1>().is_none());
-        assert!(world.get_resource::<R2>().is_none());
+        assert_eq!(world.resource::<ExecTracker>().0, &[0]);
+    }
+
+    /// Regression test: https://github.com/bevyengine/bevy/pull/15606
+    #[test]
+    fn run_full_combined_system() {
+        for executor in EXECUTORS {
+            run_full_combined_system_inner(executor);
+        }
+    }
+
+    fn run_full_combined_system_inner(executor: ExecutorKind) {
+        let mut world = World::new();
+        world.init_resource::<ExecTracker>();
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(executor);
+        schedule.add_systems(
+            (|mut t: ResMut<ExecTracker>| t.0.push(0))
+                .pipe(|_: In<()>, mut t: ResMut<ExecTracker>| t.0.push(1)),
+        );
+        schedule.run(&mut world);
+        assert_eq!(world.resource::<ExecTracker>().0, &[0, 1]);
     }
 }
