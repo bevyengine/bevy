@@ -108,20 +108,20 @@ fn update_emitters(
 fn update_listener(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut listeners: Single<&mut Transform, With<SpatialListener>>,
+    mut listener: Single<&mut Transform, With<SpatialListener>>,
 ) {
     let speed = 200.;
 
     if keyboard.pressed(KeyCode::ArrowRight) {
-        listeners.translation.x += speed * time.delta_seconds();
+        listener.translation.x += speed * time.delta_seconds();
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        listeners.translation.x -= speed * time.delta_seconds();
+        listener.translation.x -= speed * time.delta_seconds();
     }
     if keyboard.pressed(KeyCode::ArrowUp) {
-        listeners.translation.y += speed * time.delta_seconds();
+        listener.translation.y += speed * time.delta_seconds();
     }
     if keyboard.pressed(KeyCode::ArrowDown) {
-        listeners.translation.y -= speed * time.delta_seconds();
+        listener.translation.y -= speed * time.delta_seconds();
     }
 }
