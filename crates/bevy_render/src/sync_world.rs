@@ -263,6 +263,8 @@ mod render_entities_world_query_impls {
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
+    /// SAFETY: defers completely to `&RenderEntity` implementation,
+    /// and then only modifies the output safely.
     unsafe impl WorldQuery for RenderEntity {
         type Item<'w> = Entity;
         type Fetch<'w> = <&'static RenderEntity as WorldQuery>::Fetch<'w>;
@@ -302,7 +304,7 @@ mod render_entities_world_query_impls {
         ) {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
             unsafe {
-                <&RenderEntity as WorldQuery>::set_archetype(fetch, component_id, archetype, table)
+                <&RenderEntity as WorldQuery>::set_archetype(fetch, component_id, archetype, table);
             }
         }
 
@@ -332,7 +334,7 @@ mod render_entities_world_query_impls {
             &component_id: &ComponentId,
             access: &mut FilteredAccess<ComponentId>,
         ) {
-            <&RenderEntity as WorldQuery>::update_component_access(&component_id, access)
+            <&RenderEntity as WorldQuery>::update_component_access(&component_id, access);
         }
 
         fn init_state(world: &mut World) -> ComponentId {
@@ -360,6 +362,8 @@ mod render_entities_world_query_impls {
     // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
     unsafe impl ReadOnlyQueryData for RenderEntity {}
 
+    /// SAFETY: defers completely to `&RenderEntity` implementation,
+    /// and then only modifies the output safely.
     unsafe impl WorldQuery for MainEntity {
         type Item<'w> = Entity;
         type Fetch<'w> = <&'static MainEntity as WorldQuery>::Fetch<'w>;
@@ -399,7 +403,7 @@ mod render_entities_world_query_impls {
         ) {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
             unsafe {
-                <&MainEntity as WorldQuery>::set_archetype(fetch, component_id, archetype, table)
+                <&MainEntity as WorldQuery>::set_archetype(fetch, component_id, archetype, table);
             }
         }
 
@@ -428,7 +432,7 @@ mod render_entities_world_query_impls {
             &component_id: &ComponentId,
             access: &mut FilteredAccess<ComponentId>,
         ) {
-            <&MainEntity as WorldQuery>::update_component_access(&component_id, access)
+            <&MainEntity as WorldQuery>::update_component_access(&component_id, access);
         }
 
         fn init_state(world: &mut World) -> ComponentId {
