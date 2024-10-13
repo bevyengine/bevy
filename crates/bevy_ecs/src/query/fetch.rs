@@ -1717,6 +1717,145 @@ unsafe impl<'__w, T: Component> QueryData for Mut<'__w, T> {
     type ReadOnly = Ref<'__w, T>;
 }
 
+/// A collection of potentially conflicting [`QueryData`]s allowed by disjoint access.
+
+/// Allows queries to safely access and interact with up to 8 mutually exclusive [`QueryData`]s in a single iteration.
+///
+/// Each individual [`QueryData`] can be accessed by using the functions `d0()`, `d1()`, ..., `d7()`,
+/// according to the order they are defined in the `DataSet`. This ensures that there's
+/// only one mutable reference to the member of the set at a time.
+///
+/// # Examples
+///
+/// This can be useful when you have a lot of complex [`QueryData`]s that conflict with each other.
+///
+/// Imagine you have a system that calculates desired health and then changes it.
+/// You also have a helper [`QueryData`] that calculates this for you.
+/// The following system has conflicting access to the two [`QueryData`]s,
+/// which is not allowed due to rust's mutability rules.
+///
+/// ```should_panic
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::QueryData;
+/// #
+/// # #[derive(Component)]
+/// # struct Health;
+/// #
+/// # #[derive(Component)]
+/// # struct Regen;
+/// #
+/// #[derive(QueryData)]
+/// struct HealthChangeCalculation {
+///     health: &'static Health,
+///     regen: &'static Regen,
+///     // ...
+/// }
+///
+/// // This will panic at runtime when the system gets initialized.
+/// fn bad_system(
+///     mut query: Query<(HealthChangeCalculation, &mut Health)>, 
+/// ) {
+///     // ...
+/// }
+/// #
+/// # let mut bad_system_system = IntoSystem::into_system(bad_system);
+/// # let mut world = World::new();
+/// # bad_system_system.initialize(&mut world);
+/// # bad_system_system.run((), &mut world);
+/// ```
+///
+/// Conflicting [`QueryData`]s like these can be placed in a [`DataSet`],
+/// which leverages the borrow checker to ensure that only one of the contained members are accessed at a given time.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::QueryData;
+/// # use bevy_ecs::query::DataSet;
+/// #
+/// # #[derive(Component)]
+/// # struct Health;
+/// #
+/// # #[derive(Component)]
+/// # struct Regen;
+/// #
+/// #[derive(QueryData)]
+/// struct HealthChangeCalculation {
+///     health: &'static Health,
+///     regen: &'static Regen,
+///     // ...
+/// }
+///
+/// fn health_change_system(
+///     mut query: Query<DataSet<(
+///         HealthChangeCalculation,
+///         &mut Health,
+///     )>>,
+/// ) {
+///     for mut set in query.iter_mut() {
+///         // This will access the first `QueryData`.
+///         let health_change = set.d0();
+///         // Calculating health change...
+///
+///         // The second `QueryData`.
+///         // This would fail to compile if the previous parameter was still borrowed.
+///         let health = set.d1();
+///         // Updating health...
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(health_change_system);
+/// ```
+///
+/// [`DataSet`] can also be used in generic contexts that require a [`QueryData`].
+/// 
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::QueryData;
+/// # use bevy_ecs::query::DataSet;
+/// #
+/// # #[derive(Component)]
+/// # struct Transform;
+/// #
+/// trait Behavior {
+///     type Data: QueryData;
+///     fn update(&mut self, data: &mut QueryItem<'_, Self::Data>);
+/// }
+///
+/// struct Run;
+///
+/// impl Behavior for Run {
+///     type Data = &'static mut Transform;
+///
+///     fn update(&mut self, data: &mut Transform) {
+///         // Do something...
+///     }
+/// }
+///
+/// struct Jump;
+///
+/// impl Behavior for Jump {
+///     type Data = &'static mut Transform;
+///
+///     fn update(&mut self, data: &mut Transform) {
+///         // Do something different...
+///     }
+/// }
+///
+/// struct Selector;
+///
+/// impl Behavior for Selector {
+///     // `update` would not be possible to use, to select between `Run` and `Jump`.
+///     // since both `Run` and `Jump` data have mutually exclusive access. 
+///     type Data = DataSet<'static, (
+///         <Run as Behavior>::Data,
+///         <Jump as Behavior>::Data,
+///         //...
+///     )>;
+///
+///     fn update(&mut self, data: &mut QueryItem<'_, Self::Data>) {
+///         // Select the behavior to use...
+///     }
+/// }
+/// ```
 pub struct DataSet<'a, T: QueryData> {
     fetch: T::Fetch<'a>,
     entity: Entity,
