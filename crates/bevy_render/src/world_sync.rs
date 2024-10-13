@@ -198,7 +198,7 @@ mod render_entities_world_query_impls {
         archetype::Archetype,
         component::{ComponentId, Components, Tick},
         entity::Entity,
-        query::{FilteredAccess, QueryData, ReadFetch, ReadOnlyQueryData, WorldQuery},
+        query::{FilteredAccess, QueryData, ReadOnlyQueryData, WorldQuery},
         storage::{Table, TableRow},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
@@ -231,11 +231,11 @@ mod render_entities_world_query_impls {
             }
         }
 
-        const IS_DENSE: bool = true;
+        const IS_DENSE: bool = <&'static RenderEntity as WorldQuery>::IS_DENSE;
 
         #[inline]
         unsafe fn set_archetype<'w>(
-            fetch: &mut ReadFetch<'w, RenderEntity>,
+            fetch: &mut Self::Fetch<'w>,
             component_id: &ComponentId,
             archetype: &'w Archetype,
             table: &'w Table,
@@ -248,7 +248,7 @@ mod render_entities_world_query_impls {
 
         #[inline]
         unsafe fn set_table<'w>(
-            fetch: &mut ReadFetch<'w, RenderEntity>,
+            fetch: &mut Self::Fetch<'w>,
             &component_id: &ComponentId,
             table: &'w Table,
         ) {
@@ -328,11 +328,11 @@ mod render_entities_world_query_impls {
             }
         }
 
-        const IS_DENSE: bool = true;
+        const IS_DENSE: bool = <&'static MainEntity as WorldQuery>::IS_DENSE;
 
         #[inline]
         unsafe fn set_archetype<'w>(
-            fetch: &mut ReadFetch<'w, MainEntity>,
+            fetch: &mut Self::Fetch<'w>,
             component_id: &ComponentId,
             archetype: &'w Archetype,
             table: &'w Table,
@@ -345,7 +345,7 @@ mod render_entities_world_query_impls {
 
         #[inline]
         unsafe fn set_table<'w>(
-            fetch: &mut ReadFetch<'w, MainEntity>,
+            fetch: &mut Self::Fetch<'w>,
             &component_id: &ComponentId,
             table: &'w Table,
         ) {
