@@ -316,7 +316,7 @@ fn add_help_text(
 ) {
     commands.spawn((
         Text::new(create_help_text(currently_selected_option)),
-        TextStyle {
+        TextFont {
             font: font.clone(),
             ..default()
         },
@@ -339,12 +339,12 @@ fn add_text<'a>(
 ) -> EntityCommands<'a> {
     parent.spawn((
         Text::new(label),
-        TextStyle {
+        TextFont {
             font: font.clone(),
             font_size: 15.0,
-            color,
             ..default()
         },
+        TextColor(color),
     ))
 }
 
@@ -598,8 +598,8 @@ fn update_ui_state(
             Color::WHITE
         };
 
-        writer.for_each_style(entity, |mut style| {
-            style.color = color;
+        writer.for_each_color(entity, |mut text_color| {
+            text_color.0 = color;
         });
 
         // Update the displayed value, if this is the currently-selected option.

@@ -219,11 +219,11 @@ fn setup(
     commands
         .spawn((
             Text::new("Score: "),
-            TextStyle {
+            TextFont {
                 font_size: SCOREBOARD_FONT_SIZE,
-                color: TEXT_COLOR,
                 ..default()
             },
+            TextColor(TEXT_COLOR),
             ScoreboardUi,
             Style {
                 position_type: PositionType::Absolute,
@@ -234,11 +234,11 @@ fn setup(
         ))
         .with_child((
             TextSpan::default(),
-            TextStyle {
+            TextFont {
                 font_size: SCOREBOARD_FONT_SIZE,
-                color: SCORE_COLOR,
                 ..default()
             },
+            TextColor(SCORE_COLOR),
         ));
 
     // Walls

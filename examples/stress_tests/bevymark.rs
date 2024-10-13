@@ -255,16 +255,9 @@ fn setup(
         transform_rng: ChaCha8Rng::seed_from_u64(42),
     };
 
-    let lime_text = TextStyle {
+    let font = TextFont {
         font_size: 40.0,
-        color: LIME.into(),
-        ..default()
-    };
-
-    let aqua_text = TextStyle {
-        font_size: 40.0,
-        color: LIME.into(),
-        ..default()
+        ..Default::default()
     };
 
     commands.spawn(Camera2d);
@@ -283,14 +276,30 @@ fn setup(
         ))
         .with_children(|p| {
             p.spawn((Text::default(), StatsText)).with_children(|p| {
-                p.spawn((TextSpan::new("Bird Count: "), lime_text.clone()));
-                p.spawn((TextSpan::new(""), aqua_text.clone()));
-                p.spawn((TextSpan::new("\nFPS (raw): "), lime_text.clone()));
-                p.spawn((TextSpan::new(""), aqua_text.clone()));
-                p.spawn((TextSpan::new("\nFPS (SMA): "), lime_text.clone()));
-                p.spawn((TextSpan::new(""), aqua_text.clone()));
-                p.spawn((TextSpan::new("\nFPS (EMA): "), lime_text.clone()));
-                p.spawn((TextSpan::new(""), aqua_text.clone()));
+                p.spawn((
+                    TextSpan::new("Bird Count: "),
+                    font.clone(),
+                    TextColor(LIME.into()),
+                ));
+                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
+                p.spawn((
+                    TextSpan::new("\nFPS (raw): "),
+                    font.clone(),
+                    TextColor(LIME.into()),
+                ));
+                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
+                p.spawn((
+                    TextSpan::new("\nFPS (SMA): "),
+                    font.clone(),
+                    TextColor(LIME.into()),
+                ));
+                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
+                p.spawn((
+                    TextSpan::new("\nFPS (EMA): "),
+                    font.clone(),
+                    TextColor(LIME.into()),
+                ));
+                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
             });
         });
 

@@ -107,7 +107,7 @@ fn setup(
 
     // Spawn the text instructions
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let text_style = TextStyle {
+    let text_style = TextFont {
         font: font.clone(),
         font_size: 25.0,
         ..default()

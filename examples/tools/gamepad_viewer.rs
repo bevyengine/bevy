@@ -297,7 +297,7 @@ fn setup_sticks(
                     Transform::from_xyz(dead_mid, dead_mid, 3.),
                 ));
                 // text
-                let style = TextStyle {
+                let style = TextFont {
                     font_size: 13.,
                     ..default()
                 };
@@ -362,7 +362,7 @@ fn setup_triggers(
                 parent.spawn((
                     Transform::from_xyz(0., 0., 1.),
                     Text(format!("{:.3}", 0.)),
-                    TextStyle {
+                    TextFont {
                         font_size: 13.,
                         ..default()
                     },

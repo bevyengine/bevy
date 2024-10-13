@@ -55,7 +55,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             p.spawn(TextSpan::new("IME Buffer:  "));
             p.spawn((
                 TextSpan::new("\n"),
-                TextStyle {
+                TextFont {
                     font: font.clone(),
                     ..default()
                 },
@@ -64,7 +64,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn((
         Text2d::new(""),
-        TextStyle {
+        TextFont {
             font,
             font_size: 100.0,
             ..default()
@@ -137,7 +137,7 @@ fn listen_ime_events(
 fn listen_keyboard_input_events(
     mut commands: Commands,
     mut events: EventReader<KeyboardInput>,
-    mut edit_text: Query<(&mut Text2d, &TextStyle), (Without<Node>, Without<Bubble>)>,
+    mut edit_text: Query<(&mut Text2d, &TextFont), (Without<Node>, Without<Bubble>)>,
 ) {
     for event in events.read() {
         // Only trigger changes when the key is first pressed.
