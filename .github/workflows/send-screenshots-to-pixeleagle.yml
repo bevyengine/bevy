@@ -19,8 +19,7 @@ on:
 jobs:
   send-to-pixel-eagle:
     name: Send screenshots to Pixel Eagle
-    # runs on macos because it has the updated curl that will accept the --json flag, and the script is probably not portable to windows
-    runs-on: macos-14
+    runs-on: ubuntu-latest
     steps:
       
       - name: Download artifact
@@ -29,9 +28,9 @@ jobs:
           pattern: ${{ inputs.artifact }}
       
       - name: Send to Pixel Eagle
+        env:
+          project: B04F67C0-C054-4A6F-92EC-F599FEC2FD1D
         run: |
-          project="B04F67C0-C054-4A6F-92EC-F599FEC2FD1D"
-
           # Create a new run with its associated metadata
           metadata='{"os":"${{ inputs.os }}", "commit": "${{ inputs.commit }}", "branch": "${{ inputs.branch }}"}'
           run=`curl https://pixel-eagle.vleue.com/$project/runs --json "$metadata" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }} | jq '.id'`
