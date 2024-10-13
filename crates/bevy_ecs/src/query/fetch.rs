@@ -11,6 +11,7 @@ use crate::{
         FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
     },
 };
+use bevy_ecs_macros::impl_data_set;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
 use core::{cell::UnsafeCell, marker::PhantomData};
@@ -1715,6 +1716,14 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 unsafe impl<'__w, T: Component> QueryData for Mut<'__w, T> {
     type ReadOnly = Ref<'__w, T>;
 }
+
+pub struct DataSet<'a, T: QueryData> {
+    fetch: T::Fetch<'a>,
+    entity: Entity,
+    table_row: TableRow,
+}
+
+impl_data_set!();
 
 #[doc(hidden)]
 pub struct OptionFetch<'w, T: WorldQuery> {

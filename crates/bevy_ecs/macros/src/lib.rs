@@ -415,6 +415,162 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     tokens
 }
 
+#[proc_macro]
+pub fn impl_data_set(_input: TokenStream) -> TokenStream {
+    let mut tokens = TokenStream::new();
+    let max_members = 8;
+    let datas = get_idents(|i| format!("D{i}"), max_members);
+    let accesses = get_idents(|i| format!("access{i}"), max_members);
+    let mut member_fn_muts = Vec::new();
+    for (i, data) in datas.iter().enumerate() {
+        let fn_name = Ident::new(&format!("d{i}"), Span::call_site());
+        let index = Index::from(i);
+        let ordinal = match i {
+            1 => "1st".to_owned(),
+            2 => "2nd".to_owned(),
+            3 => "3rd".to_owned(),
+            x => format!("{x}th"),
+        };
+        let comment =
+            format!("Gets exclusive access to the {ordinal} member of this [`DataSet`].");
+        member_fn_muts.push(quote! {
+            #[doc = #comment]
+            /// No other members may be accessed while this one is active.
+            pub fn #fn_name(&mut self) -> QueryItem<'_, #data> {
+                // SAFETY: since it's only possible to create instance of `DataSet` using 
+                // `<DataSet as WorldQuery>::fetch`, following safety rules were upheld by the caller.
+                // - [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`] have been called for `DataSet`,
+                //   so it was called for each `data` (as implementation of those functions for `DataSet` suggests).
+                // - `entity` and `table_row` are in the range of the current table and archetype.
+                #data::shrink(unsafe {
+                    #data::fetch(&mut self.fetch.#index, self.entity, self.table_row)
+                })
+            }
+        });
+    }
+
+    for member_count in 1..=max_members {
+        let data = &datas[0..member_count];
+        let access = &accesses[0..member_count];
+        let member_fn_mut = &member_fn_muts[0..member_count];
+        tokens.extend(TokenStream::from(quote! {
+            // SAFETY: each item in set is read only
+            unsafe impl<'__w, #(#data: ReadOnlyQueryData,)*> ReadOnlyQueryData for DataSet<'__w, (#(#data,)*)> {}
+
+            // SAFETY: deferes to soundness of `#data: WorldQuery` impl
+            unsafe impl<'__w, #(#data: QueryData,)*> QueryData for DataSet<'__w, (#(#data,)*)> {
+                type ReadOnly = DataSet<'__w, (#(#data::ReadOnly,)*)>;
+            }
+
+            // SAFETY: 
+            // for each member of the set accessed by `fetch`, [`update_component_access`]
+            // - adds corresponding access to `filtered_access`
+            // - panics if it's access conflicts with access that has already been added before calling `update_component_access`
+            //
+            // If `fetch` mutably accesses a member of the set, it is impossible to access any other members. 
+            unsafe impl<'__w, #(#data: QueryData,)*> WorldQuery for DataSet<'__w, (#(#data,)*)> {
+                type Item<'w> = DataSet<'w, (#(#data,)*)>;
+                type Fetch<'w> = (#(#data::Fetch<'w>,)*);
+                type State = (#(#data::State,)*);
+                
+                fn shrink<'wlong: 'wshort, 'wshort>(
+                    item: Self::Item<'wlong>,
+                ) -> Self::Item<'wshort> {            
+                    DataSet {
+                        fetch: Self::shrink_fetch(item.fetch),
+                        entity: item.entity,
+                        table_row: item.table_row,
+                    }
+                }
+
+                fn shrink_fetch<'wlong: 'wshort, 'wshort>(
+                    fetch: Self::Fetch<'wlong>,
+                ) -> Self::Fetch<'wshort> {
+                    <(#(#data,)*) as WorldQuery>::shrink_fetch(fetch)
+                }
+            
+                unsafe fn init_fetch<'w>(
+                    world: UnsafeWorldCell<'w>,
+                    state: &Self::State,
+                    last_run: Tick,
+                    this_run: Tick,
+                ) -> Self::Fetch<'w> {
+                    // SAFETY: The invariants are uphold by the caller.
+                    unsafe { <(#(#data,)*) as WorldQuery>::init_fetch(world, state, last_run, this_run) }
+                }
+
+                const IS_DENSE: bool = <(#(#data,)*) as WorldQuery>::IS_DENSE;
+            
+                unsafe fn set_archetype<'w>(
+                    fetch: &mut Self::Fetch<'w>,
+                    state: &Self::State,
+                    archetype: &'w Archetype,
+                    table: &'w Table,
+                ) {
+                    // SAFETY: The invariants are uphold by the caller.
+                    unsafe { <(#(#data,)*) as WorldQuery>::set_archetype(fetch, state, archetype, table); }
+                }
+            
+                unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+                    // SAFETY: The invariants are uphold by the caller.
+                    unsafe { <(#(#data,)*) as WorldQuery>::set_table(fetch, state, table); }
+                }
+                        
+                unsafe fn fetch<'w>(
+                    fetch: &mut Self::Fetch<'w>,
+                    entity: Entity,
+                    table_row: TableRow,
+                ) -> Self::Item<'w> {
+                    DataSet {
+                        fetch: fetch.clone(),
+                        entity,
+                        table_row,
+                    }
+                }
+            
+                fn update_component_access(state: &Self::State, filtered_access: &mut FilteredAccess<ComponentId>) {
+                    let (#(#data,)*) = state;
+
+                    #(
+                        // Making sure each individual member of the set doesn't conflict with other query access.
+                        // Panics if one of the members conflicts with previous access.
+                        #data::update_component_access(#data, &mut filtered_access.clone());
+                    )*
+                    #(
+                        // Updating empty [`FilteredAccess`] and then extending passed filtered_access.
+                        // This is done to avoid conflicts with other members of the set.
+                        let mut #access = FilteredAccess::default();
+                        #data::update_component_access(#data, &mut #access);
+                        filtered_access.extend(&#access);
+                    )*
+                }
+            
+                fn init_state(world: &mut World) -> Self::State {
+                    <(#(#data,)*) as WorldQuery>::init_state(world)
+                }
+            
+                fn get_state(components: &Components) -> Option<Self::State> {
+                    <(#(#data,)*) as WorldQuery>::get_state(components)
+                }
+            
+                fn matches_component_set(
+                    state: &Self::State,
+                    set_contains_id: &impl Fn(ComponentId) -> bool,
+                ) -> bool {
+                    <(#(#data,)*) as WorldQuery>::matches_component_set(state, set_contains_id)
+                }
+            }
+
+            impl<'w, #(#data: QueryData,)*> DataSet<'w, (#(#data,)*)>
+            {
+                #(#member_fn_mut)*
+            }
+        }));
+    }
+
+    tokens
+}
+
 /// Implement `SystemParam` to use a struct as a parameter in a system
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
