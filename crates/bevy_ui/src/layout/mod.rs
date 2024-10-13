@@ -251,6 +251,9 @@ pub fn ui_layout_system(
 
     node_query.iter().for_each(|(entity, maybe_parent)| {
         if let Some(parent) = maybe_parent {
+            // Note: This does not cover the case where a parent's Node component was removed.
+            // Users are responsible for fixing hierarchies if they do that (it is not recommended).
+            // Detecting it here would be a permanent perf burden on the hot path.
             if parent.is_changed() && !ui_children.is_ui_node(parent.get()) {
                 warn!(
                     "Styled child ({entity}) in a non-UI entity hierarchy. You are using an entity \
