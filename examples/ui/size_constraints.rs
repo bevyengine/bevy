@@ -293,28 +293,27 @@ fn update_buttons(
         (Entity, &Interaction, &Constraint, &ButtonValue),
         Changed<Interaction>,
     >,
-    mut bar_query: Query<&mut Style, With<Bar>>,
+    mut bar_style: Single<&mut Style, With<Bar>>,
     mut text_query: Query<&mut TextColor>,
     children_query: Query<&Children>,
     mut button_activated_event: EventWriter<ButtonActivatedEvent>,
 ) {
-    let mut style = bar_query.single_mut();
     for (button_id, interaction, constraint, value) in button_query.iter_mut() {
         match interaction {
             Interaction::Pressed => {
                 button_activated_event.send(ButtonActivatedEvent(button_id));
                 match constraint {
                     Constraint::FlexBasis => {
-                        style.flex_basis = value.0;
+                        bar_style.flex_basis = value.0;
                     }
                     Constraint::Width => {
-                        style.width = value.0;
+                        bar_style.width = value.0;
                     }
                     Constraint::MinWidth => {
-                        style.min_width = value.0;
+                        bar_style.min_width = value.0;
                     }
                     Constraint::MaxWidth => {
-                        style.max_width = value.0;
+                        bar_style.max_width = value.0;
                     }
                 }
             }

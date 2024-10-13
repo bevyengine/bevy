@@ -239,15 +239,11 @@ fn update_ui(
     mut commands: Commands,
     state: Res<State>,
     stepping: Res<Stepping>,
-    ui: Query<(Entity, &Visibility), With<SteppingUi>>,
+    ui: Single<(Entity, &Visibility), With<SteppingUi>>,
     mut writer: UiTextWriter,
 ) {
-    if ui.is_empty() {
-        return;
-    }
-
     // ensure the UI is only visible when stepping is enabled
-    let (ui, vis) = ui.single();
+    let (ui, vis) = *ui;
     match (vis, stepping.is_enabled()) {
         (Visibility::Hidden, true) => {
             commands.entity(ui).insert(Visibility::Inherited);

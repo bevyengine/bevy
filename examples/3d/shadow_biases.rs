@@ -152,13 +152,13 @@ fn toggle_light(
     input: Res<ButtonInput<KeyCode>>,
     mut point_lights: Query<&mut PointLight>,
     mut directional_lights: Query<&mut DirectionalLight>,
-    example_text: Query<Entity, With<Text>>,
+    example_text: Single<Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     if input.just_pressed(KeyCode::KeyL) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
-                *writer.text(example_text.single(), 4) = "PointLight".to_string();
+                *writer.text(*example_text, 4) = "PointLight".to_string();
                 100000000.0
             } else {
                 0.0
@@ -166,7 +166,7 @@ fn toggle_light(
         }
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
-                *writer.text(example_text.single(), 4) = "DirectionalLight".to_string();
+                *writer.text(*example_text, 4) = "DirectionalLight".to_string();
                 100000.0
             } else {
                 0.0
@@ -178,7 +178,7 @@ fn toggle_light(
 fn adjust_light_position(
     input: Res<ButtonInput<KeyCode>>,
     mut lights: Query<&mut Transform, With<Lights>>,
-    example_text: Query<Entity, With<Text>>,
+    example_text: Single<Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     let mut offset = Vec3::ZERO;
@@ -201,7 +201,7 @@ fn adjust_light_position(
         offset.y += 1.0;
     }
     if offset != Vec3::ZERO {
-        let example_text = example_text.single();
+        let example_text = *example_text;
         for mut light in &mut lights {
             light.translation += offset;
             light.look_at(Vec3::ZERO, Vec3::Y);
@@ -215,7 +215,7 @@ fn adjust_light_position(
 fn cycle_filter_methods(
     input: Res<ButtonInput<KeyCode>>,
     mut filter_methods: Query<&mut ShadowFilteringMethod>,
-    example_text: Query<Entity, With<Text>>,
+    example_text: Single<Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     if input.just_pressed(KeyCode::KeyF) {
@@ -235,7 +235,7 @@ fn cycle_filter_methods(
                     ShadowFilteringMethod::Hardware2x2
                 }
             };
-            *writer.text(example_text.single(), 7) = filter_method_string;
+            *writer.text(*example_text, 7) = filter_method_string;
         }
     }
 }
@@ -243,7 +243,7 @@ fn cycle_filter_methods(
 fn adjust_point_light_biases(
     input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut PointLight>,
-    example_text: Query<Entity, With<Text>>,
+    example_text: Single<Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     let depth_bias_step_size = 0.01;
@@ -270,15 +270,15 @@ fn adjust_point_light_biases(
             light.shadow_normal_bias = 0.0;
         }
 
-        *writer.text(example_text.single(), 10) = format!("{:.2}", light.shadow_depth_bias);
-        *writer.text(example_text.single(), 13) = format!("{:.1}", light.shadow_normal_bias);
+        *writer.text(*example_text, 10) = format!("{:.2}", light.shadow_depth_bias);
+        *writer.text(*example_text, 13) = format!("{:.1}", light.shadow_normal_bias);
     }
 }
 
 fn adjust_directional_light_biases(
     input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut DirectionalLight>,
-    example_text: Query<Entity, With<Text>>,
+    example_text: Single<Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     let depth_bias_step_size = 0.01;
@@ -305,7 +305,7 @@ fn adjust_directional_light_biases(
             light.shadow_normal_bias = 0.0;
         }
 
-        *writer.text(example_text.single(), 16) = format!("{:.2}", light.shadow_depth_bias);
-        *writer.text(example_text.single(), 19) = format!("{:.1}", light.shadow_normal_bias);
+        *writer.text(*example_text, 16) = format!("{:.2}", light.shadow_depth_bias);
+        *writer.text(*example_text, 19) = format!("{:.1}", light.shadow_normal_bias);
     }
 }

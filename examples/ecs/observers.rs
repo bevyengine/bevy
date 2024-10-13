@@ -171,13 +171,12 @@ fn draw_shapes(mut gizmos: Gizmos, mines: Query<&Mine>) {
 // Trigger `ExplodeMines` at the position of a given click
 fn handle_click(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    camera: Query<(&Camera, &GlobalTransform)>,
-    windows: Query<&Window>,
+    camera: Single<(&Camera, &GlobalTransform)>,
+    windows: Single<&Window>,
     mut commands: Commands,
 ) {
-    let (camera, camera_transform) = camera.single();
+    let (camera, camera_transform) = *camera;
     if let Some(pos) = windows
-        .single()
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor).ok())
         .map(|ray| ray.origin.truncate())

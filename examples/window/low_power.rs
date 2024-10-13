@@ -147,7 +147,7 @@ pub(crate) mod test_setup {
     pub(crate) fn update_text(
         mut frame: Local<usize>,
         mode: Res<ExampleMode>,
-        query: Query<Entity, With<ModeText>>,
+        text: Single<Entity, With<ModeText>>,
         mut writer: UiTextWriter,
     ) {
         *frame += 1;
@@ -159,9 +159,8 @@ pub(crate) mod test_setup {
             }
             ExampleMode::ApplicationWithWakeUp => "desktop_app(), reactive, WakeUp sent",
         };
-        let text = query.single();
-        *writer.text(text, 2) = mode.to_string();
-        *writer.text(text, 4) = frame.to_string();
+        *writer.text(*text, 2) = mode.to_string();
+        *writer.text(*text, 4) = frame.to_string();
     }
 
     /// Set up a scene with a cube and some text

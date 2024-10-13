@@ -301,10 +301,9 @@ fn setup(
 
 fn move_paddle(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut Transform, With<Paddle>>,
+    mut paddle_transform: Single<&mut Transform, With<Paddle>>,
     time: Res<Time>,
 ) {
-    let mut paddle_transform = query.single_mut();
     let mut direction = 0.0;
 
     if keyboard_input.pressed(KeyCode::ArrowLeft) {
@@ -336,20 +335,20 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>
 
 fn update_scoreboard(
     score: Res<Score>,
-    query: Query<Entity, (With<ScoreboardUi>, With<Text>)>,
+    score_root: Single<Entity, (With<ScoreboardUi>, With<Text>)>,
     mut writer: UiTextWriter,
 ) {
-    *writer.text(query.single(), 1) = score.to_string();
+    *writer.text(*score_root, 1) = score.to_string();
 }
 
 fn check_for_collisions(
     mut commands: Commands,
     mut score: ResMut<Score>,
-    mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
+    ball_query: Single<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
     mut collision_events: EventWriter<CollisionEvent>,
 ) {
-    let (mut ball_velocity, ball_transform) = ball_query.single_mut();
+    let (mut ball_velocity, ball_transform) = ball_query.into_inner();
 
     for (collider_entity, collider_transform, maybe_brick) in &collider_query {
         let collision = ball_collision(
