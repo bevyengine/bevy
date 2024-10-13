@@ -39,14 +39,6 @@ impl ImageLoader {
         {
             count += 1;
         }
-        #[cfg(feature = "exr")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "hdr")]
-        {
-            count += 1;
-        }
         #[cfg(feature = "ico")]
         {
             count += 1;
@@ -100,10 +92,6 @@ impl ImageLoader {
         ImageFormat::Farbfeld,
         #[cfg(feature = "gif")]
         ImageFormat::Gif,
-        #[cfg(feature = "exr")]
-        ImageFormat::OpenExr,
-        #[cfg(feature = "hdr")]
-        ImageFormat::Hdr,
         #[cfg(feature = "ico")]
         ImageFormat::Ico,
         #[cfg(feature = "jpeg")]
