@@ -200,13 +200,20 @@ impl ObserverDescriptor {
 #[derive(Debug)]
 pub struct ObserverTrigger {
     /// The [`Entity`] of the observer handling the trigger.
-    observer: Entity,
+    pub observer: Entity,
     /// The [`Event`] the trigger targeted.
-    event_type: ComponentId,
+    pub event_type: ComponentId,
     /// The [`ComponentId`]s the trigger targeted.
     components: SmallVec<[ComponentId; 2]>,
     /// The entity the trigger targeted.
-    entity: Entity,
+    pub entity: Entity,
+}
+
+impl ObserverTrigger {
+    /// Returns the components that the trigger targeted.
+    pub fn components(&self) -> &[ComponentId] {
+        &self.components
+    }
 }
 
 // Map between an observer entity and its runner
