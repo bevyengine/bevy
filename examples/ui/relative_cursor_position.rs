@@ -56,12 +56,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             parent.spawn((
                 Text::new("(0.0, 0.0)"),
-                TextStyle {
+                TextFont {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 33.0,
-                    color: Color::srgb(0.9, 0.9, 0.9),
                     ..default()
                 },
+                TextColor(Color::srgb(0.9, 0.9, 0.9)),
             ));
         });
 }
@@ -69,9 +69,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// This systems polls the relative cursor position and displays its value in a text component.
 fn relative_cursor_position_system(
     relative_cursor_position: Single<&RelativeCursorPosition>,
-    output_query: Single<(&mut Text, &mut TextStyle)>,
+    output_query: Single<(&mut Text, &mut TextColor)>,
 ) {
-    let (mut output, mut style) = output_query.into_inner();
+    let (mut output, mut text_color) = output_query.into_inner();
 
     **output = if let Some(relative_cursor_position) = relative_cursor_position.normalized {
         format!(
@@ -82,7 +82,7 @@ fn relative_cursor_position_system(
         "unknown".to_string()
     };
 
-    style.color = if relative_cursor_position.mouse_over() {
+    text_color.0 = if relative_cursor_position.mouse_over() {
         Color::srgb(0.1, 0.9, 0.1)
     } else {
         Color::srgb(0.9, 0.1, 0.1)

@@ -1,10 +1,11 @@
+use bevy_color::Color;
 use bevy_ecs::{
     prelude::*,
     system::{Query, SystemParam},
 };
 use bevy_hierarchy::Children;
 
-use crate::{TextSpan, TextStyle};
+use crate::{TextColor, TextFont, TextSpan};
 
 /// Helper trait for using the [`TextReader`] and [`TextWriter`] system params.
 pub trait TextSpanAccess: Component {
@@ -49,13 +50,23 @@ impl TextIterScratch {
 pub struct TextReader<'w, 's, R: TextRoot> {
     // This is a local to avoid system ambiguities when TextReaders run in parallel.
     scratch: Local<'s, TextIterScratch>,
-    roots: Query<'w, 's, (&'static R, &'static TextStyle, Option<&'static Children>)>,
+    roots: Query<
+        'w,
+        's,
+        (
+            &'static R,
+            &'static TextFont,
+            &'static TextColor,
+            Option<&'static Children>,
+        ),
+    >,
     spans: Query<
         'w,
         's,
         (
             &'static TextSpan,
-            &'static TextStyle,
+            &'static TextFont,
+            &'static TextColor,
             Option<&'static Children>,
         ),
     >,
@@ -80,18 +91,24 @@ impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
         &mut self,
         root_entity: Entity,
         index: usize,
-    ) -> Option<(Entity, usize, &str, &TextStyle)> {
+    ) -> Option<(Entity, usize, &str, &TextFont, Color)> {
         self.iter(root_entity).nth(index)
     }
 
     /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
     pub fn get_text(&mut self, root_entity: Entity, index: usize) -> Option<&str> {
-        self.get(root_entity, index).map(|(_, _, text, _)| text)
+        self.get(root_entity, index).map(|(_, _, text, _, _)| text)
     }
 
-    /// Gets the [`TextStyle`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_style(&mut self, root_entity: Entity, index: usize) -> Option<&TextStyle> {
-        self.get(root_entity, index).map(|(_, _, _, style)| style)
+    /// Gets the [`TextFont`] of a text span within a text block at a specific index in the flattened span list.
+    pub fn get_font(&mut self, root_entity: Entity, index: usize) -> Option<&TextFont> {
+        self.get(root_entity, index).map(|(_, _, _, font, _)| font)
+    }
+
+    /// Gets the [`TextColor`] of a text span within a text block at a specific index in the flattened span list.
+    pub fn get_color(&mut self, root_entity: Entity, index: usize) -> Option<Color> {
+        self.get(root_entity, index)
+            .map(|(_, _, _, _, color)| color)
     }
 
     /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
@@ -101,11 +118,18 @@ impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
         self.get_text(root_entity, index).unwrap()
     }
 
-    /// Gets the [`TextStyle`] of a text span within a text block at a specific index in the flattened span list.
+    /// Gets the [`TextFont`] of a text span within a text block at a specific index in the flattened span list.
     ///
     /// Panics if there is no span at the requested index.
-    pub fn style(&mut self, root_entity: Entity, index: usize) -> &TextStyle {
-        self.get_style(root_entity, index).unwrap()
+    pub fn font(&mut self, root_entity: Entity, index: usize) -> &TextFont {
+        self.get_font(root_entity, index).unwrap()
+    }
+
+    /// Gets the [`TextColor`] of a text span within a text block at a specific index in the flattened span list.
+    ///
+    /// Panics if there is no span at the requested index.
+    pub fn color(&mut self, root_entity: Entity, index: usize) -> Color {
+        self.get_color(root_entity, index).unwrap()
     }
 }
 
@@ -119,13 +143,23 @@ pub struct TextSpanIter<'a, R: TextRoot> {
     root_entity: Option<Entity>,
     /// Stack of (children, next index into children).
     stack: Vec<(&'a Children, usize)>,
-    roots: &'a Query<'a, 'a, (&'static R, &'static TextStyle, Option<&'static Children>)>,
+    roots: &'a Query<
+        'a,
+        'a,
+        (
+            &'static R,
+            &'static TextFont,
+            &'static TextColor,
+            Option<&'static Children>,
+        ),
+    >,
     spans: &'a Query<
         'a,
         'a,
         (
             &'static TextSpan,
-            &'static TextStyle,
+            &'static TextFont,
+            &'static TextColor,
             Option<&'static Children>,
         ),
     >,
@@ -133,15 +167,15 @@ pub struct TextSpanIter<'a, R: TextRoot> {
 
 impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
     /// Item = (entity in text block, hierarchy depth in the block, span text, span style).
-    type Item = (Entity, usize, &'a str, &'a TextStyle);
+    type Item = (Entity, usize, &'a str, &'a TextFont, Color);
     fn next(&mut self) -> Option<Self::Item> {
         // Root
         if let Some(root_entity) = self.root_entity.take() {
-            if let Ok((text, style, maybe_children)) = self.roots.get(root_entity) {
+            if let Ok((text, style, color, maybe_children)) = self.roots.get(root_entity) {
                 if let Some(children) = maybe_children {
                     self.stack.push((children, 0));
                 }
-                return Some((root_entity, 0, text.read_span(), style));
+                return Some((root_entity, 0, text.read_span(), style, color.0));
             }
             return None;
         }
@@ -159,7 +193,7 @@ impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
                 *idx += 1;
 
                 let entity = *child;
-                let Ok((span, style, maybe_children)) = self.spans.get(entity) else {
+                let Ok((span, style, color, maybe_children)) = self.spans.get(entity) else {
                     continue;
                 };
 
@@ -167,7 +201,7 @@ impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
                 if let Some(children) = maybe_children {
                     self.stack.push((children, 0));
                 }
-                return Some((entity, depth, span.read_span(), style));
+                return Some((entity, depth, span.read_span(), style, color.0));
             }
 
             // All children at this stack entry have been iterated.
@@ -191,8 +225,26 @@ impl<'a, R: TextRoot> Drop for TextSpanIter<'a, R> {
 pub struct TextWriter<'w, 's, R: TextRoot> {
     // This is a resource because two TextWriters can't run in parallel.
     scratch: ResMut<'w, TextIterScratch>,
-    roots: Query<'w, 's, (&'static mut R, &'static mut TextStyle), Without<TextSpan>>,
-    spans: Query<'w, 's, (&'static mut TextSpan, &'static mut TextStyle), Without<R>>,
+    roots: Query<
+        'w,
+        's,
+        (
+            &'static mut R,
+            &'static mut TextFont,
+            &'static mut TextColor,
+        ),
+        Without<TextSpan>,
+    >,
+    spans: Query<
+        'w,
+        's,
+        (
+            &'static mut TextSpan,
+            &'static mut TextFont,
+            &'static mut TextColor,
+        ),
+        Without<R>,
+    >,
     children: Query<'w, 's, &'static Children>,
 }
 
@@ -202,15 +254,16 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
         &mut self,
         root_entity: Entity,
         index: usize,
-    ) -> Option<(Entity, usize, Mut<String>, Mut<TextStyle>)> {
+    ) -> Option<(Entity, usize, Mut<String>, Mut<TextFont>, Mut<TextColor>)> {
         // Root
         if index == 0 {
-            let (text, style) = self.roots.get_mut(root_entity).ok()?;
+            let (text, font, color) = self.roots.get_mut(root_entity).ok()?;
             return Some((
                 root_entity,
                 0,
                 text.map_unchanged(|t| t.write_span()),
-                style,
+                font,
+                color,
             ));
         }
 
@@ -257,18 +310,30 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
         };
 
         // Note: We do this outside the loop due to borrow checker limitations.
-        let (text, style) = self.spans.get_mut(entity).unwrap();
-        Some((entity, depth, text.map_unchanged(|t| t.write_span()), style))
+        let (text, font, color) = self.spans.get_mut(entity).unwrap();
+        Some((
+            entity,
+            depth,
+            text.map_unchanged(|t| t.write_span()),
+            font,
+            color,
+        ))
     }
 
     /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
     pub fn get_text(&mut self, root_entity: Entity, index: usize) -> Option<Mut<String>> {
-        self.get(root_entity, index).map(|(_, _, text, _)| text)
+        self.get(root_entity, index).map(|(_, _, text, ..)| text)
     }
 
-    /// Gets the [`TextStyle`] of a text span within a text block at a specific index in the flattened span list.
-    pub fn get_style(&mut self, root_entity: Entity, index: usize) -> Option<Mut<TextStyle>> {
-        self.get(root_entity, index).map(|(_, _, _, style)| style)
+    /// Gets the [`TextFont`] of a text span within a text block at a specific index in the flattened span list.
+    pub fn get_font(&mut self, root_entity: Entity, index: usize) -> Option<Mut<TextFont>> {
+        self.get(root_entity, index).map(|(_, _, _, font, _)| font)
+    }
+
+    /// Gets the [`TextColor`] of a text span within a text block at a specific index in the flattened span list.
+    pub fn get_color(&mut self, root_entity: Entity, index: usize) -> Option<Mut<TextColor>> {
+        self.get(root_entity, index)
+            .map(|(_, _, _, _, color)| color)
     }
 
     /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
@@ -278,40 +343,54 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
         self.get_text(root_entity, index).unwrap()
     }
 
-    /// Gets the [`TextStyle`] of a text span within a text block at a specific index in the flattened span list.
+    /// Gets the [`TextFont`] of a text span within a text block at a specific index in the flattened span list.
     ///
     /// Panics if there is no span at the requested index.
-    pub fn style(&mut self, root_entity: Entity, index: usize) -> Mut<TextStyle> {
-        self.get_style(root_entity, index).unwrap()
+    pub fn font(&mut self, root_entity: Entity, index: usize) -> Mut<TextFont> {
+        self.get_font(root_entity, index).unwrap()
+    }
+
+    /// Gets the [`TextColor`] of a text span within a text block at a specific index in the flattened span list.
+    ///
+    /// Panics if there is no span at the requested index.
+    pub fn color(&mut self, root_entity: Entity, index: usize) -> Mut<TextColor> {
+        self.get_color(root_entity, index).unwrap()
     }
 
     /// Invokes a callback on each span in a text block, starting with the root entity.
     pub fn for_each(
         &mut self,
         root_entity: Entity,
-        mut callback: impl FnMut(Entity, usize, Mut<String>, Mut<TextStyle>),
+        mut callback: impl FnMut(Entity, usize, Mut<String>, Mut<TextFont>, Mut<TextColor>),
     ) {
-        self.for_each_until(root_entity, |a, b, c, d| {
-            (callback)(a, b, c, d);
+        self.for_each_until(root_entity, |a, b, c, d, e| {
+            (callback)(a, b, c, d, e);
             true
         });
     }
 
     /// Invokes a callback on each span's string value in a text block, starting with the root entity.
     pub fn for_each_text(&mut self, root_entity: Entity, mut callback: impl FnMut(Mut<String>)) {
-        self.for_each(root_entity, |_, _, text, _| {
+        self.for_each(root_entity, |_, _, text, _, _| {
             (callback)(text);
         });
     }
 
-    /// Invokes a callback on each span's [`TextStyle`] in a text block, starting with the root entity.
-    pub fn for_each_style(
+    /// Invokes a callback on each span's [`TextFont`] in a text block, starting with the root entity.
+    pub fn for_each_font(&mut self, root_entity: Entity, mut callback: impl FnMut(Mut<TextFont>)) {
+        self.for_each(root_entity, |_, _, _, font, _| {
+            (callback)(font);
+        });
+    }
+
+    /// Invokes a callback on each span's [`TextColor`] in a text block, starting with the root entity.
+    pub fn for_each_color(
         &mut self,
         root_entity: Entity,
-        mut callback: impl FnMut(Mut<TextStyle>),
+        mut callback: impl FnMut(Mut<TextColor>),
     ) {
-        self.for_each(root_entity, |_, _, _, style| {
-            (callback)(style);
+        self.for_each(root_entity, |_, _, _, _, color| {
+            (callback)(color);
         });
     }
 
@@ -322,17 +401,18 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     pub fn for_each_until(
         &mut self,
         root_entity: Entity,
-        mut callback: impl FnMut(Entity, usize, Mut<String>, Mut<TextStyle>) -> bool,
+        mut callback: impl FnMut(Entity, usize, Mut<String>, Mut<TextFont>, Mut<TextColor>) -> bool,
     ) {
         // Root
-        let Ok((text, style)) = self.roots.get_mut(root_entity) else {
+        let Ok((text, font, color)) = self.roots.get_mut(root_entity) else {
             return;
         };
         if !(callback)(
             root_entity,
             0,
             text.map_unchanged(|t| t.write_span()),
-            style,
+            font,
+            color,
         ) {
             return;
         }
@@ -362,11 +442,17 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
                 *idx += 1;
 
                 let entity = *child;
-                let Ok((text, style)) = self.spans.get_mut(entity) else {
+                let Ok((text, font, color)) = self.spans.get_mut(entity) else {
                     continue;
                 };
 
-                if !(callback)(entity, depth, text.map_unchanged(|t| t.write_span()), style) {
+                if !(callback)(
+                    entity,
+                    depth,
+                    text.map_unchanged(|t| t.write_span()),
+                    font,
+                    color,
+                ) {
                     self.scratch.recover(stack);
                     return;
                 }

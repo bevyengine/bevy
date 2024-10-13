@@ -107,7 +107,7 @@ fn setup(
 
     // Spawn the text instructions
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let text_style = TextStyle {
+    let text_style = TextFont {
         font: font.clone(),
         font_size: 25.0,
         ..default()
@@ -146,9 +146,7 @@ fn setup(
 
                 // sclera
                 commands
-                    .spawn(SpatialBundle::from_transform(Transform::from_xyz(
-                        x, y, 2.0,
-                    )))
+                    .spawn((Transform::from_xyz(x, y, 2.0), Visibility::default()))
                     .with_children(|commands| {
                         // sclera
                         commands.spawn((
@@ -163,7 +161,8 @@ fn setup(
                         // pupil
                         commands
                             .spawn((
-                                SpatialBundle::from_transform(Transform::from_xyz(0.0, 0.0, 1.0)),
+                                Transform::from_xyz(0.0, 0.0, 1.0),
+                                Visibility::default(),
                                 Pupil {
                                     eye_radius: radius,
                                     pupil_radius,

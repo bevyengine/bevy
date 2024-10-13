@@ -77,7 +77,7 @@ fn setup(mut commands: Commands) {
     commands.insert_resource(level_data);
 
     // Spawns the UI that will show the user prompts.
-    let text_style = TextStyle {
+    let text_style = TextFont {
         font_size: 42.0,
         ..default()
     };
@@ -239,7 +239,7 @@ struct LoadingScreen;
 
 // Spawns the necessary components for the loading screen.
 fn load_loading_screen(mut commands: Commands) {
-    let text_style = TextStyle {
+    let text_style = TextFont {
         font_size: 67.0,
         ..default()
     };

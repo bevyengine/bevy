@@ -81,14 +81,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Instructions
 
-    let text_style = TextStyle::default();
+    let text_font = TextFont::default();
 
     commands
         .spawn((
             Text::new(
                 "Next Overflow Setting (O)\nNext Container Size (S)\nToggle Animation (space)\n\n",
             ),
-            text_style.clone(),
+            text_font.clone(),
             Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
@@ -99,7 +99,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_child((
             TextSpan::new(format!("{:?}", Overflow::clip())),
-            text_style.clone(),
+            text_font.clone(),
         ));
 
     // Overflow Debug
@@ -168,7 +168,7 @@ fn spawn_text(
     spawn_container(parent, update_transform, |parent| {
         parent.spawn((
             Text::new("Bevy"),
-            TextStyle {
+            TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 100.0,
                 ..default()

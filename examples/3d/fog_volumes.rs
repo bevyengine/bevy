@@ -30,20 +30,17 @@ fn main() {
 /// Spawns all the objects in the scene.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn a fog volume with a voxelized version of the Stanford bunny.
-    commands
-        .spawn(SpatialBundle {
-            visibility: Visibility::Visible,
-            transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..default()
-        })
-        .insert(FogVolume {
+    commands.spawn((
+        Transform::from_xyz(0.0, 0.5, 0.0),
+        FogVolume {
             density_texture: Some(asset_server.load("volumes/bunny.ktx2")),
             density_factor: 1.0,
             // Scatter as much of the light as possible, to brighten the bunny
             // up.
             scattering: 1.0,
             ..default()
-        });
+        },
+    ));
 
     // Spawn a bright directional light that illuminates the fog well.
     commands.spawn((

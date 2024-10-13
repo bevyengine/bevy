@@ -122,7 +122,7 @@ impl fmt::Display for Target {
     }
 }
 impl Target {
-    fn text_span(&self, key: &str, style: TextStyle) -> (String, TextStyle) {
+    fn text_span(&self, key: &str, style: TextFont) -> (String, TextFont) {
         (format!("[{key}] {self}\n"), style)
     }
     fn new(
@@ -253,7 +253,7 @@ fn detect_morphs(
         detected.extend(targets);
     }
     detected.truncate(AVAILABLE_KEYS.len());
-    let style = TextStyle {
+    let style = TextFont {
         font_size: 13.0,
         ..default()
     };

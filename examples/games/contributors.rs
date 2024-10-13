@@ -128,7 +128,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
-    let text_style = TextStyle {
+    let text_style = TextFont {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 60.0,
         ..default()
@@ -148,7 +148,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_child((
             TextSpan::default(),
-            TextStyle {
+            TextFont {
                 font_size: 30.,
                 ..text_style
             },
@@ -216,7 +216,7 @@ fn select(
         contributor.num_commits,
         if contributor.num_commits > 1 { "s" } else { "" }
     );
-    writer.style(entity, 0).color = sprite.color;
+    writer.color(entity, 0).0 = sprite.color;
 }
 
 /// Change the tint color to the "deselected" color and push
