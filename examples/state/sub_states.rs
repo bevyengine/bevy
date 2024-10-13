@@ -7,7 +7,7 @@
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state, at which point we create
 //! a substate called `IsPaused` to track whether the game is paused or not.
 
-use bevy::prelude::*;
+use bevy::{dev_tools::states::*, prelude::*};
 
 use ui::*;
 
@@ -43,10 +43,7 @@ fn main() {
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
         .add_systems(OnEnter(AppState::InGame), setup_game)
         .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
-        .add_systems(
-            OnExit(IsPaused::Paused),
-            clear_state_bound_entities(IsPaused::Paused),
-        )
+        .enable_state_scoped_entities::<IsPaused>()
         .add_systems(
             Update,
             (
@@ -59,29 +56,28 @@ fn main() {
                 toggle_pause.run_if(in_state(AppState::InGame)),
             ),
         )
-        .add_systems(Update, log_transitions)
+        .add_systems(Update, log_transitions::<AppState>)
         .run();
 }
 
 fn menu(
     mut next_state: ResMut<NextState<AppState>>,
     mut interaction_query: Query<
-        (&Interaction, &mut UiImage),
+        (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut image) in &mut interaction_query {
-        let color = &mut image.color;
+    for (interaction, mut color) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                *color = PRESSED_BUTTON;
+                *color = PRESSED_BUTTON.into();
                 next_state.set(AppState::InGame);
             }
             Interaction::Hovered => {
-                *color = HOVERED_BUTTON;
+                *color = HOVERED_BUTTON.into();
             }
             Interaction::None => {
-                *color = NORMAL_BUTTON;
+                *color = NORMAL_BUTTON.into();
             }
         }
     }
@@ -121,7 +117,7 @@ fn movement(
 fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     for mut sprite in &mut query {
         let new_color = LinearRgba {
-            blue: (time.elapsed_seconds() * 0.5).sin() + 2.0,
+            blue: ops::sin(time.elapsed_seconds() * 0.5) + 2.0,
             ..LinearRgba::from(sprite.color)
         };
 
@@ -142,31 +138,6 @@ fn toggle_pause(
     }
 }
 
-#[derive(Component)]
-struct StateBound<S: States>(S);
-
-fn clear_state_bound_entities<S: States>(
-    state: S,
-) -> impl Fn(Commands, Query<(Entity, &StateBound<S>)>) {
-    move |mut commands, query| {
-        for (entity, bound) in &query {
-            if bound.0 == state {
-                commands.entity(entity).despawn_recursive();
-            }
-        }
-    }
-}
-
-/// print when an `AppState` transition happens
-fn log_transitions(mut transitions: EventReader<StateTransitionEvent<AppState>>) {
-    for transition in transitions.read() {
-        info!(
-            "transition: {:?} => {:?}",
-            transition.exited, transition.entered
-        );
-    }
-}
-
 mod ui {
     use crate::*;
 
@@ -180,7 +151,7 @@ mod ui {
     pub const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn(Camera2dBundle::default());
+        commands.spawn(Camera2d);
     }
 
     pub fn setup_menu(mut commands: Commands) {
@@ -208,17 +179,17 @@ mod ui {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        image: UiImage::default().with_color(NORMAL_BUTTON),
+                        background_color: NORMAL_BUTTON.into(),
                         ..default()
                     })
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Play",
-                            TextStyle {
-                                font_size: 40.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
+                        parent.spawn((
+                            Text::new("Play"),
+                            TextFont {
+                                font_size: 33.0,
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
             })
@@ -227,16 +198,13 @@ mod ui {
     }
 
     pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn(SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
-            ..default()
-        });
+        commands.spawn(Sprite::from_image(asset_server.load("branding/icon.png")));
     }
 
     pub fn setup_paused_screen(mut commands: Commands) {
         commands
             .spawn((
-                StateBound(IsPaused::Paused),
+                StateScoped(IsPaused::Paused),
                 NodeBundle {
                     style: Style {
                         // center button
@@ -267,13 +235,13 @@ mod ui {
                         ..default()
                     })
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Paused",
-                            TextStyle {
-                                font_size: 40.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
+                        parent.spawn((
+                            Text::new("Paused"),
+                            TextFont {
+                                font_size: 33.0,
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
             });

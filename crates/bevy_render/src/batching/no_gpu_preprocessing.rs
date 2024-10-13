@@ -75,7 +75,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GBD>(
     for phase in phases.values_mut() {
         super::batch_and_prepare_sorted_render_phase::<I, GBD>(phase, |item| {
             let (buffer_data, compare_data) =
-                GBD::get_batch_data(&system_param_item, item.entity())?;
+                GBD::get_batch_data(&system_param_item, (item.entity(), item.main_entity()))?;
             let buffer_index = batched_instance_buffer.push(buffer_data);
 
             let index = buffer_index.index;
@@ -104,10 +104,11 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     for phase in phases.values_mut() {
         // Prepare batchables.
 
-        for key in &phase.batchable_keys {
+        for key in &phase.batchable_mesh_keys {
             let mut batch_set: SmallVec<[BinnedRenderPhaseBatch; 1]> = smallvec![];
-            for &entity in &phase.batchable_values[key] {
-                let Some(buffer_data) = GFBD::get_binned_batch_data(&system_param_item, entity)
+            for &(entity, main_entity) in &phase.batchable_mesh_values[key] {
+                let Some(buffer_data) =
+                    GFBD::get_binned_batch_data(&system_param_item, (entity, main_entity))
                 else {
                     continue;
                 };
@@ -124,7 +125,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                             == PhaseItemExtraIndex::maybe_dynamic_offset(instance.dynamic_offset)
                 }) {
                     batch_set.push(BinnedRenderPhaseBatch {
-                        representative_entity: entity,
+                        representative_entity: (entity, main_entity),
                         instance_range: instance.index..instance.index,
                         extra_index: PhaseItemExtraIndex::maybe_dynamic_offset(
                             instance.dynamic_offset,
@@ -141,8 +142,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         }
 
         // Prepare unbatchables.
-        for key in &phase.unbatchable_keys {
-            let unbatchables = phase.unbatchable_values.get_mut(key).unwrap();
+        for key in &phase.unbatchable_mesh_keys {
+            let unbatchables = phase.unbatchable_mesh_values.get_mut(key).unwrap();
             for &entity in &unbatchables.entities {
                 let Some(buffer_data) = GFBD::get_binned_batch_data(&system_param_item, entity)
                 else {

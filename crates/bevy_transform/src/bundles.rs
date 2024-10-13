@@ -1,14 +1,17 @@
+#![expect(deprecated)]
 use bevy_ecs::bundle::Bundle;
 
 use crate::prelude::{GlobalTransform, Transform};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
-/// [`Component`]s, which describe the position of an entity.
+/// [`Component`](bevy_ecs::component::Component)s, which describe the position of an entity.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
-///   * You may use the [`TransformBundle`] to guarantee this.
+///   * ~You may use the [`TransformBundle`] to guarantee this.~
+///     [`TransformBundle`] is now deprecated.
+///     [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
@@ -18,12 +21,16 @@ use crate::prelude::{GlobalTransform, Transform};
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
-/// [`TransformPropagate`](TransformSystem::TransformPropagate).
+/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
-/// This system runs during [`PostUpdate`]. If you
+/// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
 /// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Clone, Copy, Debug, Default, Bundle)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Transform` component instead. Inserting `Transform` will now also insert a `GlobalTransform` automatically."
+)]
 pub struct TransformBundle {
     /// The transform of the entity.
     pub local: Transform,
@@ -41,7 +48,7 @@ impl TransformBundle {
     /// Creates a new [`TransformBundle`] from a [`Transform`].
     ///
     /// This initializes [`GlobalTransform`] as identity, to be updated later by the
-    /// [`PostUpdate`] schedule.
+    /// [`bevy_app::PostUpdate`] schedule.
     #[inline]
     pub const fn from_transform(transform: Transform) -> Self {
         TransformBundle {

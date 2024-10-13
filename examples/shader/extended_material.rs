@@ -7,6 +7,9 @@ use bevy::{
     render::render_resource::*,
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/extended_material.wgsl";
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -24,10 +27,9 @@ fn setup(
     mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, MyExtension>>>,
 ) {
     // sphere
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Sphere::new(1.0)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        material: materials.add(ExtendedMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Sphere::new(1.0))),
+        MeshMaterial3d(materials.add(ExtendedMaterial {
             base: StandardMaterial {
                 base_color: RED.into(),
                 // can be used in forward or deferred mode.
@@ -40,24 +42,22 @@ fn setup(
                 ..Default::default()
             },
             extension: MyExtension { quantize_steps: 3 },
-        }),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 
     // light
     commands.spawn((
-        DirectionalLightBundle {
-            transform: Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
+        DirectionalLight::default(),
+        Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
         Rotate,
     ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 #[derive(Component)]
@@ -79,10 +79,10 @@ struct MyExtension {
 
 impl MaterialExtension for MyExtension {
     fn fragment_shader() -> ShaderRef {
-        "shaders/extended_material.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 
     fn deferred_fragment_shader() -> ShaderRef {
-        "shaders/extended_material.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }

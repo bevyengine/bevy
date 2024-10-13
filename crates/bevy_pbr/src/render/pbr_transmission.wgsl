@@ -30,7 +30,7 @@ fn specular_transmissive_light(world_position: vec4<f32>, frag_coord: vec3<f32>,
     let exit_position = world_position.xyz + T * thickness;
 
     // Transform exit_position into clip space
-    let clip_exit_position = view_bindings::view.view_proj * vec4<f32>(exit_position, 1.0);
+    let clip_exit_position = view_bindings::view.clip_from_world * vec4<f32>(exit_position, 1.0);
 
     // Scale / offset position so that coordinate is in right space for sampling transmissive background texture
     let offset_position = (clip_exit_position.xy / clip_exit_position.w) * vec2<f32>(0.5, -0.5) + 0.5;

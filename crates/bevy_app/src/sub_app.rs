@@ -1,20 +1,15 @@
-use crate::{App, InternedAppLabel, Plugin, Plugins, PluginsState, Startup};
+use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
     schedule::{InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel},
-    system::SystemId,
-};
-#[cfg(feature = "bevy_state")]
-use bevy_state::{
-    prelude::*,
-    state::{setup_state_transitions_in_world, FreelyMutableState},
+    system::{SystemId, SystemInput},
 };
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{HashMap, HashSet};
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 
@@ -80,7 +75,7 @@ pub struct SubApp {
 }
 
 impl Debug for SubApp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "SubApp")
     }
 }
@@ -114,9 +109,9 @@ impl SubApp {
         F: FnOnce(&mut App),
     {
         let mut app = App::empty();
-        std::mem::swap(self, &mut app.sub_apps.main);
+        core::mem::swap(self, &mut app.sub_apps.main);
         f(&mut app);
-        std::mem::swap(self, &mut app.sub_apps.main);
+        core::mem::swap(self, &mut app.sub_apps.main);
     }
 
     /// Returns a reference to the [`World`].
@@ -130,7 +125,9 @@ impl SubApp {
     }
 
     /// Runs the default schedule.
-    pub fn update(&mut self) {
+    ///
+    /// Does not clear internal trackers used for change detection.
+    pub fn run_default_schedule(&mut self) {
         if self.is_building_plugins() {
             panic!("SubApp::update() was called while a plugin was building.");
         }
@@ -138,6 +135,11 @@ impl SubApp {
         if let Some(label) = self.update_schedule {
             self.world.run_schedule(label);
         }
+    }
+
+    /// Runs the default schedule and updates internal component trackers.
+    pub fn update(&mut self) {
+        self.run_default_schedule();
         self.world.clear_trackers();
     }
 
@@ -187,10 +189,14 @@ impl SubApp {
     }
 
     /// See [`App::register_system`].
-    pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+    pub fn register_system<I, O, M>(
         &mut self,
-        system: S,
-    ) -> SystemId<I, O> {
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> SystemId<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
         self.world.register_system(system)
     }
 
@@ -298,88 +304,6 @@ impl SubApp {
         self
     }
 
-    #[cfg(feature = "bevy_state")]
-    /// See [`App::init_state`].
-    pub fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
-        if !self.world.contains_resource::<State<S>>() {
-            setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
-            self.init_resource::<State<S>>()
-                .init_resource::<NextState<S>>()
-                .add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
-            S::register_state(schedule);
-            let state = self.world.resource::<State<S>>().get().clone();
-            self.world.send_event(StateTransitionEvent {
-                exited: None,
-                entered: Some(state),
-            });
-        }
-
-        self
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// See [`App::insert_state`].
-    pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
-        if !self.world.contains_resource::<State<S>>() {
-            setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
-            self.insert_resource::<State<S>>(State::new(state.clone()))
-                .init_resource::<NextState<S>>()
-                .add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
-            S::register_state(schedule);
-            self.world.send_event(StateTransitionEvent {
-                exited: None,
-                entered: Some(state),
-            });
-        }
-
-        self
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// See [`App::add_computed_state`].
-    pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
-        if !self
-            .world
-            .contains_resource::<Events<StateTransitionEvent<S>>>()
-        {
-            setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
-            self.add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
-            S::register_computed_state_systems(schedule);
-            let state = self.world.resource::<State<S>>().get().clone();
-            self.world.send_event(StateTransitionEvent {
-                exited: None,
-                entered: Some(state),
-            });
-        }
-
-        self
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// See [`App::add_sub_state`].
-    pub fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
-        if !self
-            .world
-            .contains_resource::<Events<StateTransitionEvent<S>>>()
-        {
-            setup_state_transitions_in_world(&mut self.world, Some(Startup.intern()));
-            self.init_resource::<NextState<S>>();
-            self.add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
-            S::register_sub_state_systems(schedule);
-            let state = self.world.resource::<State<S>>().get().clone();
-            self.world.send_event(StateTransitionEvent {
-                exited: None,
-                entered: Some(state),
-            });
-        }
-
-        self
-    }
-
     /// See [`App::add_event`].
     pub fn add_event<T>(&mut self) -> &mut Self
     where
@@ -403,7 +327,7 @@ impl SubApp {
     where
         T: Plugin,
     {
-        self.plugin_names.contains(std::any::type_name::<T>())
+        self.plugin_names.contains(core::any::type_name::<T>())
     }
 
     /// See [`App::get_added_plugins`].
@@ -428,7 +352,7 @@ impl SubApp {
         match self.plugins_state {
             PluginsState::Adding => {
                 let mut state = PluginsState::Ready;
-                let plugins = std::mem::take(&mut self.plugin_registry);
+                let plugins = core::mem::take(&mut self.plugin_registry);
                 self.run_as_app(|app| {
                     for plugin in &plugins {
                         if !plugin.ready(app) {
@@ -446,7 +370,7 @@ impl SubApp {
 
     /// Runs [`Plugin::finish`] for each plugin.
     pub fn finish(&mut self) {
-        let plugins = std::mem::take(&mut self.plugin_registry);
+        let plugins = core::mem::take(&mut self.plugin_registry);
         self.run_as_app(|app| {
             for plugin in &plugins {
                 plugin.finish(app);
@@ -458,7 +382,7 @@ impl SubApp {
 
     /// Runs [`Plugin::cleanup`] for each plugin.
     pub fn cleanup(&mut self) {
-        let plugins = std::mem::take(&mut self.plugin_registry);
+        let plugins = core::mem::take(&mut self.plugin_registry);
         self.run_as_app(|app| {
             for plugin in &plugins {
                 plugin.cleanup(app);
@@ -488,6 +412,32 @@ impl SubApp {
         registry.write().register_type_data::<T, D>();
         self
     }
+
+    /// See [`App::register_function`].
+    #[cfg(feature = "reflect_functions")]
+    pub fn register_function<F, Marker>(&mut self, function: F) -> &mut Self
+    where
+        F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
+    {
+        let registry = self.world.resource_mut::<AppFunctionRegistry>();
+        registry.write().register(function).unwrap();
+        self
+    }
+
+    /// See [`App::register_function_with_name`].
+    #[cfg(feature = "reflect_functions")]
+    pub fn register_function_with_name<F, Marker>(
+        &mut self,
+        name: impl Into<alloc::borrow::Cow<'static, str>>,
+        function: F,
+    ) -> &mut Self
+    where
+        F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
+    {
+        let registry = self.world.resource_mut::<AppFunctionRegistry>();
+        registry.write().register_with_name(name, function).unwrap();
+        self
+    }
 }
 
 /// The collection of sub-apps that belong to an [`App`].
@@ -508,7 +458,7 @@ impl SubApps {
         {
             #[cfg(feature = "trace")]
             let _bevy_frame_update_span = info_span!("main app").entered();
-            self.main.update();
+            self.main.run_default_schedule();
         }
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             #[cfg(feature = "trace")]
@@ -522,11 +472,19 @@ impl SubApps {
 
     /// Returns an iterator over the sub-apps (starting with the main one).
     pub fn iter(&self) -> impl Iterator<Item = &SubApp> + '_ {
-        std::iter::once(&self.main).chain(self.sub_apps.values())
+        core::iter::once(&self.main).chain(self.sub_apps.values())
     }
 
     /// Returns a mutable iterator over the sub-apps (starting with the main one).
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut SubApp> + '_ {
-        std::iter::once(&mut self.main).chain(self.sub_apps.values_mut())
+        core::iter::once(&mut self.main).chain(self.sub_apps.values_mut())
+    }
+
+    /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
+    pub fn update_subapp_by_label(&mut self, label: impl AppLabel) {
+        if let Some(sub_app) = self.sub_apps.get_mut(&label.intern()) {
+            sub_app.extract(&mut self.main.world);
+            sub_app.update();
+        }
     }
 }

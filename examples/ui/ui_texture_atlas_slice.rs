@@ -28,16 +28,16 @@ fn button_system(
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
-                text.sections[0].value = "Press".to_string();
+                **text = "Press".to_string();
                 atlas.index = (atlas.index + 1) % 30;
                 image.color = GOLD.into();
             }
             Interaction::Hovered => {
-                text.sections[0].value = "Hover".to_string();
+                **text = "Hover".to_string();
                 image.color = ORANGE.into();
             }
             Interaction::None => {
-                text.sections[0].value = "Button".to_string();
+                **text = "Button".to_string();
                 image.color = Color::WHITE;
             }
         }
@@ -50,17 +50,18 @@ fn setup(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     let texture_handle = asset_server.load("textures/fantasy_ui_borders/border_sheet.png");
-    let atlas_layout = TextureAtlasLayout::from_grid(UVec2::new(50, 50), 6, 6, None, None);
+    let atlas_layout =
+        TextureAtlasLayout::from_grid(UVec2::new(50, 50), 6, 6, Some(UVec2::splat(2)), None);
     let atlas_layout_handle = texture_atlases.add(atlas_layout);
 
     let slicer = TextureSlicer {
-        border: BorderRect::square(22.0),
+        border: BorderRect::square(24.0),
         center_scale_mode: SliceScaleMode::Stretch,
         sides_scale_mode: SliceScaleMode::Stretch,
         max_corner_scale: 1.0,
     };
     // ui camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -101,13 +102,14 @@ fn setup(
                         },
                     ))
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Button",
-                            TextStyle {
+                        parent.spawn((
+                            Text::new("Button"),
+                            TextFont {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 40.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
+                                font_size: 33.0,
+                                ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
             }

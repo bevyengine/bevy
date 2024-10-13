@@ -13,6 +13,9 @@ use bevy::{
     },
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/custom_vertex_attribute.wgsl";
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, MaterialPlugin::<CustomMaterial>::default()))
@@ -40,20 +43,19 @@ fn setup(
         );
 
     // cube
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(mesh),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        material: materials.add(CustomMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(mesh)),
+        MeshMaterial3d(materials.add(CustomMaterial {
             color: LinearRgba::WHITE,
-        }),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 // This is the struct that will be passed to your shader
@@ -65,10 +67,10 @@ struct CustomMaterial {
 
 impl Material for CustomMaterial {
     fn vertex_shader() -> ShaderRef {
-        "shaders/custom_vertex_attribute.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
     fn fragment_shader() -> ShaderRef {
-        "shaders/custom_vertex_attribute.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 
     fn specialize(

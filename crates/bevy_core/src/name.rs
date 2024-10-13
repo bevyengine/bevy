@@ -1,16 +1,19 @@
-use bevy_ecs::query::QueryData;
-use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::reflect::ReflectComponent;
+use bevy_ecs::{component::Component, entity::Entity, query::QueryData};
 
+use alloc::borrow::Cow;
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::AHasher;
-use std::{
-    borrow::Cow,
+use core::{
     hash::{Hash, Hasher},
     ops::Deref,
 };
 
-#[cfg(feature = "serialize")]
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Component used to identify an entity. Stores a hash for faster comparisons.
@@ -20,9 +23,16 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// [`Name`] should not be treated as a globally unique identifier for entities,
 /// as multiple entities can have the same name.  [`Entity`] should be
 /// used instead as the default unique identifier.
-#[derive(Reflect, Component, Clone)]
-#[reflect(Component, Default, Debug)]
-#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
+#[derive(Component, Clone)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Default, Debug)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Deserialize, Serialize)
+)]
 pub struct Name {
     hash: u64, // Won't be serialized (see: `bevy_core::serde` module)
     name: Cow<'static, str>,
@@ -76,17 +86,17 @@ impl Name {
     }
 }
 
-impl std::fmt::Display for Name {
+impl core::fmt::Display for Name {
     #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.name, f)
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        core::fmt::Display::fmt(&self.name, f)
     }
 }
 
-impl std::fmt::Debug for Name {
+impl core::fmt::Debug for Name {
     #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Debug::fmt(&self.name, f)
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        core::fmt::Debug::fmt(&self.name, f)
     }
 }
 
@@ -96,35 +106,41 @@ impl std::fmt::Debug for Name {
 /// # use bevy_core::prelude::*;
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)] pub struct Score(f32);
-/// fn increment_score(mut scores: Query<(DebugName, &mut Score)>) {
+/// fn increment_score(mut scores: Query<(NameOrEntity, &mut Score)>) {
 ///     for (name, mut score) in &mut scores {
 ///         score.0 += 1.0;
 ///         if score.0.is_nan() {
-///             bevy_utils::tracing::error!("Score for {:?} is invalid", name);
+///             bevy_utils::tracing::error!("Score for {name} is invalid");
 ///         }
 ///     }
 /// }
 /// # bevy_ecs::system::assert_is_system(increment_score);
 /// ```
+///
+/// # Implementation
+///
+/// The `Display` impl for `NameOrEntity` returns the `Name` where there is one
+/// or {index}v{generation} for entities without one.
 #[derive(QueryData)]
-pub struct DebugName {
+#[query_data(derive(Debug))]
+pub struct NameOrEntity {
     /// A [`Name`] that the entity might have that is displayed if available.
     pub name: Option<&'static Name>,
     /// The unique identifier of the entity as a fallback.
     pub entity: Entity,
 }
 
-impl<'a> std::fmt::Debug for DebugNameItem<'a> {
+impl<'a> core::fmt::Display for NameOrEntityItem<'a> {
     #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self.name {
-            Some(name) => write!(f, "{:?} ({:?})", &name, &self.entity),
-            None => std::fmt::Debug::fmt(&self.entity, f),
+            Some(name) => core::fmt::Display::fmt(name, f),
+            None => core::fmt::Display::fmt(&self.entity, f),
         }
     }
 }
 
-/* Conversions from strings */
+// Conversions from strings
 
 impl From<&str> for Name {
     #[inline(always)]
@@ -139,7 +155,7 @@ impl From<String> for Name {
     }
 }
 
-/* Conversions to strings */
+// Conversions to strings
 
 impl AsRef<str> for Name {
     #[inline(always)]
@@ -180,13 +196,13 @@ impl PartialEq for Name {
 impl Eq for Name {}
 
 impl PartialOrd for Name {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for Name {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.name.cmp(&other.name)
     }
 }
@@ -196,5 +212,26 @@ impl Deref for Name {
 
     fn deref(&self) -> &Self::Target {
         self.name.as_ref()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_ecs::world::World;
+
+    #[test]
+    fn test_display_of_debug_name() {
+        let mut world = World::new();
+        let e1 = world.spawn_empty().id();
+        let name = Name::new("MyName");
+        let e2 = world.spawn(name.clone()).id();
+        let mut query = world.query::<NameOrEntity>();
+        let d1 = query.get(&world, e1).unwrap();
+        let d2 = query.get(&world, e2).unwrap();
+        // NameOrEntity Display for entities without a Name should be {index}v{generation}
+        assert_eq!(d1.to_string(), "0v1");
+        // NameOrEntity Display for entities with a Name should be the Name
+        assert_eq!(d2.to_string(), "MyName");
     }
 }

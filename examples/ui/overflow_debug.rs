@@ -1,5 +1,6 @@
 //! Tests how different transforms behave when clipped with `Overflow::Hidden`
-use bevy::{input::common_conditions::input_just_pressed, prelude::*};
+
+use bevy::{input::common_conditions::input_just_pressed, prelude::*, ui::widget::UiTextWriter};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 const CONTAINER_SIZE: f32 = 150.0;
@@ -48,8 +49,8 @@ struct Move;
 
 impl UpdateTransform for Move {
     fn update(&self, t: f32, transform: &mut Transform) {
-        transform.translation.x = (t * TAU - FRAC_PI_2).sin() * HALF_CONTAINER_SIZE;
-        transform.translation.y = -(t * TAU - FRAC_PI_2).cos() * HALF_CONTAINER_SIZE;
+        transform.translation.x = ops::sin(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
+        transform.translation.y = -ops::cos(t * TAU - FRAC_PI_2) * HALF_CONTAINER_SIZE;
     }
 }
 
@@ -58,8 +59,8 @@ struct Scale;
 
 impl UpdateTransform for Scale {
     fn update(&self, t: f32, transform: &mut Transform) {
-        transform.scale.x = 1.0 + 0.5 * (t * TAU).cos().max(0.0);
-        transform.scale.y = 1.0 + 0.5 * (t * TAU + PI).cos().max(0.0);
+        transform.scale.x = 1.0 + 0.5 * ops::cos(t * TAU).max(0.0);
+        transform.scale.y = 1.0 + 0.5 * ops::cos(t * TAU + PI).max(0.0);
     }
 }
 
@@ -68,35 +69,38 @@ struct Rotate;
 
 impl UpdateTransform for Rotate {
     fn update(&self, t: f32, transform: &mut Transform) {
-        transform.rotation = Quat::from_axis_angle(Vec3::Z, ((t * TAU).cos() * 45.0).to_radians());
+        transform.rotation =
+            Quat::from_axis_angle(Vec3::Z, (ops::cos(t * TAU) * 45.0).to_radians());
     }
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Instructions
 
-    let text_style = TextStyle::default();
+    let text_font = TextFont::default();
 
-    commands.spawn((
-        TextBundle::from_sections([
-            TextSection::new(
+    commands
+        .spawn((
+            Text::new(
                 "Next Overflow Setting (O)\nNext Container Size (S)\nToggle Animation (space)\n\n",
-                text_style.clone(),
             ),
-            TextSection::new(format!("{:?}", Overflow::clip()), text_style.clone()),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-        Instructions,
-    ));
+            text_font.clone(),
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+            Instructions,
+        ))
+        .with_child((
+            TextSpan::new(format!("{:?}", Overflow::clip())),
+            text_font.clone(),
+        ));
 
     // Overflow Debug
 
@@ -162,11 +166,11 @@ fn spawn_text(
     update_transform: impl UpdateTransform + Component,
 ) {
     spawn_container(parent, update_transform, |parent| {
-        parent.spawn(TextBundle::from_section(
-            "Bevy",
-            TextStyle {
+        parent.spawn((
+            Text::new("Bevy"),
+            TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 120.0,
+                font_size: 100.0,
                 ..default()
             },
         ));
@@ -254,7 +258,8 @@ fn update_transform<T: UpdateTransform + Component>(
 
 fn toggle_overflow(
     mut containers: Query<&mut Style, With<Container>>,
-    mut instructions: Query<&mut Text, With<Instructions>>,
+    instructions: Single<Entity, With<Instructions>>,
+    mut writer: UiTextWriter,
 ) {
     for mut style in &mut containers {
         style.overflow = match style.overflow {
@@ -273,8 +278,8 @@ fn toggle_overflow(
             _ => Overflow::visible(),
         };
 
-        let mut text = instructions.single_mut();
-        text.sections[1].value = format!("{:?}", style.overflow);
+        let entity = *instructions;
+        *writer.text(entity, 1) = format!("{:?}", style.overflow);
     }
 }
 

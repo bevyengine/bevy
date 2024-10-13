@@ -8,6 +8,9 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/array_texture.wgsl";
+
 fn main() {
     App::new()
         .add_plugins((
@@ -33,16 +36,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     // light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(3.0, 2.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
-    });
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_xyz(3.0, 2.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(1.5, 0.0, 0.0), Vec3::Y),
-        ..Default::default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(1.5, 0.0, 0.0), Vec3::Y),
+    ));
 }
 
 fn create_array_texture(
@@ -71,12 +74,11 @@ fn create_array_texture(
         array_texture: loading_texture.handle.clone(),
     });
     for x in -5..=5 {
-        commands.spawn(MaterialMeshBundle {
-            mesh: mesh_handle.clone(),
-            material: material_handle.clone(),
-            transform: Transform::from_xyz(x as f32 + 0.5, 0.0, 0.0),
-            ..Default::default()
-        });
+        commands.spawn((
+            Mesh3d(mesh_handle.clone()),
+            MeshMaterial3d(material_handle.clone()),
+            Transform::from_xyz(x as f32 + 0.5, 0.0, 0.0),
+        ));
     }
 }
 
@@ -89,6 +91,6 @@ struct ArrayTextureMaterial {
 
 impl Material for ArrayTextureMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/array_texture.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }

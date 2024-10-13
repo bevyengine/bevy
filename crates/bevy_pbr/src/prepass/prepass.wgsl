@@ -1,5 +1,6 @@
 #import bevy_pbr::{
     prepass_bindings,
+    mesh_bindings::mesh,
     mesh_functions,
     prepass_io::{Vertex, VertexOutput, FragmentOutput},
     skinning,
@@ -15,18 +16,21 @@
 #ifdef MORPH_TARGETS
 fn morph_vertex(vertex_in: Vertex) -> Vertex {
     var vertex = vertex_in;
+    let first_vertex = mesh[vertex.instance_index].first_vertex_index;
+    let vertex_index = vertex.index - first_vertex;
+
     let weight_count = morph::layer_count();
     for (var i: u32 = 0u; i < weight_count; i ++) {
         let weight = morph::weight_at(i);
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * morph::morph(vertex.index, morph::position_offset, i);
+        vertex.position += weight * morph::morph(vertex_index, morph::position_offset, i);
 #ifdef VERTEX_NORMALS
-        vertex.normal += weight * morph::morph(vertex.index, morph::normal_offset, i);
+        vertex.normal += weight * morph::morph(vertex_index, morph::normal_offset, i);
 #endif
 #ifdef VERTEX_TANGENTS
-        vertex.tangent += vec4(weight * morph::morph(vertex.index, morph::tangent_offset, i), 0.0);
+        vertex.tangent += vec4(weight * morph::morph(vertex_index, morph::tangent_offset, i), 0.0);
 #endif
     }
     return vertex;
@@ -63,14 +67,14 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif
 
 #ifdef SKINNED
-    var model = skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
+    var world_from_local = skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
 #else // SKINNED
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    var model = mesh_functions::get_model_matrix(vertex_no_morph.instance_index);
+    var world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
 #endif // SKINNED
 
-    out.world_position = mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
+    out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4<f32>(vertex.position, 1.0));
     out.position = position_world_to_clip(out.world_position.xyz);
 #ifdef DEPTH_CLAMP_ORTHO
     out.clip_position_unclamped = out.position;
@@ -87,7 +91,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
 #ifdef SKINNED
-    out.world_normal = skinning::skin_normals(model, vertex.normal);
+    out.world_normal = skinning::skin_normals(world_from_local, vertex.normal);
 #else // SKINNED
     out.world_normal = mesh_functions::mesh_normal_local_to_world(
         vertex.normal,
@@ -99,7 +103,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_functions::mesh_tangent_local_to_world(
-        model,
+        world_from_local,
         vertex.tangent,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         // See https://github.com/gfx-rs/naga/issues/2416
@@ -138,11 +142,11 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
         prev_vertex.joint_weights,
     );
 #else   // HAS_PREVIOUS_SKIN
-    let prev_model = mesh_functions::get_previous_model_matrix(prev_vertex.instance_index);
+    let prev_model = mesh_functions::get_previous_world_from_local(prev_vertex.instance_index);
 #endif  // HAS_PREVIOUS_SKIN
 
 #else   // SKINNED
-    let prev_model = mesh_functions::get_previous_model_matrix(prev_vertex.instance_index);
+    let prev_model = mesh_functions::get_previous_world_from_local(prev_vertex.instance_index);
 #endif  // SKINNED
 
     out.previous_world_position = mesh_functions::mesh_position_local_to_world(
@@ -174,9 +178,9 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
 #endif // DEPTH_CLAMP_ORTHO
 
 #ifdef MOTION_VECTOR_PREPASS
-    let clip_position_t = view.unjittered_view_proj * in.world_position;
+    let clip_position_t = view.unjittered_clip_from_world * in.world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = prepass_bindings::previous_view_uniforms.view_proj * in.previous_world_position;
+    let previous_clip_position_t = prepass_bindings::previous_view_uniforms.clip_from_world * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // These motion vectors are used as offsets to UV positions and are stored
     // in the range -1,1 to allow offsetting from the one corner to the

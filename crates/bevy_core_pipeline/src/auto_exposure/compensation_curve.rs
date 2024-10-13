@@ -10,7 +10,7 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
 };
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 const LUT_SIZE: usize = 256;
 
@@ -32,6 +32,7 @@ pub struct AutoExposureCompensationCurve {
     /// Each value in the LUT is a `u8` representing a normalized exposure compensation value:
     /// * `0` maps to `min_compensation`
     /// * `255` maps to `max_compensation`
+    ///
     /// The position in the LUT corresponds to the normalized log luminance value.
     /// * `0` maps to `min_log_lum`
     /// * `LUT_SIZE - 1` maps to `max_log_lum`
@@ -39,13 +40,16 @@ pub struct AutoExposureCompensationCurve {
 }
 
 /// Various errors that can occur when constructing an [`AutoExposureCompensationCurve`].
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 pub enum AutoExposureCompensationCurveError {
+    /// The curve couldn't be built in the first place.
+    #[display("curve could not be constructed from the given data")]
+    InvalidCurve,
     /// A discontinuity was found in the curve.
-    #[error("discontinuity found between curve segments")]
+    #[display("discontinuity found between curve segments")]
     DiscontinuityFound,
     /// The curve is not monotonically increasing on the x-axis.
-    #[error("curve is not monotonically increasing on the x-axis")]
+    #[display("curve is not monotonically increasing on the x-axis")]
     NotMonotonic,
 }
 
@@ -98,7 +102,9 @@ impl AutoExposureCompensationCurve {
     where
         T: CubicGenerator<Vec2>,
     {
-        let curve = curve.to_curve();
+        let Ok(curve) = curve.to_curve() else {
+            return Err(AutoExposureCompensationCurveError::InvalidCurve);
+        };
 
         let min_log_lum = curve.position(0.0).x;
         let max_log_lum = curve.position(curve.segments().len() as f32).x;
