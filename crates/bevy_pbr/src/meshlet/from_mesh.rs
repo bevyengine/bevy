@@ -14,8 +14,9 @@ use derive_more::derive::{Display, Error};
 use half::f16;
 use itertools::Itertools;
 use meshopt::{
-    build_meshlets, ffi::meshopt_Meshlet, generate_vertex_remap_multi, simplify, Meshlets,
-    SimplifyOptions, VertexDataAdapter, VertexStream,
+    build_meshlets,
+    ffi::{meshopt_Meshlet, meshopt_simplifyWithAttributes},
+    generate_vertex_remap_multi, Meshlets, SimplifyOptions, VertexDataAdapter, VertexStream,
 };
 use metis::Graph;
 use smallvec::SmallVec;
@@ -101,6 +102,8 @@ impl MeshletMesh {
             Some(&indices),
         );
 
+        let mut vertex_locks = vec![0; vertices.vertex_count];
+
         // Build further LODs
         let mut simplification_queue = 0..meshlets.len();
         while simplification_queue.len() > 1 {
@@ -119,12 +122,21 @@ impl MeshletMesh {
                 &connected_meshlets_per_meshlet,
             );
 
+            // Lock borders between groups to prevent cracks when simplifying
+            lock_group_borders(
+                &mut vertex_locks,
+                &groups,
+                &meshlets,
+                &position_only_vertex_remap,
+                position_only_vertex_count as usize,
+            );
+
             let next_lod_start = meshlets.len();
 
             for group_meshlets in groups.into_iter().filter(|group| group.len() > 1) {
                 // Simplify the group to ~50% triangle count
                 let Some((simplified_group_indices, mut group_error)) =
-                    simplify_meshlet_group(&group_meshlets, &meshlets, &vertices)
+                    simplify_meshlet_group(&group_meshlets, &meshlets, &vertices, &vertex_locks)
                 else {
                     continue;
                 };
@@ -312,10 +324,48 @@ fn group_meshlets(
     groups
 }
 
+fn lock_group_borders(
+    vertex_locks: &mut [u8],
+    groups: &[SmallVec<[usize; TARGET_MESHLETS_PER_GROUP]>],
+    meshlets: &Meshlets,
+    position_only_vertex_remap: &[u32],
+    position_only_vertex_count: usize,
+) {
+    let mut position_only_locks = vec![-1; position_only_vertex_count];
+
+    // Iterate over position-only based vertices of all meshlets in all groups
+    for (group_id, group_meshlets) in groups.iter().enumerate() {
+        for meshlet_id in group_meshlets {
+            let meshlet = meshlets.get(*meshlet_id);
+            for index in meshlet.triangles {
+                let vertex_id =
+                    position_only_vertex_remap[meshlet.vertices[*index as usize] as usize] as usize;
+
+                // If the vertex not yet claimed by any group, or was already claimed by this group
+                if position_only_locks[vertex_id] == -1
+                    || position_only_locks[vertex_id] == group_id as i32
+                {
+                    position_only_locks[vertex_id] = group_id as i32; // Then claim the vertex for this group
+                } else {
+                    position_only_locks[vertex_id] = -2; // Else vertex was already claimed by another group or was already locked, lock it
+                }
+            }
+        }
+    }
+
+    // Lock vertices used by more than 1 group
+    for i in 0..vertex_locks.len() {
+        let vertex_id = position_only_vertex_remap[i] as usize;
+        vertex_locks[i] = (position_only_locks[vertex_id] == -2) as u8;
+    }
+}
+
+#[allow(unsafe_code)]
 fn simplify_meshlet_group(
     group_meshlets: &[usize],
     meshlets: &Meshlets,
     vertices: &VertexDataAdapter<'_>,
+    vertex_locks: &[u8],
 ) -> Option<(Vec<u32>, f16)> {
     // Build a new index buffer into the mesh vertex data by combining all meshlet data in the group
     let mut group_indices = Vec::new();
@@ -329,14 +379,31 @@ fn simplify_meshlet_group(
     // Simplify the group to ~50% triangle count
     // TODO: Simplify using vertex attributes
     let mut error = 0.0;
-    let simplified_group_indices = simplify(
-        &group_indices,
-        vertices,
-        group_indices.len() / 2,
-        f32::MAX,
-        SimplifyOptions::LockBorder | SimplifyOptions::Sparse | SimplifyOptions::ErrorAbsolute, /* TODO: Specify manual vertex locks instead of meshopt's overly-strict locks */
-        Some(&mut error),
-    );
+    let simplified_group_indices = unsafe {
+        let vertex_data = vertices.reader.get_ref();
+        let vertex_data = vertex_data.as_ptr().cast::<u8>();
+        let positions = vertex_data.add(vertices.position_offset);
+        let mut result: Vec<u32> = vec![0; group_indices.len()];
+        let index_count = meshopt_simplifyWithAttributes(
+            result.as_mut_ptr().cast(),
+            group_indices.as_ptr().cast(),
+            group_indices.len(),
+            positions.cast::<f32>(),
+            vertices.vertex_count,
+            vertices.vertex_stride,
+            std::ptr::null(),
+            0,
+            std::ptr::null(),
+            0,
+            vertex_locks.as_ptr().cast(),
+            group_indices.len() / 2,
+            f32::MAX,
+            (SimplifyOptions::Sparse | SimplifyOptions::ErrorAbsolute).bits(),
+            (&mut error) as *mut _,
+        );
+        result.resize(index_count, 0u32);
+        result
+    };
 
     // Check if we were able to simplify at least a little
     if simplified_group_indices.len() as f32 / group_indices.len() as f32
