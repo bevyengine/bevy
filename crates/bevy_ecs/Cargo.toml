@@ -41,7 +41,7 @@ derive_more = { version = "1", default-features = false, features = [
 ] }
 nonmax = "0.5"
 arrayvec = { version = "0.7.4", optional = true }
-smallvec = "1"
+smallvec = { version = "1", features = ["union"] }
 
 [dev-dependencies]
 rand = "0.8"
