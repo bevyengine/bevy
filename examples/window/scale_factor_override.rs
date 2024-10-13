@@ -53,7 +53,7 @@ fn setup(mut commands: Commands) {
                 .with_child((
                     CustomText,
                     Text::new("Example text"),
-                    TextStyle {
+                    TextFont {
                         font_size: 25.0,
                         ..default()
                     },

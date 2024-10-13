@@ -2,6 +2,7 @@
 use bevy::{
     color::palettes::basic::{BLUE, LIME, RED},
     prelude::*,
+    time::Stopwatch,
 };
 
 fn main() {
@@ -34,7 +35,11 @@ fn setup(
 
     let listener = SpatialListener::new(gap);
     commands
-        .spawn((SpatialBundle::default(), listener.clone()))
+        .spawn((
+            Transform::default(),
+            Visibility::default(),
+            listener.clone(),
+        ))
         .with_children(|parent| {
             // left ear indicator
             parent.spawn((
@@ -77,7 +82,7 @@ fn setup(
 
 #[derive(Component, Default)]
 struct Emitter {
-    stopped: bool,
+    stopwatch: Stopwatch,
 }
 
 fn update_positions(
@@ -87,12 +92,18 @@ fn update_positions(
 ) {
     for (mut emitter_transform, mut emitter) in emitters.iter_mut() {
         if keyboard.just_pressed(KeyCode::Space) {
-            emitter.stopped = !emitter.stopped;
+            if emitter.stopwatch.paused() {
+                emitter.stopwatch.unpause();
+            } else {
+                emitter.stopwatch.pause();
+            }
         }
 
-        if !emitter.stopped {
-            emitter_transform.translation.x = ops::sin(time.elapsed_seconds()) * 3.0;
-            emitter_transform.translation.z = ops::cos(time.elapsed_seconds()) * 3.0;
+        emitter.stopwatch.tick(time.delta());
+
+        if !emitter.stopwatch.paused() {
+            emitter_transform.translation.x = ops::sin(emitter.stopwatch.elapsed_secs()) * 3.0;
+            emitter_transform.translation.z = ops::cos(emitter.stopwatch.elapsed_secs()) * 3.0;
         }
     }
 }

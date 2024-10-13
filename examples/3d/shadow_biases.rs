@@ -46,13 +46,7 @@ fn setup(
 
     let light_transform = Transform::from_xyz(5.0, 5.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
     commands
-        .spawn((
-            SpatialBundle {
-                transform: light_transform,
-                ..default()
-            },
-            Lights,
-        ))
+        .spawn((light_transform, Visibility::default(), Lights))
         .with_children(|builder| {
             builder.spawn(PointLight {
                 intensity: 0.0,
