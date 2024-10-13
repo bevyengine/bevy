@@ -35,7 +35,11 @@ fn setup(
 
     let listener = SpatialListener::new(gap);
     commands
-        .spawn((SpatialBundle::default(), listener.clone()))
+        .spawn((
+            Transform::default(),
+            Visibility::default(),
+            listener.clone(),
+        ))
         .with_children(|parent| {
             // left ear indicator
             parent.spawn((
