@@ -138,7 +138,7 @@ impl SystemMeta {
     }
 }
 
-/// State machine for emitting warnings when [system params are invalid](System::validate_param).
+/// State machine for emitting warnings when [system params are invalid](SystemParam::validate_param).
 #[derive(Clone, Copy)]
 pub enum ParamWarnPolicy {
     /// No warning should ever be emitted.
