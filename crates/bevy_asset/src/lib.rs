@@ -617,8 +617,7 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, DependencyLoadState, LoadState,
-        RecursiveDependencyLoadState,
+        AssetPlugin, AssetServer, Assets,
     };
     use alloc::sync::Arc;
     use bevy_app::{App, Update};
