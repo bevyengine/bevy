@@ -320,7 +320,7 @@ mod tests {
         component::{Component, Components, Tick},
         entity::{Entities, Entity},
         prelude::{AnyOf, EntityRef},
-        query::{Added, Changed, Or, With, Without, DataSet},
+        query::{Added, Changed, DataSet, Or, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, common_conditions::resource_exists, Condition, IntoSystemConfigs,
@@ -809,7 +809,6 @@ mod tests {
         let mut world = World::default();
         run_system(&mut world, sys);
     }
-
 
     #[test]
     fn data_set_system() {

@@ -1753,7 +1753,7 @@ unsafe impl<'__w, T: Component> QueryData for Mut<'__w, T> {
 ///
 /// // This will panic at runtime when the system gets initialized.
 /// fn bad_system(
-///     mut query: Query<(HealthChangeCalculation, &mut Health)>, 
+///     mut query: Query<(HealthChangeCalculation, &mut Health)>,
 /// ) {
 ///     // ...
 /// }
@@ -1806,7 +1806,7 @@ unsafe impl<'__w, T: Component> QueryData for Mut<'__w, T> {
 /// ```
 ///
 /// [`DataSet`] can also be used in generic contexts that require a [`QueryData`].
-/// 
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::query::QueryData;
@@ -1845,7 +1845,7 @@ unsafe impl<'__w, T: Component> QueryData for Mut<'__w, T> {
 ///
 /// impl Behavior for Selector {
 ///     // `update` would not be possible to use, to select between `Run` and `Jump`.
-///     // since both `Run` and `Jump` data have mutually exclusive access. 
+///     // since both `Run` and `Jump` data have mutually exclusive access.
 ///     type Data = DataSet<'static, (
 ///         <Run as Behavior>::Data,
 ///         <Jump as Behavior>::Data,

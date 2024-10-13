@@ -419,10 +419,10 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
 pub fn impl_data_set(_input: TokenStream) -> TokenStream {
     let mut tokens = TokenStream::new();
     let max_members = 8;
-    let datas = get_idents(|i| format!("D{i}"), max_members);
+    let data_types = get_idents(|i| format!("D{i}"), max_members);
     let accesses = get_idents(|i| format!("access{i}"), max_members);
     let mut member_fn_muts = Vec::new();
-    for (i, data) in datas.iter().enumerate() {
+    for (i, data) in data_types.iter().enumerate() {
         let fn_name = Ident::new(&format!("d{i}"), Span::call_site());
         let index = Index::from(i);
         let ordinal = match i {
@@ -431,13 +431,12 @@ pub fn impl_data_set(_input: TokenStream) -> TokenStream {
             3 => "3rd".to_owned(),
             x => format!("{x}th"),
         };
-        let comment =
-            format!("Gets exclusive access to the {ordinal} member of this [`DataSet`].");
+        let comment = format!("Gets exclusive access to the {ordinal} member of this [`DataSet`].");
         member_fn_muts.push(quote! {
             #[doc = #comment]
             /// No other members may be accessed while this one is active.
             pub fn #fn_name(&mut self) -> QueryItem<'_, #data> {
-                // SAFETY: since it's only possible to create instance of `DataSet` using 
+                // SAFETY: since it's only possible to create instance of `DataSet` using
                 // `<DataSet as WorldQuery>::fetch`, following safety rules were upheld by the caller.
                 // - [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`] have been called for `DataSet`,
                 //   so it was called for each `data` (as implementation of those functions for `DataSet` suggests).
@@ -450,7 +449,7 @@ pub fn impl_data_set(_input: TokenStream) -> TokenStream {
     }
 
     for member_count in 1..=max_members {
-        let data = &datas[0..member_count];
+        let data = &data_types[0..member_count];
         let access = &accesses[0..member_count];
         let member_fn_mut = &member_fn_muts[0..member_count];
         tokens.extend(TokenStream::from(quote! {
@@ -472,10 +471,10 @@ pub fn impl_data_set(_input: TokenStream) -> TokenStream {
                 type Item<'w> = DataSet<'w, (#(#data,)*)>;
                 type Fetch<'w> = (#(#data::Fetch<'w>,)*);
                 type State = (#(#data::State,)*);
-                
+
                 fn shrink<'wlong: 'wshort, 'wshort>(
                     item: Self::Item<'wlong>,
-                ) -> Self::Item<'wshort> {            
+                ) -> Self::Item<'wshort> {
                     DataSet {
                         fetch: Self::shrink_fetch(item.fetch),
                         entity: item.entity,
@@ -488,7 +487,7 @@ pub fn impl_data_set(_input: TokenStream) -> TokenStream {
                 ) -> Self::Fetch<'wshort> {
                     <(#(#data,)*) as WorldQuery>::shrink_fetch(fetch)
                 }
-            
+
                 unsafe fn init_fetch<'w>(
                     world: UnsafeWorldCell<'w>,
                     state: &Self::State,
@@ -500,7 +499,7 @@ pub fn impl_data_set(_input: TokenStream) -> TokenStream {
                 }
 
                 const IS_DENSE: bool = <(#(#data,)*) as WorldQuery>::IS_DENSE;
-            
+
                 unsafe fn set_archetype<'w>(
                     fetch: &mut Self::Fetch<'w>,
                     state: &Self::State,
@@ -510,12 +509,12 @@ pub fn impl_data_set(_input: TokenStream) -> TokenStream {
                     // SAFETY: The invariants are uphold by the caller.
                     unsafe { <(#(#data,)*) as WorldQuery>::set_archetype(fetch, state, archetype, table); }
                 }
-            
+
                 unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
                     // SAFETY: The invariants are uphold by the caller.
                     unsafe { <(#(#data,)*) as WorldQuery>::set_table(fetch, state, table); }
                 }
-                        
+
                 unsafe fn fetch<'w>(
                     fetch: &mut Self::Fetch<'w>,
                     entity: Entity,
@@ -527,7 +526,7 @@ pub fn impl_data_set(_input: TokenStream) -> TokenStream {
                         table_row,
                     }
                 }
-            
+
                 fn update_component_access(state: &Self::State, filtered_access: &mut FilteredAccess<ComponentId>) {
                     let (#(#data,)*) = state;
 
@@ -544,15 +543,15 @@ pub fn impl_data_set(_input: TokenStream) -> TokenStream {
                         filtered_access.extend(&#access);
                     )*
                 }
-            
+
                 fn init_state(world: &mut World) -> Self::State {
                     <(#(#data,)*) as WorldQuery>::init_state(world)
                 }
-            
+
                 fn get_state(components: &Components) -> Option<Self::State> {
                     <(#(#data,)*) as WorldQuery>::get_state(components)
                 }
-            
+
                 fn matches_component_set(
                     state: &Self::State,
                     set_contains_id: &impl Fn(ComponentId) -> bool,
