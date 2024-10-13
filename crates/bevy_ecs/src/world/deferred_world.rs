@@ -1,5 +1,7 @@
 use core::ops::Deref;
 
+use bevy_ptr::PtrMut;
+
 use crate::{
     archetype::Archetype,
     change_detection::MutUntyped,
@@ -503,12 +505,12 @@ impl<'w> DeferredWorld<'w> {
         entity: Entity,
         components: impl Iterator<Item = ComponentId>,
     ) {
-        Observers::invoke::<_>(
+        Observers::invoke(
             self.reborrow(),
             event,
             entity,
             components,
-            &mut (),
+            PtrMut::from(&mut ()),
             &mut false,
         );
     }
@@ -516,25 +518,26 @@ impl<'w> DeferredWorld<'w> {
     /// Triggers all event observers for [`ComponentId`] in target.
     ///
     /// # Safety
-    /// Caller must ensure `E` is accessible as the type represented by `event`
+    ///
+    /// Caller must ensure `data` matches the type represented by the `event` [`ComponentId`].
     #[inline]
-    pub(crate) unsafe fn trigger_observers_with_data<E, T>(
+    pub(crate) unsafe fn trigger_observers_with_data<T>(
         &mut self,
         event: ComponentId,
         mut entity: Entity,
         components: &[ComponentId],
-        data: &mut E,
+        mut data: PtrMut<'_>,
         mut propagate: bool,
     ) where
         T: Traversal,
     {
         loop {
-            Observers::invoke::<_>(
+            Observers::invoke(
                 self.reborrow(),
                 event,
                 entity,
                 components.iter().copied(),
-                data,
+                data.reborrow(),
                 &mut propagate,
             );
             if !propagate {

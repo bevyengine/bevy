@@ -1,7 +1,10 @@
+use bevy_ptr::PtrMut;
+
 use crate::{
     component::ComponentId,
     entity::Entity,
     event::Event,
+    traversal::Traversal,
     world::{Command, DeferredWorld, World},
 };
 
@@ -17,14 +20,32 @@ pub struct TriggerEvent<E, Targets: TriggerTargets = ()> {
 impl<E: Event, Targets: TriggerTargets> TriggerEvent<E, Targets> {
     pub(super) fn trigger(mut self, world: &mut World) {
         let event_type = world.register_component::<E>();
-        trigger_event(world, event_type, &mut self.event, self.targets);
+        // SAFETY: `event_type` was fetched based on the type of `E`
+        unsafe {
+            trigger_event::<E::Traversal, _>(
+                world,
+                event_type,
+                PtrMut::from(&mut self.event),
+                self.targets,
+                E::AUTO_PROPAGATE,
+            );
+        }
     }
 }
 
 impl<E: Event, Targets: TriggerTargets> TriggerEvent<&mut E, Targets> {
     pub(super) fn trigger_ref(self, world: &mut World) {
         let event_type = world.register_component::<E>();
-        trigger_event(world, event_type, self.event, self.targets);
+        // SAFETY: `event_type` was fetched based on the type of `E`
+        unsafe {
+            trigger_event::<E::Traversal, _>(
+                world,
+                event_type,
+                PtrMut::from(self.event),
+                self.targets,
+                E::AUTO_PROPAGATE,
+            );
+        }
     }
 }
 
@@ -60,22 +81,36 @@ impl<E: Event, Targets: TriggerTargets + Send + Sync + 'static> Command
     for EmitDynamicTrigger<E, Targets>
 {
     fn apply(mut self, world: &mut World) {
-        trigger_event(world, self.event_type, &mut self.event_data, self.targets);
+        // SAFETY: Self::new_with_id requires the caller to uphold that the component associated with `event_type` is accessible as E
+        unsafe {
+            trigger_event::<E::Traversal, _>(
+                world,
+                self.event_type,
+                PtrMut::from(&mut self.event_data),
+                self.targets,
+                E::AUTO_PROPAGATE,
+            );
+        }
     }
 }
 
+/// # Safety
+///
+/// Caller must ensure `event_data` matches the type represented by the `event_type` [`ComponentId`].
 #[inline]
-fn trigger_event<E: Event, Targets: TriggerTargets>(
+pub(crate) unsafe fn trigger_event<T: Traversal, Targets: TriggerTargets>(
     world: &mut World,
     event_type: ComponentId,
-    event_data: &mut E,
+    mut event_data: PtrMut<'_>,
     targets: Targets,
+    auto_propagate: bool,
 ) {
     let mut world = DeferredWorld::from(world);
+
     if targets.entities().is_empty() {
         // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
         unsafe {
-            world.trigger_observers_with_data::<_, E::Traversal>(
+            world.trigger_observers_with_data::<T>(
                 event_type,
                 Entity::PLACEHOLDER,
                 targets.components(),
@@ -87,12 +122,12 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
         for target in targets.entities() {
             // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
             unsafe {
-                world.trigger_observers_with_data::<_, E::Traversal>(
+                world.trigger_observers_with_data::<T>(
                     event_type,
                     *target,
                     targets.components(),
-                    event_data,
-                    E::AUTO_PROPAGATE,
+                    event_data.reborrow(),
+                    auto_propagate,
                 );
             };
         }

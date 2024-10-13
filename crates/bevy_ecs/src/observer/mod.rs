@@ -14,9 +14,10 @@ use crate::{
     observer::entity_observer::ObservedBy,
     prelude::*,
     system::IntoObserverSystem,
+    traversal::Traversal,
     world::{DeferredWorld, *},
 };
-use bevy_ptr::Ptr;
+use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::HashMap;
 use core::{
     fmt::Debug,
@@ -258,12 +259,12 @@ impl Observers {
     }
 
     /// This will run the observers of the given `event_type`, targeting the given `entity` and `components`.
-    pub(crate) fn invoke<T>(
+    pub(crate) fn invoke(
         mut world: DeferredWorld,
         event_type: ComponentId,
         entity: Entity,
         components: impl Iterator<Item = ComponentId>,
-        data: &mut T,
+        mut data: PtrMut<'_>,
         propagate: &mut bool,
     ) {
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
@@ -287,7 +288,7 @@ impl Observers {
                     event_type,
                     entity,
                 },
-                data.into(),
+                data.reborrow(),
                 propagate,
             );
         };
@@ -410,6 +411,25 @@ impl World {
         TriggerEvent { event, targets: () }.trigger_ref(self);
     }
 
+    /// Triggers the given type-erased mutable reference as an [`Event`], which
+    /// will run any [`Observer`]s watching for it.
+    ///
+    /// **This method should only be used when the event type is not known at
+    /// compile time.** Otherwise, prefer [`World::trigger_ref`].
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure that the passed `event_data` matches the type
+    /// represented by the `event_type` [`ComponentId`].
+    pub unsafe fn trigger_ref_dynamic<T: Traversal>(
+        &mut self,
+        event_type: ComponentId,
+        event_data: PtrMut<'_>,
+        auto_propagate: bool,
+    ) {
+        trigger_event::<T, _>(self, event_type, event_data, (), auto_propagate);
+    }
+
     /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s watching for it.
     ///
     /// While event types commonly implement [`Copy`],
@@ -426,6 +446,26 @@ impl World {
     /// or use the event after it has been modified by observers.
     pub fn trigger_targets_ref(&mut self, event: &mut impl Event, targets: impl TriggerTargets) {
         TriggerEvent { event, targets }.trigger_ref(self);
+    }
+
+    /// Triggers the given type-erased mutable reference as an [`Event`] for
+    /// the given `targets`, which will run any [`Observer`]s watching for it.
+    ///
+    /// **This method should only be used when the event type is not known at
+    /// compile time.** Otherwise, prefer [`World::trigger_targets_ref`].
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure that the passed `event_data` matches the type
+    /// represented by the `event_type` [`ComponentId`].
+    pub unsafe fn trigger_targets_ref_dynamic<T: Traversal>(
+        &mut self,
+        event_type: ComponentId,
+        event_data: PtrMut<'_>,
+        targets: impl TriggerTargets,
+        auto_propagate: bool,
+    ) {
+        trigger_event::<T, _>(self, event_type, event_data, targets, auto_propagate);
     }
 
     /// Register an observer to the cache, called when an observer is created
@@ -551,7 +591,7 @@ impl World {
 mod tests {
     use alloc::vec;
 
-    use bevy_ptr::OwningPtr;
+    use bevy_ptr::{OwningPtr, PtrMut};
 
     use crate as bevy_ecs;
     use crate::{
@@ -779,6 +819,80 @@ mod tests {
         let component_a = world.register_component::<A>();
         world.trigger_targets_ref(&mut event, component_a);
         assert_eq!(5, event.counter);
+    }
+
+    #[test]
+    fn observer_trigger_ref_dynamic() {
+        #[derive(Resource, Default)]
+        struct Counter(usize);
+
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        let event_type = world.register_component::<EventWithData>();
+        world.add_observer(
+            |trigger: Trigger<EventWithData>, mut counter: ResMut<Counter>| {
+                counter.0 += trigger.event().counter;
+            },
+        );
+        world.flush();
+
+        // SAFETY: event_type was fetched via register_component
+        unsafe {
+            world.trigger_ref_dynamic::<()>(
+                event_type,
+                PtrMut::from(&mut EventWithData { counter: 636 }),
+                false,
+            );
+            world.trigger_ref_dynamic::<()>(
+                event_type,
+                PtrMut::from(&mut EventWithData { counter: 714 }),
+                false,
+            );
+            world.trigger_ref_dynamic::<()>(
+                event_type,
+                PtrMut::from(&mut EventWithData { counter: 146 }),
+                false,
+            );
+        }
+        world.flush();
+
+        assert_eq!(636 + 714 + 146, world.resource::<Counter>().0);
+    }
+
+    #[test]
+    fn observer_trigger_targets_ref_dynamic() {
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        let event_type = world.register_component::<EventPropagating>();
+
+        let parent = world
+            .spawn_empty()
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("parent");
+            })
+            .id();
+
+        let child = world
+            .spawn(Parent(parent))
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("child");
+            })
+            .id();
+
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
+        // SAFETY: event_type was fetched via register_component
+        unsafe {
+            world.trigger_targets_ref_dynamic::<&'static Parent>(
+                event_type,
+                PtrMut::from(&mut EventPropagating),
+                child,
+                true,
+            );
+        }
+        world.flush();
+        assert_eq!(vec!["child", "parent"], world.resource::<Order>().0);
     }
 
     #[test]
