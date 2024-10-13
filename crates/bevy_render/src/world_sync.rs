@@ -205,8 +205,8 @@ mod render_entities_world_query_impls {
 
     unsafe impl WorldQuery for RenderEntity {
         type Item<'w> = Entity;
-        type Fetch<'w> = ReadFetch<'w, RenderEntity>;
-        type State = ComponentId;
+        type Fetch<'w> = <&'static RenderEntity as WorldQuery>::Fetch<'w>;
+        type State = <&'static RenderEntity as WorldQuery>::State;
 
         fn shrink<'wlong: 'wshort, 'wshort>(item: Entity) -> Entity {
             item
@@ -224,7 +224,7 @@ mod render_entities_world_query_impls {
             component_id: &ComponentId,
             last_run: Tick,
             this_run: Tick,
-        ) -> ReadFetch<'w, RenderEntity> {
+        ) -> Self::Fetch<'w> {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
             unsafe {
                 <&RenderEntity as WorldQuery>::init_fetch(world, component_id, last_run, this_run)
@@ -302,8 +302,8 @@ mod render_entities_world_query_impls {
 
     unsafe impl WorldQuery for MainEntity {
         type Item<'w> = Entity;
-        type Fetch<'w> = ReadFetch<'w, MainEntity>;
-        type State = ComponentId;
+        type Fetch<'w> = <&'static MainEntity as WorldQuery>::Fetch<'w>;
+        type State = <&'static MainEntity as WorldQuery>::State;
 
         fn shrink<'wlong: 'wshort, 'wshort>(item: Entity) -> Entity {
             item
@@ -321,7 +321,7 @@ mod render_entities_world_query_impls {
             component_id: &ComponentId,
             last_run: Tick,
             this_run: Tick,
-        ) -> ReadFetch<'w, MainEntity> {
+        ) -> Self::Fetch<'w> {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
             unsafe {
                 <&MainEntity as WorldQuery>::init_fetch(world, component_id, last_run, this_run)
