@@ -39,9 +39,12 @@ pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;
 pub use default::default;
 pub use hashbrown;
+pub use log;
 #[cfg(feature = "std")]
 pub use parallel_queue::*;
 pub use time::*;
+
+#[cfg(feature = "tracing")]
 pub use tracing;
 
 #[cfg(feature = "alloc")]
@@ -383,36 +386,36 @@ impl<F: FnOnce()> Drop for OnDrop<F> {
     }
 }
 
-/// Calls the [`tracing::info!`] macro on a value.
+/// Calls the [`log::info!`] macro on a value.
 pub fn info<T: Debug>(data: T) {
-    tracing::info!("{:?}", data);
+    log::info!("{:?}", data);
 }
 
-/// Calls the [`tracing::debug!`] macro on a value.
+/// Calls the [`log::debug!`] macro on a value.
 pub fn dbg<T: Debug>(data: T) {
-    tracing::debug!("{:?}", data);
+    log::debug!("{:?}", data);
 }
 
-/// Processes a [`Result`] by calling the [`tracing::warn!`] macro in case of an [`Err`] value.
+/// Processes a [`Result`] by calling the [`log::warn!`] macro in case of an [`Err`] value.
 pub fn warn<E: Debug>(result: Result<(), E>) {
     if let Err(warn) = result {
-        tracing::warn!("{:?}", warn);
+        log::warn!("{:?}", warn);
     }
 }
 
-/// Processes a [`Result`] by calling the [`tracing::error!`] macro in case of an [`Err`] value.
+/// Processes a [`Result`] by calling the [`log::error!`] macro in case of an [`Err`] value.
 pub fn error<E: Debug>(result: Result<(), E>) {
     if let Err(error) = result {
-        tracing::error!("{:?}", error);
+        log::error!("{:?}", error);
     }
 }
 
-/// Like [`tracing::trace`], but conditional on cargo feature `detailed_trace`.
+/// Like [`log::trace`], but conditional on cargo feature `detailed_trace`.
 #[macro_export]
 macro_rules! detailed_trace {
     ($($tts:tt)*) => {
         if cfg!(detailed_trace) {
-            $crate::tracing::trace!($($tts)*);
+            $crate::log::trace!($($tts)*);
         }
     }
 }
