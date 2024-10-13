@@ -113,7 +113,7 @@ impl MeshletMesh {
                 &simplification_queue,
                 &meshlets,
                 &position_only_vertex_remap,
-                position_only_vertex_count as usize,
+                position_only_vertex_count,
             );
 
             // Group meshlets into roughly groups of size TARGET_MESHLETS_PER_GROUP,
@@ -126,7 +126,7 @@ impl MeshletMesh {
                 &groups,
                 &meshlets,
                 &position_only_vertex_remap,
-                position_only_vertex_count as usize,
+                position_only_vertex_count,
             );
 
             let next_lod_start = meshlets.len();
@@ -186,7 +186,7 @@ impl MeshletMesh {
             simplification_queue.clear();
             simplification_queue.extend(next_lod_start..meshlets.len());
             if !simplification_queue.is_empty() {
-                simplification_queue.extend(retry_queue.drain(..));
+                simplification_queue.append(&mut retry_queue);
             }
         }
 
@@ -284,21 +284,21 @@ fn find_connected_meshlets(
     }
 
     // For each meshlet, gather all other meshlets that share at least one vertex along with their shared vertex count
-    let mut connected_meshlets = vec![Vec::new(); simplification_queue.len()];
+    let mut connected_meshlets_per_meshlet = vec![Vec::new(); simplification_queue.len()];
     for ((meshlet_queue_id1, meshlet_queue_id2), shared_count) in
         meshlet_pair_to_shared_vertex_count
     {
         // We record both id1->id2 and id2->id1 as adjacency is symmetrical
-        connected_meshlets[meshlet_queue_id1].push((meshlet_queue_id2, shared_count));
-        connected_meshlets[meshlet_queue_id2].push((meshlet_queue_id1, shared_count));
+        connected_meshlets_per_meshlet[meshlet_queue_id1].push((meshlet_queue_id2, shared_count));
+        connected_meshlets_per_meshlet[meshlet_queue_id2].push((meshlet_queue_id1, shared_count));
     }
 
     // The order of meshlets depends on hash traversal order; to produce deterministic results, sort them
-    for list in connected_meshlets.iter_mut() {
+    for list in connected_meshlets_per_meshlet.iter_mut() {
         list.sort_unstable();
     }
 
-    connected_meshlets
+    connected_meshlets_per_meshlet
 }
 
 // METIS manual: http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/manual.pdf
@@ -309,11 +309,9 @@ fn group_meshlets(
     let mut xadj = Vec::with_capacity(simplification_queue.len() + 1);
     let mut adjncy = Vec::new();
     let mut adjwgt = Vec::new();
-    for meshlet_queue_id in 0..simplification_queue.len() {
+    for connected_meshlets in connected_meshlets_per_meshlet {
         xadj.push(adjncy.len() as i32);
-        for (connected_meshlet_queue_id, shared_vertex_count) in
-            connected_meshlets_per_meshlet[meshlet_queue_id].iter()
-        {
+        for (connected_meshlet_queue_id, shared_vertex_count) in connected_meshlets {
             adjncy.push(*connected_meshlet_queue_id as i32);
             adjwgt.push(*shared_vertex_count as i32);
             // TODO: Additional weight based on meshlet spatial proximity
@@ -376,6 +374,7 @@ fn lock_group_borders(
 }
 
 #[allow(unsafe_code)]
+#[allow(clippy::undocumented_unsafe_blocks)]
 fn simplify_meshlet_group(
     group_meshlets: &[usize],
     meshlets: &Meshlets,
@@ -406,15 +405,15 @@ fn simplify_meshlet_group(
             positions.cast::<f32>(),
             vertices.vertex_count,
             vertices.vertex_stride,
-            std::ptr::null(),
+            core::ptr::null(),
             0,
-            std::ptr::null(),
+            core::ptr::null(),
             0,
             vertex_locks.as_ptr().cast(),
             group_indices.len() / 2,
             f32::MAX,
             (SimplifyOptions::Sparse | SimplifyOptions::ErrorAbsolute).bits(),
-            (&mut error) as *mut _,
+            core::ptr::from_mut(&mut error),
         );
         result.resize(index_count, 0u32);
         result
