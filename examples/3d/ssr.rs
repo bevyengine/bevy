@@ -263,7 +263,7 @@ fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
 }
 
 // Creates or recreates the help text.
-fn create_text(app_settings: &AppSettings) -> Text {
+fn create_text(app_settings: &AppSettings) -> TextUi {
     format!(
         "{}\n{}\n{}",
         match app_settings.displayed_model {
@@ -348,7 +348,7 @@ fn adjust_app_settings(
     mut cameras: Query<Entity, With<Camera>>,
     mut cube_models: Query<&mut Visibility, (With<CubeModel>, Without<FlightHelmetModel>)>,
     mut flight_helmet_models: Query<&mut Visibility, (Without<CubeModel>, With<FlightHelmetModel>)>,
-    mut text: Query<&mut Text>,
+    mut text: Query<&mut TextUi>,
 ) {
     // If there are no changes, we're going to bail for efficiency. Record that
     // here.

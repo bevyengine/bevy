@@ -51,7 +51,7 @@ fn setup(
 
     // spawn help text
     commands
-        .spawn((Text::default(), RenderLayers::layer(1)))
+        .spawn((TextUi::default(), RenderLayers::layer(1)))
         .with_children(|p| {
             p.spawn(TextSpan::new("Press T to toggle OIT\n"));
             p.spawn(TextSpan::new("OIT Enabled"));
@@ -64,10 +64,10 @@ fn setup(
 
 fn toggle_oit(
     mut commands: Commands,
-    text: Single<Entity, With<Text>>,
+    text: Single<Entity, With<TextUi>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     q: Query<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
-    mut text_writer: UiTextWriter,
+    mut text_writer: TextUiWriter,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyT) {
         let (e, has_oit) = q.single();

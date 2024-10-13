@@ -45,7 +45,7 @@ impl TextIterScratch {
 
 /// System parameter for reading text spans in a text block.
 ///
-/// `R` is the root text component, and `S` is the text span component on children.
+/// `R` is the root text component.
 #[derive(SystemParam)]
 pub struct TextReader<'w, 's, R: TextRoot> {
     // This is a local to avoid system ambiguities when TextReaders run in parallel.

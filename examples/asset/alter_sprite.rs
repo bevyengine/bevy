@@ -105,8 +105,8 @@ fn spawn_text(mut commands: Commands) {
             },
         ))
         .with_children(|parent| {
-            parent.spawn(Text::new("Space: swap the right sprite's image handle"));
-            parent.spawn(Text::new(
+            parent.spawn(TextUi::new("Space: swap the right sprite's image handle"));
+            parent.spawn(TextUi::new(
                 "Return: modify the image Asset of the left sprite, affecting all uses of it",
             ));
         });

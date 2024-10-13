@@ -1,6 +1,6 @@
 //! Tests how different transforms behave when clipped with `Overflow::Hidden`
 
-use bevy::{input::common_conditions::input_just_pressed, prelude::*, ui::widget::UiTextWriter};
+use bevy::{input::common_conditions::input_just_pressed, prelude::*, ui::widget::TextUiWriter};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 const CONTAINER_SIZE: f32 = 150.0;
@@ -85,7 +85,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn((
-            Text::new(
+            TextUi::new(
                 "Next Overflow Setting (O)\nNext Container Size (S)\nToggle Animation (space)\n\n",
             ),
             text_font.clone(),
@@ -167,7 +167,7 @@ fn spawn_text(
 ) {
     spawn_container(parent, update_transform, |parent| {
         parent.spawn((
-            Text::new("Bevy"),
+            TextUi::new("Bevy"),
             TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 100.0,
@@ -259,7 +259,7 @@ fn update_transform<T: UpdateTransform + Component>(
 fn toggle_overflow(
     mut containers: Query<&mut Style, With<Container>>,
     mut instructions: Query<Entity, With<Instructions>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     for mut style in &mut containers {
         style.overflow = match style.overflow {

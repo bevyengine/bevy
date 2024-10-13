@@ -275,7 +275,7 @@ fn setup(
             GlobalZIndex(i32::MAX),
         ))
         .with_children(|p| {
-            p.spawn((Text::default(), StatsText)).with_children(|p| {
+            p.spawn((TextUi::default(), StatsText)).with_children(|p| {
                 p.spawn((
                     TextSpan::new("Bird Count: "),
                     font.clone(),
@@ -552,7 +552,7 @@ fn counter_system(
     diagnostics: Res<DiagnosticsStore>,
     counter: Res<BevyCounter>,
     query: Query<Entity, With<StatsText>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     let text = query.single();
 

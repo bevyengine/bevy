@@ -100,7 +100,7 @@ fn setup(
 
     // Text used to show controls
     commands.spawn((
-        Text::default(),
+        TextUi::default(),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
@@ -115,7 +115,7 @@ fn update_colors(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<WireframeConfig>,
     mut wireframe_colors: Query<&mut WireframeColor, With<Wireframe>>,
-    mut text: Query<&mut Text>,
+    mut text: Query<&mut TextUi>,
 ) {
     **text.single_mut() = format!(
         "Controls

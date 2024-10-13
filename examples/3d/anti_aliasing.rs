@@ -187,7 +187,7 @@ fn update_ui(
         ),
         With<Camera>,
     >,
-    mut ui: Query<&mut Text>,
+    mut ui: Query<&mut TextUi>,
 ) {
     let (fxaa, smaa, taa, cas, msaa) = camera.single();
 
@@ -328,7 +328,7 @@ fn setup(
 
     // example instructions
     commands.spawn((
-        Text::default(),
+        TextUi::default(),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),

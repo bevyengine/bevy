@@ -167,7 +167,7 @@ fn setup(
 
     let label_text_style = (text_style.clone(), TextColor(ORANGE.into()));
 
-    commands.spawn((Text::new("Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors"),
+    commands.spawn((TextUi::new("Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors"),
             text_style.clone(),
         Style {
             position_type: PositionType::Absolute,
@@ -178,7 +178,7 @@ fn setup(
     );
 
     commands.spawn((
-        Text::default(),
+        TextUi::default(),
         text_style,
         Style {
             position_type: PositionType::Absolute,
@@ -203,7 +203,7 @@ fn setup(
             ))
             .with_children(|parent| {
                 parent.spawn((
-                    Text::new(label),
+                    TextUi::new(label),
                     label_text_style.clone(),
                     Style {
                         position_type: PositionType::Absolute,
@@ -256,7 +256,7 @@ fn example_control_system(
     controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
     mut camera: Query<(&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
     mut labels: Query<(&mut Style, &ExampleLabel)>,
-    mut display: Query<&mut Text, With<ExampleDisplay>>,
+    mut display: Query<&mut TextUi, With<ExampleDisplay>>,
     labelled: Query<&GlobalTransform>,
     mut state: Local<ExampleState>,
     time: Res<Time>,

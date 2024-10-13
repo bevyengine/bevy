@@ -90,9 +90,9 @@ fn setup(mut commands: Commands) {
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn((Text::new(instructions_text), style.clone()));
-            parent.spawn((SplineModeText, Text(spline_mode_text), style.clone()));
-            parent.spawn((CyclingModeText, Text(cycling_mode_text), style.clone()));
+            parent.spawn((TextUi::new(instructions_text), style.clone()));
+            parent.spawn((SplineModeText, TextUi(spline_mode_text), style.clone()));
+            parent.spawn((CyclingModeText, TextUi(cycling_mode_text), style.clone()));
         });
 }
 
@@ -249,7 +249,7 @@ struct CyclingModeText;
 
 fn update_spline_mode_text(
     spline_mode: Res<SplineMode>,
-    mut spline_mode_text: Query<&mut Text, With<SplineModeText>>,
+    mut spline_mode_text: Query<&mut TextUi, With<SplineModeText>>,
 ) {
     if !spline_mode.is_changed() {
         return;
@@ -264,7 +264,7 @@ fn update_spline_mode_text(
 
 fn update_cycling_mode_text(
     cycling_mode: Res<CyclingMode>,
-    mut cycling_mode_text: Query<&mut Text, With<CyclingModeText>>,
+    mut cycling_mode_text: Query<&mut TextUi, With<CyclingModeText>>,
 ) {
     if !cycling_mode.is_changed() {
         return;

@@ -285,7 +285,7 @@ fn update_mode(
 }
 
 // A system that updates the help text.
-fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
+fn update_help_text(mut text_query: Query<&mut TextUi>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
         *text = app_status.create_text();
     }
@@ -293,7 +293,7 @@ fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>
 
 impl AppStatus {
     // Creates and returns help text reflecting the app status.
-    fn create_text(&self) -> Text {
+    fn create_text(&self) -> TextUi {
         format!(
             "\
 {} (1) Switch from high-poly to low-poly based on camera distance

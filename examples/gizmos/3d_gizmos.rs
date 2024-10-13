@@ -52,7 +52,7 @@ fn setup(
 
     // example instructions
     commands.spawn((
-        Text::new(
+        TextUi::new(
             "Press 'T' to toggle drawing gizmos on top of everything else in the scene\n\
             Press 'P' to toggle perspective for line gizmos\n\
             Hold 'Left' or 'Right' to change the line width of straight gizmos\n\

@@ -189,7 +189,7 @@ fn setup(
 
     // Example instructions
     commands.spawn((
-        Text::default(),
+        TextUi::default(),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
@@ -282,7 +282,7 @@ enum DefaultRenderMode {
 
 #[allow(clippy::too_many_arguments)]
 fn switch_mode(
-    mut text: Query<&mut Text>,
+    mut text: Query<&mut TextUi>,
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,

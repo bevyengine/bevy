@@ -376,7 +376,7 @@ fn setup(
 
     // Instructions for the example:
     commands.spawn((
-        Text::new(
+        TextUi::new(
             "Controls:\n\
             M: Toggle between sampling boundary and interior.\n\
             A: Toggle automatic spawning & despawning of points.\n\
@@ -423,7 +423,7 @@ fn handle_keypress(
     shapes: Res<SampledShapes>,
     mut spawn_queue: ResMut<SpawnQueue>,
     mut counter: ResMut<PointCounter>,
-    mut text_menus: Query<&mut Visibility, With<Text>>,
+    mut text_menus: Query<&mut Visibility, With<TextUi>>,
     mut camera: Query<&mut CameraRig>,
 ) {
     // R => restart, deleting all samples

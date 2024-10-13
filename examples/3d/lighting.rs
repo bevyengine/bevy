@@ -210,7 +210,7 @@ fn setup(
 
     commands
         .spawn((
-            Text::default(),
+            TextUi::default(),
             Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
@@ -254,8 +254,8 @@ fn update_exposure(
     key_input: Res<ButtonInput<KeyCode>>,
     mut parameters: ResMut<Parameters>,
     mut exposure: Query<&mut Exposure>,
-    text: Query<Entity, With<Text>>,
-    mut writer: UiTextWriter,
+    text: Query<Entity, With<TextUi>>,
+    mut writer: TextUiWriter,
 ) {
     // TODO: Clamp values to a reasonable range
     let entity = text.single();

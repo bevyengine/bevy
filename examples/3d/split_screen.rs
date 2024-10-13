@@ -96,7 +96,7 @@ fn setup(
             ))
             .with_children(|parent| {
                 parent.spawn((
-                    Text::new(*camera_name),
+                    TextUi::new(*camera_name),
                     Style {
                         position_type: PositionType::Absolute,
                         top: Val::Px(12.),
@@ -149,7 +149,7 @@ fn setup(
                 },
             ))
             .with_children(|parent| {
-                parent.spawn(Text::new(caption));
+                parent.spawn(TextUi::new(caption));
             });
     }
 }

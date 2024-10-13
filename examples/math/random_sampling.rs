@@ -110,7 +110,7 @@ fn setup(
 
     // Instructions for the example:
     commands.spawn((
-        Text::new(
+        TextUi::new(
             "Controls:\n\
             M: Toggle between sampling boundary and interior.\n\
             R: Restart (erase all samples).\n\

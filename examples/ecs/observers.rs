@@ -72,7 +72,7 @@ struct Explode;
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
     commands.spawn((
-        Text::new(
+        TextUi::new(
             "Click on a \"Mine\" to trigger it.\n\
             When it explodes it will trigger all overlapping mines.",
         ),

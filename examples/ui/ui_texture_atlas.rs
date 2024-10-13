@@ -61,7 +61,7 @@ fn setup(
                 Outline::new(Val::Px(8.0), Val::ZERO, CRIMSON.into()),
             ));
             parent
-                .spawn((Text::new("press "), text_font.clone()))
+                .spawn((TextUi::new("press "), text_font.clone()))
                 .with_child((
                     TextSpan::new("space"),
                     TextColor(YELLOW.into()),

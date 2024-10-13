@@ -117,7 +117,7 @@ fn setup_pyramid_scene(
 
 fn setup_instructions(mut commands: Commands) {
     commands.spawn((
-        Text::default(),
+        TextUi::default(),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
@@ -129,7 +129,7 @@ fn setup_instructions(mut commands: Commands) {
 
 fn update_system(
     mut camera: Query<(&mut DistanceFog, &mut Transform)>,
-    mut text: Query<&mut Text>,
+    mut text: Query<&mut TextUi>,
     time: Res<Time>,
     keycode: Res<ButtonInput<KeyCode>>,
 ) {

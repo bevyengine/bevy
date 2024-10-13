@@ -131,7 +131,7 @@ fn setup_scene(
             ..default()
         })
         .with_child((
-            Text::new("Test Button"),
+            TextUi::new("Test Button"),
             TextFont {
                 font_size: 30.0,
                 ..default()

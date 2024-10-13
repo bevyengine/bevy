@@ -127,7 +127,7 @@ fn setup(
     ));
 
     commands.spawn((
-        Text::new(INSTRUCTIONS),
+        TextUi::new(INSTRUCTIONS),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),

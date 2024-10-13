@@ -64,7 +64,7 @@ fn setup_scene(
 
 fn setup_instructions(mut commands: Commands) {
     commands.spawn((
-        Text::new("Hold space to trigger a screen shake"),
+        TextUi::new("Hold space to trigger a screen shake"),
         Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),

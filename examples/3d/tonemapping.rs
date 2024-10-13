@@ -82,7 +82,7 @@ fn setup(
 
     // ui
     commands.spawn((
-        Text::default(),
+        TextUi::default(),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
@@ -171,7 +171,7 @@ fn setup_image_viewer_scene(
     ));
 
     commands.spawn((
-        Text::new("Drag and drop an HDR or EXR file"),
+        TextUi::new("Drag and drop an HDR or EXR file"),
         TextFont {
             font_size: 36.0,
             ..default()
@@ -192,7 +192,7 @@ fn setup_image_viewer_scene(
 
 fn drag_drop_image(
     image_mat: Query<&MeshMaterial3d<StandardMaterial>, With<HDRViewer>>,
-    text: Query<Entity, (With<Text>, With<SceneNumber>)>,
+    text: Query<Entity, (With<TextUi>, With<SceneNumber>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut drop_events: EventReader<FileDragAndDrop>,
     asset_server: Res<AssetServer>,
@@ -390,7 +390,7 @@ fn update_color_grading_settings(
 }
 
 fn update_ui(
-    mut text_query: Query<&mut Text, Without<SceneNumber>>,
+    mut text_query: Query<&mut TextUi, Without<SceneNumber>>,
     settings: Query<(&Tonemapping, &ColorGrading)>,
     current_scene: Res<CurrentScene>,
     selected_parameter: Res<SelectedParameter>,

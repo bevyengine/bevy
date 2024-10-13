@@ -136,7 +136,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn((
-            Text::new("Contributor showcase"),
+            TextUi::new("Contributor showcase"),
             text_style.clone(),
             ContributorDisplay,
             Style {
@@ -159,9 +159,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn selection(
     mut timer: ResMut<SelectionTimer>,
     mut contributor_selection: ResMut<ContributorSelection>,
-    text_query: Query<Entity, (With<ContributorDisplay>, With<Text>)>,
+    text_query: Query<Entity, (With<ContributorDisplay>, With<TextUi>)>,
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
     time: Res<Time>,
 ) {
     if !timer.0.tick(time.delta()).just_finished() {
@@ -204,7 +204,7 @@ fn select(
     contributor: &Contributor,
     transform: &mut Transform,
     entity: Entity,
-    writer: &mut UiTextWriter,
+    writer: &mut TextUiWriter,
 ) {
     sprite.color = SELECTED.with_hue(contributor.hue).into();
 

@@ -103,7 +103,7 @@ fn setup(
     // Example instructions and gizmo config.
     {
         commands.spawn((
-            Text::new(
+            TextUi::new(
                 "Press 'D' to toggle drawing gizmos on top of everything else in the scene\n\
             Hold 'Left' or 'Right' to change the line width of the gizmos\n\
             Press 'A' to toggle drawing of the light gizmos\n\
@@ -123,7 +123,7 @@ fn setup(
 
         commands
             .spawn((
-                Text::new("Gizmo color mode: "),
+                TextUi::new("Gizmo color mode: "),
                 GizmoColorText,
                 Style {
                     position_type: PositionType::Absolute,
@@ -147,7 +147,7 @@ fn update_config(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     color_text_query: Query<Entity, With<GizmoColorText>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     if keyboard.just_pressed(KeyCode::KeyD) {
         for (_, config, _) in config_store.iter_mut() {

@@ -358,7 +358,7 @@ fn setup_triggers(
             .with_children(|parent| {
                 parent.spawn((
                     Transform::from_xyz(0., 0., 1.),
-                    Text(format!("{:.3}", 0.)),
+                    TextUi(format!("{:.3}", 0.)),
                     TextFont {
                         font_size: 13.,
                         ..default()
@@ -376,7 +376,7 @@ fn setup_connected(mut commands: Commands) {
     // This is UI text, unlike other text in this example which is 2d.
     commands
         .spawn((
-            Text::new("Connected Gamepads:\n"),
+            TextUi::new("Connected Gamepads:\n"),
             Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.),
@@ -421,7 +421,7 @@ fn update_axes(
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
     text_query: Query<(Entity, &TextWithAxes)>,
-    mut writer: TextWriter2d,
+    mut writer: Text2dWriter,
 ) {
     for axis_event in axis_events.read() {
         let axis_type = axis_event.axis;
@@ -449,7 +449,7 @@ fn update_connected(
     mut connected: EventReader<GamepadConnectionEvent>,
     gamepads: Query<(Entity, &Gamepad)>,
     query: Query<Entity, With<ConnectedGamepadsText>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     if connected.is_empty() {
         return;

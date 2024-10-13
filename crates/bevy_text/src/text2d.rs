@@ -120,10 +120,10 @@ impl From<String> for Text2d {
 }
 
 /// 2d alias for [`TextReader`].
-pub type TextReader2d<'w, 's> = TextReader<'w, 's, Text2d>;
+pub type Text2dReader<'w, 's> = TextReader<'w, 's, Text2d>;
 
 /// 2d alias for [`TextWriter`].
-pub type TextWriter2d<'w, 's> = TextWriter<'w, 's, Text2d>;
+pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
 
 /// This system extracts the sprites from the 2D text components and adds them to the
 /// "render world".
@@ -239,7 +239,7 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
     )>,
-    mut text_reader: TextReader2d,
+    mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {

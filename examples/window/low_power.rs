@@ -148,7 +148,7 @@ pub(crate) mod test_setup {
         mut frame: Local<usize>,
         mode: Res<ExampleMode>,
         query: Query<Entity, With<ModeText>>,
-        mut writer: UiTextWriter,
+        mut writer: TextUiWriter,
     ) {
         *frame += 1;
         let mode = match *mode {
@@ -188,7 +188,7 @@ pub(crate) mod test_setup {
         event.send(RequestRedraw);
         commands
             .spawn((
-                Text::default(),
+                TextUi::default(),
                 Style {
                     align_self: AlignSelf::FlexStart,
                     position_type: PositionType::Absolute,

@@ -85,7 +85,7 @@ fn setup_scene(
 
     // example instructions
     commands.spawn((
-        Text::default(),
+        TextUi::default(),
         Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
@@ -99,7 +99,7 @@ fn setup_scene(
 
 fn update_bloom_settings(
     mut camera: Query<(Entity, Option<&mut Bloom>), With<Camera>>,
-    mut text: Query<&mut Text>,
+    mut text: Query<&mut TextUi>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,

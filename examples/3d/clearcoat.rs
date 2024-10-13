@@ -285,7 +285,7 @@ fn handle_input(
 }
 
 /// Updates the help text at the bottom of the screen.
-fn update_help_text(mut text_query: Query<&mut Text>, light_mode: Res<LightMode>) {
+fn update_help_text(mut text_query: Query<&mut TextUi>, light_mode: Res<LightMode>) {
     for mut text in text_query.iter_mut() {
         *text = light_mode.create_help_text();
     }
@@ -311,12 +311,12 @@ fn create_directional_light() -> DirectionalLight {
 
 impl LightMode {
     /// Creates the help text at the bottom of the screen.
-    fn create_help_text(&self) -> Text {
+    fn create_help_text(&self) -> TextUi {
         let help_text = match *self {
             LightMode::Point => "Press Space to switch to a directional light",
             LightMode::Directional => "Press Space to switch to a point light",
         };
 
-        Text::new(help_text)
+        TextUi::new(help_text)
     }
 }

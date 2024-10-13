@@ -175,7 +175,7 @@ mod game {
                     })
                     .with_children(|p| {
                         p.spawn((
-                            Text::new("Will be back to the menu shortly..."),
+                            TextUi::new("Will be back to the menu shortly..."),
                             TextFont {
                                 font_size: 67.0,
                                 ..default()
@@ -187,7 +187,7 @@ mod game {
                             },
                         ));
                         p.spawn((
-                            Text::default(),
+                            TextUi::default(),
                             Style {
                                 margin: UiRect::all(Val::Px(50.0)),
                                 ..default()
@@ -431,7 +431,7 @@ mod menu {
                     .with_children(|parent| {
                         // Display the game name
                         parent.spawn((
-                            Text::new("Bevy Game Menu UI"),
+                            TextUi::new("Bevy Game Menu UI"),
                             TextFont {
                                 font_size: 67.0,
                                 ..default()
@@ -464,7 +464,7 @@ mod menu {
                                     ..default()
                                 });
                                 parent.spawn((
-                                    Text::new("New Game"),
+                                    TextUi::new("New Game"),
                                     button_text_font.clone(),
                                     TextColor(TEXT_COLOR),
                                 ));
@@ -486,7 +486,7 @@ mod menu {
                                     ..default()
                                 });
                                 parent.spawn((
-                                    Text::new("Settings"),
+                                    TextUi::new("Settings"),
                                     button_text_font.clone(),
                                     TextColor(TEXT_COLOR),
                                 ));
@@ -508,7 +508,7 @@ mod menu {
                                     ..default()
                                 });
                                 parent.spawn((
-                                    Text::new("Quit"),
+                                    TextUi::new("Quit"),
                                     button_text_font,
                                     TextColor(TEXT_COLOR),
                                 ));
@@ -576,7 +576,7 @@ mod menu {
                                     action,
                                 ))
                                 .with_children(|parent| {
-                                    parent.spawn((Text::new(text), button_text_style.clone()));
+                                    parent.spawn((TextUi::new(text), button_text_style.clone()));
                                 });
                         }
                     });
@@ -640,7 +640,7 @@ mod menu {
                             .with_children(|parent| {
                                 // Display a label for the current setting
                                 parent.spawn((
-                                    Text::new("Display Quality"),
+                                    TextUi::new("Display Quality"),
                                     button_text_style.clone(),
                                 ));
                                 // Display a button for each possible value
@@ -663,7 +663,7 @@ mod menu {
                                     ));
                                     entity.with_children(|parent| {
                                         parent.spawn((
-                                            Text::new(format!("{quality_setting:?}")),
+                                            TextUi::new(format!("{quality_setting:?}")),
                                             button_text_style.clone(),
                                         ));
                                     });
@@ -683,7 +683,7 @@ mod menu {
                                 MenuButtonAction::BackToSettings,
                             ))
                             .with_children(|parent| {
-                                parent.spawn((Text::new("Back"), button_text_style));
+                                parent.spawn((TextUi::new("Back"), button_text_style));
                             });
                     });
             });
@@ -742,7 +742,7 @@ mod menu {
                                 ..default()
                             })
                             .with_children(|parent| {
-                                parent.spawn((Text::new("Volume"), button_text_style.clone()));
+                                parent.spawn((TextUi::new("Volume"), button_text_style.clone()));
                                 for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
                                     let mut entity = parent.spawn((
                                         ButtonBundle {
@@ -770,7 +770,7 @@ mod menu {
                                 },
                                 MenuButtonAction::BackToSettings,
                             ))
-                            .with_child((Text::new("Back"), button_text_style));
+                            .with_child((TextUi::new("Back"), button_text_style));
                     });
             });
     }

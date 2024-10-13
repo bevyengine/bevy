@@ -87,7 +87,7 @@ fn setup(mut commands: Commands) {
         }
     }
     commands.spawn((
-        Text::default(),
+        TextUi::default(),
         Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
@@ -103,7 +103,7 @@ fn display_curves(
     mut gizmos: Gizmos,
     ease_functions: Query<(&SelectedEaseFunction, &Transform, &Children)>,
     mut transforms: Query<&mut Transform, Without<SelectedEaseFunction>>,
-    mut ui_text: Single<&mut Text>,
+    mut ui_text: Single<&mut TextUi>,
     time: Res<Time>,
 ) {
     let samples = 100;

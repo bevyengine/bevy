@@ -31,7 +31,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Text with one section
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
-        Text::new("hello\nbevy!"),
+        TextUi::new("hello\nbevy!"),
         TextFont {
             // This font is loaded and will be used instead of the default font.
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -54,7 +54,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             // Create a Text with multiple child spans.
-            Text::new("FPS: "),
+            TextUi::new("FPS: "),
             TextFont {
                 // This font is loaded and will be used instead of the default font.
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -91,7 +91,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         // Here we are able to call the `From` method instead of creating a new `TextSection`.
         // This will use the default font (a minimal subset of FiraMono) and apply the default styling.
-        Text::new("From an &str into a Text with the default font!"),
+        TextUi::new("From an &str into a Text with the default font!"),
         Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
@@ -102,7 +102,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     #[cfg(not(feature = "default_font"))]
     commands.spawn((
-        Text::new("Default font disabled"),
+        TextUi::new("Default font disabled"),
         TextFont {
             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
             ..default()

@@ -52,7 +52,7 @@ fn setup(mut commands: Commands) {
                 })
                 .with_child((
                     CustomText,
-                    Text::new("Example text"),
+                    TextUi::new("Example text"),
                     TextFont {
                         font_size: 25.0,
                         ..default()
@@ -68,7 +68,7 @@ fn setup(mut commands: Commands) {
 /// Set the title of the window to the current override
 fn display_override(
     mut windows: Query<&mut Window>,
-    mut custom_text: Query<&mut Text, With<CustomText>>,
+    mut custom_text: Query<&mut TextUi, With<CustomText>>,
 ) {
     let mut window = windows.single_mut();
 

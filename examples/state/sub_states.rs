@@ -184,7 +184,7 @@ mod ui {
                     })
                     .with_children(|parent| {
                         parent.spawn((
-                            Text::new("Play"),
+                            TextUi::new("Play"),
                             TextFont {
                                 font_size: 33.0,
                                 ..default()
@@ -236,7 +236,7 @@ mod ui {
                     })
                     .with_children(|parent| {
                         parent.spawn((
-                            Text::new("Paused"),
+                            TextUi::new("Paused"),
                             TextFont {
                                 font_size: 33.0,
                                 ..default()

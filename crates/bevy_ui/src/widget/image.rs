@@ -88,7 +88,7 @@ impl Measure for ImageMeasure {
 }
 
 #[cfg(feature = "bevy_text")]
-type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
+type UpdateImageFilter = (With<Node>, Without<crate::prelude::TextUi>);
 #[cfg(not(feature = "bevy_text"))]
 type UpdateImageFilter = With<Node>;
 

@@ -369,7 +369,7 @@ mod ui {
                     ))
                     .with_children(|parent| {
                         parent.spawn((
-                            Text::new("Play"),
+                            TextUi::new("Play"),
                             TextFont {
                                 font_size: 33.0,
                                 ..default()
@@ -401,7 +401,7 @@ mod ui {
                     ))
                     .with_children(|parent| {
                         parent.spawn((
-                            Text::new("Tutorial"),
+                            TextUi::new("Tutorial"),
                             TextFont {
                                 font_size: 33.0,
                                 ..default()
@@ -499,7 +499,7 @@ mod ui {
                     ))
                     .with_children(|parent| {
                         parent.spawn((
-                            Text::new("Paused"),
+                            TextUi::new("Paused"),
                             TextFont {
                                 font_size: 33.0,
                                 ..default()
@@ -531,7 +531,7 @@ mod ui {
             ))
             .with_children(|parent| {
                 parent.spawn((
-                    Text::new("TURBO MODE"),
+                    TextUi::new("TURBO MODE"),
                     TextFont {
                         font_size: 33.0,
                         ..default()
@@ -573,7 +573,7 @@ mod ui {
             ))
             .with_children(|parent| {
                 parent.spawn((
-                    Text::new("Move the bevy logo with the arrow keys"),
+                    TextUi::new("Move the bevy logo with the arrow keys"),
                     TextFont {
                         font_size: 33.0,
                         ..default()
@@ -581,16 +581,7 @@ mod ui {
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
                 parent.spawn((
-                    Text::new("Press T to enter TURBO MODE"),
-                    TextFont {
-                        font_size: 33.0,
-                        ..default()
-                    },
-                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
-                ));
-
-                parent.spawn((
-                    Text::new("Press SPACE to pause"),
+                    TextUi::new("Press T to enter TURBO MODE"),
                     TextFont {
                         font_size: 33.0,
                         ..default()
@@ -599,7 +590,16 @@ mod ui {
                 ));
 
                 parent.spawn((
-                    Text::new("Press ESCAPE to return to the menu"),
+                    TextUi::new("Press SPACE to pause"),
+                    TextFont {
+                        font_size: 33.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
+                ));
+
+                parent.spawn((
+                    TextUi::new("Press ESCAPE to return to the menu"),
                     TextFont {
                         font_size: 33.0,
                         ..default()
@@ -630,7 +630,7 @@ mod ui {
             ))
             .with_children(|parent| {
                 parent.spawn((
-                    Text::new("Press SPACE to resume"),
+                    TextUi::new("Press SPACE to resume"),
                     TextFont {
                         font_size: 33.0,
                         ..default()
@@ -639,7 +639,7 @@ mod ui {
                 ));
 
                 parent.spawn((
-                    Text::new("Press ESCAPE to return to the menu"),
+                    TextUi::new("Press ESCAPE to return to the menu"),
                     TextFont {
                         font_size: 33.0,
                         ..default()

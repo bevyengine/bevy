@@ -50,7 +50,7 @@ fn setup_scene(
 
 fn setup_instructions(mut commands: Commands) {
     commands.spawn((
-        Text::new("Move the light with WASD.\nThe camera will smoothly track the light."),
+        TextUi::new("Move the light with WASD.\nThe camera will smoothly track the light."),
         Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),

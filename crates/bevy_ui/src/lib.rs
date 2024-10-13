@@ -53,7 +53,7 @@ pub mod prelude {
             node_bundles::*,
             ui_material::*,
             ui_node::*,
-            widget::{Button, Label, Text, UiTextReader, UiTextWriter},
+            widget::{Button, Label, TextUi, TextUiReader, TextUiWriter},
             Interaction, UiMaterialHandle, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
@@ -224,17 +224,17 @@ impl Plugin for UiPlugin {
 fn build_text_interop(app: &mut App) {
     use crate::widget::TextNodeFlags;
     use bevy_text::TextLayoutInfo;
-    use widget::Text;
+    use widget::TextUi;
 
     app.register_type::<TextLayoutInfo>()
         .register_type::<TextNodeFlags>()
-        .register_type::<Text>();
+        .register_type::<TextUi>();
 
     app.add_systems(
         PostUpdate,
         (
             (
-                bevy_text::detect_text_needs_rerender::<Text>,
+                bevy_text::detect_text_needs_rerender::<TextUi>,
                 widget::measure_text_system,
             )
                 .chain()

@@ -87,9 +87,9 @@ fn create_button() -> ButtonBundle {
     }
 }
 
-fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont, TextColor) {
+fn create_label(text: &str, font: Handle<Font>) -> (TextUi, TextFont, TextColor) {
     (
-        Text::new(text),
+        TextUi::new(text),
         TextFont {
             font,
             font_size: 33.0,
@@ -102,7 +102,7 @@ fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont, TextColor) {
 fn button_system(
     mut interaction_query: Query<(&Interaction, &Parent), (Changed<Interaction>, With<Button>)>,
     labels_query: Query<(&Children, &Parent), With<Button>>,
-    mut text_query: Query<&mut Text>,
+    mut text_query: Query<&mut TextUi>,
     mut counter_query: Query<&mut Counter>,
 ) {
     // Update parent counter on click

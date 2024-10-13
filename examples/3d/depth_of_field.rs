@@ -208,14 +208,14 @@ fn tweak_scene(
 }
 
 /// Update the help text entity per the current app settings.
-fn update_text(mut texts: Query<&mut Text>, app_settings: Res<AppSettings>) {
+fn update_text(mut texts: Query<&mut TextUi>, app_settings: Res<AppSettings>) {
     for mut text in texts.iter_mut() {
         *text = create_text(&app_settings);
     }
 }
 
 /// Regenerates the app text component per the current app settings.
-fn create_text(app_settings: &AppSettings) -> Text {
+fn create_text(app_settings: &AppSettings) -> TextUi {
     app_settings.help_text().into()
 }
 

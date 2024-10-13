@@ -147,7 +147,7 @@ fn save_scene_system(world: &mut World) {
 fn infotext_system(mut commands: Commands) {
     commands.spawn(Camera2d);
     commands.spawn((
-        Text::new("Nothing to see in this window! Check the console output!"),
+        TextUi::new("Nothing to see in this window! Check the console output!"),
         TextFont {
             font_size: 42.0,
             ..default()

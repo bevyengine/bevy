@@ -221,7 +221,7 @@ fn handle_input(
 }
 
 /// A system that updates the help text based on the current app status.
-fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
+fn update_help_text(mut text_query: Query<&mut TextUi>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
         *text = app_status.create_help_text();
     }
@@ -268,7 +268,7 @@ fn spawn_point_light(commands: &mut Commands) {
 
 impl AppStatus {
     /// Creates the help text as appropriate for the current app status.
-    fn create_help_text(&self) -> Text {
+    fn create_help_text(&self) -> TextUi {
         // Choose the appropriate help text for the anisotropy toggle.
         let material_variant_help_text = if self.anisotropy_enabled {
             "Press Enter to disable anisotropy"
@@ -284,7 +284,7 @@ impl AppStatus {
         };
 
         // Build the `Text` object.
-        Text(format!(
+        TextUi(format!(
             "{}\n{}",
             material_variant_help_text, light_help_text
         ))

@@ -218,7 +218,7 @@ fn setup(
     // Scoreboard
     commands
         .spawn((
-            Text::new("Score: "),
+            TextUi::new("Score: "),
             TextFont {
                 font_size: SCOREBOARD_FONT_SIZE,
                 ..default()
@@ -336,8 +336,8 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>
 
 fn update_scoreboard(
     score: Res<Score>,
-    query: Query<Entity, (With<ScoreboardUi>, With<Text>)>,
-    mut writer: UiTextWriter,
+    query: Query<Entity, (With<ScoreboardUi>, With<TextUi>)>,
+    mut writer: TextUiWriter,
 ) {
     *writer.text(query.single(), 1) = score.to_string();
 }

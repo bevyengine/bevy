@@ -80,8 +80,8 @@ fn update_parallax_depth_scale(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_depth: Local<TargetDepth>,
     mut depth_update: Local<bool>,
-    mut writer: UiTextWriter,
-    text: Query<Entity, With<Text>>,
+    mut writer: TextUiWriter,
+    text: Query<Entity, With<TextUi>>,
 ) {
     if input.just_pressed(KeyCode::Digit1) {
         target_depth.0 -= DEPTH_UPDATE_STEP;
@@ -109,8 +109,8 @@ fn update_parallax_depth_scale(
 fn switch_method(
     input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    text: Query<Entity, With<Text>>,
-    mut writer: UiTextWriter,
+    text: Query<Entity, With<TextUi>>,
+    mut writer: TextUiWriter,
     mut current: Local<CurrentMethod>,
 ) {
     if input.just_pressed(KeyCode::Space) {
@@ -130,8 +130,8 @@ fn update_parallax_layers(
     input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_layers: Local<TargetLayers>,
-    text: Query<Entity, With<Text>>,
-    mut writer: UiTextWriter,
+    text: Query<Entity, With<TextUi>>,
+    mut writer: TextUiWriter,
 ) {
     if input.just_pressed(KeyCode::Digit3) {
         target_layers.0 -= 1.0;
@@ -298,7 +298,7 @@ fn setup(
     // example instructions
     commands
         .spawn((
-            Text::default(),
+            TextUi::default(),
             Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),

@@ -178,9 +178,9 @@ impl MorphKey {
 }
 fn update_text(
     controls: Option<ResMut<WeightsControl>>,
-    text: Query<Entity, With<Text>>,
+    text: Query<Entity, With<TextUi>>,
     morphs: Query<&MorphWeights>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     let Some(mut controls) = controls else {
         return;
@@ -267,7 +267,7 @@ fn detect_morphs(
     commands.insert_resource(WeightsControl { weights: detected });
     commands
         .spawn((
-            Text::default(),
+            TextUi::default(),
             Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(10.0),

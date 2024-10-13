@@ -143,7 +143,7 @@ fn print_logs(
 
     commands.entity(root_entity).with_children(|child| {
         for event in events.read() {
-            child.spawn(Text::new(&event.message));
+            child.spawn(TextUi::new(&event.message));
         }
     });
 }

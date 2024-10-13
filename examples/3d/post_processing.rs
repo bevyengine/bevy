@@ -142,7 +142,7 @@ impl Default for AppSettings {
 }
 
 /// Creates help text at the bottom of the screen.
-fn create_help_text(app_settings: &AppSettings) -> Text {
+fn create_help_text(app_settings: &AppSettings) -> TextUi {
     format!(
         "Chromatic aberration intensity: {} (Press Left or Right to change)",
         app_settings.chromatic_aberration_intensity
@@ -193,7 +193,7 @@ fn update_chromatic_aberration_settings(
 
 /// Updates the help text at the bottom of the screen to reflect the current
 /// [`AppSettings`].
-fn update_help_text(mut text: Query<&mut Text>, app_settings: Res<AppSettings>) {
+fn update_help_text(mut text: Query<&mut TextUi>, app_settings: Res<AppSettings>) {
     for mut text in text.iter_mut() {
         *text = create_help_text(&app_settings);
     }

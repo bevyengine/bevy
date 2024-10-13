@@ -157,7 +157,7 @@ fn setup_scene(
 fn setup_ui(mut commands: Commands) {
     // Add help text.
     commands.spawn((
-        Text::new("Click on a button to toggle animations for its associated bones"),
+        TextUi::new("Click on a button to toggle animations for its associated bones"),
         Style {
             position_type: PositionType::Absolute,
             left: Val::Px(12.0),
@@ -283,7 +283,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                     ..default()
                 })
                 .with_child((
-                    Text::new(label),
+                    TextUi::new(label),
                     label_text_style.clone(),
                     Style {
                         margin: UiRect::vertical(Val::Px(3.0)),
@@ -334,7 +334,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                                 ..default()
                             })
                             .with_child((
-                                Text(format!("{:?}", label)),
+                                TextUi(format!("{:?}", label)),
                                 if index > 0 {
                                     button_text_style.clone()
                                 } else {
@@ -473,8 +473,8 @@ fn handle_button_toggles(
 // A system that updates the UI based on the current app state.
 fn update_ui(
     mut animation_controls: Query<(&AnimationControl, &mut BackgroundColor, &Children)>,
-    texts: Query<Entity, With<Text>>,
-    mut writer: UiTextWriter,
+    texts: Query<Entity, With<TextUi>>,
+    mut writer: TextUiWriter,
     app_state: Res<AppState>,
 ) {
     for (animation_control, mut background_color, kids) in animation_controls.iter_mut() {
