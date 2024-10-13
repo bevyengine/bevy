@@ -302,7 +302,7 @@ mod render_entities_world_query_impls {
 
     unsafe impl WorldQuery for MainEntity {
         type Item<'w> = Entity;
-        type Fetch<'w> = ReadFetch<'w, RenderEntity>;
+        type Fetch<'w> = ReadFetch<'w, MainEntity>;
         type State = ComponentId;
 
         fn shrink<'wlong: 'wshort, 'wshort>(item: Entity) -> Entity {
@@ -321,10 +321,10 @@ mod render_entities_world_query_impls {
             component_id: &ComponentId,
             last_run: Tick,
             this_run: Tick,
-        ) -> ReadFetch<'w, RenderEntity> {
-            // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
+        ) -> ReadFetch<'w, MainEntity> {
+            // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
             unsafe {
-                <&RenderEntity as WorldQuery>::init_fetch(world, component_id, last_run, this_run)
+                <&MainEntity as WorldQuery>::init_fetch(world, component_id, last_run, this_run)
             }
         }
 
@@ -332,25 +332,25 @@ mod render_entities_world_query_impls {
 
         #[inline]
         unsafe fn set_archetype<'w>(
-            fetch: &mut ReadFetch<'w, RenderEntity>,
+            fetch: &mut ReadFetch<'w, MainEntity>,
             component_id: &ComponentId,
             archetype: &'w Archetype,
             table: &'w Table,
         ) {
-            // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
+            // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
             unsafe {
-                <&RenderEntity as WorldQuery>::set_archetype(fetch, component_id, archetype, table)
+                <&MainEntity as WorldQuery>::set_archetype(fetch, component_id, archetype, table)
             }
         }
 
         #[inline]
         unsafe fn set_table<'w>(
-            fetch: &mut ReadFetch<'w, RenderEntity>,
+            fetch: &mut ReadFetch<'w, MainEntity>,
             &component_id: &ComponentId,
             table: &'w Table,
         ) {
-            // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
-            unsafe { <&RenderEntity as WorldQuery>::set_table(fetch, &component_id, table) }
+            // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
+            unsafe { <&MainEntity as WorldQuery>::set_table(fetch, &component_id, table) }
         }
 
         #[inline(always)]
@@ -359,9 +359,8 @@ mod render_entities_world_query_impls {
             entity: Entity,
             table_row: TableRow,
         ) -> Self::Item<'w> {
-            // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
-            let component =
-                unsafe { <&RenderEntity as WorldQuery>::fetch(fetch, entity, table_row) };
+            // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
+            let component = unsafe { <&MainEntity as WorldQuery>::fetch(fetch, entity, table_row) };
             component.id()
         }
 
@@ -369,22 +368,22 @@ mod render_entities_world_query_impls {
             &component_id: &ComponentId,
             access: &mut FilteredAccess<ComponentId>,
         ) {
-            <&RenderEntity as WorldQuery>::update_component_access(&component_id, access)
+            <&MainEntity as WorldQuery>::update_component_access(&component_id, access)
         }
 
         fn init_state(world: &mut World) -> ComponentId {
-            <&RenderEntity as WorldQuery>::init_state(world)
+            <&MainEntity as WorldQuery>::init_state(world)
         }
 
         fn get_state(components: &Components) -> Option<Self::State> {
-            <&RenderEntity as WorldQuery>::get_state(components)
+            <&MainEntity as WorldQuery>::get_state(components)
         }
 
         fn matches_component_set(
             &state: &ComponentId,
             set_contains_id: &impl Fn(ComponentId) -> bool,
         ) -> bool {
-            <&RenderEntity as WorldQuery>::matches_component_set(&state, set_contains_id)
+            <&MainEntity as WorldQuery>::matches_component_set(&state, set_contains_id)
         }
     }
 
