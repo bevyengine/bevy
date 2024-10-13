@@ -127,6 +127,19 @@ impl WinitWindows {
                 winit_window_attributes.with_skip_taskbar(window.skip_taskbar);
         }
 
+        #[cfg(target_os = "macos")]
+        {
+            use winit::platform::macos::WindowAttributesExtMacOS;
+            winit_window_attributes = winit_window_attributes
+                .with_movable_by_window_background(window.movable_by_window_background)
+                .with_fullsize_content_view(window.fullsize_content_view)
+                .with_has_shadow(window.has_shadow)
+                .with_titlebar_hidden(!window.titlebar_shown)
+                .with_titlebar_transparent(window.titlebar_transparent)
+                .with_title_hidden(!window.titlebar_show_title)
+                .with_titlebar_buttons_hidden(!window.titlebar_show_buttons);
+        }
+
         let display_info = DisplayInfo {
             window_physical_resolution: (
                 window.resolution.physical_width(),
