@@ -1096,7 +1096,7 @@ pub fn extract_cameras(
                     })
                     .collect(),
             };
-            let mut commands = commands.entity(render_entity.id());
+            let mut commands = commands.entity(render_entity);
             commands.insert((
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),

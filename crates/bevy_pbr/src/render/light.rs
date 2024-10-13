@@ -403,7 +403,7 @@ pub fn extract_lights(
         for (e, v) in visible_entities.entities.iter() {
             if let Ok(entity) = mapper.get(*e) {
                 cascade_visible_entities.insert(
-                    entity.id(),
+                    entity,
                     v.iter()
                         .map(|v| create_render_visible_mesh_entities(&mut commands, &mapper, v))
                         .collect(),
@@ -442,7 +442,7 @@ pub fn extract_lights(
 
 fn create_render_visible_mesh_entities(
     commands: &mut Commands,
-    mapper: &Extract<Query<&RenderEntity>>,
+    mapper: &Extract<Query<RenderEntity>>,
     visible_entities: &VisibleMeshEntities,
 ) -> RenderVisibleMeshEntities {
     RenderVisibleMeshEntities {
@@ -451,7 +451,6 @@ fn create_render_visible_mesh_entities(
             .map(|e| {
                 let render_entity = mapper
                     .get(*e)
-                    .map(RenderEntity::id)
                     .unwrap_or_else(|_| commands.spawn(TemporaryRenderEntity).id());
                 (render_entity, MainEntity::from(*e))
             })

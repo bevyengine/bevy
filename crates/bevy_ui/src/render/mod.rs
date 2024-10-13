@@ -245,7 +245,7 @@ pub fn extract_uinode_background_colors(
             continue;
         };
 
-        let Ok(&render_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -265,7 +265,7 @@ pub fn extract_uinode_background_colors(
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
-                camera_entity: render_camera_entity.id(),
+                camera_entity: render_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
                     transform: transform.compute_matrix(),
@@ -357,7 +357,7 @@ pub fn extract_uinode_images(
                 rect,
                 clip: clip.map(|clip| clip.clip),
                 image: image.texture.id(),
-                camera_entity: render_camera_entity.id(),
+                camera_entity: render_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling,
                     transform: transform.compute_matrix(),
@@ -409,7 +409,7 @@ pub fn extract_uinode_borders(
             continue;
         };
 
-        let Ok(&render_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -435,7 +435,7 @@ pub fn extract_uinode_borders(
                         },
                         image,
                         clip: maybe_clip.map(|clip| clip.clip),
-                        camera_entity: render_camera_entity.id(),
+                        camera_entity: render_camera_entity,
                         item: ExtractedUiItem::Node {
                             atlas_scaling: None,
                             transform: global_transform.compute_matrix(),
@@ -464,7 +464,7 @@ pub fn extract_uinode_borders(
                     },
                     image,
                     clip: maybe_clip.map(|clip| clip.clip),
-                    camera_entity: render_camera_entity.id(),
+                    camera_entity: render_camera_entity,
                     item: ExtractedUiItem::Node {
                         transform: global_transform.compute_matrix(),
                         atlas_scaling: None,

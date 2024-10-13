@@ -419,7 +419,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 },
                 border,
                 clip: clip.map(|clip| clip.clip),
-                camera_entity: camera_entity.id(),
+                camera_entity,
                 main_entity: entity.into(),
             },
         );
