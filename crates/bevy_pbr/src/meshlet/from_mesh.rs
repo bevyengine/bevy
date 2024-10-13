@@ -23,7 +23,7 @@ use smallvec::SmallVec;
 
 // Aim to have 8 meshlets per group
 const TARGET_MESHLETS_PER_GROUP: usize = 8;
-// Reject groups that keep at least 95% of their original triangles
+// Reject groups that keep over 95% of their original triangles
 const SIMPLIFICATION_FAILURE_PERCENTAGE: f32 = 0.95;
 
 /// Default vertex position quantization factor for use with [`MeshletMesh::from_mesh`].
