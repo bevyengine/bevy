@@ -52,7 +52,11 @@ bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5" }
 wgpu = { version = "22", default-features = false }
 serde = { version = "1", features = ["derive"] }
-thiserror = "1.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+] }
 futures-lite = "2.0.1"
 ddsfile = { version = "0.5.2", optional = true }
 ktx2 = { version = "0.3.0", optional = true }

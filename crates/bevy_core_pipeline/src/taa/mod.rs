@@ -32,9 +32,9 @@ use bevy_render::{
         TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
+    sync_world::RenderEntity,
     texture::{BevyDefault, CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
-    world_sync::RenderEntity,
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use bevy_utils::tracing::warn;

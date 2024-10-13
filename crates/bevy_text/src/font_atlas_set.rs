@@ -60,9 +60,9 @@ pub struct FontAtlasKey(pub u32, pub FontSmoothing);
 /// A `FontAtlasSet` is an [`Asset`].
 ///
 /// There is one `FontAtlasSet` for each font:
-/// - When a [`Font`] is loaded as an asset and then used in [`Text`](crate::Text),
+/// - When a [`Font`] is loaded as an asset and then used in [`TextStyle`](crate::TextStyle),
 ///   a `FontAtlasSet` asset is created from a weak handle to the `Font`.
-/// - ~When a font is loaded as a system font, and then used in [`Text`](crate::Text),
+/// - ~When a font is loaded as a system font, and then used in [`TextStyle`](crate::TextStyle),
 ///   a `FontAtlasSet` asset is created and stored with a strong handle to the `FontAtlasSet`.~
 ///   (*Note that system fonts are not currently supported by the `TextPipeline`.*)
 ///

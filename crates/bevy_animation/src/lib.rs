@@ -28,10 +28,10 @@ use core::{
 use graph::AnimationNodeType;
 use prelude::AnimationCurveEvaluator;
 
-use crate::graph::ThreadedAnimationGraphs;
+use crate::graph::{AnimationGraphHandle, ThreadedAnimationGraphs};
 
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{Asset, AssetApp, Assets, Handle};
+use bevy_asset::{Asset, AssetApp, Assets};
 use bevy_core::Name;
 use bevy_ecs::{
     entity::{VisitEntities, VisitEntitiesMut},
@@ -84,7 +84,7 @@ use crate::{
 /// [UUID namespace]: https://en.wikipedia.org/wiki/Universally_unique_identifier#Versions_3_and_5_(namespace_name-based)
 pub static ANIMATION_TARGET_NAMESPACE: Uuid = Uuid::from_u128(0x3179f519d9274ff2b5966fd077023911);
 
-/// Contains an [animation curve] which is used to animate entities.
+/// Contains an [animation curve] which is used to animate a property of an entity.
 ///
 /// [animation curve]: AnimationCurve
 #[derive(Debug, TypePath)]
@@ -422,6 +422,20 @@ impl AnimationClip {
     /// If the curve extends beyond the current duration of this clip, this
     /// method lengthens this clip to include the entire time span that the
     /// curve covers.
+    ///
+    /// More specifically:
+    /// - This clip will be sampled on the interval `[0, duration]`.
+    /// - Each curve in the clip is sampled by first clamping the sample time to its [domain].
+    /// - Curves that extend forever never contribute to the duration.
+    ///
+    /// For example, a curve with domain `[2, 5]` will extend the clip to cover `[0, 5]`
+    /// when added and will produce the same output on the entire interval `[0, 2]` because
+    /// these time values all get clamped to `2`.
+    ///
+    /// By contrast, a curve with domain `[-10, ∞]` will never extend the clip duration when
+    /// added and will be sampled only on `[0, duration]`, ignoring all negative time values.
+    ///
+    /// [domain]: AnimationCurve::domain
     pub fn add_curve_to_target(
         &mut self,
         target_id: AnimationTargetId,
@@ -942,7 +956,7 @@ fn trigger_untargeted_animation_events(
     mut commands: Commands,
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
-    players: Query<(Entity, &AnimationPlayer, &Handle<AnimationGraph>)>,
+    players: Query<(Entity, &AnimationPlayer, &AnimationGraphHandle)>,
 ) {
     for (entity, player, graph_id) in &players {
         // The graph might not have loaded yet. Safely bail.
@@ -989,7 +1003,7 @@ pub fn advance_animations(
     time: Res<Time>,
     animation_clips: Res<Assets<AnimationClip>>,
     animation_graphs: Res<Assets<AnimationGraph>>,
-    mut players: Query<(&mut AnimationPlayer, &Handle<AnimationGraph>)>,
+    mut players: Query<(&mut AnimationPlayer, &AnimationGraphHandle)>,
 ) {
     let delta_seconds = time.delta_seconds();
     players
@@ -1030,7 +1044,7 @@ pub type AnimationEntityMut<'w> = EntityMutExcept<
         AnimationTarget,
         Transform,
         AnimationPlayer,
-        Handle<AnimationGraph>,
+        AnimationGraphHandle,
     ),
 >;
 
@@ -1041,7 +1055,7 @@ pub fn animate_targets(
     clips: Res<Assets<AnimationClip>>,
     graphs: Res<Assets<AnimationGraph>>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
-    players: Query<(&AnimationPlayer, &Handle<AnimationGraph>)>,
+    players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
     mut targets: Query<(
         Entity,
         &AnimationTarget,
@@ -1255,6 +1269,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationPlayer>()
             .register_type::<AnimationTarget>()
             .register_type::<AnimationTransitions>()
+            .register_type::<AnimationGraphHandle>()
             .register_type::<NodeIndex>()
             .register_type::<ThreadedAnimationGraphs>()
             .init_resource::<ThreadedAnimationGraphs>()

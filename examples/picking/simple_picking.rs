@@ -1,6 +1,6 @@
 //! A simple scene to demonstrate picking events
 
-use bevy::{color::palettes::css::*, prelude::*};
+use bevy::{color::palettes::tailwind::CYAN_400, prelude::*};
 
 fn main() {
     let mut app = App::new();
@@ -18,16 +18,15 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands
-        .spawn(TextBundle {
-            text: Text::from_section("Click Me to get a box", TextStyle::default()),
-            style: Style {
+        .spawn((
+            Text::new("Click Me to get a box"),
+            Style {
                 position_type: PositionType::Absolute,
                 top: Val::Percent(12.0),
                 left: Val::Percent(12.0),
                 ..default()
             },
-            ..Default::default()
-        })
+        ))
         .observe(
             |_click: Trigger<Pointer<Click>>,
              mut commands: Commands,
@@ -42,14 +41,18 @@ fn setup(
                 *num += 1;
             },
         )
-        .observe(|evt: Trigger<Pointer<Out>>, mut texts: Query<&mut Text>| {
-            let mut text = texts.get_mut(evt.entity()).unwrap();
-            text.sections[0].style.color = WHITE.into();
-        })
-        .observe(|evt: Trigger<Pointer<Over>>, mut texts: Query<&mut Text>| {
-            let mut text = texts.get_mut(evt.entity()).unwrap();
-            text.sections[0].style.color = BLUE.into();
-        });
+        .observe(
+            |evt: Trigger<Pointer<Out>>, mut texts: Query<&mut TextStyle>| {
+                let mut style = texts.get_mut(evt.entity()).unwrap();
+                style.color = Color::WHITE;
+            },
+        )
+        .observe(
+            |evt: Trigger<Pointer<Over>>, mut texts: Query<&mut TextStyle>| {
+                let mut style = texts.get_mut(evt.entity()).unwrap();
+                style.color = CYAN_400.into();
+            },
+        );
     // circular base
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(4.0))),

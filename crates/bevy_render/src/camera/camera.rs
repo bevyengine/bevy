@@ -1,3 +1,6 @@
+use super::{ClearColorConfig, Projection};
+use crate::sync_world::TemporaryRenderEntity;
+use crate::view::RenderVisibleEntities;
 use crate::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
@@ -6,12 +9,12 @@ use crate::{
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
+    sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers, Visibility,
         VisibleEntities,
     },
-    world_sync::{RenderEntity, SyncToRenderWorld},
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
@@ -37,9 +40,8 @@ use bevy_window::{
     WindowScaleFactorChanged,
 };
 use core::ops::Range;
+use derive_more::derive::From;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
-
-use super::{ClearColorConfig, Projection};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -710,7 +712,7 @@ impl CameraRenderGraph {
 
 /// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`]
 /// swapchain or an [`Image`].
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, From)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowRef),
@@ -727,16 +729,10 @@ impl Default for RenderTarget {
     }
 }
 
-impl From<Handle<Image>> for RenderTarget {
-    fn from(handle: Handle<Image>) -> Self {
-        Self::Image(handle)
-    }
-}
-
 /// Normalized version of the render target.
 ///
 /// Once we have this we shouldn't need to resolve it down anymore.
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord, From)]
 pub enum NormalizedRenderTarget {
     /// Window to which the camera's view is rendered.
     Window(NormalizedWindowRef),
@@ -965,10 +961,14 @@ pub fn camera_system<T: CameraProjection + Component>(
                 }
                 camera.computed.target_info = new_computed_target_info;
                 if let Some(size) = camera.logical_viewport_size() {
-                    camera_projection.update(size.x, size.y);
-                    camera.computed.clip_from_view = match &camera.sub_camera_view {
-                        Some(sub_view) => camera_projection.get_clip_from_view_for_sub(sub_view),
-                        None => camera_projection.get_clip_from_view(),
+                    if size.x != 0.0 && size.y != 0.0 {
+                        camera_projection.update(size.x, size.y);
+                        camera.computed.clip_from_view = match &camera.sub_camera_view {
+                            Some(sub_view) => {
+                                camera_projection.get_clip_from_view_for_sub(sub_view)
+                            }
+                            None => camera_projection.get_clip_from_view(),
+                        }
                     }
                 }
             }
@@ -1035,6 +1035,7 @@ pub fn extract_cameras(
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    mapper: Extract<Query<&RenderEntity>>,
 ) {
     let primary_window = primary_window.iter().next();
     for (
@@ -1073,7 +1074,29 @@ pub fn extract_cameras(
                 continue;
             }
 
-            let mut commands = commands.entity(render_entity);
+            let render_visible_entities = RenderVisibleEntities {
+                entities: visible_entities
+                    .entities
+                    .iter()
+                    .map(|(type_id, entities)| {
+                        let entities = entities
+                            .iter()
+                            .map(|entity| {
+                                let render_entity = mapper
+                                    .get(*entity)
+                                    .cloned()
+                                    .map(|entity| entity.id())
+                                    .unwrap_or_else(|_e| {
+                                        commands.spawn(TemporaryRenderEntity).id()
+                                    });
+                                (render_entity, (*entity).into())
+                            })
+                            .collect();
+                        (*type_id, entities)
+                    })
+                    .collect(),
+            };
+            let mut commands = commands.entity(render_entity.id());
             commands.insert((
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),
@@ -1105,7 +1128,7 @@ pub fn extract_cameras(
                     ),
                     color_grading,
                 },
-                visible_entities.clone(),
+                render_visible_entities,
                 *frustum,
             ));
 

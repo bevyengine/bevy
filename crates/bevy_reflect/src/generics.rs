@@ -3,6 +3,7 @@ use crate::{Reflect, Type, TypePath};
 use alloc::borrow::Cow;
 use alloc::sync::Arc;
 use core::ops::Deref;
+use derive_more::derive::From;
 
 /// The generic parameters of a type.
 ///
@@ -63,7 +64,7 @@ impl Deref for Generics {
 }
 
 /// An enum representing a generic parameter.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, From)]
 pub enum GenericInfo {
     /// A type parameter.
     ///
@@ -98,18 +99,6 @@ impl GenericInfo {
             Self::Const(info) => info.ty(),
         }
     });
-}
-
-impl From<TypeParamInfo> for GenericInfo {
-    fn from(info: TypeParamInfo) -> Self {
-        Self::Type(info)
-    }
-}
-
-impl From<ConstParamInfo> for GenericInfo {
-    fn from(info: ConstParamInfo) -> Self {
-        Self::Const(info)
-    }
 }
 
 /// Type information for a generic type parameter.
