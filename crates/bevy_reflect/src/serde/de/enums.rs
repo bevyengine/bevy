@@ -38,7 +38,7 @@ impl<'a> EnumVisitor<'a> {
     }
 }
 
-impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
+impl<'de> Visitor<'de> for EnumVisitor<'_> {
     type Value = DynamicEnum;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -112,7 +112,7 @@ impl<'de> DeserializeSeed<'de> for VariantDeserializer {
     {
         struct VariantVisitor(&'static EnumInfo);
 
-        impl<'de> Visitor<'de> for VariantVisitor {
+        impl Visitor<'_> for VariantVisitor {
             type Value = &'static VariantInfo;
 
             fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -157,7 +157,7 @@ struct StructVariantVisitor<'a> {
     registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for StructVariantVisitor<'a> {
+impl<'de> Visitor<'de> for StructVariantVisitor<'_> {
     type Value = DynamicStruct;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -185,7 +185,7 @@ struct TupleVariantVisitor<'a> {
     registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for TupleVariantVisitor<'a> {
+impl<'de> Visitor<'de> for TupleVariantVisitor<'_> {
     type Value = DynamicTuple;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {

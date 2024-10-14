@@ -199,7 +199,7 @@ impl<'a> FromReflectVariantBuilder<'a> {
     }
 }
 
-impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
+impl VariantBuilder for FromReflectVariantBuilder<'_> {
     fn reflect_enum(&self) -> &ReflectEnum {
         self.reflect_enum
     }
@@ -231,7 +231,7 @@ impl<'a> TryApplyVariantBuilder<'a> {
     }
 }
 
-impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
+impl VariantBuilder for TryApplyVariantBuilder<'_> {
     fn reflect_enum(&self) -> &ReflectEnum {
         self.reflect_enum
     }

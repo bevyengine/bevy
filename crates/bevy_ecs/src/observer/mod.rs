@@ -120,7 +120,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     }
 }
 
-impl<'w, E: Debug, B: Bundle> Debug for Trigger<'w, E, B> {
+impl<E: Debug, B: Bundle> Debug for Trigger<'_, E, B> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Trigger")
             .field("event", &self.event)
@@ -131,7 +131,7 @@ impl<'w, E: Debug, B: Bundle> Debug for Trigger<'w, E, B> {
     }
 }
 
-impl<'w, E, B: Bundle> Deref for Trigger<'w, E, B> {
+impl<E, B: Bundle> Deref for Trigger<'_, E, B> {
     type Target = E;
 
     fn deref(&self) -> &Self::Target {
@@ -139,7 +139,7 @@ impl<'w, E, B: Bundle> Deref for Trigger<'w, E, B> {
     }
 }
 
-impl<'w, E, B: Bundle> DerefMut for Trigger<'w, E, B> {
+impl<E, B: Bundle> DerefMut for Trigger<'_, E, B> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.event
     }

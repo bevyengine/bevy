@@ -23,7 +23,7 @@ impl<'a> OptionVisitor<'a> {
     }
 }
 
-impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
+impl<'de> Visitor<'de> for OptionVisitor<'_> {
     type Value = DynamicEnum;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {

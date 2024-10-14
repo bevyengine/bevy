@@ -601,7 +601,7 @@ impl<'w, T: Resource> From<Res<'w, T>> for Ref<'w, T> {
     }
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a Res<'w, T>
+impl<'a, T: Resource> IntoIterator for &'a Res<'_, T>
 where
     &'a T: IntoIterator,
 {
@@ -632,7 +632,7 @@ pub struct ResMut<'w, T: ?Sized + Resource> {
     pub(crate) changed_by: &'w mut &'static Location<'static>,
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a ResMut<'w, T>
+impl<'a, T: Resource> IntoIterator for &'a ResMut<'_, T>
 where
     &'a T: IntoIterator,
 {
@@ -644,7 +644,7 @@ where
     }
 }
 
-impl<'w, 'a, T: Resource> IntoIterator for &'a mut ResMut<'w, T>
+impl<'a, T: Resource> IntoIterator for &'a mut ResMut<'_, T>
 where
     &'a mut T: IntoIterator,
 {
@@ -794,7 +794,7 @@ impl<'w, T: ?Sized> Ref<'w, T> {
     }
 }
 
-impl<'w, 'a, T> IntoIterator for &'a Ref<'w, T>
+impl<'a, T> IntoIterator for &'a Ref<'_, T>
 where
     &'a T: IntoIterator,
 {
@@ -924,7 +924,7 @@ impl<'w, T: ?Sized> From<Mut<'w, T>> for Ref<'w, T> {
     }
 }
 
-impl<'w, 'a, T> IntoIterator for &'a Mut<'w, T>
+impl<'a, T> IntoIterator for &'a Mut<'_, T>
 where
     &'a T: IntoIterator,
 {
@@ -936,7 +936,7 @@ where
     }
 }
 
-impl<'w, 'a, T> IntoIterator for &'a mut Mut<'w, T>
+impl<'a, T> IntoIterator for &'a mut Mut<'_, T>
 where
     &'a mut T: IntoIterator,
 {
@@ -1064,7 +1064,7 @@ impl<'w> MutUntyped<'w> {
     }
 }
 
-impl<'w> DetectChanges for MutUntyped<'w> {
+impl DetectChanges for MutUntyped<'_> {
     #[inline]
     fn is_added(&self) -> bool {
         self.ticks

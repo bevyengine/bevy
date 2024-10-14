@@ -441,7 +441,7 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 /// `fetch` accesses all components in a readonly way.
 /// This is sound because `update_component_access` and `update_archetype_component_access` set read access for all components and panic when appropriate.
 /// Filters are unchanged.
-unsafe impl<'a> WorldQuery for EntityRef<'a> {
+unsafe impl WorldQuery for EntityRef<'_> {
     type Item<'w> = EntityRef<'w>;
     type Fetch<'w> = UnsafeWorldCell<'w>;
     type State = ();
@@ -513,7 +513,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<'a> QueryData for EntityRef<'a> {
+unsafe impl QueryData for EntityRef<'_> {
     type ReadOnly = Self;
 }
 
@@ -521,7 +521,7 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
 unsafe impl ReadOnlyQueryData for EntityRef<'_> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
-unsafe impl<'a> WorldQuery for EntityMut<'a> {
+unsafe impl WorldQuery for EntityMut<'_> {
     type Item<'w> = EntityMut<'w>;
     type Fetch<'w> = UnsafeWorldCell<'w>;
     type State = ();
@@ -598,7 +598,7 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
 }
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
-unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
+unsafe impl WorldQuery for FilteredEntityRef<'_> {
     type Fetch<'w> = (UnsafeWorldCell<'w>, Access<ComponentId>);
     type Item<'w> = FilteredEntityRef<'w>;
     type State = FilteredAccess<ComponentId>;
@@ -685,7 +685,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<'a> QueryData for FilteredEntityRef<'a> {
+unsafe impl QueryData for FilteredEntityRef<'_> {
     type ReadOnly = Self;
 }
 
@@ -693,7 +693,7 @@ unsafe impl<'a> QueryData for FilteredEntityRef<'a> {
 unsafe impl ReadOnlyQueryData for FilteredEntityRef<'_> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
-unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
+unsafe impl WorldQuery for FilteredEntityMut<'_> {
     type Fetch<'w> = (UnsafeWorldCell<'w>, Access<ComponentId>);
     type Item<'w> = FilteredEntityMut<'w>;
     type State = FilteredAccess<ComponentId>;
@@ -786,7 +786,7 @@ unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
 /// SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
-unsafe impl<'a, B> WorldQuery for EntityRefExcept<'a, B>
+unsafe impl<B> WorldQuery for EntityRefExcept<'_, B>
 where
     B: Bundle,
 {
@@ -871,7 +871,7 @@ where
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`.
-unsafe impl<'a, B> QueryData for EntityRefExcept<'a, B>
+unsafe impl<B> QueryData for EntityRefExcept<'_, B>
 where
     B: Bundle,
 {
@@ -880,12 +880,12 @@ where
 
 /// SAFETY: `EntityRefExcept` enforces read-only access to its contained
 /// components.
-unsafe impl<'a, B> ReadOnlyQueryData for EntityRefExcept<'a, B> where B: Bundle {}
+unsafe impl<B> ReadOnlyQueryData for EntityRefExcept<'_, B> where B: Bundle {}
 
 /// SAFETY: `EntityMutExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
-unsafe impl<'a, B> WorldQuery for EntityMutExcept<'a, B>
+unsafe impl<B> WorldQuery for EntityMutExcept<'_, B>
 where
     B: Bundle,
 {
@@ -1246,7 +1246,7 @@ impl<T: Component> Copy for RefFetch<'_, T> {}
 /// This is sound because `update_component_access` and `update_archetype_component_access` add read access for that component and panic when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
-unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
+unsafe impl<T: Component> WorldQuery for Ref<'_, T> {
     type Item<'w> = Ref<'w, T>;
     type Fetch<'w> = RefFetch<'w, T>;
     type State = ComponentId;
@@ -1408,12 +1408,12 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
+unsafe impl<T: Component> QueryData for Ref<'_, T> {
     type ReadOnly = Self;
 }
 
 /// SAFETY: access is read only
-unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
+unsafe impl<T: Component> ReadOnlyQueryData for Ref<'_, T> {}
 
 /// The [`WorldQuery::Fetch`] type for `&mut T`.
 pub struct WriteFetch<'w, T: Component> {
@@ -1445,7 +1445,7 @@ impl<T: Component> Copy for WriteFetch<'_, T> {}
 /// This is sound because `update_component_access` and `update_archetype_component_access` add write access for that component and panic when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
-unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
+unsafe impl<T: Component> WorldQuery for &mut T {
     type Item<'w> = Mut<'w, T>;
     type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;
@@ -1620,7 +1620,7 @@ unsafe impl<'__w, T: Component> QueryData for &'__w mut T {
 /// This is sound because `update_component_access` and `update_archetype_component_access` add write access for that component and panic when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
-unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
+unsafe impl<T: Component> WorldQuery for Mut<'_, T> {
     type Item<'w> = Mut<'w, T>;
     type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;

@@ -167,7 +167,7 @@ fn map_id_events(
 
 // For all practical purposes, the api surface of `RemovedComponents<T>`
 // should be similar to `EventReader<T>` to reduce confusion.
-impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
+impl<T: Component> RemovedComponents<'_, '_, T> {
     /// Fetch underlying [`EventCursor`].
     pub fn reader(&self) -> &EventCursor<RemovedComponentEntity> {
         &self.reader
@@ -245,10 +245,10 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
 }
 
 // SAFETY: Only reads World removed component events
-unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentEvents {}
+unsafe impl ReadOnlySystemParam for &RemovedComponentEvents {}
 
 // SAFETY: no component value access.
-unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
+unsafe impl SystemParam for &RemovedComponentEvents {
     type State = ();
     type Item<'w, 's> = &'w RemovedComponentEvents;
 

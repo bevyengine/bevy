@@ -57,7 +57,7 @@ pub struct AccessError<'a> {
     pub(super) offset: Option<usize>,
 }
 
-impl<'a> AccessError<'a> {
+impl AccessError<'_> {
     /// Returns the kind of [`AccessError`].
     pub const fn kind(&self) -> &AccessErrorKind {
         &self.kind

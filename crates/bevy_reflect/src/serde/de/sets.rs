@@ -19,7 +19,7 @@ impl<'a> SetVisitor<'a> {
     }
 }
 
-impl<'a, 'de> Visitor<'de> for SetVisitor<'a> {
+impl<'de> Visitor<'de> for SetVisitor<'_> {
     type Value = DynamicSet;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {

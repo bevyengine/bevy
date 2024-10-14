@@ -48,7 +48,7 @@ pub struct EventMutator<'w, 's, E: Event> {
     events: ResMut<'w, Events<E>>,
 }
 
-impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
+impl<E: Event> EventMutator<'_, '_, E> {
     /// Iterates over the events this [`EventMutator`] has not seen yet. This updates the
     /// [`EventMutator`]'s event counter, which means subsequent event reads will not include events
     /// that happened before now.

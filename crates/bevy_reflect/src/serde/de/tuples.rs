@@ -27,7 +27,7 @@ impl<'a> TupleVisitor<'a> {
     }
 }
 
-impl<'a, 'de> Visitor<'de> for TupleVisitor<'a> {
+impl<'de> Visitor<'de> for TupleVisitor<'_> {
     type Value = DynamicTuple;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
