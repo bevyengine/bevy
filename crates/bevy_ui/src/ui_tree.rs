@@ -53,7 +53,7 @@ pub struct UiTree<'w, 's> {
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
     children_query: Query<'w, 's, &'static Children>,
     ghost_nodes_query: Query<'w, 's, Entity, With<GhostNode>>,
-    parents_query: Query<'w, 's, &'static Parent>,
+    parents_query: Query<'w, 's, &'static Parent, Or<(With<Node>, With<GhostNode>)>>,
 }
 
 impl<'w, 's> UiTree<'w, 's> {
@@ -76,11 +76,22 @@ impl<'w, 's> UiTree<'w, 's> {
         }
     }
 
-    /// Returns the UI parent of the provided entity, skipping over [`GhostNode`].
+    /// Returns the [`Node`] parent of the provided entity, skipping over [`GhostNode`].
     pub fn parent(&'s self, entity: Entity) -> Option<Entity> {
         self.parents_query
             .iter_ancestors(entity)
             .find(|entity| !self.ghost_nodes_query.contains(*entity))
+    }
+
+    /// Returns the topmost [`Node`] ancestor of the given `entity`.
+    ///
+    /// This may be the entity itself if it has no parent or if it isn't part of a UI tree.
+    pub fn root_ancestor(&'s self, entity: Entity) -> Entity {
+        // Recursively search up the tree until we're out of parents
+        match self.parent(entity) {
+            Some(parent) => self.root_ancestor(parent),
+            None => entity,
+        }
     }
 
     /// Iterates the [`GhostNode`]s between this entity and its UI children.
@@ -212,10 +223,38 @@ mod tests {
         world.entity_mut(n9).add_children(&[n10]);
 
         let mut system_state = SystemState::<(UiTree, Query<&A>)>::new(world);
-        let (ui_children, a_query) = system_state.get(world);
+        let (ui_tree, a_query) = system_state.get(world);
 
-        let result: Vec<_> = a_query.iter_many(ui_children.iter_children(n1)).collect();
+        let result: Vec<_> = a_query.iter_many(ui_tree.iter_children(n1)).collect();
 
         assert_eq!([&A(5), &A(4), &A(8), &A(10)], result.as_slice());
+    }
+
+    #[test]
+    fn root_ancestor() {
+        let world = &mut World::new();
+
+        let n1 = world.spawn((A(1), NodeBundle::default())).id();
+        let n2 = world.spawn((A(2), GhostNode)).id();
+        let n3 = world.spawn((A(3), GhostNode)).id();
+        let n4 = world.spawn((A(4), NodeBundle::default())).id();
+
+        let n6 = world.spawn((A(6), GhostNode)).id();
+        let n7 = world.spawn((A(7), GhostNode)).id();
+        let n8 = world.spawn((A(8), NodeBundle::default())).id();
+
+        world.entity_mut(n1).add_children(&[n2, n3]);
+        world.entity_mut(n3).add_children(&[n4]);
+
+        world.entity_mut(n6).add_children(&[n7]);
+        world.entity_mut(n7).add_children(&[n8]);
+
+        let mut system_state = SystemState::<(UiTree, Query<&A>)>::new(world);
+        let (ui_tree, a_query) = system_state.get(world);
+
+        assert_eq!(&A(1), a_query.get(ui_tree.root_ancestor(n1)).unwrap());
+        assert_eq!(&A(1), a_query.get(ui_tree.root_ancestor(n2)).unwrap());
+        assert_eq!(&A(1), a_query.get(ui_tree.root_ancestor(n4)).unwrap());
+        assert_eq!(&A(8), a_query.get(ui_tree.root_ancestor(n8)).unwrap());
     }
 }
