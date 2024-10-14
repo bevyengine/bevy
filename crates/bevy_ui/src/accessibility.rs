@@ -65,7 +65,7 @@ fn button_changed(
     mut text_reader: TextUiReader,
 ) {
     for (entity, accessible) in &mut query {
-        let name = calc_name(&mut text_reader, ui_children.iter_ui_children(entity));
+        let name = calc_name(&mut text_reader, ui_children.iter_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Button);
             if let Some(name) = name {
@@ -92,7 +92,7 @@ fn image_changed(
     mut text_reader: TextUiReader,
 ) {
     for (entity, accessible) in &mut query {
-        let name = calc_name(&mut text_reader, ui_children.iter_ui_children(entity));
+        let name = calc_name(&mut text_reader, ui_children.iter_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Image);
             if let Some(name) = name {

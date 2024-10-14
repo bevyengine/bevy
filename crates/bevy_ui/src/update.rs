@@ -105,7 +105,7 @@ fn update_clipping(
         Some(maybe_inherited_clip.map_or(node_rect, |c| c.intersect(node_rect)))
     };
 
-    for child in ui_children.iter_ui_children(entity) {
+    for child in ui_children.iter_children(entity) {
         update_clipping(commands, ui_children, node_query, child, children_clip);
     }
 }
@@ -164,7 +164,7 @@ fn update_children_target_camera(
     commands: &mut Commands,
     updated_entities: &mut HashSet<Entity>,
 ) {
-    for child in ui_children.iter_ui_children(entity) {
+    for child in ui_children.iter_children(entity) {
         // Skip if the child has already been updated or update is not needed
         if updated_entities.contains(&child)
             || camera_to_set == node_query.get(child).ok().and_then(|(_, camera)| camera)

@@ -263,7 +263,7 @@ with UI components as a child of an entity without UI components, your UI layout
         }
 
         if ui_children.is_changed(entity) {
-            ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
+            ui_surface.update_children(entity, ui_children.iter_children(entity));
         }
     });
 
@@ -275,7 +275,7 @@ with UI components as a child of an entity without UI components, your UI layout
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
     node_query.iter().for_each(|(entity, _)| {
         if ui_children.is_changed(entity) {
-            ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
+            ui_surface.update_children(entity, ui_children.iter_children(entity));
         }
     });
 
@@ -435,7 +435,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     .insert(ScrollPosition::from(&clamped_scroll_position));
             }
 
-            for child_uinode in ui_children.iter_ui_children(entity) {
+            for child_uinode in ui_children.iter_children(entity) {
                 update_uinode_geometry_recursive(
                     commands,
                     child_uinode,

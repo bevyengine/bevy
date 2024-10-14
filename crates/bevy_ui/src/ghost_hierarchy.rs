@@ -36,7 +36,7 @@ impl<'w, 's> UiRootNodes<'w, 's> {
             .iter()
             .chain(self.root_ghost_node_query.iter().flat_map(|root_ghost| {
                 self.all_nodes_query
-                    .iter_many(self.ui_children.iter_ui_children(root_ghost))
+                    .iter_many(self.ui_children.iter_children(root_ghost))
             }))
     }
 }
@@ -57,14 +57,14 @@ pub struct UiChildren<'w, 's> {
 }
 
 impl<'w, 's> UiChildren<'w, 's> {
-    /// Iterates the children of `entity`, skipping over [`GhostNode`].
+    /// Iterates the [`Node`] children of `entity`, skipping over [`GhostNode`].
     ///
     /// Traverses the hierarchy depth-first to ensure child order.
     ///
     /// # Performance
     ///
     /// This iterator allocates if the `entity` node has more than 8 children (including ghost nodes).
-    pub fn iter_ui_children(&'s self, entity: Entity) -> UiChildrenIter<'w, 's> {
+    pub fn iter_children(&'s self, entity: Entity) -> UiChildrenIter<'w, 's> {
         UiChildrenIter {
             stack: self
                 .ui_children_query
@@ -214,9 +214,7 @@ mod tests {
         let mut system_state = SystemState::<(UiChildren, Query<&A>)>::new(world);
         let (ui_children, a_query) = system_state.get(world);
 
-        let result: Vec<_> = a_query
-            .iter_many(ui_children.iter_ui_children(n1))
-            .collect();
+        let result: Vec<_> = a_query.iter_many(ui_children.iter_children(n1)).collect();
 
         assert_eq!([&A(5), &A(4), &A(8), &A(10)], result.as_slice());
     }

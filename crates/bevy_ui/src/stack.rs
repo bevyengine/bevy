@@ -107,7 +107,7 @@ fn update_uistack_recursive(
     let mut child_buffer = cache.pop();
     child_buffer.extend(
         ui_children
-            .iter_ui_children(node_entity)
+            .iter_children(node_entity)
             .filter_map(|child_entity| {
                 zindex_query
                     .get(child_entity)
