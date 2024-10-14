@@ -761,6 +761,12 @@ pub fn prepare_lights(
         .count()
         .min(max_texture_array_layers / MAX_CASCADES_PER_LIGHT);
 
+    let spot_light_count = point_lights
+        .iter()
+        .filter(|(_, light, _)| light.spot_light_angles.is_some())
+        .count()
+        .min(max_texture_array_layers - directional_shadow_enabled_count * MAX_CASCADES_PER_LIGHT);
+
     let spot_light_volumetric_enabled_count = point_lights
         .iter()
         .filter(|(_, light, _)| light.volumetric && light.spot_light_angles.is_some())
@@ -1037,7 +1043,7 @@ pub fn prepare_lights(
         for &(light_entity, light, (point_light_frusta, _)) in point_lights
             .iter()
             // Lights are sorted, shadow enabled lights are first
-            .take(point_light_shadow_maps_count)
+            .take(point_light_count)
         {
             let Ok(mut light_entities) = light_view_entities.get_mut(light_entity) else {
                 continue;
@@ -1130,15 +1136,22 @@ pub fn prepare_lights(
         for (light_index, &(light_entity, light, (_, spot_light_frustum))) in point_lights
             .iter()
             .skip(point_light_count)
-            .take(spot_light_shadow_maps_count)
+            .take(spot_light_count)
             .enumerate()
         {
-            let spot_world_from_view = spot_light_world_from_view(&light.transform);
-            let spot_world_from_view = spot_world_from_view.into();
-
             let Ok(mut light_view_entities) = light_view_entities.get_mut(light_entity) else {
                 continue;
             };
+
+            if !light.shadows_enabled {
+                if let Some(entities) = light_view_entities.remove(&entity) {
+                    despawn_entities(&mut commands, entities);
+                }
+                continue;
+            }
+
+            let spot_world_from_view = spot_light_world_from_view(&light.transform);
+            let spot_world_from_view = spot_world_from_view.into();
 
             let angle = light.spot_light_angles.expect("lights should be sorted so that \
                 [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
