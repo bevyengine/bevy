@@ -17,16 +17,11 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::{prelude::default, tracing::warn};
 
 use crate::{
-    ClusterConfig, ClusterFarZMode, Clusters, GlobalVisibleClusterableObjects, PointLight,
-    SpotLight, ViewClusterBindings, VisibleClusterableObjects, VolumetricLight,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
     prelude::EnvironmentMapLight, ClusterConfig, ClusterFarZMode, Clusters, ExtractedPointLight,
     GlobalVisibleClusterableObjects, LightProbe, PointLight, SpotLight, ViewClusterBindings,
-    VisibleClusterableObjects, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    VisibleClusterableObjects, VolumetricLight, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
     MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
 };
-
-use super::ClusterableObjectOrderData;
 
 const NDC_MIN: Vec2 = Vec2::NEG_ONE;
 const NDC_MAX: Vec2 = Vec2::ONE;
@@ -63,6 +58,10 @@ pub(crate) enum ClusterableObjectType {
         ///
         /// This is used for sorting the light list.
         shadows_enabled: bool,
+        /// Whether volumetric lighting is enabled for this point light.
+        ///
+        /// This is used for sorting the light list.
+        is_volumetric: bool,
     },
 
     /// Data needed to assign spot lights to clusters.
@@ -71,6 +70,10 @@ pub(crate) enum ClusterableObjectType {
         ///
         /// This is used for sorting the light list.
         shadows_enabled: bool,
+        /// Whether volumetric lighting is enabled for this spot light.
+        ///
+        /// This is used for sorting the light list.
+        is_volumetric: bool,
         /// The outer angle of the light cone in radians.
         outer_angle: f32,
     },
@@ -89,14 +92,19 @@ impl ClusterableObjectType {
     ///
     /// Generally, we sort first by type, then, for lights, by whether shadows
     /// are enabled.
-    pub(crate) fn ordering(&self) -> (u8, bool) {
+    pub(crate) fn ordering(&self) -> impl Ord {
         match *self {
-            ClusterableObjectType::PointLight { shadows_enabled } => (0, shadows_enabled),
+            ClusterableObjectType::PointLight {
+                shadows_enabled,
+                is_volumetric,
+            } => (0, shadows_enabled, is_volumetric),
             ClusterableObjectType::SpotLight {
-                shadows_enabled, ..
-            } => (1, shadows_enabled),
-            ClusterableObjectType::ReflectionProbe => (2, false),
-            ClusterableObjectType::IrradianceVolume => (3, false),
+                shadows_enabled,
+                is_volumetric,
+                ..
+            } => (1, shadows_enabled, is_volumetric),
+            ClusterableObjectType::ReflectionProbe => (2, false, false),
+            ClusterableObjectType::IrradianceVolume => (3, false, false),
         }
     }
 
@@ -108,9 +116,11 @@ impl ClusterableObjectType {
             Some((_, outer_angle)) => ClusterableObjectType::SpotLight {
                 outer_angle,
                 shadows_enabled: point_light.shadows_enabled,
+                is_volumetric: point_light.volumetric,
             },
             None => ClusterableObjectType::PointLight {
                 shadows_enabled: point_light.shadows_enabled,
+                is_volumetric: point_light.volumetric,
             },
         }
     }

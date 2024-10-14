@@ -2,8 +2,8 @@
 
 use core::num::NonZero;
 
-use bevy_core_pipeline::core_3d::Camera3d;
 use assign::ClusterableObjectType;
+use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
@@ -509,13 +509,6 @@ impl Default for GpuClusterableObjectsUniform {
             ),
         }
     }
-}
-
-pub(crate) struct ClusterableObjectOrderData<'a> {
-    pub(crate) entity: &'a Entity,
-    pub(crate) shadows_enabled: &'a bool,
-    pub(crate) is_volumetric_light: &'a bool,
-    pub(crate) is_spot_light: &'a bool,
 }
 
 #[allow(clippy::too_many_arguments)]
