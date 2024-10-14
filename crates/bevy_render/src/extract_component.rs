@@ -205,6 +205,8 @@ fn extract_components<C: ExtractComponent>(
     for (entity, query_item) in &query {
         if let Some(component) = C::extract_component(query_item) {
             values.push((entity, component));
+        } else {
+            commands.entity(entity).remove::<C>();
         }
     }
     *previous_len = values.len();
@@ -222,6 +224,8 @@ fn extract_visible_components<C: ExtractComponent>(
         if view_visibility.get() {
             if let Some(component) = C::extract_component(query_item) {
                 values.push((entity, component));
+            } else {
+                commands.entity(entity).remove::<C>();
             }
         }
     }
