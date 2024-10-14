@@ -182,6 +182,8 @@ jobs:
   make-macos-screenshots-available:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      branch-name: ${{ steps.branch-name.outputs.result }}
     steps:
       - name: 'Download artifact'
         id: find-artifact
@@ -218,15 +220,22 @@ jobs:
         with:
           name: screenshots-macos
           path: screenshots
-
+      - name: branch name
+        id: branch-name
+        run: |
+          if [ -f PR ]; then
+            echo "result=PR-$(cat PR)-${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
+          else
+            echo "result=${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
+          fi
 
   compare-macos-screenshots:
     name: Compare macOS screenshots
     needs: [make-macos-screenshots-available]
     uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
     with:
-      branch: ${{ github.event.workflow_run.head_branch }}
       commit: ${{ github.event.workflow_run.head_sha }}
+      branch: ${{ needs.make-macos-screenshots-available.outputs.branch-name }}
       artifact: screenshots-macos
       os: macos
     secrets: inherit
