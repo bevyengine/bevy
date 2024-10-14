@@ -84,7 +84,7 @@ impl FromWorld for MeshletPipelines {
                 layout: vec![cull_layout.clone()],
                 push_constant_ranges: vec![PushConstantRange {
                     stages: ShaderStages::COMPUTE,
-                    range: 0..4,
+                    range: 0..8,
                 }],
                 shader: MESHLET_CULLING_SHADER_HANDLE,
                 shader_defs: vec![
@@ -99,7 +99,7 @@ impl FromWorld for MeshletPipelines {
                 layout: vec![cull_layout],
                 push_constant_ranges: vec![PushConstantRange {
                     stages: ShaderStages::COMPUTE,
-                    range: 0..4,
+                    range: 0..8,
                 }],
                 shader: MESHLET_CULLING_SHADER_HANDLE,
                 shader_defs: vec![
