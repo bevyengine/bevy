@@ -78,17 +78,17 @@ jobs:
           missing=`cat pixeleagle.json | jq '.missing | length'`
           if [ ! $missing -eq 0 ]; then
             echo "There are $missing missing screenshots"
-            echo "::warning title=$missing missing screenshots on ${{ inputs.os }}::https://pixel-eagle.vleue.com/$project/runs/$run/compare/$to"
+            echo "::warning title=$missing missing screenshots on ${{ inputs.os }}::https://pixel-eagle.vleue.com/$project/runs/$run/compare/$compared_with"
             status=1
           fi
 
           diff=`cat pixeleagle.json | jq '.diff | length'`
           if [ ! $diff -eq 0 ]; then
             echo "There are $diff screenshots with a difference"
-            echo "::warning title=$diff different screenshots on ${{ inputs.os }}::https://pixel-eagle.vleue.com/$project/runs/$run/compare/$to"
+            echo "::warning title=$diff different screenshots on ${{ inputs.os }}::https://pixel-eagle.vleue.com/$project/runs/$run/compare/$compared_with"
             status=1
           fi
 
-          echo "created run $run: https://pixel-eagle.vleue.com/$project/runs/$run/compare/$to"
+          echo "created run $run: https://pixel-eagle.vleue.com/$project/runs/$run/compare/$compared_with"
 
           exit $status
