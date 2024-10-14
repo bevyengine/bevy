@@ -44,21 +44,21 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         [
             (
                 TextSpan("text".repeat(i)),
-                TextStyle {
+                TextFont {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: (4 + i % 10) as f32,
-                    color: BLUE.into(),
                     ..Default::default()
                 },
+                TextColor(BLUE.into()),
             ),
             (
                 TextSpan("pipeline".repeat(i)),
-                TextStyle {
+                TextFont {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: (4 + i % 11) as f32,
-                    color: YELLOW.into(),
                     ..default()
                 },
+                TextColor(YELLOW.into()),
             ),
         ]
     };
