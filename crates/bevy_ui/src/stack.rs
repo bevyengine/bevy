@@ -3,7 +3,7 @@
 use bevy_ecs::prelude::*;
 use bevy_utils::HashSet;
 
-use crate::{GlobalZIndex, Node, UiChildren, UiRootNodes, ZIndex};
+use crate::{GlobalZIndex, Node, UiRootNodes, UiTree, ZIndex};
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -44,7 +44,7 @@ pub fn ui_stack_system(
     ui_root_nodes: UiRootNodes,
     root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
     zindex_global_node_query: Query<(Entity, &GlobalZIndex, Option<&ZIndex>), With<Node>>,
-    ui_children: UiChildren,
+    ui_tree: UiTree,
     zindex_query: Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut Node>,
 ) {
@@ -82,7 +82,7 @@ pub fn ui_stack_system(
         update_uistack_recursive(
             &mut cache,
             root_entity,
-            &ui_children,
+            &ui_tree,
             &zindex_query,
             &mut ui_stack.uinodes,
         );
@@ -98,7 +98,7 @@ pub fn ui_stack_system(
 fn update_uistack_recursive(
     cache: &mut ChildBufferCache,
     node_entity: Entity,
-    ui_children: &UiChildren,
+    ui_tree: &UiTree,
     zindex_query: &Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
     ui_stack: &mut Vec<Entity>,
 ) {
@@ -106,7 +106,7 @@ fn update_uistack_recursive(
 
     let mut child_buffer = cache.pop();
     child_buffer.extend(
-        ui_children
+        ui_tree
             .iter_children(node_entity)
             .filter_map(|child_entity| {
                 zindex_query
@@ -117,7 +117,7 @@ fn update_uistack_recursive(
     );
     child_buffer.sort_by_key(|k| k.1);
     for (child_entity, _) in child_buffer.drain(..) {
-        update_uistack_recursive(cache, child_entity, ui_children, zindex_query, ui_stack);
+        update_uistack_recursive(cache, child_entity, ui_tree, zindex_query, ui_stack);
     }
     cache.push(child_buffer);
 }

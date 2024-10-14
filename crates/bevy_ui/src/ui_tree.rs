@@ -27,7 +27,7 @@ pub struct UiRootNodes<'w, 's> {
     root_node_query: Query<'w, 's, Entity, (With<Node>, Without<Parent>)>,
     root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<Parent>)>,
     all_nodes_query: Query<'w, 's, Entity, With<Node>>,
-    ui_children: UiChildren<'w, 's>,
+    ui_tree: UiTree<'w, 's>,
 }
 
 impl<'w, 's> UiRootNodes<'w, 's> {
@@ -36,14 +36,14 @@ impl<'w, 's> UiRootNodes<'w, 's> {
             .iter()
             .chain(self.root_ghost_node_query.iter().flat_map(|root_ghost| {
                 self.all_nodes_query
-                    .iter_many(self.ui_children.iter_children(root_ghost))
+                    .iter_many(self.ui_tree.iter_children(root_ghost))
             }))
     }
 }
 
-/// System param that gives access to UI children utilities, skipping over [`GhostNode`].
+/// System param that gives access to UI tree utilities, skipping over [`GhostNode`] and stopping traversal at non-UI entities.
 #[derive(SystemParam)]
-pub struct UiChildren<'w, 's> {
+pub struct UiTree<'w, 's> {
     ui_children_query: Query<
         'w,
         's,
@@ -56,7 +56,7 @@ pub struct UiChildren<'w, 's> {
     parents_query: Query<'w, 's, &'static Parent>,
 }
 
-impl<'w, 's> UiChildren<'w, 's> {
+impl<'w, 's> UiTree<'w, 's> {
     /// Iterates the [`Node`] children of `entity`, skipping over [`GhostNode`].
     ///
     /// Traverses the hierarchy depth-first to ensure child order.
@@ -149,7 +149,7 @@ mod tests {
     };
     use bevy_hierarchy::{BuildChildren, ChildBuild};
 
-    use super::{GhostNode, UiChildren, UiRootNodes};
+    use super::{GhostNode, UiRootNodes, UiTree};
     use crate::prelude::NodeBundle;
 
     #[derive(Component, PartialEq, Debug)]
@@ -211,7 +211,7 @@ mod tests {
         world.entity_mut(n7).add_children(&[n8]);
         world.entity_mut(n9).add_children(&[n10]);
 
-        let mut system_state = SystemState::<(UiChildren, Query<&A>)>::new(world);
+        let mut system_state = SystemState::<(UiTree, Query<&A>)>::new(world);
         let (ui_children, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query.iter_many(ui_children.iter_children(n1)).collect();

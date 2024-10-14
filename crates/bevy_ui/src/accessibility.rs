@@ -1,7 +1,7 @@
 use crate::{
     prelude::{Button, Label},
     widget::TextUiReader,
-    Node, UiChildren, UiImage,
+    Node, UiImage, UiTree,
 };
 use bevy_a11y::{
     accesskit::{NodeBuilder, Rect, Role},
@@ -61,11 +61,11 @@ fn calc_bounds(
 fn button_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Button>>,
-    ui_children: UiChildren,
+    ui_tree: UiTree,
     mut text_reader: TextUiReader,
 ) {
     for (entity, accessible) in &mut query {
-        let name = calc_name(&mut text_reader, ui_children.iter_children(entity));
+        let name = calc_name(&mut text_reader, ui_tree.iter_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Button);
             if let Some(name) = name {
@@ -88,11 +88,11 @@ fn button_changed(
 fn image_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), (Changed<UiImage>, Without<Button>)>,
-    ui_children: UiChildren,
+    ui_tree: UiTree,
     mut text_reader: TextUiReader,
 ) {
     for (entity, accessible) in &mut query {
-        let name = calc_name(&mut text_reader, ui_children.iter_children(entity));
+        let name = calc_name(&mut text_reader, ui_tree.iter_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Image);
             if let Some(name) = name {
