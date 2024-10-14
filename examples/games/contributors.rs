@@ -1,7 +1,8 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
 use bevy::{math::bounding::Aabb2d, prelude::*, utils::HashMap};
-use rand::{prelude::SliceRandom, Rng};
+use rand::{prelude::SliceRandom, Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 use std::{
     env::VarError,
     hash::{DefaultHasher, Hash, Hasher},
@@ -13,13 +14,14 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<SelectionTimer>()
+        .init_resource::<SharedRng>()
         .add_systems(Startup, (setup_contributor_selection, setup))
-        .add_systems(Update, (gravity, movement, collisions, selection))
+        // Systems are chained for determinism only
+        .add_systems(Update, (gravity, movement, collisions, selection).chain())
         .run();
 }
 
-// Store contributors with their commit count in a collection that preserves the uniqueness
-type Contributors = HashMap<String, usize>;
+type Contributors = Vec<(String, usize)>;
 
 #[derive(Resource)]
 struct ContributorSelection {
@@ -55,26 +57,34 @@ struct Velocity {
     rotation: f32,
 }
 
+// We're using a shared seeded RNG here to make this example deterministic for testing purposes.
+// This isn't strictly required in practical use unless you need your app to be deterministic.
+#[derive(Resource, Deref, DerefMut)]
+struct SharedRng(ChaCha8Rng);
+impl Default for SharedRng {
+    fn default() -> Self {
+        Self(ChaCha8Rng::seed_from_u64(10223163112))
+    }
+}
+
 const GRAVITY: f32 = 9.821 * 100.0;
 const SPRITE_SIZE: f32 = 75.0;
 
 const SELECTED: Hsla = Hsla::hsl(0.0, 0.9, 0.7);
 const DESELECTED: Hsla = Hsla::new(0.0, 0.3, 0.2, 0.92);
 
+const SELECTED_Z_OFFSET: f32 = 100.0;
+
 const SHOWCASE_TIMER_SECS: f32 = 3.0;
 
 const CONTRIBUTORS_LIST: &[&str] = &["Carter Anderson", "And Many More"];
 
-fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Load contributors from the git history log or use default values from
-    // the constant array. Contributors are stored in a HashMap with their
-    // commit count.
-    let contribs = contributors().unwrap_or_else(|_| {
-        CONTRIBUTORS_LIST
-            .iter()
-            .map(|name| (name.to_string(), 1))
-            .collect()
-    });
+fn setup_contributor_selection(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut rng: ResMut<SharedRng>,
+) {
+    let contribs = contributors_or_fallback();
 
     let texture_handle = asset_server.load("branding/icon.png");
 
@@ -83,11 +93,12 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
         idx: 0,
     };
 
-    let mut rng = rand::thread_rng();
-
     for (name, num_commits) in contribs {
-        let transform =
-            Transform::from_xyz(rng.gen_range(-400.0..400.0), rng.gen_range(0.0..400.0), 0.0);
+        let transform = Transform::from_xyz(
+            rng.gen_range(-400.0..400.0),
+            rng.gen_range(0.0..400.0),
+            rng.gen(),
+        );
         let dir = rng.gen_range(-1.0..1.0);
         let velocity = Vec3::new(dir * 500.0, 0.0, 0.0);
         let hue = name_to_hue(&name);
@@ -119,8 +130,6 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 
         contributor_selection.order.push(entity);
     }
-
-    contributor_selection.order.shuffle(&mut rng);
 
     commands.insert_resource(contributor_selection);
 }
@@ -208,7 +217,7 @@ fn select(
 ) {
     sprite.color = SELECTED.with_hue(contributor.hue).into();
 
-    transform.translation.z = 100.0;
+    transform.translation.z += SELECTED_Z_OFFSET;
 
     writer.text(entity, 0).clone_from(&contributor.name);
     *writer.text(entity, 1) = format!(
@@ -224,7 +233,7 @@ fn select(
 fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Transform) {
     sprite.color = DESELECTED.with_hue(contributor.hue).into();
 
-    transform.translation.z = 0.0;
+    transform.translation.z -= SELECTED_Z_OFFSET;
 }
 
 /// Applies gravity to all entities with a velocity.
@@ -244,6 +253,7 @@ fn gravity(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
 fn collisions(
     window: Single<&Window>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
+    mut rng: ResMut<SharedRng>,
 ) {
     let window_size = window.size();
 
@@ -252,8 +262,6 @@ fn collisions(
     // The maximum height the birbs should try to reach is one birb below the top of the window.
     let max_bounce_height = (window_size.y - SPRITE_SIZE * 2.0).max(0.0);
     let min_bounce_height = max_bounce_height * 0.4;
-
-    let mut rng = rand::thread_rng();
 
     for (mut velocity, mut transform) in &mut query {
         // Clamp the translation to not go out of the bounds
@@ -333,7 +341,26 @@ fn contributors() -> Result<Contributors, LoadContributorsError> {
         },
     );
 
-    Ok(contributors)
+    Ok(contributors.into_iter().collect())
+}
+
+/// Get the contributors list, or fall back to a default value if
+/// it's unavailable or we're in CI
+fn contributors_or_fallback() -> Contributors {
+    let get_default = || {
+        CONTRIBUTORS_LIST
+            .iter()
+            .cycle()
+            .take(1000)
+            .map(|name| (name.to_string(), 1))
+            .collect()
+    };
+
+    if cfg!(feature = "bevy_ci_testing") {
+        return get_default();
+    }
+
+    contributors().unwrap_or_else(|_| get_default())
 }
 
 /// Give each unique contributor name a particular hue that is stable between runs.
