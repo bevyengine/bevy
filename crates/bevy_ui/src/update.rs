@@ -141,7 +141,7 @@ pub fn update_target_camera_system(
     // by this point, and iteration will be skipped.
     // Otherwise, update changed children
     for (parent, target_camera) in &node_query {
-        if !ui_children.is_changed(parent) {
+        if !ui_children.children_is_changed(parent) {
             continue;
         }
 

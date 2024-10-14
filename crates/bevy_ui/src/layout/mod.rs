@@ -262,7 +262,7 @@ with UI components as a child of an entity without UI components, your UI layout
             }
         }
 
-        if ui_children.is_changed(entity) {
+        if ui_children.children_is_changed(entity) {
             ui_surface.update_children(entity, ui_children.iter_children(entity));
         }
     });
@@ -274,7 +274,7 @@ with UI components as a child of an entity without UI components, your UI layout
 
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
     node_query.iter().for_each(|(entity, _)| {
-        if ui_children.is_changed(entity) {
+        if ui_children.children_is_changed(entity) {
             ui_surface.update_children(entity, ui_children.iter_children(entity));
         }
     });
