@@ -8,7 +8,7 @@ use bevy_math::{curve::Curve, Vec2, Vec3};
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
-impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> Gizmos<'_, '_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,

@@ -27,7 +27,7 @@ pub enum AssetSourceId<'a> {
     Name(CowArc<'a, str>),
 }
 
-impl<'a> Display for AssetSourceId<'a> {
+impl Display for AssetSourceId<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self.as_str() {
             None => write!(f, "AssetSourceId::Default"),
@@ -114,13 +114,13 @@ impl From<String> for AssetSourceId<'static> {
     }
 }
 
-impl<'a> Hash for AssetSourceId<'a> {
+impl Hash for AssetSourceId<'_> {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.as_str().hash(state);
     }
 }
 
-impl<'a> PartialEq for AssetSourceId<'a> {
+impl PartialEq for AssetSourceId<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.as_str().eq(&other.as_str())
     }

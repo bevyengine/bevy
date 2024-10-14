@@ -22,7 +22,7 @@ pub struct TransformHelper<'w, 's> {
     transform_query: Query<'w, 's, &'static Transform>,
 }
 
-impl<'w, 's> TransformHelper<'w, 's> {
+impl TransformHelper<'_, '_> {
     /// Computes the [`GlobalTransform`] of the given entity from the [`Transform`] component on it and its ancestors.
     pub fn compute_global_transform(
         &self,

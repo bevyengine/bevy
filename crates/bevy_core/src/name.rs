@@ -130,7 +130,7 @@ pub struct NameOrEntity {
     pub entity: Entity,
 }
 
-impl<'a> core::fmt::Display for NameOrEntityItem<'a> {
+impl core::fmt::Display for NameOrEntityItem<'_> {
     #[inline(always)]
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self.name {

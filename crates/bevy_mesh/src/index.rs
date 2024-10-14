@@ -124,8 +124,8 @@ impl Iterator for IndicesIter<'_> {
     }
 }
 
-impl<'a> ExactSizeIterator for IndicesIter<'a> {}
-impl<'a> FusedIterator for IndicesIter<'a> {}
+impl ExactSizeIterator for IndicesIter<'_> {}
+impl FusedIterator for IndicesIter<'_> {}
 
 impl From<&Indices> for IndexFormat {
     fn from(indices: &Indices) -> Self {

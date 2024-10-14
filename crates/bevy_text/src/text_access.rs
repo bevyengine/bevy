@@ -72,7 +72,7 @@ pub struct TextReader<'w, 's, R: TextRoot> {
     >,
 }
 
-impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
+impl<R: TextRoot> TextReader<'_, '_, R> {
     /// Returns an iterator over text spans in a text block, starting with the root entity.
     pub fn iter(&mut self, root_entity: Entity) -> TextSpanIter<R> {
         let stack = self.scratch.take();
@@ -210,7 +210,7 @@ impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
     }
 }
 
-impl<'a, R: TextRoot> Drop for TextSpanIter<'a, R> {
+impl<R: TextRoot> Drop for TextSpanIter<'_, R> {
     fn drop(&mut self) {
         // Return the internal stack.
         let stack = core::mem::take(&mut self.stack);
@@ -248,7 +248,7 @@ pub struct TextWriter<'w, 's, R: TextRoot> {
     children: Query<'w, 's, &'static Children>,
 }
 
-impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
+impl<R: TextRoot> TextWriter<'_, '_, R> {
     /// Gets a mutable reference to a text span within a text block at a specific index in the flattened span list.
     pub fn get(
         &mut self,

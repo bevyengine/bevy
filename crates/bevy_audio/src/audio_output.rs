@@ -58,7 +58,7 @@ pub struct PlaybackRemoveMarker;
 pub(crate) struct EarPositions<'w, 's> {
     pub(crate) query: Query<'w, 's, (Entity, &'static GlobalTransform, &'static SpatialListener)>,
 }
-impl<'w, 's> EarPositions<'w, 's> {
+impl EarPositions<'_, '_> {
     /// Gets a set of transformed ear positions.
     ///
     /// If there are no listeners, use the default values. If a user has added multiple

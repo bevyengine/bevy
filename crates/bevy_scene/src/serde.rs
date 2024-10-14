@@ -73,7 +73,7 @@ impl<'a> SceneSerializer<'a> {
     }
 }
 
-impl<'a> Serialize for SceneSerializer<'a> {
+impl Serialize for SceneSerializer<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -105,7 +105,7 @@ pub struct EntitiesSerializer<'a> {
     pub registry: &'a TypeRegistry,
 }
 
-impl<'a> Serialize for EntitiesSerializer<'a> {
+impl Serialize for EntitiesSerializer<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -132,7 +132,7 @@ pub struct EntitySerializer<'a> {
     pub registry: &'a TypeRegistry,
 }
 
-impl<'a> Serialize for EntitySerializer<'a> {
+impl Serialize for EntitySerializer<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -163,7 +163,7 @@ pub struct SceneMapSerializer<'a> {
     pub registry: &'a TypeRegistry,
 }
 
-impl<'a> Serialize for SceneMapSerializer<'a> {
+impl Serialize for SceneMapSerializer<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -213,7 +213,7 @@ pub struct SceneDeserializer<'a> {
     pub type_registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
+impl<'de> DeserializeSeed<'de> for SceneDeserializer<'_> {
     type Value = DynamicScene;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -234,7 +234,7 @@ struct SceneVisitor<'a> {
     pub type_registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
+impl<'de> Visitor<'de> for SceneVisitor<'_> {
     type Value = DynamicScene;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
@@ -306,7 +306,7 @@ pub struct SceneEntitiesDeserializer<'a> {
     pub type_registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for SceneEntitiesDeserializer<'a> {
+impl<'de> DeserializeSeed<'de> for SceneEntitiesDeserializer<'_> {
     type Value = Vec<DynamicEntity>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -323,7 +323,7 @@ struct SceneEntitiesVisitor<'a> {
     pub type_registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
+impl<'de> Visitor<'de> for SceneEntitiesVisitor<'_> {
     type Value = Vec<DynamicEntity>;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
@@ -355,7 +355,7 @@ pub struct SceneEntityDeserializer<'a> {
     pub type_registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
+impl<'de> DeserializeSeed<'de> for SceneEntityDeserializer<'_> {
     type Value = DynamicEntity;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -378,7 +378,7 @@ struct SceneEntityVisitor<'a> {
     pub registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
+impl<'de> Visitor<'de> for SceneEntityVisitor<'_> {
     type Value = DynamicEntity;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
@@ -436,7 +436,7 @@ pub struct SceneMapDeserializer<'a> {
     pub registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for SceneMapDeserializer<'a> {
+impl<'de> DeserializeSeed<'de> for SceneMapDeserializer<'_> {
     type Value = Vec<Box<dyn PartialReflect>>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -453,7 +453,7 @@ struct SceneMapVisitor<'a> {
     pub registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
+impl<'de> Visitor<'de> for SceneMapVisitor<'_> {
     type Value = Vec<Box<dyn PartialReflect>>;
 
     fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {

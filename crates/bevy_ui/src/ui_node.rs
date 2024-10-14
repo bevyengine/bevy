@@ -2495,7 +2495,7 @@ pub struct DefaultUiCamera<'w, 's> {
     primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
 }
 
-impl<'w, 's> DefaultUiCamera<'w, 's> {
+impl DefaultUiCamera<'_, '_> {
     pub fn get(&self) -> Option<Entity> {
         self.default_cameras.get_single().ok().or_else(|| {
             // If there isn't a single camera and the query isn't empty, there is two or more cameras queried.

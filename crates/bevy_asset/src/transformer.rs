@@ -152,14 +152,14 @@ pub struct TransformedSubAsset<'a, A: Asset> {
     labeled_assets: &'a mut HashMap<CowArc<'static, str>, LabeledAsset>,
 }
 
-impl<'a, A: Asset> Deref for TransformedSubAsset<'a, A> {
+impl<A: Asset> Deref for TransformedSubAsset<'_, A> {
     type Target = A;
     fn deref(&self) -> &Self::Target {
         self.value
     }
 }
 
-impl<'a, A: Asset> DerefMut for TransformedSubAsset<'a, A> {
+impl<A: Asset> DerefMut for TransformedSubAsset<'_, A> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.value
     }

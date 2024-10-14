@@ -363,7 +363,7 @@ pub struct DynamicUniformBufferWriter<'a, T> {
     _marker: PhantomData<fn() -> T>,
 }
 
-impl<'a, T: ShaderType + WriteInto> DynamicUniformBufferWriter<'a, T> {
+impl<T: ShaderType + WriteInto> DynamicUniformBufferWriter<'_, T> {
     pub fn write(&mut self, value: &T) -> u32 {
         self.buffer.write(value).unwrap() as u32
     }
@@ -378,7 +378,7 @@ struct QueueWriteBufferViewWrapper<'a> {
     capacity: usize,
 }
 
-impl<'a> BufferMut for QueueWriteBufferViewWrapper<'a> {
+impl BufferMut for QueueWriteBufferViewWrapper<'_> {
     #[inline]
     fn capacity(&self) -> usize {
         self.capacity

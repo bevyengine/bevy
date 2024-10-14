@@ -75,7 +75,7 @@ impl<'a> RayCastSettings<'a> {
     }
 }
 
-impl<'a> Default for RayCastSettings<'a> {
+impl Default for RayCastSettings<'_> {
     fn default() -> Self {
         Self {
             visibility: RayCastVisibility::VisibleInView,
@@ -203,7 +203,7 @@ pub struct MeshRayCast<'w, 's> {
     >,
 }
 
-impl<'w, 's> MeshRayCast<'w, 's> {
+impl MeshRayCast<'_, '_> {
     /// Casts the `ray` into the world and returns a sorted list of intersections, nearest first.
     pub fn cast_ray(&mut self, ray: Ray3d, settings: &RayCastSettings) -> &[(Entity, RayMeshHit)] {
         let ray_cull = info_span!("ray culling");

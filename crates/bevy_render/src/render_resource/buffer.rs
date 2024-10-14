@@ -71,7 +71,7 @@ pub struct BufferSlice<'a> {
     size: wgpu::BufferAddress,
 }
 
-impl<'a> BufferSlice<'a> {
+impl BufferSlice<'_> {
     #[inline]
     pub fn id(&self) -> BufferId {
         self.id

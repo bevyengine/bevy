@@ -340,7 +340,7 @@ pub struct Diagnostics<'w, 's> {
     queue: Deferred<'s, DiagnosticsBuffer>,
 }
 
-impl<'w, 's> Diagnostics<'w, 's> {
+impl Diagnostics<'_, '_> {
     /// Add a measurement to an enabled [`Diagnostic`]. The measurement is passed as a function so that
     /// it will be evaluated only if the [`Diagnostic`] is enabled. This can be useful if the value is
     /// costly to calculate.

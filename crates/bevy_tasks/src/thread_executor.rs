@@ -45,7 +45,7 @@ pub struct ThreadExecutor<'task> {
     thread_id: ThreadId,
 }
 
-impl<'task> Default for ThreadExecutor<'task> {
+impl Default for ThreadExecutor<'_> {
     fn default() -> Self {
         Self {
             executor: Executor::new(),

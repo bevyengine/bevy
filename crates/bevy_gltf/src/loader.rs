@@ -1930,7 +1930,7 @@ impl<'a> Iterator for GltfTreeIterator<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for GltfTreeIterator<'a> {
+impl ExactSizeIterator for GltfTreeIterator<'_> {
     fn len(&self) -> usize {
         self.nodes.len()
     }
@@ -1992,7 +1992,7 @@ pub(super) struct PrimitiveMorphAttributesIter<'s>(
         Option<Iter<'s, [f32; 3]>>,
     ),
 );
-impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
+impl Iterator for PrimitiveMorphAttributesIter<'_> {
     type Item = MorphAttributes;
 
     fn next(&mut self) -> Option<Self::Item> {
