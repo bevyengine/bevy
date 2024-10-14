@@ -1047,12 +1047,12 @@ pub fn prepare_lights(
             // Lights are sorted, shadow enabled lights are first
             .take(point_light_count)
         {
-            let Ok(mut light_entities) = light_view_entities.get_mut(light_entity) else {
+            let Ok(mut light_view_entities) = light_view_entities.get_mut(light_entity) else {
                 continue;
             };
 
             if !light.shadows_enabled {
-                if let Some(entities) = light_entities.remove(&entity) {
+                if let Some(entities) = light_view_entities.remove(&entity) {
                     despawn_entities(&mut commands, entities);
                 }
                 continue;
@@ -1068,7 +1068,7 @@ pub fn prepare_lights(
             let view_translation = GlobalTransform::from_translation(light.transform.translation());
 
             // for each face of a cube and each view we spawn a light entity
-            let entities = light_entities
+            let light_view_entities = light_view_entities
                 .entry(entity)
                 .or_insert_with(|| (0..6).map(|_| commands.spawn_empty().id()).collect());
 
@@ -1081,7 +1081,7 @@ pub fn prepare_lights(
             for (face_index, ((view_rotation, frustum), view_light_entity)) in cube_face_rotations
                 .iter()
                 .zip(&point_light_frusta.unwrap().frusta)
-                .zip(entities.iter().copied())
+                .zip(light_view_entities.iter().copied())
                 .enumerate()
             {
                 let depth_texture_view =
@@ -1173,11 +1173,11 @@ pub fn prepare_lights(
                         array_layer_count: Some(1u32),
                     });
 
-            let entities = light_view_entities
+            let light_view_entities = light_view_entities
                 .entry(entity)
                 .or_insert_with(|| vec![commands.spawn_empty().id()]);
 
-            let view_light_entity = entities[0];
+            let view_light_entity = light_view_entities[0];
 
             commands.entity(view_light_entity).insert((
                 ShadowView {
@@ -1255,14 +1255,14 @@ pub fn prepare_lights(
                 .zip(frusta)
                 .zip(&light.cascade_shadow_config.bounds);
 
-            let entities = light_view_entities.entry(entity).or_insert_with(|| {
+            let light_view_entities = light_view_entities.entry(entity).or_insert_with(|| {
                 (0..iter.len())
                     .map(|_| commands.spawn_empty().id())
                     .collect()
             });
 
             for (cascade_index, (((cascade, frustum), bound), view_light_entity)) in
-                iter.zip(entities.iter().copied()).enumerate()
+                iter.zip(light_view_entities.iter().copied()).enumerate()
             {
                 gpu_lights.directional_lights[light_index].cascades[cascade_index] =
                     GpuDirectionalCascade {
