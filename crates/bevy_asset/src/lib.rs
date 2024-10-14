@@ -918,7 +918,7 @@ mod tests {
             assert_eq!(a_text.text, "a");
             assert_eq!(a_text.dependencies.len(), 2);
             assert!(a_load.is_loaded());
-            assert!(a_deps.is_loaded());
+            assert!(a_deps.is_loading());
             assert!(a_rec_deps.is_loaded());
 
             let b_id = a_text.dependencies[0].id();
@@ -926,7 +926,7 @@ mod tests {
             let (b_load, b_deps, b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
             assert!(b_text.is_none(), "b component should not exist yet");
             assert!(b_load.is_loading());
-            assert!(b_deps.is_loaded());
+            assert!(b_deps.is_loading());
             assert!(b_rec_deps.is_loading());
 
             let c_id = a_text.dependencies[1].id();
@@ -934,7 +934,7 @@ mod tests {
             let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
             assert!(c_text.is_none(), "c component should not exist yet");
             assert!(c_load.is_loading());
-            assert!(c_deps.is_loaded());
+            assert!(c_deps.is_loading());
             assert!(c_rec_deps.is_loading());
             Some(())
         });
@@ -948,7 +948,7 @@ mod tests {
             assert_eq!(a_text.text, "a");
             assert_eq!(a_text.dependencies.len(), 2);
             assert!(a_load.is_loaded());
-            assert!(a_deps.is_loaded());
+            assert!(a_deps.is_loading());
             assert!(a_rec_deps.is_loading());
 
             let b_id = a_text.dependencies[0].id();
@@ -964,7 +964,7 @@ mod tests {
             let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
             assert!(c_text.is_none(), "c component should not exist yet");
             assert!(c_load.is_loading());
-            assert!(c_deps.is_loaded());
+            assert!(c_deps.is_loading());
             assert!(c_rec_deps.is_loading());
             Some(())
         });
@@ -1000,7 +1000,7 @@ mod tests {
             assert_eq!(c_text.embedded, "ab");
             assert!(c_load.is_loaded());
             assert!(
-                c_deps.is_loaded(),
+                c_deps.is_loading(),
                 "c deps should not be loaded yet because d has not loaded"
             );
             assert!(
@@ -1023,7 +1023,7 @@ mod tests {
             let (d_load, d_deps, d_rec_deps) = asset_server.get_load_states(d_id).unwrap();
             assert!(d_text.is_none(), "d component should not exist yet");
             assert!(d_load.is_loading());
-            assert!(d_deps.is_loaded());
+            assert!(d_deps.is_loading());
             assert!(d_rec_deps.is_loaded());
 
             assert!(
