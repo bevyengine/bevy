@@ -208,12 +208,16 @@ jobs:
             var fs = require('fs');
             fs.writeFileSync('${{github.workspace}}/screenshots-macos.zip', Buffer.from(download.data));
             return "true"
-      - run: unzip screenshots-macos.zip
+      - name: prepare artifact folder
+        run: |
+          unzip screenshots-macos.zip
+          mkdir screenshots
+          mv screenshots-* screenshots/
       - name: save screenshots
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-macos
-          path: screenshots-macos
+          path: screenshots
 
 
   compare-macos-screenshots:
