@@ -1324,7 +1324,7 @@ mod tests {
             let _a_text = get::<CoolText>(world, a_id)?;
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert!(a_load.is_loaded());
-            assert!(a_deps.is_loaded());
+            assert!(a_deps.is_loading());
             assert!(a_rec_deps.is_loading());
             Some(())
         });
