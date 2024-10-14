@@ -145,15 +145,15 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// Spawn a bit of UI text to explain how to move the player.
 fn spawn_text(mut commands: Commands) {
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(12.0),
                 left: Val::Px(12.0),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_child((
             Text::new("Move the player with WASD"),
             TextFont {

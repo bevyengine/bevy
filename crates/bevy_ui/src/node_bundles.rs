@@ -1,4 +1,5 @@
 //! This module contains basic node bundles used to build UIs
+#![expect(deprecated)]
 
 use crate::{
     widget::{Button, UiImageSize},
@@ -15,6 +16,10 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 ///
 /// See [`node_bundles`](crate::node_bundles) for more specialized bundles like [`ImageBundle`].
 #[derive(Bundle, Clone, Debug, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Node` component instead. Inserting `Node` will also insert the other components required by nodes automatically."
+)]
 pub struct NodeBundle {
     /// Describes the logical size of the node
     pub node: Node,

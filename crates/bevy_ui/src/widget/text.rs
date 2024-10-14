@@ -91,19 +91,7 @@ impl Default for TextNodeFlags {
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(
-    TextLayout,
-    TextFont,
-    TextColor,
-    TextNodeFlags,
-    Node,
-    Style, // TODO: Remove when Node uses required components.
-    ContentSize, // TODO: Remove when Node uses required components.
-    FocusPolicy, // TODO: Remove when Node uses required components.
-    ZIndex, // TODO: Remove when Node uses required components.
-    Visibility, // TODO: Remove when Node uses required components.
-    Transform // TODO: Remove when Node uses required components.
-)]
+#[require(TextLayout, TextFont, TextColor, TextNodeFlags, Node)]
 pub struct Text(pub String);
 
 impl Text {

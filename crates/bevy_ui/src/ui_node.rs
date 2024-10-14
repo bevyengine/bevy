@@ -1,14 +1,17 @@
+use crate::{ContentSize, FocusPolicy};
 use crate::{UiRect, Val};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
+use bevy_render::view::Visibility;
 use bevy_render::{
     camera::{Camera, RenderTarget},
     texture::{Image, TRANSPARENT_IMAGE_HANDLE},
 };
 use bevy_sprite::BorderRect;
+use bevy_transform::components::Transform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
@@ -25,6 +28,7 @@ use smallvec::SmallVec;
 /// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug)]
+#[require(Style, Transform, ContentSize, FocusPolicy, ZIndex, Visibility)]
 pub struct Node {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.

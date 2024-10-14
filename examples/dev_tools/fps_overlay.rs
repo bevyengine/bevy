@@ -44,16 +44,16 @@ fn setup(mut commands: Commands) {
 
     // Instruction text
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|c| {
             c.spawn(Text::new(concat!(
                 "Press 1 to toggle the overlay color.\n",

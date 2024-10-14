@@ -63,16 +63,16 @@ fn setup(
     // ui camera
     commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             for (idx, [w, h]) in [
                 (0, [150.0, 150.0]),
