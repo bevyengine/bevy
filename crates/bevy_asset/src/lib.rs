@@ -905,7 +905,7 @@ mod tests {
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert!(a_text.is_none(), "a's asset should not exist yet");
             assert!(a_load.is_loading());
-            assert!(a_deps.is_loaded());
+            assert!(a_deps.is_loading());
             assert!(a_rec_deps.is_loading());
         }
 
