@@ -77,7 +77,7 @@ impl<'w, 's> UiChildren<'w, 's> {
     }
 
     /// Returns the UI parent of the provided entity, skipping over [`GhostNode`].
-    pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
+    pub fn parent(&'s self, entity: Entity) -> Option<Entity> {
         self.parents_query
             .iter_ancestors(entity)
             .find(|entity| !self.ghost_nodes_query.contains(*entity))
