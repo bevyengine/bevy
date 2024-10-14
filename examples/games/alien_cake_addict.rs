@@ -177,11 +177,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     // scoreboard
     commands.spawn((
         Text::new("Score:"),
-        TextStyle {
+        TextFont {
             font_size: 33.0,
-            color: Color::srgb(0.5, 0.5, 1.0),
             ..default()
         },
+        TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(5.0),
@@ -377,8 +377,8 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
 }
 
 // update the score displayed during the game
-fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
-    **query.single_mut() = format!("Sugar Rush: {}", game.score);
+fn scoreboard_system(game: Res<Game>, mut display: Single<&mut Text>) {
+    display.0 = format!("Sugar Rush: {}", game.score);
 }
 
 // restart the game when pressing spacebar
@@ -405,10 +405,10 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
         })
         .with_child((
             Text::new(format!("Cake eaten: {}", game.cake_eaten)),
-            TextStyle {
+            TextFont {
                 font_size: 67.0,
-                color: Color::srgb(0.5, 0.5, 1.0),
                 ..default()
             },
+            TextColor(Color::srgb(0.5, 0.5, 1.0)),
         ));
 }

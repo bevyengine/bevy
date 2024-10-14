@@ -11,7 +11,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut, SystemParam},
     world::Ref,
 };
-use bevy_hierarchy::Children;
+use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_sprite::BorderRect;
@@ -114,7 +114,7 @@ pub fn ui_layout_system(
         ),
         With<Node>,
     >,
-    node_query: Query<Entity, With<Node>>,
+    node_query: Query<(Entity, Option<Ref<Parent>>), With<Node>>,
     ui_children: UiChildren,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(
@@ -249,7 +249,19 @@ pub fn ui_layout_system(
         ui_surface.try_remove_children(entity);
     }
 
-    node_query.iter().for_each(|entity| {
+    node_query.iter().for_each(|(entity, maybe_parent)| {
+        if let Some(parent) = maybe_parent {
+            // Note: This does not cover the case where a parent's Node component was removed.
+            // Users are responsible for fixing hierarchies if they do that (it is not recommended).
+            // Detecting it here would be a permanent perf burden on the hot path.
+            if parent.is_changed() && !ui_children.is_ui_node(parent.get()) {
+                warn!(
+                    "Styled child ({entity}) in a non-UI entity hierarchy. You are using an entity \
+with UI components as a child of an entity without UI components, your UI layout may be broken."
+                );
+            }
+        }
+
         if ui_children.is_changed(entity) {
             ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
         }
@@ -261,7 +273,7 @@ pub fn ui_layout_system(
     ui_surface.remove_entities(removed_components.removed_nodes.read());
 
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
-    node_query.iter().for_each(|entity| {
+    node_query.iter().for_each(|(entity, _)| {
         if ui_children.is_changed(entity) {
             ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
         }

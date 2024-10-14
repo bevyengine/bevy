@@ -212,9 +212,9 @@ impl Material for PrepassOutputMaterial {
 fn toggle_prepass_view(
     mut prepass_view: Local<u32>,
     keycode: Res<ButtonInput<KeyCode>>,
-    material_handle: Query<&MeshMaterial3d<PrepassOutputMaterial>>,
+    material_handle: Single<&MeshMaterial3d<PrepassOutputMaterial>>,
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
-    text: Query<Entity, With<Text>>,
+    text: Single<Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     if keycode.just_pressed(KeyCode::Space) {
@@ -227,14 +227,13 @@ fn toggle_prepass_view(
             3 => "motion vectors",
             _ => unreachable!(),
         };
-        let text = text.single();
+        let text = *text;
         *writer.text(text, 1) = format!("Prepass Output: {label}\n");
-        writer.for_each_style(text, |mut style| {
-            style.color = Color::WHITE;
+        writer.for_each_color(text, |mut color| {
+            color.0 = Color::WHITE;
         });
 
-        let handle = material_handle.single();
-        let mat = materials.get_mut(handle).unwrap();
+        let mat = materials.get_mut(*material_handle).unwrap();
         mat.settings.show_depth = (*prepass_view == 1) as u32;
         mat.settings.show_normals = (*prepass_view == 2) as u32;
         mat.settings.show_motion_vectors = (*prepass_view == 3) as u32;
