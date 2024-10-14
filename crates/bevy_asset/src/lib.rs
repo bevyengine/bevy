@@ -1024,7 +1024,7 @@ mod tests {
             assert!(d_text.is_none(), "d component should not exist yet");
             assert!(d_load.is_loading());
             assert!(d_deps.is_loading());
-            assert!(d_rec_deps.is_loaded());
+            assert!(d_rec_deps.is_loading());
 
             assert!(
                 a_deps.is_loaded(),
