@@ -947,7 +947,7 @@ mod tests {
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert_eq!(a_text.text, "a");
             assert_eq!(a_text.dependencies.len(), 2);
-            assert!(a_load.is_loading());
+            assert!(a_load.is_loaded());
             assert!(a_deps.is_loading());
             assert!(a_rec_deps.is_loading());
 
