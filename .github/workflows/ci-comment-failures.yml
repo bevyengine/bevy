@@ -208,12 +208,16 @@ jobs:
             var fs = require('fs');
             fs.writeFileSync('${{github.workspace}}/screenshots-macos.zip', Buffer.from(download.data));
             return "true"
-      - run: unzip screenshots-macos.zip
+      - name: prepare artifact folder
+        run: |
+          unzip screenshots-macos.zip
+          mkdir screenshots
+          mv screenshots-* screenshots/
       - name: save screenshots
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-macos
-          path: screenshots-macos
+          path: screenshots
 
 
   compare-macos-screenshots:
@@ -221,8 +225,8 @@ jobs:
     needs: [make-macos-screenshots-available]
     uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
     with:
-      commit: ${{ github.event.workflow_run.event.sha }}
-      branch: ${{ github.event.workflow_run.event.ref_name }}
+      commit: ${{ github.event.workflow_run.head_commit }}
+      branch: ${{ github.event.workflow_run.head_branch }}
       artifact: screenshots-macos
       os: macos
     secrets: inherit
