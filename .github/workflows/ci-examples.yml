@@ -64,7 +64,7 @@ jobs:
           name: screenshots-macos
           path: screenshots
       - uses: actions/upload-artifact@v4
-        if: ${{ failure() && github.event_name == 'pull_request' }}
+        if: ${{ failure() && github.event_name == 'pull_request_target' }}
         with:
           name: example-run-macos
           path: example-run/
