@@ -88,7 +88,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        TextUi::default(),
+        Text::default(),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
@@ -98,7 +98,7 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-fn ui_system(mut query: Query<&mut TextUi>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
+fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
     let mut text = query.single_mut();
 
     let Some(fps) = diag

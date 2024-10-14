@@ -134,7 +134,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     ));
 }
 
-fn create_text(app_settings: &AppSettings) -> TextUi {
+fn create_text(app_settings: &AppSettings) -> Text {
     format!(
         "{}\n{}\n{}",
         "Press WASD or the arrow keys to change the direction of the directional light",
@@ -224,7 +224,7 @@ fn adjust_app_settings(
     mut app_settings: ResMut<AppSettings>,
     mut point_lights: Query<Entity, With<PointLight>>,
     mut spot_lights: Query<Entity, With<SpotLight>>,
-    mut text: Query<&mut TextUi>,
+    mut text: Query<&mut Text>,
 ) {
     // If there are no changes, we're going to bail for efficiency. Record that
     // here.

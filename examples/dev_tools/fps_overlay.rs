@@ -55,7 +55,7 @@ fn setup(mut commands: Commands) {
             ..default()
         })
         .with_children(|c| {
-            c.spawn(TextUi::new(concat!(
+            c.spawn(Text::new(concat!(
                 "Press 1 to toggle the overlay color.\n",
                 "Press 2 to decrease the overlay size.\n",
                 "Press 3 to increase the overlay size.\n",

@@ -50,10 +50,10 @@ impl Default for TextNodeFlags {
 
 /// The top-level UI text component.
 ///
-/// Adding [`TextUi`] to an entity will pull in required components for setting up a UI text node.
+/// Adding [`Text`] to an entity will pull in required components for setting up a UI text node.
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`TextUi`].
+/// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
 ///
 /// Note that [`Transform`] on this entity is managed automatically by the UI layout system.
 ///
@@ -64,17 +64,17 @@ impl Default for TextNodeFlags {
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
 /// # use bevy_text::{Font, JustifyText, TextLayout, TextFont, TextColor};
-/// # use bevy_ui::prelude::TextUi;
+/// # use bevy_ui::prelude::Text;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
 /// #
 /// // Basic usage.
-/// world.spawn(TextUi::new("hello world!"));
+/// world.spawn(Text::new("hello world!"));
 ///
 /// // With non-default style.
 /// world.spawn((
-///     TextUi::new("hello world!"),
+///     Text::new("hello world!"),
 ///     TextFont {
 ///         font: font_handle.clone().into(),
 ///         font_size: 60.0,
@@ -85,7 +85,7 @@ impl Default for TextNodeFlags {
 ///
 /// // With text justification.
 /// world.spawn((
-///     TextUi::new("hello world\nand bevy!"),
+///     Text::new("hello world\nand bevy!"),
 ///     TextLayout::new_with_justify(JustifyText::Center)
 /// ));
 /// ```
@@ -104,18 +104,18 @@ impl Default for TextNodeFlags {
     Visibility, // TODO: Remove when Node uses required components.
     Transform // TODO: Remove when Node uses required components.
 )]
-pub struct TextUi(pub String);
+pub struct Text(pub String);
 
-impl TextUi {
+impl Text {
     /// Makes a new text component.
     pub fn new(text: impl Into<String>) -> Self {
         Self(text.into())
     }
 }
 
-impl TextRoot for TextUi {}
+impl TextRoot for Text {}
 
-impl TextSpanAccess for TextUi {
+impl TextSpanAccess for Text {
     fn read_span(&self) -> &str {
         self.as_str()
     }
@@ -124,23 +124,23 @@ impl TextSpanAccess for TextUi {
     }
 }
 
-impl From<&str> for TextUi {
+impl From<&str> for Text {
     fn from(value: &str) -> Self {
         Self(String::from(value))
     }
 }
 
-impl From<String> for TextUi {
+impl From<String> for Text {
     fn from(value: String) -> Self {
         Self(value)
     }
 }
 
 /// UI alias for [`TextReader`].
-pub type TextUiReader<'w, 's> = TextReader<'w, 's, TextUi>;
+pub type TextUiReader<'w, 's> = TextReader<'w, 's, Text>;
 
 /// UI alias for [`TextWriter`].
-pub type TextUiWriter<'w, 's> = TextWriter<'w, 's, TextUi>;
+pub type TextUiWriter<'w, 's> = TextWriter<'w, 's, Text>;
 
 /// Text measurement for UI layout. See [`NodeMeasure`].
 pub struct TextMeasure {
@@ -244,7 +244,7 @@ fn create_text_measure<'a>(
     };
 }
 
-/// Generates a new [`Measure`] for a text node on changes to its [`TextUi`] component.
+/// Generates a new [`Measure`] for a text node on changes to its [`Text`] component.
 ///
 /// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.

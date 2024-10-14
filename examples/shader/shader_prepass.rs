@@ -125,7 +125,7 @@ fn setup(
 
     commands
         .spawn((
-            TextUi::default(),
+            Text::default(),
             Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
@@ -214,7 +214,7 @@ fn toggle_prepass_view(
     keycode: Res<ButtonInput<KeyCode>>,
     material_handle: Query<&MeshMaterial3d<PrepassOutputMaterial>>,
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
-    text: Query<Entity, With<TextUi>>,
+    text: Query<Entity, With<Text>>,
     mut writer: TextUiWriter,
 ) {
     if keycode.just_pressed(KeyCode::Space) {

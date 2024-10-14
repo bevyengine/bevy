@@ -58,7 +58,7 @@ fn setup(
 
     // Text to describe the controls.
     commands.spawn((
-        TextUi::new("Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation"),
+        Text::new("Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation"),
         Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),

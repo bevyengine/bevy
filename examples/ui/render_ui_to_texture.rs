@@ -82,7 +82,7 @@ fn setup(
         ))
         .with_children(|parent| {
             parent.spawn((
-                TextUi::new("This is a cube"),
+                Text::new("This is a cube"),
                 TextFont {
                     font_size: 40.0,
                     ..default()

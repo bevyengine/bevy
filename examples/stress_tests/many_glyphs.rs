@@ -74,7 +74,7 @@ fn setup(mut commands: Commands) {
                     },
                     ..Default::default()
                 })
-                .with_child((TextUi(text_string.clone()), text_font.clone(), text_block));
+                .with_child((Text(text_string.clone()), text_font.clone(), text_block));
         });
 
     commands.spawn((

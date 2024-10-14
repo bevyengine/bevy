@@ -275,7 +275,7 @@ fn setup(
             GlobalZIndex(i32::MAX),
         ))
         .with_children(|p| {
-            p.spawn((TextUi::default(), StatsText)).with_children(|p| {
+            p.spawn((Text::default(), StatsText)).with_children(|p| {
                 p.spawn((
                     TextSpan::new("Bird Count: "),
                     font.clone(),

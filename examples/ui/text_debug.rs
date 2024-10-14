@@ -59,7 +59,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     }).with_children(|builder| {
         builder.spawn((
-            TextUi::new("This is\ntext with\nline breaks\nin the top left."),
+            Text::new("This is\ntext with\nline breaks\nin the top left."),
             TextFont {
                 font: font.clone(),
                 font_size: 25.0,
@@ -68,7 +68,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             BackgroundColor(background_color)
         ));
         builder.spawn((
-            TextUi::new(
+            Text::new(
                 "This text is right-justified. The `JustifyText` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",
             ),
             TextFont {
@@ -85,7 +85,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             BackgroundColor(background_color)
         ));
         builder.spawn((
-            TextUi::new(
+            Text::new(
                 "This\ntext has\nline breaks and also a set width in the bottom left."),
             TextFont {
                 font: font.clone(),
@@ -113,7 +113,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     }).with_children(|builder| {
 
-        builder.spawn((TextUi::new(
+        builder.spawn((Text::new(
             "This text is very long, has a limited width, is center-justified, is positioned in the top right and is also colored pink."),
             TextFont {
                 font: font.clone(),
@@ -128,7 +128,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             },BackgroundColor(background_color))
         );
 
-        builder.spawn((TextUi::new(
+        builder.spawn((Text::new(
             "This text is left-justified and is vertically positioned to distribute the empty space equally above and below it."),
             TextFont {
                 font: font.clone(),
@@ -145,7 +145,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         ));
 
         builder.spawn((
-            TextUi::new("This text is fully justified and is positioned in the same way."),
+            Text::new("This text is fully justified and is positioned in the same way."),
             TextFont {
                 font: font.clone(),
                 font_size: 29.0,
@@ -162,7 +162,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         );
 
         builder.spawn((
-            TextUi::default(),
+            Text::default(),
             TextFont {
                 font: font.clone(),
                 font_size: 21.0,

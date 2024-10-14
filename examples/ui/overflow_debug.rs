@@ -85,7 +85,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn((
-            TextUi::new(
+            Text::new(
                 "Next Overflow Setting (O)\nNext Container Size (S)\nToggle Animation (space)\n\n",
             ),
             text_font.clone(),
@@ -167,7 +167,7 @@ fn spawn_text(
 ) {
     spawn_container(parent, update_transform, |parent| {
         parent.spawn((
-            TextUi::new("Bevy"),
+            Text::new("Bevy"),
             TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 100.0,

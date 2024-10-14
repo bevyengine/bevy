@@ -233,7 +233,7 @@ fn spawn_trees(
 fn setup_ui(mut commands: Commands) {
     commands
         .spawn((
-            TextUi::default(),
+            Text::default(),
             Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
@@ -253,7 +253,7 @@ fn setup_ui(mut commands: Commands) {
 fn keyboard_inputs(
     mut motion_blur: Query<&mut MotionBlur>,
     presses: Res<ButtonInput<KeyCode>>,
-    text: Query<Entity, With<TextUi>>,
+    text: Query<Entity, With<Text>>,
     mut writer: TextUiWriter,
     mut camera: ResMut<CameraMode>,
 ) {

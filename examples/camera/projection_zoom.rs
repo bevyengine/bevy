@@ -104,8 +104,8 @@ fn instructions(mut commands: Commands) {
             },
         ))
         .with_children(|parent| {
-            parent.spawn(TextUi::new("Scroll mouse wheel to zoom in/out"));
-            parent.spawn(TextUi::new(
+            parent.spawn(Text::new("Scroll mouse wheel to zoom in/out"));
+            parent.spawn(Text::new(
                 "Space: switch between orthographic and perspective projections",
             ));
         });

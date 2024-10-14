@@ -176,7 +176,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
 
     // scoreboard
     commands.spawn((
-        TextUi::new("Score:"),
+        Text::new("Score:"),
         TextFont {
             font_size: 33.0,
             ..default()
@@ -377,7 +377,7 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
 }
 
 // update the score displayed during the game
-fn scoreboard_system(game: Res<Game>, mut query: Query<&mut TextUi>) {
+fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
     **query.single_mut() = format!("Sugar Rush: {}", game.score);
 }
 
@@ -404,7 +404,7 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
             ..default()
         })
         .with_child((
-            TextUi::new(format!("Cake eaten: {}", game.cake_eaten)),
+            Text::new(format!("Cake eaten: {}", game.cake_eaten)),
             TextFont {
                 font_size: 67.0,
                 ..default()

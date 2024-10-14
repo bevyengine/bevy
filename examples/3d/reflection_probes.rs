@@ -233,7 +233,7 @@ fn toggle_rotation(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<A
 }
 
 // A system that updates the help text.
-fn update_text(mut text_query: Query<&mut TextUi>, app_status: Res<AppStatus>) {
+fn update_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
         *text = app_status.create_text();
     }
@@ -266,7 +266,7 @@ impl Display for ReflectionMode {
 impl AppStatus {
     // Constructs the help text at the bottom of the screen based on the
     // application status.
-    fn create_text(&self) -> TextUi {
+    fn create_text(&self) -> Text {
         let rotation_help_text = if self.rotating {
             STOP_ROTATION_HELP_TEXT
         } else {

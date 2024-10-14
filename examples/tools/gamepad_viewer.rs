@@ -358,7 +358,7 @@ fn setup_triggers(
             .with_children(|parent| {
                 parent.spawn((
                     Transform::from_xyz(0., 0., 1.),
-                    TextUi(format!("{:.3}", 0.)),
+                    Text(format!("{:.3}", 0.)),
                     TextFont {
                         font_size: 13.,
                         ..default()
@@ -376,7 +376,7 @@ fn setup_connected(mut commands: Commands) {
     // This is UI text, unlike other text in this example which is 2d.
     commands
         .spawn((
-            TextUi::new("Connected Gamepads:\n"),
+            Text::new("Connected Gamepads:\n"),
             Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.),

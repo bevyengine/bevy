@@ -36,7 +36,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn((
-            TextUi::default(),
+            Text::default(),
             Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
@@ -75,7 +75,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn toggle_ime(
     input: Res<ButtonInput<MouseButton>>,
     mut windows: Query<&mut Window>,
-    status_text: Query<Entity, (With<Node>, With<TextUi>)>,
+    status_text: Query<Entity, (With<Node>, With<Text>)>,
     mut ui_writer: TextUiWriter,
 ) {
     if input.just_pressed(MouseButton::Left) {
@@ -108,7 +108,7 @@ fn bubbling_text(
 
 fn listen_ime_events(
     mut events: EventReader<Ime>,
-    status_text: Query<Entity, (With<Node>, With<TextUi>)>,
+    status_text: Query<Entity, (With<Node>, With<Text>)>,
     mut edit_text: Query<&mut Text2d, (Without<Node>, Without<Bubble>)>,
     mut ui_writer: TextUiWriter,
 ) {

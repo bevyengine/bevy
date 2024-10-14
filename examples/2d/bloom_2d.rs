@@ -58,7 +58,7 @@ fn setup(
 
     // UI
     commands.spawn((
-        TextUi::default(),
+        Text::default(),
         Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
@@ -72,7 +72,7 @@ fn setup(
 
 fn update_bloom_settings(
     mut camera: Query<(Entity, Option<&mut Bloom>), With<Camera>>,
-    mut text: Query<&mut TextUi>,
+    mut text: Query<&mut Text>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,

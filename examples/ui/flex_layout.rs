@@ -174,7 +174,7 @@ fn spawn_nested_text_bundle(
         })
         .with_children(|builder| {
             builder.spawn((
-                TextUi::new(text),
+                Text::new(text),
                 TextFont { font, ..default() },
                 TextColor::BLACK,
             ));

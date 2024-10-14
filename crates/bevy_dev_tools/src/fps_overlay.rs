@@ -17,7 +17,7 @@ use bevy_render::view::Visibility;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
 use bevy_ui::{
     node_bundles::NodeBundle,
-    widget::{TextUi, TextUiWriter},
+    widget::{Text, TextUiWriter},
     GlobalZIndex, PositionType, Style,
 };
 use bevy_utils::default;
@@ -102,7 +102,7 @@ fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
         ))
         .with_children(|p| {
             p.spawn((
-                TextUi::new("FPS: "),
+                Text::new("FPS: "),
                 overlay_config.text_config.clone(),
                 TextColor(overlay_config.text_color),
                 FpsText,

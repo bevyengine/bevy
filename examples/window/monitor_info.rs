@@ -66,7 +66,7 @@ fn update(
             "Monitor: {name}\nSize: {size}\nRefresh rate: {hz}\nPosition: {position}\nScale: {scale}\n\n",
         );
         commands.spawn((
-            TextUi(info_text),
+            Text(info_text),
             Style {
                 position_type: PositionType::Relative,
                 height: Val::Percent(100.0),

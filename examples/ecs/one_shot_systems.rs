@@ -79,12 +79,12 @@ fn evaluate_callbacks(query: Query<(Entity, &Callback), With<Triggered>>, mut co
     }
 }
 
-fn system_a(query: Query<Entity, With<TextUi>>, mut writer: TextUiWriter) {
+fn system_a(query: Query<Entity, With<Text>>, mut writer: TextUiWriter) {
     *writer.text(query.single(), 3) = String::from("A");
     info!("A: One shot system registered with Commands was triggered");
 }
 
-fn system_b(query: Query<Entity, With<TextUi>>, mut writer: TextUiWriter) {
+fn system_b(query: Query<Entity, With<Text>>, mut writer: TextUiWriter) {
     *writer.text(query.single(), 3) = String::from("B");
     info!("B: One shot system registered with World was triggered");
 }
@@ -93,7 +93,7 @@ fn setup_ui(mut commands: Commands) {
     commands.spawn(Camera2d);
     commands
         .spawn((
-            TextUi::default(),
+            Text::default(),
             TextLayout::new_with_justify(JustifyText::Center),
             Style {
                 align_self: AlignSelf::Center,

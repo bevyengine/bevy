@@ -79,7 +79,7 @@ fn setup(
     ));
 
     commands.spawn((
-        TextUi::default(),
+        Text::default(),
         Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
@@ -98,7 +98,7 @@ fn update(
         ),
         With<Camera>,
     >,
-    mut text: Query<&mut TextUi>,
+    mut text: Query<&mut Text>,
     mut sphere: Query<&mut Transform, With<SphereMarker>>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,

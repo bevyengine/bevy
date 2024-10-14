@@ -92,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
         .with_children(|builder| {
             // real time info
             builder.spawn((
-                TextUi::default(),
+                Text::default(),
                 TextFont {
                     font_size,
                     ..default()
@@ -102,7 +102,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
 
             // keybindings
             builder.spawn((
-                TextUi::new("CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down"),
+                Text::new("CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down"),
                 TextFont {
                     font_size,
                     ..default()
@@ -113,7 +113,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
 
             // virtual time info
             builder.spawn((
-                TextUi::default(),
+                Text::default(),
                 TextFont {
                     font_size,
                     ..default()
@@ -180,10 +180,7 @@ fn toggle_pause(mut time: ResMut<Time<Virtual>>) {
 }
 
 /// Update the `Real` time info text
-fn update_real_time_info_text(
-    time: Res<Time<Real>>,
-    mut query: Query<&mut TextUi, With<RealTime>>,
-) {
+fn update_real_time_info_text(time: Res<Time<Real>>, mut query: Query<&mut Text, With<RealTime>>) {
     for mut text in &mut query {
         **text = format!(
             "REAL TIME\nElapsed: {:.1}\nDelta: {:.5}\n",
@@ -196,7 +193,7 @@ fn update_real_time_info_text(
 /// Update the `Virtual` time info text
 fn update_virtual_time_info_text(
     time: Res<Time<Virtual>>,
-    mut query: Query<&mut TextUi, With<VirtualTime>>,
+    mut query: Query<&mut Text, With<VirtualTime>>,
 ) {
     for mut text in &mut query {
         **text = format!(

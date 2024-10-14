@@ -271,7 +271,7 @@ fn setup_menu(mut commands: Commands) {
                 })
                 .with_children(|parent| {
                     parent.spawn((
-                        TextUi::new("Play"),
+                        Text::new("Play"),
                         TextFont {
                             font_size: 33.0,
                             ..default()

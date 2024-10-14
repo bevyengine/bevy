@@ -156,7 +156,7 @@ fn setup(
     ));
 
     // Example instructions
-    commands.spawn((TextUi::new("Press 'B' to toggle between no bounding shapes, bounding boxes (AABBs) and bounding spheres / circles\n\
+    commands.spawn((Text::new("Press 'B' to toggle between no bounding shapes, bounding boxes (AABBs) and bounding spheres / circles\n\
             Press 'Space' to switch between 3D and 2D"),
             Style {
             position_type: PositionType::Absolute,

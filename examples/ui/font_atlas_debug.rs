@@ -65,7 +65,7 @@ fn atlas_render_system(
 fn text_update_system(
     mut state: ResMut<State>,
     time: Res<Time>,
-    mut query: Query<&mut TextUi>,
+    mut query: Query<&mut Text>,
     mut seeded_rng: ResMut<SeededRng>,
 ) {
     if state.timer.tick(time.delta()).finished() {
@@ -97,7 +97,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
         })
         .with_children(|parent| {
             parent.spawn((
-                TextUi::new("a"),
+                Text::new("a"),
                 TextFont {
                     font: font_handle,
                     font_size: 50.0,

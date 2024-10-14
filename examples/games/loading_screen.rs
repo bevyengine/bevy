@@ -91,7 +91,7 @@ fn setup(mut commands: Commands) {
             },
             ..default()
         })
-        .with_child((TextUi::new("Press 1 or 2 to load a new scene."), text_style));
+        .with_child((Text::new("Press 1 or 2 to load a new scene."), text_style));
 }
 
 // Selects the level you want to load.
@@ -270,7 +270,7 @@ fn load_loading_screen(mut commands: Commands) {
             },
             LoadingScreen,
         ))
-        .with_child((TextUi::new("Loading..."), text_style.clone()));
+        .with_child((Text::new("Loading..."), text_style.clone()));
 }
 
 // Determines when to show the loading screen

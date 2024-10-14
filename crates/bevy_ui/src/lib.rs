@@ -8,7 +8,7 @@
 
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
-//! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`TextUi`](prelude::TextUi) and [`node_bundles::NodeBundle`]
+//! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`Text`](prelude::Text) and [`node_bundles::NodeBundle`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod measurement;
@@ -53,7 +53,7 @@ pub mod prelude {
             node_bundles::*,
             ui_material::*,
             ui_node::*,
-            widget::{Button, Label, TextUi, TextUiReader, TextUiWriter},
+            widget::{Button, Label, Text, TextUiReader, TextUiWriter},
             Interaction, UiMaterialHandle, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
@@ -224,17 +224,17 @@ impl Plugin for UiPlugin {
 fn build_text_interop(app: &mut App) {
     use crate::widget::TextNodeFlags;
     use bevy_text::TextLayoutInfo;
-    use widget::TextUi;
+    use widget::Text;
 
     app.register_type::<TextLayoutInfo>()
         .register_type::<TextNodeFlags>()
-        .register_type::<TextUi>();
+        .register_type::<Text>();
 
     app.add_systems(
         PostUpdate,
         (
             (
-                bevy_text::detect_text_needs_rerender::<TextUi>,
+                bevy_text::detect_text_needs_rerender::<Text>,
                 widget::measure_text_system,
             )
                 .chain()

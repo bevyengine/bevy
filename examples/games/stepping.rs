@@ -163,7 +163,7 @@ fn build_ui(
 
     commands
         .spawn((
-            TextUi::default(),
+            Text::default(),
             SteppingUi,
             Style {
                 position_type: PositionType::Absolute,
@@ -191,7 +191,7 @@ fn build_stepping_hint(mut commands: Commands) {
     info!("{}", hint_text);
     // stepping description box
     commands.spawn((
-        TextUi::new(hint_text),
+        Text::new(hint_text),
         TextFont {
             font_size: 15.0,
             ..default()

@@ -181,7 +181,7 @@ fn setup_ui(mut commands: Commands) {
         })
         .with_children(|b| {
             b.spawn((
-                TextUi::new("Loading...".to_owned()),
+                Text::new("Loading...".to_owned()),
                 TextFont {
                     font_size: 53.0,
                     ..Default::default()
@@ -261,7 +261,7 @@ fn wait_on_load(
 fn get_async_loading_state(
     state: Res<AsyncLoadingState>,
     mut next_loading_state: ResMut<NextState<LoadingState>>,
-    mut text: Query<&mut TextUi, With<LoadingText>>,
+    mut text: Query<&mut Text, With<LoadingText>>,
 ) {
     // Load the value written by the `Future`.
     let is_loaded = state.0.load(Ordering::Acquire);
