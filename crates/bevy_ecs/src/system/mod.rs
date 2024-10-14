@@ -99,7 +99,17 @@
 //! - [`Components`](crate::component::Components) (Provides Components metadata)
 //! - [`Entities`](crate::entity::Entities) (Provides Entities metadata)
 //! - All tuples between 1 to 16 elements where each element implements [`SystemParam`]
+//! - [`ParamSet`]
 //! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
+//!
+//! In addition, the following parameters can be used when constructing a dynamic system with [`SystemParamBuilder`],
+//! but will only provide an empty value when used with an ordinary system:
+//!
+//! - [`FilteredResources`](crate::world::FilteredResources)
+//! - [`FilteredResourcesMut`](crate::world::FilteredResourcesMut)
+//! - [`DynSystemParam`]
+//! - [`Vec<P>`] where `P: SystemParam`
+//! - [`ParamSet<Vec<P>>`] where `P: SystemParam`
 
 mod adapter_system;
 mod builder;
@@ -318,7 +328,7 @@ mod tests {
         },
         system::{
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
-            Resource, StaticSystemParam, System, SystemState,
+            Resource, Single, StaticSystemParam, System, SystemState,
         },
         world::{EntityMut, FromWorld, World},
     };
@@ -1147,12 +1157,15 @@ mod tests {
         world.insert_resource(A(42));
         world.spawn(B(7));
 
-        let mut system_state: SystemState<(Res<A>, Query<&B>, ParamSet<(Query<&C>, Query<&D>)>)> =
-            SystemState::new(&mut world);
+        let mut system_state: SystemState<(
+            Res<A>,
+            Option<Single<&B>>,
+            ParamSet<(Query<&C>, Query<&D>)>,
+        )> = SystemState::new(&mut world);
         let (a, query, _) = system_state.get(&world);
         assert_eq!(*a, A(42), "returned resource matches initial value");
         assert_eq!(
-            *query.single(),
+            **query.unwrap(),
             B(7),
             "returned component matches initial value"
         );
@@ -1170,16 +1183,16 @@ mod tests {
         world.insert_resource(A(42));
         world.spawn(B(7));
 
-        let mut system_state: SystemState<(ResMut<A>, Query<&mut B>)> =
+        let mut system_state: SystemState<(ResMut<A>, Option<Single<&mut B>>)> =
             SystemState::new(&mut world);
 
         // The following line shouldn't compile because the parameters used are not ReadOnlySystemParam
         // let (a, query) = system_state.get(&world);
 
-        let (a, mut query) = system_state.get_mut(&mut world);
+        let (a, query) = system_state.get_mut(&mut world);
         assert_eq!(*a, A(42), "returned resource matches initial value");
         assert_eq!(
-            *query.single_mut(),
+            **query.unwrap(),
             B(7),
             "returned component matches initial value"
         );
@@ -1193,21 +1206,22 @@ mod tests {
         let mut world = World::default();
         let entity = world.spawn(A(1)).id();
 
-        let mut system_state: SystemState<Query<&A, Changed<A>>> = SystemState::new(&mut world);
+        let mut system_state: SystemState<Option<Single<&A, Changed<A>>>> =
+            SystemState::new(&mut world);
         {
             let query = system_state.get(&world);
-            assert_eq!(*query.single(), A(1));
+            assert_eq!(**query.unwrap(), A(1));
         }
 
         {
             let query = system_state.get(&world);
-            assert!(query.get_single().is_err());
+            assert!(query.is_none());
         }
 
         world.entity_mut(entity).get_mut::<A>().unwrap().0 = 2;
         {
             let query = system_state.get(&world);
-            assert_eq!(*query.single(), A(2));
+            assert_eq!(**query.unwrap(), A(2));
         }
     }
 

@@ -68,11 +68,11 @@ use bevy_utils::{
     tracing::{info_span, instrument::Instrument},
     ConditionalSendFuture,
 };
+use derive_more::derive::{Display, Error};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use parking_lot::RwLock;
 use std::path::{Path, PathBuf};
-use thiserror::Error;
 
 /// A "background" asset processor that reads asset values from a source [`AssetSource`] (which corresponds to an [`AssetReader`](crate::io::AssetReader) / [`AssetWriter`](crate::io::AssetWriter) pair),
 /// processes them in some way, and writes them to a destination [`AssetSource`].
@@ -83,7 +83,7 @@ use thiserror::Error;
 /// [`AssetProcessor`] can be run in the background while a Bevy App is running. Changes to assets will be automatically detected and hot-reloaded.
 ///
 /// Assets will only be re-processed if they have been changed. A hash of each asset source is stored in the metadata of the processed version of the
-/// asset, which is used to determine if the asset source has actually changed.  
+/// asset, which is used to determine if the asset source has actually changed.
 ///
 /// A [`ProcessorTransactionLog`] is produced, which uses "write-ahead logging" to make the [`AssetProcessor`] crash and failure resistant. If a failed/unfinished
 /// transaction from a previous run is detected, the affected asset(s) will be re-processed.
@@ -155,10 +155,10 @@ impl AssetProcessor {
 
     /// Retrieves the [`AssetSource`] for this processor
     #[inline]
-    pub fn get_source<'a, 'b>(
-        &'a self,
-        id: impl Into<AssetSourceId<'b>>,
-    ) -> Result<&'a AssetSource, MissingAssetSourceError> {
+    pub fn get_source<'a>(
+        &self,
+        id: impl Into<AssetSourceId<'a>>,
+    ) -> Result<&AssetSource, MissingAssetSourceError> {
         self.data.sources.get(id.into())
     }
 
@@ -565,11 +565,11 @@ impl AssetProcessor {
 
         /// Retrieves asset paths recursively. If `clean_empty_folders_writer` is Some, it will be used to clean up empty
         /// folders when they are discovered.
-        async fn get_asset_paths<'a>(
-            reader: &'a dyn ErasedAssetReader,
-            clean_empty_folders_writer: Option<&'a dyn ErasedAssetWriter>,
+        async fn get_asset_paths(
+            reader: &dyn ErasedAssetReader,
+            clean_empty_folders_writer: Option<&dyn ErasedAssetWriter>,
             path: PathBuf,
-            paths: &'a mut Vec<PathBuf>,
+            paths: &mut Vec<PathBuf>,
         ) -> Result<bool, AssetReaderError> {
             if reader.is_directory(&path).await? {
                 let mut path_stream = reader.read_directory(&path).await?;
@@ -1093,11 +1093,11 @@ impl<T: Process> Process for InstrumentedAssetProcessor<T> {
     type Settings = T::Settings;
     type OutputLoader = T::OutputLoader;
 
-    fn process<'a>(
-        &'a self,
-        context: &'a mut ProcessContext,
+    fn process(
+        &self,
+        context: &mut ProcessContext,
         meta: AssetMeta<(), Self>,
-        writer: &'a mut crate::io::Writer,
+        writer: &mut crate::io::Writer,
     ) -> impl ConditionalSendFuture<
         Output = Result<<Self::OutputLoader as crate::AssetLoader>::Settings, ProcessError>,
     > {
@@ -1413,12 +1413,10 @@ pub enum ProcessorState {
 }
 
 /// An error that occurs when initializing the [`AssetProcessor`].
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 pub enum InitializeError {
-    #[error(transparent)]
     FailedToReadSourcePaths(AssetReaderError),
-    #[error(transparent)]
     FailedToReadDestinationPaths(AssetReaderError),
-    #[error("Failed to validate asset log: {0}")]
+    #[display("Failed to validate asset log: {_0}")]
     ValidateLogError(ValidateLogError),
 }

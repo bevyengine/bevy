@@ -40,22 +40,22 @@ fn main() {
 }
 
 impl AnimatableProperty for FontSizeProperty {
-    type Component = Text;
+    type Component = TextFont;
 
     type Property = f32;
 
     fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-        Some(&mut component.sections.get_mut(0)?.style.font_size)
+        Some(&mut component.font_size)
     }
 }
 
 impl AnimatableProperty for TextColorProperty {
-    type Component = Text;
+    type Component = TextColor;
 
     type Property = Srgba;
 
     fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-        match component.sections.get_mut(0)?.style.color {
+        match component.0 {
             Color::Srgba(ref mut color) => Some(color),
             _ => None,
         }
@@ -77,24 +77,34 @@ impl AnimationInfo {
 
         // Create a curve that animates font size.
         //
-        // `VariableCurve::linear` is just a convenience constructor; it's also
-        // possible to initialize the structure manually.
+        // The curve itself is a `Curve<f32>`, and `f32` is `FontSizeProperty::Property`,
+        // which is required by `AnimatableCurve::from_curve`.
         animation_clip.add_curve_to_target(
             animation_target_id,
-            VariableCurve::linear::<AnimatablePropertyKeyframes<FontSizeProperty>>(
-                [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0],
-                [24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0],
-            ),
+            AnimatableKeyframeCurve::new(
+                [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+                    .into_iter()
+                    .zip([24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0]),
+            )
+            .map(AnimatableCurve::<FontSizeProperty, _>::from_curve)
+            .expect("should be able to build translation curve because we pass in valid samples"),
         );
 
         // Create a curve that animates font color. Note that this should have
         // the same time duration as the previous curve.
+        //
+        // Similar to the above, the curve itself is a `Curve<Srgba>`, and `Srgba` is
+        // `TextColorProperty::Property`, which is required by the `from_curve` method.
         animation_clip.add_curve_to_target(
             animation_target_id,
-            VariableCurve::linear::<AnimatablePropertyKeyframes<TextColorProperty>>(
-                [0.0, 1.0, 2.0, 3.0],
-                [Srgba::RED, Srgba::GREEN, Srgba::BLUE, Srgba::RED],
-            ),
+            AnimatableKeyframeCurve::new([0.0, 1.0, 2.0, 3.0].into_iter().zip([
+                Srgba::RED,
+                Srgba::GREEN,
+                Srgba::BLUE,
+                Srgba::RED,
+            ]))
+            .map(AnimatableCurve::<TextColorProperty, _>::from_curve)
+            .expect("should be able to build translation curve because we pass in valid samples"),
         );
 
         // Save our animation clip as an asset.
@@ -134,7 +144,7 @@ fn setup(
     animation_player.play(animation_node_index).repeat();
 
     // Add a camera.
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Build the UI. We have a parent node that covers the whole screen and
     // contains the `AnimationPlayer`, as well as a child node that contains the
@@ -155,22 +165,21 @@ fn setup(
             ..default()
         })
         .insert(animation_player)
-        .insert(animation_graph)
+        .insert(AnimationGraphHandle(animation_graph))
         .with_children(|builder| {
             // Build the text node.
             let player = builder.parent_entity();
             builder
-                .spawn(
-                    TextBundle::from_section(
-                        "Bevy",
-                        TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 24.0,
-                            color: Color::Srgba(Srgba::RED),
-                        },
-                    )
-                    .with_text_justify(JustifyText::Center),
-                )
+                .spawn((
+                    Text::new("Bevy"),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 24.0,
+                        ..default()
+                    },
+                    TextColor(Color::Srgba(Srgba::RED)),
+                    TextLayout::new_with_justify(JustifyText::Center),
+                ))
                 // Mark as an animation target.
                 .insert(AnimationTarget {
                     id: animation_target_id,

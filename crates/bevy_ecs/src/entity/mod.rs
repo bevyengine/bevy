@@ -36,11 +36,13 @@
 //! [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
 //! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
 mod map_entities;
+mod visit_entities;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 pub use map_entities::*;
+pub use visit_entities::*;
 
 mod hash;
 pub use hash::*;
@@ -395,6 +397,8 @@ impl<'de> Deserialize<'de> for Entity {
 ///
 /// This takes the format: `{index}v{generation}#{bits}`.
 ///
+/// For [`Entity::PLACEHOLDER`], this outputs `PLACEHOLDER`.
+///
 /// # Usage
 ///
 /// Prefer to use this format for debugging and logging purposes. Because the output contains
@@ -414,22 +418,32 @@ impl<'de> Deserialize<'de> for Entity {
 /// ```
 impl fmt::Debug for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}v{}#{}",
-            self.index(),
-            self.generation(),
-            self.to_bits()
-        )
+        if self == &Self::PLACEHOLDER {
+            write!(f, "PLACEHOLDER")
+        } else {
+            write!(
+                f,
+                "{}v{}#{}",
+                self.index(),
+                self.generation(),
+                self.to_bits()
+            )
+        }
     }
 }
 
 /// Outputs the short entity identifier, including the index and generation.
 ///
 /// This takes the format: `{index}v{generation}`.
+///
+/// For [`Entity::PLACEHOLDER`], this outputs `PLACEHOLDER`.
 impl fmt::Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}v{}", self.index(), self.generation())
+        if self == &Self::PLACEHOLDER {
+            write!(f, "PLACEHOLDER")
+        } else {
+            write!(f, "{}v{}", self.index(), self.generation())
+        }
     }
 }
 
@@ -1193,16 +1207,21 @@ mod tests {
     fn entity_debug() {
         let entity = Entity::from_raw(42);
         let string = format!("{:?}", entity);
-        assert!(string.contains("42"));
-        assert!(string.contains("v1"));
-        assert!(string.contains(format!("#{}", entity.to_bits()).as_str()));
+        assert_eq!(string, "42v1#4294967338");
+
+        let entity = Entity::PLACEHOLDER;
+        let string = format!("{:?}", entity);
+        assert_eq!(string, "PLACEHOLDER");
     }
 
     #[test]
     fn entity_display() {
         let entity = Entity::from_raw(42);
         let string = format!("{}", entity);
-        assert!(string.contains("42"));
-        assert!(string.contains("v1"));
+        assert_eq!(string, "42v1");
+
+        let entity = Entity::PLACEHOLDER;
+        let string = format!("{}", entity);
+        assert_eq!(string, "PLACEHOLDER");
     }
 }

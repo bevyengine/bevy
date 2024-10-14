@@ -11,6 +11,7 @@ The default feature set enables most of the expected features of a game engine, 
 
 |feature name|description|
 |-|-|
+|android-game-activity|Android GameActivity support. Default, choose between this and `android-native-activity`.|
 |android_shared_stdcxx|Enable using a shared stdlib for cxx on Android|
 |animation|Enable animation support, and glTF animation loading|
 |bevy_animation|Provides animation functionality|
@@ -21,6 +22,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
+|bevy_mesh_picking_backend|Provides an implementation for picking meshes|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
 |bevy_remote|Enable the Bevy Remote Protocol|
@@ -33,6 +35,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_ui|A custom ECS-driven UI framework|
 |bevy_ui_picking_backend|Provides an implementation for picking ui|
 |bevy_winit|winit window and input backend|
+|custom_cursor|Enable winit custom cursor support|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
@@ -40,7 +43,7 @@ The default feature set enables most of the expected features of a game engine, 
 |png|PNG image format support|
 |smaa_luts|Include SMAA Look Up Tables KTX2 Files|
 |sysinfo_plugin|Enables system information diagnostic plugin|
-|tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.|
+|tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.|
 |vorbis|OGG/VORBIS audio format support|
 |webgl2|Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.|
 |x11|X11 display server support|
@@ -51,8 +54,10 @@ The default feature set enables most of the expected features of a game engine, 
 |feature name|description|
 |-|-|
 |accesskit_unix|Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)|
+|android-native-activity|Android NativeActivity support. Legacy, should be avoided for most new Android games.|
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
+|avif|AVIF image format support|
 |basis-universal|Basis Universal compressed texture support|
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
@@ -64,9 +69,12 @@ The default feature set enables most of the expected features of a game engine, 
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
 |exr|EXR image format support|
+|ff|Farbfeld image format support|
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support|
+|gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
+|ico|ICO image format support|
 |ios_simulator|Enable support for the ios_simulator by downgrading some rendering capabilities|
 |jpeg|JPEG image format support|
 |meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
@@ -77,6 +85,7 @@ The default feature set enables most of the expected features of a game engine, 
 |pbr_multi_layer_material_textures|Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_transmission_textures|Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
+|qoi|QOI image format support|
 |reflect_functions|Enable function reflection|
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|
@@ -89,6 +98,7 @@ The default feature set enables most of the expected features of a game engine, 
 |symphonia-vorbis|OGG/VORBIS audio format support (through symphonia)|
 |symphonia-wav|WAV audio format support (through symphonia)|
 |tga|TGA image format support|
+|tiff|TIFF image format support|
 |trace|Tracing support|
 |trace_chrome|Tracing support, saving a file in Chrome Tracing format|
 |trace_tracy|Tracing support, exposing a port for Tracy|

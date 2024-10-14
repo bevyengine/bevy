@@ -10,7 +10,6 @@ use bevy::{
     app::AppExit,
     input::common_conditions::{input_just_pressed, input_just_released},
     prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     window::{PrimaryWindow, WindowLevel},
 };
 
@@ -104,29 +103,24 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // Spawn a 2D camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Spawn the text instructions
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let text_style = TextStyle {
+    let text_style = TextFont {
         font: font.clone(),
         font_size: 25.0,
         ..default()
     };
     commands.spawn((
-        Text2dBundle {
-            text: Text::from_section(
-                "Press Space to play on your desktop! Press it again to return.\nRight click Bevy logo to exit.",
-                text_style.clone(),
-            ),
-            transform: Transform::from_xyz(0.0, -300.0, 100.0),
-            ..default()
-        },
+        Text2d::new("Press Space to play on your desktop! Press it again to return.\nRight click Bevy logo to exit."),
+            text_style.clone(),
+            Transform::from_xyz(0.0, -300.0, 100.0),
         InstructionsText,
     ));
 
     // Create a circle mesh. We will reuse this mesh for all our circles.
-    let circle = Mesh2dHandle(meshes.add(Circle { radius: 1.0 }));
+    let circle = meshes.add(Circle { radius: 1.0 });
     // Create the different materials we will use for each part of the eyes. For this demo they are basic [`ColorMaterial`]s.
     let outline_material = materials.add(Color::BLACK);
     let sclera_material = materials.add(Color::WHITE);
@@ -136,37 +130,30 @@ fn setup(
     // Spawn the Bevy logo sprite
     commands
         .spawn((
-            SpriteBundle {
-                texture: asset_server.load("branding/icon.png"),
-                ..default()
-            },
+            Sprite::from_image(asset_server.load("branding/icon.png")),
             BevyLogo,
         ))
         .with_children(|commands| {
             // For each bird eye
             for (x, y, radius) in BIRDS_EYES {
                 // eye outline
-                commands.spawn(MaterialMesh2dBundle {
-                    mesh: circle.clone(),
-                    material: outline_material.clone(),
-                    transform: Transform::from_xyz(x, y - 1.0, 1.0)
+                commands.spawn((
+                    Mesh2d(circle.clone()),
+                    MeshMaterial2d(outline_material.clone()),
+                    Transform::from_xyz(x, y - 1.0, 1.0)
                         .with_scale(Vec2::splat(radius + 2.0).extend(1.0)),
-                    ..default()
-                });
+                ));
 
                 // sclera
                 commands
-                    .spawn(SpatialBundle::from_transform(Transform::from_xyz(
-                        x, y, 2.0,
-                    )))
+                    .spawn((Transform::from_xyz(x, y, 2.0), Visibility::default()))
                     .with_children(|commands| {
                         // sclera
-                        commands.spawn(MaterialMesh2dBundle {
-                            mesh: circle.clone(),
-                            material: sclera_material.clone(),
-                            transform: Transform::from_scale(Vec3::new(radius, radius, 0.0)),
-                            ..default()
-                        });
+                        commands.spawn((
+                            Mesh2d(circle.clone()),
+                            MeshMaterial2d(sclera_material.clone()),
+                            Transform::from_scale(Vec3::new(radius, radius, 0.0)),
+                        ));
 
                         let pupil_radius = radius * 0.6;
                         let pupil_highlight_radius = radius * 0.3;
@@ -174,7 +161,8 @@ fn setup(
                         // pupil
                         commands
                             .spawn((
-                                SpatialBundle::from_transform(Transform::from_xyz(0.0, 0.0, 1.0)),
+                                Transform::from_xyz(0.0, 0.0, 1.0),
+                                Visibility::default(),
                                 Pupil {
                                     eye_radius: radius,
                                     pupil_radius,
@@ -183,19 +171,21 @@ fn setup(
                             ))
                             .with_children(|commands| {
                                 // pupil main
-                                commands.spawn(MaterialMesh2dBundle {
-                                    mesh: circle.clone(),
-                                    material: pupil_material.clone(),
-                                    transform: Transform::from_xyz(0.0, 0.0, 0.0)
-                                        .with_scale(Vec3::new(pupil_radius, pupil_radius, 1.0)),
-                                    ..default()
-                                });
+                                commands.spawn((
+                                    Mesh2d(circle.clone()),
+                                    MeshMaterial2d(pupil_material.clone()),
+                                    Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::new(
+                                        pupil_radius,
+                                        pupil_radius,
+                                        1.0,
+                                    )),
+                                ));
 
                                 // pupil highlight
-                                commands.spawn(MaterialMesh2dBundle {
-                                    mesh: circle.clone(),
-                                    material: pupil_highlight_material.clone(),
-                                    transform: Transform::from_xyz(
+                                commands.spawn((
+                                    Mesh2d(circle.clone()),
+                                    MeshMaterial2d(pupil_highlight_material.clone()),
+                                    Transform::from_xyz(
                                         -pupil_highlight_offset,
                                         pupil_highlight_offset,
                                         1.0,
@@ -205,8 +195,7 @@ fn setup(
                                         pupil_highlight_radius,
                                         1.0,
                                     )),
-                                    ..default()
-                                });
+                                ));
                             });
                     });
             }
@@ -216,11 +205,10 @@ fn setup(
 /// Project the cursor into the world coordinates and store it in a resource for easy use
 fn get_cursor_world_pos(
     mut cursor_world_pos: ResMut<CursorWorldPos>,
-    q_primary_window: Query<&Window, With<PrimaryWindow>>,
-    q_camera: Query<(&Camera, &GlobalTransform)>,
+    primary_window: Single<&Window, With<PrimaryWindow>>,
+    q_camera: Single<(&Camera, &GlobalTransform)>,
 ) {
-    let primary_window = q_primary_window.single();
-    let (main_camera, main_camera_transform) = q_camera.single();
+    let (main_camera, main_camera_transform) = *q_camera;
     // Get the cursor position in the world
     cursor_world_pos.0 = primary_window.cursor_position().and_then(|cursor_pos| {
         main_camera
@@ -232,11 +220,9 @@ fn get_cursor_world_pos(
 /// Update whether the window is clickable or not
 fn update_cursor_hit_test(
     cursor_world_pos: Res<CursorWorldPos>,
-    mut q_primary_window: Query<&mut Window, With<PrimaryWindow>>,
-    q_bevy_logo: Query<&Transform, With<BevyLogo>>,
+    mut primary_window: Single<&mut Window, With<PrimaryWindow>>,
+    bevy_logo_transform: Single<&Transform, With<BevyLogo>>,
 ) {
-    let mut primary_window = q_primary_window.single_mut();
-
     // If the window has decorations (e.g. a border) then it should be clickable
     if primary_window.decorations {
         primary_window.cursor_options.hit_test = true;
@@ -249,7 +235,6 @@ fn update_cursor_hit_test(
     };
 
     // If the cursor is within the radius of the Bevy logo make the window clickable otherwise the window is not clickable
-    let bevy_logo_transform = q_bevy_logo.single();
     primary_window.cursor_options.hit_test = bevy_logo_transform
         .translation
         .truncate()
@@ -261,7 +246,7 @@ fn update_cursor_hit_test(
 fn start_drag(
     mut commands: Commands,
     cursor_world_pos: Res<CursorWorldPos>,
-    q_bevy_logo: Query<&Transform, With<BevyLogo>>,
+    bevy_logo_transform: Single<&Transform, With<BevyLogo>>,
 ) {
     // If the cursor is not within the primary window skip this system
     let Some(cursor_world_pos) = cursor_world_pos.0 else {
@@ -269,7 +254,6 @@ fn start_drag(
     };
 
     // Get the offset from the cursor to the Bevy logo sprite
-    let bevy_logo_transform = q_bevy_logo.single();
     let drag_offset = bevy_logo_transform.translation.truncate() - cursor_world_pos;
 
     // If the cursor is within the Bevy logo radius start the drag operation and remember the offset of the cursor from the origin
@@ -288,16 +272,13 @@ fn drag(
     drag_offset: Res<DragOperation>,
     cursor_world_pos: Res<CursorWorldPos>,
     time: Res<Time>,
-    mut q_bevy_logo: Query<&mut Transform, With<BevyLogo>>,
+    mut bevy_transform: Single<&mut Transform, With<BevyLogo>>,
     mut q_pupils: Query<&mut Pupil>,
 ) {
     // If the cursor is not within the primary window skip this system
     let Some(cursor_world_pos) = cursor_world_pos.0 else {
         return;
     };
-
-    // Get the current Bevy logo transform
-    let mut bevy_transform = q_bevy_logo.single_mut();
 
     // Calculate the new translation of the Bevy logo based on cursor and drag offset
     let new_translation = cursor_world_pos + drag_offset.0;
@@ -321,7 +302,7 @@ fn drag(
 fn quit(
     cursor_world_pos: Res<CursorWorldPos>,
     mut app_exit: EventWriter<AppExit>,
-    q_bevy_logo: Query<&Transform, With<BevyLogo>>,
+    bevy_logo_transform: Single<&Transform, With<BevyLogo>>,
 ) {
     // If the cursor is not within the primary window skip this system
     let Some(cursor_world_pos) = cursor_world_pos.0 else {
@@ -329,7 +310,6 @@ fn quit(
     };
 
     // If the cursor is within the Bevy logo radius send the [`AppExit`] event to quit the app
-    let bevy_logo_transform = q_bevy_logo.single();
     if bevy_logo_transform
         .translation
         .truncate()
@@ -345,7 +325,7 @@ fn toggle_transparency(
     mut commands: Commands,
     mut window_transparency: ResMut<WindowTransparency>,
     mut q_instructions_text: Query<&mut Visibility, With<InstructionsText>>,
-    mut q_primary_window: Query<&mut Window, With<PrimaryWindow>>,
+    mut primary_window: Single<&mut Window, With<PrimaryWindow>>,
 ) {
     // Toggle the window transparency resource
     window_transparency.0 = !window_transparency.0;
@@ -361,9 +341,12 @@ fn toggle_transparency(
 
     // Remove the primary window's decorations (e.g. borders), make it always on top of other desktop windows, and set the clear color to transparent
     // only if window transparency is enabled
-    let mut window = q_primary_window.single_mut();
     let clear_color;
-    (window.decorations, window.window_level, clear_color) = if window_transparency.0 {
+    (
+        primary_window.decorations,
+        primary_window.window_level,
+        clear_color,
+    ) = if window_transparency.0 {
         (false, WindowLevel::AlwaysOnTop, Color::NONE)
     } else {
         (true, WindowLevel::Normal, WINDOW_CLEAR_COLOR)

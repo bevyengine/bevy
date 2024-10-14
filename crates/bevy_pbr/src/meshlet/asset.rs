@@ -4,10 +4,11 @@ use bevy_asset::{
     saver::{AssetSaver, SavedAsset},
     Asset, AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
 };
-use bevy_math::Vec3;
+use bevy_math::{Vec2, Vec3};
 use bevy_reflect::TypePath;
 use bevy_tasks::block_on;
 use bytemuck::{Pod, Zeroable};
+use derive_more::derive::{Display, Error, From};
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
 use std::io::{Read, Write};
 
@@ -35,33 +36,54 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 /// * Materials must use the [`crate::Material::meshlet_mesh_fragment_shader`] method (and similar variants for prepass/deferred shaders)
 ///   which requires certain shader patterns that differ from the regular material shaders.
 ///
-/// See also [`super::MaterialMeshletMeshBundle`] and [`super::MeshletPlugin`].
+/// See also [`super::MeshletMesh3d`] and [`super::MeshletPlugin`].
 #[derive(Asset, TypePath, Clone)]
 pub struct MeshletMesh {
-    /// Raw vertex data bytes for the overall mesh.
-    pub(crate) vertex_data: Arc<[u8]>,
-    /// Indices into `vertex_data`.
-    pub(crate) vertex_ids: Arc<[u32]>,
-    /// Indices into `vertex_ids`.
+    /// Quantized and bitstream-packed vertex positions for meshlet vertices.
+    pub(crate) vertex_positions: Arc<[u32]>,
+    /// Octahedral-encoded and 2x16snorm packed normals for meshlet vertices.
+    pub(crate) vertex_normals: Arc<[u32]>,
+    /// Uncompressed vertex texture coordinates for meshlet vertices.
+    pub(crate) vertex_uvs: Arc<[Vec2]>,
+    /// Triangle indices for meshlets.
     pub(crate) indices: Arc<[u8]>,
     /// The list of meshlets making up this mesh.
     pub(crate) meshlets: Arc<[Meshlet]>,
     /// Spherical bounding volumes.
-    pub(crate) bounding_spheres: Arc<[MeshletBoundingSpheres]>,
+    pub(crate) meshlet_bounding_spheres: Arc<[MeshletBoundingSpheres]>,
 }
 
 /// A single meshlet within a [`MeshletMesh`].
 #[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct Meshlet {
-    /// The offset within the parent mesh's [`MeshletMesh::vertex_ids`] buffer where the indices for this meshlet begin.
-    pub start_vertex_id: u32,
+    /// The bit offset within the parent mesh's [`MeshletMesh::vertex_positions`] buffer where the vertex positions for this meshlet begin.
+    pub start_vertex_position_bit: u32,
+    /// The offset within the parent mesh's [`MeshletMesh::vertex_normals`] and [`MeshletMesh::vertex_uvs`] buffers
+    /// where non-position vertex attributes for this meshlet begin.
+    pub start_vertex_attribute_id: u32,
     /// The offset within the parent mesh's [`MeshletMesh::indices`] buffer where the indices for this meshlet begin.
     pub start_index_id: u32,
     /// The amount of vertices in this meshlet.
-    pub vertex_count: u32,
+    pub vertex_count: u8,
     /// The amount of triangles in this meshlet.
-    pub triangle_count: u32,
+    pub triangle_count: u8,
+    /// Unused.
+    pub padding: u16,
+    /// Number of bits used to to store the X channel of vertex positions within this meshlet.
+    pub bits_per_vertex_position_channel_x: u8,
+    /// Number of bits used to to store the Y channel of vertex positions within this meshlet.
+    pub bits_per_vertex_position_channel_y: u8,
+    /// Number of bits used to to store the Z channel of vertex positions within this meshlet.
+    pub bits_per_vertex_position_channel_z: u8,
+    /// Power of 2 factor used to quantize vertex positions within this meshlet.
+    pub vertex_position_quantization_factor: u8,
+    /// Minimum quantized X channel value of vertex positions within this meshlet.
+    pub min_vertex_position_channel_x: f32,
+    /// Minimum quantized Y channel value of vertex positions within this meshlet.
+    pub min_vertex_position_channel_y: f32,
+    /// Minimum quantized Z channel value of vertex positions within this meshlet.
+    pub min_vertex_position_channel_z: f32,
 }
 
 /// Bounding spheres used for culling and choosing level of detail for a [`Meshlet`].
@@ -84,20 +106,20 @@ pub struct MeshletBoundingSphere {
     pub radius: f32,
 }
 
-/// An [`AssetLoader`] and [`AssetSaver`] for `.meshlet_mesh` [`MeshletMesh`] assets.
-pub struct MeshletMeshSaverLoader;
+/// An [`AssetSaver`] for `.meshlet_mesh` [`MeshletMesh`] assets.
+pub struct MeshletMeshSaver;
 
-impl AssetSaver for MeshletMeshSaverLoader {
+impl AssetSaver for MeshletMeshSaver {
     type Asset = MeshletMesh;
     type Settings = ();
-    type OutputLoader = Self;
+    type OutputLoader = MeshletMeshLoader;
     type Error = MeshletMeshSaveOrLoadError;
 
-    async fn save<'a>(
-        &'a self,
-        writer: &'a mut Writer,
-        asset: SavedAsset<'a, MeshletMesh>,
-        _settings: &'a (),
+    async fn save(
+        &self,
+        writer: &mut Writer,
+        asset: SavedAsset<'_, MeshletMesh>,
+        _settings: &(),
     ) -> Result<(), MeshletMeshSaveOrLoadError> {
         // Write asset magic number
         writer
@@ -111,27 +133,31 @@ impl AssetSaver for MeshletMeshSaverLoader {
 
         // Compress and write asset data
         let mut writer = FrameEncoder::new(AsyncWriteSyncAdapter(writer));
-        write_slice(&asset.vertex_data, &mut writer)?;
-        write_slice(&asset.vertex_ids, &mut writer)?;
+        write_slice(&asset.vertex_positions, &mut writer)?;
+        write_slice(&asset.vertex_normals, &mut writer)?;
+        write_slice(&asset.vertex_uvs, &mut writer)?;
         write_slice(&asset.indices, &mut writer)?;
         write_slice(&asset.meshlets, &mut writer)?;
-        write_slice(&asset.bounding_spheres, &mut writer)?;
+        write_slice(&asset.meshlet_bounding_spheres, &mut writer)?;
         writer.finish()?;
 
         Ok(())
     }
 }
 
-impl AssetLoader for MeshletMeshSaverLoader {
+/// An [`AssetLoader`] for `.meshlet_mesh` [`MeshletMesh`] assets.
+pub struct MeshletMeshLoader;
+
+impl AssetLoader for MeshletMeshLoader {
     type Asset = MeshletMesh;
     type Settings = ();
     type Error = MeshletMeshSaveOrLoadError;
 
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn Reader,
-        _settings: &'a (),
-        _load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<MeshletMesh, MeshletMeshSaveOrLoadError> {
         // Load and check magic number
         let magic = async_read_u64(reader).await?;
@@ -147,18 +173,20 @@ impl AssetLoader for MeshletMeshSaverLoader {
 
         // Load and decompress asset data
         let reader = &mut FrameDecoder::new(AsyncReadSyncAdapter(reader));
-        let vertex_data = read_slice(reader)?;
-        let vertex_ids = read_slice(reader)?;
+        let vertex_positions = read_slice(reader)?;
+        let vertex_normals = read_slice(reader)?;
+        let vertex_uvs = read_slice(reader)?;
         let indices = read_slice(reader)?;
         let meshlets = read_slice(reader)?;
-        let bounding_spheres = read_slice(reader)?;
+        let meshlet_bounding_spheres = read_slice(reader)?;
 
         Ok(MeshletMesh {
-            vertex_data,
-            vertex_ids,
+            vertex_positions,
+            vertex_normals,
+            vertex_uvs,
             indices,
             meshlets,
-            bounding_spheres,
+            meshlet_bounding_spheres,
         })
     }
 
@@ -167,16 +195,16 @@ impl AssetLoader for MeshletMeshSaverLoader {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum MeshletMeshSaveOrLoadError {
-    #[error("file was not a MeshletMesh asset")]
+    #[display("file was not a MeshletMesh asset")]
     WrongFileType,
-    #[error("expected asset version {MESHLET_MESH_ASSET_VERSION} but found version {found}")]
+    #[display("expected asset version {MESHLET_MESH_ASSET_VERSION} but found version {found}")]
     WrongVersion { found: u64 },
-    #[error("failed to compress or decompress asset data")]
-    CompressionOrDecompression(#[from] lz4_flex::frame::Error),
-    #[error("failed to read or write asset data")]
-    Io(#[from] std::io::Error),
+    #[display("failed to compress or decompress asset data")]
+    CompressionOrDecompression(lz4_flex::frame::Error),
+    #[display("failed to read or write asset data")]
+    Io(std::io::Error),
 }
 
 async fn async_read_u64(reader: &mut dyn Reader) -> Result<u64, std::io::Error> {

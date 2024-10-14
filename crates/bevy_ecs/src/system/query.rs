@@ -33,6 +33,15 @@ use core::{
 ///
 /// [`World`]: crate::world::World
 ///
+/// # Similar parameters
+///
+/// [`Query`] has few sibling [`SystemParam`](crate::system::system_param::SystemParam)s, which perform additional validation:
+/// - [`Single`] - Exactly one matching query item.
+/// - [`Option<Single>`] - Zero or one matching query item.
+/// - [`Populated`] - At least one matching query item.
+///
+/// Those parameters will prevent systems from running if their requirements aren't met.
+///
 /// # System parameter declaration
 ///
 /// A query should always be declared as a system parameter.
@@ -1375,7 +1384,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * `&mut T` -> `&T`
     /// * `&mut T` -> `Ref<T>`
     /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
-    ///  
+    ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
     /// [`&Archetype`]: crate::archetype::Archetype
     #[track_caller]
@@ -1665,5 +1674,38 @@ impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
     /// Returns the inner item with ownership.
     pub fn into_inner(self) -> D::Item<'w> {
         self.item
+    }
+}
+
+/// [System parameter] that works very much like [`Query`] except it always contains at least one matching entity.
+///
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if no matching entities exist.
+/// This will cause systems that use this parameter to be skipped.
+///
+/// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
+/// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added) or [`Changed`](crate::query::Changed)
+/// which must individually check each query result for a match.
+///
+/// See [`Query`] for more details.
+pub struct Populated<'w, 's, D: QueryData, F: QueryFilter = ()>(pub(crate) Query<'w, 's, D, F>);
+
+impl<'w, 's, D: QueryData, F: QueryFilter> Deref for Populated<'w, 's, D, F> {
+    type Target = Query<'w, 's, D, F>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<D: QueryData, F: QueryFilter> DerefMut for Populated<'_, '_, D, F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter> Populated<'w, 's, D, F> {
+    /// Returns the inner item with ownership.
+    pub fn into_inner(self) -> Query<'w, 's, D, F> {
+        self.0
     }
 }

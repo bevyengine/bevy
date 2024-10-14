@@ -34,18 +34,15 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                // Deferred both supports both hdr: true and hdr: false
-                hdr: false,
-                ..default()
-            },
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-            // MSAA needs to be off for Deferred rendering
-            msaa: Msaa::Off,
+        Camera3d::default(),
+        Camera {
+            // Deferred both supports both hdr: true and hdr: false
+            hdr: false,
             ..default()
         },
+        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        // MSAA needs to be off for Deferred rendering
+        Msaa::Off,
         DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
@@ -66,63 +63,55 @@ fn setup(
         Fxaa::default(),
     ));
 
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: 15_000.,
             shadows_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             num_cascades: 3,
             maximum_distance: 10.0,
             ..default()
         }
-        .into(),
-        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 0.0, -FRAC_PI_4)),
-        ..default()
-    });
+        .build(),
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 0.0, -FRAC_PI_4)),
+    ));
 
     // FlightHelmet
     let helmet_scene = asset_server
         .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
 
-    commands.spawn(SceneBundle {
-        scene: helmet_scene.clone(),
-        ..default()
-    });
-    commands.spawn(SceneBundle {
-        scene: helmet_scene,
-        transform: Transform::from_xyz(-4.0, 0.0, -3.0),
-        ..default()
-    });
+    commands.spawn(SceneRoot(helmet_scene.clone()));
+    commands.spawn((
+        SceneRoot(helmet_scene),
+        Transform::from_xyz(-4.0, 0.0, -3.0),
+    ));
 
     let mut forward_mat: StandardMaterial = Color::srgb(0.1, 0.2, 0.1).into();
     forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;
     let forward_mat_h = materials.add(forward_mat);
 
     // Plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: forward_mat_h.clone(),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
+        MeshMaterial3d(forward_mat_h.clone()),
+    ));
 
     let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
     let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
 
     // Cubes
-    commands.spawn(PbrBundle {
-        mesh: cube_h.clone(),
-        material: forward_mat_h.clone(),
-        transform: Transform::from_xyz(-0.3, 0.5, -0.2),
-        ..default()
-    });
-    commands.spawn(PbrBundle {
-        mesh: cube_h,
-        material: forward_mat_h,
-        transform: Transform::from_xyz(0.2, 0.5, 0.2),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(cube_h.clone()),
+        MeshMaterial3d(forward_mat_h.clone()),
+        Transform::from_xyz(-0.3, 0.5, -0.2),
+    ));
+    commands.spawn((
+        Mesh3d(cube_h),
+        MeshMaterial3d(forward_mat_h),
+        Transform::from_xyz(0.2, 0.5, 0.2),
+    ));
 
     let sphere_color = Color::srgb(10.0, 4.0, 1.0);
     let sphere_pos = Transform::from_xyz(0.4, 0.5, -0.8);
@@ -130,26 +119,22 @@ fn setup(
     let mut unlit_mat: StandardMaterial = sphere_color.into();
     unlit_mat.unlit = true;
     commands.spawn((
-        PbrBundle {
-            mesh: sphere_h.clone(),
-            material: materials.add(unlit_mat),
-            transform: sphere_pos,
-            ..default()
-        },
+        Mesh3d(sphere_h.clone()),
+        MeshMaterial3d(materials.add(unlit_mat)),
+        sphere_pos,
         NotShadowCaster,
     ));
     // Light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 800.0,
             radius: 0.125,
             shadows_enabled: true,
             color: sphere_color,
             ..default()
         },
-        transform: sphere_pos,
-        ..default()
-    });
+        sphere_pos,
+    ));
 
     // Spheres
     for i in 0..6 {
@@ -177,44 +162,41 @@ fn setup(
                 ..default()
             })
         };
-        commands.spawn(PbrBundle {
-            mesh: sphere_h.clone(),
-            material,
-            transform: Transform::from_xyz(
+        commands.spawn((
+            Mesh3d(sphere_h.clone()),
+            MeshMaterial3d(material),
+            Transform::from_xyz(
                 j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } - 0.4,
                 0.125,
                 -j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } + 0.4,
             ),
-            ..default()
-        });
+        ));
     }
 
     // sky
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
-            material: materials.add(StandardMaterial {
-                base_color: Srgba::hex("888888").unwrap().into(),
-                unlit: true,
-                cull_mode: None,
-                ..default()
-            }),
-            transform: Transform::from_scale(Vec3::splat(1_000_000.0)),
+        Mesh3d(meshes.add(Cuboid::new(2.0, 1.0, 1.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Srgba::hex("888888").unwrap().into(),
+            unlit: true,
+            cull_mode: None,
             ..default()
-        },
+        })),
+        Transform::from_scale(Vec3::splat(1_000_000.0)),
         NotShadowCaster,
         NotShadowReceiver,
     ));
 
     // Example instructions
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 #[derive(Resource)]
@@ -268,12 +250,9 @@ fn setup_parallax(
         ..default()
     });
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(cube),
-            material: parallax_material,
-            transform: Transform::from_xyz(0.4, 0.2, -0.8),
-            ..default()
-        },
+        Mesh3d(meshes.add(cube)),
+        MeshMaterial3d(parallax_material),
+        Transform::from_xyz(0.4, 0.2, -0.8),
         Spin { speed: 0.3 },
     ));
 }
@@ -303,7 +282,7 @@ enum DefaultRenderMode {
 
 #[allow(clippy::too_many_arguments)]
 fn switch_mode(
-    mut text: Query<&mut Text>,
+    mut text: Single<&mut Text>,
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
@@ -313,9 +292,6 @@ fn switch_mode(
     mut hide_ui: Local<bool>,
     mut mode: Local<DefaultRenderMode>,
 ) {
-    let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
-
     text.clear();
 
     if keys.just_pressed(KeyCode::Space) {

@@ -1,19 +1,20 @@
+use crate::renderer::WgpuWrapper;
 use crate::{
     define_atomic_id,
     render_asset::RenderAssets,
-    render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
+    render_resource::{BindGroupLayout, Buffer, Sampler, TextureView},
     renderer::RenderDevice,
     texture::GpuImage,
 };
+use alloc::sync::Arc;
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
 use core::ops::Deref;
+use derive_more::derive::{Display, Error};
 use encase::ShaderType;
-use thiserror::Error;
 use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource};
 
 define_atomic_id!(BindGroupId);
-render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
 
 /// Bind groups are responsible for binding render resources (e.g. buffers, textures, samplers)
 /// to a [`TrackedRenderPass`](crate::render_phase::TrackedRenderPass).
@@ -24,7 +25,7 @@ render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
 #[derive(Clone, Debug)]
 pub struct BindGroup {
     id: BindGroupId,
-    value: ErasedBindGroup,
+    value: Arc<WgpuWrapper<wgpu::BindGroup>>,
 }
 
 impl BindGroup {
@@ -39,7 +40,7 @@ impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
             id: BindGroupId::new(),
-            value: ErasedBindGroup::new(value),
+            value: Arc::new(WgpuWrapper::new(value)),
         }
     }
 }
@@ -353,12 +354,12 @@ pub trait AsBindGroup {
 }
 
 /// An error that occurs during [`AsBindGroup::as_bind_group`] calls.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub enum AsBindGroupError {
     /// The bind group could not be generated. Try again next frame.
-    #[error("The bind group could not be generated")]
+    #[display("The bind group could not be generated")]
     RetryNextUpdate,
-    #[error("At binding index{0}, the provided image sampler `{1}` does not match the required sampler type(s) `{2}`.")]
+    #[display("At binding index{0}, the provided image sampler `{_1}` does not match the required sampler type(s) `{_2}`.")]
     InvalidSamplerType(u32, String, String),
 }
 

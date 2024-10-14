@@ -1,9 +1,9 @@
 use crate::AssetPath;
 use async_fs::File;
 use bevy_utils::{tracing::error, HashSet};
+use derive_more::derive::{Display, Error, From};
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
 use std::path::PathBuf;
-use thiserror::Error;
 
 /// An in-memory representation of a single [`ProcessorTransactionLog`] entry.
 #[derive(Debug)]
@@ -24,17 +24,18 @@ pub struct ProcessorTransactionLog {
 }
 
 /// An error that occurs when reading from the [`ProcessorTransactionLog`] fails.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum ReadLogError {
-    #[error("Encountered an invalid log line: '{0}'")]
+    #[display("Encountered an invalid log line: '{_0}'")]
+    #[error(ignore)]
     InvalidLine(String),
-    #[error("Failed to read log file: {0}")]
-    Io(#[from] futures_io::Error),
+    #[display("Failed to read log file: {_0}")]
+    Io(futures_io::Error),
 }
 
 /// An error that occurs when writing to the [`ProcessorTransactionLog`] fails.
-#[derive(Error, Debug)]
-#[error(
+#[derive(Error, Display, Debug)]
+#[display(
     "Failed to write {log_entry:?} to the asset processor log. This is not recoverable. {error}"
 )]
 pub struct WriteLogError {
@@ -43,24 +44,27 @@ pub struct WriteLogError {
 }
 
 /// An error that occurs when validating the [`ProcessorTransactionLog`] fails.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum ValidateLogError {
-    #[error("Encountered an unrecoverable error. All assets will be reprocessed.")]
+    #[display("Encountered an unrecoverable error. All assets will be reprocessed.")]
     UnrecoverableError,
-    #[error(transparent)]
-    ReadLogError(#[from] ReadLogError),
-    #[error("Encountered a duplicate process asset transaction: {0:?}")]
+    ReadLogError(ReadLogError),
+    #[display("Encountered a duplicate process asset transaction: {_0:?}")]
+    #[error(ignore)]
     EntryErrors(Vec<LogEntryError>),
 }
 
 /// An error that occurs when validating individual [`ProcessorTransactionLog`] entries.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 pub enum LogEntryError {
-    #[error("Encountered a duplicate process asset transaction: {0}")]
+    #[display("Encountered a duplicate process asset transaction: {_0}")]
+    #[error(ignore)]
     DuplicateTransaction(AssetPath<'static>),
-    #[error("A transaction was ended that never started {0}")]
+    #[display("A transaction was ended that never started {_0}")]
+    #[error(ignore)]
     EndedMissingTransaction(AssetPath<'static>),
-    #[error("An asset started processing but never finished: {0}")]
+    #[display("An asset started processing but never finished: {_0}")]
+    #[error(ignore)]
     UnfinishedTransaction(AssetPath<'static>),
 }
 

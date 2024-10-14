@@ -28,7 +28,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Now we can load the asset using our new asset source.
     //
@@ -42,8 +42,5 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // path.
     assert_eq!(asset_path, "example_files://bevy_pixel_light.png".into());
 
-    commands.spawn(SpriteBundle {
-        texture: asset_server.load(asset_path),
-        ..default()
-    });
+    commands.spawn(Sprite::from_image(asset_server.load(asset_path)));
 }

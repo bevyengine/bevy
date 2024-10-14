@@ -12,7 +12,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
 
@@ -41,14 +41,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "Button 1",
-                        TextStyle {
+                    parent.spawn((
+                        Text::new("Button 1"),
+                        TextFont {
                             font: font_handle.clone(),
                             font_size: 33.0,
-                            // Alpha channel of the color controls transparency.
-                            color: Color::srgba(1.0, 1.0, 1.0, 0.2),
+                            ..default()
                         },
+                        // Alpha channel of the color controls transparency.
+                        TextColor(Color::srgba(1.0, 1.0, 1.0, 0.2)),
                     ));
                 });
 
@@ -67,14 +68,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "Button 2",
-                        TextStyle {
+                    parent.spawn((
+                        Text::new("Button 2"),
+                        TextFont {
                             font: font_handle.clone(),
                             font_size: 33.0,
-                            // Alpha channel of the color controls transparency.
-                            color: Color::srgba(1.0, 1.0, 1.0, 0.2),
+                            ..default()
                         },
+                        // Alpha channel of the color controls transparency.
+                        TextColor(Color::srgba(1.0, 1.0, 1.0, 0.2)),
                     ));
                 });
         });

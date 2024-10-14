@@ -1,14 +1,11 @@
 #[cfg(feature = "debug_stack")]
 use crate::serde::ser::error_utils::TYPE_INFO_STACK;
 use crate::{
-    serde::{
-        ser::{
-            arrays::ArraySerializer, enums::EnumSerializer, error_utils::make_custom_error,
-            lists::ListSerializer, maps::MapSerializer, sets::SetSerializer,
-            structs::StructSerializer, tuple_structs::TupleStructSerializer,
-            tuples::TupleSerializer,
-        },
-        Serializable,
+    serde::ser::{
+        arrays::ArraySerializer, custom_serialization::try_custom_serialize, enums::EnumSerializer,
+        error_utils::make_custom_error, lists::ListSerializer, maps::MapSerializer,
+        sets::SetSerializer, structs::StructSerializer, tuple_structs::TupleStructSerializer,
+        tuples::TupleSerializer,
     },
     PartialReflect, ReflectRef, TypeRegistry,
 };
@@ -158,16 +155,12 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
                 TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(info));
             }
         }
-
         // Handle both Value case and types that have a custom `Serialize`
-        let serializable =
-            Serializable::try_from_reflect_value::<S::Error>(self.value, self.registry);
-        if let Ok(serializable) = serializable {
-            #[cfg(feature = "debug_stack")]
-            TYPE_INFO_STACK.with_borrow_mut(crate::type_info_stack::TypeInfoStack::pop);
-
-            return serializable.serialize(serializer);
-        }
+        let (serializer, error) = match try_custom_serialize(self.value, self.registry, serializer)
+        {
+            Ok(result) => return result,
+            Err(value) => value,
+        };
 
         let output = match self.value.reflect_ref() {
             ReflectRef::Struct(value) => {
@@ -196,7 +189,7 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
             }
             #[cfg(feature = "functions")]
             ReflectRef::Function(_) => Err(make_custom_error("functions cannot be serialized")),
-            ReflectRef::Opaque(_) => Err(serializable.err().unwrap()),
+            ReflectRef::Opaque(_) => Err(error),
         };
 
         #[cfg(feature = "debug_stack")]

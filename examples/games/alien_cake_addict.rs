@@ -94,15 +94,15 @@ const RESET_FOCUS: [f32; 3] = [
 fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
     game.camera_should_focus = Vec3::from(RESET_FOCUS);
     game.camera_is_focus = game.camera_should_focus;
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(
             -(BOARD_SIZE_I as f32 / 2.0),
             2.0 * BOARD_SIZE_J as f32 / 3.0,
             BOARD_SIZE_J as f32 / 2.0 - 0.5,
         )
         .looking_at(game.camera_is_focus, Vec3::Y),
-        ..default()
-    });
+    ));
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMut<Game>) {
@@ -121,16 +121,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.j = BOARD_SIZE_J / 2;
     game.player.move_cooldown = Timer::from_seconds(0.3, TimerMode::Once);
 
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 10.0, 4.0),
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 2_000_000.0,
             shadows_enabled: true,
             range: 30.0,
             ..default()
         },
-        ..default()
-    });
+        Transform::from_xyz(4.0, 10.0, 4.0),
+    ));
 
     // spawn the game board
     let cell_scene =
@@ -140,11 +139,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             (0..BOARD_SIZE_I)
                 .map(|i| {
                     let height = rng.gen_range(-0.1..0.1);
-                    commands.spawn(SceneBundle {
-                        transform: Transform::from_xyz(i as f32, height - 0.2, j as f32),
-                        scene: cell_scene.clone(),
-                        ..default()
-                    });
+                    commands.spawn((
+                        Transform::from_xyz(i as f32, height - 0.2, j as f32),
+                        SceneRoot(cell_scene.clone()),
+                    ));
                     Cell { height }
                 })
                 .collect()
@@ -154,8 +152,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     // spawn the game character
     game.player.entity = Some(
         commands
-            .spawn(SceneBundle {
-                transform: Transform {
+            .spawn((
+                Transform {
                     translation: Vec3::new(
                         game.player.i as f32,
                         game.board[game.player.j][game.player.i].height,
@@ -164,10 +162,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                     rotation: Quat::from_rotation_y(-PI / 2.),
                     ..default()
                 },
-                scene: asset_server
-                    .load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/alien.glb")),
-                ..default()
-            })
+                SceneRoot(
+                    asset_server
+                        .load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/alien.glb")),
+                ),
+            ))
             .id(),
     );
 
@@ -176,22 +175,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/cakeBirthday.glb"));
 
     // scoreboard
-    commands.spawn(
-        TextBundle::from_section(
-            "Score:",
-            TextStyle {
-                font_size: 33.0,
-                color: Color::srgb(0.5, 0.5, 1.0),
-                ..default()
-            },
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new("Score:"),
+        TextFont {
+            font_size: 33.0,
+            ..default()
+        },
+        TextColor(Color::srgb(0.5, 0.5, 1.0)),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(5.0),
             left: Val::Px(5.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
     commands.insert_resource(Random(rng));
 }
@@ -346,27 +343,23 @@ fn spawn_bonus(
     }
     game.bonus.entity = Some(
         commands
-            .spawn(SceneBundle {
-                transform: Transform::from_xyz(
+            .spawn((
+                Transform::from_xyz(
                     game.bonus.i as f32,
                     game.board[game.bonus.j][game.bonus.i].height + 0.2,
                     game.bonus.j as f32,
                 ),
-                scene: game.bonus.handle.clone(),
-                ..default()
-            })
-            .with_children(|children| {
-                children.spawn(PointLightBundle {
-                    point_light: PointLight {
-                        color: Color::srgb(1.0, 1.0, 0.0),
-                        intensity: 500_000.0,
-                        range: 10.0,
-                        ..default()
-                    },
-                    transform: Transform::from_xyz(0.0, 2.0, 0.0),
+                SceneRoot(game.bonus.handle.clone()),
+            ))
+            .with_child((
+                PointLight {
+                    color: Color::srgb(1.0, 1.0, 0.0),
+                    intensity: 500_000.0,
+                    range: 10.0,
                     ..default()
-                });
-            })
+                },
+                Transform::from_xyz(0.0, 2.0, 0.0),
+            ))
             .id(),
     );
 }
@@ -384,9 +377,8 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
 }
 
 // update the score displayed during the game
-fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
-    let mut text = query.single_mut();
-    text.sections[0].value = format!("Sugar Rush: {}", game.score);
+fn scoreboard_system(game: Res<Game>, mut display: Single<&mut Text>) {
+    display.0 = format!("Sugar Rush: {}", game.score);
 }
 
 // restart the game when pressing spacebar
@@ -411,14 +403,12 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
             },
             ..default()
         })
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                format!("Cake eaten: {}", game.cake_eaten),
-                TextStyle {
-                    font_size: 67.0,
-                    color: Color::srgb(0.5, 0.5, 1.0),
-                    ..default()
-                },
-            ));
-        });
+        .with_child((
+            Text::new(format!("Cake eaten: {}", game.cake_eaten)),
+            TextFont {
+                font_size: 67.0,
+                ..default()
+            },
+            TextColor(Color::srgb(0.5, 0.5, 1.0)),
+        ));
 }

@@ -72,13 +72,11 @@ fn update_test_state(
     state.set(next);
 }
 
-fn update_text(mut text: Query<&mut Text>, cur_state: Res<State<Test>>) {
+fn update_text(mut text: Single<&mut Text>, cur_state: Res<State<Test>>) {
     if !cur_state.is_changed() {
         return;
     }
 
-    let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
     text.clear();
 
     text.push_str("Intersection test:\n");
@@ -186,14 +184,10 @@ fn render_volumes(mut gizmos: Gizmos, query: Query<(&CurrentVolume, &Intersects)
         let color = if **intersects { AQUA } else { ORANGE_RED };
         match volume {
             CurrentVolume::Aabb(a) => {
-                gizmos.rect_2d(
-                    Isometry2d::from_translation(a.center()),
-                    a.half_size() * 2.,
-                    color,
-                );
+                gizmos.rect_2d(a.center(), a.half_size() * 2., color);
             }
             CurrentVolume::Circle(c) => {
-                gizmos.circle_2d(Isometry2d::from_translation(c.center()), c.radius(), color);
+                gizmos.circle_2d(c.center(), c.radius(), color);
             }
         }
     }
@@ -206,22 +200,16 @@ const OFFSET_X: f32 = 125.;
 const OFFSET_Y: f32 = 75.;
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(-OFFSET_X, OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(-OFFSET_X, OFFSET_Y, 0.),
         Shape::Circle(Circle::new(45.)),
         DesiredVolume::Aabb,
         Intersects::default(),
     ));
 
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(0., OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(0., OFFSET_Y, 0.),
         Shape::Rectangle(Rectangle::new(80., 80.)),
         Spin,
         DesiredVolume::Circle,
@@ -229,10 +217,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(OFFSET_X, OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(OFFSET_X, OFFSET_Y, 0.),
         Shape::Triangle(Triangle2d::new(
             Vec2::new(-40., -40.),
             Vec2::new(-20., 40.),
@@ -244,10 +229,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(-OFFSET_X, -OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(-OFFSET_X, -OFFSET_Y, 0.),
         Shape::Line(Segment2d::new(Dir2::from_xy(1., 0.3).unwrap(), 90.)),
         Spin,
         DesiredVolume::Circle,
@@ -255,10 +237,7 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(0., -OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(0., -OFFSET_Y, 0.),
         Shape::Capsule(Capsule2d::new(25., 50.)),
         Spin,
         DesiredVolume::Aabb,
@@ -266,29 +245,27 @@ fn setup(mut commands: Commands) {
     ));
 
     commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_xyz(OFFSET_X, -OFFSET_Y, 0.),
-            ..default()
-        },
+        Transform::from_xyz(OFFSET_X, -OFFSET_Y, 0.),
         Shape::Polygon(RegularPolygon::new(50., 6)),
         Spin,
         DesiredVolume::Circle,
         Intersects::default(),
     ));
 
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn draw_filled_circle(gizmos: &mut Gizmos, position: Vec2, color: Srgba) {
     for r in [1., 2., 3.] {
-        gizmos.circle_2d(Isometry2d::from_translation(position), r, color);
+        gizmos.circle_2d(position, r, color);
     }
 }
 
@@ -361,9 +338,7 @@ fn aabb_cast_system(
         **intersects = toi.is_some();
         if let Some(toi) = toi {
             gizmos.rect_2d(
-                Isometry2d::from_translation(
-                    aabb_cast.ray.ray.origin + *aabb_cast.ray.ray.direction * toi,
-                ),
+                aabb_cast.ray.ray.origin + *aabb_cast.ray.ray.direction * toi,
                 aabb_cast.aabb.half_size() * 2.,
                 LIME,
             );
@@ -391,9 +366,7 @@ fn bounding_circle_cast_system(
         **intersects = toi.is_some();
         if let Some(toi) = toi {
             gizmos.circle_2d(
-                Isometry2d::from_translation(
-                    circle_cast.ray.ray.origin + *circle_cast.ray.ray.direction * toi,
-                ),
+                circle_cast.ray.ray.origin + *circle_cast.ray.ray.direction * toi,
                 circle_cast.circle.radius(),
                 LIME,
             );
@@ -414,11 +387,7 @@ fn aabb_intersection_system(
 ) {
     let center = get_intersection_position(&time);
     let aabb = Aabb2d::new(center, Vec2::splat(50.));
-    gizmos.rect_2d(
-        Isometry2d::from_translation(center),
-        aabb.half_size() * 2.,
-        YELLOW,
-    );
+    gizmos.rect_2d(center, aabb.half_size() * 2., YELLOW);
 
     for (volume, mut intersects) in volumes.iter_mut() {
         let hit = match volume {
@@ -437,11 +406,7 @@ fn circle_intersection_system(
 ) {
     let center = get_intersection_position(&time);
     let circle = BoundingCircle::new(center, 50.);
-    gizmos.circle_2d(
-        Isometry2d::from_translation(center),
-        circle.radius(),
-        YELLOW,
-    );
+    gizmos.circle_2d(center, circle.radius(), YELLOW);
 
     for (volume, mut intersects) in volumes.iter_mut() {
         let hit = match volume {

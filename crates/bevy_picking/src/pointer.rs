@@ -26,6 +26,7 @@ use crate::backend::HitData;
 /// This component is needed because pointers can be spawned and despawned, but they need to have a
 /// stable ID that persists regardless of the Entity they are associated with.
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, Component, Reflect)]
+#[require(PointerLocation, PointerPress, PointerInteraction)]
 #[reflect(Component, Default, Debug, Hash, PartialEq)]
 pub enum PointerId {
     /// The mouse pointer.
@@ -164,6 +165,13 @@ pub struct PointerLocation {
 }
 
 impl PointerLocation {
+    ///Returns a [`PointerLocation`] associated with the given location
+    pub fn new(location: Location) -> Self {
+        Self {
+            location: Some(location),
+        }
+    }
+
     /// Returns `Some(&`[`Location`]`)` if the pointer is active, or `None` if the pointer is
     /// inactive.
     pub fn location(&self) -> Option<&Location> {

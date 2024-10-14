@@ -10,7 +10,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     let root = commands
         .spawn(NodeBundle {
             style: Style {
@@ -159,9 +159,9 @@ fn setup(mut commands: Commands) {
             .add_child(inner_spot)
             .id();
         let label_node = commands
-            .spawn(TextBundle::from_section(
-                label,
-                TextStyle {
+            .spawn((
+                Text::new(label),
+                TextFont {
                     font_size: 9.0,
                     ..Default::default()
                 },
@@ -228,9 +228,9 @@ fn setup(mut commands: Commands) {
             .add_child(inner_spot)
             .id();
         let label_node = commands
-            .spawn(TextBundle::from_section(
-                label,
-                TextStyle {
+            .spawn((
+                Text::new(label),
+                TextFont {
                     font_size: 9.0,
                     ..Default::default()
                 },
@@ -265,9 +265,9 @@ fn setup(mut commands: Commands) {
             ..Default::default()
         })
         .with_children(|builder| {
-            builder.spawn(TextBundle::from_section(
-                "Borders",
-                TextStyle {
+            builder.spawn((
+                Text::new("Borders"),
+                TextFont {
                     font_size: 20.0,
                     ..Default::default()
                 },
@@ -290,9 +290,9 @@ fn setup(mut commands: Commands) {
             ..Default::default()
         })
         .with_children(|builder| {
-            builder.spawn(TextBundle::from_section(
-                "Borders Rounded",
-                TextStyle {
+            builder.spawn((
+                Text::new("Borders Rounded"),
+                TextFont {
                     font_size: 20.0,
                     ..Default::default()
                 },

@@ -1,20 +1,22 @@
-use bevy_asset::Handle;
-use bevy_color::Color;
-use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
-use bevy_reflect::prelude::*;
-use bevy_utils::default;
-use cosmic_text::{Buffer, Metrics};
-use serde::{Deserialize, Serialize};
-
-use crate::Font;
 pub use cosmic_text::{
     self, FamilyOwned as FontFamily, Stretch as FontStretch, Style as FontStyle,
     Weight as FontWeight,
 };
 
+use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
+use bevy_asset::Handle;
+use bevy_color::Color;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_hierarchy::{Children, Parent};
+use bevy_reflect::prelude::*;
+use bevy_utils::warn_once;
+use cosmic_text::{Buffer, Metrics};
+use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
+
 /// Wrapper for [`cosmic_text::Buffer`]
-#[derive(Component, Deref, DerefMut, Debug, Clone)]
+#[derive(Deref, DerefMut, Debug, Clone)]
 pub struct CosmicBuffer(pub Buffer);
 
 impl Default for CosmicBuffer {
@@ -23,160 +25,202 @@ impl Default for CosmicBuffer {
     }
 }
 
-/// A component that is the entry point for rendering text.
+/// A sub-entity of a [`ComputedTextBlock`].
 ///
-/// It contains all of the text value and styling information.
-#[derive(Component, Debug, Clone, Default, Reflect)]
+/// Returned by [`ComputedTextBlock::entities`].
+#[derive(Debug, Copy, Clone)]
+pub struct TextEntity {
+    /// The entity.
+    pub entity: Entity,
+    /// Records the hierarchy depth of the entity within a `TextLayout`.
+    pub depth: usize,
+}
+
+/// Computed information for a text block.
+///
+/// See [`TextLayout`].
+///
+/// Automatically updated by 2d and UI text systems.
+#[derive(Component, Debug, Clone)]
+pub struct ComputedTextBlock {
+    /// Buffer for managing text layout and creating [`TextLayoutInfo`].
+    ///
+    /// This is private because buffer contents are always refreshed from ECS state when writing glyphs to
+    /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
+    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
+    /// `TextLayoutInfo`.
+    pub(crate) buffer: CosmicBuffer,
+    /// Entities for all text spans in the block, including the root-level text.
+    ///
+    /// The [`TextEntity::depth`] field can be used to reconstruct the hierarchy.
+    pub(crate) entities: SmallVec<[TextEntity; 1]>,
+    /// Flag set when any change has been made to this block that should cause it to be rerendered.
+    ///
+    /// Includes:
+    /// - [`TextLayout`] changes.
+    /// - [`TextFont`] or `Text2d`/`Text`/`TextSpan` changes anywhere in the block's entity hierarchy.
+    // TODO: This encompasses both structural changes like font size or justification and non-structural
+    // changes like text color and font smoothing. This field currently causes UI to 'remeasure' text, even if
+    // the actual changes are non-structural and can be handled by only rerendering and not remeasuring. A full
+    // solution would probably require splitting TextLayout and TextFont into structural/non-structural
+    // components for more granular change detection. A cost/benefit analysis is needed.
+    pub(crate) needs_rerender: bool,
+}
+
+impl ComputedTextBlock {
+    /// Accesses entities in this block.
+    ///
+    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
+    /// stored there.
+    pub fn entities(&self) -> &[TextEntity] {
+        &self.entities
+    }
+
+    /// Indicates if the text needs to be refreshed in [`TextLayoutInfo`].
+    ///
+    /// Updated automatically by [`detect_text_needs_rerender`] and cleared
+    /// by [`TextPipeline`](crate::TextPipeline) methods.
+    pub fn needs_rerender(&self) -> bool {
+        self.needs_rerender
+    }
+}
+
+impl Default for ComputedTextBlock {
+    fn default() -> Self {
+        Self {
+            buffer: CosmicBuffer::default(),
+            entities: SmallVec::default(),
+            needs_rerender: true,
+        }
+    }
+}
+
+/// Component with text format settings for a block of text.
+///
+/// A block of text is composed of text spans, which each have a separate string value and [`TextFont`]. Text
+/// spans associated with a text block are collected into [`ComputedTextBlock`] for layout, and then inserted
+/// to [`TextLayoutInfo`] for rendering.
+///
+/// See [`Text2d`](crate::Text2d) for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
+#[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
-pub struct Text {
-    /// The text's sections
-    pub sections: Vec<TextSection>,
+#[require(ComputedTextBlock, TextLayoutInfo)]
+pub struct TextLayout {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
     pub justify: JustifyText,
-    /// How the text should linebreak when running out of the bounds determined by `max_size`
-    pub linebreak_behavior: BreakLineOn,
-    /// The antialiasing method to use when rendering text.
-    pub font_smoothing: FontSmoothing,
+    /// How the text should linebreak when running out of the bounds determined by `max_size`.
+    pub linebreak: LineBreak,
 }
 
-impl Text {
-    /// Constructs a [`Text`] with a single section.
-    ///
-    /// ```
-    /// # use bevy_asset::Handle;
-    /// # use bevy_color::Color;
-    /// # use bevy_text::{Font, Text, TextStyle, JustifyText};
-    /// #
-    /// # let font_handle: Handle<Font> = Default::default();
-    /// #
-    /// // Basic usage.
-    /// let hello_world = Text::from_section(
-    ///     // Accepts a String or any type that converts into a String, such as &str.
-    ///     "hello world!",
-    ///     TextStyle {
-    ///         font: font_handle.clone().into(),
-    ///         font_size: 60.0,
-    ///         color: Color::WHITE,
-    ///     },
-    /// );
-    ///
-    /// let hello_bevy = Text::from_section(
-    ///     "hello world\nand bevy!",
-    ///     TextStyle {
-    ///         font: font_handle.into(),
-    ///         font_size: 60.0,
-    ///         color: Color::WHITE,
-    ///     },
-    /// ) // You can still add text justifaction.
-    /// .with_justify(JustifyText::Center);
-    /// ```
-    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
-        Self {
-            sections: vec![TextSection::new(value, style)],
-            ..default()
-        }
+impl TextLayout {
+    /// Makes a new [`TextLayout`].
+    pub const fn new(justify: JustifyText, linebreak: LineBreak) -> Self {
+        Self { justify, linebreak }
     }
 
-    /// Constructs a [`Text`] from a list of sections.
-    ///
-    /// ```
-    /// # use bevy_asset::Handle;
-    /// # use bevy_color::Color;
-    /// # use bevy_color::palettes::basic::{RED, BLUE};
-    /// # use bevy_text::{Font, Text, TextStyle, TextSection};
-    /// #
-    /// # let font_handle: Handle<Font> = Default::default();
-    /// #
-    /// let hello_world = Text::from_sections([
-    ///     TextSection::new(
-    ///         "Hello, ",
-    ///         TextStyle {
-    ///             font: font_handle.clone().into(),
-    ///             font_size: 60.0,
-    ///             color: BLUE.into(),
-    ///         },
-    ///     ),
-    ///     TextSection::new(
-    ///         "World!",
-    ///         TextStyle {
-    ///             font: font_handle.into(),
-    ///             font_size: 60.0,
-    ///             color: RED.into(),
-    ///         },
-    ///     ),
-    /// ]);
-    /// ```
-    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
-        Self {
-            sections: sections.into_iter().collect(),
-            ..default()
-        }
+    /// Makes a new [`TextLayout`] with the specified [`JustifyText`].
+    pub fn new_with_justify(justify: JustifyText) -> Self {
+        Self::default().with_justify(justify)
     }
 
-    /// Returns this [`Text`] with a new [`JustifyText`].
+    /// Makes a new [`TextLayout`] with the specified [`LineBreak`].
+    pub fn new_with_linebreak(linebreak: LineBreak) -> Self {
+        Self::default().with_linebreak(linebreak)
+    }
+
+    /// Makes a new [`TextLayout`] with soft wrapping disabled.
+    /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
+    pub fn new_with_no_wrap() -> Self {
+        Self::default().with_no_wrap()
+    }
+
+    /// Returns this [`TextLayout`] with the specified [`JustifyText`].
     pub const fn with_justify(mut self, justify: JustifyText) -> Self {
         self.justify = justify;
         self
     }
 
-    /// Returns this [`Text`] with soft wrapping disabled.
+    /// Returns this [`TextLayout`] with the specified [`LineBreak`].
+    pub const fn with_linebreak(mut self, linebreak: LineBreak) -> Self {
+        self.linebreak = linebreak;
+        self
+    }
+
+    /// Returns this [`TextLayout`] with soft wrapping disabled.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
     pub const fn with_no_wrap(mut self) -> Self {
-        self.linebreak_behavior = BreakLineOn::NoWrap;
-        self
-    }
-
-    /// Returns this [`Text`] with the specified [`FontSmoothing`].
-    pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
-        self.font_smoothing = font_smoothing;
+        self.linebreak = LineBreak::NoWrap;
         self
     }
 }
 
-/// Contains the value of the text in a section and how it should be styled.
-#[derive(Debug, Default, Clone, Reflect)]
-#[reflect(Default)]
-pub struct TextSection {
-    /// The content (in `String` form) of the text in the section.
-    pub value: String,
-    /// The style of the text in the section, including the font face, font size, and color.
-    pub style: TextStyle,
+/// A span of UI text in a tree of spans under an entity with [`TextLayout`] and `Text` or `Text2d`.
+///
+/// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
+///
+/// ```
+/// # use bevy_asset::Handle;
+/// # use bevy_color::Color;
+/// # use bevy_color::palettes::basic::{RED, BLUE};
+/// # use bevy_ecs::world::World;
+/// # use bevy_text::{Font, TextLayout, TextFont, TextSpan, TextColor};
+/// # use bevy_hierarchy::BuildChildren;
+///
+/// # let font_handle: Handle<Font> = Default::default();
+/// # let mut world = World::default();
+/// #
+/// world.spawn((
+///     TextLayout::default(),
+///     TextFont {
+///         font: font_handle.clone().into(),
+///         font_size: 60.0,
+///         ..Default::default()
+///     },
+///     TextColor(BLUE.into()),
+/// ))
+/// .with_child((
+///     TextSpan::new("Hello!"),
+///     TextFont {
+///         font: font_handle.into(),
+///         font_size: 60.0,
+///         ..Default::default()
+///     },
+///     TextColor(RED.into()),
+/// ));
+/// ```
+#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
+#[reflect(Component, Default, Debug)]
+#[require(TextFont, TextColor)]
+pub struct TextSpan(pub String);
+
+impl TextSpan {
+    /// Makes a new text span component.
+    pub fn new(text: impl Into<String>) -> Self {
+        Self(text.into())
+    }
 }
 
-impl TextSection {
-    /// Create a new [`TextSection`].
-    pub fn new(value: impl Into<String>, style: TextStyle) -> Self {
-        Self {
-            value: value.into(),
-            style,
-        }
-    }
+impl TextSpanComponent for TextSpan {}
 
-    /// Create an empty [`TextSection`] from a style. Useful when the value will be set dynamically.
-    pub const fn from_style(style: TextStyle) -> Self {
-        Self {
-            value: String::new(),
-            style,
-        }
+impl TextSpanAccess for TextSpan {
+    fn read_span(&self) -> &str {
+        self.as_str()
+    }
+    fn write_span(&mut self) -> &mut String {
+        &mut *self
     }
 }
 
-impl From<&str> for TextSection {
+impl From<&str> for TextSpan {
     fn from(value: &str) -> Self {
-        Self {
-            value: value.into(),
-            ..default()
-        }
+        Self(String::from(value))
     }
 }
 
-impl From<String> for TextSection {
+impl From<String> for TextSpan {
     fn from(value: String) -> Self {
-        Self {
-            value,
-            ..Default::default()
-        }
+        Self(value)
     }
 }
 
@@ -216,10 +260,11 @@ impl From<JustifyText> for cosmic_text::Align {
     }
 }
 
-#[derive(Clone, Debug, Reflect)]
-/// `TextStyle` determines the style of the text in a section, specifically
+/// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
 /// the font face, the font size, and the color.
-pub struct TextStyle {
+#[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct TextFont {
     /// The specific font face to use, as a `Handle` to a [`Font`] asset.
     ///
     /// If the `font` is not specified, then
@@ -236,24 +281,56 @@ pub struct TextStyle {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
-    /// The color of the text for this section.
-    pub color: Color,
+    /// The antialiasing method to use when rendering text.
+    pub font_smoothing: FontSmoothing,
 }
 
-impl Default for TextStyle {
+impl TextFont {
+    /// Returns this [`TextFont`] with the specified [`FontSmoothing`].
+    pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
+        self.font_smoothing = font_smoothing;
+        self
+    }
+}
+
+impl Default for TextFont {
     fn default() -> Self {
         Self {
             font: Default::default(),
             font_size: 20.0,
-            color: Color::WHITE,
+            font_smoothing: Default::default(),
         }
     }
+}
+
+/// The color of the text for this section.
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct TextColor(pub Color);
+
+impl Default for TextColor {
+    fn default() -> Self {
+        Self::WHITE
+    }
+}
+
+impl<T: Into<Color>> From<T> for TextColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
+    }
+}
+
+impl TextColor {
+    /// Black colored text
+    pub const BLACK: Self = TextColor(Color::BLACK);
+    /// White colored text
+    pub const WHITE: Self = TextColor(Color::WHITE);
 }
 
 /// Determines how lines will be broken when preventing text from running out of bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
-pub enum BreakLineOn {
+pub enum LineBreak {
     /// Uses the [Unicode Line Breaking Algorithm](https://www.unicode.org/reports/tr14/).
     /// Lines will be broken up at the nearest suitable word boundary, usually a space.
     /// This behavior suits most cases, as it keeps words intact across linebreaks.
@@ -292,4 +369,113 @@ pub enum FontSmoothing {
     AntiAliased,
     // TODO: Add subpixel antialias support
     // SubpixelAntiAliased,
+}
+
+/// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
+///
+/// Generic over the root text component and text span component. For example, [`Text2d`](crate::Text2d)/[`TextSpan`] for
+/// 2d or `Text`/[`TextSpan`] for UI.
+pub fn detect_text_needs_rerender<Root: Component>(
+    changed_roots: Query<
+        Entity,
+        (
+            Or<(
+                Changed<Root>,
+                Changed<TextFont>,
+                Changed<TextLayout>,
+                Changed<Children>,
+            )>,
+            With<Root>,
+            With<TextFont>,
+            With<TextLayout>,
+        ),
+    >,
+    changed_spans: Query<
+        (Entity, Option<&Parent>, Has<TextLayout>),
+        (
+            Or<(
+                Changed<TextSpan>,
+                Changed<TextFont>,
+                Changed<Children>,
+                Changed<Parent>, // Included to detect broken text block hierarchies.
+                Added<TextLayout>,
+            )>,
+            With<TextSpan>,
+            With<TextFont>,
+        ),
+    >,
+    mut computed: Query<(
+        Option<&Parent>,
+        Option<&mut ComputedTextBlock>,
+        Has<TextSpan>,
+    )>,
+) {
+    // Root entity:
+    // - Root component changed.
+    // - TextFont on root changed.
+    // - TextLayout changed.
+    // - Root children changed (can include additions and removals).
+    for root in changed_roots.iter() {
+        let Ok((_, Some(mut computed), _)) = computed.get_mut(root) else {
+            warn_once!("found entity {:?} with a root text component ({}) but no ComputedTextBlock; this warning only \
+                prints once", root, core::any::type_name::<Root>());
+            continue;
+        };
+        computed.needs_rerender = true;
+    }
+
+    // Span entity:
+    // - Span component changed.
+    // - Span TextFont changed.
+    // - Span children changed (can include additions and removals).
+    for (entity, maybe_span_parent, has_text_block) in changed_spans.iter() {
+        if has_text_block {
+            warn_once!("found entity {:?} with a TextSpan that has a TextLayout, which should only be on root \
+                text entities (that have {}); this warning only prints once",
+                entity, core::any::type_name::<Root>());
+        }
+
+        let Some(span_parent) = maybe_span_parent else {
+            warn_once!(
+                "found entity {:?} with a TextSpan that has no parent; it should have an ancestor \
+                with a root text component ({}); this warning only prints once",
+                entity,
+                core::any::type_name::<Root>()
+            );
+            continue;
+        };
+        let mut parent: Entity = **span_parent;
+
+        // Search for the nearest ancestor with ComputedTextBlock.
+        // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
+        // is outweighed by the expense of tracking visited spans.
+        loop {
+            let Ok((maybe_parent, maybe_computed, has_span)) = computed.get_mut(parent) else {
+                warn_once!("found entity {:?} with a TextSpan that is part of a broken hierarchy with a Parent \
+                    component that points at non-existent entity {:?}; this warning only prints once",
+                    entity, parent);
+                break;
+            };
+            if let Some(mut computed) = maybe_computed {
+                computed.needs_rerender = true;
+                break;
+            }
+            if !has_span {
+                warn_once!("found entity {:?} with a TextSpan that has an ancestor ({}) that does not have a text \
+                span component or a ComputedTextBlock component; this warning only prints once",
+                    entity, parent);
+                break;
+            }
+            let Some(next_parent) = maybe_parent else {
+                warn_once!(
+                    "found entity {:?} with a TextSpan that has no ancestor with the root text \
+                    component ({}); this warning only prints once",
+                    entity,
+                    core::any::type_name::<Root>()
+                );
+                break;
+            };
+            parent = **next_parent;
+        }
+    }
 }

@@ -25,6 +25,7 @@ mod extract_param;
 pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
+pub mod gpu_readback;
 pub mod mesh;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
@@ -37,6 +38,8 @@ pub mod renderer;
 pub mod settings;
 mod spatial_bundle;
 pub mod storage;
+pub mod sync_component;
+pub mod sync_world;
 pub mod texture;
 pub mod view;
 
@@ -52,10 +55,13 @@ pub mod prelude {
             Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
         },
-        mesh::{morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh},
+        mesh::{
+            morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d,
+            Mesh3d,
+        },
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
-        texture::{image_texture_conversion::IntoDynamicImageError, Image, ImagePlugin},
+        texture::{Image, ImagePlugin, IntoDynamicImageError},
         view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
         ExtractSchedule,
     };
@@ -72,10 +78,14 @@ use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
+use sync_world::{
+    despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, SyncWorldPlugin,
+};
 
+use crate::gpu_readback::GpuReadbackPlugin;
 use crate::{
     camera::CameraPlugin,
-    mesh::{morph::MorphPlugin, MeshPlugin, RenderMesh},
+    mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance, WgpuWrapper},
@@ -362,7 +372,9 @@ impl Plugin for RenderPlugin {
             GlobalsPlugin,
             MorphPlugin,
             BatchingPlugin,
+            SyncWorldPlugin,
             StoragePlugin,
+            GpuReadbackPlugin::default(),
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()
@@ -374,7 +386,8 @@ impl Plugin for RenderPlugin {
             .register_type::<primitives::Aabb>()
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
-            .register_type::<primitives::Frustum>();
+            .register_type::<primitives::Frustum>()
+            .register_type::<SyncToRenderWorld>();
     }
 
     fn ready(&self, app: &App) -> bool {
@@ -481,35 +494,15 @@ unsafe fn initialize_render_app(app: &mut App) {
                     render_system,
                 )
                     .in_set(RenderSet::Render),
-                World::clear_entities.in_set(RenderSet::PostCleanup),
+                despawn_temporary_render_entities.in_set(RenderSet::PostCleanup),
             ),
         );
 
     render_app.set_extract(|main_world, render_world| {
-        #[cfg(feature = "trace")]
-        let _render_span = bevy_utils::tracing::info_span!("extract main app to render subapp").entered();
         {
             #[cfg(feature = "trace")]
-            let _stage_span =
-                bevy_utils::tracing::info_span!("reserve_and_flush")
-                    .entered();
-
-            // reserve all existing main world entities for use in render_app
-            // they can only be spawned using `get_or_spawn()`
-            let total_count = main_world.entities().total_count();
-
-            assert_eq!(
-                render_world.entities().len(),
-                0,
-                "An entity was spawned after the entity list was cleared last frame and before the extract schedule began. This is not supported",
-            );
-
-            // SAFETY: This is safe given the clear_entities call in the past frame and the assert above
-            unsafe {
-                render_world
-                    .entities_mut()
-                    .flush_and_reserve_invalid_assuming_no_entities(total_count);
-            }
+            let _stage_span = bevy_utils::tracing::info_span!("entity_sync").entered();
+            entity_sync_system(main_world, render_world);
         }
 
         // run extract schedule

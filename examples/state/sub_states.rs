@@ -151,7 +151,7 @@ mod ui {
     pub const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn(Camera2dBundle::default());
+        commands.spawn(Camera2d);
     }
 
     pub fn setup_menu(mut commands: Commands) {
@@ -183,13 +183,13 @@ mod ui {
                         ..default()
                     })
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Play",
-                            TextStyle {
+                        parent.spawn((
+                            Text::new("Play"),
+                            TextFont {
                                 font_size: 33.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
             })
@@ -198,10 +198,7 @@ mod ui {
     }
 
     pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn(SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
-            ..default()
-        });
+        commands.spawn(Sprite::from_image(asset_server.load("branding/icon.png")));
     }
 
     pub fn setup_paused_screen(mut commands: Commands) {
@@ -238,13 +235,13 @@ mod ui {
                         ..default()
                     })
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Paused",
-                            TextStyle {
+                        parent.spawn((
+                            Text::new("Paused"),
+                            TextFont {
                                 font_size: 33.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
             });
