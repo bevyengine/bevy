@@ -12,7 +12,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let image = asset_server.load("branding/icon.png");
 
@@ -57,10 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 background_color: Color::srgb(0.25, 0.25, 0.25).into(),
                                 ..Default::default()
                             })
-                            .with_child(TextBundle::from_section(
-                                format!("{overflow_clip_margin:#?}"),
-                                TextStyle::default(),
-                            ));
+                            .with_child(Text(format!("{overflow_clip_margin:#?}")));
 
                         parent
                             .spawn(NodeBundle {
