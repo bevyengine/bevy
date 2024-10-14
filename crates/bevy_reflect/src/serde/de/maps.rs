@@ -19,7 +19,7 @@ impl<'a> MapVisitor<'a> {
     }
 }
 
-impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
+impl<'de> Visitor<'de> for MapVisitor<'_> {
     type Value = DynamicMap;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {

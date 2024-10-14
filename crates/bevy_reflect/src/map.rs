@@ -524,7 +524,7 @@ impl<'a> IntoIterator for &'a DynamicMap {
     }
 }
 
-impl<'a> ExactSizeIterator for MapIter<'a> {}
+impl ExactSizeIterator for MapIter<'_> {}
 
 /// Compares a [`Map`] with a [`PartialReflect`] value.
 ///

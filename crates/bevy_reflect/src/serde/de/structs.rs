@@ -28,7 +28,7 @@ impl<'a> StructVisitor<'a> {
     }
 }
 
-impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
+impl<'de> Visitor<'de> for StructVisitor<'_> {
     type Value = DynamicStruct;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {

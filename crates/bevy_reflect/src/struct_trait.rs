@@ -205,7 +205,7 @@ impl<'a> Iterator for FieldIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for FieldIter<'a> {}
+impl ExactSizeIterator for FieldIter<'_> {}
 
 /// A convenience trait which combines fetching and downcasting of struct
 /// fields.
