@@ -225,8 +225,8 @@ jobs:
     needs: [make-macos-screenshots-available]
     uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
     with:
-      commit: ${{ github.event.workflow_run.event.sha }}
-      branch: ${{ github.event.workflow_run.event.ref_name }}
+      commit: ${{ github.event.workflow_run.head_commit }}
+      branch: ${{ github.event.workflow_run.head_branch }}
       artifact: screenshots-macos
       os: macos
     secrets: inherit
