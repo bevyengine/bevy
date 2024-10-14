@@ -8,7 +8,7 @@ use alloc::sync::{Arc, Weak};
 use bevy_ecs::world::World;
 use bevy_tasks::Task;
 use bevy_utils::{tracing::warn, Entry, HashMap, HashSet, TypeIdMap};
-use core::any::TypeId;
+use core::{task::Waker, any::TypeId};
 use crossbeam_channel::Sender;
 use derive_more::derive::{Display, Error, From};
 use either::Either;
@@ -36,6 +36,8 @@ pub(crate) struct AssetInfo {
     /// The number of handle drops to skip for this asset.
     /// See usage (and comments) in `get_or_create_path_handle` for context.
     handle_drops_to_skip: usize,
+    /// List of tasks waiting for this asset to complete loading
+    pub(crate) waiting_tasks: Vec<Waker>,
 }
 
 impl AssetInfo {
@@ -54,6 +56,7 @@ impl AssetInfo {
             dependants_waiting_on_load: HashSet::default(),
             dependants_waiting_on_recursive_dep_load: HashSet::default(),
             handle_drops_to_skip: 0,
+            waiting_tasks: Vec::new(),
         }
     }
 }
@@ -616,6 +619,9 @@ impl AssetInfos {
             info.load_state = LoadState::Failed(error.clone());
             info.dep_load_state = DependencyLoadState::Failed(error.clone());
             info.rec_dep_load_state = RecursiveDependencyLoadState::Failed(error.clone());
+            for waker in info.waiting_tasks.drain(..) {
+                waker.wake();
+            }
             (
                 core::mem::take(&mut info.dependants_waiting_on_load),
                 core::mem::take(&mut info.dependants_waiting_on_recursive_dep_load),
