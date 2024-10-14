@@ -8,7 +8,7 @@ use alloc::sync::{Arc, Weak};
 use bevy_ecs::world::World;
 use bevy_tasks::Task;
 use bevy_utils::{tracing::warn, Entry, HashMap, HashSet, TypeIdMap};
-use core::{task::Waker, any::TypeId};
+use core::{any::TypeId, task::Waker};
 use crossbeam_channel::Sender;
 use derive_more::derive::{Display, Error, From};
 use either::Either;
