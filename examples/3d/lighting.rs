@@ -253,12 +253,12 @@ fn setup(
 fn update_exposure(
     key_input: Res<ButtonInput<KeyCode>>,
     mut parameters: ResMut<Parameters>,
-    mut exposure: Query<&mut Exposure>,
-    text: Query<Entity, With<Text>>,
+    mut exposure: Single<&mut Exposure>,
+    text: Single<Entity, With<Text>>,
     mut writer: TextUiWriter,
 ) {
     // TODO: Clamp values to a reasonable range
-    let entity = text.single();
+    let entity = *text;
     if key_input.just_pressed(KeyCode::Digit2) {
         parameters.aperture_f_stops *= 2.0;
     } else if key_input.just_pressed(KeyCode::Digit1) {
@@ -285,7 +285,7 @@ fn update_exposure(
     );
     *writer.text(entity, 3) = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
 
-    *exposure.single_mut() = Exposure::from_physical_camera(**parameters);
+    **exposure = Exposure::from_physical_camera(**parameters);
 }
 
 fn animate_light_direction(

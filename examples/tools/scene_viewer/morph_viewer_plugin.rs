@@ -178,7 +178,7 @@ impl MorphKey {
 }
 fn update_text(
     controls: Option<ResMut<WeightsControl>>,
-    text: Query<Entity, With<Text>>,
+    text: Single<Entity, With<Text>>,
     morphs: Query<&MorphWeights>,
     mut writer: TextUiWriter,
 ) {
@@ -196,7 +196,7 @@ fn update_text(
             target.weight = actual_weight;
         }
         let key_name = &AVAILABLE_KEYS[i].name;
-        *writer.text(text.single(), i + 3) = format!("[{key_name}] {target}\n");
+        *writer.text(*text, i + 3) = format!("[{key_name}] {target}\n");
     }
 }
 fn update_morphs(

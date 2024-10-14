@@ -68,12 +68,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// This systems polls the relative cursor position and displays its value in a text component.
 fn relative_cursor_position_system(
-    relative_cursor_position_query: Query<&RelativeCursorPosition>,
-    mut output_query: Query<(&mut Text, &mut TextColor)>,
+    relative_cursor_position: Single<&RelativeCursorPosition>,
+    output_query: Single<(&mut Text, &mut TextColor)>,
 ) {
-    let relative_cursor_position = relative_cursor_position_query.single();
-
-    let (mut output, mut text_color) = output_query.single_mut();
+    let (mut output, mut text_color) = output_query.into_inner();
 
     **output = if let Some(relative_cursor_position) = relative_cursor_position.normalized {
         format!(

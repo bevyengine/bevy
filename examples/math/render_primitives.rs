@@ -332,12 +332,12 @@ pub struct HeaderNode;
 
 fn update_active_cameras(
     state: Res<State<CameraActive>>,
-    mut camera_2d: Query<(Entity, &mut Camera), With<Camera2d>>,
-    mut camera_3d: Query<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
+    camera_2d: Single<(Entity, &mut Camera), With<Camera2d>>,
+    camera_3d: Single<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
     mut text: Query<&mut TargetCamera, With<HeaderNode>>,
 ) {
-    let (entity_2d, mut cam_2d) = camera_2d.single_mut();
-    let (entity_3d, mut cam_3d) = camera_3d.single_mut();
+    let (entity_2d, mut cam_2d) = camera_2d.into_inner();
+    let (entity_3d, mut cam_3d) = camera_3d.into_inner();
     let is_camera_2d_active = matches!(*state.get(), CameraActive::Dim2);
 
     cam_2d.is_active = is_camera_2d_active;

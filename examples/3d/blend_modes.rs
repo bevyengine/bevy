@@ -254,9 +254,9 @@ impl Default for ExampleState {
 fn example_control_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
-    mut camera: Query<(&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
+    camera: Single<(&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
     mut labels: Query<(&mut Style, &ExampleLabel)>,
-    mut display: Query<&mut Text, With<ExampleDisplay>>,
+    mut display: Single<&mut Text, With<ExampleDisplay>>,
     labelled: Query<&GlobalTransform>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
@@ -294,7 +294,7 @@ fn example_control_system(
         }
     }
 
-    let (mut camera, mut camera_transform, camera_global_transform) = camera.single_mut();
+    let (mut camera, mut camera_transform, camera_global_transform) = camera.into_inner();
 
     if input.just_pressed(KeyCode::KeyH) {
         camera.hdr = !camera.hdr;
@@ -321,8 +321,7 @@ fn example_control_system(
         style.left = Val::Px(viewport_position.x);
     }
 
-    let mut display = display.single_mut();
-    **display = format!(
+    display.0 = format!(
         "  HDR: {}\nAlpha: {:.2}",
         if camera.hdr { "ON " } else { "OFF" },
         state.alpha

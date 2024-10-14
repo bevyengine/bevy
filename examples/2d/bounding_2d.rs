@@ -72,12 +72,11 @@ fn update_test_state(
     state.set(next);
 }
 
-fn update_text(mut text: Query<&mut Text>, cur_state: Res<State<Test>>) {
+fn update_text(mut text: Single<&mut Text>, cur_state: Res<State<Test>>) {
     if !cur_state.is_changed() {
         return;
     }
 
-    let mut text = text.single_mut();
     text.clear();
 
     text.push_str("Intersection test:\n");

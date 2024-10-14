@@ -159,7 +159,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn selection(
     mut timer: ResMut<SelectionTimer>,
     mut contributor_selection: ResMut<ContributorSelection>,
-    text_query: Query<Entity, (With<ContributorDisplay>, With<Text>)>,
+    contributor_root: Single<Entity, (With<ContributorDisplay>, With<Text>)>,
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
     mut writer: TextUiWriter,
     time: Res<Time>,
@@ -186,7 +186,7 @@ fn selection(
     let entity = contributor_selection.order[contributor_selection.idx];
 
     if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(entity) {
-        let entity = text_query.single();
+        let entity = *contributor_root;
         select(
             &mut sprite,
             contributor,
@@ -242,10 +242,9 @@ fn gravity(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
 /// velocity. On collision with the ground it applies an upwards
 /// force.
 fn collisions(
-    windows: Query<&Window>,
+    window: Single<&Window>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
-    let window = windows.single();
     let window_size = window.size();
 
     let collision_area = Aabb2d::new(Vec2::ZERO, (window_size - SPRITE_SIZE) / 2.);

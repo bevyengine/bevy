@@ -161,14 +161,14 @@ struct ExampleResources {
 }
 
 fn example_control_system(
-    mut camera: Query<(&mut Transform, &mut AutoExposure), With<Camera3d>>,
-    mut display: Query<&mut Text, With<ExampleDisplay>>,
-    mut mask_image: Query<&mut Style, With<UiImage>>,
+    camera: Single<(&mut Transform, &mut AutoExposure), With<Camera3d>>,
+    mut display: Single<&mut Text, With<ExampleDisplay>>,
+    mut mask_image: Single<&mut Style, With<UiImage>>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
     resources: Res<ExampleResources>,
 ) {
-    let (mut camera_transform, mut auto_exposure) = camera.single_mut();
+    let (mut camera_transform, mut auto_exposure) = camera.into_inner();
 
     let rotation = if input.pressed(KeyCode::ArrowLeft) {
         time.delta_seconds()
@@ -198,14 +198,13 @@ fn example_control_system(
             };
     }
 
-    mask_image.single_mut().display = if input.pressed(KeyCode::KeyV) {
+    mask_image.display = if input.pressed(KeyCode::KeyV) {
         Display::Flex
     } else {
         Display::None
     };
 
-    let mut display = display.single_mut();
-    **display = format!(
+    display.0 = format!(
         "Compensation Curve: {}\nMetering Mask: {}",
         if auto_exposure.compensation_curve == resources.basic_compensation_curve {
             "Enabled"

@@ -205,11 +205,10 @@ fn setup(
 /// Project the cursor into the world coordinates and store it in a resource for easy use
 fn get_cursor_world_pos(
     mut cursor_world_pos: ResMut<CursorWorldPos>,
-    q_primary_window: Query<&Window, With<PrimaryWindow>>,
-    q_camera: Query<(&Camera, &GlobalTransform)>,
+    primary_window: Single<&Window, With<PrimaryWindow>>,
+    q_camera: Single<(&Camera, &GlobalTransform)>,
 ) {
-    let primary_window = q_primary_window.single();
-    let (main_camera, main_camera_transform) = q_camera.single();
+    let (main_camera, main_camera_transform) = *q_camera;
     // Get the cursor position in the world
     cursor_world_pos.0 = primary_window.cursor_position().and_then(|cursor_pos| {
         main_camera
@@ -221,11 +220,9 @@ fn get_cursor_world_pos(
 /// Update whether the window is clickable or not
 fn update_cursor_hit_test(
     cursor_world_pos: Res<CursorWorldPos>,
-    mut q_primary_window: Query<&mut Window, With<PrimaryWindow>>,
-    q_bevy_logo: Query<&Transform, With<BevyLogo>>,
+    mut primary_window: Single<&mut Window, With<PrimaryWindow>>,
+    bevy_logo_transform: Single<&Transform, With<BevyLogo>>,
 ) {
-    let mut primary_window = q_primary_window.single_mut();
-
     // If the window has decorations (e.g. a border) then it should be clickable
     if primary_window.decorations {
         primary_window.cursor_options.hit_test = true;
@@ -238,7 +235,6 @@ fn update_cursor_hit_test(
     };
 
     // If the cursor is within the radius of the Bevy logo make the window clickable otherwise the window is not clickable
-    let bevy_logo_transform = q_bevy_logo.single();
     primary_window.cursor_options.hit_test = bevy_logo_transform
         .translation
         .truncate()
@@ -250,7 +246,7 @@ fn update_cursor_hit_test(
 fn start_drag(
     mut commands: Commands,
     cursor_world_pos: Res<CursorWorldPos>,
-    q_bevy_logo: Query<&Transform, With<BevyLogo>>,
+    bevy_logo_transform: Single<&Transform, With<BevyLogo>>,
 ) {
     // If the cursor is not within the primary window skip this system
     let Some(cursor_world_pos) = cursor_world_pos.0 else {
@@ -258,7 +254,6 @@ fn start_drag(
     };
 
     // Get the offset from the cursor to the Bevy logo sprite
-    let bevy_logo_transform = q_bevy_logo.single();
     let drag_offset = bevy_logo_transform.translation.truncate() - cursor_world_pos;
 
     // If the cursor is within the Bevy logo radius start the drag operation and remember the offset of the cursor from the origin
@@ -277,16 +272,13 @@ fn drag(
     drag_offset: Res<DragOperation>,
     cursor_world_pos: Res<CursorWorldPos>,
     time: Res<Time>,
-    mut q_bevy_logo: Query<&mut Transform, With<BevyLogo>>,
+    mut bevy_transform: Single<&mut Transform, With<BevyLogo>>,
     mut q_pupils: Query<&mut Pupil>,
 ) {
     // If the cursor is not within the primary window skip this system
     let Some(cursor_world_pos) = cursor_world_pos.0 else {
         return;
     };
-
-    // Get the current Bevy logo transform
-    let mut bevy_transform = q_bevy_logo.single_mut();
 
     // Calculate the new translation of the Bevy logo based on cursor and drag offset
     let new_translation = cursor_world_pos + drag_offset.0;
@@ -310,7 +302,7 @@ fn drag(
 fn quit(
     cursor_world_pos: Res<CursorWorldPos>,
     mut app_exit: EventWriter<AppExit>,
-    q_bevy_logo: Query<&Transform, With<BevyLogo>>,
+    bevy_logo_transform: Single<&Transform, With<BevyLogo>>,
 ) {
     // If the cursor is not within the primary window skip this system
     let Some(cursor_world_pos) = cursor_world_pos.0 else {
@@ -318,7 +310,6 @@ fn quit(
     };
 
     // If the cursor is within the Bevy logo radius send the [`AppExit`] event to quit the app
-    let bevy_logo_transform = q_bevy_logo.single();
     if bevy_logo_transform
         .translation
         .truncate()
@@ -334,7 +325,7 @@ fn toggle_transparency(
     mut commands: Commands,
     mut window_transparency: ResMut<WindowTransparency>,
     mut q_instructions_text: Query<&mut Visibility, With<InstructionsText>>,
-    mut q_primary_window: Query<&mut Window, With<PrimaryWindow>>,
+    mut primary_window: Single<&mut Window, With<PrimaryWindow>>,
 ) {
     // Toggle the window transparency resource
     window_transparency.0 = !window_transparency.0;
@@ -350,9 +341,12 @@ fn toggle_transparency(
 
     // Remove the primary window's decorations (e.g. borders), make it always on top of other desktop windows, and set the clear color to transparent
     // only if window transparency is enabled
-    let mut window = q_primary_window.single_mut();
     let clear_color;
-    (window.decorations, window.window_level, clear_color) = if window_transparency.0 {
+    (
+        primary_window.decorations,
+        primary_window.window_level,
+        clear_color,
+    ) = if window_transparency.0 {
         (false, WindowLevel::AlwaysOnTop, Color::NONE)
     } else {
         (true, WindowLevel::Normal, WINDOW_CLEAR_COLOR)

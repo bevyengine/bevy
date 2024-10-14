@@ -18,12 +18,11 @@ fn main() {
         .run();
 }
 
-fn minimise_automatically(mut windows: Query<&mut Window>, frames: Res<FrameCount>) {
+fn minimise_automatically(mut window: Single<&mut Window>, frames: Res<FrameCount>) {
     if frames.0 != 60 {
         return;
     }
 
-    let mut window = windows.single_mut();
     window.set_minimized(true);
 }
 

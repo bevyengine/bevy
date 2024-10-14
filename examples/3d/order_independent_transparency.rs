@@ -66,11 +66,11 @@ fn toggle_oit(
     mut commands: Commands,
     text: Single<Entity, With<Text>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    q: Query<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
+    q: Single<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
     mut text_writer: TextUiWriter,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyT) {
-        let (e, has_oit) = q.single();
+        let (e, has_oit) = *q;
         *text_writer.text(*text, 2) = if has_oit {
             // Removing the component will completely disable OIT for this camera
             commands
