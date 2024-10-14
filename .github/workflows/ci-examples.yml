@@ -74,8 +74,8 @@ jobs:
     needs: [run-examples-macos-metal]
     uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
     with:
-      commit: ${{ github.sha }}
-      branch: ${{ github.ref_name }}
+      commit: ${{ (github.event_name == 'pull_request_target') && github.event.pull_request.head.sha || github.sha }}
+      branch: ${{ (github.event_name == 'pull_request_target') && github.event.number || github.ref_name }}
       artifact: screenshots-macos
       os: macos
     secrets: inherit
