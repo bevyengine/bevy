@@ -20,12 +20,16 @@ concurrency:
   cancel-in-progress: ${{github.event_name == 'pull_request_target'}}
 
 jobs:
+  # This job shouldn't use secrets as it checkouts the PR
   run-examples-macos-metal:
     # Explicity use macOS 14 to take advantage of M1 chip.
     runs-on: macos-14
     timeout-minutes: 30
     steps:
+      # Checkout the PR
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - uses: dtolnay/rust-toolchain@stable
       - name: Disable audio
         # Disable audio through a patch. on github m1 runners, audio timeouts after 15 minutes
