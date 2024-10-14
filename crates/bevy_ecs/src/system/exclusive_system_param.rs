@@ -33,8 +33,8 @@ pub trait ExclusiveSystemParam: Sized {
 /// for a given [`ExclusiveSystemParam`].
 pub type ExclusiveSystemParamItem<'s, P> = <P as ExclusiveSystemParam>::Item<'s>;
 
-impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> ExclusiveSystemParam
-    for &'a mut QueryState<D, F>
+impl<D: QueryData + 'static, F: QueryFilter + 'static> ExclusiveSystemParam
+    for &mut QueryState<D, F>
 {
     type State = QueryState<D, F>;
     type Item<'s> = &'s mut QueryState<D, F>;
@@ -48,7 +48,7 @@ impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> ExclusiveSystemParam
     }
 }
 
-impl<'a, P: SystemParam + 'static> ExclusiveSystemParam for &'a mut SystemState<P> {
+impl<P: SystemParam + 'static> ExclusiveSystemParam for &mut SystemState<P> {
     type State = SystemState<P>;
     type Item<'s> = &'s mut SystemState<P>;
 
@@ -61,7 +61,7 @@ impl<'a, P: SystemParam + 'static> ExclusiveSystemParam for &'a mut SystemState<
     }
 }
 
-impl<'_s, T: FromWorld + Send + 'static> ExclusiveSystemParam for Local<'_s, T> {
+impl<T: FromWorld + Send + 'static> ExclusiveSystemParam for Local<'_, T> {
     type State = SyncCell<T>;
     type Item<'s> = Local<'s, T>;
 

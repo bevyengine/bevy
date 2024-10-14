@@ -1664,7 +1664,7 @@ impl<'w, D: QueryData, F: QueryFilter> Deref for Single<'w, D, F> {
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter> DerefMut for Single<'w, D, F> {
+impl<D: QueryData, F: QueryFilter> DerefMut for Single<'_, D, F> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.item
     }

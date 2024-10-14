@@ -62,7 +62,7 @@ impl SystemBuffer for ParallelCommandQueue {
     }
 }
 
-impl<'w, 's> ParallelCommands<'w, 's> {
+impl ParallelCommands<'_, '_> {
     /// Temporarily provides access to the [`Commands`] for the current thread.
     ///
     /// For an example, see the type-level documentation for [`ParallelCommands`].

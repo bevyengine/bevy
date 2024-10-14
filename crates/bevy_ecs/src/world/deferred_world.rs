@@ -23,7 +23,7 @@ pub struct DeferredWorld<'w> {
     world: UnsafeWorldCell<'w>,
 }
 
-impl<'w> Deref for DeferredWorld<'w> {
+impl Deref for DeferredWorld<'_> {
     type Target = World;
 
     fn deref(&self) -> &Self::Target {
@@ -52,7 +52,7 @@ impl<'w> From<&'w mut World> for DeferredWorld<'w> {
     }
 }
 
-impl<'w> DeferredWorld<'w> {
+impl DeferredWorld<'_> {
     /// Reborrow self as a new instance of [`DeferredWorld`]
     #[inline]
     pub fn reborrow(&mut self) -> DeferredWorld {

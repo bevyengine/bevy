@@ -136,7 +136,7 @@ impl<T: ?Sized + 'static> SystemInput for InRef<'_, T> {
     }
 }
 
-impl<'i, T: ?Sized> Deref for InRef<'i, T> {
+impl<T: ?Sized> Deref for InRef<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -183,7 +183,7 @@ impl<T: ?Sized + 'static> SystemInput for InMut<'_, T> {
     }
 }
 
-impl<'i, T: ?Sized> Deref for InMut<'i, T> {
+impl<T: ?Sized> Deref for InMut<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -191,7 +191,7 @@ impl<'i, T: ?Sized> Deref for InMut<'i, T> {
     }
 }
 
-impl<'i, T: ?Sized> DerefMut for InMut<'i, T> {
+impl<T: ?Sized> DerefMut for InMut<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
     }
@@ -219,7 +219,7 @@ impl<E: 'static, B: Bundle> SystemInput for Trigger<'_, E, B> {
 /// function systems.
 pub struct StaticSystemInput<'a, I: SystemInput>(pub I::Inner<'a>);
 
-impl<'a, I: SystemInput> SystemInput for StaticSystemInput<'a, I> {
+impl<I: SystemInput> SystemInput for StaticSystemInput<'_, I> {
     type Param<'i> = StaticSystemInput<'i, I>;
     type Inner<'i> = I::Inner<'i>;
 

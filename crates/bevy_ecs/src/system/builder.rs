@@ -205,8 +205,8 @@ impl ParamBuilder {
 }
 
 // SAFETY: Calls `init_query_param`, just like `Query::init_state`.
-unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
-    SystemParamBuilder<Query<'w, 's, D, F>> for QueryState<D, F>
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static>
+    SystemParamBuilder<Query<'_, '_, D, F>> for QueryState<D, F>
 {
     fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> QueryState<D, F> {
         self.validate_world(world.id());
@@ -278,13 +278,8 @@ impl<'a, D: QueryData, F: QueryFilter>
 }
 
 // SAFETY: Calls `init_query_param`, just like `Query::init_state`.
-unsafe impl<
-        'w,
-        's,
-        D: QueryData + 'static,
-        F: QueryFilter + 'static,
-        T: FnOnce(&mut QueryBuilder<D, F>),
-    > SystemParamBuilder<Query<'w, 's, D, F>> for QueryParamBuilder<T>
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static, T: FnOnce(&mut QueryBuilder<D, F>)>
+    SystemParamBuilder<Query<'_, '_, D, F>> for QueryParamBuilder<T>
 {
     fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> QueryState<D, F> {
         let mut builder = QueryBuilder::new(world);
@@ -440,8 +435,8 @@ all_tuples!(impl_param_set_builder_tuple, 1, 8, P, B, meta);
 
 // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
 // with any prior access, a panic will occur.
-unsafe impl<'w, 's, P: SystemParam, B: SystemParamBuilder<P>>
-    SystemParamBuilder<ParamSet<'w, 's, Vec<P>>> for ParamSetBuilder<Vec<B>>
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<ParamSet<'_, '_, Vec<P>>>
+    for ParamSetBuilder<Vec<B>>
 {
     fn build(
         self,
@@ -489,7 +484,7 @@ impl<'a> DynParamBuilder<'a> {
 // SAFETY: `DynSystemParam::get_param` will call `get_param` on the boxed `DynSystemParamState`,
 // and the boxed builder was a valid implementation of `SystemParamBuilder` for that type.
 // The resulting `DynSystemParam` can only perform access by downcasting to that param type.
-unsafe impl<'a, 'w, 's> SystemParamBuilder<DynSystemParam<'w, 's>> for DynParamBuilder<'a> {
+unsafe impl<'w, 's> SystemParamBuilder<DynSystemParam<'w, 's>> for DynParamBuilder<'_> {
     fn build(
         self,
         world: &mut World,
