@@ -239,7 +239,7 @@
 //!
 //! Because of the methods that take ownership, it is useful to be aware of the following:
 //! - If `curve` is a curve, then `&curve` is also a curve with the same output. For convenience,
-//! `&curve` can be written as `curve.by_ref()` for use in method chaining.
+//!   `&curve` can be written as `curve.by_ref()` for use in method chaining.
 //! - However, `&curve` cannot outlive `curve`. In general, it is not `'static`.
 //!
 //! In other words, `&curve` can be used to perform temporary operations without consuming `curve` (for
