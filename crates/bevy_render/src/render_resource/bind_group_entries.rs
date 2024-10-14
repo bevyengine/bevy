@@ -92,7 +92,6 @@ use super::{Sampler, TextureView};
 ///     ],
 /// );
 /// ```
-
 pub struct BindGroupEntries<'b, const N: usize = 1> {
     entries: [BindGroupEntry<'b>; N],
 }
