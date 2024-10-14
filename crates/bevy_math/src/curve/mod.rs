@@ -1,6 +1,289 @@
-//! The [`Curve`] trait, used to describe curves in a number of different domains. This module also
-//! contains the [`Interval`] type, along with a selection of core data structures used to back
-//! curves that are interpolated from samples.
+//! The [`Curve`] trait, providing a domain-agnostic description of curves.
+//!
+//! ## Overview
+//!
+//! At a high level, [`Curve`] is a trait that abstracts away the implementation details of curves,
+//! which comprise any kind of data parametrized by a single continuous variable. For example, that
+//! variable could represent time, in which case a curve would represent a value that changes over
+//! time, as in animation; on the other hand, it could represent something like displacement or
+//! distance, as in graphs, gradients, and curves in space.
+//!
+//! The trait itself has two fundamental components: a curve must have a [domain], which is a nonempty
+//! range of `f32` values, and it must be able to be [sampled] on every one of those values, producing
+//! output of some fixed type.
+//!
+//! A primary goal of the trait is to allow interfaces to simply accept `impl Curve<T>` as input
+//! rather than requiring for input curves to be defined in data in any particular way. This is
+//! supported by a number of interface methods which allow [changing parametrizations], [mapping output],
+//! and [rasterization].
+//!
+//! ## Analogy with `Iterator`
+//!
+//! The `Curve` API behaves, in many ways, like a continuous counterpart to [`Iterator`]. The analogy
+//! looks something like this with some of the common methods:
+//!
+//! |    Iterators     |     Curves      |
+//! | :--------------- | :-------------- |
+//! | `map`            | `map`           |
+//! | `skip`/`step_by` | `reparametrize` |
+//! | `enumerate`      | `graph`         |
+//! | `chain`          | `chain`         |
+//! | `zip`            | `zip`           |
+//! | `rev`            | `reverse`       |
+//! | `by_ref`         | `by_ref`        |
+//!
+//! Of course, there are very important differences, as well. For instance, the continuous nature of
+//! curves means that many iterator methods make little sense in the context of curves, or at least
+//! require numerical techniques. For example, the analogue of `sum` would be an integral, approximated
+//! by something like Riemann summation.
+//!
+//! Furthermore, the two also differ greatly in their orientation to borrowing and mutation:
+//! iterators are mutated by being iterated, and by contrast, all curve methods are immutable. More
+//! information on the implications of this can be found [below](self#Ownership-and-borrowing).
+//!
+//! ## Defining curves
+//!
+//! Curves may be defined in a number of ways. The following are common:
+//! - using [functions];
+//! - using [sample interpolation];
+//! - using [splines];
+//! - using [easings].
+//!
+//! Among these, the first is the most versatile[^footnote]: the domain and the sampling output are just
+//! specified directly in the construction. For this reason, function curves are a reliable go-to for
+//! simple one-off constructions and procedural uses, where flexibility is desirable. For example:
+//! ```rust
+//! # use bevy_math::vec3;
+//! # use bevy_math::curve::*;
+//! // A sinusoid:
+//! let sine_curve = function_curve(Interval::EVERYWHERE, f32::sin);
+//!
+//! // A sawtooth wave:
+//! let sawtooth_curve = function_curve(Interval::EVERYWHERE, |t| t % 1.0);
+//!
+//! // A helix:
+//! let helix_curve = function_curve(Interval::EVERYWHERE, |theta| vec3(theta.sin(), theta, theta.cos()));
+//! ```
+//!
+//! Sample-interpolated curves commonly arises in both rasterization and in animation, and this library
+//! has support for producing them in both fashions. See [below](self#Resampling-and-rasterization) for
+//! more information about rasterization. Here is what an explicit sample-interpolated curve might look like:
+//! ```rust
+//! # use bevy_math::prelude::*;
+//! # use std::f32::consts::FRAC_PI_2;
+//! // A list of angles that we want to traverse:
+//! let angles = [
+//!     0.0,
+//!     -FRAC_PI_2,
+//!     0.0,
+//!     FRAC_PI_2,
+//!     0.0
+//! ];
+//!
+//! // Make each angle into a rotation by that angle:
+//! let rotations = angles.map(|angle| Rot2::radians(angle));
+//!
+//! // Interpolate these rotations with a `Rot2`-valued curve:
+//! let rotation_curve = SampleAutoCurve::new(interval(0.0, 4.0).unwrap(), rotations).unwrap();
+//! ```
+//!
+//! For more information on [spline curves] and [easing curves], see their respective modules.
+//!
+//! And, of course, you are also free to define curve types yourself, implementing the trait directly.
+//! For custom sample-interpolated curves, the [`cores`] submodule provides machinery to avoid having to
+//! reimplement interpolation logic yourself. In many other cases, implementing the trait directly is
+//! often quite straightforward:
+//! ```rust
+//! # use bevy_math::prelude::*;
+//! struct ExponentialCurve {
+//!     exponent: f32,
+//! }
+//!
+//! impl Curve<f32> for ExponentialCurve {
+//!     fn domain(&self) -> Interval {
+//!         Interval::EVERYWHERE
+//!     }
+//!
+//!     fn sample_unchecked(&self, t: f32) -> f32 {
+//!         f32::exp(self.exponent * t)
+//!     }
+//!
+//!     // All other trait methods can be inferred from these.
+//! }
+//! ```
+//!
+//! ## Transforming curves
+//!
+//! The API provides a few key ways of transforming one curve into another. These are often useful when
+//! you would like to make use of an interface that requires a curve that bears some logical relationship
+//! to one that you already have access to, but with different requirements or expectations. For example,
+//! the output type of the curves may differ, or the domain may be expected to be different. The `map`
+//! and `reparametrize` methods can help address this.
+//!
+//! As a simple example of the kind of thing that arises in practice, let's imagine that we have a
+//! `Curve<Vec2>` that we want to use to describe the motion of some object over time, but the interface
+//! for animation expects a `Curve<Vec3>`, since the object will move in three dimensions:
+//! ```rust
+//! # use bevy_math::{vec2, prelude::*};
+//! # use std::f32::consts::TAU;
+//! // Our original curve, which may look something like this:
+//! let ellipse_curve = function_curve(
+//!     interval(0.0, TAU).unwrap(),
+//!     |t| vec2(t.cos(), t.sin() * 2.0)
+//! );
+//!
+//! // Use `map` to situate this in 3D as a Curve<Vec3>; in this case, it will be in the xy-plane:
+//! let ellipse_motion_curve = ellipse_curve.map(|pos| pos.extend(0.0));
+//! ```
+//!
+//! We might imagine further still that the interface expects the curve to have domain `[0, 1]`. The
+//! `reparametrize` methods can address this:
+//! ```rust
+//! # use bevy_math::{vec2, prelude::*};
+//! # use std::f32::consts::TAU;
+//! # let ellipse_curve = function_curve(interval(0.0, TAU).unwrap(), |t| vec2(t.cos(), t.sin() * 2.0));
+//! # let ellipse_motion_curve = ellipse_curve.map(|pos| pos.extend(0.0));
+//! // Change the domain to `[0, 1]` instead of `[0, TAU]`:
+//! let final_curve = ellipse_motion_curve.reparametrize_linear(Interval::UNIT).unwrap();
+//! ```
+//!
+//! Of course, there are many other ways of using these methods. In general, `map` is used for transforming
+//! the output and using it to drive something else, while `reparametrize` preserves the curve's shape but
+//! changes the speed and direction in which it is traversed. For instance:
+//! ```rust
+//! # use bevy_math::{vec2, prelude::*};
+//! // A line segment curve connecting two points in the plane:
+//! let start = vec2(-1.0, 1.0);
+//! let end = vec2(1.0, 1.0);
+//! let segment = function_curve(Interval::UNIT, |t| start.lerp(end, t));
+//!
+//! // Let's make a curve that goes back and forth along this line segment forever.
+//! //
+//! // Start by stretching the line segment in parameter space so that it travels along its length
+//! // from `-1` to `1` instead of `0` to `1`:
+//! let stretched_segment = segment.reparametrize_linear(interval(-1.0, 1.0).unwrap()).unwrap();
+//!
+//! // Now, the *output* of `f32::sin` in `[-1, 1]` corresponds to the *input* interval of
+//! // `stretched_segment`; the sinusoid output is mapped to the input parameter and controls how
+//! // far along the segment we are:
+//! let back_and_forth_curve = stretched_segment.reparametrize(Interval::EVERYWHERE, f32::sin);
+//! ```
+//!
+//! ## Combining curves
+//!
+//! Curves become more expressive when used together. For example, maybe you want to combine two
+//! curves end-to-end:
+//! ```rust
+//! # use bevy_math::{vec2, prelude::*};
+//! # use std::f32::consts::PI;
+//! // A line segment connecting `(-1, 0)` to `(0, 0)`:
+//! let line_curve = function_curve(
+//!     Interval::UNIT,
+//!     |t| vec2(-1.0, 0.0).lerp(vec2(0.0, 0.0), t)
+//! );
+//!
+//! // A half-circle curve starting at `(0, 0)`:
+//! let half_circle_curve = function_curve(
+//!     interval(0.0, PI).unwrap(),
+//!     |t| vec2(t.cos() * -1.0 + 1.0, t.sin())
+//! );
+//!
+//! // A curve that traverses `line_curve` and then `half_circle_curve` over the interval
+//! // from `0` to `PI + 1`:
+//! let combined_curve = line_curve.chain(half_circle_curve).unwrap();
+//! ```
+//!
+//! Or, instead, maybe you want to combine two curves the *other* way, producing a single curve
+//! that combines their output in a tuple:
+//! ```rust
+//! # use bevy_math::{vec2, prelude::*};
+//! // Some entity's position in 2D:
+//! let position_curve = function_curve(Interval::UNIT, |t| vec2(t.cos(), t.sin()));
+//!
+//! // The same entity's orientation, described as a rotation. (In this case it will be spinning.)
+//! let orientation_curve = function_curve(Interval::UNIT, |t| Rot2::radians(5.0 * t));
+//!
+//! // Both in one curve with `(Vec2, Rot2)` output:
+//! let position_and_orientation = position_curve.zip(orientation_curve).unwrap();
+//! ```
+//!
+//! See the documentation on [`chain`] and [`zip`] for more details on how these methods work.
+//!
+//! ## <a name="Resampling-and-rasterization"></a>Resampling and rasterization
+//!
+//! Sometimes, for reasons of portability, performance, or otherwise, it can be useful to ensure that
+//! curves of various provenance all actually share the same concrete type. This is the purpose of the
+//! [`resample`] family of functions: they allow a curve to be replaced by an approximate version of
+//! itself defined by interpolation over samples from the original curve.
+//!
+//! In effect, this allows very different curves to be rasterized and treated uniformly. For example:
+//! ```rust
+//! # use bevy_math::{vec2, prelude::*};
+//! // A curve that is not easily transported because it relies on evaluating a function:
+//! let interesting_curve = function_curve(Interval::UNIT, |t| vec2(t * 3.0, t.exp()));
+//!
+//! // A rasterized form of the preceding curve which is just a `SampleAutoCurve`. Inside, this
+//! // just stores an `Interval` along with a buffer of sample data, so it's easy to serialize
+//! // and deserialize:
+//! let resampled_curve = interesting_curve.resample_auto(100).unwrap();
+//!
+//! // The rasterized form can be seamlessly used as a curve itself:
+//! let some_value = resampled_curve.sample(0.5).unwrap();
+//! ```
+//!
+//! ## <a name="Ownership-and-borrowing"></a>Ownership and borrowing
+//!
+//! It can be easy to get tripped up by how curves specifically interact with Rust's ownership semantics.
+//! First of all, it's worth noting that the API never uses `&mut self` — every method either takes
+//! ownership of the original curve or uses a shared reference.
+//!
+//! Because of the methods that take ownership, it is useful to be aware of the following:
+//! - If `curve` is a curve, then `&curve` is also a curve with the same output. For convenience,
+//! `&curve` can be written as `curve.by_ref()` for use in method chaining.
+//! - However, `&curve` cannot outlive `curve`. In general, it is not `'static`.
+//!
+//! In other words, `&curve` can be used to perform temporary operations without consuming `curve` (for
+//! example, to effectively pass `curve` into an API which expects an `impl Curve<T>`), but it *cannot*
+//! be used in situations where persistence is necessary (e.g. when the curve itself must be stored
+//! for later use).
+//!
+//! Here is a demonstration:
+//! ```rust
+//! # use bevy_math::prelude::*;
+//! # let some_magic_constructor = || easing_curve(0.0, 1.0, EaseFunction::ElasticInOut).graph();
+//! //`my_curve` is obtained somehow. It is a `Curve<(f32, f32)>`.
+//! let my_curve = some_magic_constructor();
+//!
+//! // Now, we want to sample a mapped version of `my_curve`.
+//!
+//! // let samples: Vec<f32> = my_curve.map(|(x, y)| y).samples(50).unwrap().collect();
+//! // ^ This would work, but it would also invalidate `my_curve`, since `map` takes ownership.
+//!
+//! // Instead, we pass a borrowed version of `my_curve` to `map`. It lives long enough that we
+//! // can extract samples:
+//! let samples: Vec<f32> = my_curve.by_ref().map(|(x, y)| y).samples(50).unwrap().collect();
+//!
+//! // This way, we retain the ability to use `my_curve` later:
+//! let new_curve = my_curve.map(|(x,y)| x + y);
+//! ```
+//!
+//! [domain]: Curve::domain
+//! [sampled]: Curve::sample
+//! [changing parametrizations]: Curve::reparametrize
+//! [mapping output]: Curve::map
+//! [rasterization]: Curve::resample
+//! [functions]: function_curve
+//! [sample interpolation]: SampleCurve
+//! [splines]: crate::cubic_splines
+//! [easings]: easing
+//! [spline curves]: crate::cubic_splines
+//! [easing curves]: easing
+//! [`chain`]: Curve::chain
+//! [`zip`]: Curve::zip
+//! [`resample`]: Curve::resample
+//!
+//! [^footnote]: In fact, universal as well, in some sense: if `curve` is any curve, then `function_curve
+//! (curve.domain(), |t| curve.sample_unchecked(t))` is an equivalent function curve.
 
 pub mod adaptors;
 pub mod cores;
@@ -26,7 +309,9 @@ use itertools::Itertools;
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 ///
 /// Typical examples of this are actual geometric curves where `T: VectorSpace`, but other kinds
-/// of output data can be represented as well.
+/// of output data can be represented as well. See the [module-level documentation] for details.
+///
+/// [module-level documentation]: self
 pub trait Curve<T> {
     /// The interval over which this curve is parametrized.
     ///
@@ -147,12 +432,6 @@ pub trait Curve<T> {
     /// // Take a segment of a curve:
     /// # let my_curve = constant_curve(Interval::UNIT, 1.0);
     /// let curve_segment = my_curve.reparametrize(interval(0.0, 0.5).unwrap(), |t| 0.5 + t);
-    ///
-    /// // Reparametrize by an easing curve:
-    /// # let my_curve = constant_curve(Interval::UNIT, 1.0);
-    /// # let easing_curve = constant_curve(Interval::UNIT, vec2(1.0, 1.0));
-    /// let domain = my_curve.domain();
-    /// let eased_curve = my_curve.reparametrize(domain, |t| easing_curve.sample_unchecked(t).y);
     /// ```
     #[must_use]
     fn reparametrize<F>(self, domain: Interval, f: F) -> ReparamCurve<T, Self, F>
@@ -585,9 +864,11 @@ pub trait Curve<T> {
     /// ```
     /// # use bevy_math::curve::*;
     /// let my_curve = function_curve(Interval::UNIT, |t| t * t + 1.0);
+    ///
     /// // Borrow `my_curve` long enough to resample a mapped version. Note that `map` takes
     /// // ownership of its input.
     /// let samples = my_curve.by_ref().map(|x| x * 2.0).resample_auto(100).unwrap();
+    ///
     /// // Do something else with `my_curve` since we retained ownership:
     /// let new_curve = my_curve.reparametrize_linear(interval(-1.0, 1.0).unwrap()).unwrap();
     /// ```
