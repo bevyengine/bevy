@@ -77,13 +77,18 @@ fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObje
     // We could have stored the range brackets in `cluster_offsets_and_counts`
     // directly, but doing it this way makes the logic in this path more
     // consistent with the WebGL 2 path below.
-    let offset_a = offset_and_counts_a.x;
-    let offset_b = offset_a + offset_and_counts_a.y;
-    let offset_c = offset_b + offset_and_counts_a.z;
-    let offset_d = offset_c + offset_and_counts_a.w;
-    let offset_e = offset_d + offset_and_counts_b.x;
-
-    return ClusterableObjectIndexRanges(offset_a, offset_b, offset_c, offset_d, offset_e);
+    let point_light_offset = offset_and_counts_a.x;
+    let spot_light_offset = point_light_offset + offset_and_counts_a.y;
+    let reflection_probe_offset = spot_light_offset + offset_and_counts_a.z;
+    let irradiance_volume_offset = reflection_probe_offset + offset_and_counts_a.w;
+    let last_clusterable_offset = irradiance_volume_offset + offset_and_counts_b.x;
+    return ClusterableObjectIndexRanges(
+        point_light_offset,
+        spot_light_offset,
+        reflection_probe_offset,
+        irradiance_volume_offset,
+        last_clusterable_offset
+    );
 
 #else   // AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 
@@ -97,7 +102,7 @@ fn unpack_clusterable_object_index_ranges(cluster_index: u32) -> ClusterableObje
     );
 
     // We don't cluster reflection probes or irradiance volumes on this
-    // platform, as there's no room in the UBO. So those offset ranges
+    // platform, as there's no room in the UBO. Thus, those offset ranges
     // (corresponding to `offset_d` and `offset_e` above) are empty and are
     // simply copies of `offset_c`.
 
