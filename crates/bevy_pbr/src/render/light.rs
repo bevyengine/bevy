@@ -1260,6 +1260,11 @@ pub fn prepare_lights(
                     .map(|_| commands.spawn_empty().id())
                     .collect()
             });
+            if light_view_entities.len() != iter.len() {
+                let entities = core::mem::take(light_view_entities);
+                despawn_entities(&mut commands, entities);
+                light_view_entities.extend((0..iter.len()).map(|_| commands.spawn_empty().id()));
+            }
 
             for (cascade_index, (((cascade, frustum), bound), view_light_entity)) in
                 iter.zip(light_view_entities.iter().copied()).enumerate()
