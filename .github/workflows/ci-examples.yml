@@ -16,7 +16,7 @@ env:
   NIGHTLY_TOOLCHAIN: nightly
 
 concurrency:
-  group: ${{github.workflow}}-${{github.ref}}-examples
+  group: ${{github.workflow}}-${{github.event.pull_request.head.sha}}-examples
   cancel-in-progress: ${{github.event_name == 'pull_request_target'}}
 
 jobs:
