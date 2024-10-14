@@ -51,8 +51,9 @@ fn setup(mut commands: Commands) {
 
 fn setup_menu(mut commands: Commands) {
     let button_entity = commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 // center button
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
@@ -60,8 +61,7 @@ fn setup_menu(mut commands: Commands) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             parent
                 .spawn(ButtonBundle {

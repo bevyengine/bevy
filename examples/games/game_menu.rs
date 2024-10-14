@@ -75,14 +75,12 @@ mod splash {
         // Display the logo
         commands
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        ..default()
-                    },
+                Node::default(),
+                Style {
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
                     ..default()
                 },
                 OnSplashScreen,
@@ -144,24 +142,23 @@ mod game {
     ) {
         commands
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        // center children
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
+                Node::default(),
+                Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    // center children
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
                 OnGameScreen,
             ))
             .with_children(|parent| {
-                // First create a `NodeBundle` for centering what we want to display
+                // First create a `Node` and `Style` for centering what we want to display
                 parent
-                    .spawn(NodeBundle {
-                        style: Style {
+                    .spawn((
+                        Node::default(),
+                        Style {
                             // This will display its children in a column, from top to bottom
                             flex_direction: FlexDirection::Column,
                             // `align_items` will align children on the cross axis. Here the main axis is
@@ -170,9 +167,8 @@ mod game {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::BLACK.into(),
-                        ..default()
-                    })
+                        BackgroundColor(Color::BLACK),
+                    ))
                     .with_children(|p| {
                         p.spawn((
                             Text::new("Will be back to the menu shortly..."),
@@ -405,29 +401,27 @@ mod menu {
 
         commands
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
+                Node::default(),
+                Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
                 OnMainMenuScreen,
             ))
             .with_children(|parent| {
                 parent
-                    .spawn(NodeBundle {
-                        style: Style {
+                    .spawn((
+                        Node::default(),
+                        Style {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: CRIMSON.into(),
-                        ..default()
-                    })
+                        BackgroundColor(CRIMSON.into()),
+                    ))
                     .with_children(|parent| {
                         // Display the game name
                         parent.spawn((
@@ -537,29 +531,27 @@ mod menu {
 
         commands
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
+                Node::default(),
+                Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
                 OnSettingsMenuScreen,
             ))
             .with_children(|parent| {
                 parent
-                    .spawn(NodeBundle {
-                        style: Style {
+                    .spawn((
+                        Node::default(),
+                        Style {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: CRIMSON.into(),
-                        ..default()
-                    })
+                        BackgroundColor(CRIMSON.into()),
+                    ))
                     .with_children(|parent| {
                         for (action, text) in [
                             (MenuButtonAction::SettingsDisplay, "Display"),
@@ -602,41 +594,39 @@ mod menu {
 
         commands
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
+                Node::default(),
+                Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
                 OnDisplaySettingsMenuScreen,
             ))
             .with_children(|parent| {
                 parent
-                    .spawn(NodeBundle {
-                        style: Style {
+                    .spawn((
+                        Node::default(),
+                        Style {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: CRIMSON.into(),
-                        ..default()
-                    })
+                        BackgroundColor(CRIMSON.into()),
+                    ))
                     .with_children(|parent| {
-                        // Create a new `NodeBundle`, this time not setting its `flex_direction`. It will
+                        // Create a new `Node` and `Style` , this time not setting its `flex_direction`. It will
                         // use the default value, `FlexDirection::Row`, from left to right.
                         parent
-                            .spawn(NodeBundle {
-                                style: Style {
+                            .spawn((
+                                Node::default(),
+                                Style {
                                     align_items: AlignItems::Center,
                                     ..default()
                                 },
-                                background_color: CRIMSON.into(),
-                                ..default()
-                            })
+                                BackgroundColor(CRIMSON.into()),
+                            ))
                             .with_children(|parent| {
                                 // Display a label for the current setting
                                 parent.spawn((
@@ -708,39 +698,37 @@ mod menu {
 
         commands
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
+                Node::default(),
+                Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
                 OnSoundSettingsMenuScreen,
             ))
             .with_children(|parent| {
                 parent
-                    .spawn(NodeBundle {
-                        style: Style {
+                    .spawn((
+                        Node::default(),
+                        Style {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: CRIMSON.into(),
-                        ..default()
-                    })
+                        BackgroundColor(CRIMSON.into()),
+                    ))
                     .with_children(|parent| {
                         parent
-                            .spawn(NodeBundle {
-                                style: Style {
+                            .spawn((
+                                Node::default(),
+                                Style {
                                     align_items: AlignItems::Center,
                                     ..default()
                                 },
-                                background_color: CRIMSON.into(),
-                                ..default()
-                            })
+                                BackgroundColor(CRIMSON.into()),
+                            ))
                             .with_children(|parent| {
                                 parent.spawn((Text::new("Volume"), button_text_style.clone()));
                                 for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {

@@ -205,24 +205,23 @@ mod ui {
         commands
             .spawn((
                 StateScoped(IsPaused::Paused),
-                NodeBundle {
-                    style: Style {
-                        // center button
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(10.),
-                        ..default()
-                    },
+                Node::default(),
+                Style {
+                    // center button
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(10.),
                     ..default()
                 },
             ))
             .with_children(|parent| {
                 parent
-                    .spawn(NodeBundle {
-                        style: Style {
+                    .spawn((
+                        Node::default(),
+                        Style {
                             width: Val::Px(400.),
                             height: Val::Px(400.),
                             // horizontally center child text
@@ -231,9 +230,8 @@ mod ui {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: NORMAL_BUTTON.into(),
-                        ..default()
-                    })
+                        BackgroundColor(NORMAL_BUTTON),
+                    ))
                     .with_children(|parent| {
                         parent.spawn((
                             Text::new("Paused"),

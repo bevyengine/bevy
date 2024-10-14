@@ -1,6 +1,6 @@
 use crate::{
-    ContentSize, DefaultUiCamera, FixedMeasure, FocusPolicy, Measure, MeasureArgs, Node,
-    NodeMeasure, Style, TargetCamera, UiScale, ZIndex,
+    ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure,
+    TargetCamera, UiScale,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
@@ -16,14 +16,13 @@ use bevy_ecs::{
 };
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{camera::Camera, texture::Image, view::Visibility};
+use bevy_render::{camera::Camera, texture::Image};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
     TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
     TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
 };
-use bevy_transform::components::Transform;
 use bevy_utils::{tracing::error, Entry};
 use taffy::style::AvailableSpace;
 

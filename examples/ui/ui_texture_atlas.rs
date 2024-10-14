@@ -33,8 +33,9 @@ fn setup(
 
     // root node
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
@@ -43,8 +44,7 @@ fn setup(
                 row_gap: Val::Px(text_font.font_size * 2.),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             parent.spawn((
                 ImageBundle {

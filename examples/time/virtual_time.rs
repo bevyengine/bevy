@@ -77,8 +77,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
     let font_size = 33.;
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 display: Display::Flex,
                 justify_content: JustifyContent::SpaceBetween,
                 width: Val::Percent(100.),
@@ -87,8 +88,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                 padding: UiRect::all(Val::Px(20.0)),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|builder| {
             // real time info
             builder.spawn((

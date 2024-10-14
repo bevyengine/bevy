@@ -97,13 +97,13 @@ where
 {
     // Add the parent node for the row.
     parent
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             spawn_ui_text(parent, title, Color::BLACK).insert(Style {
                 width: Val::Px(125.0),

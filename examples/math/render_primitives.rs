@@ -370,12 +370,10 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
     commands
         .spawn((
             HeaderNode,
-            NodeBundle {
-                style: Style {
-                    justify_self: JustifySelf::Center,
-                    top: Val::Px(5.0),
-                    ..Default::default()
-                },
+            Node::default(),
+            Style {
+                justify_self: JustifySelf::Center,
+                top: Val::Px(5.0),
                 ..Default::default()
             },
             TargetCamera(active_camera),
