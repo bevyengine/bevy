@@ -919,7 +919,7 @@ mod tests {
             assert_eq!(a_text.dependencies.len(), 2);
             assert!(a_load.is_loaded());
             assert!(a_deps.is_loading());
-            assert!(a_rec_deps.is_loaded());
+            assert!(a_rec_deps.is_loading());
 
             let b_id = a_text.dependencies[0].id();
             let b_text = get::<CoolText>(world, b_id);
