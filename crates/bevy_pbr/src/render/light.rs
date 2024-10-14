@@ -459,6 +459,8 @@ fn create_render_visible_mesh_entities(
 }
 
 #[derive(Component, Default, Deref, DerefMut)]
+/// Component automatically attached to a light entity to track light-view entities
+/// for each view.
 pub struct LightViewEntities(EntityHashMap<Vec<Entity>>);
 
 // TODO: using required component
@@ -1386,6 +1388,7 @@ pub fn prepare_lights(
         ));
     }
 
+    // Despawn light-view entities for views that no longer exist
     for mut entities in &mut light_view_entities {
         for (_, light_view_entities) in
             entities.extract_if(|entity, _| !live_views.contains(entity))
