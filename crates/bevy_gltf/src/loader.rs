@@ -2516,14 +2516,14 @@ mod test {
         app.update();
         run_app_until(&mut app, |_world| {
             let load_state = asset_server.get_load_state(handle_id).unwrap();
-            if matches!(load_state, LoadState::Failed(_)) {
+            if load_state.is_failed() {
                 Some(())
             } else {
                 None
             }
         });
         let load_state = asset_server.get_load_state(handle_id).unwrap();
-        assert!(matches!(load_state, LoadState::Failed(_)));
+        assert!(load_state.is_failed());
     }
 
     #[test]
@@ -2558,14 +2558,14 @@ mod test {
         app.update();
         run_app_until(&mut app, |_world| {
             let load_state = asset_server.get_load_state(handle_id).unwrap();
-            if matches!(load_state, LoadState::Failed(_)) {
+            if load_state.is_failed() {
                 Some(())
             } else {
                 None
             }
         });
         let load_state = asset_server.get_load_state(handle_id).unwrap();
-        assert!(matches!(load_state, LoadState::Failed(_)));
+        assert!(load_state.is_failed());
     }
 
     #[test]
