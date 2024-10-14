@@ -56,7 +56,7 @@ use self::{
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
-use crate::{graph::NodePbr, Material, MeshMaterial3d};
+use crate::{graph::NodePbr, Material, MeshMaterial3d, PreviousGlobalTransform};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetApp, AssetId, Handle};
 use bevy_core_pipeline::{
@@ -293,7 +293,7 @@ impl Plugin for MeshletPlugin {
 /// The meshlet mesh equivalent of [`bevy_render::mesh::Mesh3d`].
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
-#[require(Transform, Visibility)]
+#[require(Transform, PreviousGlobalTransform, Visibility)]
 pub struct MeshletMesh3d(pub Handle<MeshletMesh>);
 
 impl From<MeshletMesh3d> for AssetId<MeshletMesh> {
