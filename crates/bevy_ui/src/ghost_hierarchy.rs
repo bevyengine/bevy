@@ -108,7 +108,7 @@ impl<'w, 's> UiChildren<'w, 's> {
     }
 
     /// Returns `true` if the given entity is either a [`Node`] or a [`GhostNode`].
-    pub fn is_ui_node(&'s self, entity: Entity) -> bool {
+    pub fn is_ui_entity(&'s self, entity: Entity) -> bool {
         self.ui_children_query.contains(entity)
     }
 }
