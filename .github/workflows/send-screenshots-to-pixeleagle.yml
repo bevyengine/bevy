@@ -53,7 +53,7 @@ jobs:
           hashes=`echo $hashes | rev | cut -c 2- | rev`
           hashes="$hashes]"
           
-          IFS=$SAVEIFS          
+          IFS=$SAVEIFS
 
           # Upload screenshots with unknown hashes
           curl https://pixel-eagle.vleue.com/$project/runs/$run/hashes --json "$hashes" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }} | jq '.[]|[.name] | @tsv' |
