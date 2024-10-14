@@ -60,7 +60,7 @@ jobs:
             while IFS=$'\t' read -r name; do
               name=`echo $name | tr -d '"'`
               echo "Uploading $name"
-              curl https://pixel-eagle.vleue.com/$project/runs/$run/screenshots -F "data=@./$name" -F "screenshot=$name" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }}
+              curl https://pixel-eagle.vleue.com/$project/runs/$run/screenshots -F "data=@./screenshots-$name" -F "screenshot=$name" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }}
               echo
             done
           
