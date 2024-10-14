@@ -420,7 +420,6 @@ pub fn impl_data_set(_input: TokenStream) -> TokenStream {
     let mut tokens = TokenStream::new();
     let max_members = 8;
     let data_types = get_idents(|i| format!("D{i}"), max_members);
-    let accesses = get_idents(|i| format!("access{i}"), max_members);
     let mut member_fn_muts = Vec::new();
     for (i, data) in data_types.iter().enumerate() {
         let fn_name = Ident::new(&format!("d{i}"), Span::call_site());
@@ -450,7 +449,6 @@ pub fn impl_data_set(_input: TokenStream) -> TokenStream {
 
     for member_count in 1..=max_members {
         let data = &data_types[0..member_count];
-        let access = &accesses[0..member_count];
         let member_fn_mut = &member_fn_muts[0..member_count];
         tokens.extend(TokenStream::from(quote! {
             // SAFETY: each item in set is read only
@@ -463,7 +461,7 @@ pub fn impl_data_set(_input: TokenStream) -> TokenStream {
 
             // SAFETY: 
             // for each member of the set accessed by `fetch`, [`update_component_access`]
-            // - adds corresponding access to `filtered_access`
+            // - adds corresponding access to `access`
             // - panics if it's access conflicts with access that has already been added before calling `update_component_access`
             //
             // If `fetch` mutably accesses a member of the set, it is impossible to access any other members. 
@@ -527,20 +525,21 @@ pub fn impl_data_set(_input: TokenStream) -> TokenStream {
                     }
                 }
 
-                fn update_component_access(state: &Self::State, filtered_access: &mut FilteredAccess<ComponentId>) {
+                fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                     let (#(#data,)*) = state;
 
                     #(
                         // Making sure each individual member of the set doesn't conflict with other query access.
                         // Panics if one of the members conflicts with previous access.
-                        #data::update_component_access(#data, &mut filtered_access.clone());
+                        #data::update_component_access(#data, &mut access.clone());
                     )*
+                    let mut current_access;
                     #(
-                        // Updating empty [`FilteredAccess`] and then extending passed filtered_access.
+                        // Updating empty [`FilteredAccess`] and then extending passed access.
                         // This is done to avoid conflicts with other members of the set.
-                        let mut #access = FilteredAccess::default();
-                        #data::update_component_access(#data, &mut #access);
-                        filtered_access.extend(&#access);
+                        current_access = FilteredAccess::default();
+                        #data::update_component_access(#data, &mut current_access);
+                        access.extend(&current_access);
                     )*
                 }
 
