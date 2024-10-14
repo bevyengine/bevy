@@ -48,7 +48,7 @@ impl Default for TextNodeFlags {
     }
 }
 
-/// [TextBundle] was removed in favor of required components.
+/// [`TextBundle`] was removed in favor of required components.
 /// The core component is now [`Text`] which can contain a single text segment.
 /// Indexed access to segments can be done with the new [`TextUiReader`] and [`TextUiWriter`] system params.
 /// Additional segments can be added through children with [`TextSpan`](bevy_text::TextSpan).

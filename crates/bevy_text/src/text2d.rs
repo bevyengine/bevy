@@ -32,7 +32,7 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
-/// [Text2dBundle] was removed in favor of required components.
+/// [`Text2dBundle`] was removed in favor of required components.
 /// The core component is now [`Text2d`] which can contain a single text segment.
 /// Indexed access to segments can be done with the new [`TextUiReader`] and [`TextUiWriter`] system params.
 /// Additional segments can be added through children with [`TextSpan`](crate::text::TextSpan).
