@@ -70,14 +70,14 @@ impl Plugin for MeshPickingBackend {
 /// Casts rays into the scene using [`MeshPickingBackendSettings`] and sends [`PointerHits`] events.
 #[allow(clippy::too_many_arguments)]
 pub fn update_hits(
-    backend_settings: Res<MeshPickingBackendSettings>,
-    ray_map: Res<RayMap>,
-    picking_cameras: Query<(&Camera, Option<&RayCastPickable>, Option<&RenderLayers>)>,
-    pickables: Query<&PickingBehavior>,
-    marked_targets: Query<&RayCastPickable>,
-    layers: Query<&RenderLayers>,
-    mut ray_cast: MeshRayCast,
-    mut output: EventWriter<PointerHits>,
+    backend_settings: Res<'_, MeshPickingBackendSettings>,
+    ray_map: Res<'_, RayMap>,
+    picking_cameras: Query<'_, '_, (&Camera, Option<&RayCastPickable>, Option<&RenderLayers>)>,
+    pickables: Query<'_, '_, &PickingBehavior>,
+    marked_targets: Query<'_, '_, &RayCastPickable>,
+    layers: Query<'_, '_, &RenderLayers>,
+    mut ray_cast: MeshRayCast<'_, '_>,
+    mut output: EventWriter<'_, PointerHits>,
 ) {
     for (&ray_id, &ray) in ray_map.map().iter() {
         let Ok((camera, cam_pickable, cam_layers)) = picking_cameras.get(ray_id.camera) else {

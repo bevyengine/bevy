@@ -28,7 +28,7 @@ fn main() {
 }
 
 /// Spawns all the objects in the scene.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // Spawn a fog volume with a voxelized version of the Stanford bunny.
     commands.spawn((
         Transform::from_xyz(0.0, 0.5, 0.0),
@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 /// Rotates the camera a bit every frame.
-fn rotate_camera(mut cameras: Query<&mut Transform, With<Camera3d>>) {
+fn rotate_camera(mut cameras: Query<'_, '_, &mut Transform, With<Camera3d>>) {
     for mut camera_transform in cameras.iter_mut() {
         *camera_transform =
             Transform::from_translation(Quat::from_rotation_y(0.01) * camera_transform.translation)

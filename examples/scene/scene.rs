@@ -64,7 +64,7 @@ const SCENE_FILE_PATH: &str = "scenes/load_scene_example.scn.ron";
 // The new, updated scene data will be saved here so that you can see the changes
 const NEW_SCENE_FILE_PATH: &str = "scenes/load_scene_example-new.scn.ron";
 
-fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn load_scene_system(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // Spawning a DynamicSceneRoot creates a new entity and spawns new instances
     // of the given scene's entities as children of that entity.
     // Scenes can be loaded just like any other asset.
@@ -75,8 +75,8 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 // load_scene_example.scn. If you enable the `file_watcher` cargo feature you should immediately see
 // the changes appear in the console whenever you make a change.
 fn log_system(
-    query: Query<(Entity, &ComponentA), Changed<ComponentA>>,
-    res: Option<Res<ResourceA>>,
+    query: Query<'_, '_, (Entity, &ComponentA), Changed<ComponentA>>,
+    res: Option<Res<'_, ResourceA>>,
 ) {
     for (entity, component_a) in &query {
         info!("  Entity({})", entity.index());
@@ -144,7 +144,7 @@ fn save_scene_system(world: &mut World) {
 
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone
 // text example.
-fn infotext_system(mut commands: Commands) {
+fn infotext_system(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
     commands.spawn((
         Text::new("Nothing to see in this window! Check the console output!"),

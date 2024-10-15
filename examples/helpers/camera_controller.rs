@@ -101,15 +101,15 @@ Freecam Controls:
 
 #[allow(clippy::too_many_arguments)]
 fn run_camera_controller(
-    time: Res<Time>,
-    mut windows: Query<&mut Window>,
-    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
-    accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    key_input: Res<ButtonInput<KeyCode>>,
-    mut toggle_cursor_grab: Local<bool>,
-    mut mouse_cursor_grab: Local<bool>,
-    mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
+    time: Res<'_, Time>,
+    mut windows: Query<'_, '_, &mut Window>,
+    accumulated_mouse_motion: Res<'_, AccumulatedMouseMotion>,
+    accumulated_mouse_scroll: Res<'_, AccumulatedMouseScroll>,
+    mouse_button_input: Res<'_, ButtonInput<MouseButton>>,
+    key_input: Res<'_, ButtonInput<KeyCode>>,
+    mut toggle_cursor_grab: Local<'_, bool>,
+    mut mouse_cursor_grab: Local<'_, bool>,
+    mut query: Query<'_, '_, (&mut Transform, &mut CameraController), With<Camera>>,
 ) {
     let dt = time.delta_seconds();
 

@@ -10,10 +10,10 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    meshes: Res<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    meshes: Res<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // By default AssetServer will load assets from inside the "assets" folder.
     // For example, the next line will load GltfAssetLabel::Primitive{mesh:0,primitive:0}.from_asset("ROOT/assets/models/cube/cube.gltf"),

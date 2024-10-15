@@ -50,7 +50,7 @@ pub trait DeserializeWithRegistry<'de>: PartialReflect + Sized {
 #[derive(Clone)]
 pub struct ReflectDeserializeWithRegistry {
     deserialize: fn(
-        deserializer: &mut dyn erased_serde::Deserializer,
+        deserializer: &mut dyn erased_serde::Deserializer<'_>,
         registry: &TypeRegistry,
     ) -> Result<Box<dyn PartialReflect>, erased_serde::Error>,
 }
@@ -65,7 +65,7 @@ impl ReflectDeserializeWithRegistry {
     where
         D: Deserializer<'de>,
     {
-        let mut erased = <dyn erased_serde::Deserializer>::erase(deserializer);
+        let mut erased = <dyn erased_serde::Deserializer<'_>>::erase(deserializer);
         (self.deserialize)(&mut erased, registry).map_err(make_custom_error)
     }
 }

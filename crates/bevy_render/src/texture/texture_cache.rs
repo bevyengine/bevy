@@ -103,6 +103,6 @@ impl TextureCache {
 }
 
 /// Updates the [`TextureCache`] to only retains recently used textures.
-pub fn update_texture_cache_system(mut texture_cache: ResMut<TextureCache>) {
+pub fn update_texture_cache_system(mut texture_cache: ResMut<'_, TextureCache>) {
     texture_cache.update();
 }

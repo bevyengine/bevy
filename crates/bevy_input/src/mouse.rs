@@ -152,8 +152,8 @@ pub struct MouseWheel {
 /// The main difference between the [`MouseButtonInput`] event and the [`ButtonInput<MouseButton>`] resource is that
 /// the latter has convenient functions like [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`].
 pub fn mouse_button_input_system(
-    mut mouse_button_input: ResMut<ButtonInput<MouseButton>>,
-    mut mouse_button_input_events: EventReader<MouseButtonInput>,
+    mut mouse_button_input: ResMut<'_, ButtonInput<MouseButton>>,
+    mut mouse_button_input_events: EventReader<'_, '_, MouseButtonInput>,
 ) {
     mouse_button_input.bypass_change_detection().clear();
     for event in mouse_button_input_events.read() {
@@ -222,8 +222,8 @@ impl Default for AccumulatedMouseScroll {
 /// Updates the [`AccumulatedMouseMotion`] resource using the [`MouseMotion`] event.
 /// The value of [`AccumulatedMouseMotion`] is reset to zero every frame
 pub fn accumulate_mouse_motion_system(
-    mut mouse_motion_event: EventReader<MouseMotion>,
-    mut accumulated_mouse_motion: ResMut<AccumulatedMouseMotion>,
+    mut mouse_motion_event: EventReader<'_, '_, MouseMotion>,
+    mut accumulated_mouse_motion: ResMut<'_, AccumulatedMouseMotion>,
 ) {
     let mut delta = Vec2::ZERO;
     for event in mouse_motion_event.read() {
@@ -235,8 +235,8 @@ pub fn accumulate_mouse_motion_system(
 /// Updates the [`AccumulatedMouseScroll`] resource using the [`MouseWheel`] event.
 /// The value of [`AccumulatedMouseScroll`] is reset to zero every frame
 pub fn accumulate_mouse_scroll_system(
-    mut mouse_scroll_event: EventReader<MouseWheel>,
-    mut accumulated_mouse_scroll: ResMut<AccumulatedMouseScroll>,
+    mut mouse_scroll_event: EventReader<'_, '_, MouseWheel>,
+    mut accumulated_mouse_scroll: ResMut<'_, AccumulatedMouseScroll>,
 ) {
     let mut delta = Vec2::ZERO;
     let mut unit = MouseScrollUnit::Line;

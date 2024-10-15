@@ -33,9 +33,10 @@ impl ViewNode for TonemappingNode {
 
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        _graph: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
         (view_uniform_offset, target, view_tonemapping_pipeline, tonemapping): QueryItem<
+            '_,
             Self::ViewQuery,
         >,
         world: &World,

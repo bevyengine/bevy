@@ -210,7 +210,7 @@ pub unsafe trait SystemParam: Sized {
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
     /// This is used to apply [`Commands`] during [`apply_deferred`](crate::prelude::apply_deferred).
     ///
-    /// [`Commands`]: crate::prelude::Commands
+    /// [`Commands`]: crate::prelude::Commands<'_, '_>
     #[inline]
     #[allow(unused_variables)]
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
@@ -218,7 +218,7 @@ pub unsafe trait SystemParam: Sized {
     /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
     #[inline]
     #[allow(unused_variables)]
-    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld<'_>) {}
 
     /// Validates that the param can be acquired by the [`get_param`](SystemParam::get_param).
     /// Built-in executors use this to prevent systems with invalid params from running.
@@ -250,7 +250,7 @@ pub unsafe trait SystemParam: Sized {
     unsafe fn validate_param(
         _state: &Self::State,
         _system_meta: &SystemMeta,
-        _world: UnsafeWorldCell,
+        _world: UnsafeWorldCell<'_>,
     ) -> bool {
         // By default we allow panics in [`SystemParam::get_param`] and return `true`.
         // Preventing panics is an optional feature.
@@ -353,7 +353,7 @@ fn assert_component_access_compatibility(
         return;
     }
     let accesses = conflicts.format_conflict_list(world);
-    panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
+    panic!("error[B0001]: Query<'_, '_, {query_type}, {filter_type}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
@@ -398,7 +398,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
     unsafe fn validate_param(
         state: &Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> bool {
         state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
@@ -464,7 +464,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     unsafe fn validate_param(
         state: &Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> bool {
         state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
@@ -533,7 +533,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     unsafe fn validate_param(
         state: &Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> bool {
         state.validate_world(world.id());
         // SAFETY:
@@ -579,8 +579,8 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 /// #
 /// // This will panic at runtime when the system gets initialized.
 /// fn bad_system(
-///     mut enemies: Query<&mut Health, With<Enemy>>,
-///     mut allies: Query<&mut Health, With<Ally>>,
+///     mut enemies: Query<'_, '_, &mut Health, With<Enemy>>,
+///     mut allies: Query<'_, '_, &mut Health, With<Ally>>,
 /// ) {
 ///     // ...
 /// }
@@ -608,9 +608,9 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 /// #
 /// // Given the following system
 /// fn fancy_system(
-///     mut set: ParamSet<(
-///         Query<&mut Health, With<Enemy>>,
-///         Query<&mut Health, With<Ally>>,
+///     mut set: ParamSet<'_, '_, (
+///         Query<'_, '_, &mut Health, With<Enemy>>,
+///         Query<'_, '_, &mut Health, With<Ally>>,
 ///     )>
 /// ) {
 ///     // This will access the first `SystemParam`.
@@ -638,7 +638,7 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 /// #   pub fn new() -> Self { Self }
 /// # }
 /// fn event_system(
-///     mut set: ParamSet<(
+///     mut set: ParamSet<'_, '_, (
 ///         // `EventReader`s and `EventWriter`s conflict with each other,
 ///         // since they both access the event queue resource for `MyEvent`.
 ///         EventReader<MyEvent>,
@@ -686,11 +686,11 @@ impl_param_set!();
 ///
 /// world.insert_resource(MyResource { value: 42 });
 ///
-/// fn read_resource_system(resource: Res<MyResource>) {
+/// fn read_resource_system(resource: Res<'_, MyResource>) {
 ///     assert_eq!(resource.value, 42);
 /// }
 ///
-/// fn write_resource_system(mut resource: ResMut<MyResource>) {
+/// fn write_resource_system(mut resource: ResMut<'_, MyResource>) {
 ///     assert_eq!(resource.value, 42);
 ///     resource.value = 0;
 ///     assert_eq!(resource.value, 0);
@@ -750,12 +750,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
-        assert!(
-            !combined_access.has_resource_write(component_id),
-            "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-            core::any::type_name::<T>(),
-            system_meta.name,
-        );
+        assert!(!combined_access.has_resource_write(component_id), "error[B0002]: Res<'_, {}> in system {} conflicts with a previous ResMut<'_, {0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002", core::any::type_name::<T>(), system_meta.name,);
         system_meta
             .component_access_set
             .add_unfiltered_resource_read(component_id);
@@ -771,7 +766,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     unsafe fn validate_param(
         &component_id: &Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
         let is_valid = unsafe { world.storages() }
@@ -862,13 +857,9 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_resource_write(component_id) {
-            panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-                core::any::type_name::<T>(), system_meta.name);
+            panic!("error[B0002]: ResMut<'_, {}> in system {} conflicts with a previous ResMut<'_, {0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002", core::any::type_name::<T>(), system_meta.name);
         } else if combined_access.has_resource_read(component_id) {
-            panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-                core::any::type_name::<T>(), system_meta.name);
+            panic!("error[B0002]: ResMut<'_, {}> in system {} conflicts with a previous Res<'_, {0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002", core::any::type_name::<T>(), system_meta.name);
         }
         system_meta
             .component_access_set
@@ -885,7 +876,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     unsafe fn validate_param(
         &component_id: &Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
         let is_valid = unsafe { world.storages() }
@@ -1039,10 +1030,10 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let world = &mut World::default();
-/// fn write_to_local(mut local: Local<usize>) {
+/// fn write_to_local(mut local: Local<'_, usize>) {
 ///     *local = 42;
 /// }
-/// fn read_from_local(local: Local<usize>) -> usize {
+/// fn read_from_local(local: Local<'_, usize>) -> usize {
 ///     *local
 /// }
 /// let mut write_system = IntoSystem::into_system(write_to_local);
@@ -1065,7 +1056,7 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// struct Config(u32);
 /// #[derive(Resource)]
 /// struct MyU32Wrapper(u32);
-/// fn reset_to_system(value: Config) -> impl FnMut(ResMut<MyU32Wrapper>) {
+/// fn reset_to_system(value: Config) -> impl FnMut(ResMut<'_, MyU32Wrapper>) {
 ///     move |mut val| val.0 = value.0
 /// }
 ///
@@ -1148,14 +1139,14 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
     /// Applies any deferred mutations to the [`World`].
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
     /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
-    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {}
+    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld<'_>) {}
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
 /// [`apply_deferred`](crate::schedule::apply_deferred).
 /// This is used internally by [`Commands`] to defer `World` mutations.
 ///
-/// [`Commands`]: crate::system::Commands
+/// [`Commands`]: crate::system::Commands<'_, '_>
 ///
 /// # Examples
 ///
@@ -1214,8 +1205,8 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// // Sound the alarm if there are any criminals who pose a threat.
 /// fn alert_criminal(
-///     settlement: Single<&Settlement>,
-///     criminals: Query<&Criminal>,
+///     settlement: Single<'_, &Settlement>,
+///     criminals: Query<'_, '_, &Criminal>,
 ///     mut alarm: Deferred<AlarmFlag>
 /// ) {
 ///     for criminal in &criminals {
@@ -1232,8 +1223,8 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// // Sound the alarm if there is a monster.
 /// fn alert_monster(
-///     monsters: Query<&Monster>,
-///     mut alarm: ResMut<Alarm>
+///     monsters: Query<'_, '_, &Monster>,
+///     mut alarm: ResMut<'_, Alarm>
 /// ) {
 ///     if monsters.iter().next().is_some() {
 ///         // Since this system does nothing except for sounding the alarm,
@@ -1290,7 +1281,7 @@ impl<'a, T: SystemBuffer> DerefMut for Deferred<'a, T> {
 impl<T: SystemBuffer> Deferred<'_, T> {
     /// Returns a [`Deferred<T>`] with a smaller lifetime.
     /// This is useful if you have `&mut Deferred<T>` but need `Deferred<T>`.
-    pub fn reborrow(&mut self) -> Deferred<T> {
+    pub fn reborrow(&mut self) -> Deferred<'_, T> {
         Deferred(self.0)
     }
 }
@@ -1312,7 +1303,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
         state.get().apply(system_meta, world);
     }
 
-    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld<'_>) {
         state.get().queue(system_meta, world);
     }
 
@@ -1413,12 +1404,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         let archetype_component_id = world.initialize_non_send_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
-        assert!(
-            !combined_access.has_resource_write(component_id),
-            "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-            core::any::type_name::<T>(),
-            system_meta.name,
-        );
+        assert!(!combined_access.has_resource_write(component_id), "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002", core::any::type_name::<T>(), system_meta.name,);
         system_meta
             .component_access_set
             .add_unfiltered_resource_read(component_id);
@@ -1434,7 +1420,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     unsafe fn validate_param(
         &component_id: &Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
         let is_valid = unsafe { world.storages() }
@@ -1522,13 +1508,9 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
 
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_component_write(component_id) {
-            panic!(
-                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-                core::any::type_name::<T>(), system_meta.name);
+            panic!("error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002", core::any::type_name::<T>(), system_meta.name);
         } else if combined_access.has_component_read(component_id) {
-            panic!(
-                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-                core::any::type_name::<T>(), system_meta.name);
+            panic!("error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002", core::any::type_name::<T>(), system_meta.name);
         }
         system_meta
             .component_access_set
@@ -1545,7 +1527,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     unsafe fn validate_param(
         &component_id: &Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> bool {
         // SAFETY: Read-only access to resource metadata.
         let is_valid = unsafe { world.storages() }
@@ -1703,7 +1685,7 @@ unsafe impl<'a> SystemParam for &'a Bundles {
 ///
 /// Component change ticks that are more recent than `last_run` will be detected by the system.
 /// Those can be read by calling [`last_changed`](crate::change_detection::DetectChanges::last_changed)
-/// on a [`Mut<T>`](crate::change_detection::Mut) or [`ResMut<T>`](ResMut).
+/// on a [`Mut<'_, T>`](crate::change_detection::Mut) or [`ResMut<T>`](ResMut).
 #[derive(Debug)]
 pub struct SystemChangeTick {
     last_run: Tick,
@@ -1764,7 +1746,7 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
     unsafe fn validate_param(
         state: &Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> bool {
         state
             .iter()
@@ -1804,7 +1786,7 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
         }
     }
 
-    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld<'_>) {
         for state in state {
             T::queue(state, system_meta, world.reborrow());
         }
@@ -1855,7 +1837,7 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
         }
     }
 
-    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld<'_>) {
         for state in state {
             T::queue(state, system_meta, world.reborrow());
         }
@@ -1926,7 +1908,7 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
-            fn queue(($($param,)*): &mut Self::State, _system_meta: &SystemMeta, mut _world: DeferredWorld) {
+            fn queue(($($param,)*): &mut Self::State, _system_meta: &SystemMeta, mut _world: DeferredWorld<'_>) {
                 $($param::queue($param, _system_meta, _world.reborrow());)*
             }
 
@@ -1934,7 +1916,7 @@ macro_rules! impl_system_param_tuple {
             unsafe fn validate_param(
                 state: &Self::State,
                 _system_meta: &SystemMeta,
-                _world: UnsafeWorldCell,
+                _world: UnsafeWorldCell<'_>,
             ) -> bool {
                 let ($($param,)*) = state;
                 $($param::validate_param($param, _system_meta, _world)&&)* true
@@ -2092,7 +2074,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         P::apply(state, system_meta, world);
     }
 
-    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld<'_>) {
         P::queue(state, system_meta, world);
     }
 
@@ -2100,7 +2082,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     unsafe fn validate_param(
         state: &Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> bool {
         P::validate_param(state, system_meta, world)
     }
@@ -2159,7 +2141,7 @@ unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
 /// #
 /// // If the inner parameter doesn't require any special building, use `ParamBuilder`.
 /// // Either specify the type parameter on `DynParamBuilder::new()` ...
-/// let system = (DynParamBuilder::new::<Res<A>>(ParamBuilder),)
+/// let system = (DynParamBuilder::new::<Res<'_, A>>(ParamBuilder),)
 ///     .build_state(&mut world)
 ///     .build_system(expects_res_a);
 /// # world.run_system_once(system);
@@ -2170,15 +2152,15 @@ unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
 ///     .build_system(expects_res_a);
 /// # world.run_system_once(system);
 ///
-/// fn expects_res_a(mut param: DynSystemParam) {
+/// fn expects_res_a(mut param: DynSystemParam<'_, '_>) {
 ///     // Use the `downcast` methods to retrieve the inner parameter.
 ///     // They will return `None` if the type does not match.
-///     assert!(param.is::<Res<A>>());
-///     assert!(!param.is::<Res<B>>());
-///     assert!(param.downcast_mut::<Res<B>>().is_none());
-///     let res = param.downcast_mut::<Res<A>>().unwrap();
+///     assert!(param.is::<Res<'_, A>>());
+///     assert!(!param.is::<Res<'_, B>>());
+///     assert!(param.downcast_mut::<Res<'_, B>>().is_none());
+///     let res = param.downcast_mut::<Res<'_, A>>().unwrap();
 ///     // The type parameter can be left out if it can be determined from use.
-///     let res: Res<A> = param.downcast().unwrap();
+///     let res: Res<'_, A> = param.downcast().unwrap();
 /// }
 ///
 /// let system = (
@@ -2190,8 +2172,8 @@ unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
 ///     ParamBuilder::query(),
 /// )
 ///     .build_state(&mut world)
-///     .build_system(|param: DynSystemParam, query: Query<()>| {
-///         let local: Local<usize> = param.downcast::<Local<usize>>().unwrap();
+///     .build_system(|param: DynSystemParam<'_, '_>, query: Query<'_, '_, ()>| {
+///         let local: Local<'_, usize> = param.downcast::<Local<usize>>().unwrap();
 ///         assert_eq!(*local, 10);
 ///     });
 /// # world.run_system_once(system);
@@ -2337,17 +2319,17 @@ trait DynParamState: Sync + Send {
     /// Applies any deferred mutations stored in this [`SystemParam`]'s state.
     /// This is used to apply [`Commands`] during [`apply_deferred`](crate::prelude::apply_deferred).
     ///
-    /// [`Commands`]: crate::prelude::Commands
+    /// [`Commands`]: crate::prelude::Commands<'_, '_>
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
 
     /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
-    fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld);
+    fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld<'_>);
 
     /// Refer to [`SystemParam::validate_param`].
     ///
     /// # Safety
     /// Refer to [`SystemParam::validate_param`].
-    unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell) -> bool;
+    unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell<'_>) -> bool;
 }
 
 /// A wrapper around a [`SystemParam::State`] that can be used as a trait object in a [`DynSystemParam`].
@@ -2367,11 +2349,11 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
         T::apply(&mut self.0, system_meta, world);
     }
 
-    fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld) {
+    fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld<'_>) {
         T::queue(&mut self.0, system_meta, world);
     }
 
-    unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell<'_>) -> bool {
         T::validate_param(&self.0, system_meta, world)
     }
 }
@@ -2390,7 +2372,7 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
     unsafe fn validate_param(
         state: &Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> bool {
         state.0.validate_param(system_meta, world)
     }
@@ -2430,7 +2412,7 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
         state.0.apply(system_meta, world);
     }
 
-    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld<'_>) {
         state.0.queue(system_meta, world);
     }
 }
@@ -2508,7 +2490,7 @@ mod tests {
             _query: Query<'w, 's, D, F>,
         }
 
-        fn my_system(_: SpecialQuery<(), ()>) {}
+        fn my_system(_: SpecialQuery<'_, '_, (), ()>) {}
         assert_is_system(my_system);
     }
 
@@ -2528,7 +2510,7 @@ mod tests {
         #[derive(Resource)]
         struct R;
 
-        fn my_system(_: SpecialRes<R>, _: SpecialLocal<u32>) {}
+        fn my_system(_: SpecialRes<'_, R>, _: SpecialLocal<'_, u32>) {}
         assert_is_system(my_system);
     }
 
@@ -2542,7 +2524,7 @@ mod tests {
         #[derive(SystemParam)]
         pub struct ConstGenericParam<'w, const I: usize>(Res<'w, R<I>>);
 
-        fn my_system(_: ConstGenericParam<0>, _: ConstGenericParam<1000>) {}
+        fn my_system(_: ConstGenericParam<'_, 0>, _: ConstGenericParam<'_, 1000>) {}
         assert_is_system(my_system);
     }
 
@@ -2572,7 +2554,7 @@ mod tests {
             _r16: Res<'w, R<16>>,
         }
 
-        fn long_system(_: LongParam) {}
+        fn long_system(_: LongParam<'_>) {}
         assert_is_system(long_system);
     }
 
@@ -2586,7 +2568,7 @@ mod tests {
             marker: PhantomData<&'w Marker>,
         }
 
-        fn my_system(_: PhantomParam<R<0>, ()>) {}
+        fn my_system(_: PhantomParam<'_, R<0>, ()>) {}
         assert_is_system(my_system);
     }
 
@@ -2603,7 +2585,7 @@ mod tests {
             Local<'s, L>,
         );
 
-        fn my_system(_: UnitParam, _: TupleParam<R<0>, u32>) {}
+        fn my_system(_: UnitParam, _: TupleParam<'_, '_, R<0>, u32>) {}
         assert_is_system(my_system);
     }
 
@@ -2617,7 +2599,7 @@ mod tests {
         #[derive(SystemParam)]
         pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
 
-        fn my_system(_: EncapsulatedParam) {}
+        fn my_system(_: EncapsulatedParam<'_>) {}
         assert_is_system(my_system);
     }
 
@@ -2632,7 +2614,7 @@ mod tests {
             _q: Query<'w, 's, D, ()>,
         }
 
-        fn my_system(_: WhereParam<()>) {}
+        fn my_system(_: WhereParam<'_, '_, ()>) {}
         assert_is_system(my_system);
     }
 
@@ -2647,7 +2629,7 @@ mod tests {
             _x: Res<'w, FetchState>,
         }
 
-        fn my_system(_: Collide) {}
+        fn my_system(_: Collide<'_>) {}
         assert_is_system(my_system);
     }
 
@@ -2659,14 +2641,14 @@ mod tests {
             _set: ParamSet<'w, 's, (Query<'w, 's, ()>,)>,
         }
 
-        fn my_system(_: InvariantParam) {}
+        fn my_system(_: InvariantParam<'_, '_>) {}
         assert_is_system(my_system);
     }
 
     // Compile test for https://github.com/bevyengine/bevy/pull/9589.
     #[test]
     fn non_sync_local() {
-        fn non_sync_system(cell: Local<RefCell<u8>>) {
+        fn non_sync_system(cell: Local<'_, RefCell<u8>>) {
             assert_eq!(*cell.borrow(), 0);
         }
 
@@ -2679,7 +2661,7 @@ mod tests {
     // Regression test for https://github.com/bevyengine/bevy/issues/10207.
     #[test]
     fn param_set_non_send_first() {
-        fn non_send_param_set(mut p: ParamSet<(NonSend<*mut u8>, ())>) {
+        fn non_send_param_set(mut p: ParamSet<'_, '_, (NonSend<'_, *mut u8>, ())>) {
             let _ = p.p0();
             p.p1();
         }
@@ -2694,7 +2676,7 @@ mod tests {
     // Regression test for https://github.com/bevyengine/bevy/issues/10207.
     #[test]
     fn param_set_non_send_second() {
-        fn non_send_param_set(mut p: ParamSet<((), NonSendMut<*mut u8>)>) {
+        fn non_send_param_set(mut p: ParamSet<'_, '_, ((), NonSendMut<'_, *mut u8>)>) {
             p.p0();
             let _ = p.p1();
         }
@@ -2706,11 +2688,11 @@ mod tests {
         schedule.run(&mut world);
     }
 
-    fn _dyn_system_param_type_inference(mut p: DynSystemParam) {
+    fn _dyn_system_param_type_inference(mut p: DynSystemParam<'_, '_>) {
         // Make sure the downcast() methods are able to infer their type parameters from the use of the return type.
         // This is just a compilation test, so there is nothing to run.
-        let _query: Query<()> = p.downcast_mut().unwrap();
-        let _query: Query<()> = p.downcast_mut_inner().unwrap();
-        let _query: Query<()> = p.downcast().unwrap();
+        let _query: Query<'_, '_, ()> = p.downcast_mut().unwrap();
+        let _query: Query<'_, '_, ()> = p.downcast_mut_inner().unwrap();
+        let _query: Query<'_, '_, ()> = p.downcast().unwrap();
     }
 }

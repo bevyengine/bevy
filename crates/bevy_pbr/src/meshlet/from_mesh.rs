@@ -203,7 +203,7 @@ fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshC
     }
 }
 
-fn compute_meshlets(indices: &[u32], vertices: &VertexDataAdapter) -> Meshlets {
+fn compute_meshlets(indices: &[u32], vertices: &VertexDataAdapter<'_>) -> Meshlets {
     build_meshlets(indices, vertices, 255, 128, 0.0) // Meshoptimizer won't currently let us do 256 vertices
 }
 

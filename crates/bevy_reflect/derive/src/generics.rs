@@ -7,7 +7,7 @@ use syn::{GenericParam, Token};
 /// Creates a `TokenStream` for generating an expression that creates a `Generics` instance.
 ///
 /// Returns `None` if `Generics` cannot or should not be generated.
-pub(crate) fn generate_generics(meta: &ReflectMeta) -> Option<TokenStream> {
+pub(crate) fn generate_generics(meta: &ReflectMeta<'_>) -> Option<TokenStream> {
     if !meta.attrs().type_path_attrs().should_auto_derive() {
         // Cannot verify that all generic parameters implement `TypePath`
         return None;

@@ -21,7 +21,7 @@ impl Plugin for EntityCountDiagnosticsPlugin {
 impl EntityCountDiagnosticsPlugin {
     pub const ENTITY_COUNT: DiagnosticPath = DiagnosticPath::const_new("entity_count");
 
-    pub fn diagnostic_system(mut diagnostics: Diagnostics, entities: &Entities) {
+    pub fn diagnostic_system(mut diagnostics: Diagnostics<'_, '_>, entities: &Entities) {
         diagnostics.add_measurement(&Self::ENTITY_COUNT, || entities.len() as f64);
     }
 }

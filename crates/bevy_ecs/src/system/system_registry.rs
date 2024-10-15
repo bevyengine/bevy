@@ -205,7 +205,7 @@ impl World {
     ///
     /// # Limitations
     ///
-    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
+    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands<'_, '_>).
     ///
     /// # Examples
     ///
@@ -213,7 +213,7 @@ impl World {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// fn increment(mut counter: Local<u8>) {
+    /// fn increment(mut counter: Local<'_, u8>) {
     ///    *counter += 1;
     ///    println!("{}", *counter);
     /// }
@@ -235,7 +235,7 @@ impl World {
     ///
     /// let mut world = World::default();
     /// world.init_resource::<ChangeDetector>();
-    /// let detector = world.register_system(|change_detector: ResMut<ChangeDetector>| {
+    /// let detector = world.register_system(|change_detector: ResMut<'_, ChangeDetector>| {
     ///     if change_detector.is_changed() {
     ///         println!("Something happened!");
     ///     } else {
@@ -261,11 +261,11 @@ impl World {
     /// #[derive(Resource)]
     /// struct OpponentScore(i32);
     ///
-    /// fn get_player_score(player_score: Res<PlayerScore>) -> i32 {
+    /// fn get_player_score(player_score: Res<'_, PlayerScore>) -> i32 {
     ///   player_score.0
     /// }
     ///
-    /// fn get_opponent_score(opponent_score: Res<OpponentScore>) -> i32 {
+    /// fn get_opponent_score(opponent_score: Res<'_, OpponentScore>) -> i32 {
     ///   opponent_score.0
     /// }
     ///
@@ -295,13 +295,13 @@ impl World {
     ///
     /// # Limitations
     ///
-    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands).
+    ///  - Stored systems cannot be recursive, they cannot call themselves through [`Commands::run_system`](crate::system::Commands<'_, '_>).
     ///
     /// # Examples
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// fn increment(In(increment_by): In<u8>, mut counter: Local<u8>) -> u8 {
+    /// fn increment(In(increment_by): In<u8>, mut counter: Local<'_, u8>) -> u8 {
     ///   *counter += increment_by;
     ///   *counter
     /// }
@@ -397,7 +397,7 @@ impl World {
             return id;
         }
 
-        self.resource_scope(|world, mut id: Mut<CachedSystemId<S::System>>| {
+        self.resource_scope(|world, mut id: Mut<'_, CachedSystemId<S::System>>| {
             if let Ok(mut entity) = world.get_entity_mut(id.0.entity()) {
                 if !entity.contains::<RegisteredSystem<I, O>>() {
                     entity.insert(system_bundle(Box::new(IntoSystem::into_system(system))));
@@ -639,8 +639,8 @@ mod tests {
         struct ChangeDetector;
 
         fn count_up_iff_changed(
-            mut counter: ResMut<Counter>,
-            change_detector: ResMut<ChangeDetector>,
+            mut counter: ResMut<'_, Counter>,
+            change_detector: ResMut<'_, ChangeDetector>,
         ) {
             if change_detector.is_changed() {
                 counter.0 += 1;
@@ -667,7 +667,7 @@ mod tests {
     #[test]
     fn local_variables() {
         // The `Local` begins at the default value of 0
-        fn doubling(last_counter: Local<Counter>, mut counter: ResMut<Counter>) {
+        fn doubling(last_counter: Local<'_, Counter>, mut counter: ResMut<'_, Counter>) {
             counter.0 += last_counter.0 .0;
             last_counter.0 .0 = counter.0;
         }
@@ -691,7 +691,7 @@ mod tests {
         // Verify that a non-Copy, non-Clone type can be passed in.
         struct NonCopy(u8);
 
-        fn increment_sys(In(NonCopy(increment_by)): In<NonCopy>, mut counter: ResMut<Counter>) {
+        fn increment_sys(In(NonCopy(increment_by)): In<NonCopy>, mut counter: ResMut<'_, Counter>) {
             counter.0 += increment_by;
         }
 
@@ -730,7 +730,7 @@ mod tests {
         #[derive(Eq, PartialEq, Debug)]
         struct NonCopy(u8);
 
-        fn increment_sys(mut counter: ResMut<Counter>) -> NonCopy {
+        fn increment_sys(mut counter: ResMut<'_, Counter>) -> NonCopy {
             counter.0 += 1;
             NonCopy(counter.0)
         }
@@ -770,7 +770,7 @@ mod tests {
         #[derive(Component)]
         struct Callback(SystemId);
 
-        fn nested(query: Query<&Callback>, mut commands: Commands) {
+        fn nested(query: Query<'_, '_, &Callback>, mut commands: Commands<'_, '_>) {
             for callback in query.iter() {
                 commands.run_system(callback.0);
             }
@@ -779,10 +779,10 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(Counter(0));
 
-        let increment_two = world.register_system(|mut counter: ResMut<Counter>| {
+        let increment_two = world.register_system(|mut counter: ResMut<'_, Counter>| {
             counter.0 += 2;
         });
-        let increment_three = world.register_system(|mut counter: ResMut<Counter>| {
+        let increment_three = world.register_system(|mut counter: ResMut<'_, Counter>| {
             counter.0 += 3;
         });
         let nested_id = world.register_system(nested);
@@ -800,7 +800,7 @@ mod tests {
         #[derive(Component)]
         struct Callback(SystemId<In<u8>>, u8);
 
-        fn nested(query: Query<&Callback>, mut commands: Commands) {
+        fn nested(query: Query<'_, '_, &Callback>, mut commands: Commands<'_, '_>) {
             for callback in query.iter() {
                 commands.run_system_with_input(callback.0, callback.1);
             }
@@ -810,7 +810,7 @@ mod tests {
         world.insert_resource(Counter(0));
 
         let increment_by =
-            world.register_system(|In(amt): In<u8>, mut counter: ResMut<Counter>| {
+            world.register_system(|In(amt): In<u8>, mut counter: ResMut<'_, Counter>| {
                 counter.0 += amt;
             });
         let nested_id = world.register_system(nested);
@@ -854,7 +854,7 @@ mod tests {
 
     #[test]
     fn cached_system_commands() {
-        fn sys(mut counter: ResMut<Counter>) {
+        fn sys(mut counter: ResMut<'_, Counter>) {
             counter.0 = 1;
         }
 
@@ -888,7 +888,7 @@ mod tests {
 
     #[test]
     fn system_with_input_ref() {
-        fn with_ref(InRef(input): InRef<u8>, mut counter: ResMut<Counter>) {
+        fn with_ref(InRef(input): InRef<'_, u8>, mut counter: ResMut<'_, Counter>) {
             counter.0 += *input;
         }
 
@@ -907,7 +907,7 @@ mod tests {
             cancelled: bool,
         }
 
-        fn post(InMut(event): InMut<MyEvent>, counter: ResMut<Counter>) {
+        fn post(InMut(event): InMut<'_, MyEvent>, counter: ResMut<'_, Counter>) {
             if counter.0 > 0 {
                 event.cancelled = true;
             }
@@ -936,7 +936,7 @@ mod tests {
 
         struct T;
         impl Resource for T {}
-        fn system(_: Res<T>) {}
+        fn system(_: Res<'_, T>) {}
 
         let mut world = World::new();
         let id = world.register_system_cached(system);

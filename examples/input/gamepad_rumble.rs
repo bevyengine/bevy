@@ -15,14 +15,12 @@ fn main() {
 }
 
 fn gamepad_system(
-    gamepads: Query<(Entity, &Gamepad)>,
-    mut rumble_requests: EventWriter<GamepadRumbleRequest>,
+    gamepads: Query<'_, '_, (Entity, &Gamepad)>,
+    mut rumble_requests: EventWriter<'_, GamepadRumbleRequest>,
 ) {
     for (entity, gamepad) in &gamepads {
         if gamepad.just_pressed(GamepadButton::North) {
-            info!(
-                "North face button: strong (low-frequency) with low intensity for rumble for 5 seconds. Press multiple times to increase intensity."
-            );
+            info!("North face button: strong (low-frequency) with low intensity for rumble for 5 seconds. Press multiple times to increase intensity.");
             rumble_requests.send(GamepadRumbleRequest::Add {
                 gamepad: entity,
                 intensity: GamepadRumbleIntensity::strong_motor(0.1),

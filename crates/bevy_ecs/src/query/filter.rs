@@ -60,7 +60,7 @@ use core::{cell::UnsafeCell, marker::PhantomData};
 ///     generic_tuple: (With<T>, Without<P>),
 /// }
 ///
-/// fn my_system(query: Query<Entity, MyFilter<ComponentD, ComponentE>>) {
+/// fn my_system(query: Query<'_, '_, Entity, MyFilter<ComponentD, ComponentE>>) {
 ///     // ...
 /// }
 /// # bevy_ecs::system::assert_is_system(my_system);
@@ -126,7 +126,7 @@ pub unsafe trait QueryFilter: WorldQuery {
 /// # #[derive(Component)]
 /// # struct Name { name: &'static str };
 /// #
-/// fn compliment_entity_system(query: Query<&Name, With<IsBeautiful>>) {
+/// fn compliment_entity_system(query: Query<'_, '_, &Name, With<IsBeautiful>>) {
 ///     for name in &query {
 ///         println!("{} is looking lovely today!", name.name);
 ///     }
@@ -151,7 +151,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 
     #[inline]
     unsafe fn init_fetch(
-        _world: UnsafeWorldCell,
+        _world: UnsafeWorldCell<'_>,
         _state: &ComponentId,
         _last_run: Tick,
         _this_run: Tick,
@@ -237,7 +237,7 @@ unsafe impl<T: Component> QueryFilter for With<T> {
 /// # #[derive(Component)]
 /// # struct Name { name: &'static str };
 /// #
-/// fn no_permit_system(query: Query<&Name, Without<Permit>>) {
+/// fn no_permit_system(query: Query<'_, '_, &Name, Without<Permit>>) {
 ///     for name in &query{
 ///         println!("{} has no permit!", name.name);
 ///     }
@@ -262,7 +262,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 
     #[inline]
     unsafe fn init_fetch(
-        _world: UnsafeWorldCell,
+        _world: UnsafeWorldCell<'_>,
         _state: &ComponentId,
         _last_run: Tick,
         _this_run: Tick,
@@ -354,7 +354,7 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
 /// # #[derive(Component)]
 /// # struct Style {};
 /// #
-/// fn print_cool_entity_system(query: Query<Entity, Or<(Changed<Color>, Changed<Style>)>>) {
+/// fn print_cool_entity_system(query: Query<'_, '_, Entity, Or<(Changed<Color>, Changed<Style>)>>) {
 ///     for entity in &query {
 ///         println!("Entity {:?} got a new style or color", entity);
 ///     }
@@ -473,7 +473,7 @@ macro_rules! impl_or_query_filter {
                     $filter::update_component_access($filter, &mut intermediate);
                     _new_access.append_or(&intermediate);
                     // Also extend the accesses required to compute the filter. This is required because
-                    // otherwise a `Query<(), Or<(Changed<Foo>,)>` won't conflict with `Query<&mut Foo>`.
+                    // otherwise a `Query<'_, '_, (), Or<(Changed<Foo>,)>` won't conflict with `Query<'_, '_, &mut Foo>`.
                     _new_access.extend_access(&intermediate);
                 )*
 
@@ -553,7 +553,7 @@ all_tuples!(impl_or_query_filter, 0, 15, F, S);
 /// A common use for this filter is one-time initialization.
 ///
 /// To retain all results without filtering but still check whether they were added after the
-/// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
+/// system last ran, use [`Ref<'_, T>`](crate::change_detection::Ref).
 ///
 /// **Note** that this includes changes that happened before the first time this `Query` was run.
 ///
@@ -582,11 +582,11 @@ all_tuples!(impl_or_query_filter, 0, 15, F, S);
 /// # #[derive(Component)]
 /// # struct Transform;
 ///
-/// fn system1(q: Query<&MyComponent, Added<Transform>>) {
+/// fn system1(q: Query<'_, '_, &MyComponent, Added<Transform>>) {
 ///     for item in &q { /* component added */ }
 /// }
 ///
-/// fn system2(q: Query<(&MyComponent, Ref<Transform>)>) {
+/// fn system2(q: Query<'_, '_, (&MyComponent, Ref<'_, Transform>)>) {
 ///     for item in &q {
 ///         if item.1.is_added() { /* component added */ }
 ///     }
@@ -604,7 +604,7 @@ all_tuples!(impl_or_query_filter, 0, 15, F, S);
 /// # #[derive(Component, Debug)]
 /// # struct Name {};
 ///
-/// fn print_add_name_component(query: Query<&Name, Added<Name>>) {
+/// fn print_add_name_component(query: Query<'_, '_, &Name, Added<Name>>) {
 ///     for name in &query {
 ///         println!("Named entity created: {:?}", name)
 ///     }
@@ -745,7 +745,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
         if access.access().has_component_write(id) {
-            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",core::any::type_name::<T>());
+            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.", core::any::type_name::<T>());
         }
         access.add_component_read(id);
     }
@@ -788,7 +788,7 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
 /// Bevy does not compare components to their previous values.
 ///
 /// To retain all results without filtering but still check whether they were changed after the
-/// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
+/// system last ran, use [`Ref<'_, T>`](crate::change_detection::Ref).
 ///
 /// **Note** that this includes changes that happened before the first time this `Query` was run.
 ///
@@ -819,11 +819,11 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
 /// # #[derive(Component)]
 /// # struct Transform;
 ///
-/// fn system1(q: Query<&MyComponent, Changed<Transform>>) {
+/// fn system1(q: Query<'_, '_, &MyComponent, Changed<Transform>>) {
 ///     for item in &q { /* component changed */ }
 /// }
 ///
-/// fn system2(q: Query<(&MyComponent, Ref<Transform>)>) {
+/// fn system2(q: Query<'_, '_, (&MyComponent, Ref<'_, Transform>)>) {
 ///     for item in &q {
 ///         if item.1.is_changed() { /* component changed */ }
 ///     }
@@ -843,7 +843,7 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
 /// # #[derive(Component)]
 /// # struct Transform {};
 ///
-/// fn print_moving_objects_system(query: Query<&Name, Changed<Transform>>) {
+/// fn print_moving_objects_system(query: Query<'_, '_, &Name, Changed<Transform>>) {
 ///     for name in &query {
 ///         println!("Entity Moved: {:?}", name);
 ///     }
@@ -978,7 +978,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
         if access.access().has_component_write(id) {
-            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",core::any::type_name::<T>());
+            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.", core::any::type_name::<T>());
         }
         access.add_component_read(id);
     }

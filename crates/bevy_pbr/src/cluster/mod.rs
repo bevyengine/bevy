@@ -262,9 +262,7 @@ impl ClusterConfig {
             ClusterConfig::FixedZ {
                 total, z_slices, ..
             } => {
-                let aspect_ratio: f32 = AspectRatio::try_from_pixels(screen_size.x, screen_size.y)
-                    .expect("Failed to calculate aspect ratio for Cluster: screen dimensions must be positive, non-zero values")
-                    .ratio();
+                let aspect_ratio: f32 = AspectRatio::try_from_pixels(screen_size.x, screen_size.y).expect("Failed to calculate aspect ratio for Cluster: screen dimensions must be positive, non-zero values").ratio();
                 let mut z_slices = *z_slices;
                 if *total < z_slices {
                     warn!("ClusterConfig has more z-slices than total clusters!");
@@ -354,8 +352,13 @@ impl Clusters {
 }
 
 pub fn add_clusters(
-    mut commands: Commands,
-    cameras: Query<(Entity, Option<&ClusterConfig>, &Camera), (Without<Clusters>, With<Camera3d>)>,
+    mut commands: Commands<'_, '_>,
+    cameras: Query<
+        '_,
+        '_,
+        (Entity, Option<&ClusterConfig>, &Camera),
+        (Without<Clusters>, With<Camera3d>),
+    >,
 ) {
     for (entity, config, camera) in &cameras {
         if !camera.is_active {
@@ -467,7 +470,7 @@ impl GpuClusterableObjects {
         }
     }
 
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         match self {
             GpuClusterableObjects::Uniform(buffer) => buffer.binding(),
             GpuClusterableObjects::Storage(buffer) => buffer.binding(),
@@ -513,8 +516,8 @@ pub(crate) struct ClusterableObjectOrderData<'a> {
 //   clusterable objects are chosen if the clusterable object count limit is
 //   exceeded.
 pub(crate) fn clusterable_object_order(
-    a: ClusterableObjectOrderData,
-    b: ClusterableObjectOrderData,
+    a: ClusterableObjectOrderData<'_>,
+    b: ClusterableObjectOrderData<'_>,
 ) -> core::cmp::Ordering {
     a.is_spot_light
         .cmp(b.is_spot_light) // pointlights before spot lights
@@ -525,9 +528,9 @@ pub(crate) fn clusterable_object_order(
 
 /// Extracts clusters from the main world from the render world.
 pub fn extract_clusters(
-    mut commands: Commands,
-    views: Extract<Query<(RenderEntity, &Clusters, &Camera)>>,
-    mapper: Extract<Query<RenderEntity>>,
+    mut commands: Commands<'_, '_>,
+    views: Extract<'_, '_, Query<'_, '_, (RenderEntity, &Clusters, &Camera)>>,
+    mapper: Extract<'_, '_, Query<'_, '_, RenderEntity>>,
 ) {
     for (entity, clusters, camera) in &views {
         if !camera.is_active {
@@ -569,12 +572,12 @@ pub fn extract_clusters(
 }
 
 pub fn prepare_clusters(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mesh_pipeline: Res<MeshPipeline>,
-    global_clusterable_object_meta: Res<GlobalClusterableObjectMeta>,
-    views: Query<(Entity, &ExtractedClusterableObjects)>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mesh_pipeline: Res<'_, MeshPipeline>,
+    global_clusterable_object_meta: Res<'_, GlobalClusterableObjectMeta>,
+    views: Query<'_, '_, (Entity, &ExtractedClusterableObjects)>,
 ) {
     let render_device = render_device.into_inner();
     let supports_storage_buffers = matches!(
@@ -741,7 +744,7 @@ impl ViewClusterBindings {
         }
     }
 
-    pub fn clusterable_object_index_lists_binding(&self) -> Option<BindingResource> {
+    pub fn clusterable_object_index_lists_binding(&self) -> Option<BindingResource<'_>> {
         match &self.buffers {
             ViewClusterBuffers::Uniform {
                 clusterable_object_index_lists,
@@ -754,7 +757,7 @@ impl ViewClusterBindings {
         }
     }
 
-    pub fn offsets_and_counts_binding(&self) -> Option<BindingResource> {
+    pub fn offsets_and_counts_binding(&self) -> Option<BindingResource<'_>> {
         match &self.buffers {
             ViewClusterBuffers::Uniform {
                 cluster_offsets_and_counts,

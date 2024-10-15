@@ -9,7 +9,7 @@ fn main() {
         .run();
 }
 
-fn touch_event_system(mut touch_events: EventReader<TouchInput>) {
+fn touch_event_system(mut touch_events: EventReader<'_, '_, TouchInput>) {
     for event in touch_events.read() {
         info!("{:?}", event);
     }

@@ -21,9 +21,9 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // circular base
     commands.spawn((
@@ -56,13 +56,13 @@ fn setup(
     ));
 }
 
-fn move_cube(mut query: Query<&mut Transform, With<Cube>>, time: Res<Time>) {
+fn move_cube(mut query: Query<'_, '_, &mut Transform, With<Cube>>, time: Res<'_, Time>) {
     for mut transform in &mut query {
         transform.translation.y = -cos(time.elapsed_seconds()) + 1.5;
     }
 }
 
-fn remove(mut commands: Commands, cube_entity: Single<Entity, With<Cube>>) {
+fn remove(mut commands: Commands<'_, '_>, cube_entity: Single<'_, Entity, With<Cube>>) {
     commands.entity(*cube_entity).remove::<Cube>();
 }
 

@@ -60,6 +60,8 @@ struct ReadOnlyCustomQuery<T: Component + Debug, P: Component + Debug> {
 
 fn print_components_read_only(
     query: Query<
+        '_,
+        '_,
         ReadOnlyCustomQuery<ComponentC, ComponentD>,
         CustomQueryFilter<ComponentC, ComponentD>,
     >,
@@ -124,12 +126,14 @@ struct CustomQueryFilter<T: Component, P: Component> {
     _generic_tuple: (With<T>, With<P>),
 }
 
-fn spawn(mut commands: Commands) {
+fn spawn(mut commands: Commands<'_, '_>) {
     commands.spawn((ComponentA, ComponentB, ComponentC, ComponentD));
 }
 
 fn print_components_iter_mut(
     mut query: Query<
+        '_,
+        '_,
         CustomQuery<ComponentC, ComponentD>,
         CustomQueryFilter<ComponentC, ComponentD>,
     >,
@@ -150,7 +154,12 @@ fn print_components_iter_mut(
 }
 
 fn print_components_iter(
-    query: Query<CustomQuery<ComponentC, ComponentD>, CustomQueryFilter<ComponentC, ComponentD>>,
+    query: Query<
+        '_,
+        '_,
+        CustomQuery<ComponentC, ComponentD>,
+        CustomQueryFilter<ComponentC, ComponentD>,
+    >,
 ) {
     println!("Print components (iter):");
     for e in &query {
@@ -170,6 +179,8 @@ type GenericTupleQuery<'w, T, P> = (&'w T, &'w P);
 
 fn print_components_tuple(
     query: Query<
+        '_,
+        '_,
         (
             Entity,
             &ComponentA,

@@ -38,7 +38,7 @@ where
     ///
     /// If we're in the GPU instance buffer building mode, this buffer needs to
     /// be filled in via a compute shader.
-    pub fn instance_data_binding(&self) -> Option<BindingResource> {
+    pub fn instance_data_binding(&self) -> Option<BindingResource<'_>> {
         self.binding()
     }
 }
@@ -47,7 +47,7 @@ where
 ///
 /// This needs to run before the CPU batched instance buffers are used.
 pub fn clear_batched_cpu_instance_buffers<GBD>(
-    cpu_batched_instance_buffer: Option<ResMut<BatchedInstanceBuffer<GBD::BufferData>>>,
+    cpu_batched_instance_buffer: Option<ResMut<'_, BatchedInstanceBuffer<GBD::BufferData>>>,
 ) where
     GBD: GetBatchData,
 {
@@ -60,9 +60,9 @@ pub fn clear_batched_cpu_instance_buffers<GBD>(
 /// isn't in use. This means comparing metadata needed to draw each phase item
 /// and trying to combine the draws into a batch.
 pub fn batch_and_prepare_sorted_render_phase<I, GBD>(
-    batched_instance_buffer: ResMut<BatchedInstanceBuffer<GBD::BufferData>>,
-    mut phases: ResMut<ViewSortedRenderPhases<I>>,
-    param: StaticSystemParam<GBD::Param>,
+    batched_instance_buffer: ResMut<'_, BatchedInstanceBuffer<GBD::BufferData>>,
+    mut phases: ResMut<'_, ViewSortedRenderPhases<I>>,
+    param: StaticSystemParam<'_, '_, GBD::Param>,
 ) where
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
     GBD: GetBatchData,
@@ -91,9 +91,9 @@ pub fn batch_and_prepare_sorted_render_phase<I, GBD>(
 /// Creates batches for a render phase that uses bins, when GPU batch data
 /// building isn't in use.
 pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
-    gpu_array_buffer: ResMut<BatchedInstanceBuffer<GFBD::BufferData>>,
-    mut phases: ResMut<ViewBinnedRenderPhases<BPI>>,
-    param: StaticSystemParam<GFBD::Param>,
+    gpu_array_buffer: ResMut<'_, BatchedInstanceBuffer<GFBD::BufferData>>,
+    mut phases: ResMut<'_, ViewBinnedRenderPhases<BPI>>,
+    param: StaticSystemParam<'_, '_, GFBD::Param>,
 ) where
     BPI: BinnedPhaseItem,
     GFBD: GetFullBatchData,
@@ -158,9 +158,9 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 
 /// Writes the instance buffer data to the GPU.
 pub fn write_batched_instance_buffer<GBD>(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut cpu_batched_instance_buffer: ResMut<BatchedInstanceBuffer<GBD::BufferData>>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut cpu_batched_instance_buffer: ResMut<'_, BatchedInstanceBuffer<GBD::BufferData>>,
 ) where
     GBD: GetBatchData,
 {

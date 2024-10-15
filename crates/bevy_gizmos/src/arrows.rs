@@ -180,7 +180,7 @@ where
     /// # struct MyComponent;
     /// fn draw_axes(
     ///     mut gizmos: Gizmos,
-    ///     query: Query<&Transform, With<MyComponent>>,
+    ///     query: Query<'_, '_, &Transform, With<MyComponent>>,
     /// ) {
     ///     for &transform in &query {
     ///         gizmos.axes(transform, 1.);
@@ -213,7 +213,7 @@ where
     /// # struct AxesComponent;
     /// fn draw_axes_2d(
     ///     mut gizmos: Gizmos,
-    ///     query: Query<&Transform, With<AxesComponent>>,
+    ///     query: Query<'_, '_, &Transform, With<AxesComponent>>,
     /// ) {
     ///     for &transform in &query {
     ///         gizmos.axes_2d(transform, 1.);

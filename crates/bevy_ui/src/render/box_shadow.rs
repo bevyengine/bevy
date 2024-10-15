@@ -231,23 +231,29 @@ pub struct ExtractedBoxShadows {
 }
 
 pub fn extract_shadows(
-    mut commands: Commands,
-    mut extracted_box_shadows: ResMut<ExtractedBoxShadows>,
-    default_ui_camera: Extract<DefaultUiCamera>,
-    ui_scale: Extract<Res<UiScale>>,
-    camera_query: Extract<Query<(Entity, &Camera)>>,
+    mut commands: Commands<'_, '_>,
+    mut extracted_box_shadows: ResMut<'_, ExtractedBoxShadows>,
+    default_ui_camera: Extract<'_, '_, DefaultUiCamera<'_, '_>>,
+    ui_scale: Extract<'_, '_, Res<'_, UiScale>>,
+    camera_query: Extract<'_, '_, Query<'_, '_, (Entity, &Camera)>>,
     box_shadow_query: Extract<
-        Query<(
-            Entity,
-            &Node,
-            &GlobalTransform,
-            &ViewVisibility,
-            &BoxShadow,
-            Option<&CalculatedClip>,
-            Option<&TargetCamera>,
-        )>,
+        '_,
+        '_,
+        Query<
+            '_,
+            '_,
+            (
+                Entity,
+                &Node,
+                &GlobalTransform,
+                &ViewVisibility,
+                &BoxShadow,
+                Option<&CalculatedClip>,
+                Option<&TargetCamera>,
+            ),
+        >,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    mapping: Extract<'_, '_, Query<'_, '_, RenderEntity>>,
 ) {
     for (entity, uinode, transform, view_visibility, box_shadow, clip, camera) in &box_shadow_query
     {
@@ -332,13 +338,13 @@ pub fn extract_shadows(
 }
 
 pub fn queue_shadows(
-    extracted_ui_slicers: ResMut<ExtractedBoxShadows>,
-    ui_slicer_pipeline: Res<BoxShadowPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView, Option<&UiBoxShadowSamples>)>,
-    pipeline_cache: Res<PipelineCache>,
-    draw_functions: Res<DrawFunctions<TransparentUi>>,
+    extracted_ui_slicers: ResMut<'_, ExtractedBoxShadows>,
+    ui_slicer_pipeline: Res<'_, BoxShadowPipeline>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<BoxShadowPipeline>>,
+    mut transparent_render_phases: ResMut<'_, ViewSortedRenderPhases<TransparentUi>>,
+    mut views: Query<'_, '_, (Entity, &ExtractedView, Option<&UiBoxShadowSamples>)>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    draw_functions: Res<'_, DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
     for (entity, extracted_shadow) in extracted_ui_slicers.box_shadows.iter() {
@@ -376,15 +382,15 @@ pub fn queue_shadows(
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_shadows(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut ui_meta: ResMut<BoxShadowMeta>,
-    mut extracted_shadows: ResMut<ExtractedBoxShadows>,
-    view_uniforms: Res<ViewUniforms>,
-    texture_slicer_pipeline: Res<BoxShadowPipeline>,
-    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut previous_len: Local<usize>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut ui_meta: ResMut<'_, BoxShadowMeta>,
+    mut extracted_shadows: ResMut<'_, ExtractedBoxShadows>,
+    view_uniforms: Res<'_, ViewUniforms>,
+    texture_slicer_pipeline: Res<'_, BoxShadowPipeline>,
+    mut phases: ResMut<'_, ViewSortedRenderPhases<TransparentUi>>,
+    mut previous_len: Local<'_, usize>,
 ) {
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         let mut batches: Vec<(Entity, UiShadowsBatch)> = Vec::with_capacity(*previous_len);

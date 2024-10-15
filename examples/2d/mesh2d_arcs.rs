@@ -32,10 +32,10 @@ fn main() {
 struct DrawBounds<Shape: Bounded2d + Send + Sync + 'static>(Shape);
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
 ) {
     let material = materials.add(asset_server.load("branding/icon.png"));
 
@@ -104,7 +104,7 @@ fn setup(
 }
 
 fn draw_bounds<Shape: Bounded2d + Send + Sync + 'static>(
-    q: Query<(&DrawBounds<Shape>, &GlobalTransform)>,
+    q: Query<'_, '_, (&DrawBounds<Shape>, &GlobalTransform)>,
     mut gizmos: Gizmos,
 ) {
     for (shape, transform) in &q {

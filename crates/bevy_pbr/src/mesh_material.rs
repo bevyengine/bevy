@@ -23,9 +23,9 @@ use derive_more::derive::From;
 /// #
 /// // Spawn an entity with a mesh using `StandardMaterial`.
 /// fn setup(
-///     mut commands: Commands,
-///     mut meshes: ResMut<Assets<Mesh>>,
-///     mut materials: ResMut<Assets<StandardMaterial>>,
+///     mut commands: Commands<'_, '_>,
+///     mut meshes: ResMut<'_, Assets<Mesh>>,
+///     mut materials: ResMut<'_, Assets<StandardMaterial>>,
 /// ) {
 ///     commands.spawn((
 ///         Mesh3d(meshes.add(Capsule3d::default())),
@@ -51,9 +51,9 @@ use derive_more::derive::From;
 /// # use bevy_math::primitives::Capsule3d;
 /// #
 /// fn setup(
-///     mut commands: Commands,
-///     mut meshes: ResMut<Assets<Mesh>>,
-///     mut materials: ResMut<Assets<StandardMaterial>>,
+///     mut commands: Commands<'_, '_>,
+///     mut meshes: ResMut<'_, Assets<Mesh>>,
+///     mut materials: ResMut<'_, Assets<StandardMaterial>>,
 /// ) {
 ///     // Optional: Insert a custom default material.
 ///     materials.insert(

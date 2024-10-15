@@ -53,7 +53,7 @@ struct NonReflectedValue {
     _a: usize,
 }
 
-fn setup(type_registry: Res<AppTypeRegistry>) {
+fn setup(type_registry: Res<'_, AppTypeRegistry>) {
     let mut value = Foo {
         a: 1,
         _ignored: NonReflectedValue { _a: 10 },

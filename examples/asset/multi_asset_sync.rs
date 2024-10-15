@@ -140,7 +140,7 @@ impl Drop for AssetBarrierGuard {
     }
 }
 
-fn setup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_assets(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     let (barrier, guard) = AssetBarrier::new();
     commands.insert_resource(OneHundredThings(std::array::from_fn(|i| match i % 5 {
         0 => asset_server.load_acquire("models/GolfBall/GolfBall.glb", guard.clone()),
@@ -166,7 +166,7 @@ fn setup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
         .detach();
 }
 
-fn setup_ui(mut commands: Commands) {
+fn setup_ui(mut commands: Commands<'_, '_>) {
     // Display the result of async loading.
     commands
         .spawn(NodeBundle {
@@ -174,7 +174,6 @@ fn setup_ui(mut commands: Commands) {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
                 justify_content: JustifyContent::End,
-
                 ..default()
             },
             ..default()
@@ -194,9 +193,9 @@ fn setup_ui(mut commands: Commands) {
 }
 
 fn setup_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // Camera
     commands.spawn((
@@ -222,7 +221,7 @@ fn setup_scene(
 }
 
 // A run condition for all assets being loaded.
-fn assets_loaded(barrier: Option<Res<AssetBarrier>>) -> bool {
+fn assets_loaded(barrier: Option<Res<'_, AssetBarrier>>) -> bool {
     // If our barrier isn't ready, return early and wait another cycle
     barrier.map(|b| b.is_ready()) == Some(true)
 }
@@ -231,11 +230,11 @@ fn assets_loaded(barrier: Option<Res<AssetBarrier>>) -> bool {
 //
 // This function only runs if `assets_loaded` returns true.
 fn wait_on_load(
-    mut commands: Commands,
-    foxes: Res<OneHundredThings>,
-    gltfs: Res<Assets<Gltf>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    foxes: Res<'_, OneHundredThings>,
+    gltfs: Res<'_, Assets<Gltf>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // Change color of plane to green
     commands.spawn((
@@ -259,9 +258,9 @@ fn wait_on_load(
 
 // This showcases how to wait for assets using async.
 fn get_async_loading_state(
-    state: Res<AsyncLoadingState>,
-    mut next_loading_state: ResMut<NextState<LoadingState>>,
-    mut text: Query<&mut Text, With<LoadingText>>,
+    state: Res<'_, AsyncLoadingState>,
+    mut next_loading_state: ResMut<'_, NextState<LoadingState>>,
+    mut text: Query<'_, '_, &mut Text, With<LoadingText>>,
 ) {
     // Load the value written by the `Future`.
     let is_loaded = state.0.load(Ordering::Acquire);
@@ -276,7 +275,10 @@ fn get_async_loading_state(
 }
 
 // This showcases how to react to asynchronous world mutations synchronously.
-fn despawn_loading_state_entities(mut commands: Commands, loading: Query<Entity, With<Loading>>) {
+fn despawn_loading_state_entities(
+    mut commands: Commands<'_, '_>,
+    loading: Query<'_, '_, Entity, With<Loading>>,
+) {
     // Despawn entities in the loading phase.
     for entity in loading.iter() {
         commands.entity(entity).despawn_recursive();

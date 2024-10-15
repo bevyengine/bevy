@@ -37,7 +37,9 @@ fn main() {
                         // This is a custom run condition in the form of a closure.
                         // This is useful for small, simple run conditions you don't need to reuse.
                         // All the normal rules still apply: all parameters must be read only except for local parameters.
-                        |counter: Res<InputCounter>| counter.is_changed() && !counter.is_added(),
+                        |counter: Res<'_, InputCounter>| {
+                            counter.is_changed() && !counter.is_added()
+                        },
                     )),
                 print_time_message
                     // This function returns a custom run condition, much like the common conditions module.
@@ -64,9 +66,9 @@ struct Unused;
 /// they are read only (except for local parameters which can be mutable).
 /// It returns a bool which determines if the system should run.
 fn has_user_input(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    touch_input: Res<Touches>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mouse_button_input: Res<'_, ButtonInput<MouseButton>>,
+    touch_input: Res<'_, Touches>,
 ) -> bool {
     keyboard_input.just_pressed(KeyCode::Space)
         || keyboard_input.just_pressed(KeyCode::Enter)
@@ -79,8 +81,8 @@ fn has_user_input(
 ///
 /// This is useful because you can reuse the same run condition but with different variables.
 /// This is how the common conditions module works.
-fn time_passed(t: f32) -> impl FnMut(Local<f32>, Res<Time>) -> bool {
-    move |mut timer: Local<f32>, time: Res<Time>| {
+fn time_passed(t: f32) -> impl FnMut(Local<f32>, Res<'_, Time>) -> bool {
+    move |mut timer: Local<'_, f32>, time: Res<'_, Time>| {
         // Tick the timer
         *timer += time.delta_seconds();
         // Return true if the timer has passed the time
@@ -92,12 +94,12 @@ fn time_passed(t: f32) -> impl FnMut(Local<f32>, Res<Time>) -> bool {
 /// Notice how we can take just the `ResMut` and not have to wrap
 /// it in an option in case it hasn't been initialized, this is because
 /// it has a run condition that checks if the `InputCounter` resource exists
-fn increment_input_counter(mut counter: ResMut<InputCounter>) {
+fn increment_input_counter(mut counter: ResMut<'_, InputCounter>) {
     counter.0 += 1;
 }
 
 /// SYSTEM: Print the input counter
-fn print_input_counter(counter: Res<InputCounter>) {
+fn print_input_counter(counter: Res<'_, InputCounter>) {
     println!("Input counter: {}", counter.0);
 }
 

@@ -803,17 +803,17 @@ impl<T: SparseSetIndex> Access<T> {
 /// Subtle: a `read` or `write` in `access` should not be considered to imply a
 /// `with` access.
 ///
-/// For example consider `Query<Option<&T>>` this only has a `read` of `T` as doing
+/// For example consider `Query<'_, '_, Option<&T>>` this only has a `read` of `T` as doing
 /// otherwise would allow for queries to be considered disjoint when they shouldn't:
-/// - `Query<(&mut T, Option<&U>)>` read/write `T`, read `U`, with `U`
-/// - `Query<&mut T, Without<U>>` read/write `T`, without `U`
+/// - `Query<'_, '_, (&mut T, Option<&U>)>` read/write `T`, read `U`, with `U`
+/// - `Query<'_, '_, &mut T, Without<U>>` read/write `T`, without `U`
 ///     from this we could reasonably conclude that the queries are disjoint but they aren't.
 ///
-/// In order to solve this the actual access that `Query<(&mut T, Option<&U>)>` has
+/// In order to solve this the actual access that `Query<'_, '_, (&mut T, Option<&U>)>` has
 /// is read/write `T`, read `U`. It must still have a read `U` access otherwise the following
 /// queries would be incorrectly considered disjoint:
-/// - `Query<&mut T>`  read/write `T`
-/// - `Query<Option<&T>>` accesses nothing
+/// - `Query<'_, '_, &mut T>`  read/write `T`
+/// - `Query<'_, '_, Option<&T>>` accesses nothing
 ///
 /// See comments the [`WorldQuery`](super::WorldQuery) impls of [`AnyOf`](super::AnyOf)/`Option`/[`Or`](super::Or) for more information.
 #[derive(Debug, Eq, PartialEq)]
@@ -1021,8 +1021,8 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         // Since the `filter_sets` array represents a Disjunctive Normal Form formula ("ORs of ANDs"),
         // we need to make sure that each filter set (ANDs) rule out every filter set from the `other` instance.
         //
-        // For example, `Query<&mut C, Or<(With<A>, Without<B>)>>` is compatible `Query<&mut C, (With<B>, Without<A>)>`,
-        // but `Query<&mut C, Or<(Without<A>, Without<B>)>>` isn't compatible with `Query<&mut C, Or<(With<A>, With<B>)>>`.
+        // For example, `Query<'_, '_, &mut C, Or<(With<A>, Without<B>)>>` is compatible `Query<'_, '_, &mut C, (With<B>, Without<A>)>`,
+        // but `Query<'_, '_, &mut C, Or<(Without<A>, Without<B>)>>` isn't compatible with `Query<'_, '_, &mut C, Or<(With<A>, With<B>)>>`.
         self.filter_sets.iter().all(|filter| {
             other
                 .filter_sets
@@ -1572,7 +1572,7 @@ mod tests {
         // Turns `access_b` into `Or<(With<C>, (With<D>, Without<D>))>`.
         access_b.append_or(&access_c);
         // Applies the filters to the initial query, which corresponds to the FilteredAccess'
-        // representation of `Query<(&mut A, &mut B), Or<(With<C>, (With<D>, Without<E>))>>`.
+        // representation of `Query<'_, '_, (&mut A, &mut B), Or<(With<C>, (With<D>, Without<E>))>>`.
         access_a.extend(&access_b);
 
         // Construct the expected `FilteredAccess` struct.

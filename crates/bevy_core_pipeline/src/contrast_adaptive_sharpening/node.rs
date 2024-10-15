@@ -43,8 +43,8 @@ impl Node for CasNode {
 
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        graph: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();

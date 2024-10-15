@@ -111,9 +111,9 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // Spawn the camera
     commands.spawn((Camera3d::default(), TRANSFORM_2D, PROJECTION_2D));
@@ -156,18 +156,17 @@ fn setup(
     ));
 
     // Example instructions
-    commands.spawn((Text::new("Press 'B' to toggle between no bounding shapes, bounding boxes (AABBs) and bounding spheres / circles\n\
-            Press 'Space' to switch between 3D and 2D"),
-            Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }));
+    commands.spawn((
+        Text::new(
+            "Press 'B' to toggle between no bounding shapes, bounding boxes (AABBs) and bounding spheres / circles\n\
+            Press 'Space' to switch between 3D and 2D",
+        ),
+        Style { position_type: PositionType::Absolute, top: Val::Px(12.0), left: Val::Px(12.0), ..default() },
+    ));
 }
 
 // Rotate the 2D shapes.
-fn rotate_2d_shapes(mut shapes: Query<&mut Transform, With<Shape2d>>, time: Res<Time>) {
+fn rotate_2d_shapes(mut shapes: Query<'_, '_, &mut Transform, With<Shape2d>>, time: Res<'_, Time>) {
     let elapsed_seconds = time.elapsed_seconds();
 
     for mut transform in shapes.iter_mut() {
@@ -177,9 +176,9 @@ fn rotate_2d_shapes(mut shapes: Query<&mut Transform, With<Shape2d>>, time: Res<
 
 // Draw bounding boxes or circles for the 2D shapes.
 fn bounding_shapes_2d(
-    shapes: Query<&Transform, With<Shape2d>>,
+    shapes: Query<'_, '_, &Transform, With<Shape2d>>,
     mut gizmos: Gizmos,
-    bounding_shape: Res<State<BoundingShape>>,
+    bounding_shape: Res<'_, State<BoundingShape>>,
 ) {
     for transform in shapes.iter() {
         // Get the rotation angle from the 3D rotation.
@@ -206,7 +205,7 @@ fn bounding_shapes_2d(
 }
 
 // Rotate the 3D shapes.
-fn rotate_3d_shapes(mut shapes: Query<&mut Transform, With<Shape3d>>, time: Res<Time>) {
+fn rotate_3d_shapes(mut shapes: Query<'_, '_, &mut Transform, With<Shape3d>>, time: Res<'_, Time>) {
     let delta_seconds = time.delta_seconds();
 
     for mut transform in shapes.iter_mut() {
@@ -216,9 +215,9 @@ fn rotate_3d_shapes(mut shapes: Query<&mut Transform, With<Shape3d>>, time: Res<
 
 // Draw the AABBs or bounding spheres for the 3D shapes.
 fn bounding_shapes_3d(
-    shapes: Query<&Transform, With<Shape3d>>,
+    shapes: Query<'_, '_, &Transform, With<Shape3d>>,
     mut gizmos: Gizmos,
-    bounding_shape: Res<State<BoundingShape>>,
+    bounding_shape: Res<'_, State<BoundingShape>>,
 ) {
     for transform in shapes.iter() {
         match bounding_shape.get() {
@@ -245,8 +244,8 @@ fn bounding_shapes_3d(
 
 // Switch to the next bounding shape.
 fn update_bounding_shape(
-    current: Res<State<BoundingShape>>,
-    mut next: ResMut<NextState<BoundingShape>>,
+    current: Res<'_, State<BoundingShape>>,
+    mut next: ResMut<'_, NextState<BoundingShape>>,
 ) {
     next.set(match current.get() {
         BoundingShape::None => BoundingShape::BoundingBox,
@@ -257,9 +256,9 @@ fn update_bounding_shape(
 
 // Switch between 2D and 3D cameras.
 fn switch_cameras(
-    current: Res<State<CameraActive>>,
-    mut next: ResMut<NextState<CameraActive>>,
-    camera: Single<(&mut Transform, &mut Projection)>,
+    current: Res<'_, State<CameraActive>>,
+    mut next: ResMut<'_, NextState<CameraActive>>,
+    camera: Single<'_, (&mut Transform, &mut Projection)>,
 ) {
     let next_state = match current.get() {
         CameraActive::Dim2 => CameraActive::Dim3,

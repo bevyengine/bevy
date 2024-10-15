@@ -377,6 +377,8 @@ pub enum FontSmoothing {
 /// 2d or `Text`/[`TextSpan`] for UI.
 pub fn detect_text_needs_rerender<Root: Component>(
     changed_roots: Query<
+        '_,
+        '_,
         Entity,
         (
             Or<(
@@ -391,6 +393,8 @@ pub fn detect_text_needs_rerender<Root: Component>(
         ),
     >,
     changed_spans: Query<
+        '_,
+        '_,
         (Entity, Option<&Parent>, Has<TextLayout>),
         (
             Or<(
@@ -404,11 +408,15 @@ pub fn detect_text_needs_rerender<Root: Component>(
             With<TextFont>,
         ),
     >,
-    mut computed: Query<(
-        Option<&Parent>,
-        Option<&mut ComputedTextBlock>,
-        Has<TextSpan>,
-    )>,
+    mut computed: Query<
+        '_,
+        '_,
+        (
+            Option<&Parent>,
+            Option<&mut ComputedTextBlock>,
+            Has<TextSpan>,
+        ),
+    >,
 ) {
     // Root entity:
     // - Root component changed.
@@ -417,8 +425,12 @@ pub fn detect_text_needs_rerender<Root: Component>(
     // - Root children changed (can include additions and removals).
     for root in changed_roots.iter() {
         let Ok((_, Some(mut computed), _)) = computed.get_mut(root) else {
-            warn_once!("found entity {:?} with a root text component ({}) but no ComputedTextBlock; this warning only \
-                prints once", root, core::any::type_name::<Root>());
+            warn_once!(
+                "found entity {:?} with a root text component ({}) but no ComputedTextBlock; this warning only \
+                prints once",
+                root,
+                core::any::type_name::<Root>()
+            );
             continue;
         };
         computed.needs_rerender = true;
@@ -430,9 +442,12 @@ pub fn detect_text_needs_rerender<Root: Component>(
     // - Span children changed (can include additions and removals).
     for (entity, maybe_span_parent, has_text_block) in changed_spans.iter() {
         if has_text_block {
-            warn_once!("found entity {:?} with a TextSpan that has a TextLayout, which should only be on root \
+            warn_once!(
+                "found entity {:?} with a TextSpan that has a TextLayout, which should only be on root \
                 text entities (that have {}); this warning only prints once",
-                entity, core::any::type_name::<Root>());
+                entity,
+                core::any::type_name::<Root>()
+            );
         }
 
         let Some(span_parent) = maybe_span_parent else {
@@ -451,9 +466,12 @@ pub fn detect_text_needs_rerender<Root: Component>(
         // is outweighed by the expense of tracking visited spans.
         loop {
             let Ok((maybe_parent, maybe_computed, has_span)) = computed.get_mut(parent) else {
-                warn_once!("found entity {:?} with a TextSpan that is part of a broken hierarchy with a Parent \
+                warn_once!(
+                    "found entity {:?} with a TextSpan that is part of a broken hierarchy with a Parent \
                     component that points at non-existent entity {:?}; this warning only prints once",
-                    entity, parent);
+                    entity,
+                    parent
+                );
                 break;
             };
             if let Some(mut computed) = maybe_computed {
@@ -461,9 +479,12 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 break;
             }
             if !has_span {
-                warn_once!("found entity {:?} with a TextSpan that has an ancestor ({}) that does not have a text \
+                warn_once!(
+                    "found entity {:?} with a TextSpan that has an ancestor ({}) that does not have a text \
                 span component or a ComputedTextBlock component; this warning only prints once",
-                    entity, parent);
+                    entity,
+                    parent
+                );
                 break;
             }
             let Some(next_parent) = maybe_parent else {

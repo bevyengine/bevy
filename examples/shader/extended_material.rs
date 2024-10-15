@@ -22,9 +22,9 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, MyExtension>>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<ExtendedMaterial<StandardMaterial, MyExtension>>>,
 ) {
     // sphere
     commands.spawn((
@@ -63,7 +63,7 @@ fn setup(
 #[derive(Component)]
 struct Rotate;
 
-fn rotate_things(mut q: Query<&mut Transform, With<Rotate>>, time: Res<Time>) {
+fn rotate_things(mut q: Query<'_, '_, &mut Transform, With<Rotate>>, time: Res<'_, Time>) {
     for mut t in &mut q {
         t.rotate_y(time.delta_seconds());
     }

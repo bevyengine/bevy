@@ -309,11 +309,11 @@ macro_rules! impl_reflect_for_atomic {
                     ReflectKind::Opaque
                 }
                 #[inline]
-                fn reflect_ref(&self) -> ReflectRef {
+                fn reflect_ref(&self) -> ReflectRef<'_> {
                     ReflectRef::Opaque(self)
                 }
                 #[inline]
-                fn reflect_mut(&mut self) -> ReflectMut {
+                fn reflect_mut(&mut self) -> ReflectMut<'_> {
                     ReflectMut::Opaque(self)
                 }
                 #[inline]
@@ -322,12 +322,12 @@ macro_rules! impl_reflect_for_atomic {
                 }
                 fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                     fmt::Debug::fmt(self, f)
-                }
-            }
+        }
+    }
 
-            // strange rustfmt bug gives this invocation the wrong indentation!
-            #[rustfmt::skip]
-            impl_full_reflect!(for $ty where $ty: Any + Send + Sync);
+    // strange rustfmt bug gives this invocation the wrong indentation!
+    #[rustfmt::skip]
+                    impl_full_reflect!(for $ty where $ty: Any + Send + Sync);
 
             impl FromReflect for $ty
             where
@@ -437,7 +437,7 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             #[inline]
-            fn iter(&self) -> ListIter {
+            fn iter(&self) -> ListIter<'_> {
                 ListIter::new(self)
             }
 
@@ -487,11 +487,11 @@ macro_rules! impl_reflect_for_veclike {
                 ReflectKind::List
             }
 
-            fn reflect_ref(&self) -> ReflectRef {
+            fn reflect_ref(&self) -> ReflectRef<'_> {
                 ReflectRef::List(self)
             }
 
-            fn reflect_mut(&mut self) -> ReflectMut {
+            fn reflect_mut(&mut self) -> ReflectMut<'_> {
                 ReflectMut::List(self)
             }
 
@@ -621,7 +621,7 @@ macro_rules! impl_reflect_for_hashmap {
                 Self::len(self)
             }
 
-            fn iter(&self) -> MapIter {
+            fn iter(&self) -> MapIter<'_> {
                 MapIter::new(self)
             }
 
@@ -725,11 +725,11 @@ macro_rules! impl_reflect_for_hashmap {
                 ReflectKind::Map
             }
 
-            fn reflect_ref(&self) -> ReflectRef {
+            fn reflect_ref(&self) -> ReflectRef<'_> {
                 ReflectRef::Map(self)
             }
 
-            fn reflect_mut(&mut self) -> ReflectMut {
+            fn reflect_mut(&mut self) -> ReflectMut<'_> {
                 ReflectMut::Map(self)
             }
 
@@ -966,11 +966,11 @@ macro_rules! impl_reflect_for_hashset {
                 ReflectKind::Set
             }
 
-            fn reflect_ref(&self) -> ReflectRef {
+            fn reflect_ref(&self) -> ReflectRef<'_> {
                 ReflectRef::Set(self)
             }
 
-            fn reflect_mut(&mut self) -> ReflectMut {
+            fn reflect_mut(&mut self) -> ReflectMut<'_> {
                 ReflectMut::Set(self)
             }
 
@@ -1107,7 +1107,7 @@ where
         Self::len(self)
     }
 
-    fn iter(&self) -> MapIter {
+    fn iter(&self) -> MapIter<'_> {
         MapIter::new(self)
     }
 
@@ -1209,11 +1209,11 @@ where
         ReflectKind::Map
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Map(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Map(self)
     }
 
@@ -1321,7 +1321,7 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> A
     }
 
     #[inline]
-    fn iter(&self) -> ArrayIter {
+    fn iter(&self) -> ArrayIter<'_> {
         ArrayIter::new(self)
     }
 
@@ -1371,12 +1371,12 @@ impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> P
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Array(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Array(self)
     }
 
@@ -1572,11 +1572,11 @@ impl PartialReflect for Cow<'static, str> {
         ReflectKind::Opaque
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Opaque(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Opaque(self)
     }
 
@@ -1711,7 +1711,7 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
         self.as_ref().len()
     }
 
-    fn iter(&self) -> ListIter {
+    fn iter(&self) -> ListIter<'_> {
         ListIter::new(self)
     }
 
@@ -1759,11 +1759,11 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
         ReflectKind::List
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::List(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::List(self)
     }
 
@@ -1868,11 +1868,11 @@ impl PartialReflect for &'static str {
         Some(self)
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Opaque(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Opaque(self)
     }
 
@@ -2006,11 +2006,11 @@ impl PartialReflect for &'static Path {
         ReflectKind::Opaque
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Opaque(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Opaque(self)
     }
 
@@ -2139,11 +2139,11 @@ impl PartialReflect for Cow<'static, Path> {
         ReflectKind::Opaque
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Opaque(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Opaque(self)
     }
 

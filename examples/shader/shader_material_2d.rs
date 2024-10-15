@@ -22,10 +22,10 @@ fn main() {
 
 // Setup a simple 2d scene
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<CustomMaterial>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     // camera
     commands.spawn(Camera2d);

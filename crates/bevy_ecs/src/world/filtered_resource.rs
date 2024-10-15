@@ -52,7 +52,7 @@ use bevy_ptr::UnsafeCellDeref;
 ///     // The resource exists and we have access, so we can read it.
 ///     let c = res.get::<C>().unwrap();
 ///     // The type parameter can be left out if it can be determined from use.
-///     let c: Ref<C> = res.get().unwrap();
+///     let c: Ref<'_, C> = res.get().unwrap();
 /// }
 /// #
 /// # world.run_system_once(system);
@@ -84,8 +84,8 @@ use bevy_ptr::UnsafeCellDeref;
 ///     .build_system(resource_system);
 ///
 /// // Read access to A does not conflict with read access to A or write access to B.
-/// fn resource_system(filtered: FilteredResources, res_a: Res<A>, res_mut_b: ResMut<B>) {
-///     let res_a_2: Ref<A> = filtered.get::<A>().unwrap();
+/// fn resource_system(filtered: FilteredResources, res_a: Res<'_, A>, res_mut_b: ResMut<'_, B>) {
+///     let res_a_2: Ref<'_, A> = filtered.get::<A>().unwrap();
 /// }
 /// #
 /// # world.run_system_once(system);
@@ -112,7 +112,7 @@ use bevy_ptr::UnsafeCellDeref;
 ///     .build_system(invalid_resource_system);
 ///
 /// // Read access to A conflicts with write access to A.
-/// fn invalid_resource_system(filtered: FilteredResources, res_mut_a: ResMut<A>) { }
+/// fn invalid_resource_system(filtered: FilteredResources, res_mut_a: ResMut<'_, A>) { }
 /// #
 /// # world.run_system_once(system);
 /// ```
@@ -294,7 +294,7 @@ impl<'w> From<&'w mut World> for FilteredResources<'w, 'static> {
 ///     let d = res.get::<D>().unwrap();
 ///     let d = res.get_mut::<D>().unwrap();
 ///     // The type parameter can be left out if it can be determined from use.
-///     let c: Ref<C> = res.get().unwrap();
+///     let c: Ref<'_, C> = res.get().unwrap();
 /// }
 /// #
 /// # world.run_system_once(system);
@@ -331,9 +331,9 @@ impl<'w> From<&'w mut World> for FilteredResources<'w, 'static> {
 ///
 /// // Read access to A does not conflict with read access to A or write access to C.
 /// // Write access to B does not conflict with access to A or C.
-/// fn resource_system(mut filtered: FilteredResourcesMut, res_a: Res<A>, res_mut_c: ResMut<C>) {
-///     let res_a_2: Ref<A> = filtered.get::<A>().unwrap();
-///     let res_mut_b: Mut<B> = filtered.get_mut::<B>().unwrap();
+/// fn resource_system(mut filtered: FilteredResourcesMut, res_a: Res<'_, A>, res_mut_c: ResMut<'_, C>) {
+///     let res_a_2: Ref<'_, A> = filtered.get::<A>().unwrap();
+///     let res_mut_b: Mut<'_, B> = filtered.get_mut::<B>().unwrap();
 /// }
 /// #
 /// # world.run_system_once(system);
@@ -361,7 +361,7 @@ impl<'w> From<&'w mut World> for FilteredResources<'w, 'static> {
 ///     .build_system(invalid_resource_system);
 ///
 /// // Read access to A conflicts with write access to A.
-/// fn invalid_resource_system(filtered: FilteredResourcesMut, res_a: Res<A>) { }
+/// fn invalid_resource_system(filtered: FilteredResourcesMut, res_a: Res<'_, A>) { }
 /// #
 /// # world.run_system_once(system);
 /// ```

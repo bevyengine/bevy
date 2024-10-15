@@ -66,7 +66,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # #[derive(Component)]
     /// # struct ComponentA;
     ///
-    /// fn combinations(query: Query<&ComponentA>) {
+    /// fn combinations(query: Query<'_, '_, &ComponentA>) {
     ///     let mut iter = query.iter();
     ///     while let Some(a) = iter.next() {
     ///         for b in iter.remaining() {
@@ -103,7 +103,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # #[derive(Component)]
     /// # struct ComponentA;
     ///
-    /// fn combinations(mut query: Query<&mut ComponentA>) {
+    /// fn combinations(mut query: Query<'_, '_, &mut ComponentA>) {
     ///     let mut iter = query.iter_mut();
     ///     while let Some(a) = iter.next() {
     ///         for b in iter.remaining_mut() {
@@ -453,12 +453,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # }
     /// # let mut world = World::new();
     /// // We can ensure that a query always returns in the same order.
-    /// fn system_1(query: Query<(Entity, &PartIndex)>) {
+    /// fn system_1(query: Query<'_, '_, (Entity, &PartIndex)>) {
     ///     let parts: Vec<(Entity, &PartIndex)> = query.iter().sort::<&PartIndex>().collect();
     /// }
     ///
     /// // We can freely rearrange query components in the key.
-    /// fn system_2(query: Query<(&Length, &Width, &Height), With<PartMarker>>) {
+    /// fn system_2(query: Query<'_, '_, (&Length, &Width, &Height), With<PartMarker>>) {
     ///     for (length, width, height) in query.iter().sort::<(&Height, &Length, &Width)>() {
     ///         println!("height: {height:?}, width: {width:?}, length: {length:?}")
     ///     }
@@ -467,8 +467,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// // We can sort by Entity without including it in the original Query.
     /// // Here, we match iteration orders between query iterators.
     /// fn system_3(
-    ///     part_query: Query<(&PartValue, &ParentEntity)>,
-    ///     mut parent_query: Query<(&ChildPartCount, &mut ParentValue)>,
+    ///     part_query: Query<'_, '_, (&PartValue, &ParentEntity)>,
+    ///     mut parent_query: Query<'_, '_, (&ChildPartCount, &mut ParentValue)>,
     /// ) {
     ///     let part_values = &mut part_query
     ///         .into_iter()
@@ -568,7 +568,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// };
     ///
     /// // We perform an unstable sort by a Component with few values.
-    /// fn system_1(query: Query<&Flying, With<PartMarker>>) {
+    /// fn system_1(query: Query<'_, '_, &Flying, With<PartMarker>>) {
     ///     let part_values: Vec<&Flying> = query.iter().sort_unstable::<&Flying>().collect();
     /// }
     /// #
@@ -663,7 +663,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// struct PartValue(f32);
     ///
     /// // We can use a cmp function on components do not implement Ord.
-    /// fn system_1(query: Query<&PartValue>) {
+    /// fn system_1(query: Query<'_, '_, &PartValue>) {
     ///     // Sort part values according to `f32::total_comp`.
     ///     let part_values: Vec<&PartValue> = query
     ///         .iter()
@@ -841,7 +841,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// struct PartValue(f32);
     ///
     /// // We can sort with the internals of components that do not implement Ord.
-    /// fn system_1(query: Query<(Entity, &PartValue)>) {
+    /// fn system_1(query: Query<'_, '_, (Entity, &PartValue)>) {
     ///     // Sort by the sines of the part values.
     ///     let parts: Vec<(Entity, &PartValue)> = query
     ///         .iter()
@@ -850,7 +850,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// }
     ///
     /// // We can define our own custom comparison functions over an EntityRef.
-    /// fn system_2(query: Query<EntityRef, With<PartMarker>>) {
+    /// fn system_2(query: Query<'_, '_, EntityRef, With<PartMarker>>) {
     ///     // Sort by whether parts are available and their rarity.
     ///     // We want the available legendaries to come first, so we reverse the iterator.
     ///     let parts: Vec<EntityRef> = query.iter()
@@ -1500,7 +1500,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> De
 /// # #[derive(Component)]
 /// # struct ComponentA;
 /// #
-/// fn some_system(query: Query<&ComponentA>) {
+/// fn some_system(query: Query<'_, '_, &ComponentA>) {
 ///     for [a1, a2] in query.iter_combinations() {
 ///         // ...
 ///     }
@@ -1514,7 +1514,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> De
 /// # #[derive(Component)]
 /// # struct ComponentA;
 /// #
-/// fn some_system(mut query: Query<&mut ComponentA>) {
+/// fn some_system(mut query: Query<'_, '_, &mut ComponentA>) {
 ///     let mut combinations = query.iter_combinations_mut();
 ///     while let Some([a1, a2]) = combinations.fetch_next() {
 ///         // ...
@@ -2106,21 +2106,9 @@ mod tests {
         {
             let mut query = world.query::<&Sparse>();
             let mut iter = query.iter(&world);
-            println!(
-                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
-                iter.cursor.current_len,
-                iter.cursor.current_row
-            );
+            println!("before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", iter.cursor.archetype_entities.len(), iter.cursor.table_entities.len(), iter.cursor.current_len, iter.cursor.current_row);
             _ = iter.next();
-            println!(
-                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
-                iter.cursor.current_len,
-                iter.cursor.current_row
-            );
+            println!("after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", iter.cursor.archetype_entities.len(), iter.cursor.table_entities.len(), iter.cursor.current_len, iter.cursor.current_row);
             println!("{}", iter.sort::<Entity>().len());
         }
     }
@@ -2131,21 +2119,9 @@ mod tests {
         {
             let mut query = world.query::<(&A, &Sparse)>();
             let mut iter = query.iter(&world);
-            println!(
-                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
-                iter.cursor.current_len,
-                iter.cursor.current_row
-            );
+            println!("before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", iter.cursor.archetype_entities.len(), iter.cursor.table_entities.len(), iter.cursor.current_len, iter.cursor.current_row);
             _ = iter.next();
-            println!(
-                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
-                iter.cursor.current_len,
-                iter.cursor.current_row
-            );
+            println!("after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", iter.cursor.archetype_entities.len(), iter.cursor.table_entities.len(), iter.cursor.current_len, iter.cursor.current_row);
             println!("{}", iter.sort::<Entity>().len());
         }
     }
@@ -2159,22 +2135,10 @@ mod tests {
         {
             let mut query = world.query::<(&A, &Sparse)>();
             let mut iter = query.iter(&world);
-            println!(
-                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
-                iter.cursor.current_len,
-                iter.cursor.current_row
-            );
+            println!("before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", iter.cursor.archetype_entities.len(), iter.cursor.table_entities.len(), iter.cursor.current_len, iter.cursor.current_row);
             assert!(iter.cursor.table_entities.len() | iter.cursor.archetype_entities.len() == 0);
             _ = iter.next();
-            println!(
-                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
-                iter.cursor.current_len,
-                iter.cursor.current_row
-            );
+            println!("after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", iter.cursor.archetype_entities.len(), iter.cursor.table_entities.len(), iter.cursor.current_len, iter.cursor.current_row);
             assert!(
                 (
                     iter.cursor.table_entities.len(),

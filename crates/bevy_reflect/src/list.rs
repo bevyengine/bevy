@@ -94,7 +94,7 @@ pub trait List: PartialReflect {
     }
 
     /// Returns an iterator over the list.
-    fn iter(&self) -> ListIter;
+    fn iter(&self) -> ListIter<'_>;
 
     /// Drain the elements of this list to get a vector of owned values.
     ///
@@ -233,7 +233,7 @@ impl List for DynamicList {
         self.values.len()
     }
 
-    fn iter(&self) -> ListIter {
+    fn iter(&self) -> ListIter<'_> {
         ListIter::new(self)
     }
 
@@ -300,12 +300,12 @@ impl PartialReflect for DynamicList {
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::List(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::List(self)
     }
 
@@ -393,7 +393,7 @@ pub struct ListIter<'a> {
 impl ListIter<'_> {
     /// Creates a new [`ListIter`].
     #[inline]
-    pub const fn new(list: &dyn List) -> ListIter {
+    pub const fn new(list: &dyn List) -> ListIter<'_> {
         ListIter { list, index: 0 }
     }
 }

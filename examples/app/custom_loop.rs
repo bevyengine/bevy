@@ -29,11 +29,11 @@ fn my_runner(mut app: App) -> AppExit {
     AppExit::Success
 }
 
-fn print_system(input: Res<Input>) {
+fn print_system(input: Res<'_, Input>) {
     println!("You typed: {}", input.0);
 }
 
-fn exit_system(input: Res<Input>, mut exit_event: EventWriter<AppExit>) {
+fn exit_system(input: Res<'_, Input>, mut exit_event: EventWriter<'_, AppExit>) {
     if input.0 == "exit" {
         exit_event.send(AppExit::Success);
     }

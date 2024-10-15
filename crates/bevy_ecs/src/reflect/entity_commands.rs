@@ -60,8 +60,8 @@ pub trait ReflectCommandExt {
     /// }
     ///
     /// fn insert_reflect_component(
-    ///     mut commands: Commands,
-    ///     mut prefab: ResMut<Prefab>
+    ///     mut commands: Commands<'_, '_>,
+    ///     mut prefab: ResMut<'_, Prefab>
     ///     ) {
     ///     // Create a set of new boxed reflect components to use
     ///     let boxed_reflect_component_a: Box<dyn Reflect> = Box::new(ComponentA(916));
@@ -148,8 +148,8 @@ pub trait ReflectCommandExt {
     /// }
     ///
     /// fn remove_reflect_component(
-    ///     mut commands: Commands,
-    ///     prefab: Res<Prefab>
+    ///     mut commands: Commands<'_, '_>,
+    ///     prefab: Res<'_, Prefab>
     ///     ) {
     ///     // Prefab can hold any boxed reflect component or bundle. In this case either
     ///     // ComponentA, ComponentB, or BundleA. No matter which component or bundle is in the resource though,
@@ -270,7 +270,7 @@ pub struct InsertReflectWithRegistry<T: Resource + AsRef<TypeRegistry>> {
 
 impl<T: Resource + AsRef<TypeRegistry>> Command for InsertReflectWithRegistry<T> {
     fn apply(self, world: &mut World) {
-        world.resource_scope(|world, registry: Mut<T>| {
+        world.resource_scope(|world, registry: Mut<'_, T>| {
             let registry: &TypeRegistry = registry.as_ref().as_ref();
             insert_reflect(world, self.entity, registry, self.component);
         });
@@ -338,7 +338,7 @@ pub struct RemoveReflectWithRegistry<T: Resource + AsRef<TypeRegistry>> {
 
 impl<T: Resource + AsRef<TypeRegistry>> Command for RemoveReflectWithRegistry<T> {
     fn apply(self, world: &mut World) {
-        world.resource_scope(|world, registry: Mut<T>| {
+        world.resource_scope(|world, registry: Mut<'_, T>| {
             let registry: &TypeRegistry = registry.as_ref().as_ref();
             remove_reflect(world, self.entity, registry, self.component_type_name);
         });
@@ -397,7 +397,7 @@ mod tests {
         }
         world.insert_resource(type_registry);
 
-        let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
+        let mut system_state: SystemState<Commands<'_, '_>> = SystemState::new(&mut world);
         let mut commands = system_state.get_mut(&mut world);
 
         let entity = commands.spawn_empty().id();
@@ -434,7 +434,7 @@ mod tests {
             .register_type_data::<ComponentA, ReflectComponent>();
         world.insert_resource(type_registry);
 
-        let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
+        let mut system_state: SystemState<Commands<'_, '_>> = SystemState::new(&mut world);
         let mut commands = system_state.get_mut(&mut world);
 
         let entity = commands.spawn_empty().id();
@@ -464,7 +464,7 @@ mod tests {
         }
         world.insert_resource(type_registry);
 
-        let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
+        let mut system_state: SystemState<Commands<'_, '_>> = SystemState::new(&mut world);
         let mut commands = system_state.get_mut(&mut world);
 
         let entity = commands.spawn(ComponentA(0)).id();
@@ -493,7 +493,7 @@ mod tests {
             .register_type_data::<ComponentA, ReflectComponent>();
         world.insert_resource(type_registry);
 
-        let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
+        let mut system_state: SystemState<Commands<'_, '_>> = SystemState::new(&mut world);
         let mut commands = system_state.get_mut(&mut world);
 
         let entity = commands.spawn(ComponentA(0)).id();
@@ -522,7 +522,7 @@ mod tests {
         }
         world.insert_resource(type_registry);
 
-        let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
+        let mut system_state: SystemState<Commands<'_, '_>> = SystemState::new(&mut world);
         let mut commands = system_state.get_mut(&mut world);
 
         let entity = commands.spawn_empty().id();
@@ -552,7 +552,7 @@ mod tests {
             .register_type_data::<BundleA, ReflectBundle>();
         world.insert_resource(type_registry);
 
-        let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
+        let mut system_state: SystemState<Commands<'_, '_>> = SystemState::new(&mut world);
         let mut commands = system_state.get_mut(&mut world);
 
         let entity = commands.spawn_empty().id();
@@ -582,7 +582,7 @@ mod tests {
         }
         world.insert_resource(type_registry);
 
-        let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
+        let mut system_state: SystemState<Commands<'_, '_>> = SystemState::new(&mut world);
         let mut commands = system_state.get_mut(&mut world);
 
         let entity = commands
@@ -620,7 +620,7 @@ mod tests {
             .register_type_data::<BundleA, ReflectBundle>();
         world.insert_resource(type_registry);
 
-        let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
+        let mut system_state: SystemState<Commands<'_, '_>> = SystemState::new(&mut world);
         let mut commands = system_state.get_mut(&mut world);
 
         let entity = commands

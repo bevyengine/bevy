@@ -15,7 +15,7 @@
 //! # struct MyComponent;
 //! # let mut world = World::new();
 //! world.spawn(MyComponent)
-//!     .observe(|mut trigger: Trigger<Pointer<Click>>| {
+//!     .observe(|mut trigger: Trigger<'_, Pointer<Click>>| {
 //!         // Get the underlying event type
 //!         let click_event: &Pointer<Click> = trigger.event();
 //!         // Stop the event from bubbling up the entity hierarchjy
@@ -44,20 +44,20 @@
 //! # use bevy_picking::prelude::*;
 //! # #[derive(Event)]
 //! # struct Greeting;
-//! fn setup(mut commands: Commands) {
+//! fn setup(mut commands: Commands<'_, '_>) {
 //!     commands.spawn(Transform::default())
 //!         // Spawn your entity here, e.g. a Mesh.
 //!         // When dragged, mutate the `Transform` component on the dragged target entity:
-//!         .observe(|trigger: Trigger<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
+//!         .observe(|trigger: Trigger<'_, Pointer<Drag>>, mut transforms: Query<'_, '_, &mut Transform>| {
 //!             let mut transform = transforms.get_mut(trigger.entity()).unwrap();
 //!             let drag = trigger.event();
 //!             transform.rotate_local_y(drag.delta.x / 50.0);
 //!         })
-//!         .observe(|trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
+//!         .observe(|trigger: Trigger<'_, Pointer<Click>>, mut commands: Commands<'_, '_>| {
 //!             println!("Entity {:?} goes BOOM!", trigger.entity());
 //!             commands.entity(trigger.entity()).despawn();
 //!         })
-//!         .observe(|trigger: Trigger<Pointer<Over>>, mut events: EventWriter<Greeting>| {
+//!         .observe(|trigger: Trigger<'_, Pointer<Over>>, mut events: EventWriter<'_, Greeting>| {
 //!             events.send(Greeting);
 //!         });
 //! }
@@ -305,12 +305,12 @@ pub struct PickingPlugin {
 
 impl PickingPlugin {
     /// Whether or not input collection systems should be running.
-    pub fn input_should_run(state: Res<Self>) -> bool {
+    pub fn input_should_run(state: Res<'_, Self>) -> bool {
         state.is_input_enabled && state.is_enabled
     }
     /// Whether or not systems updating entities' [`PickingInteraction`](focus::PickingInteraction)
     /// component should be running.
-    pub fn focus_should_run(state: Res<Self>) -> bool {
+    pub fn focus_should_run(state: Res<'_, Self>) -> bool {
         state.is_focus_enabled && state.is_enabled
     }
 }

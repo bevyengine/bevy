@@ -78,7 +78,7 @@ use bevy_ecs::prelude::*;
 #[derive(Component)]
 struct Position { x: f32, y: f32 }
 
-fn print_position(query: Query<(Entity, &Position)>) {
+fn print_position(query: Query<'_, '_, (Entity, &Position)>) {
     for (entity, position) in &query {
         println!("Entity {:?} is at position: x {}, y {}", entity, position.x, position.y);
     }
@@ -104,7 +104,7 @@ world.insert_resource(Time::default());
 let time = world.get_resource::<Time>().unwrap();
 
 // You can also access resources from Systems
-fn print_time(time: Res<Time>) {
+fn print_time(time: Res<'_, Time>) {
     println!("{}", time.seconds);
 }
 ```
@@ -129,7 +129,7 @@ struct Position { x: f32, y: f32 }
 struct Velocity { x: f32, y: f32 }
 
 // This system moves each entity with a Position and Velocity component
-fn movement(mut query: Query<(&mut Position, &Velocity)>) {
+fn movement(mut query: Query<'_, '_, (&mut Position, &Velocity)>) {
     for (mut position, velocity) in &mut query {
         position.x += velocity.x;
         position.y += velocity.y;
@@ -172,8 +172,8 @@ struct Player;
 struct Alive;
 
 // Gets the Position component of all Entities with Player component and without the Alive
-// component. 
-fn system(query: Query<&Position, (With<Player>, Without<Alive>)>) {
+// component.
+fn system(query: Query<'_, '_, &Position, (With<Player>, Without<Alive>)>) {
     for position in &query {
     }
 }
@@ -194,13 +194,13 @@ struct Position { x: f32, y: f32 }
 struct Velocity { x: f32, y: f32 }
 
 // Gets the Position component of all Entities whose Velocity has changed since the last run of the System
-fn system_changed(query: Query<&Position, Changed<Velocity>>) {
+fn system_changed(query: Query<'_, '_, &Position, Changed<Velocity>>) {
     for position in &query {
     }
 }
 
 // Gets the Position component of all Entities that had a Velocity component added since the last run of the System
-fn system_added(query: Query<&Position, Added<Velocity>>) {
+fn system_added(query: Query<'_, '_, &Position, Added<Velocity>>) {
     for position in &query {
     }
 }
@@ -215,7 +215,7 @@ use bevy_ecs::prelude::*;
 struct Time(f32);
 
 // Prints "time changed!" if the Time resource has changed since the last run of the System
-fn system(time: Res<Time>) {
+fn system(time: Res<'_, Time>) {
     if time.is_changed() {
         println!("time changed!");
     }
@@ -289,13 +289,13 @@ struct MyEvent {
     message: String,
 }
 
-fn writer(mut writer: EventWriter<MyEvent>) {
+fn writer(mut writer: EventWriter<'_, MyEvent>) {
     writer.send(MyEvent {
         message: "hello!".to_string(),
     });
 }
 
-fn reader(mut reader: EventReader<MyEvent>) {
+fn reader(mut reader: EventReader<'_, '_, MyEvent>) {
     for event in reader.read() {
     }
 }
@@ -315,7 +315,7 @@ struct MyEvent {
 
 let mut world = World::new();
 
-world.add_observer(|trigger: Trigger<MyEvent>| {
+world.add_observer(|trigger: Trigger<'_, MyEvent>| {
     println!("{}", trigger.event().message);
 });
 
@@ -339,7 +339,7 @@ struct Explode;
 let mut world = World::new();
 let entity = world.spawn_empty().id();
 
-world.add_observer(|trigger: Trigger<Explode>, mut commands: Commands| {
+world.add_observer(|trigger: Trigger<'_, Explode>, mut commands: Commands<'_, '_>| {
     println!("Entity {:?} goes BOOM!", trigger.entity());
     commands.entity(trigger.entity()).despawn();
 });

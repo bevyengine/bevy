@@ -340,12 +340,12 @@ impl FromWorld for MeshAllocator {
 /// A system that processes newly-extracted or newly-removed meshes and writes
 /// their data into buffers or frees their data as appropriate.
 pub fn allocate_and_free_meshes(
-    mut mesh_allocator: ResMut<MeshAllocator>,
-    mesh_allocator_settings: Res<MeshAllocatorSettings>,
-    extracted_meshes: Res<ExtractedAssets<RenderMesh>>,
-    mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    mut mesh_allocator: ResMut<'_, MeshAllocator>,
+    mesh_allocator_settings: Res<'_, MeshAllocatorSettings>,
+    extracted_meshes: Res<'_, ExtractedAssets<RenderMesh>>,
+    mut mesh_vertex_buffer_layouts: ResMut<'_, MeshVertexBufferLayouts>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
 ) {
     // Process newly-added meshes.
     mesh_allocator.allocate_meshes(
@@ -365,7 +365,7 @@ impl MeshAllocator {
     /// the mesh with the given ID.
     ///
     /// If the mesh wasn't allocated, returns None.
-    pub fn mesh_vertex_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice> {
+    pub fn mesh_vertex_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice<'_>> {
         self.mesh_slice_in_slab(mesh_id, *self.mesh_id_to_vertex_slab.get(mesh_id)?)
     }
 
@@ -373,7 +373,7 @@ impl MeshAllocator {
     /// the mesh with the given ID.
     ///
     /// If the mesh has no index data or wasn't allocated, returns None.
-    pub fn mesh_index_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice> {
+    pub fn mesh_index_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice<'_>> {
         self.mesh_slice_in_slab(mesh_id, *self.mesh_id_to_index_slab.get(mesh_id)?)
     }
 
@@ -383,7 +383,7 @@ impl MeshAllocator {
         &self,
         mesh_id: &AssetId<Mesh>,
         slab_id: SlabId,
-    ) -> Option<MeshBufferSlice> {
+    ) -> Option<MeshBufferSlice<'_>> {
         match self.slabs.get(&slab_id)? {
             Slab::General(ref general_slab) => {
                 let slab_allocation = general_slab.resident_allocations.get(mesh_id)?;

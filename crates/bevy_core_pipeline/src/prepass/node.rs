@@ -40,7 +40,7 @@ impl ViewNode for PrepassNode {
 
     fn run<'w>(
         &self,
-        graph: &mut RenderGraphContext,
+        graph: &mut RenderGraphContext<'_>,
         render_context: &mut RenderContext<'w>,
         (
             view,

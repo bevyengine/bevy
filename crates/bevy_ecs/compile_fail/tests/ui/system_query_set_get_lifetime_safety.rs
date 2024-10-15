@@ -3,7 +3,7 @@ use bevy_ecs::prelude::*;
 #[derive(Component)]
 struct A(usize);
 
-fn query_set(mut queries: ParamSet<(Query<&mut A>, Query<&A>)>, e: Entity) {
+fn query_set(mut queries: ParamSet<'_, '_, (Query<'_, '_, &mut A>, Query<'_, '_, &A>)>, e: Entity) {
     let mut q2 = queries.p0();
     let mut b = q2.get_mut(e).unwrap();
 
@@ -15,7 +15,7 @@ fn query_set(mut queries: ParamSet<(Query<&mut A>, Query<&A>)>, e: Entity) {
     b.0 = a.0
 }
 
-fn query_set_flip(mut queries: ParamSet<(Query<&mut A>, Query<&A>)>, e: Entity) {
+fn query_set_flip(mut queries: ParamSet<'_, '_, (Query<'_, '_, &mut A>, Query<'_, '_, &A>)>, e: Entity) {
     let q1 = queries.p1();
     let a = q1.get(e).unwrap();
 

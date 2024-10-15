@@ -34,7 +34,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
 
     // The color spaces `Oklaba`, `Laba`, `LinearRgba`, `Srgba` and `Xyza` all are either perceptually or physically linear.
@@ -68,7 +68,7 @@ fn setup(mut commands: Commands) {
     spawn_mixed_sprite(&mut commands, -275., colors.map(Oklcha::from));
 }
 
-fn spawn_curve_sprite<T: CurveColor>(commands: &mut Commands, y: f32, points: [T; 4]) {
+fn spawn_curve_sprite<T: CurveColor>(commands: &mut Commands<'_, '_>, y: f32, points: [T; 4]) {
     commands.spawn((
         Sprite::sized(Vec2::new(75., 75.)),
         Transform::from_xyz(0., y, 0.),
@@ -76,7 +76,7 @@ fn spawn_curve_sprite<T: CurveColor>(commands: &mut Commands, y: f32, points: [T
     ));
 }
 
-fn spawn_mixed_sprite<T: MixedColor>(commands: &mut Commands, y: f32, colors: [T; 4]) {
+fn spawn_mixed_sprite<T: MixedColor>(commands: &mut Commands<'_, '_>, y: f32, colors: [T; 4]) {
     commands.spawn((
         Transform::from_xyz(0., y, 0.),
         Sprite::sized(Vec2::new(75., 75.)),
@@ -85,8 +85,8 @@ fn spawn_mixed_sprite<T: MixedColor>(commands: &mut Commands, y: f32, colors: [T
 }
 
 fn animate_curve<T: CurveColor>(
-    time: Res<Time>,
-    mut query: Query<(&mut Transform, &mut Sprite, &Curve<T>)>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, (&mut Transform, &mut Sprite, &Curve<T>)>,
 ) {
     let t = (ops::sin(time.elapsed_seconds()) + 1.) / 2.;
 
@@ -99,8 +99,8 @@ fn animate_curve<T: CurveColor>(
 }
 
 fn animate_mixed<T: MixedColor>(
-    time: Res<Time>,
-    mut query: Query<(&mut Transform, &mut Sprite, &Mixed<T>)>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, (&mut Transform, &mut Sprite, &Mixed<T>)>,
 ) {
     let t = (ops::sin(time.elapsed_seconds()) + 1.) / 2.;
 

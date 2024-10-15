@@ -49,9 +49,9 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    assets: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+    mut commands: Commands<'_, '_>,
+    assets: Res<'_, AssetServer>,
+    mut texture_atlases: ResMut<'_, Assets<TextureAtlasLayout>>,
 ) {
     warn!(include_str!("warning_string.txt"));
 
@@ -100,7 +100,10 @@ fn setup(
 }
 
 // System for rotating and translating the camera
-fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<Camera>>) {
+fn move_camera(
+    time: Res<'_, Time>,
+    mut camera_transform: Single<'_, &mut Transform, With<Camera>>,
+) {
     camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.5));
     **camera_transform = **camera_transform
         * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
@@ -110,9 +113,9 @@ fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, Wit
 struct AnimationTimer(Timer);
 
 fn animate_sprite(
-    time: Res<Time>,
-    texture_atlases: Res<Assets<TextureAtlasLayout>>,
-    mut query: Query<(&mut AnimationTimer, &mut TextureAtlas)>,
+    time: Res<'_, Time>,
+    texture_atlases: Res<'_, Assets<TextureAtlasLayout>>,
+    mut query: Query<'_, '_, (&mut AnimationTimer, &mut TextureAtlas)>,
 ) {
     for (mut timer, mut sheet) in query.iter_mut() {
         timer.tick(time.delta());
@@ -133,7 +136,11 @@ impl Default for PrintingTimer {
 }
 
 // System for printing the number of sprites on every tick of the timer
-fn print_sprite_count(time: Res<Time>, mut timer: Local<PrintingTimer>, sprites: Query<&Sprite>) {
+fn print_sprite_count(
+    time: Res<'_, Time>,
+    mut timer: Local<'_, PrintingTimer>,
+    sprites: Query<'_, '_, &Sprite>,
+) {
     timer.tick(time.delta());
 
     if timer.just_finished() {

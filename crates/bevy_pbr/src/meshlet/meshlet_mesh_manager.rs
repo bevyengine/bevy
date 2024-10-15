@@ -54,9 +54,7 @@ impl MeshletMeshManager {
         assets: &mut Assets<MeshletMesh>,
     ) -> Range<u32> {
         let queue_meshlet_mesh = |asset_id: &AssetId<MeshletMesh>| {
-            let meshlet_mesh = assets.remove_untracked(*asset_id).expect(
-                "MeshletMesh asset was already unloaded but is not registered with MeshletMeshManager",
-            );
+            let meshlet_mesh = assets.remove_untracked(*asset_id).expect("MeshletMesh asset was already unloaded but is not registered with MeshletMeshManager");
 
             let vertex_positions_slice = self
                 .vertex_positions
@@ -123,9 +121,9 @@ impl MeshletMeshManager {
 
 /// Upload all newly queued [`MeshletMesh`] asset data to the GPU.
 pub fn perform_pending_meshlet_mesh_writes(
-    mut meshlet_mesh_manager: ResMut<MeshletMeshManager>,
-    render_queue: Res<RenderQueue>,
-    render_device: Res<RenderDevice>,
+    mut meshlet_mesh_manager: ResMut<'_, MeshletMeshManager>,
+    render_queue: Res<'_, RenderQueue>,
+    render_device: Res<'_, RenderDevice>,
 ) {
     meshlet_mesh_manager
         .vertex_positions

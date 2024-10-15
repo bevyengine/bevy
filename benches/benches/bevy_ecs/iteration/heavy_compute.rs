@@ -33,7 +33,7 @@ pub fn heavy_compute(c: &mut Criterion) {
             )
         }));
 
-        fn sys(mut query: Query<(&mut Position, &mut Transform)>) {
+        fn sys(mut query: Query<'_, '_, (&mut Position, &mut Transform)>) {
             query.par_iter_mut().for_each(|(mut pos, mut mat)| {
                 for _ in 0..100 {
                     mat.0 = mat.0.inverse();

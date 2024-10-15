@@ -59,7 +59,7 @@ impl ViewNode for MsaaWritebackNode {
 
     fn run<'w>(
         &self,
-        _graph: &mut RenderGraphContext,
+        _graph: &mut RenderGraphContext<'_>,
         render_context: &mut RenderContext<'w>,
         (target, blit_pipeline_id, msaa): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
@@ -120,11 +120,11 @@ impl ViewNode for MsaaWritebackNode {
 pub struct MsaaWritebackBlitPipeline(CachedRenderPipelineId);
 
 fn prepare_msaa_writeback_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
-    blit_pipeline: Res<BlitPipeline>,
-    view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera, &Msaa)>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<BlitPipeline>>,
+    blit_pipeline: Res<'_, BlitPipeline>,
+    view_targets: Query<'_, '_, (Entity, &ViewTarget, &ExtractedCamera, &Msaa)>,
 ) {
     for (entity, view_target, camera, msaa) in view_targets.iter() {
         // only do writeback if writeback is enabled for the camera and this isn't the first camera in the target,

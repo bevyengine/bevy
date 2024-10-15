@@ -499,7 +499,7 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
 }
 
 /// Discards stale data cached in `FontSystem`.
-pub(crate) fn trim_cosmic_cache(mut font_system: ResMut<CosmicFontSystem>) {
+pub(crate) fn trim_cosmic_cache(mut font_system: ResMut<'_, CosmicFontSystem>) {
     // A trim age of 2 was found to reduce frame time variance vs age of 1 when tested with dynamic text.
     // See https://github.com/bevyengine/bevy/pull/15037
     //

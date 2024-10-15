@@ -16,8 +16,7 @@ use bevy::{
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::{f32::consts::PI, path::Path, process::ExitCode};
 
-const ASSET_URL: &str =
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/8443bbdee0bf517e6c297dede7f6a46ab712ee4c/bunny.meshlet_mesh";
+const ASSET_URL: &str = "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/8443bbdee0bf517e6c297dede7f6a46ab712ee4c/bunny.meshlet_mesh";
 
 fn main() -> ExitCode {
     if !Path::new("./assets/models/bunny.meshlet_mesh").exists() {
@@ -42,11 +41,11 @@ fn main() -> ExitCode {
 }
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    mut debug_materials: ResMut<Assets<MeshletDebugMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut standard_materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut debug_materials: ResMut<'_, Assets<MeshletDebugMaterial>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
 ) {
     commands.spawn((
         Camera3d::default(),

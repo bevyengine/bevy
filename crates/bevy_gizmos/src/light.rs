@@ -37,7 +37,7 @@ fn point_light_gizmo(
     transform: &GlobalTransform,
     point_light: &PointLight,
     color: Color,
-    gizmos: &mut Gizmos<LightGizmoConfigGroup>,
+    gizmos: &mut Gizmos<'_, '_, LightGizmoConfigGroup>,
 ) {
     let position = transform.translation();
     gizmos
@@ -54,7 +54,7 @@ fn spot_light_gizmo(
     transform: &GlobalTransform,
     spot_light: &SpotLight,
     color: Color,
-    gizmos: &mut Gizmos<LightGizmoConfigGroup>,
+    gizmos: &mut Gizmos<'_, '_, LightGizmoConfigGroup>,
 ) {
     let (_, rotation, translation) = transform.to_scale_rotation_translation();
     gizmos
@@ -102,7 +102,7 @@ fn spot_light_gizmo(
 fn directional_light_gizmo(
     transform: &GlobalTransform,
     color: Color,
-    gizmos: &mut Gizmos<LightGizmoConfigGroup>,
+    gizmos: &mut Gizmos<'_, '_, LightGizmoConfigGroup>,
 ) {
     let (_, rotation, translation) = transform.to_scale_rotation_translation();
     gizmos
@@ -122,7 +122,7 @@ impl Plugin for LightGizmoPlugin {
                 PostUpdate,
                 (
                     draw_lights,
-                    draw_all_lights.run_if(|config: Res<GizmoConfigStore>| {
+                    draw_all_lights.run_if(|config: Res<'_, GizmoConfigStore>| {
                         config.config::<LightGizmoConfigGroup>().1.draw_all
                     }),
                 )
@@ -194,10 +194,14 @@ pub struct ShowLightGizmo {
 }
 
 fn draw_lights(
-    point_query: Query<(Entity, &PointLight, &GlobalTransform, &ShowLightGizmo)>,
-    spot_query: Query<(Entity, &SpotLight, &GlobalTransform, &ShowLightGizmo)>,
-    directional_query: Query<(Entity, &DirectionalLight, &GlobalTransform, &ShowLightGizmo)>,
-    mut gizmos: Gizmos<LightGizmoConfigGroup>,
+    point_query: Query<'_, '_, (Entity, &PointLight, &GlobalTransform, &ShowLightGizmo)>,
+    spot_query: Query<'_, '_, (Entity, &SpotLight, &GlobalTransform, &ShowLightGizmo)>,
+    directional_query: Query<
+        '_,
+        '_,
+        (Entity, &DirectionalLight, &GlobalTransform, &ShowLightGizmo),
+    >,
+    mut gizmos: Gizmos<'_, '_, LightGizmoConfigGroup>,
 ) {
     let color = |entity: Entity, gizmo_color: Option<LightGizmoColor>, light_color, type_color| {
         match gizmo_color.unwrap_or(gizmos.config_ext.color) {
@@ -237,13 +241,15 @@ fn draw_lights(
 }
 
 fn draw_all_lights(
-    point_query: Query<(Entity, &PointLight, &GlobalTransform), Without<ShowLightGizmo>>,
-    spot_query: Query<(Entity, &SpotLight, &GlobalTransform), Without<ShowLightGizmo>>,
+    point_query: Query<'_, '_, (Entity, &PointLight, &GlobalTransform), Without<ShowLightGizmo>>,
+    spot_query: Query<'_, '_, (Entity, &SpotLight, &GlobalTransform), Without<ShowLightGizmo>>,
     directional_query: Query<
+        '_,
+        '_,
         (Entity, &DirectionalLight, &GlobalTransform),
         Without<ShowLightGizmo>,
     >,
-    mut gizmos: Gizmos<LightGizmoConfigGroup>,
+    mut gizmos: Gizmos<'_, '_, LightGizmoConfigGroup>,
 ) {
     match gizmos.config_ext.color {
         LightGizmoColor::Manual(color) => {

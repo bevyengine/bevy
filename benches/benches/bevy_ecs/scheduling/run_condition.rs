@@ -67,7 +67,7 @@ pub fn run_condition_yes_with_query(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
-    fn yes_with_query(query: Single<&TestBool>) -> bool {
+    fn yes_with_query(query: Single<'_, &TestBool>) -> bool {
         query.0
     }
     for amount in 0..21 {
@@ -96,7 +96,7 @@ pub fn run_condition_yes_with_resource(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
-    fn yes_with_resource(res: Res<TestBool>) -> bool {
+    fn yes_with_resource(res: Res<'_, TestBool>) -> bool {
         res.0
     }
     for amount in 0..21 {

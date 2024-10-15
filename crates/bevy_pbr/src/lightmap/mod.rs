@@ -145,11 +145,11 @@ impl Plugin for LightmapPlugin {
 /// Extracts all lightmaps from the scene and populates the [`RenderLightmaps`]
 /// resource.
 fn extract_lightmaps(
-    mut render_lightmaps: ResMut<RenderLightmaps>,
-    lightmaps: Extract<Query<(Entity, &ViewVisibility, &Lightmap)>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
-    images: Res<RenderAssets<GpuImage>>,
-    meshes: Res<RenderAssets<RenderMesh>>,
+    mut render_lightmaps: ResMut<'_, RenderLightmaps>,
+    lightmaps: Extract<'_, '_, Query<'_, '_, (Entity, &ViewVisibility, &Lightmap)>>,
+    render_mesh_instances: Res<'_, RenderMeshInstances>,
+    images: Res<'_, RenderAssets<GpuImage>>,
+    meshes: Res<'_, RenderAssets<RenderMesh>>,
 ) {
     // Clear out the old frame's data.
     render_lightmaps.render_lightmaps.clear();

@@ -224,7 +224,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Creates a new [`QueryState`] from a given [`QueryBuilder`] and inherits its [`FilteredAccess`].
-    pub fn from_builder(builder: &mut QueryBuilder<D, F>) -> Self {
+    pub fn from_builder(builder: &mut QueryBuilder<'_, D, F>) -> Self {
         let mut fetch_state = D::init_state(builder.world_mut());
         let filter_state = F::init_state(builder.world_mut());
         D::set_access(&mut fetch_state, builder.access());
@@ -306,7 +306,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     #[inline]
     pub(crate) unsafe fn is_empty_unsafe_world_cell(
         &self,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
         last_run: Tick,
         this_run: Tick,
     ) -> bool {
@@ -352,7 +352,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # Panics
     ///
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
-    pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
+    pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell<'_>) {
         self.validate_world(world.id());
         if self.component_access.required.is_empty() {
             let archetypes = world.archetypes();
@@ -587,11 +587,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         NewF::update_component_access(&filter_state, &mut filter_component_access);
 
         component_access.extend(&filter_component_access);
-        assert!(
-            component_access.is_subset(&self.component_access),
-            "Transmuted state for {} attempts to access terms that are not allowed by original state {}.",
-            core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>()
-        );
+        assert!(component_access.is_subset(&self.component_access), "Transmuted state for {} attempts to access terms that are not allowed by original state {}.", core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>());
 
         QueryState {
             world_id: self.world_id,
@@ -665,10 +661,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.validate_world(world.id());
 
         let mut component_access = FilteredAccess::default();
-        let mut new_fetch_state = NewD::get_state(world.components())
-            .expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
-        let new_filter_state = NewF::get_state(world.components())
-            .expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
+        let mut new_fetch_state = NewD::get_state(world.components()).expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
+        let new_filter_state = NewF::get_state(world.components()).expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
 
         NewD::set_access(&mut new_fetch_state, &self.component_access);
         NewD::update_component_access(&new_fetch_state, &mut component_access);
@@ -681,11 +675,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut joined_component_access = self.component_access.clone();
         joined_component_access.extend(&other.component_access);
 
-        assert!(
-            component_access.is_subset(&joined_component_access),
-            "Joined state for {} attempts to access terms that are not allowed by state {} joined with {}.",
-            core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>(), core::any::type_name::<(OtherD, OtherF)>()
-        );
+        assert!(component_access.is_subset(&joined_component_access), "Joined state for {} attempts to access terms that are not allowed by state {} joined with {}.", core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>(), core::any::type_name::<(OtherD, OtherF)>());
 
         if self.archetype_generation != other.archetype_generation {
             warn!("You have tried to join queries with different archetype_generations. This could lead to unpredictable results.");
@@ -1711,7 +1701,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 }
 
 impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D, F> {
-    fn from(mut value: QueryBuilder<D, F>) -> Self {
+    fn from(mut value: QueryBuilder<'_, D, F>) -> Self {
         QueryState::from_builder(&mut value)
     }
 }
@@ -1880,10 +1870,10 @@ mod tests {
         world.spawn(A(10));
 
         let q = world.query::<&A>();
-        let mut new_q = q.transmute::<Ref<A>>(&world);
+        let mut new_q = q.transmute::<Ref<'_, A>>(&world);
         assert!(new_q.single(&world).is_added());
 
-        let q = world.query::<Ref<A>>();
+        let q = world.query::<Ref<'_, A>>();
         let _ = q.transmute::<&A>(&world);
     }
 
@@ -1893,7 +1883,7 @@ mod tests {
         world.spawn(A(0));
 
         let q = world.query::<&mut A>();
-        let _ = q.transmute::<Ref<A>>(&world);
+        let _ = q.transmute::<Ref<'_, A>>(&world);
         let _ = q.transmute::<&A>(&world);
     }
 
@@ -1902,8 +1892,8 @@ mod tests {
         let mut world = World::new();
         world.spawn(A(0));
 
-        let q: QueryState<EntityMut<'_>> = world.query::<EntityMut>();
-        let _ = q.transmute::<EntityRef>(&world);
+        let q: QueryState<EntityMut<'_>> = world.query::<EntityMut<'_>>();
+        let _ = q.transmute::<EntityRef<'_>>(&world);
     }
 
     #[test]
@@ -1964,7 +1954,7 @@ mod tests {
         let mut world = World::new();
         world.register_component::<A>();
 
-        let q = world.query::<EntityRef>();
+        let q = world.query::<EntityRef<'_>>();
         let _ = q.transmute::<&A>(&world);
     }
 
@@ -1972,8 +1962,8 @@ mod tests {
     fn can_transmute_filtered_entity() {
         let mut world = World::new();
         let entity = world.spawn((A(0), B(1))).id();
-        let query =
-            QueryState::<(Entity, &A, &B)>::new(&mut world).transmute::<FilteredEntityRef>(&world);
+        let query = QueryState::<(Entity, &A, &B)>::new(&mut world)
+            .transmute::<FilteredEntityRef<'_>>(&world);
 
         let mut query = query;
         // Our result is completely untyped

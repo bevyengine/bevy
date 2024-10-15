@@ -568,7 +568,7 @@ impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
     /// Retrieve this target's main texture's color attachment.
-    pub fn get_color_attachment(&self) -> RenderPassColorAttachment {
+    pub fn get_color_attachment(&self) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.get_attachment()
         } else {
@@ -577,7 +577,7 @@ impl ViewTarget {
     }
 
     /// Retrieve this target's "unsampled" main texture's color attachment.
-    pub fn get_unsampled_color_attachment(&self) -> RenderPassColorAttachment {
+    pub fn get_unsampled_color_attachment(&self) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.get_unsampled_attachment()
         } else {
@@ -669,7 +669,7 @@ impl ViewTarget {
     pub fn out_texture_color_attachment(
         &self,
         clear_color: Option<LinearRgba>,
-    ) -> RenderPassColorAttachment {
+    ) -> RenderPassColorAttachment<'_> {
         self.out_texture.get_attachment(clear_color)
     }
 
@@ -686,7 +686,7 @@ impl ViewTarget {
     /// [`ViewTarget`]'s main texture to the `destination` texture, so the caller
     /// _must_ ensure `source` is copied to `destination`, with or without modifications.
     /// Failing to do so will cause the current main texture information to be lost.
-    pub fn post_process_write(&self) -> PostProcessWrite {
+    pub fn post_process_write(&self) -> PostProcessWrite<'_> {
         let old_is_a_main_texture = self.main_texture.fetch_xor(1, Ordering::SeqCst);
         // if the old main texture is a, then the post processing must write from a to b
         if old_is_a_main_texture == 0 {
@@ -719,7 +719,7 @@ impl ViewDepthTexture {
         }
     }
 
-    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment {
+    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment<'_> {
         self.attachment.get_attachment(store)
     }
 
@@ -729,18 +729,22 @@ impl ViewDepthTexture {
 }
 
 pub fn prepare_view_uniforms(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut view_uniforms: ResMut<ViewUniforms>,
-    views: Query<(
-        Entity,
-        Option<&ExtractedCamera>,
-        &ExtractedView,
-        Option<&Frustum>,
-        Option<&TemporalJitter>,
-        Option<&MipBias>,
-    )>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut view_uniforms: ResMut<'_, ViewUniforms>,
+    views: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            Option<&ExtractedCamera>,
+            &ExtractedView,
+            Option<&Frustum>,
+            Option<&TemporalJitter>,
+            Option<&MipBias>,
+        ),
+    >,
 ) {
     let view_iter = views.iter();
     let view_count = view_iter.len();
@@ -812,11 +816,11 @@ struct MainTargetTextures {
 
 /// Prepares the view target [`OutputColorAttachment`] for each view in the current frame.
 pub fn prepare_view_attachments(
-    windows: Res<ExtractedWindows>,
-    images: Res<RenderAssets<GpuImage>>,
-    manual_texture_views: Res<ManualTextureViews>,
-    cameras: Query<&ExtractedCamera>,
-    mut view_target_attachments: ResMut<ViewTargetAttachments>,
+    windows: Res<'_, ExtractedWindows>,
+    images: Res<'_, RenderAssets<GpuImage>>,
+    manual_texture_views: Res<'_, ManualTextureViews>,
+    cameras: Query<'_, '_, &ExtractedCamera>,
+    mut view_target_attachments: ResMut<'_, ViewTargetAttachments>,
 ) {
     for camera in cameras.iter() {
         let Some(target) = &camera.target else {
@@ -843,23 +847,27 @@ pub fn prepare_view_attachments(
 }
 
 /// Clears the view target [`OutputColorAttachment`]s.
-pub fn clear_view_attachments(mut view_target_attachments: ResMut<ViewTargetAttachments>) {
+pub fn clear_view_attachments(mut view_target_attachments: ResMut<'_, ViewTargetAttachments>) {
     view_target_attachments.clear();
 }
 
 pub fn prepare_view_targets(
-    mut commands: Commands,
-    clear_color_global: Res<ClearColor>,
-    render_device: Res<RenderDevice>,
-    mut texture_cache: ResMut<TextureCache>,
-    cameras: Query<(
-        Entity,
-        &ExtractedCamera,
-        &ExtractedView,
-        &CameraMainTextureUsages,
-        &Msaa,
-    )>,
-    view_target_attachments: Res<ViewTargetAttachments>,
+    mut commands: Commands<'_, '_>,
+    clear_color_global: Res<'_, ClearColor>,
+    render_device: Res<'_, RenderDevice>,
+    mut texture_cache: ResMut<'_, TextureCache>,
+    cameras: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &ExtractedCamera,
+            &ExtractedView,
+            &CameraMainTextureUsages,
+            &Msaa,
+        ),
+    >,
+    view_target_attachments: Res<'_, ViewTargetAttachments>,
 ) {
     let mut textures = HashMap::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {

@@ -98,12 +98,12 @@ impl<T: Event> WinitAppRunnerState<T> {
         app.add_event::<T>().init_resource::<CustomCursorCache>();
 
         let event_writer_system_state: SystemState<(
-            EventWriter<WindowResized>,
-            EventWriter<WindowBackendScaleFactorChanged>,
-            EventWriter<WindowScaleFactorChanged>,
-            NonSend<WinitWindows>,
-            Query<(&mut Window, &mut CachedWindow)>,
-            NonSendMut<AccessKitAdapters>,
+            EventWriter<'_, WindowResized>,
+            EventWriter<'_, WindowBackendScaleFactorChanged>,
+            EventWriter<'_, WindowScaleFactorChanged>,
+            NonSend<'_, WinitWindows>,
+            Query<'_, '_, (&mut Window, &mut CachedWindow)>,
+            NonSendMut<'_, AccessKitAdapters>,
         )> = SystemState::new(app.world_mut());
 
         Self {
@@ -438,11 +438,12 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        let mut create_monitor = SystemState::<CreateMonitorParams>::from_world(self.world_mut());
+        let mut create_monitor =
+            SystemState::<CreateMonitorParams<'_, '_>>::from_world(self.world_mut());
         // create any new windows
         // (even if app did not update, some may have been created by plugin setup)
         let mut create_window =
-            SystemState::<CreateWindowParams<Added<Window>>>::from_world(self.world_mut());
+            SystemState::<CreateWindowParams<'_, '_, Added<Window>>>::from_world(self.world_mut());
         create_monitors(event_loop, create_monitor.get_mut(self.world_mut()));
         create_monitor.apply(self.world_mut());
         create_windows(event_loop, create_window.get_mut(self.world_mut()));
@@ -450,8 +451,10 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
 
         let mut redraw_event_reader = EventCursor::<RequestRedraw>::default();
 
-        let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
-            SystemState::new(self.world_mut());
+        let mut focused_windows_state: SystemState<(
+            Res<'_, WinitSettings>,
+            Query<'_, '_, (Entity, &Window)>,
+        )> = SystemState::new(self.world_mut());
 
         if let Some(app_redraw_events) = self.world().get_resource::<Events<RequestRedraw>>() {
             if redraw_event_reader.read(app_redraw_events).last().is_some() {
@@ -502,8 +505,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             {
                 // Get windows that are cached but without raw handles. Those window were already created, but got their
                 // handle wrapper removed when the app was suspended.
-                let mut query = self.world_mut()
-                    .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
+                let mut query = self.world_mut().query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
                 if let Ok((entity, window)) = query.get_single(&self.world()) {
                     let window = window.clone();
 
@@ -790,9 +792,9 @@ impl<T: Event> WinitAppRunnerState<T> {
     #[cfg(feature = "custom_cursor")]
     fn update_cursors(&mut self, event_loop: &ActiveEventLoop) {
         let mut windows_state: SystemState<(
-            NonSendMut<WinitWindows>,
-            ResMut<CustomCursorCache>,
-            Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
+            NonSendMut<'_, WinitWindows>,
+            ResMut<'_, CustomCursorCache>,
+            Query<'_, '_, (Entity, &mut PendingCursor), Changed<PendingCursor>>,
         )> = SystemState::new(self.world_mut());
         let (winit_windows, mut cursor_cache, mut windows) =
             windows_state.get_mut(self.world_mut());
@@ -862,7 +864,7 @@ pub(crate) fn react_to_resize(
     window_entity: Entity,
     window: &mut Mut<'_, Window>,
     size: PhysicalSize<u32>,
-    window_resized: &mut EventWriter<WindowResized>,
+    window_resized: &mut EventWriter<'_, WindowResized>,
 ) {
     window
         .resolution
@@ -879,8 +881,8 @@ pub(crate) fn react_to_scale_factor_change(
     window_entity: Entity,
     window: &mut Mut<'_, Window>,
     scale_factor: f64,
-    window_backend_scale_factor_changed: &mut EventWriter<WindowBackendScaleFactorChanged>,
-    window_scale_factor_changed: &mut EventWriter<WindowScaleFactorChanged>,
+    window_backend_scale_factor_changed: &mut EventWriter<'_, WindowBackendScaleFactorChanged>,
+    window_scale_factor_changed: &mut EventWriter<'_, WindowScaleFactorChanged>,
 ) {
     window.resolution.set_scale_factor(scale_factor as f32);
 

@@ -11,10 +11,10 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     // Load the Bevy logo as a texture
     let texture_handle = asset_server.load("branding/banner.png");

@@ -44,7 +44,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let asset_path = manifest.get_path("bevy_asset");
     let ecs_path = manifest.get_path("bevy_ecs");
 
-    let mut binding_states: Vec<BindingState> = Vec::new();
+    let mut binding_states: Vec<BindingState<'_>> = Vec::new();
     let mut binding_impls = Vec::new();
     let mut binding_layouts = Vec::new();
     let mut attr_prepared_data_ident = None;
@@ -54,7 +54,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
         if let Some(attr_ident) = attr.path().get_ident() {
             if attr_ident == BIND_GROUP_DATA_ATTRIBUTE_NAME {
                 if let Ok(prepared_data_ident) =
-                    attr.parse_args_with(|input: ParseStream| input.parse::<Ident>())
+                    attr.parse_args_with(|input: ParseStream<'_>| input.parse::<Ident>())
                 {
                     attr_prepared_data_ident = Some(prepared_data_ident);
                 }
@@ -77,7 +77,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     )
                 }});
 
-                binding_layouts.push(quote!{
+                binding_layouts.push(quote! {
                     #render_path::render_resource::BindGroupLayoutEntry {
                         binding: #binding_index,
                         visibility: #render_path::render_resource::ShaderStages::all(),
@@ -174,26 +174,17 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     binding_type,
                     ident: occupied_ident,
                 } => {
-                    return Err(Error::new_spanned(
-                        attr,
-                        format!("The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by the field '{occupied_ident}' of type {binding_type:?}.")
-                    ));
+                    return Err(Error::new_spanned(attr, format!("The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by the field '{occupied_ident}' of type {binding_type:?}.")));
                 }
                 BindingState::OccupiedConvertedUniform => {
-                    return Err(Error::new_spanned(
-                        attr,
-                        format!("The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by a struct-level uniform binding at the same index.")
-                    ));
+                    return Err(Error::new_spanned(attr, format!("The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by a struct-level uniform binding at the same index.")));
                 }
                 BindingState::OccupiedMergeableUniform { uniform_fields } => match binding_type {
                     BindingType::Uniform => {
                         uniform_fields.push(field);
                     }
                     _ => {
-                        return Err(Error::new_spanned(
-                                attr,
-                                format!("The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by a {:?}.", BindingType::Uniform)
-                            ));
+                        return Err(Error::new_spanned(attr, format!("The '{field_name}' field cannot be assigned to binding {binding_index} because it is already occupied by a {:?}.", BindingType::Uniform)));
                     }
                 },
             }
@@ -261,18 +252,21 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     let fallback_image = get_fallback_image(&render_path, dimension);
 
                     // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
-                    binding_impls.insert(0, quote! {
-                        ( #binding_index,
-                          #render_path::render_resource::OwnedBindingResource::TextureView({
-                              let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
-                              if let Some(handle) = handle {
-                                  images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
-                              } else {
-                                  #fallback_image.texture_view.clone()
-                              }
-                          })
-                        )
-                    });
+                    binding_impls.insert(
+                        0,
+                        quote! {
+                            ( #binding_index,
+                              #render_path::render_resource::OwnedBindingResource::TextureView({
+                                  let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
+                                  if let Some(handle) = handle {
+                                      images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
+                                  } else {
+                                      #fallback_image.texture_view.clone()
+                                  }
+                              })
+                            )
+                        },
+                    );
 
                     binding_layouts.push(quote! {
                         #render_path::render_resource::BindGroupLayoutEntry {
@@ -301,19 +295,22 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     let fallback_image = get_fallback_image(&render_path, *dimension);
 
                     // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
-                    binding_impls.insert(0, quote! {
-                        (
-                            #binding_index,
-                            #render_path::render_resource::OwnedBindingResource::TextureView({
-                                let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
-                                if let Some(handle) = handle {
-                                    images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
-                                } else {
-                                    #fallback_image.texture_view.clone()
-                                }
-                            })
-                        )
-                    });
+                    binding_impls.insert(
+                        0,
+                        quote! {
+                            (
+                                #binding_index,
+                                #render_path::render_resource::OwnedBindingResource::TextureView({
+                                    let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
+                                    if let Some(handle) = handle {
+                                        images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
+                                    } else {
+                                        #fallback_image.texture_view.clone()
+                                    }
+                                })
+                            )
+                        },
+                    );
 
                     binding_layouts.push(quote! {
                         #render_path::render_resource::BindGroupLayoutEntry {
@@ -358,40 +355,43 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     };
 
                     // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
-                    binding_impls.insert(0, quote! {
-                        (
-                            #binding_index,
-                            #render_path::render_resource::OwnedBindingResource::Sampler({
-                                let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
-                                if let Some(handle) = handle {
-                                    let image = images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?;
+                    binding_impls.insert(
+                        0,
+                        quote! {
+                            (
+                                #binding_index,
+                                #render_path::render_resource::OwnedBindingResource::Sampler({
+                                    let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
+                                    if let Some(handle) = handle {
+                                        let image = images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?;
 
-                                    let Some(sample_type) = image.texture_format.sample_type(None, Some(render_device.features())) else {
-                                        return Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
-                                            #binding_index,
-                                            "None".to_string(),
-                                            format!("{:?}", #expected_samplers),
-                                        ));
-                                    };
+                                        let Some(sample_type) = image.texture_format.sample_type(None, Some(render_device.features())) else {
+                                            return Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
+                                                #binding_index,
+                                                "None".to_string(),
+                                                format!("{:?}", #expected_samplers),
+                                            ));
+                                        };
 
-                                    let valid = #expected_samplers.contains(&sample_type);
+                                        let valid = #expected_samplers.contains(&sample_type);
 
-                                    if !valid {
-                                        return Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
-                                            #binding_index,
-                                            format!("{:?}", sample_type),
-                                            format!("{:?}", #expected_samplers),
-                                        ));
+                                        if !valid {
+                                            return Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
+                                                #binding_index,
+                                                format!("{:?}", sample_type),
+                                                format!("{:?}", #expected_samplers),
+                                            ));
+                                        }
+                                        image.sampler.clone()
+                                    } else {
+                                        #fallback_image.sampler.clone()
                                     }
-                                    image.sampler.clone()
-                                } else {
-                                    #fallback_image.sampler.clone()
-                                }
-                            })
-                        )
-                    });
+                                })
+                            )
+                        },
+                    );
 
-                    binding_layouts.push(quote!{
+                    binding_layouts.push(quote! {
                         #render_path::render_resource::BindGroupLayoutEntry {
                             binding: #binding_index,
                             visibility: #visibility,
@@ -432,7 +432,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     )
                 }});
 
-                binding_layouts.push(quote!{
+                binding_layouts.push(quote! {
                     #render_path::render_resource::BindGroupLayoutEntry {
                         binding: #binding_index,
                         visibility: #render_path::render_resource::ShaderStages::all(),
@@ -478,7 +478,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     )
                 }});
 
-                binding_layouts.push(quote!{
+                binding_layouts.push(quote! {
                     #render_path::render_resource::BindGroupLayoutEntry {
                         binding: #binding_index,
                         visibility: #render_path::render_resource::ShaderStages::all(),
@@ -587,7 +587,7 @@ struct BindingIndexOptions {
 }
 
 impl Parse for BindingMeta {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
         if input.peek2(Comma) {
             input.parse().map(Self::IndexWithOptions)
         } else {
@@ -597,7 +597,7 @@ impl Parse for BindingMeta {
 }
 
 impl Parse for BindingIndexOptions {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
         Ok(Self {
             lit_int: input.parse()?,
             _comma: input.parse()?,
@@ -607,7 +607,7 @@ impl Parse for BindingIndexOptions {
 }
 
 impl Parse for UniformBindingMeta {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
         Ok(Self {
             lit_int: input.parse()?,
             _comma: input.parse()?,
@@ -720,10 +720,7 @@ fn get_visibility_flag_value(meta_list: &MetaList) -> Result<ShaderStageVisibili
     })?;
 
     if flags.is_empty() {
-        return Err(Error::new_spanned(
-            meta_list,
-            "Invalid visibility format. Must be `visibility(flags)`, flags can be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
-        ));
+        return Err(Error::new_spanned(meta_list, "Invalid visibility format. Must be `visibility(flags)`, flags can be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."));
     }
 
     if flags.len() == 1 {
@@ -746,10 +743,7 @@ fn get_visibility_flag_value(meta_list: &MetaList) -> Result<ShaderStageVisibili
         } else if flag == VISIBILITY_COMPUTE {
             visibility.compute = true;
         } else {
-            return Err(Error::new_spanned(
-                flag,
-                "Not a valid visibility flag. Must be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."
-            ));
+            return Err(Error::new_spanned(flag, "Not a valid visibility flag. Must be `all`, `none`, or a list-combination of `vertex`, `fragment` and/or `compute`."));
         }
     }
 
@@ -870,10 +864,7 @@ fn get_storage_texture_binding_attr(metas: Vec<Meta>) -> Result<StorageTextureAt
                 storage_texture_attrs.visibility = get_visibility_flag_value(&m)?;
             }
             NameValue(m) => {
-                return Err(Error::new_spanned(
-                    m.path,
-                    "Not a valid name. Available attributes: `dimension`, `image_format`, `access`.",
-                ));
+                return Err(Error::new_spanned(m.path, "Not a valid name. Available attributes: `dimension`, `image_format`, `access`."));
             }
             _ => {
                 return Err(Error::new_spanned(
@@ -944,10 +935,7 @@ fn get_texture_attrs(metas: Vec<Meta>) -> Result<TextureAttrs> {
                 visibility = get_visibility_flag_value(&m)?;
             }
             NameValue(m) => {
-                return Err(Error::new_spanned(
-                    m.path,
-                    "Not a valid name. Available attributes: `dimension`, `sample_type`, `multisampled`, or `filterable`."
-                ));
+                return Err(Error::new_spanned(m.path, "Not a valid name. Available attributes: `dimension`, `sample_type`, `multisampled`, or `filterable`."));
             }
             _ => {
                 return Err(Error::new_spanned(

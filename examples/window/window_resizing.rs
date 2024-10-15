@@ -27,12 +27,12 @@ struct ResolutionSettings {
 }
 
 // Spawns the camera that draws UI
-fn setup_camera(mut commands: Commands) {
+fn setup_camera(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
 }
 
 // Spawns the UI
-fn setup_ui(mut commands: Commands) {
+fn setup_ui(mut commands: Commands<'_, '_>) {
     // Node that fills entire background
     commands
         .spawn(NodeBundle {
@@ -55,9 +55,9 @@ fn setup_ui(mut commands: Commands) {
 
 /// This system shows how to request the window to a new resolution
 fn toggle_resolution(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut window: Single<&mut Window>,
-    resolution: Res<ResolutionSettings>,
+    keys: Res<'_, ButtonInput<KeyCode>>,
+    mut window: Single<'_, &mut Window>,
+    resolution: Res<'_, ResolutionSettings>,
 ) {
     if keys.just_pressed(KeyCode::Digit1) {
         let res = resolution.small;
@@ -76,8 +76,8 @@ fn toggle_resolution(
 /// This system shows how to respond to a window being resized.
 /// Whenever the window is resized, the text will update with the new resolution.
 fn on_resize_system(
-    mut text: Single<&mut Text, With<ResolutionText>>,
-    mut resize_reader: EventReader<WindowResized>,
+    mut text: Single<'_, &mut Text, With<ResolutionText>>,
+    mut resize_reader: EventReader<'_, '_, WindowResized>,
 ) {
     for e in resize_reader.read() {
         // When resolution is being changed

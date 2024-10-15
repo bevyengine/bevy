@@ -107,7 +107,7 @@ impl RemovedComponentEvents {
 ///
 /// Note that this does not allow you to see which data existed before removal.
 /// If you need this, you will need to track the component data value on your own,
-/// using a regularly scheduled system that requests `Query<(Entity, &T), Changed<T>>`
+/// using a regularly scheduled system that requests `Query<'_, '_, (Entity, &T), Changed<T>>`
 /// and stores the data somewhere safe to later cross-reference.
 ///
 /// If you are using `bevy_ecs` as a standalone crate,

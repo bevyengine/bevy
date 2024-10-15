@@ -40,9 +40,9 @@ pub type ManualEventReader<E> = EventCursor<E>;
 /// fn send_and_receive_events(
 ///     // The `Local` `SystemParam` stores state inside the system itself, rather than in the world.
 ///     // `EventCursor<T>` is the internal state of `EventMutator<T>`, which tracks which events have been seen.
-///     mut local_event_reader: Local<EventCursor<MyEvent>>,
+///     mut local_event_reader: Local<'_, EventCursor<MyEvent>>,
 ///     // We can access the `Events` resource mutably, allowing us to both read and write its contents.
-///     mut events: ResMut<Events<MyEvent>>,
+///     mut events: ResMut<'_, Events<MyEvent>>,
 /// ) {
 ///     // We must collect the events to resend, because we can't mutate events while we're iterating over the events.
 ///     let mut events_to_resend = Vec::new();

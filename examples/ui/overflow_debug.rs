@@ -74,7 +74,7 @@ impl UpdateTransform for Rotate {
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // Camera
 
     commands.spawn(Camera2d);
@@ -223,9 +223,9 @@ fn spawn_container(
 }
 
 fn update_animation(
-    mut animation: ResMut<AnimationState>,
-    time: Res<Time>,
-    keys: Res<ButtonInput<KeyCode>>,
+    mut animation: ResMut<'_, AnimationState>,
+    time: Res<'_, Time>,
+    keys: Res<'_, ButtonInput<KeyCode>>,
 ) {
     let delta = time.elapsed_seconds();
 
@@ -245,8 +245,8 @@ fn update_animation(
 }
 
 fn update_transform<T: UpdateTransform + Component>(
-    animation: Res<AnimationState>,
-    mut containers: Query<(&mut Transform, &mut Style, &T)>,
+    animation: Res<'_, AnimationState>,
+    mut containers: Query<'_, '_, (&mut Transform, &mut Style, &T)>,
 ) {
     for (mut transform, mut style, update_transform) in &mut containers {
         update_transform.update(animation.t, &mut transform);
@@ -257,8 +257,8 @@ fn update_transform<T: UpdateTransform + Component>(
 }
 
 fn toggle_overflow(
-    mut containers: Query<&mut Style, With<Container>>,
-    instructions: Single<Entity, With<Instructions>>,
+    mut containers: Query<'_, '_, &mut Style, With<Container>>,
+    instructions: Single<'_, Entity, With<Instructions>>,
     mut writer: UiTextWriter,
 ) {
     for mut style in &mut containers {
@@ -283,7 +283,7 @@ fn toggle_overflow(
     }
 }
 
-fn next_container_size(mut containers: Query<(&mut Style, &mut Container)>) {
+fn next_container_size(mut containers: Query<'_, '_, (&mut Style, &mut Container)>) {
     for (mut style, mut container) in &mut containers {
         container.0 = (container.0 + 1) % 3;
 

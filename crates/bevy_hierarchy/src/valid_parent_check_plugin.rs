@@ -53,11 +53,13 @@ impl<T> Default for ReportHierarchyIssue<T> {
 /// (See B0004 explanation linked in warning message)
 pub fn check_hierarchy_component_has_valid_parent<T: Component>(
     parent_query: Query<
+        '_,
+        '_,
         (Entity, &Parent, Option<&bevy_core::Name>),
         (With<T>, Or<(Changed<Parent>, Added<T>)>),
     >,
-    component_query: Query<(), With<T>>,
-    mut already_diagnosed: Local<HashSet<Entity>>,
+    component_query: Query<'_, '_, (), With<T>>,
+    mut already_diagnosed: Local<'_, HashSet<Entity>>,
 ) {
     for (entity, parent, name) in &parent_query {
         let parent = parent.get();
@@ -74,7 +76,7 @@ pub fn check_hierarchy_component_has_valid_parent<T: Component>(
 }
 
 /// Run criteria that only allows running when [`ReportHierarchyIssue<T>`] is enabled.
-pub fn on_hierarchy_reports_enabled<T>(report: Res<ReportHierarchyIssue<T>>) -> bool
+pub fn on_hierarchy_reports_enabled<T>(report: Res<'_, ReportHierarchyIssue<T>>) -> bool
 where
     T: Component,
 {

@@ -225,10 +225,7 @@ impl Mesh {
         let values = values.into();
         let values_format = VertexFormat::from(&values);
         if values_format != attribute.format {
-            panic!(
-                "Failed to insert attribute. Invalid attribute format for {}. Given format is {values_format:?} but expected {:?}",
-                attribute.name, attribute.format
-            );
+            panic!("Failed to insert attribute. Invalid attribute format for {}. Given format is {values_format:?} but expected {:?}", attribute.name, attribute.format);
         }
 
         self.attributes
@@ -432,8 +429,10 @@ impl Mesh {
                         .map(|data| data.attribute.name.to_string())
                         .unwrap_or_else(|| format!("{attribute_id:?}"));
 
-                    warn!("{name} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh, \
-                        all attributes will be truncated to match the smallest.");
+                    warn!(
+                        "{name} has a different vertex count ({attribute_len}) than other attributes ({previous_vertex_count}) in this mesh, \
+                        all attributes will be truncated to match the smallest."
+                    );
                     vertex_count = Some(core::cmp::min(previous_vertex_count, attribute_len));
                 }
             } else {
@@ -638,10 +637,7 @@ impl Mesh {
     /// mesh loading where we can't really blame users for loading meshes that might
     /// not conform to the limitations here!
     pub fn compute_flat_normals(&mut self) {
-        assert!(
-            self.indices().is_none(),
-            "`compute_flat_normals` can't work on indexed geometry. Consider calling either `Mesh::compute_smooth_normals` or `Mesh::duplicate_vertices` followed by `Mesh::compute_flat_normals`."
-        );
+        assert!(self.indices().is_none(), "`compute_flat_normals` can't work on indexed geometry. Consider calling either `Mesh::compute_smooth_normals` or `Mesh::duplicate_vertices` followed by `Mesh::compute_flat_normals`.");
         assert!(
             matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
             "`compute_flat_normals` can only work on `TriangleList`s"

@@ -29,9 +29,9 @@ struct Lights;
 
 /// set up a 3D scene to test shadow biases and perspective projections
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     let spawn_plane_depth = 300.0f32;
     let spawn_height = 2.0;
@@ -149,10 +149,10 @@ fn setup(
 }
 
 fn toggle_light(
-    input: Res<ButtonInput<KeyCode>>,
-    mut point_lights: Query<&mut PointLight>,
-    mut directional_lights: Query<&mut DirectionalLight>,
-    example_text: Single<Entity, With<Text>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut point_lights: Query<'_, '_, &mut PointLight>,
+    mut directional_lights: Query<'_, '_, &mut DirectionalLight>,
+    example_text: Single<'_, Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     if input.just_pressed(KeyCode::KeyL) {
@@ -176,9 +176,9 @@ fn toggle_light(
 }
 
 fn adjust_light_position(
-    input: Res<ButtonInput<KeyCode>>,
-    mut lights: Query<&mut Transform, With<Lights>>,
-    example_text: Single<Entity, With<Text>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut lights: Query<'_, '_, &mut Transform, With<Lights>>,
+    example_text: Single<'_, Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     let mut offset = Vec3::ZERO;
@@ -213,9 +213,9 @@ fn adjust_light_position(
 }
 
 fn cycle_filter_methods(
-    input: Res<ButtonInput<KeyCode>>,
-    mut filter_methods: Query<&mut ShadowFilteringMethod>,
-    example_text: Single<Entity, With<Text>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut filter_methods: Query<'_, '_, &mut ShadowFilteringMethod>,
+    example_text: Single<'_, Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     if input.just_pressed(KeyCode::KeyF) {
@@ -241,9 +241,9 @@ fn cycle_filter_methods(
 }
 
 fn adjust_point_light_biases(
-    input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut PointLight>,
-    example_text: Single<Entity, With<Text>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut query: Query<'_, '_, &mut PointLight>,
+    example_text: Single<'_, Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     let depth_bias_step_size = 0.01;
@@ -276,9 +276,9 @@ fn adjust_point_light_biases(
 }
 
 fn adjust_directional_light_biases(
-    input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut DirectionalLight>,
-    example_text: Single<Entity, With<Text>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut query: Query<'_, '_, &mut DirectionalLight>,
+    example_text: Single<'_, Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     let depth_bias_step_size = 0.01;

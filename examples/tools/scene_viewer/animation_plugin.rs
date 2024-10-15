@@ -34,16 +34,16 @@ impl Clips {
 /// the common case).
 #[allow(clippy::too_many_arguments)]
 fn assign_clips(
-    mut players: Query<&mut AnimationPlayer>,
-    targets: Query<(Entity, &AnimationTarget)>,
-    parents: Query<&Parent>,
-    scene_handle: Res<SceneHandle>,
-    clips: Res<Assets<AnimationClip>>,
-    gltf_assets: Res<Assets<Gltf>>,
-    assets: Res<AssetServer>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
-    mut commands: Commands,
-    mut setup: Local<bool>,
+    mut players: Query<'_, '_, &mut AnimationPlayer>,
+    targets: Query<'_, '_, (Entity, &AnimationTarget)>,
+    parents: Query<'_, '_, &Parent>,
+    scene_handle: Res<'_, SceneHandle>,
+    clips: Res<'_, Assets<AnimationClip>>,
+    gltf_assets: Res<'_, Assets<Gltf>>,
+    assets: Res<'_, AssetServer>,
+    mut graphs: ResMut<'_, Assets<AnimationGraph>>,
+    mut commands: Commands<'_, '_>,
+    mut setup: Local<'_, bool>,
 ) {
     if scene_handle.is_loaded && !*setup {
         *setup = true;
@@ -150,8 +150,8 @@ fn assign_clips(
 }
 
 fn handle_inputs(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut animation_player: Query<(&mut AnimationPlayer, &mut Clips, Entity, Option<&Name>)>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut animation_player: Query<'_, '_, (&mut AnimationPlayer, &mut Clips, Entity, Option<&Name>)>,
 ) {
     for (mut player, mut clips, entity, name) in &mut animation_player {
         let display_entity_name = match name {

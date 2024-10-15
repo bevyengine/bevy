@@ -16,8 +16,6 @@
 //! For more fine-tuned control over logging behavior, set up the [`LogPlugin`] or
 //! `DefaultPlugins` during app initialization.
 
-extern crate alloc;
-
 use core::error::Error;
 
 #[cfg(target_os = "android")]
@@ -304,9 +302,7 @@ impl Plugin for LogPlugin {
             bevy_utils::tracing::subscriber::set_global_default(finished_subscriber).is_err();
 
         match (logger_already_set, subscriber_already_set) {
-            (true, true) => error!(
-                "Could not set global logger and tracing subscriber as they are already set. Consider disabling LogPlugin."
-            ),
+            (true, true) => error!("Could not set global logger and tracing subscriber as they are already set. Consider disabling LogPlugin."),
             (true, false) => error!("Could not set global logger as it is already set. Consider disabling LogPlugin."),
             (false, true) => error!("Could not set global tracing subscriber as it is already set. Consider disabling LogPlugin."),
             (false, false) => (),

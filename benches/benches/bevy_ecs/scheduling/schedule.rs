@@ -14,19 +14,19 @@ pub fn schedule(c: &mut Criterion) {
     #[derive(Component)]
     struct E(f32);
 
-    fn ab(mut query: Query<(&mut A, &mut B)>) {
+    fn ab(mut query: Query<'_, '_, (&mut A, &mut B)>) {
         query.iter_mut().for_each(|(mut a, mut b)| {
             core::mem::swap(&mut a.0, &mut b.0);
         });
     }
 
-    fn cd(mut query: Query<(&mut C, &mut D)>) {
+    fn cd(mut query: Query<'_, '_, (&mut C, &mut D)>) {
         query.iter_mut().for_each(|(mut c, mut d)| {
             core::mem::swap(&mut c.0, &mut d.0);
         });
     }
 
-    fn ce(mut query: Query<(&mut C, &mut E)>) {
+    fn ce(mut query: Query<'_, '_, (&mut C, &mut E)>) {
         query.iter_mut().for_each(|(mut c, mut e)| {
             core::mem::swap(&mut c.0, &mut e.0);
         });

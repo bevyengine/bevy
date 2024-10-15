@@ -142,7 +142,7 @@ impl DespawnRecursiveExt for EntityCommands<'_> {
     }
 }
 
-fn despawn_recursive_inner(world: EntityWorldMut, warn: bool) {
+fn despawn_recursive_inner(world: EntityWorldMut<'_>, warn: bool) {
     let entity = world.id();
 
     #[cfg(feature = "trace")]

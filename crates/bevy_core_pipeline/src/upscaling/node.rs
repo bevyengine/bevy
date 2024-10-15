@@ -25,9 +25,9 @@ impl ViewNode for UpscalingNode {
 
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (target, upscaling_target, camera): QueryItem<Self::ViewQuery>,
+        _graph: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
+        (target, upscaling_target, camera): QueryItem<'_, Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.get_resource::<PipelineCache>().unwrap();

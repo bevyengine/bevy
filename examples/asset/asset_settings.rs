@@ -18,7 +18,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // Without any .meta file specifying settings, the default sampler [ImagePlugin::default()] is used for loading images.
     // If you are using a very small image and rendering it larger like seen here, the default linear filtering will result in a blurry image.
     // Useful note: The default sampler specified by the ImagePlugin is *not* the same as the default implementation of sampler. This is why

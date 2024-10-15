@@ -187,7 +187,7 @@ mod test {
             Err(ReflectPathError::ParseError {
                 error: ParseError(Error::ExpectedIdent(Token::Dot)),
                 offset: 2,
-                path: "x..",
+                path: "x.."
             }),
         );
         assert!(matches!(
@@ -195,7 +195,7 @@ mod test {
             Err(ReflectPathError::ParseError {
                 error: ParseError(Error::InvalidIndex(_)),
                 offset: 2,
-                path: "y[badindex]",
+                path: "y[badindex]"
             }),
         ));
     }

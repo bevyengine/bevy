@@ -3,8 +3,8 @@
 //!
 //! Fallible parameters include:
 //! - [`Res<R>`], [`ResMut<R>`] - Resource has to exist.
-//! - [`Single<D, F>`] - There must be exactly one matching entity.
-//! - [`Option<Single<D, F>>`] - There must be zero or one matching entity.
+//! - [`Single<'_, D, F>`] - There must be exactly one matching entity.
+//! - [`Option<Single<'_, D, F>>`] - There must be zero or one matching entity.
 //! - [`Populated<D, F>`] - There must be at least one matching entity.
 
 use bevy::prelude::*;
@@ -56,7 +56,7 @@ struct Player {
     min_follow_radius: f32,
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // Spawn 2D camera.
     commands.spawn(Camera2d);
 
@@ -81,10 +81,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// If user presses 'A' we spawn a new random enemy.
 /// If user presses 'R' we remove a random enemy (if any exist).
 fn user_input(
-    mut commands: Commands,
-    enemies: Query<Entity, With<Enemy>>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    enemies: Query<'_, '_, Entity, With<Enemy>>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     let mut rng = rand::thread_rng();
     if keyboard_input.just_pressed(KeyCode::KeyA) {
@@ -114,7 +114,7 @@ fn user_input(
 
 // System that moves the enemies in a circle.
 // Only runs if there are enemies.
-fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<Time>) {
+fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<'_, Time>) {
     for (mut transform, mut target) in &mut *enemies {
         target.rotation += target.rotation_speed * time.delta_seconds();
         transform.rotation = Quat::from_rotation_z(target.rotation);
@@ -129,10 +129,10 @@ fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<
 /// If there are too many enemies, the player will cease all action (the system will not run).
 fn move_pointer(
     // `Single` ensures the system runs ONLY when exactly one matching entity exists.
-    mut player: Single<(&mut Transform, &Player)>,
+    mut player: Single<'_, (&mut Transform, &Player)>,
     // `Option<Single>` ensures that the system runs ONLY when zero or one matching entity exists.
-    enemy: Option<Single<&Transform, (With<Enemy>, Without<Player>)>>,
-    time: Res<Time>,
+    enemy: Option<Single<'_, &Transform, (With<Enemy>, Without<Player>)>>,
+    time: Res<'_, Time>,
 ) {
     let (player_transform, player) = &mut *player;
     if let Some(enemy_transform) = enemy {
@@ -156,4 +156,4 @@ fn move_pointer(
 
 /// This system always fails param validation, because we never
 /// create an entity with both [`Player`] and [`Enemy`] components.
-fn do_nothing_fail_validation(_: Single<(), (With<Player>, With<Enemy>)>) {}
+fn do_nothing_fail_validation(_: Single<'_, (), (With<Player>, With<Enemy>)>) {}

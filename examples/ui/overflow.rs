@@ -12,7 +12,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn(Camera2d);
 
     let text_style = TextFont::default();
@@ -103,7 +103,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn update_outlines(mut outlines_query: Query<(&mut Outline, Ref<Interaction>)>) {
+fn update_outlines(mut outlines_query: Query<'_, '_, (&mut Outline, Ref<'_, Interaction>)>) {
     for (mut outline, interaction) in outlines_query.iter_mut() {
         if interaction.is_changed() {
             outline.color = match *interaction {

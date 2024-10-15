@@ -34,7 +34,7 @@ pub trait AssetLoader: Send + Sync + 'static {
         &self,
         reader: &mut dyn Reader,
         settings: &Self::Settings,
-        load_context: &mut LoadContext,
+        load_context: &mut LoadContext<'_>,
     ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>>;
 
     /// Returns a list of extensions supported by this [`AssetLoader`], without the preceding dot.
@@ -374,7 +374,7 @@ impl<'a> LoadContext<'a> {
     ///     load_context.add_loaded_labeled_asset(label, loaded_asset);
     /// }
     /// ```
-    pub fn begin_labeled_asset(&self) -> LoadContext {
+    pub fn begin_labeled_asset(&self) -> LoadContext<'_> {
         LoadContext::new(
             self.asset_server,
             self.asset_path.clone(),
@@ -394,7 +394,7 @@ impl<'a> LoadContext<'a> {
     pub fn labeled_asset_scope<A: Asset>(
         &mut self,
         label: String,
-        load: impl FnOnce(&mut LoadContext) -> A,
+        load: impl FnOnce(&mut LoadContext<'_>) -> A,
     ) -> Handle<A> {
         let mut context = self.begin_labeled_asset();
         let asset = load(&mut context);

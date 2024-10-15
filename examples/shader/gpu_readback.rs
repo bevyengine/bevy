@@ -70,9 +70,9 @@ struct ReadbackBuffer(Handle<ShaderStorageBuffer>);
 struct ReadbackImage(Handle<Image>);
 
 fn setup(
-    mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+    mut commands: Commands<'_, '_>,
+    mut images: ResMut<'_, Assets<Image>>,
+    mut buffers: ResMut<'_, Assets<ShaderStorageBuffer>>,
 ) {
     // Create a storage buffer with some data
     let buffer = vec![0u32; BUFFER_LEN];
@@ -103,7 +103,7 @@ fn setup(
     // asynchronously and trigger the `ReadbackComplete` event on this entity. Despawn the entity
     // to stop reading back the data.
     commands.spawn(Readback::buffer(buffer.clone())).observe(
-        |trigger: Trigger<ReadbackComplete>| {
+        |trigger: Trigger<'_, ReadbackComplete>| {
             // This matches the type which was used to create the `ShaderStorageBuffer` above,
             // and is a convenient way to interpret the data.
             let data: Vec<u32> = trigger.event().to_shader_type();
@@ -116,7 +116,7 @@ fn setup(
     // Textures can also be read back from the GPU. Pay careful attention to the format of the
     // texture, as it will affect how the data is interpreted.
     commands.spawn(Readback::texture(image.clone())).observe(
-        |trigger: Trigger<ReadbackComplete>| {
+        |trigger: Trigger<'_, ReadbackComplete>| {
             // You probably want to interpret the data as a color rather than a `ShaderType`,
             // but in this case we know the data is a single channel storage texture, so we can
             // interpret it as a `Vec<u32>`
@@ -131,13 +131,13 @@ fn setup(
 struct GpuBufferBindGroup(BindGroup);
 
 fn prepare_bind_group(
-    mut commands: Commands,
-    pipeline: Res<ComputePipeline>,
-    render_device: Res<RenderDevice>,
-    buffer: Res<ReadbackBuffer>,
-    image: Res<ReadbackImage>,
-    buffers: Res<RenderAssets<GpuShaderStorageBuffer>>,
-    images: Res<RenderAssets<GpuImage>>,
+    mut commands: Commands<'_, '_>,
+    pipeline: Res<'_, ComputePipeline>,
+    render_device: Res<'_, RenderDevice>,
+    buffer: Res<'_, ReadbackBuffer>,
+    image: Res<'_, ReadbackImage>,
+    buffers: Res<'_, RenderAssets<GpuShaderStorageBuffer>>,
+    images: Res<'_, RenderAssets<GpuImage>>,
 ) {
     let buffer = buffers.get(&buffer.0).unwrap();
     let image = images.get(&image.0).unwrap();
@@ -196,7 +196,7 @@ impl render_graph::Node for ComputeNode {
     fn run(
         &self,
         _graph: &mut render_graph::RenderGraphContext,
-        render_context: &mut RenderContext,
+        render_context: &mut RenderContext<'_>,
         world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();

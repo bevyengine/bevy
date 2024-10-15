@@ -91,7 +91,7 @@ const RESET_FOCUS: [f32; 3] = [
     BOARD_SIZE_J as f32 / 2.0 - 0.5,
 ];
 
-fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
+fn setup_cameras(mut commands: Commands<'_, '_>, mut game: ResMut<'_, Game>) {
     game.camera_should_focus = Vec3::from(RESET_FOCUS);
     game.camera_is_focus = game.camera_should_focus;
     commands.spawn((
@@ -105,7 +105,11 @@ fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
     ));
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMut<Game>) {
+fn setup(
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut game: ResMut<'_, Game>,
+) {
     let mut rng = if std::env::var("GITHUB_ACTIONS") == Ok("true".to_string()) {
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
         // This isn't strictly required in practical use unless you need your app to be deterministic.
@@ -194,7 +198,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
 }
 
 // remove all entities that are not a camera or window
-fn teardown(mut commands: Commands, entities: Query<Entity, (Without<Camera>, Without<Window>)>) {
+fn teardown(
+    mut commands: Commands<'_, '_>,
+    entities: Query<'_, '_, Entity, (Without<Camera>, Without<Window>)>,
+) {
     for entity in &entities {
         commands.entity(entity).despawn();
     }
@@ -202,11 +209,11 @@ fn teardown(mut commands: Commands, entities: Query<Entity, (Without<Camera>, Wi
 
 // control the game character
 fn move_player(
-    mut commands: Commands,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut game: ResMut<Game>,
-    mut transforms: Query<&mut Transform>,
-    time: Res<Time>,
+    mut commands: Commands<'_, '_>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut game: ResMut<'_, Game>,
+    mut transforms: Query<'_, '_, &mut Transform>,
+    time: Res<'_, Time>,
 ) {
     if game.player.move_cooldown.tick(time.delta()).finished() {
         let mut moved = false;
@@ -269,9 +276,16 @@ fn move_player(
 
 // change the focus of the camera
 fn focus_camera(
-    time: Res<Time>,
-    mut game: ResMut<Game>,
-    mut transforms: ParamSet<(Query<&mut Transform, With<Camera3d>>, Query<&Transform>)>,
+    time: Res<'_, Time>,
+    mut game: ResMut<'_, Game>,
+    mut transforms: ParamSet<
+        '_,
+        '_,
+        (
+            Query<'_, '_, &mut Transform, With<Camera3d>>,
+            Query<'_, '_, &Transform>,
+        ),
+    >,
 ) {
     const SPEED: f32 = 2.0;
     // if there is both a player and a bonus, target the mid-point of them
@@ -311,12 +325,12 @@ fn focus_camera(
 
 // despawn the bonus if there is one, then spawn a new one at a random location
 fn spawn_bonus(
-    time: Res<Time>,
-    mut timer: ResMut<BonusSpawnTimer>,
-    mut next_state: ResMut<NextState<GameState>>,
-    mut commands: Commands,
-    mut game: ResMut<Game>,
-    mut rng: ResMut<Random>,
+    time: Res<'_, Time>,
+    mut timer: ResMut<'_, BonusSpawnTimer>,
+    mut next_state: ResMut<'_, NextState<GameState>>,
+    mut commands: Commands<'_, '_>,
+    mut game: ResMut<'_, Game>,
+    mut rng: ResMut<'_, Random>,
 ) {
     // make sure we wait enough time before spawning the next cake
     if !timer.0.tick(time.delta()).finished() {
@@ -365,7 +379,11 @@ fn spawn_bonus(
 }
 
 // let the cake turn on itself
-fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Transform>) {
+fn rotate_bonus(
+    game: Res<'_, Game>,
+    time: Res<'_, Time>,
+    mut transforms: Query<'_, '_, &mut Transform>,
+) {
     if let Some(entity) = game.bonus.entity {
         if let Ok(mut cake_transform) = transforms.get_mut(entity) {
             cake_transform.rotate_y(time.delta_seconds());
@@ -377,14 +395,14 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
 }
 
 // update the score displayed during the game
-fn scoreboard_system(game: Res<Game>, mut display: Single<&mut Text>) {
+fn scoreboard_system(game: Res<'_, Game>, mut display: Single<'_, &mut Text>) {
     display.0 = format!("Sugar Rush: {}", game.score);
 }
 
 // restart the game when pressing spacebar
 fn gameover_keyboard(
-    mut next_state: ResMut<NextState<GameState>>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<'_, NextState<GameState>>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         next_state.set(GameState::Playing);
@@ -392,7 +410,7 @@ fn gameover_keyboard(
 }
 
 // display the number of cake eaten before losing
-fn display_score(mut commands: Commands, game: Res<Game>) {
+fn display_score(mut commands: Commands<'_, '_>, game: Res<'_, Game>) {
     commands
         .spawn(NodeBundle {
             style: Style {

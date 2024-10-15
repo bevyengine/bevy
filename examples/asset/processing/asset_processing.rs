@@ -55,14 +55,7 @@ struct TextPlugin;
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "examples/asset/processing/", "e.txt");
-        app.init_asset::<CoolText>()
-            .init_asset::<Text>()
-            .register_asset_loader(CoolTextLoader)
-            .register_asset_loader(TextLoader)
-            .register_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>(
-                LoadTransformAndSave::new(CoolTextTransformer, CoolTextSaver),
-            )
-            .set_default_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>("cool.ron");
+        app.init_asset::<CoolText>().init_asset::<Text>().register_asset_loader(CoolTextLoader).register_asset_loader(TextLoader).register_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>(LoadTransformAndSave::new(CoolTextTransformer, CoolTextSaver)).set_default_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>("cool.ron");
     }
 }
 
@@ -231,7 +224,7 @@ struct TextAssets {
     e: Handle<Text>,
 }
 
-fn setup(mut commands: Commands, assets: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, assets: Res<'_, AssetServer>) {
     // This the final processed versions of `assets/a.cool.ron` and `assets/foo.c.cool.ron`
     // Check out their counterparts in `imported_assets` to see what the outputs look like.
     commands.insert_resource(TextAssets {
@@ -244,9 +237,9 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 }
 
 fn print_text(
-    handles: Res<TextAssets>,
-    texts: Res<Assets<Text>>,
-    mut asset_events: EventReader<AssetEvent<Text>>,
+    handles: Res<'_, TextAssets>,
+    texts: Res<'_, Assets<Text>>,
+    mut asset_events: EventReader<'_, '_, AssetEvent<Text>>,
 ) {
     if !asset_events.is_empty() {
         // This prints the current values of the assets

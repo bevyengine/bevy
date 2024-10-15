@@ -30,8 +30,8 @@ use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
 /// # #[derive(Component)] pub struct A;
 /// # #[derive(Component)] pub struct B;
 /// fn disjoint_system(
-///     query1: Query<&mut A>,
-///     query2: Query<EntityRef, Without<A>>,
+///     query1: Query<'_, '_, &mut A>,
+///     query2: Query<'_, '_, EntityRef, Without<A>>,
 /// ) {
 ///     // ...
 /// }
@@ -374,8 +374,8 @@ impl<'a> TryFrom<&'a FilteredEntityMut<'_>> for EntityRef<'a> {
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)] pub struct A;
 /// fn disjoint_system(
-///     query1: Query<EntityMut, With<A>>,
-///     query2: Query<EntityMut, Without<A>>,
+///     query1: Query<'_, '_, EntityMut, With<A>>,
+///     query2: Query<'_, '_, EntityMut, Without<A>>,
 /// ) {
 ///     // ...
 /// }
@@ -1178,7 +1178,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         bundle: T,
         mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location<'_>,
     ) -> &mut Self {
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
@@ -1867,7 +1867,7 @@ impl<'w> EntityWorldMut<'w> {
 /// # Safety
 /// All components in the archetype must exist in world
 unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
-    deferred_world: &mut DeferredWorld,
+    deferred_world: &mut DeferredWorld<'_>,
     archetype: &Archetype,
     entity: Entity,
     bundle_info: &BundleInfo,
@@ -2261,7 +2261,7 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
 /// let component: &A = filtered_entity.get().unwrap();
 ///
 /// // Here `FilteredEntityRef` is nested in a tuple, so it does not have access to `&A`.
-/// let mut query = QueryBuilder::<(Entity, FilteredEntityRef)>::new(&mut world)
+/// let mut query = QueryBuilder::<(Entity, FilteredEntityRef<'_>)>::new(&mut world)
 ///     .data::<&A>()
 ///     .build();
 ///
@@ -2529,7 +2529,7 @@ impl<'a> From<&'a EntityWorldMut<'_>> for FilteredEntityRef<'a> {
 ///     .build();
 ///
 /// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world);
-/// let component: Mut<A> = filtered_entity.get_mut().unwrap();
+/// let component: Mut<'_, A> = filtered_entity.get_mut().unwrap();
 ///
 /// // Here `FilteredEntityMut` is nested in a tuple, so it does not have access to `&mut A`.
 /// let mut query = QueryBuilder::<(Entity, FilteredEntityMut)>::new(&mut world)
@@ -3856,7 +3856,7 @@ mod tests {
 
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
-        let mut query = world.query::<EntityRefExcept<TestComponent>>();
+        let mut query = world.query::<EntityRefExcept<'_, TestComponent>>();
 
         let mut found = false;
         for entity_ref in query.iter_mut(&mut world) {
@@ -3886,7 +3886,7 @@ mod tests {
         // that component via `EntityRefExcept`.
         world.run_system_once(system).unwrap();
 
-        fn system(_: Query<(&mut TestComponent, EntityRefExcept<TestComponent2>)>) {}
+        fn system(_: Query<'_, '_, (&mut TestComponent, EntityRefExcept<'_, TestComponent2>)>) {}
     }
 
     // Test that an `EntityRefExcept` that doesn't include a component C among
@@ -3902,7 +3902,11 @@ mod tests {
         // that component via `EntityRefExcept`.
         world.run_system_once(system).unwrap();
 
-        fn system(_: Query<&mut TestComponent>, _: Query<EntityRefExcept<TestComponent2>>) {}
+        fn system(
+            _: Query<'_, '_, &mut TestComponent>,
+            _: Query<'_, '_, EntityRefExcept<'_, TestComponent2>>,
+        ) {
+        }
     }
 
     // Test that an `EntityRefExcept` with an exception for some component C can
@@ -3914,7 +3918,10 @@ mod tests {
 
         world.run_system_once(system).unwrap();
 
-        fn system(_: Query<&mut TestComponent>, query: Query<EntityRefExcept<TestComponent>>) {
+        fn system(
+            _: Query<'_, '_, &mut TestComponent>,
+            query: Query<'_, '_, EntityRefExcept<'_, TestComponent>>,
+        ) {
             for entity_ref in query.iter() {
                 assert!(matches!(
                     entity_ref.get::<TestComponent2>(),
@@ -3931,7 +3938,7 @@ mod tests {
         let mut world = World::new();
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
-        let mut query = world.query::<EntityMutExcept<TestComponent>>();
+        let mut query = world.query::<EntityMutExcept<'_, TestComponent>>();
 
         let mut found = false;
         for mut entity_mut in query.iter_mut(&mut world) {
@@ -3962,7 +3969,7 @@ mod tests {
         // that component via `EntityRefExcept`.
         world.run_system_once(system).unwrap();
 
-        fn system(_: Query<(&mut TestComponent, EntityMutExcept<TestComponent2>)>) {}
+        fn system(_: Query<'_, '_, (&mut TestComponent, EntityMutExcept<'_, TestComponent2>)>) {}
     }
 
     // Test that an `EntityMutExcept` that doesn't include a component C among
@@ -3978,7 +3985,10 @@ mod tests {
         // that component via `EntityRefExcept`.
         world.run_system_once(system).unwrap();
 
-        fn system(_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent2>>) {
+        fn system(
+            _: Query<'_, '_, &mut TestComponent>,
+            mut query: Query<'_, '_, EntityMutExcept<'_, TestComponent2>>,
+        ) {
             for mut entity_mut in query.iter_mut() {
                 assert!(entity_mut
                     .get_mut::<TestComponent2>()
@@ -3996,7 +4006,10 @@ mod tests {
 
         world.run_system_once(system).unwrap();
 
-        fn system(_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent>>) {
+        fn system(
+            _: Query<'_, '_, &mut TestComponent>,
+            mut query: Query<'_, '_, EntityMutExcept<'_, TestComponent>>,
+        ) {
             for mut entity_mut in query.iter_mut() {
                 assert!(entity_mut
                     .get_mut::<TestComponent2>()
@@ -4013,9 +4026,17 @@ mod tests {
 
     #[test]
     fn disjoint_access() {
-        fn disjoint_readonly(_: Query<EntityMut, With<A>>, _: Query<EntityRef, Without<A>>) {}
+        fn disjoint_readonly(
+            _: Query<'_, '_, EntityMut<'_>, With<A>>,
+            _: Query<'_, '_, EntityRef<'_>, Without<A>>,
+        ) {
+        }
 
-        fn disjoint_mutable(_: Query<EntityMut, With<A>>, _: Query<EntityMut, Without<A>>) {}
+        fn disjoint_mutable(
+            _: Query<'_, '_, EntityMut<'_>, With<A>>,
+            _: Query<'_, '_, EntityMut<'_>, Without<A>>,
+        ) {
+        }
 
         assert_is_system(disjoint_readonly);
         assert_is_system(disjoint_mutable);
@@ -4023,14 +4044,14 @@ mod tests {
 
     #[test]
     fn ref_compatible() {
-        fn borrow_system(_: Query<(EntityRef, &A)>, _: Query<&A>) {}
+        fn borrow_system(_: Query<'_, '_, (EntityRef<'_>, &A)>, _: Query<'_, '_, &A>) {}
 
         assert_is_system(borrow_system);
     }
 
     #[test]
     fn ref_compatible_with_resource() {
-        fn borrow_system(_: Query<EntityRef>, _: Res<R>) {}
+        fn borrow_system(_: Query<'_, '_, EntityRef<'_>>, _: Res<'_, R>) {}
 
         assert_is_system(borrow_system);
     }
@@ -4038,7 +4059,7 @@ mod tests {
     #[test]
     #[ignore] // This should pass, but it currently fails due to limitations in our access model.
     fn ref_compatible_with_resource_mut() {
-        fn borrow_system(_: Query<EntityRef>, _: ResMut<R>) {}
+        fn borrow_system(_: Query<'_, '_, EntityRef<'_>>, _: ResMut<'_, R>) {}
 
         assert_is_system(borrow_system);
     }
@@ -4046,7 +4067,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn ref_incompatible_with_mutable_component() {
-        fn incompatible_system(_: Query<(EntityRef, &mut A)>) {}
+        fn incompatible_system(_: Query<'_, '_, (EntityRef<'_>, &mut A)>) {}
 
         assert_is_system(incompatible_system);
     }
@@ -4054,14 +4075,14 @@ mod tests {
     #[test]
     #[should_panic]
     fn ref_incompatible_with_mutable_query() {
-        fn incompatible_system(_: Query<EntityRef>, _: Query<&mut A>) {}
+        fn incompatible_system(_: Query<'_, '_, EntityRef<'_>>, _: Query<'_, '_, &mut A>) {}
 
         assert_is_system(incompatible_system);
     }
 
     #[test]
     fn mut_compatible_with_entity() {
-        fn borrow_mut_system(_: Query<(Entity, EntityMut)>) {}
+        fn borrow_mut_system(_: Query<'_, '_, (Entity, EntityMut<'_>)>) {}
 
         assert_is_system(borrow_mut_system);
     }
@@ -4069,7 +4090,7 @@ mod tests {
     #[test]
     #[ignore] // This should pass, but it currently fails due to limitations in our access model.
     fn mut_compatible_with_resource() {
-        fn borrow_mut_system(_: Res<R>, _: Query<EntityMut>) {}
+        fn borrow_mut_system(_: Res<'_, R>, _: Query<'_, '_, EntityMut<'_>>) {}
 
         assert_is_system(borrow_mut_system);
     }
@@ -4077,7 +4098,7 @@ mod tests {
     #[test]
     #[ignore] // This should pass, but it currently fails due to limitations in our access model.
     fn mut_compatible_with_resource_mut() {
-        fn borrow_mut_system(_: ResMut<R>, _: Query<EntityMut>) {}
+        fn borrow_mut_system(_: ResMut<'_, R>, _: Query<'_, '_, EntityMut<'_>>) {}
 
         assert_is_system(borrow_mut_system);
     }
@@ -4085,7 +4106,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn mut_incompatible_with_read_only_component() {
-        fn incompatible_system(_: Query<(EntityMut, &A)>) {}
+        fn incompatible_system(_: Query<'_, '_, (EntityMut<'_>, &A)>) {}
 
         assert_is_system(incompatible_system);
     }
@@ -4093,7 +4114,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn mut_incompatible_with_mutable_component() {
-        fn incompatible_system(_: Query<(EntityMut, &mut A)>) {}
+        fn incompatible_system(_: Query<'_, '_, (EntityMut<'_>, &mut A)>) {}
 
         assert_is_system(incompatible_system);
     }
@@ -4101,7 +4122,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn mut_incompatible_with_read_only_query() {
-        fn incompatible_system(_: Query<EntityMut>, _: Query<&A>) {}
+        fn incompatible_system(_: Query<'_, '_, EntityMut<'_>>, _: Query<'_, '_, &A>) {}
 
         assert_is_system(incompatible_system);
     }
@@ -4109,7 +4130,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn mut_incompatible_with_mutable_query() {
-        fn incompatible_system(_: Query<EntityMut>, _: Query<&mut A>) {}
+        fn incompatible_system(_: Query<'_, '_, EntityMut<'_>>, _: Query<'_, '_, &mut A>) {}
 
         assert_is_system(incompatible_system);
     }
@@ -4119,7 +4140,7 @@ mod tests {
         let mut world = World::new();
         let a_id = world.register_component::<A>();
 
-        let e: FilteredEntityRef = world.spawn(A).into();
+        let e: FilteredEntityRef<'_> = world.spawn(A).into();
 
         assert!(e.get::<A>().is_some());
         assert!(e.get_ref::<A>().is_some());
@@ -4133,7 +4154,7 @@ mod tests {
         let mut world = World::new();
         let a_id = world.register_component::<A>();
 
-        let e: FilteredEntityRef = world.spawn(()).into();
+        let e: FilteredEntityRef<'_> = world.spawn(()).into();
 
         assert!(e.get::<A>().is_none());
         assert!(e.get_ref::<A>().is_none());
@@ -4147,7 +4168,7 @@ mod tests {
         let mut world = World::new();
         let a_id = world.register_component::<A>();
 
-        let mut e: FilteredEntityMut = world.spawn(A).into();
+        let mut e: FilteredEntityMut<'_> = world.spawn(A).into();
 
         assert!(e.get::<A>().is_some());
         assert!(e.get_ref::<A>().is_some());
@@ -4163,7 +4184,7 @@ mod tests {
         let mut world = World::new();
         let a_id = world.register_component::<A>();
 
-        let mut e: FilteredEntityMut = world.spawn(()).into();
+        let mut e: FilteredEntityMut<'_> = world.spawn(()).into();
 
         assert!(e.get::<A>().is_none());
         assert!(e.get_ref::<A>().is_none());
@@ -4253,7 +4274,7 @@ mod tests {
                 .entity(e1)
                 .get_by_id(&[x_id, y_id] as &[ComponentId])
                 .map(|ptrs| {
-                    let Ok([x_ptr, y_ptr]): Result<[Ptr; 2], _> = ptrs.try_into() else {
+                    let Ok([x_ptr, y_ptr]): Result<[Ptr<'_>; 2], _> = ptrs.try_into() else {
                         panic!("get_by_id(slice) didn't return 2 elements")
                     };
 
@@ -4267,7 +4288,7 @@ mod tests {
                 .entity(e2)
                 .get_by_id(&[x_id, y_id] as &[ComponentId])
                 .map(|ptrs| {
-                    let Ok([x_ptr, y_ptr]): Result<[Ptr; 2], _> = ptrs.try_into() else {
+                    let Ok([x_ptr, y_ptr]): Result<[Ptr<'_>; 2], _> = ptrs.try_into() else {
                         panic!("get_by_id(slice) didn't return 2 elements")
                     };
 
@@ -4281,7 +4302,7 @@ mod tests {
                 .entity(e3)
                 .get_by_id(&[x_id, y_id] as &[ComponentId])
                 .map(|ptrs| {
-                    let Ok([x_ptr, y_ptr]): Result<[Ptr; 2], _> = ptrs.try_into() else {
+                    let Ok([x_ptr, y_ptr]): Result<[Ptr<'_>; 2], _> = ptrs.try_into() else {
                         panic!("get_by_id(slice) didn't return 2 elements")
                     };
 
@@ -4370,7 +4391,7 @@ mod tests {
                 .entity_mut(e1)
                 .get_mut_by_id(&[x_id, y_id] as &[ComponentId])
                 .map(|ptrs| {
-                    let Ok([x_ptr, y_ptr]): Result<[MutUntyped; 2], _> = ptrs.try_into() else {
+                    let Ok([x_ptr, y_ptr]): Result<[MutUntyped<'_>; 2], _> = ptrs.try_into() else {
                         panic!("get_mut_by_id(slice) didn't return 2 elements")
                     };
 
@@ -4386,7 +4407,7 @@ mod tests {
                 .entity_mut(e2)
                 .get_mut_by_id(&[x_id, y_id] as &[ComponentId])
                 .map(|ptrs| {
-                    let Ok([x_ptr, y_ptr]): Result<[MutUntyped; 2], _> = ptrs.try_into() else {
+                    let Ok([x_ptr, y_ptr]): Result<[MutUntyped<'_>; 2], _> = ptrs.try_into() else {
                         panic!("get_mut_by_id(slice) didn't return 2 elements")
                     };
 
@@ -4402,7 +4423,7 @@ mod tests {
                 .entity_mut(e3)
                 .get_mut_by_id(&[x_id, y_id] as &[ComponentId])
                 .map(|ptrs| {
-                    let Ok([x_ptr, y_ptr]): Result<[MutUntyped; 2], _> = ptrs.try_into() else {
+                    let Ok([x_ptr, y_ptr]): Result<[MutUntyped<'_>; 2], _> = ptrs.try_into() else {
                         panic!("get_mut_by_id(slice) didn't return 2 elements")
                     };
 

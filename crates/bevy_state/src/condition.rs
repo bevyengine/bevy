@@ -27,7 +27,7 @@ use bevy_ecs::{change_detection::DetectChanges, system::Res};
 ///     my_system.run_if(state_exists::<GameState>),
 /// );
 ///
-/// fn my_system(mut counter: ResMut<Counter>) {
+/// fn my_system(mut counter: ResMut<'_, Counter>) {
 ///     counter.0 += 1;
 /// }
 ///
@@ -41,7 +41,7 @@ use bevy_ecs::{change_detection::DetectChanges, system::Res};
 /// app.run(&mut world);
 /// assert_eq!(world.resource::<Counter>().0, 1);
 /// ```
-pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
+pub fn state_exists<S: States>(current_state: Option<Res<'_, State<S>>>) -> bool {
     current_state.is_some()
 }
 
@@ -76,11 +76,11 @@ pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 ///     pause_system.run_if(in_state(GameState::Paused)),
 /// ));
 ///
-/// fn play_system(mut counter: ResMut<Counter>) {
+/// fn play_system(mut counter: ResMut<'_, Counter>) {
 ///     counter.0 += 1;
 /// }
 ///
-/// fn pause_system(mut counter: ResMut<Counter>) {
+/// fn pause_system(mut counter: ResMut<'_, Counter>) {
 ///     counter.0 -= 1;
 /// }
 ///
@@ -94,8 +94,8 @@ pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 /// app.run(&mut world);
 /// assert_eq!(world.resource::<Counter>().0, 0);
 /// ```
-pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
-    move |current_state: Option<Res<State<S>>>| match current_state {
+pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<'_, State<S>>>) -> bool + Clone {
+    move |current_state: Option<Res<'_, State<S>>>| match current_state {
         Some(current_state) => *current_state == state,
         None => false,
     }
@@ -135,7 +135,7 @@ pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> boo
 ///     my_system.run_if(state_changed::<GameState>),
 /// );
 ///
-/// fn my_system(mut counter: ResMut<Counter>) {
+/// fn my_system(mut counter: ResMut<'_, Counter>) {
 ///     counter.0 += 1;
 /// }
 ///
@@ -153,7 +153,7 @@ pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> boo
 /// app.run(&mut world);
 /// assert_eq!(world.resource::<Counter>().0, 2);
 /// ```
-pub fn state_changed<S: States>(current_state: Option<Res<State<S>>>) -> bool {
+pub fn state_changed<S: States>(current_state: Option<Res<'_, State<S>>>) -> bool {
     let Some(current_state) = current_state else {
         return false;
     };

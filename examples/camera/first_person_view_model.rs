@@ -97,9 +97,9 @@ const DEFAULT_RENDER_LAYER: usize = 0;
 const VIEW_MODEL_RENDER_LAYER: usize = 1;
 
 fn spawn_view_model(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.5));
     let arm_material = materials.add(Color::from(tailwind::TEAL_200));
@@ -151,9 +151,9 @@ fn spawn_view_model(
 }
 
 fn spawn_world_model(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     let floor = meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(10.0)));
     let cube = meshes.add(Cuboid::new(2.0, 0.5, 1.0));
@@ -177,7 +177,7 @@ fn spawn_world_model(
     ));
 }
 
-fn spawn_lights(mut commands: Commands) {
+fn spawn_lights(mut commands: Commands<'_, '_>) {
     commands.spawn((
         PointLight {
             color: Color::from(tailwind::ROSE_300),
@@ -190,7 +190,7 @@ fn spawn_lights(mut commands: Commands) {
     ));
 }
 
-fn spawn_text(mut commands: Commands) {
+fn spawn_text(mut commands: Commands<'_, '_>) {
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -209,8 +209,8 @@ fn spawn_text(mut commands: Commands) {
 }
 
 fn move_player(
-    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
-    mut player: Query<(&mut Transform, &CameraSensitivity), With<Player>>,
+    accumulated_mouse_motion: Res<'_, AccumulatedMouseMotion>,
+    mut player: Query<'_, '_, (&mut Transform, &CameraSensitivity), With<Player>>,
 ) {
     let Ok((mut transform, camera_sensitivity)) = player.get_single_mut() else {
         return;
@@ -244,8 +244,8 @@ fn move_player(
 }
 
 fn change_fov(
-    input: Res<ButtonInput<KeyCode>>,
-    mut world_model_projection: Query<&mut Projection, With<WorldModelCamera>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut world_model_projection: Query<'_, '_, &mut Projection, With<WorldModelCamera>>,
 ) {
     let Ok(mut projection) = world_model_projection.get_single_mut() else {
         return;

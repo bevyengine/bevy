@@ -64,15 +64,15 @@ pub struct PreviousHoverMap(pub HashMap<PointerId, HashMap<Entity, HitData>>);
 /// This is the final focusing step to determine which entity the pointer is hovering over.
 pub fn update_focus(
     // Inputs
-    picking_behavior: Query<&PickingBehavior>,
-    pointers: Query<&PointerId>,
-    mut under_pointer: EventReader<backend::PointerHits>,
-    mut pointer_input: EventReader<PointerInput>,
+    picking_behavior: Query<'_, '_, &PickingBehavior>,
+    pointers: Query<'_, '_, &PointerId>,
+    mut under_pointer: EventReader<'_, '_, backend::PointerHits>,
+    mut pointer_input: EventReader<'_, '_, PointerInput>,
     // Local
-    mut over_map: Local<OverMap>,
+    mut over_map: Local<'_, OverMap>,
     // Output
-    mut hover_map: ResMut<HoverMap>,
-    mut previous_hover_map: ResMut<PreviousHoverMap>,
+    mut hover_map: ResMut<'_, HoverMap>,
+    mut previous_hover_map: ResMut<'_, PreviousHoverMap>,
 ) {
     reset_maps(
         &mut hover_map,
@@ -89,7 +89,7 @@ fn reset_maps(
     hover_map: &mut HoverMap,
     previous_hover_map: &mut PreviousHoverMap,
     over_map: &mut OverMap,
-    pointers: &Query<&PointerId>,
+    pointers: &Query<'_, '_, &PointerId>,
 ) {
     // Swap the previous and current hover maps. This results in the previous values being stored in
     // `PreviousHoverMap`. Swapping is okay because we clear the `HoverMap` which now holds stale
@@ -111,9 +111,9 @@ fn reset_maps(
 
 /// Build an ordered map of entities that are under each pointer
 fn build_over_map(
-    backend_events: &mut EventReader<backend::PointerHits>,
-    pointer_over_map: &mut Local<OverMap>,
-    pointer_input: &mut EventReader<PointerInput>,
+    backend_events: &mut EventReader<'_, '_, backend::PointerHits>,
+    pointer_over_map: &mut Local<'_, OverMap>,
+    pointer_input: &mut EventReader<'_, '_, PointerInput>,
 ) {
     let cancelled_pointers: HashSet<PointerId> = pointer_input
         .read()
@@ -152,9 +152,9 @@ fn build_over_map(
 /// that unlike the pointer map, this uses [`PickingBehavior`] to determine if lower entities receive hover
 /// focus. Often, only a single entity per pointer will be hovered.
 fn build_hover_map(
-    pointers: &Query<&PointerId>,
-    picking_behavior: Query<&PickingBehavior>,
-    over_map: &Local<OverMap>,
+    pointers: &Query<'_, '_, &PointerId>,
+    picking_behavior: Query<'_, '_, &PickingBehavior>,
+    over_map: &Local<'_, OverMap>,
     // Output
     hover_map: &mut HoverMap,
 ) {
@@ -203,12 +203,12 @@ pub enum PickingInteraction {
 /// Uses pointer events to update [`PointerInteraction`] and [`PickingInteraction`] components.
 pub fn update_interactions(
     // Input
-    hover_map: Res<HoverMap>,
-    previous_hover_map: Res<PreviousHoverMap>,
+    hover_map: Res<'_, HoverMap>,
+    previous_hover_map: Res<'_, PreviousHoverMap>,
     // Outputs
-    mut commands: Commands,
-    mut pointers: Query<(&PointerId, &PointerPress, &mut PointerInteraction)>,
-    mut interact: Query<&mut PickingInteraction>,
+    mut commands: Commands<'_, '_>,
+    mut pointers: Query<'_, '_, (&PointerId, &PointerPress, &mut PointerInteraction)>,
+    mut interact: Query<'_, '_, &mut PickingInteraction>,
 ) {
     // Clear all previous hover data from pointers and entities
     for (pointer, _, mut pointer_interaction) in &mut pointers {

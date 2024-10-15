@@ -302,12 +302,12 @@ use derive_more::derive::{Display, Error};
 /// // #[component(on_replace = my_on_replace_hook, on_remove = my_on_remove_hook)]
 /// struct ComponentA;
 ///
-/// fn my_on_add_hook(world: DeferredWorld, entity: Entity, id: ComponentId) {
+/// fn my_on_add_hook(world: DeferredWorld<'_>, entity: Entity, id: ComponentId) {
 ///     // ...
 /// }
 ///
 /// // You can also omit writing some types using generics.
-/// fn my_on_insert_hook<T1, T2>(world: DeferredWorld, _: T1, _: T2) {
+/// fn my_on_insert_hook<T1, T2>(world: DeferredWorld<'_>, _: T1, _: T2) {
 ///     // ...
 /// }
 /// ```
@@ -1553,7 +1553,7 @@ impl ComponentTicks {
     /// Manually sets the change tick.
     ///
     /// This is normally done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
-    /// on [`Mut<T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::change_detection::ResMut), etc.
+    /// on [`Mut<'_, T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::change_detection::ResMut), etc.
     /// However, components and resources that make use of interior mutability might require manual updates.
     ///
     /// # Example
@@ -1602,7 +1602,7 @@ impl<T: Component> core::ops::Deref for ComponentIdFor<'_, T> {
 
 impl<T: Component> From<ComponentIdFor<'_, T>> for ComponentId {
     #[inline]
-    fn from(to_component_id: ComponentIdFor<T>) -> ComponentId {
+    fn from(to_component_id: ComponentIdFor<'_, T>) -> ComponentId {
         *to_component_id
     }
 }

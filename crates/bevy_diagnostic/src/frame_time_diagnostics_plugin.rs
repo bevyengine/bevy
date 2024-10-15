@@ -27,9 +27,9 @@ impl FrameTimeDiagnosticsPlugin {
     pub const FRAME_TIME: DiagnosticPath = DiagnosticPath::const_new("frame_time");
 
     pub fn diagnostic_system(
-        mut diagnostics: Diagnostics,
-        time: Res<Time<Real>>,
-        frame_count: Res<FrameCount>,
+        mut diagnostics: Diagnostics<'_, '_>,
+        time: Res<'_, Time<Real>>,
+        frame_count: Res<'_, FrameCount>,
     ) {
         diagnostics.add_measurement(&Self::FRAME_COUNT, || frame_count.0 as f64);
 

@@ -82,7 +82,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
     /// passed via the [`RenderGraphContext`].
     fn run<'w>(
         &self,
-        graph: &mut RenderGraphContext,
+        graph: &mut RenderGraphContext<'_>,
         render_context: &mut RenderContext<'w>,
         world: &'w World,
     ) -> Result<(), NodeRunError>;
@@ -303,8 +303,8 @@ pub struct EmptyNode;
 impl Node for EmptyNode {
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
+        _graph: &mut RenderGraphContext<'_>,
+        _render_context: &mut RenderContext<'_>,
         _world: &World,
     ) -> Result<(), NodeRunError> {
         Ok(())
@@ -328,8 +328,8 @@ impl RunGraphOnViewNode {
 impl Node for RunGraphOnViewNode {
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
+        graph: &mut RenderGraphContext<'_>,
+        _render_context: &mut RenderContext<'_>,
         _world: &World,
     ) -> Result<(), NodeRunError> {
         graph.run_sub_graph(self.sub_graph, vec![], Some(graph.view_entity()))?;
@@ -353,7 +353,7 @@ pub trait ViewNode {
     /// passed via the [`RenderGraphContext`].
     fn run<'w>(
         &self,
-        graph: &mut RenderGraphContext,
+        graph: &mut RenderGraphContext<'_>,
         render_context: &mut RenderContext<'w>,
         view_query: QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
@@ -395,7 +395,7 @@ where
 
     fn run<'w>(
         &self,
-        graph: &mut RenderGraphContext,
+        graph: &mut RenderGraphContext<'_>,
         render_context: &mut RenderContext<'w>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {

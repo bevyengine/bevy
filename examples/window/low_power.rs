@@ -53,10 +53,10 @@ enum ExampleMode {
 
 /// Update winit based on the current `ExampleMode`
 fn update_winit(
-    mode: Res<ExampleMode>,
-    mut winit_config: ResMut<WinitSettings>,
-    event_loop_proxy: Res<EventLoopProxyWrapper<WakeUp>>,
-    mut redraw_request_events: EventWriter<RequestRedraw>,
+    mode: Res<'_, ExampleMode>,
+    mut winit_config: ResMut<'_, WinitSettings>,
+    event_loop_proxy: Res<'_, EventLoopProxyWrapper<WakeUp>>,
+    mut redraw_request_events: EventWriter<'_, RequestRedraw>,
 ) {
     use ExampleMode::*;
     *winit_config = match *mode {
@@ -114,8 +114,8 @@ pub(crate) mod test_setup {
 
     /// Switch between update modes when the mouse is clicked.
     pub(crate) fn cycle_modes(
-        mut mode: ResMut<ExampleMode>,
-        button_input: Res<ButtonInput<KeyCode>>,
+        mut mode: ResMut<'_, ExampleMode>,
+        button_input: Res<'_, ButtonInput<KeyCode>>,
     ) {
         if button_input.just_pressed(KeyCode::Space) {
             *mode = match *mode {
@@ -132,8 +132,8 @@ pub(crate) mod test_setup {
 
     /// Rotate the cube to make it clear when the app is updating
     pub(crate) fn rotate_cube(
-        time: Res<Time>,
-        mut cube_transform: Query<&mut Transform, With<Rotator>>,
+        time: Res<'_, Time>,
+        mut cube_transform: Query<'_, '_, &mut Transform, With<Rotator>>,
     ) {
         for mut transform in &mut cube_transform {
             transform.rotate_x(time.delta_seconds());
@@ -145,9 +145,9 @@ pub(crate) mod test_setup {
     pub struct ModeText;
 
     pub(crate) fn update_text(
-        mut frame: Local<usize>,
-        mode: Res<ExampleMode>,
-        text: Single<Entity, With<ModeText>>,
+        mut frame: Local<'_, usize>,
+        mode: Res<'_, ExampleMode>,
+        text: Single<'_, Entity, With<ModeText>>,
         mut writer: UiTextWriter,
     ) {
         *frame += 1;
@@ -165,10 +165,10 @@ pub(crate) mod test_setup {
 
     /// Set up a scene with a cube and some text
     pub fn setup(
-        mut commands: Commands,
-        mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<StandardMaterial>>,
-        mut event: EventWriter<RequestRedraw>,
+        mut commands: Commands<'_, '_>,
+        mut meshes: ResMut<'_, Assets<Mesh>>,
+        mut materials: ResMut<'_, Assets<StandardMaterial>>,
+        mut event: EventWriter<'_, RequestRedraw>,
     ) {
         commands.spawn((
             Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),

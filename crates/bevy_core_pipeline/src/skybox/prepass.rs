@@ -111,11 +111,16 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
 
 /// Specialize and cache the [`SkyboxPrepassPipeline`] for each camera with a [`Skybox`].
 pub fn prepare_skybox_prepass_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPrepassPipeline>>,
-    pipeline: Res<SkyboxPrepassPipeline>,
-    views: Query<(Entity, Has<NormalPrepass>, &Msaa), (With<Skybox>, With<MotionVectorPrepass>)>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<SkyboxPrepassPipeline>>,
+    pipeline: Res<'_, SkyboxPrepassPipeline>,
+    views: Query<
+        '_,
+        '_,
+        (Entity, Has<NormalPrepass>, &Msaa),
+        (With<Skybox>, With<MotionVectorPrepass>),
+    >,
 ) {
     for (entity, normal_prepass, msaa) in &views {
         let pipeline_key = SkyboxPrepassPipelineKey {
@@ -135,12 +140,12 @@ pub fn prepare_skybox_prepass_pipelines(
 /// from the CPU for access in the prepass shader on the GPU, allowing us to compute camera motion
 /// between frames. This is then stored in the [`SkyboxPrepassBindGroup`] component on the camera.
 pub fn prepare_skybox_prepass_bind_groups(
-    mut commands: Commands,
-    pipeline: Res<SkyboxPrepassPipeline>,
-    view_uniforms: Res<ViewUniforms>,
-    prev_view_uniforms: Res<PreviousViewUniforms>,
-    render_device: Res<RenderDevice>,
-    views: Query<Entity, (With<Skybox>, With<MotionVectorPrepass>)>,
+    mut commands: Commands<'_, '_>,
+    pipeline: Res<'_, SkyboxPrepassPipeline>,
+    view_uniforms: Res<'_, ViewUniforms>,
+    prev_view_uniforms: Res<'_, PreviousViewUniforms>,
+    render_device: Res<'_, RenderDevice>,
+    views: Query<'_, '_, Entity, (With<Skybox>, With<MotionVectorPrepass>)>,
 ) {
     for entity in &views {
         let (Some(view_uniforms), Some(prev_view_uniforms)) = (

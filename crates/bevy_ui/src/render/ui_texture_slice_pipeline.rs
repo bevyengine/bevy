@@ -244,24 +244,30 @@ pub struct ExtractedUiTextureSlices {
 }
 
 pub fn extract_ui_texture_slices(
-    mut commands: Commands,
-    mut extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
-    default_ui_camera: Extract<DefaultUiCamera>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
+    mut commands: Commands<'_, '_>,
+    mut extracted_ui_slicers: ResMut<'_, ExtractedUiTextureSlices>,
+    default_ui_camera: Extract<'_, '_, DefaultUiCamera<'_, '_>>,
+    texture_atlases: Extract<'_, '_, Res<'_, Assets<TextureAtlasLayout>>>,
     slicers_query: Extract<
-        Query<(
-            Entity,
-            &Node,
-            &GlobalTransform,
-            &ViewVisibility,
-            Option<&CalculatedClip>,
-            Option<&TargetCamera>,
-            &UiImage,
-            &ImageScaleMode,
-            Option<&TextureAtlas>,
-        )>,
+        '_,
+        '_,
+        Query<
+            '_,
+            '_,
+            (
+                Entity,
+                &Node,
+                &GlobalTransform,
+                &ViewVisibility,
+                Option<&CalculatedClip>,
+                Option<&TargetCamera>,
+                &UiImage,
+                &ImageScaleMode,
+                Option<&TextureAtlas>,
+            ),
+        >,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    mapping: Extract<'_, '_, Query<'_, '_, RenderEntity>>,
 ) {
     for (
         entity,
@@ -331,13 +337,13 @@ pub fn extract_ui_texture_slices(
 }
 
 pub fn queue_ui_slices(
-    extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
-    ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView)>,
-    pipeline_cache: Res<PipelineCache>,
-    draw_functions: Res<DrawFunctions<TransparentUi>>,
+    extracted_ui_slicers: ResMut<'_, ExtractedUiTextureSlices>,
+    ui_slicer_pipeline: Res<'_, UiTextureSlicePipeline>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<UiTextureSlicePipeline>>,
+    mut transparent_render_phases: ResMut<'_, ViewSortedRenderPhases<TransparentUi>>,
+    mut views: Query<'_, '_, (Entity, &ExtractedView)>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    draw_functions: Res<'_, DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUiTextureSlices>();
     for (entity, extracted_slicer) in extracted_ui_slicers.slices.iter() {
@@ -371,18 +377,18 @@ pub fn queue_ui_slices(
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_ui_slices(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut ui_meta: ResMut<UiTextureSliceMeta>,
-    mut extracted_slices: ResMut<ExtractedUiTextureSlices>,
-    view_uniforms: Res<ViewUniforms>,
-    texture_slicer_pipeline: Res<UiTextureSlicePipeline>,
-    mut image_bind_groups: ResMut<UiTextureSliceImageBindGroups>,
-    gpu_images: Res<RenderAssets<GpuImage>>,
-    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    events: Res<SpriteAssetEvents>,
-    mut previous_len: Local<usize>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut ui_meta: ResMut<'_, UiTextureSliceMeta>,
+    mut extracted_slices: ResMut<'_, ExtractedUiTextureSlices>,
+    view_uniforms: Res<'_, ViewUniforms>,
+    texture_slicer_pipeline: Res<'_, UiTextureSlicePipeline>,
+    mut image_bind_groups: ResMut<'_, UiTextureSliceImageBindGroups>,
+    gpu_images: Res<'_, RenderAssets<GpuImage>>,
+    mut phases: ResMut<'_, ViewSortedRenderPhases<TransparentUi>>,
+    events: Res<'_, SpriteAssetEvents>,
+    mut previous_len: Local<'_, usize>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {

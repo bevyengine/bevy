@@ -249,15 +249,9 @@ impl FromWorld for GpuPreprocessingSupport {
             }
         }
 
-        if device.limits().max_compute_workgroup_size_x == 0 || is_non_supported_android_device(adapter)
-        {
+        if device.limits().max_compute_workgroup_size_x == 0 || is_non_supported_android_device(adapter) {
             GpuPreprocessingSupport::None
-        } else if !device
-            .features()
-            .contains(Features::INDIRECT_FIRST_INSTANCE) ||
-            !adapter.get_downlevel_capabilities().flags.contains(
-        DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW)
-        {
+        } else if !device.features().contains(Features::INDIRECT_FIRST_INSTANCE) || !adapter.get_downlevel_capabilities().flags.contains(DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW) {
             GpuPreprocessingSupport::PreprocessingOnly
         } else {
             GpuPreprocessingSupport::Culling
@@ -283,7 +277,7 @@ where
     /// Returns the binding of the buffer that contains the per-instance data.
     ///
     /// This buffer needs to be filled in via a compute shader.
-    pub fn instance_data_binding(&self) -> Option<BindingResource> {
+    pub fn instance_data_binding(&self) -> Option<BindingResource<'_>> {
         self.data_buffer
             .buffer()
             .map(|buffer| buffer.as_entire_binding())
@@ -365,7 +359,7 @@ where
 /// directly, so the buffers need to be cleared before then.
 pub fn clear_batched_gpu_instance_buffers<GFBD>(
     gpu_batched_instance_buffers: Option<
-        ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
+        ResMut<'_, BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     >,
 ) where
     GFBD: GetFullBatchData,
@@ -383,9 +377,10 @@ pub fn clear_batched_gpu_instance_buffers<GFBD>(
 /// completed.
 pub fn delete_old_work_item_buffers<GFBD>(
     mut gpu_batched_instance_buffers: ResMut<
+        '_,
         BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
     >,
-    view_targets: Query<Entity, With<ViewTarget>>,
+    view_targets: Query<'_, '_, Entity, With<ViewTarget>>,
 ) where
     GFBD: GetFullBatchData,
 {
@@ -398,11 +393,11 @@ pub fn delete_old_work_item_buffers<GFBD>(
 /// is in use. This means comparing metadata needed to draw each phase item and
 /// trying to combine the draws into a batch.
 pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
-    gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
-    mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
-    mut sorted_render_phases: ResMut<ViewSortedRenderPhases<I>>,
-    mut views: Query<(Entity, Has<GpuCulling>), With<ExtractedView>>,
-    system_param_item: StaticSystemParam<GFBD::Param>,
+    gpu_array_buffer: ResMut<'_, BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
+    mut indirect_parameters_buffer: ResMut<'_, IndirectParametersBuffer>,
+    mut sorted_render_phases: ResMut<'_, ViewSortedRenderPhases<I>>,
+    mut views: Query<'_, '_, (Entity, Has<GpuCulling>), With<ExtractedView>>,
+    system_param_item: StaticSystemParam<'_, '_, GFBD::Param>,
 ) where
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
     GFBD: GetFullBatchData,
@@ -516,11 +511,11 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 
 /// Creates batches for a render phase that uses bins.
 pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
-    gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
-    mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
-    mut binned_render_phases: ResMut<ViewBinnedRenderPhases<BPI>>,
-    mut views: Query<(Entity, Has<GpuCulling>), With<ExtractedView>>,
-    param: StaticSystemParam<GFBD::Param>,
+    gpu_array_buffer: ResMut<'_, BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
+    mut indirect_parameters_buffer: ResMut<'_, IndirectParametersBuffer>,
+    mut binned_render_phases: ResMut<'_, ViewBinnedRenderPhases<BPI>>,
+    mut views: Query<'_, '_, (Entity, Has<GpuCulling>), With<ExtractedView>>,
+    param: StaticSystemParam<'_, '_, GFBD::Param>,
 ) where
     BPI: BinnedPhaseItem,
     GFBD: GetFullBatchData,
@@ -661,9 +656,9 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 
 /// A system that writes all instance buffers to the GPU.
 pub fn write_batched_instance_buffers<GFBD>(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    gpu_array_buffer: ResMut<'_, BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
 ) where
     GFBD: GetFullBatchData,
 {
@@ -687,9 +682,9 @@ pub fn write_batched_instance_buffers<GFBD>(
 }
 
 pub fn write_indirect_parameters_buffer(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut indirect_parameters_buffer: ResMut<'_, IndirectParametersBuffer>,
 ) {
     indirect_parameters_buffer.write_buffer(&render_device, &render_queue);
     indirect_parameters_buffer.clear();

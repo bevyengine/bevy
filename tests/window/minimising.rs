@@ -18,7 +18,7 @@ fn main() {
         .run();
 }
 
-fn minimise_automatically(mut window: Single<&mut Window>, frames: Res<FrameCount>) {
+fn minimise_automatically(mut window: Single<'_, &mut Window>, frames: Res<'_, FrameCount>) {
     if frames.0 != 60 {
         return;
     }
@@ -28,9 +28,9 @@ fn minimise_automatically(mut window: Single<&mut Window>, frames: Res<FrameCoun
 
 /// A simple 3d scene, taken from the `3d_scene` example
 fn setup_3d(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // plane
     commands.spawn((
@@ -59,7 +59,7 @@ fn setup_3d(
 }
 
 /// A simple 2d scene, taken from the `rect` example
-fn setup_2d(mut commands: Commands) {
+fn setup_2d(mut commands: Commands<'_, '_>) {
     commands.spawn((
         Camera2d,
         Camera {

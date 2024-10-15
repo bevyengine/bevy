@@ -34,11 +34,14 @@ impl Plugin for GlobalsPlugin {
     }
 }
 
-fn extract_frame_count(mut commands: Commands, frame_count: Extract<Res<FrameCount>>) {
+fn extract_frame_count(
+    mut commands: Commands<'_, '_>,
+    frame_count: Extract<'_, '_, Res<'_, FrameCount>>,
+) {
     commands.insert_resource(**frame_count);
 }
 
-fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
+fn extract_time(mut commands: Commands<'_, '_>, time: Extract<'_, '_, Res<'_, Time>>) {
     commands.insert_resource(**time);
 }
 
@@ -67,11 +70,11 @@ pub struct GlobalsBuffer {
 }
 
 fn prepare_globals_buffer(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut globals_buffer: ResMut<GlobalsBuffer>,
-    time: Res<Time>,
-    frame_count: Res<FrameCount>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut globals_buffer: ResMut<'_, GlobalsBuffer>,
+    time: Res<'_, Time>,
+    frame_count: Res<'_, FrameCount>,
 ) {
     let buffer = globals_buffer.buffer.get_mut();
     buffer.time = time.elapsed_seconds_wrapped();

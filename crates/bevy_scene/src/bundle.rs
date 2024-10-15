@@ -77,16 +77,20 @@ pub struct DynamicSceneBundle {
 
 /// System that will spawn scenes from the [`SceneRoot`] and [`DynamicSceneRoot`] components.
 pub fn scene_spawner(
-    mut commands: Commands,
+    mut commands: Commands<'_, '_>,
     mut scene_to_spawn: Query<
+        '_,
+        '_,
         (Entity, &SceneRoot, Option<&mut SceneInstance>),
         (Changed<SceneRoot>, Without<DynamicSceneRoot>),
     >,
     mut dynamic_scene_to_spawn: Query<
+        '_,
+        '_,
         (Entity, &DynamicSceneRoot, Option<&mut SceneInstance>),
         (Changed<DynamicSceneRoot>, Without<SceneRoot>),
     >,
-    mut scene_spawner: ResMut<SceneSpawner>,
+    mut scene_spawner: ResMut<'_, SceneSpawner>,
 ) {
     for (entity, scene, instance) in &mut scene_to_spawn {
         let new_instance = scene_spawner.spawn_as_child(scene.0.clone(), entity);

@@ -490,7 +490,7 @@ async fn load_gltf<'a, 'b, 'c>(
     // to avoid https://github.com/bevyengine/bevy/pull/2725
     // PERF: could this be a Vec instead? Are gltf texture indices dense?
     fn process_loaded_texture(
-        load_context: &mut LoadContext,
+        load_context: &mut LoadContext<'_>,
         handles: &mut Vec<Handle<Image>>,
         texture: ImageOrPath,
     ) {
@@ -607,11 +607,7 @@ async fn load_gltf<'a, 'b, 'c>(
             for (semantic, accessor) in primitive.attributes() {
                 if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
                     if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
-                        warn!(
-                        "Ignoring attribute {:?} for skinned mesh {:?} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
-                        semantic,
-                        primitive_label
-                    );
+                        warn!("Ignoring attribute {:?} for skinned mesh {:?} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)", semantic, primitive_label);
                         continue;
                     } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
                         error!("Skinned mesh {:?} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
@@ -690,18 +686,13 @@ async fn load_gltf<'a, 'b, 'c>(
             } else if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_some()
                 && material_needs_tangents(&primitive.material())
             {
-                bevy_utils::tracing::debug!(
-                    "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
-                );
+                bevy_utils::tracing::debug!("Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name);
 
                 let generate_tangents_span = info_span!("generate_tangents", name = file_name);
 
                 generate_tangents_span.in_scope(|| {
                     if let Err(err) = mesh.generate_tangents() {
-                        warn!(
-                        "Failed to generate vertex tangents using the mikktspace algorithm: {:?}",
-                        err
-                    );
+                        warn!("Failed to generate vertex tangents using the mikktspace algorithm: {:?}", err);
                     }
                 });
             }
@@ -933,7 +924,7 @@ fn get_gltf_extras(extras: &json::Extras) -> Option<GltfExtras> {
 /// on [`Node::transform()`] directly because it uses optimized glam types and
 /// if `libm` feature of `bevy_math` crate is enabled also handles cross
 /// platform determinism properly.
-fn node_transform(node: &Node) -> Transform {
+fn node_transform(node: &Node<'_>) -> Transform {
     match node.transform() {
         gltf::scene::Transform::Matrix { matrix } => {
             Transform::from_matrix(Mat4::from_cols_array_2d(&matrix))
@@ -950,7 +941,7 @@ fn node_transform(node: &Node) -> Transform {
     }
 }
 
-fn node_name(node: &Node) -> Name {
+fn node_name(node: &Node<'_>) -> Name {
     let name = node
         .name()
         .map(ToString::to_string)
@@ -960,7 +951,7 @@ fn node_name(node: &Node) -> Name {
 
 #[cfg(feature = "bevy_animation")]
 fn paths_recur(
-    node: Node,
+    node: Node<'_>,
     current_path: &[Name],
     paths: &mut HashMap<usize, (usize, Vec<Name>)>,
     root_index: usize,
@@ -1047,8 +1038,8 @@ async fn load_image<'a, 'b>(
 
 /// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
 fn load_material(
-    material: &Material,
-    load_context: &mut LoadContext,
+    material: &Material<'_>,
+    load_context: &mut LoadContext<'_>,
     document: &Document,
     is_scale_inverted: bool,
 ) -> Handle<StandardMaterial> {
@@ -1271,7 +1262,7 @@ fn load_material(
     })
 }
 
-fn get_uv_channel(material: &Material, texture_kind: &str, tex_coord: u32) -> UvChannel {
+fn get_uv_channel(material: &Material<'_>, texture_kind: &str, tex_coord: u32) -> UvChannel {
     match tex_coord {
         0 => UvChannel::Uv0,
         1 => UvChannel::Uv1,
@@ -1294,7 +1285,7 @@ fn get_uv_channel(material: &Material, texture_kind: &str, tex_coord: u32) -> Uv
     }
 }
 
-fn convert_texture_transform_to_affine2(texture_transform: TextureTransform) -> Affine2 {
+fn convert_texture_transform_to_affine2(texture_transform: TextureTransform<'_>) -> Affine2 {
     Affine2::from_scale_angle_translation(
         texture_transform.scale().into(),
         -texture_transform.rotation(),
@@ -1303,8 +1294,8 @@ fn convert_texture_transform_to_affine2(texture_transform: TextureTransform) -> 
 }
 
 fn warn_on_differing_texture_transforms(
-    material: &Material,
-    info: &Info,
+    material: &Material<'_>,
+    info: &Info<'_>,
     texture_transform: Affine2,
     texture_kind: &str,
 ) {
@@ -1328,7 +1319,8 @@ fn warn_on_differing_texture_transforms(
             .unwrap_or_else(|| "default".to_string());
         warn!(
             "Only texture transforms on base color textures are supported, but {material_name} ({material_index}) \
-            has a texture transform on {texture_name} (index {}), which will be ignored.", info.texture().index()
+            has a texture transform on {texture_name} (index {}), which will be ignored.",
+            info.texture().index()
         );
     }
 }
@@ -1336,10 +1328,10 @@ fn warn_on_differing_texture_transforms(
 /// Loads a glTF node.
 #[allow(clippy::too_many_arguments, clippy::result_large_err)]
 fn load_node(
-    gltf_node: &Node,
-    world_builder: &mut WorldChildBuilder,
-    root_load_context: &LoadContext,
-    load_context: &mut LoadContext,
+    gltf_node: &Node<'_>,
+    world_builder: &mut WorldChildBuilder<'_>,
+    root_load_context: &LoadContext<'_>,
+    load_context: &mut LoadContext<'_>,
     settings: &GltfLoaderSettings,
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
     entity_to_skin_index_map: &mut EntityHashMap<usize>,
@@ -1639,7 +1631,7 @@ fn load_node(
     }
 }
 
-fn primitive_name(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
+fn primitive_name(mesh: &gltf::Mesh<'_>, primitive: &Primitive<'_>) -> String {
     let mesh_name = mesh.name().unwrap_or("Mesh");
     if mesh.primitives().len() > 1 {
         format!("{}.{}", mesh_name, primitive.index())
@@ -1649,7 +1641,7 @@ fn primitive_name(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
 }
 
 /// Returns the label for the `material`.
-fn material_label(material: &Material, is_scale_inverted: bool) -> String {
+fn material_label(material: &Material<'_>, is_scale_inverted: bool) -> String {
     if let Some(index) = material.index() {
         GltfAssetLabel::Material {
             index,
@@ -1661,7 +1653,10 @@ fn material_label(material: &Material, is_scale_inverted: bool) -> String {
     }
 }
 
-fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Handle<Image> {
+fn texture_handle(
+    load_context: &mut LoadContext<'_>,
+    texture: &gltf::Texture<'_>,
+) -> Handle<Image> {
     match texture.source().source() {
         Source::View { .. } => {
             load_context.get_label_handle(GltfAssetLabel::Texture(texture.index()).to_string())
@@ -1689,7 +1684,7 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
 /// for an extension, forcing us to parse its texture references manually.
 #[allow(dead_code)]
 fn texture_handle_from_info(
-    load_context: &mut LoadContext,
+    load_context: &mut LoadContext<'_>,
     document: &Document,
     texture_info: &json::texture::Info,
 ) -> Handle<Image> {
@@ -1701,22 +1696,22 @@ fn texture_handle_from_info(
 }
 
 /// Returns the label for the `scene`.
-fn scene_label(scene: &gltf::Scene) -> String {
+fn scene_label(scene: &gltf::Scene<'_>) -> String {
     GltfAssetLabel::Scene(scene.index()).to_string()
 }
 
 /// Return the label for the `skin`.
-fn skin_label(skin: &gltf::Skin) -> String {
+fn skin_label(skin: &gltf::Skin<'_>) -> String {
     GltfAssetLabel::Skin(skin.index()).to_string()
 }
 
 /// Return the label for the `inverseBindMatrices` of the node.
-fn inverse_bind_matrices_label(skin: &gltf::Skin) -> String {
+fn inverse_bind_matrices_label(skin: &gltf::Skin<'_>) -> String {
     GltfAssetLabel::InverseBindMatrices(skin.index()).to_string()
 }
 
 /// Extracts the texture sampler data from the glTF texture.
-fn texture_sampler(texture: &gltf::Texture) -> ImageSamplerDescriptor {
+fn texture_sampler(texture: &gltf::Texture<'_>) -> ImageSamplerDescriptor {
     let gltf_sampler = texture.sampler();
 
     ImageSamplerDescriptor {
@@ -1782,7 +1777,7 @@ fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     }
 }
 
-fn alpha_mode(material: &Material) -> AlphaMode {
+fn alpha_mode(material: &Material<'_>) -> AlphaMode {
     match material.alpha_mode() {
         gltf::material::AlphaMode::Opaque => AlphaMode::Opaque,
         gltf::material::AlphaMode::Mask => AlphaMode::Mask(material.alpha_cutoff().unwrap_or(0.5)),
@@ -2054,9 +2049,9 @@ struct ClearcoatExtension {
 impl ClearcoatExtension {
     #[allow(unused_variables)]
     fn parse(
-        load_context: &mut LoadContext,
+        load_context: &mut LoadContext<'_>,
         document: &Document,
-        material: &Material,
+        material: &Material<'_>,
     ) -> Option<ClearcoatExtension> {
         let extension = material
             .extensions()?
@@ -2137,9 +2132,9 @@ struct AnisotropyExtension {
 impl AnisotropyExtension {
     #[allow(unused_variables)]
     fn parse(
-        load_context: &mut LoadContext,
+        load_context: &mut LoadContext<'_>,
         document: &Document,
-        material: &Material,
+        material: &Material<'_>,
     ) -> Option<AnisotropyExtension> {
         let extension = material
             .extensions()?
@@ -2173,7 +2168,7 @@ impl AnisotropyExtension {
 /// given field name in the data for the material extension with the given name,
 /// if there is one.
 fn material_extension_texture_index(
-    material: &Material,
+    material: &Material<'_>,
     extension_name: &str,
     texture_field_name: &str,
 ) -> Option<usize> {
@@ -2196,7 +2191,7 @@ fn material_extension_texture_index(
 /// rendered.
 ///
 /// We generate them if this function returns true.
-fn material_needs_tangents(material: &Material) -> bool {
+fn material_needs_tangents(material: &Material<'_>) -> bool {
     if material.normal_texture().is_some() {
         return true;
     }

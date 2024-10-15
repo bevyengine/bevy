@@ -132,11 +132,11 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
 }
 
 pub fn prepare_downsampling_pipeline(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<BloomDownsamplingPipeline>>,
-    pipeline: Res<BloomDownsamplingPipeline>,
-    views: Query<(Entity, &Bloom)>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<BloomDownsamplingPipeline>>,
+    pipeline: Res<'_, BloomDownsamplingPipeline>,
+    views: Query<'_, '_, (Entity, &Bloom)>,
 ) {
     for (entity, bloom) in &views {
         let prefilter = bloom.prefilter.threshold > 0.0;

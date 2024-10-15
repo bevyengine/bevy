@@ -48,17 +48,17 @@ pub fn empty_systems(criterion: &mut Criterion) {
 }
 
 pub fn busy_systems(criterion: &mut Criterion) {
-    fn ab(mut q: Query<(&mut A, &mut B)>) {
+    fn ab(mut q: Query<'_, '_, (&mut A, &mut B)>) {
         q.iter_mut().for_each(|(mut a, mut b)| {
             core::mem::swap(&mut a.0, &mut b.0);
         });
     }
-    fn cd(mut q: Query<(&mut C, &mut D)>) {
+    fn cd(mut q: Query<'_, '_, (&mut C, &mut D)>) {
         q.iter_mut().for_each(|(mut c, mut d)| {
             core::mem::swap(&mut c.0, &mut d.0);
         });
     }
-    fn ce(mut q: Query<(&mut C, &mut E)>) {
+    fn ce(mut q: Query<'_, '_, (&mut C, &mut E)>) {
         q.iter_mut().for_each(|(mut c, mut e)| {
             core::mem::swap(&mut c.0, &mut e.0);
         });
@@ -97,12 +97,12 @@ pub fn busy_systems(criterion: &mut Criterion) {
 }
 
 pub fn contrived(criterion: &mut Criterion) {
-    fn s_0(mut q_0: Query<(&mut A, &mut B)>) {
+    fn s_0(mut q_0: Query<'_, '_, (&mut A, &mut B)>) {
         q_0.iter_mut().for_each(|(mut c_0, mut c_1)| {
             core::mem::swap(&mut c_0.0, &mut c_1.0);
         });
     }
-    fn s_1(mut q_0: Query<(&mut A, &mut C)>, mut q_1: Query<(&mut B, &mut D)>) {
+    fn s_1(mut q_0: Query<'_, '_, (&mut A, &mut C)>, mut q_1: Query<'_, '_, (&mut B, &mut D)>) {
         q_0.iter_mut().for_each(|(mut c_0, mut c_1)| {
             core::mem::swap(&mut c_0.0, &mut c_1.0);
         });
@@ -110,7 +110,7 @@ pub fn contrived(criterion: &mut Criterion) {
             core::mem::swap(&mut c_0.0, &mut c_1.0);
         });
     }
-    fn s_2(mut q_0: Query<(&mut C, &mut D)>) {
+    fn s_2(mut q_0: Query<'_, '_, (&mut C, &mut D)>) {
         q_0.iter_mut().for_each(|(mut c_0, mut c_1)| {
             core::mem::swap(&mut c_0.0, &mut c_1.0);
         });

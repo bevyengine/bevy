@@ -204,8 +204,8 @@ type PreviousViewFilter = (With<Camera3d>, With<MotionVectorPrepass>);
 type PreviousViewFilter = Or<(With<Camera3d>, With<ShadowView>)>;
 
 pub fn update_previous_view_data(
-    mut commands: Commands,
-    query: Query<(Entity, &Camera, &GlobalTransform), PreviousViewFilter>,
+    mut commands: Commands<'_, '_>,
+    query: Query<'_, '_, (Entity, &Camera, &GlobalTransform), PreviousViewFilter>,
 ) {
     for (entity, camera, camera_transform) in &query {
         let view_from_world = camera_transform.compute_matrix().inverse();
@@ -225,9 +225,9 @@ type PreviousMeshFilter = With<Mesh3d>;
 type PreviousMeshFilter = Or<(With<Mesh3d>, With<MeshletMesh3d>)>;
 
 pub fn update_mesh_previous_global_transforms(
-    mut commands: Commands,
-    views: Query<&Camera, PreviousViewFilter>,
-    meshes: Query<(Entity, &GlobalTransform), PreviousMeshFilter>,
+    mut commands: Commands<'_, '_>,
+    views: Query<'_, '_, &Camera, PreviousViewFilter>,
+    meshes: Query<'_, '_, (Entity, &GlobalTransform), PreviousMeshFilter>,
 ) {
     let should_run = views.iter().any(|camera| camera.is_active);
 
@@ -580,8 +580,12 @@ where
 
 // Extract the render phases for the prepass
 pub fn extract_camera_previous_view_data(
-    mut commands: Commands,
-    cameras_3d: Extract<Query<(RenderEntity, &Camera, Option<&PreviousViewData>), With<Camera3d>>>,
+    mut commands: Commands<'_, '_>,
+    cameras_3d: Extract<
+        '_,
+        '_,
+        Query<'_, '_, (RenderEntity, &Camera, Option<&PreviousViewData>), With<Camera3d>>,
+    >,
 ) {
     for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
         if camera.is_active {
@@ -597,11 +601,11 @@ pub fn extract_camera_previous_view_data(
 }
 
 pub fn prepare_previous_view_uniforms(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut previous_view_uniforms: ResMut<PreviousViewUniforms>,
-    views: Query<(Entity, &ExtractedView, Option<&PreviousViewData>), PreviousViewFilter>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut previous_view_uniforms: ResMut<'_, PreviousViewUniforms>,
+    views: Query<'_, '_, (Entity, &ExtractedView, Option<&PreviousViewData>), PreviousViewFilter>,
 ) {
     let views_iter = views.iter();
     let view_count = views_iter.len();
@@ -638,12 +642,12 @@ pub struct PrepassViewBindGroup {
 }
 
 pub fn prepare_prepass_view_bind_group<M: Material>(
-    render_device: Res<RenderDevice>,
-    prepass_pipeline: Res<PrepassPipeline<M>>,
-    view_uniforms: Res<ViewUniforms>,
-    globals_buffer: Res<GlobalsBuffer>,
-    previous_view_uniforms: Res<PreviousViewUniforms>,
-    mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
+    render_device: Res<'_, RenderDevice>,
+    prepass_pipeline: Res<'_, PrepassPipeline<M>>,
+    view_uniforms: Res<'_, ViewUniforms>,
+    globals_buffer: Res<'_, GlobalsBuffer>,
+    previous_view_uniforms: Res<'_, PreviousViewUniforms>,
+    mut prepass_view_bind_group: ResMut<'_, PrepassViewBindGroup>,
 ) {
     if let (Some(view_binding), Some(globals_binding)) = (
         view_uniforms.uniforms.binding(),
@@ -677,24 +681,26 @@ pub fn queue_prepass_material_meshes<M: Material>(
         opaque_deferred_draw_functions,
         alpha_mask_deferred_draw_functions,
     ): (
-        Res<DrawFunctions<Opaque3dPrepass>>,
-        Res<DrawFunctions<AlphaMask3dPrepass>>,
-        Res<DrawFunctions<Opaque3dDeferred>>,
-        Res<DrawFunctions<AlphaMask3dDeferred>>,
+        Res<'_, DrawFunctions<Opaque3dPrepass>>,
+        Res<'_, DrawFunctions<AlphaMask3dPrepass>>,
+        Res<'_, DrawFunctions<Opaque3dDeferred>>,
+        Res<'_, DrawFunctions<AlphaMask3dDeferred>>,
     ),
-    prepass_pipeline: Res<PrepassPipeline<M>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
-    render_meshes: Res<RenderAssets<RenderMesh>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
-    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
-    render_lightmaps: Res<RenderLightmaps>,
-    mut opaque_prepass_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
-    mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
-    mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
-    mut alpha_mask_deferred_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
+    prepass_pipeline: Res<'_, PrepassPipeline<M>>,
+    mut pipelines: ResMut<'_, SpecializedMeshPipelines<PrepassPipeline<M>>>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    render_meshes: Res<'_, RenderAssets<RenderMesh>>,
+    render_mesh_instances: Res<'_, RenderMeshInstances>,
+    render_materials: Res<'_, RenderAssets<PreparedMaterial<M>>>,
+    render_material_instances: Res<'_, RenderMaterialInstances<M>>,
+    render_lightmaps: Res<'_, RenderLightmaps>,
+    mut opaque_prepass_render_phases: ResMut<'_, ViewBinnedRenderPhases<Opaque3dPrepass>>,
+    mut alpha_mask_prepass_render_phases: ResMut<'_, ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
+    mut opaque_deferred_render_phases: ResMut<'_, ViewBinnedRenderPhases<Opaque3dDeferred>>,
+    mut alpha_mask_deferred_render_phases: ResMut<'_, ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
     views: Query<
+        '_,
+        '_,
         (
             Entity,
             &RenderVisibleEntities,

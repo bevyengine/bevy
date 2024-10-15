@@ -341,14 +341,18 @@ impl<M: Material> Default for MaterialMeshletMeshBundle<M> {
 }
 
 fn configure_meshlet_views(
-    mut views_3d: Query<(
-        Entity,
-        &Msaa,
-        Has<NormalPrepass>,
-        Has<MotionVectorPrepass>,
-        Has<DeferredPrepass>,
-    )>,
-    mut commands: Commands,
+    mut views_3d: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &Msaa,
+            Has<NormalPrepass>,
+            Has<MotionVectorPrepass>,
+            Has<DeferredPrepass>,
+        ),
+    >,
+    mut commands: Commands<'_, '_>,
 ) {
     for (entity, msaa, normal_prepass, motion_vector_prepass, deferred_prepass) in &mut views_3d {
         if *msaa != Msaa::Off {

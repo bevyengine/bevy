@@ -39,7 +39,7 @@ struct A;
 #[derive(Component)]
 struct B;
 
-fn setup_with_commands(mut commands: Commands) {
+fn setup_with_commands(mut commands: Commands<'_, '_>) {
     let system_id = commands.register_system(system_a);
     commands.spawn((Callback(system_id), A));
 }
@@ -54,10 +54,10 @@ fn setup_with_world(world: &mut World) {
 
 /// Tag entities that have callbacks we want to run with the `Triggered` component.
 fn trigger_system(
-    mut commands: Commands,
-    query_a: Single<Entity, With<A>>,
-    query_b: Single<Entity, With<B>>,
-    input: Res<ButtonInput<KeyCode>>,
+    mut commands: Commands<'_, '_>,
+    query_a: Single<'_, Entity, With<A>>,
+    query_b: Single<'_, Entity, With<B>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
 ) {
     if input.just_pressed(KeyCode::KeyA) {
         let entity = *query_a;
@@ -72,24 +72,27 @@ fn trigger_system(
 /// Runs the systems associated with each `Callback` component if the entity also has a `Triggered` component.
 ///
 /// This could be done in an exclusive system rather than using `Commands` if preferred.
-fn evaluate_callbacks(query: Query<(Entity, &Callback), With<Triggered>>, mut commands: Commands) {
+fn evaluate_callbacks(
+    query: Query<'_, '_, (Entity, &Callback), With<Triggered>>,
+    mut commands: Commands<'_, '_>,
+) {
     for (entity, callback) in query.iter() {
         commands.run_system(callback.0);
         commands.entity(entity).remove::<Triggered>();
     }
 }
 
-fn system_a(entity_a: Single<Entity, With<Text>>, mut writer: UiTextWriter) {
+fn system_a(entity_a: Single<'_, Entity, With<Text>>, mut writer: UiTextWriter) {
     *writer.text(*entity_a, 3) = String::from("A");
-    info!("A: One shot system registered with Commands was triggered");
+    info!("A: One shot system registered with Commands<'_, '_> was triggered");
 }
 
-fn system_b(entity_b: Single<Entity, With<Text>>, mut writer: UiTextWriter) {
+fn system_b(entity_b: Single<'_, Entity, With<Text>>, mut writer: UiTextWriter) {
     *writer.text(*entity_b, 3) = String::from("B");
     info!("B: One shot system registered with World was triggered");
 }
 
-fn setup_ui(mut commands: Commands) {
+fn setup_ui(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
     commands
         .spawn((

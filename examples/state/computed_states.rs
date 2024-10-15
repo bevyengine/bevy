@@ -220,10 +220,12 @@ fn main() {
 }
 
 fn menu(
-    mut next_state: ResMut<NextState<AppState>>,
-    tutorial_state: Res<State<TutorialState>>,
-    mut next_tutorial: ResMut<NextState<TutorialState>>,
+    mut next_state: ResMut<'_, NextState<AppState>>,
+    tutorial_state: Res<'_, State<TutorialState>>,
+    mut next_tutorial: ResMut<'_, NextState<TutorialState>>,
     mut interaction_query: Query<
+        '_,
+        '_,
         (&Interaction, &mut BackgroundColor, &MenuButton),
         (Changed<Interaction>, With<Button>),
     >,
@@ -273,9 +275,9 @@ fn menu(
 }
 
 fn toggle_pause(
-    input: Res<ButtonInput<KeyCode>>,
-    current_state: Res<State<AppState>>,
-    mut next_state: ResMut<NextState<AppState>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    current_state: Res<'_, State<AppState>>,
+    mut next_state: ResMut<'_, NextState<AppState>>,
 ) {
     if input.just_pressed(KeyCode::Space) {
         if let AppState::InGame { paused, turbo } = current_state.get() {
@@ -288,9 +290,9 @@ fn toggle_pause(
 }
 
 fn toggle_turbo(
-    input: Res<ButtonInput<KeyCode>>,
-    current_state: Res<State<AppState>>,
-    mut next_state: ResMut<NextState<AppState>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    current_state: Res<'_, State<AppState>>,
+    mut next_state: ResMut<'_, NextState<AppState>>,
 ) {
     if input.just_pressed(KeyCode::KeyT) {
         if let AppState::InGame { paused, turbo } = current_state.get() {
@@ -302,7 +304,10 @@ fn toggle_turbo(
     }
 }
 
-fn quit_to_menu(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
+fn quit_to_menu(
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut next_state: ResMut<'_, NextState<AppState>>,
+) {
     if input.just_pressed(KeyCode::Escape) {
         next_state.set(AppState::Menu);
     }
@@ -330,11 +335,14 @@ mod ui {
     pub const HOVERED_ACTIVE_BUTTON: Color = Color::srgb(0.25, 0.55, 0.25);
     pub const PRESSED_ACTIVE_BUTTON: Color = Color::srgb(0.35, 0.95, 0.35);
 
-    pub fn setup(mut commands: Commands) {
+    pub fn setup(mut commands: Commands<'_, '_>) {
         commands.spawn(Camera2d);
     }
 
-    pub fn setup_menu(mut commands: Commands, tutorial_state: Res<State<TutorialState>>) {
+    pub fn setup_menu(
+        mut commands: Commands<'_, '_>,
+        tutorial_state: Res<'_, State<TutorialState>>,
+    ) {
         let button_entity = commands
             .spawn(NodeBundle {
                 style: Style {
@@ -416,11 +424,11 @@ mod ui {
         });
     }
 
-    pub fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
+    pub fn cleanup_menu(mut commands: Commands<'_, '_>, menu_data: Res<'_, MenuData>) {
         commands.entity(menu_data.root_entity).despawn_recursive();
     }
 
-    pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
+    pub fn setup_game(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
         commands.spawn((
             StateScoped(InGame),
             Sprite::from_image(asset_server.load("branding/icon.png")),
@@ -431,10 +439,10 @@ mod ui {
     const TURBO_SPEED: f32 = 300.0;
 
     pub fn movement(
-        time: Res<Time>,
-        input: Res<ButtonInput<KeyCode>>,
-        turbo: Option<Res<State<TurboMode>>>,
-        mut query: Query<&mut Transform, With<Sprite>>,
+        time: Res<'_, Time>,
+        input: Res<'_, ButtonInput<KeyCode>>,
+        turbo: Option<Res<'_, State<TurboMode>>>,
+        mut query: Query<'_, '_, &mut Transform, With<Sprite>>,
     ) {
         for mut transform in &mut query {
             let mut direction = Vec3::ZERO;
@@ -459,7 +467,7 @@ mod ui {
         }
     }
 
-    pub fn setup_paused_screen(mut commands: Commands) {
+    pub fn setup_paused_screen(mut commands: Commands<'_, '_>) {
         info!("Printing Pause");
         commands
             .spawn((
@@ -510,7 +518,7 @@ mod ui {
             });
     }
 
-    pub fn setup_turbo_text(mut commands: Commands) {
+    pub fn setup_turbo_text(mut commands: Commands<'_, '_>) {
         commands
             .spawn((
                 StateScoped(TurboMode),
@@ -541,7 +549,7 @@ mod ui {
             });
     }
 
-    pub fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
+    pub fn change_color(time: Res<'_, Time>, mut query: Query<'_, '_, &mut Sprite>) {
         for mut sprite in &mut query {
             let new_color = LinearRgba {
                 blue: ops::sin(time.elapsed_seconds() * 0.5) + 2.0,
@@ -552,7 +560,7 @@ mod ui {
         }
     }
 
-    pub fn movement_instructions(mut commands: Commands) {
+    pub fn movement_instructions(mut commands: Commands<'_, '_>) {
         commands
             .spawn((
                 StateScoped(Tutorial::MovementInstructions),
@@ -609,7 +617,7 @@ mod ui {
             });
     }
 
-    pub fn pause_instructions(mut commands: Commands) {
+    pub fn pause_instructions(mut commands: Commands<'_, '_>) {
         commands
             .spawn((
                 StateScoped(Tutorial::PauseInstructions),

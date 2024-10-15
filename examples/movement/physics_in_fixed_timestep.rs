@@ -129,7 +129,7 @@ struct PhysicalTranslation(Vec3);
 struct PreviousPhysicalTranslation(Vec3);
 
 /// Spawn the player sprite and a 2D camera.
-fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn spawn_player(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn((
         Name::new("Player"),
@@ -143,7 +143,7 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 /// Spawn a bit of UI text to explain how to move the player.
-fn spawn_text(mut commands: Commands) {
+fn spawn_text(mut commands: Commands<'_, '_>) {
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -168,8 +168,8 @@ fn spawn_text(mut commands: Commands) {
 /// There are many strategies for how to handle all the input that happened since the last fixed timestep.
 /// This is a very simple one: we just accumulate the input and average it out by normalizing it.
 fn handle_input(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut AccumulatedInput, &mut Velocity)>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut query: Query<'_, '_, (&mut AccumulatedInput, &mut Velocity)>,
 ) {
     /// Since Bevy's default 2D camera setup is scaled such that
     /// one unit is one pixel, you can think of this as
@@ -201,13 +201,17 @@ fn handle_input(
 /// Note that since this runs in `FixedUpdate`, `Res<Time>` would be `Res<Time<Fixed>>` automatically.
 /// We are being explicit here for clarity.
 fn advance_physics(
-    fixed_time: Res<Time<Fixed>>,
-    mut query: Query<(
-        &mut PhysicalTranslation,
-        &mut PreviousPhysicalTranslation,
-        &mut AccumulatedInput,
-        &Velocity,
-    )>,
+    fixed_time: Res<'_, Time<Fixed>>,
+    mut query: Query<
+        '_,
+        '_,
+        (
+            &mut PhysicalTranslation,
+            &mut PreviousPhysicalTranslation,
+            &mut AccumulatedInput,
+            &Velocity,
+        ),
+    >,
 ) {
     for (
         mut current_physical_translation,
@@ -225,12 +229,16 @@ fn advance_physics(
 }
 
 fn interpolate_rendered_transform(
-    fixed_time: Res<Time<Fixed>>,
-    mut query: Query<(
-        &mut Transform,
-        &PhysicalTranslation,
-        &PreviousPhysicalTranslation,
-    )>,
+    fixed_time: Res<'_, Time<Fixed>>,
+    mut query: Query<
+        '_,
+        '_,
+        (
+            &mut Transform,
+            &PhysicalTranslation,
+            &PreviousPhysicalTranslation,
+        ),
+    >,
 ) {
     for (mut transform, current_physical_translation, previous_physical_translation) in
         query.iter_mut()

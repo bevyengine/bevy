@@ -3,7 +3,7 @@ use bevy_ecs::prelude::*;
 #[derive(Component)]
 struct A(usize);
 
-fn system(mut query: Query<&mut A>) {
+fn system(mut query: Query<'_, '_, &mut A>) {
     let mut iter = query.iter_mut();
     let a = &mut *iter.next().unwrap();
 

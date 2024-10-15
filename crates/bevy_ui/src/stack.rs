@@ -37,16 +37,16 @@ impl ChildBufferCache {
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_stack_system(
-    mut cache: Local<ChildBufferCache>,
-    mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
-    mut visited_root_nodes: Local<HashSet<Entity>>,
-    mut ui_stack: ResMut<UiStack>,
-    ui_root_nodes: UiRootNodes,
-    root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
-    zindex_global_node_query: Query<(Entity, &GlobalZIndex, Option<&ZIndex>), With<Node>>,
-    ui_children: UiChildren,
-    zindex_query: Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
-    mut update_query: Query<&mut Node>,
+    mut cache: Local<'_, ChildBufferCache>,
+    mut root_nodes: Local<'_, Vec<(Entity, (i32, i32))>>,
+    mut visited_root_nodes: Local<'_, HashSet<Entity>>,
+    mut ui_stack: ResMut<'_, UiStack>,
+    ui_root_nodes: UiRootNodes<'_, '_>,
+    root_node_query: Query<'_, '_, (Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
+    zindex_global_node_query: Query<'_, '_, (Entity, &GlobalZIndex, Option<&ZIndex>), With<Node>>,
+    ui_children: UiChildren<'_, '_>,
+    zindex_query: Query<'_, '_, Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
+    mut update_query: Query<'_, '_, &mut Node>,
 ) {
     ui_stack.uinodes.clear();
     visited_root_nodes.clear();
@@ -98,8 +98,8 @@ pub fn ui_stack_system(
 fn update_uistack_recursive(
     cache: &mut ChildBufferCache,
     node_entity: Entity,
-    ui_children: &UiChildren,
-    zindex_query: &Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
+    ui_children: &UiChildren<'_, '_>,
+    zindex_query: &Query<'_, '_, Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
     ui_stack: &mut Vec<Entity>,
 ) {
     ui_stack.push(node_entity);

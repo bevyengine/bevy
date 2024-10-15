@@ -191,7 +191,7 @@ impl AssetProcessor {
     }
 
     /// Starts the processor in a background thread.
-    pub fn start(_processor: Res<Self>) {
+    pub fn start(_processor: Res<'_, Self>) {
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         error!("Cannot run AssetProcessor in single threaded mode (or Wasm) yet.");
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
@@ -1095,7 +1095,7 @@ impl<T: Process> Process for InstrumentedAssetProcessor<T> {
 
     fn process(
         &self,
-        context: &mut ProcessContext,
+        context: &mut ProcessContext<'_>,
         meta: AssetMeta<(), Self>,
         writer: &mut crate::io::Writer,
     ) -> impl ConditionalSendFuture<
@@ -1320,10 +1320,7 @@ impl ProcessorAssetInfos {
                 .await
                 .unwrap();
             if !info.dependants.is_empty() {
-                error!(
-                    "The asset at {asset_path} was removed, but it had assets that depend on it to be processed. Consider updating the path in the following assets: {:?}",
-                    info.dependants
-                );
+                error!("The asset at {asset_path} was removed, but it had assets that depend on it to be processed. Consider updating the path in the following assets: {:?}", info.dependants);
                 self.non_existent_dependants
                     .insert(asset_path.clone(), info.dependants);
             }
@@ -1342,10 +1339,7 @@ impl ProcessorAssetInfos {
                 // If deps encoded "relativeness" as part of loading, that would also work (this seems like the right call).
                 // TODO: it would be nice to log an error here for dependants that aren't also being moved + fixed.
                 // (see the remove impl).
-                error!(
-                    "The asset at {old} was removed, but it had assets that depend on it to be processed. Consider updating the path in the following assets: {:?}",
-                    info.dependants
-                );
+                error!("The asset at {old} was removed, but it had assets that depend on it to be processed. Consider updating the path in the following assets: {:?}", info.dependants);
                 self.non_existent_dependants
                     .insert(old.clone(), core::mem::take(&mut info.dependants));
             }

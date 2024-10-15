@@ -372,8 +372,12 @@ impl Plugin for LightProbePlugin {
 /// Compared to the `ExtractComponentPlugin`, this implementation will create a default instance
 /// if one does not already exist.
 fn gather_environment_map_uniform(
-    view_query: Extract<Query<(RenderEntity, Option<&EnvironmentMapLight>), With<Camera3d>>>,
-    mut commands: Commands,
+    view_query: Extract<
+        '_,
+        '_,
+        Query<'_, '_, (RenderEntity, Option<&EnvironmentMapLight>), With<Camera3d>>,
+    >,
+    mut commands: Commands<'_, '_>,
 ) {
     for (view_entity, environment_map_light) in view_query.iter() {
         let environment_map_uniform = if let Some(environment_map_light) = environment_map_light {
@@ -395,14 +399,16 @@ fn gather_environment_map_uniform(
 /// Gathers up all light probes of a single type in the scene and assigns them
 /// to views, performing frustum culling and distance sorting in the process.
 fn gather_light_probes<C>(
-    image_assets: Res<RenderAssets<GpuImage>>,
-    light_probe_query: Extract<Query<(&GlobalTransform, &C), With<LightProbe>>>,
+    image_assets: Res<'_, RenderAssets<GpuImage>>,
+    light_probe_query: Extract<'_, '_, Query<'_, '_, (&GlobalTransform, &C), With<LightProbe>>>,
     view_query: Extract<
-        Query<(RenderEntity, &GlobalTransform, &Frustum, Option<&C>), With<Camera3d>>,
+        '_,
+        '_,
+        Query<'_, '_, (RenderEntity, &GlobalTransform, &Frustum, Option<&C>), With<Camera3d>>,
     >,
-    mut reflection_probes: Local<Vec<LightProbeInfo<C>>>,
-    mut view_reflection_probes: Local<Vec<LightProbeInfo<C>>>,
-    mut commands: Commands,
+    mut reflection_probes: Local<'_, Vec<LightProbeInfo<C>>>,
+    mut view_reflection_probes: Local<'_, Vec<LightProbeInfo<C>>>,
+    mut commands: Commands<'_, '_>,
 ) where
     C: LightProbeComponent,
 {
@@ -455,11 +461,11 @@ fn gather_light_probes<C>(
 /// Gathers up environment map settings for each applicable view and
 /// writes them into a GPU buffer.
 pub fn prepare_environment_uniform_buffer(
-    mut commands: Commands,
-    views: Query<(Entity, Option<&EnvironmentMapUniform>), With<ExtractedView>>,
-    mut environment_uniform_buffer: ResMut<EnvironmentMapUniformBuffer>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    mut commands: Commands<'_, '_>,
+    views: Query<'_, '_, (Entity, Option<&EnvironmentMapUniform>), With<ExtractedView>>,
+    mut environment_uniform_buffer: ResMut<'_, EnvironmentMapUniformBuffer>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
 ) {
     let Some(mut writer) =
         environment_uniform_buffer.get_writer(views.iter().len(), &render_device, &render_queue)
@@ -485,15 +491,19 @@ pub fn prepare_environment_uniform_buffer(
 // the type of light probe. It collects light probes of all types together into
 // a single structure, ready to be passed to the shader.
 fn upload_light_probes(
-    mut commands: Commands,
-    views: Query<Entity, With<ExtractedView>>,
-    mut light_probes_buffer: ResMut<LightProbesBuffer>,
-    mut view_light_probes_query: Query<(
-        Option<&RenderViewLightProbes<EnvironmentMapLight>>,
-        Option<&RenderViewLightProbes<IrradianceVolume>>,
-    )>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    mut commands: Commands<'_, '_>,
+    views: Query<'_, '_, Entity, With<ExtractedView>>,
+    mut light_probes_buffer: ResMut<'_, LightProbesBuffer>,
+    mut view_light_probes_query: Query<
+        '_,
+        '_,
+        (
+            Option<&RenderViewLightProbes<EnvironmentMapLight>>,
+            Option<&RenderViewLightProbes<IrradianceVolume>>,
+        ),
+    >,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
 ) {
     // If there are no views, bail.
     if views.is_empty() {

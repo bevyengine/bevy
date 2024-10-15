@@ -48,9 +48,9 @@ impl Shape {
 struct Left;
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     let left_shape = Shape::Cube;
     let right_shape = Shape::Cube;
@@ -131,7 +131,7 @@ fn setup(
     ));
 }
 
-fn spawn_text(mut commands: Commands) {
+fn spawn_text(mut commands: Commands<'_, '_>) {
     commands
         .spawn((
             Name::new("Instructions"),
@@ -155,8 +155,8 @@ fn spawn_text(mut commands: Commands) {
 }
 
 fn alter_handle(
-    asset_server: Res<AssetServer>,
-    mut right_shape: Query<(&mut Mesh3d, &mut Shape), Without<Left>>,
+    asset_server: Res<'_, AssetServer>,
+    mut right_shape: Query<'_, '_, (&mut Mesh3d, &mut Shape), Without<Left>>,
 ) {
     // Mesh handles, like other parts of the ECS, can be queried as mutable and modified at
     // runtime. We only spawned one shape without the `Left` marker component.
@@ -180,9 +180,9 @@ fn alter_handle(
 }
 
 fn alter_mesh(
-    mut is_mesh_scaled: Local<bool>,
-    left_shape: Query<&Mesh3d, With<Left>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut is_mesh_scaled: Local<'_, bool>,
+    left_shape: Query<'_, '_, &Mesh3d, With<Left>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
 ) {
     // It's convenient to retrieve the asset handle stored with the shape on the left. However,
     // we could just as easily have retained this in a resource or a dedicated component.

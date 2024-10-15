@@ -112,7 +112,7 @@ where
     unsafe fn run_unsafe(
         &mut self,
         _input: SystemIn<'_, Self>,
-        _world: UnsafeWorldCell,
+        _world: UnsafeWorldCell<'_>,
     ) -> Self::Out {
         panic!("Cannot run exclusive systems with a shared World reference");
     }
@@ -143,14 +143,14 @@ where
     }
 
     #[inline]
-    fn queue_deferred(&mut self, _world: crate::world::DeferredWorld) {
+    fn queue_deferred(&mut self, _world: crate::world::DeferredWorld<'_>) {
         // "pure" exclusive systems do not have any buffers to apply.
         // Systems made by piping a normal system with an exclusive system
         // might have buffers to apply, but this is handled by `PipeSystem`.
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, _world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(&mut self, _world: UnsafeWorldCell<'_>) -> bool {
         // All exclusive system params are always available.
         true
     }
@@ -161,7 +161,7 @@ where
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
     }
 
-    fn update_archetype_component_access(&mut self, _world: UnsafeWorldCell) {}
+    fn update_archetype_component_access(&mut self, _world: UnsafeWorldCell<'_>) {}
 
     #[inline]
     fn check_change_tick(&mut self, change_tick: Tick) {
@@ -209,7 +209,7 @@ pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
         &mut self,
         world: &mut World,
         input: <Self::In as SystemInput>::Inner<'_>,
-        param_value: ExclusiveSystemParamItem<Self::Param>,
+        param_value: ExclusiveSystemParamItem<'_, Self::Param>,
     ) -> Self::Out;
 }
 
@@ -225,14 +225,14 @@ macro_rules! impl_exclusive_system_function {
             Func: Send + Sync + 'static,
             for <'a> &'a mut Func:
                 FnMut(&mut World, $($param),*) -> Out +
-                FnMut(&mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
+                FnMut(&mut World, $(ExclusiveSystemParamItem<'_, $param>),*) -> Out,
             Out: 'static,
         {
             type In = ();
             type Out = Out;
             type Param = ($($param,)*);
             #[inline]
-            fn run(&mut self, world: &mut World, _in: (), param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
+            fn run(&mut self, world: &mut World, _in: (), param_value: ExclusiveSystemParamItem<'_, ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
@@ -255,7 +255,7 @@ macro_rules! impl_exclusive_system_function {
             Func: Send + Sync + 'static,
             for <'a> &'a mut Func:
                 FnMut(In, &mut World, $($param),*) -> Out +
-                FnMut(In::Param<'_>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
+                FnMut(In::Param<'_>, &mut World, $(ExclusiveSystemParamItem<'_, $param>),*) -> Out,
             In: SystemInput + 'static,
             Out: 'static,
         {
@@ -263,7 +263,7 @@ macro_rules! impl_exclusive_system_function {
             type Out = Out;
             type Param = ($($param,)*);
             #[inline]
-            fn run(&mut self, world: &mut World, input: In::Inner<'_>, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
+            fn run(&mut self, world: &mut World, input: In::Inner<'_>, param_value: ExclusiveSystemParamItem<'_, ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`

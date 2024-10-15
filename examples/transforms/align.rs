@@ -43,10 +43,10 @@ struct SeededRng(ChaCha8Rng);
 // Setup
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.
@@ -119,7 +119,7 @@ fn setup(
 // Update systems
 
 // Draw the main and secondary axes on the rotating ship
-fn draw_ship_axes(mut gizmos: Gizmos, ship_transform: Single<&Transform, With<Ship>>) {
+fn draw_ship_axes(mut gizmos: Gizmos, ship_transform: Single<'_, &Transform, With<Ship>>) {
     // Local Z-axis arrow, negative direction
     let z_ends = arrow_ends(*ship_transform, Vec3::NEG_Z, 1.5);
     gizmos.arrow(z_ends.0, z_ends.1, RED);
@@ -130,14 +130,14 @@ fn draw_ship_axes(mut gizmos: Gizmos, ship_transform: Single<&Transform, With<Sh
 }
 
 // Draw the randomly generated axes
-fn draw_random_axes(mut gizmos: Gizmos, random_axes: Single<&RandomAxes>) {
+fn draw_random_axes(mut gizmos: Gizmos, random_axes: Single<'_, &RandomAxes>) {
     let RandomAxes(v1, v2) = *random_axes;
     gizmos.arrow(Vec3::ZERO, 1.5 * *v1, WHITE);
     gizmos.arrow(Vec3::ZERO, 1.5 * *v2, GRAY);
 }
 
 // Actually update the ship's transform according to its initial source and target
-fn rotate_ship(ship: Single<(&mut Ship, &mut Transform)>, time: Res<Time>) {
+fn rotate_ship(ship: Single<'_, (&mut Ship, &mut Transform)>, time: Res<'_, Time>) {
     let (mut ship, mut ship_transform) = ship.into_inner();
 
     if !ship.in_motion {
@@ -157,11 +157,11 @@ fn rotate_ship(ship: Single<(&mut Ship, &mut Transform)>, time: Res<Time>) {
 
 // Handle user inputs from the keyboard for dynamically altering the scenario
 fn handle_keypress(
-    mut ship: Single<&mut Ship>,
-    mut random_axes: Single<&mut RandomAxes>,
-    mut instructions_viz: Single<&mut Visibility, With<Instructions>>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut seeded_rng: ResMut<SeededRng>,
+    mut ship: Single<'_, &mut Ship>,
+    mut random_axes: Single<'_, &mut RandomAxes>,
+    mut instructions_viz: Single<'_, &mut Visibility, With<Instructions>>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
+    mut seeded_rng: ResMut<'_, SeededRng>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyR) {
         // Randomize the target axes
@@ -189,10 +189,10 @@ fn handle_keypress(
 
 // Handle user mouse input for panning the camera around
 fn handle_mouse(
-    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
-    mut button_events: EventReader<MouseButtonInput>,
-    mut camera_transform: Single<&mut Transform, With<Camera>>,
-    mut mouse_pressed: ResMut<MousePressed>,
+    accumulated_mouse_motion: Res<'_, AccumulatedMouseMotion>,
+    mut button_events: EventReader<'_, '_, MouseButtonInput>,
+    mut camera_transform: Single<'_, &mut Transform, With<Camera>>,
+    mut mouse_pressed: ResMut<'_, MousePressed>,
 ) {
     // Store left-pressed state in the MousePressed resource
     for button_event in button_events.read() {

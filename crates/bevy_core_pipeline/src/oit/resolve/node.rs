@@ -27,9 +27,10 @@ impl ViewNode for OitResolveNode {
 
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        _graph: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
         (camera, view_target, view_uniform, oit_resolve_pipeline_id, depth): QueryItem<
+            '_,
             Self::ViewQuery,
         >,
         world: &World,

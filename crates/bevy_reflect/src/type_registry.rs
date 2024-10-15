@@ -262,13 +262,7 @@ impl TypeRegistry {
     /// type_registry.register_type_data::<Option<String>, ReflectDeserialize>();
     /// ```
     pub fn register_type_data<T: Reflect + TypePath, D: TypeData + FromType<T>>(&mut self) {
-        let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
-            panic!(
-                "attempted to call `TypeRegistry::register_type_data` for type `{T}` with data `{D}` without registering `{T}` first",
-                T = T::type_path(),
-                D = core::any::type_name::<D>(),
-            )
-        });
+        let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| panic!("attempted to call `TypeRegistry::register_type_data` for type `{T}` with data `{D}` without registering `{T}` first", T = T::type_path(), D = core::any::type_name::<D>(),));
         data.insert(D::from_type());
     }
 
@@ -670,23 +664,16 @@ pub trait FromType<T> {
 /// [`FromType::from_type`].
 #[derive(Clone)]
 pub struct ReflectSerialize {
-    get_serializable: fn(value: &dyn Reflect) -> Serializable,
+    get_serializable: fn(value: &dyn Reflect) -> Serializable<'_>,
 }
 
 impl<T: TypePath + FromReflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
     fn from_type() -> Self {
         ReflectSerialize {
             get_serializable: |value| {
-                value
-                    .downcast_ref::<T>()
-                    .map(|value| Serializable::Borrowed(value))
-                    .or_else(|| T::from_reflect(value.as_partial_reflect()).map(|value| Serializable::Owned(Box::new(value))))
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "FromReflect::from_reflect failed when called on type `{}` with this value: {value:?}",
-                            T::type_path(),
-                        );
-                    })
+                value.downcast_ref::<T>().map(|value| Serializable::Borrowed(value)).or_else(|| T::from_reflect(value.as_partial_reflect()).map(|value| Serializable::Owned(Box::new(value)))).unwrap_or_else(|| {
+                    panic!("FromReflect::from_reflect failed when called on type `{}` with this value: {value:?}", T::type_path(),);
+                })
             },
         }
     }
@@ -706,7 +693,7 @@ impl ReflectSerialize {
 #[derive(Clone)]
 pub struct ReflectDeserialize {
     pub func: fn(
-        deserializer: &mut dyn erased_serde::Deserializer,
+        deserializer: &mut dyn erased_serde::Deserializer<'_>,
     ) -> Result<Box<dyn Reflect>, erased_serde::Error>,
 }
 
@@ -720,7 +707,7 @@ impl ReflectDeserialize {
     where
         D: serde::Deserializer<'de>,
     {
-        let mut erased = <dyn erased_serde::Deserializer>::erase(deserializer);
+        let mut erased = <dyn erased_serde::Deserializer<'_>>::erase(deserializer);
         (self.func)(&mut erased)
             .map_err(<<D as serde::Deserializer<'de>>::Error as serde::de::Error>::custom)
     }
@@ -767,8 +754,8 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 #[derive(Clone)]
 pub struct ReflectFromPtr {
     type_id: TypeId,
-    from_ptr: unsafe fn(Ptr) -> &dyn Reflect,
-    from_ptr_mut: unsafe fn(PtrMut) -> &mut dyn Reflect,
+    from_ptr: unsafe fn(Ptr<'_>) -> &dyn Reflect,
+    from_ptr_mut: unsafe fn(PtrMut<'_>) -> &mut dyn Reflect,
 }
 
 #[allow(unsafe_code)]
@@ -807,7 +794,7 @@ impl ReflectFromPtr {
     /// When calling the unsafe function returned by this method you must ensure that:
     /// - The input `Ptr` points to the `Reflect` type this `ReflectFromPtr`
     ///   was constructed for.
-    pub fn from_ptr(&self) -> unsafe fn(Ptr) -> &dyn Reflect {
+    pub fn from_ptr(&self) -> unsafe fn(Ptr<'_>) -> &dyn Reflect {
         self.from_ptr
     }
     /// Get a function pointer to turn a `PtrMut` into `&mut dyn Reflect` for
@@ -818,7 +805,7 @@ impl ReflectFromPtr {
     /// When calling the unsafe function returned by this method you must ensure that:
     /// - The input `PtrMut` points to the `Reflect` type this `ReflectFromPtr`
     ///   was constructed for.
-    pub fn from_ptr_mut(&self) -> unsafe fn(PtrMut) -> &mut dyn Reflect {
+    pub fn from_ptr_mut(&self) -> unsafe fn(PtrMut<'_>) -> &mut dyn Reflect {
         self.from_ptr_mut
     }
 }

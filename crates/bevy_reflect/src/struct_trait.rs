@@ -69,7 +69,7 @@ pub trait Struct: PartialReflect {
     fn field_len(&self) -> usize;
 
     /// Returns an iterator over the values of the reflectable fields for this struct.
-    fn iter_fields(&self) -> FieldIter;
+    fn iter_fields(&self) -> FieldIter<'_>;
 
     /// Clones the struct into a [`DynamicStruct`].
     fn clone_dynamic(&self) -> DynamicStruct;
@@ -297,7 +297,7 @@ impl DynamicStruct {
         name: impl Into<Cow<'a, str>>,
         value: Box<dyn PartialReflect>,
     ) {
-        let name: Cow<str> = name.into();
+        let name: Cow<'_, str> = name.into();
         if let Some(index) = self.field_indices.get(&name) {
             self.fields[*index] = value;
         } else {
@@ -359,7 +359,7 @@ impl Struct for DynamicStruct {
     }
 
     #[inline]
-    fn iter_fields(&self) -> FieldIter {
+    fn iter_fields(&self) -> FieldIter<'_> {
         FieldIter {
             struct_val: self,
             index: 0,
@@ -430,12 +430,12 @@ impl PartialReflect for DynamicStruct {
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Struct(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Struct(self)
     }
 

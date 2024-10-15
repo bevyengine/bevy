@@ -10,7 +10,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn((
         AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
         MyMusic,
@@ -20,15 +20,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 #[derive(Component)]
 struct MyMusic;
 
-fn update_speed(music_controller: Query<&AudioSink, With<MyMusic>>, time: Res<Time>) {
+fn update_speed(music_controller: Query<'_, '_, &AudioSink, With<MyMusic>>, time: Res<'_, Time>) {
     if let Ok(sink) = music_controller.get_single() {
         sink.set_speed((ops::sin(time.elapsed_seconds() / 5.0) + 1.0).max(0.1));
     }
 }
 
 fn pause(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    music_controller: Query<&AudioSink, With<MyMusic>>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    music_controller: Query<'_, '_, &AudioSink, With<MyMusic>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         if let Ok(sink) = music_controller.get_single() {
@@ -38,8 +38,8 @@ fn pause(
 }
 
 fn volume(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    music_controller: Query<&AudioSink, With<MyMusic>>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    music_controller: Query<'_, '_, &AudioSink, With<MyMusic>>,
 ) {
     if let Ok(sink) = music_controller.get_single() {
         if keyboard_input.just_pressed(KeyCode::Equal) {

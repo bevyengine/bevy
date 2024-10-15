@@ -40,8 +40,8 @@ impl Node for UiPassNode {
 
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        graph: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.view_entity();

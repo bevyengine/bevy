@@ -300,18 +300,22 @@ fn upload_storage_buffer<T: ShaderSize + bytemuck::NoUninit>(
 
 // TODO: Cache things per-view and skip running this system / optimize this system
 pub fn prepare_meshlet_per_frame_resources(
-    mut resource_manager: ResMut<ResourceManager>,
-    mut instance_manager: ResMut<InstanceManager>,
-    views: Query<(
-        Entity,
-        &ExtractedView,
-        Option<&RenderLayers>,
-        AnyOf<(&Camera3d, &ShadowView)>,
-    )>,
-    mut texture_cache: ResMut<TextureCache>,
-    render_queue: Res<RenderQueue>,
-    render_device: Res<RenderDevice>,
-    mut commands: Commands,
+    mut resource_manager: ResMut<'_, ResourceManager>,
+    mut instance_manager: ResMut<'_, InstanceManager>,
+    views: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &ExtractedView,
+            Option<&RenderLayers>,
+            AnyOf<(&Camera3d, &ShadowView)>,
+        ),
+    >,
+    mut texture_cache: ResMut<'_, TextureCache>,
+    render_queue: Res<'_, RenderQueue>,
+    render_device: Res<'_, RenderDevice>,
+    mut commands: Commands<'_, '_>,
 ) {
     if instance_manager.scene_cluster_count == 0 {
         return;
@@ -575,14 +579,14 @@ pub fn prepare_meshlet_per_frame_resources(
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_meshlet_view_bind_groups(
-    meshlet_mesh_manager: Res<MeshletMeshManager>,
-    resource_manager: Res<ResourceManager>,
-    instance_manager: Res<InstanceManager>,
-    views: Query<(Entity, &MeshletViewResources)>,
-    view_uniforms: Res<ViewUniforms>,
-    previous_view_uniforms: Res<PreviousViewUniforms>,
-    render_device: Res<RenderDevice>,
-    mut commands: Commands,
+    meshlet_mesh_manager: Res<'_, MeshletMeshManager>,
+    resource_manager: Res<'_, ResourceManager>,
+    instance_manager: Res<'_, InstanceManager>,
+    views: Query<'_, '_, (Entity, &MeshletViewResources)>,
+    view_uniforms: Res<'_, ViewUniforms>,
+    previous_view_uniforms: Res<'_, PreviousViewUniforms>,
+    render_device: Res<'_, RenderDevice>,
+    mut commands: Commands<'_, '_>,
 ) {
     let (
         Some(cluster_instance_ids),

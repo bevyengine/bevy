@@ -372,11 +372,11 @@ impl CachedRenderPipelinePhaseItem for Transparent2d {
 }
 
 pub fn extract_core_2d_camera_phases(
-    mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut opaque_2d_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
-    mut alpha_mask_2d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
-    cameras_2d: Extract<Query<(RenderEntity, &Camera), With<Camera2d>>>,
-    mut live_entities: Local<EntityHashSet>,
+    mut transparent_2d_phases: ResMut<'_, ViewSortedRenderPhases<Transparent2d>>,
+    mut opaque_2d_phases: ResMut<'_, ViewBinnedRenderPhases<Opaque2d>>,
+    mut alpha_mask_2d_phases: ResMut<'_, ViewBinnedRenderPhases<AlphaMask2d>>,
+    cameras_2d: Extract<'_, '_, Query<'_, '_, (RenderEntity, &Camera), With<Camera2d>>>,
+    mut live_entities: Local<'_, EntityHashSet>,
 ) {
     live_entities.clear();
 
@@ -398,12 +398,12 @@ pub fn extract_core_2d_camera_phases(
 }
 
 pub fn prepare_core_2d_depth_textures(
-    mut commands: Commands,
-    mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
-    transparent_2d_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
-    opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
-    views_2d: Query<(Entity, &ExtractedCamera, &Msaa), (With<Camera2d>,)>,
+    mut commands: Commands<'_, '_>,
+    mut texture_cache: ResMut<'_, TextureCache>,
+    render_device: Res<'_, RenderDevice>,
+    transparent_2d_phases: Res<'_, ViewSortedRenderPhases<Transparent2d>>,
+    opaque_2d_phases: Res<'_, ViewBinnedRenderPhases<Opaque2d>>,
+    views_2d: Query<'_, '_, (Entity, &ExtractedCamera, &Msaa), (With<Camera2d>,)>,
 ) {
     let mut textures = HashMap::default();
     for (view, camera, msaa) in &views_2d {

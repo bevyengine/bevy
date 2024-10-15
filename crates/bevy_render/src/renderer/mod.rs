@@ -25,8 +25,11 @@ use wgpu::{
 };
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
-pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, With<ViewTarget>>>) {
-    world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
+pub fn render_system(
+    world: &mut World,
+    state: &mut SystemState<Query<'_, '_, Entity, With<ViewTarget>>>,
+) {
+    world.resource_scope(|world, mut graph: Mut<'_, RenderGraph>| {
         graph.update(world);
     });
 

@@ -49,9 +49,9 @@ struct SamplePoint;
 struct MousePressed(bool);
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // Use seeded rng and store it in a resource; this makes the random output reproducible.
     let seeded_rng = ChaCha8Rng::seed_from_u64(19878367467712);
@@ -136,14 +136,14 @@ fn setup(
 // Handle user inputs from the keyboard:
 #[allow(clippy::too_many_arguments)]
 fn handle_keypress(
-    mut commands: Commands,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut mode: ResMut<Mode>,
-    shape: Res<SampledShape>,
-    mut random_source: ResMut<RandomSource>,
-    sample_mesh: Res<PointMesh>,
-    sample_material: Res<PointMaterial>,
-    samples: Query<Entity, With<SamplePoint>>,
+    mut commands: Commands<'_, '_>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
+    mut mode: ResMut<'_, Mode>,
+    shape: Res<'_, SampledShape>,
+    mut random_source: ResMut<'_, RandomSource>,
+    sample_mesh: Res<'_, PointMesh>,
+    sample_material: Res<'_, PointMaterial>,
+    samples: Query<'_, '_, Entity, With<SamplePoint>>,
 ) {
     // R => restart, deleting all samples
     if keyboard.just_pressed(KeyCode::KeyR) {
@@ -220,10 +220,10 @@ fn handle_keypress(
 
 // Handle user mouse input for panning the camera around:
 fn handle_mouse(
-    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
-    mut button_events: EventReader<MouseButtonInput>,
-    mut camera_transform: Single<&mut Transform, With<Camera>>,
-    mut mouse_pressed: ResMut<MousePressed>,
+    accumulated_mouse_motion: Res<'_, AccumulatedMouseMotion>,
+    mut button_events: EventReader<'_, '_, MouseButtonInput>,
+    mut camera_transform: Single<'_, &mut Transform, With<Camera>>,
+    mut mouse_pressed: ResMut<'_, MousePressed>,
 ) {
     // Store left-pressed state in the MousePressed resource
     for button_event in button_events.read() {

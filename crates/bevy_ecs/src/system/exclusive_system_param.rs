@@ -135,7 +135,11 @@ mod tests {
             test_value: u32,
         }
 
-        fn my_system(world: &mut World, mut local: Local<u32>, _phantom: PhantomData<Vec<u32>>) {
+        fn my_system(
+            world: &mut World,
+            mut local: Local<'_, u32>,
+            _phantom: PhantomData<Vec<u32>>,
+        ) {
             assert_eq!(world.resource::<Res>().test_value, *local);
             *local += 1;
             world.resource_mut::<Res>().test_value += 1;

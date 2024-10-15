@@ -29,13 +29,13 @@ pub struct ReflectBundle(ReflectBundleFns);
 #[derive(Clone)]
 pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::insert()`].
-    pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
+    pub insert: fn(&mut EntityWorldMut<'_>, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply()`].
-    pub apply: fn(EntityMut, &dyn PartialReflect, &TypeRegistry),
+    pub apply: fn(EntityMut<'_>, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
+    pub apply_or_insert: fn(&mut EntityWorldMut<'_>, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::remove()`].
-    pub remove: fn(&mut EntityWorldMut),
+    pub remove: fn(&mut EntityWorldMut<'_>),
 }
 
 impl ReflectBundleFns {
@@ -53,7 +53,7 @@ impl ReflectBundle {
     /// Insert a reflected [`Bundle`] into the entity like [`insert()`](EntityWorldMut::insert).
     pub fn insert(
         &self,
-        entity: &mut EntityWorldMut,
+        entity: &mut EntityWorldMut<'_>,
         bundle: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {
@@ -77,7 +77,7 @@ impl ReflectBundle {
     /// Uses reflection to set the value of this [`Bundle`] type in the entity to the given value or insert a new one if it does not exist.
     pub fn apply_or_insert(
         &self,
-        entity: &mut EntityWorldMut,
+        entity: &mut EntityWorldMut<'_>,
         bundle: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {
@@ -85,7 +85,7 @@ impl ReflectBundle {
     }
 
     /// Removes this [`Bundle`] type from the entity. Does nothing if it doesn't exist.
-    pub fn remove(&self, entity: &mut EntityWorldMut) {
+    pub fn remove(&self, entity: &mut EntityWorldMut<'_>) {
         (self.0.remove)(entity);
     }
 
@@ -182,7 +182,7 @@ impl<B: Bundle + Reflect + TypePath> FromType<B> for ReflectBundle {
     }
 }
 
-fn apply_field(entity: &mut EntityMut, field: &dyn PartialReflect, registry: &TypeRegistry) {
+fn apply_field(entity: &mut EntityMut<'_>, field: &dyn PartialReflect, registry: &TypeRegistry) {
     let Some(type_id) = field.try_as_reflect().map(Any::type_id) else {
         panic!(
             "`{}` did not implement `Reflect`",
@@ -202,7 +202,7 @@ fn apply_field(entity: &mut EntityMut, field: &dyn PartialReflect, registry: &Ty
 }
 
 fn apply_or_insert_field(
-    entity: &mut EntityWorldMut,
+    entity: &mut EntityWorldMut<'_>,
     field: &dyn PartialReflect,
     registry: &TypeRegistry,
 ) {

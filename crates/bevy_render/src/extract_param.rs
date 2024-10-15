@@ -34,7 +34,7 @@ use core::ops::{Deref, DerefMut};
 /// # #[derive(Component)]
 /// // Do make sure to sync the cloud entities before extracting them.
 /// # struct Cloud;
-/// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<RenderEntity, With<Cloud>>>) {
+/// fn extract_clouds(mut commands: Commands<'_, '_>, clouds: Extract<'_, '_, Query<'_, '_, RenderEntity, With<Cloud>>>) {
 ///     for cloud in &clouds {
 ///         commands.entity(cloud).insert(Cloud);
 ///     }
@@ -80,7 +80,7 @@ where
     unsafe fn validate_param(
         state: &Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> bool {
         // SAFETY: Read-only access to world data registered in `init_state`.
         let result = unsafe { world.get_resource_by_id(state.main_world_state) };

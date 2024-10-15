@@ -49,7 +49,7 @@ struct OuterCamera;
 #[derive(Component)]
 struct Rotate;
 
-fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_sprite(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // the sample sprite that will be rendered to the pixel-perfect canvas
     commands.spawn((
         Sprite::from_image(asset_server.load("pixel/bevy_pixel_dark.png")),
@@ -69,9 +69,9 @@ fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Spawns a capsule mesh on the pixel-perfect layer.
 fn setup_mesh(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
 ) {
     commands.spawn((
         Mesh2d(meshes.add(Capsule2d::default())),
@@ -82,7 +82,7 @@ fn setup_mesh(
     ));
 }
 
-fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+fn setup_camera(mut commands: Commands<'_, '_>, mut images: ResMut<'_, Assets<Image>>) {
     let canvas_size = Extent3d {
         width: RES_WIDTH,
         height: RES_HEIGHT,
@@ -134,7 +134,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 }
 
 /// Rotates entities to demonstrate grid snapping.
-fn rotate(time: Res<Time>, mut transforms: Query<&mut Transform, With<Rotate>>) {
+fn rotate(time: Res<'_, Time>, mut transforms: Query<'_, '_, &mut Transform, With<Rotate>>) {
     for mut transform in &mut transforms {
         let dt = time.delta_seconds();
         transform.rotate_z(dt);
@@ -143,8 +143,8 @@ fn rotate(time: Res<Time>, mut transforms: Query<&mut Transform, With<Rotate>>) 
 
 /// Scales camera projection to fit the window (integer multiples only).
 fn fit_canvas(
-    mut resize_events: EventReader<WindowResized>,
-    mut projection: Single<&mut OrthographicProjection, With<OuterCamera>>,
+    mut resize_events: EventReader<'_, '_, WindowResized>,
+    mut projection: Single<'_, &mut OrthographicProjection, With<OuterCamera>>,
 ) {
     for event in resize_events.read() {
         let h_scale = event.width / RES_WIDTH as f32;

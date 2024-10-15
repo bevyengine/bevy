@@ -725,7 +725,7 @@ struct ArchetypeComponents {
 /// A component may be present within multiple archetypes, but each component within
 /// each archetype has its own unique `ArchetypeComponentId`. This is leveraged by the system
 /// schedulers to opportunistically run multiple systems in parallel that would otherwise
-/// conflict. For example, `Query<&mut A, With<B>>` and `Query<&mut A, Without<B>>` can run in
+/// conflict. For example, `Query<'_, '_, &mut A, With<B>>` and `Query<'_, '_, &mut A, Without<B>>` can run in
 /// parallel as the matched `ArchetypeComponentId` sets for both queries are disjoint, even
 /// though `&mut A` on both queries point to the same [`ComponentId`].
 ///

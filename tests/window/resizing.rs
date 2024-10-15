@@ -51,9 +51,9 @@ enum Phase {
 use Phase::*;
 
 fn change_window_size(
-    mut windows: ResMut<Dimensions>,
-    mut phase: ResMut<Phase>,
-    mut first_complete: Local<bool>,
+    mut windows: ResMut<'_, Dimensions>,
+    mut phase: ResMut<'_, Phase>,
+    mut first_complete: Local<'_, bool>,
 ) {
     // Put off rendering for one frame, as currently for a frame where
     // resizing happens, nothing is presented.
@@ -96,7 +96,7 @@ fn change_window_size(
     }
 }
 
-fn sync_dimensions(dim: Res<Dimensions>, mut window: Single<&mut Window>) {
+fn sync_dimensions(dim: Res<'_, Dimensions>, mut window: Single<'_, &mut Window>) {
     if dim.is_changed() {
         window.resolution.set(dim.width as f32, dim.height as f32);
     }
@@ -104,9 +104,9 @@ fn sync_dimensions(dim: Res<Dimensions>, mut window: Single<&mut Window>) {
 
 /// A simple 3d scene, taken from the `3d_scene` example
 fn setup_3d(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // plane
     commands.spawn((
@@ -135,7 +135,7 @@ fn setup_3d(
 }
 
 /// A simple 2d scene, taken from the `rect` example
-fn setup_2d(mut commands: Commands) {
+fn setup_2d(mut commands: Commands<'_, '_>) {
     commands.spawn((
         Camera2d,
         Camera {

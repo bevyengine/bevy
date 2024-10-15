@@ -55,7 +55,11 @@ fn main() {
 }
 
 /// Initializes the scene.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: Res<AppSettings>) {
+fn setup(
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    app_settings: Res<'_, AppSettings>,
+) {
     // Spawn the glTF scene.
     commands.spawn(SceneRoot(asset_server.load(
         GltfAssetLabel::Scene(0).from_asset("models/VolumetricFogExample/VolumetricFogExample.glb"),
@@ -155,8 +159,8 @@ fn create_text(app_settings: &AppSettings) -> Text {
 /// A system that makes directional lights in the glTF scene into volumetric
 /// lights with shadows.
 fn tweak_scene(
-    mut commands: Commands,
-    mut lights: Query<(Entity, &mut DirectionalLight), Changed<DirectionalLight>>,
+    mut commands: Commands<'_, '_>,
+    mut lights: Query<'_, '_, (Entity, &mut DirectionalLight), Changed<DirectionalLight>>,
 ) {
     for (light, mut directional_light) in lights.iter_mut() {
         // Shadows are needed for volumetric lights to work.
@@ -167,8 +171,8 @@ fn tweak_scene(
 
 /// Processes user requests to move the directional light.
 fn move_directional_light(
-    input: Res<ButtonInput<KeyCode>>,
-    mut directional_lights: Query<&mut Transform, With<DirectionalLight>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut directional_lights: Query<'_, '_, &mut Transform, With<DirectionalLight>>,
 ) {
     let mut delta_theta = Vec2::ZERO;
     if input.pressed(KeyCode::KeyW) || input.pressed(KeyCode::ArrowUp) {
@@ -196,8 +200,8 @@ fn move_directional_light(
 
 // Toggle point light movement between left and right.
 fn move_point_light(
-    timer: Res<Time>,
-    mut objects: Query<(&mut Transform, &mut MoveBackAndForthHorizontally)>,
+    timer: Res<'_, Time>,
+    mut objects: Query<'_, '_, (&mut Transform, &mut MoveBackAndForthHorizontally)>,
 ) {
     for (mut transform, mut move_data) in objects.iter_mut() {
         let mut translation = transform.translation;
@@ -219,12 +223,12 @@ fn move_point_light(
 
 // Adjusts app settings per user input.
 fn adjust_app_settings(
-    mut commands: Commands,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut app_settings: ResMut<AppSettings>,
-    mut point_lights: Query<Entity, With<PointLight>>,
-    mut spot_lights: Query<Entity, With<SpotLight>>,
-    mut text: Query<&mut Text>,
+    mut commands: Commands<'_, '_>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut app_settings: ResMut<'_, AppSettings>,
+    mut point_lights: Query<'_, '_, Entity, With<PointLight>>,
+    mut spot_lights: Query<'_, '_, Entity, With<SpotLight>>,
+    mut text: Query<'_, '_, &mut Text>,
 ) {
     // If there are no changes, we're going to bail for efficiency. Record that
     // here.

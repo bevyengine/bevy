@@ -125,9 +125,9 @@ impl LogDiagnosticsPlugin {
     }
 
     fn log_diagnostics_system(
-        mut state: ResMut<LogDiagnosticsState>,
-        time: Res<Time<Real>>,
-        diagnostics: Res<DiagnosticsStore>,
+        mut state: ResMut<'_, LogDiagnosticsState>,
+        time: Res<'_, Time<Real>>,
+        diagnostics: Res<'_, DiagnosticsStore>,
     ) {
         if state.timer.tick(time.delta()).finished() {
             Self::log_diagnostics(&state, &diagnostics);
@@ -135,9 +135,9 @@ impl LogDiagnosticsPlugin {
     }
 
     fn log_diagnostics_debug_system(
-        mut state: ResMut<LogDiagnosticsState>,
-        time: Res<Time<Real>>,
-        diagnostics: Res<DiagnosticsStore>,
+        mut state: ResMut<'_, LogDiagnosticsState>,
+        time: Res<'_, Time<Real>>,
+        diagnostics: Res<'_, DiagnosticsStore>,
     ) {
         if state.timer.tick(time.delta()).finished() {
             Self::for_each_diagnostic(&state, &diagnostics, |diagnostic| {

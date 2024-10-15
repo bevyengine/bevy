@@ -33,7 +33,7 @@ struct AnimateRotation;
 #[derive(Component)]
 struct AnimateScale;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_font = TextFont {
         font: font.clone(),
@@ -135,8 +135,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn animate_translation(
-    time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text2d>, With<AnimateTranslation>)>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, &mut Transform, (With<Text2d>, With<AnimateTranslation>)>,
 ) {
     for mut transform in &mut query {
         transform.translation.x = 100.0 * ops::sin(time.elapsed_seconds()) - 400.0;
@@ -145,8 +145,8 @@ fn animate_translation(
 }
 
 fn animate_rotation(
-    time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text2d>, With<AnimateRotation>)>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, &mut Transform, (With<Text2d>, With<AnimateRotation>)>,
 ) {
     for mut transform in &mut query {
         transform.rotation = Quat::from_rotation_z(ops::cos(time.elapsed_seconds()));
@@ -154,8 +154,8 @@ fn animate_rotation(
 }
 
 fn animate_scale(
-    time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text2d>, With<AnimateScale>)>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, &mut Transform, (With<Text2d>, With<AnimateScale>)>,
 ) {
     // Consider changing font-size instead of scaling the transform. Scaling a Text2D will scale the
     // rendered quad, resulting in a pixellated look.

@@ -44,7 +44,7 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 /// #[derive(Resource)]
 /// struct MyResource(u32);
 ///
-/// fn my_system(mut resource: Res<MyResource>) {
+/// fn my_system(mut resource: Res<'_, MyResource>) {
 ///     if resource.is_changed() {
 ///         println!("My component was mutated!");
 ///     }
@@ -97,7 +97,7 @@ pub trait DetectChanges {
 /// #[derive(Resource)]
 /// struct MyResource(u32);
 ///
-/// fn my_system(mut resource: ResMut<MyResource>) {
+/// fn my_system(mut resource: ResMut<'_, MyResource>) {
 ///     if resource.is_changed() {
 ///         println!("My resource was mutated!");
 ///     }
@@ -156,7 +156,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// #[derive(Resource, PartialEq, Eq)]
     /// pub struct Score(u32);
     ///
-    /// fn reset_score(mut score: ResMut<Score>) {
+    /// fn reset_score(mut score: ResMut<'_, Score>) {
     ///     // Set the score to zero, unless it is already zero.
     ///     score.set_if_neq(Score(0));
     /// }
@@ -219,7 +219,7 @@ pub trait DetectChangesMut: DetectChanges {
     ///     previous: u32,
     /// }
     ///
-    /// fn reset_score(mut score: ResMut<Score>, mut score_changed: EventWriter<ScoreChanged>) {
+    /// fn reset_score(mut score: ResMut<'_, Score>, mut score_changed: EventWriter<'_, ScoreChanged>) {
     ///     // Set the score to zero, unless it is already zero.
     ///     let new_score = 0;
     ///     if let Some(Score(previous_score)) = score.replace_if_neq(Score(new_score)) {
@@ -381,10 +381,10 @@ macro_rules! impl_methods {
                 self.value
             }
 
-            /// Returns a `Mut<>` with a smaller lifetime.
+            /// Returns a `Mut<'_, >` with a smaller lifetime.
             /// This is useful if you have `&mut
             #[doc = stringify!($name)]
-            /// <T>`, but you need a `Mut<T>`.
+            /// <T>`, but you need a `Mut<'_, T>`.
             pub fn reborrow(&mut self) -> Mut<'_, $target> {
                 Mut {
                     value: self.value,
@@ -410,7 +410,7 @@ macro_rules! impl_methods {
             /// # impl Vec2 { pub const ZERO: Self = Self; }
             /// # #[derive(Component)] pub struct Transform { translation: Vec2 }
             /// // When run, zeroes the translation of every entity.
-            /// fn reset_positions(mut transforms: Query<&mut Transform>) {
+            /// fn reset_positions(mut transforms: Query<'_, '_, &mut Transform>) {
             ///     for transform in &mut transforms {
             ///         // We pinky promise not to modify `t` within the closure.
             ///         // Breaking this promise will result in logic errors, but will never cause undefined behavior.
@@ -431,7 +431,7 @@ macro_rules! impl_methods {
             }
 
             /// Optionally maps to an inner value by applying a function to the contained reference.
-            /// This is useful in a situation where you need to convert a `Mut<T>` to a `Mut<U>`, but only if `T` contains `U`.
+            /// This is useful in a situation where you need to convert a `Mut<'_, T>` to a `Mut<'_, U>`, but only if `T` contains `U`.
             ///
             /// As with `map_unchanged`, you should never modify the argument passed to the closure.
             pub fn filter_map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> Option<&mut U>) -> Option<Mut<'w, U>> {
@@ -546,7 +546,7 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if resource doesn't exist.
 /// This will cause systems that use this parameter to be skipped.
 ///
-/// Use [`Option<Res<T>>`] instead if the resource might not always exist.
+/// Use [`Option<Res<'_, T>>`] instead if the resource might not always exist.
 pub struct Res<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w T,
     pub(crate) ticks: Ticks<'w>,
@@ -557,7 +557,7 @@ pub struct Res<'w, T: ?Sized + Resource> {
 impl<'w, T: Resource> Res<'w, T> {
     /// Copies a reference to a resource.
     ///
-    /// Note that unless you actually need an instance of `Res<T>`, you should
+    /// Note that unless you actually need an instance of `Res<'_, T>`, you should
     /// prefer to just convert it to `&T` which can be freely copied.
     #[allow(clippy::should_implement_trait)]
     pub fn clone(this: &Self) -> Self {
@@ -624,7 +624,7 @@ impl_debug!(Res<'w, T>, Resource);
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if resource doesn't exist.
 /// This will cause systems that use this parameter to be skipped.
 ///
-/// Use [`Option<ResMut<T>>`] instead if the resource might not always exist.
+/// Use [`Option<ResMut<'_, T>>`] instead if the resource might not always exist.
 pub struct ResMut<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
@@ -727,11 +727,11 @@ impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
 /// # #[derive(Component)]
 /// # struct MyComponent;
 ///
-/// fn how_many_changed_1(query: Query<(), Changed<MyComponent>>) {
+/// fn how_many_changed_1(query: Query<'_, '_, (), Changed<MyComponent>>) {
 ///     println!("{} changed", query.iter().count());
 /// }
 ///
-/// fn how_many_changed_2(query: Query<Ref<MyComponent>>) {
+/// fn how_many_changed_2(query: Query<'_, '_, Ref<'_, MyComponent>>) {
 ///     println!("{} changed", query.iter().filter(|c| c.is_changed()).count());
 /// }
 /// ```
@@ -846,7 +846,7 @@ impl_debug!(Ref<'w, T>,);
 ///     position: &'static mut Position,
 /// }
 ///
-/// fn update_player_avatars(players_query: Query<PlayerQuery>) {
+/// fn update_player_avatars(players_query: Query<'_, '_, PlayerQuery>) {
 ///     // The item returned by the iterator is of type `PlayerQueryReadOnlyItem`.
 ///     for player in players_query.iter() {
 ///         if player.name.is_changed() {
@@ -982,7 +982,7 @@ impl<'w> MutUntyped<'w> {
     /// Returns a [`MutUntyped`] with a smaller lifetime.
     /// This is useful if you have `&mut MutUntyped`, but you need a `MutUntyped`.
     #[inline]
-    pub fn reborrow(&mut self) -> MutUntyped {
+    pub fn reborrow(&mut self) -> MutUntyped<'_> {
         MutUntyped {
             value: self.value.reborrow(),
             ticks: TicksMut {
@@ -1048,7 +1048,7 @@ impl<'w> MutUntyped<'w> {
         }
     }
 
-    /// Transforms this [`MutUntyped`] into a [`Mut<T>`] with the same lifetime.
+    /// Transforms this [`MutUntyped`] into a [`Mut<'_, T>`] with the same lifetime.
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`MutUntyped`].
@@ -1236,11 +1236,11 @@ mod tests {
 
     #[test]
     fn change_expiration() {
-        fn change_detected(query: Option<Single<Ref<C>>>) -> bool {
+        fn change_detected(query: Option<Single<'_, Ref<'_, C>>>) -> bool {
             query.unwrap().is_changed()
         }
 
-        fn change_expired(query: Option<Single<Ref<C>>>) -> bool {
+        fn change_expired(query: Option<Single<'_, Ref<'_, C>>>) -> bool {
             query.unwrap().is_changed()
         }
 
@@ -1282,7 +1282,7 @@ mod tests {
 
         // Since the world is always ahead, as long as changes can't get older than `u32::MAX` (which we ensure),
         // the wrapping difference will always be positive, so wraparound doesn't matter.
-        let mut query = world.query::<Ref<C>>();
+        let mut query = world.query::<Ref<'_, C>>();
         assert!(query.single(&world).is_changed());
     }
 
@@ -1297,7 +1297,7 @@ mod tests {
         *world.change_tick.get_mut() += MAX_CHANGE_AGE + CHECK_TICK_THRESHOLD;
         let change_tick = world.change_tick();
 
-        let mut query = world.query::<Ref<C>>();
+        let mut query = world.query::<Ref<'_, C>>();
         for tracker in query.iter(&world) {
             let ticks_since_insert = change_tick.relative_to(*tracker.ticks.added).get();
             let ticks_since_change = change_tick.relative_to(*tracker.ticks.changed).get();
@@ -1339,7 +1339,7 @@ mod tests {
             changed_by: &mut caller,
         };
 
-        let into_mut: Mut<R> = res_mut.into();
+        let into_mut: Mut<'_, R> = res_mut.into();
         assert_eq!(1, into_mut.ticks.added.get());
         assert_eq!(2, into_mut.ticks.changed.get());
         assert_eq!(3, into_mut.ticks.last_run.get());
@@ -1393,7 +1393,7 @@ mod tests {
             changed_by: &mut caller,
         };
 
-        let into_mut: Mut<R> = non_send_mut.into();
+        let into_mut: Mut<'_, R> = non_send_mut.into();
         assert_eq!(1, into_mut.ticks.added.get());
         assert_eq!(2, into_mut.ticks.changed.get());
         assert_eq!(3, into_mut.ticks.last_run.get());
@@ -1557,7 +1557,7 @@ mod tests {
             changed_by: &mut caller,
         };
 
-        let into_mut: MutUntyped = mut_typed.into();
+        let into_mut: MutUntyped<'_> = mut_typed.into();
         assert_eq!(1, into_mut.ticks.added.get());
         assert_eq!(2, into_mut.ticks.changed.get());
         assert_eq!(3, into_mut.ticks.last_run.get());

@@ -480,9 +480,7 @@ pub enum ChunkedUnevenCoreError {
     ZeroWidth,
 
     /// At least two sample times are necessary to interpolate in `ChunkedUnevenCore`.
-    #[display(
-        "Need at least two unique samples to create a ChunkedUnevenCore, but {samples} were provided"
-    )]
+    #[display("Need at least two unique samples to create a ChunkedUnevenCore, but {samples} were provided")]
     NotEnoughSamples {
         /// The number of samples that were provided.
         samples: usize,

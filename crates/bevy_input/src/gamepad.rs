@@ -320,7 +320,7 @@ pub enum ButtonSettingsError {
 /// # use bevy_input::gamepad::{Gamepad, GamepadAxis, GamepadButton};
 /// # use bevy_ecs::system::Query;
 /// #
-/// fn gamepad_usage_system(gamepads: Query<&Gamepad>) {
+/// fn gamepad_usage_system(gamepads: Query<'_, '_, &Gamepad>) {
 ///     for gamepad in gamepads.iter() {
 ///         println!("{}", gamepad.name());
 ///
@@ -1350,8 +1350,8 @@ impl ButtonAxisSettings {
 ///
 /// Whenever a [`Gamepad`] connects or disconnects, an information gets printed to the console using the [`info!`] macro.
 pub fn gamepad_connection_system(
-    mut commands: Commands,
-    mut connection_events: EventReader<GamepadConnectionEvent>,
+    mut commands: Commands<'_, '_>,
+    mut connection_events: EventReader<'_, '_, GamepadConnectionEvent>,
 ) {
     for connection_event in connection_events.read() {
         let id = connection_event.gamepad;
@@ -1397,12 +1397,12 @@ pub enum GamepadConnection {
 /// Consumes [`RawGamepadEvent`] events, filters them using their [`GamepadSettings`] and if successful,
 /// updates the [`Gamepad`] and sends [`GamepadAxisChangedEvent`], [`GamepadButtonStateChangedEvent`], [`GamepadButtonChangedEvent`] events.
 pub fn gamepad_event_processing_system(
-    mut gamepads: Query<(&mut Gamepad, &GamepadSettings)>,
-    mut raw_events: EventReader<RawGamepadEvent>,
-    mut processed_events: EventWriter<GamepadEvent>,
-    mut processed_axis_events: EventWriter<GamepadAxisChangedEvent>,
-    mut processed_digital_events: EventWriter<GamepadButtonStateChangedEvent>,
-    mut processed_analog_events: EventWriter<GamepadButtonChangedEvent>,
+    mut gamepads: Query<'_, '_, (&mut Gamepad, &GamepadSettings)>,
+    mut raw_events: EventReader<'_, '_, RawGamepadEvent>,
+    mut processed_events: EventWriter<'_, GamepadEvent>,
+    mut processed_axis_events: EventWriter<'_, GamepadAxisChangedEvent>,
+    mut processed_digital_events: EventWriter<'_, GamepadButtonStateChangedEvent>,
+    mut processed_analog_events: EventWriter<'_, GamepadButtonChangedEvent>,
 ) {
     // Clear digital buttons state
     for (mut gamepad, _) in gamepads.iter_mut() {
@@ -1564,8 +1564,8 @@ impl GamepadRumbleIntensity {
 /// # use bevy_ecs::prelude::{EventWriter, Res, Query, Entity, With};
 /// # use bevy_utils::Duration;
 /// fn rumble_gamepad_system(
-///     mut rumble_requests: EventWriter<GamepadRumbleRequest>,
-///     gamepads: Query<Entity, With<Gamepad>>,
+///     mut rumble_requests: EventWriter<'_, GamepadRumbleRequest>,
+///     gamepads: Query<'_, '_, Entity, With<Gamepad>>,
 /// ) {
 ///     for entity in gamepads.iter() {
 ///         rumble_requests.send(GamepadRumbleRequest::Add {
@@ -1640,10 +1640,7 @@ mod tests {
         expected: Option<f32>,
     ) {
         let actual = settings.filter(new_value, old_value);
-        assert_eq!(
-            expected, actual,
-            "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",
-        );
+        assert_eq!(expected, actual, "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",);
     }
 
     #[test]
@@ -1695,10 +1692,7 @@ mod tests {
         expected: Option<f32>,
     ) {
         let actual = settings.filter(new_value, old_value);
-        assert_eq!(
-            expected, actual,
-            "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",
-        );
+        assert_eq!(expected, actual, "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",);
     }
 
     #[test]
@@ -1831,9 +1825,7 @@ mod tests {
                     assert_eq!(button_settings.release_threshold, release_threshold);
                 }
                 Err(_) => {
-                    panic!(
-                        "ButtonSettings::new({press_threshold}, {release_threshold}) should be valid"
-                    );
+                    panic!("ButtonSettings::new({press_threshold}, {release_threshold}) should be valid");
                 }
             }
         }
@@ -1856,9 +1848,7 @@ mod tests {
             let bs = ButtonSettings::new(press_threshold, release_threshold);
             match bs {
                 Ok(_) => {
-                    panic!(
-                        "ButtonSettings::new({press_threshold}, {release_threshold}) should be invalid"
-                    );
+                    panic!("ButtonSettings::new({press_threshold}, {release_threshold}) should be invalid");
                 }
                 Err(err_code) => match err_code {
                     ButtonSettingsError::PressThresholdOutOfRange(_press_threshold) => {}
@@ -1882,7 +1872,7 @@ mod tests {
                 deadzone_lowerbound: -0.05,
                 deadzone_upperbound: 0.05,
                 livezone_upperbound: 0.95,
-                threshold: 0.001,
+                threshold: 0.001
             })
         );
         assert_eq!(
@@ -1925,7 +1915,7 @@ mod tests {
             Err(
                 AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
                     livezone_lowerbound: -0.1,
-                    deadzone_lowerbound: -0.3,
+                    deadzone_lowerbound: -0.3
                 }
             ),
             axis_settings.try_set_livezone_lowerbound(-0.1)

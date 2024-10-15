@@ -36,7 +36,7 @@ use crate::state::{StateTransitionEvent, States};
 /// # #[derive(Component)]
 /// # struct Player;
 ///
-/// fn spawn_player(mut commands: Commands) {
+/// fn spawn_player(mut commands: Commands<'_, '_>) {
 ///     commands.spawn((
 ///         StateScoped(GameState::InGame),
 ///         Player
@@ -65,9 +65,9 @@ pub struct StateScoped<S: States>(pub S);
 ///
 /// If `bevy_hierarchy` feature is enabled, which it is by default, the despawn will be recursive.
 pub fn clear_state_scoped_entities<S: States>(
-    mut commands: Commands,
-    mut transitions: EventReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &StateScoped<S>)>,
+    mut commands: Commands<'_, '_>,
+    mut transitions: EventReader<'_, '_, StateTransitionEvent<S>>,
+    query: Query<'_, '_, (Entity, &StateScoped<S>)>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened

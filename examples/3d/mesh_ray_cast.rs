@@ -26,9 +26,9 @@ const LASER_SPEED: f32 = 0.03;
 fn bouncing_raycast(
     mut ray_cast: MeshRayCast,
     mut gizmos: Gizmos,
-    time: Res<Time>,
+    time: Res<'_, Time>,
     // The ray map stores rays cast by the cursor
-    ray_map: Res<RayMap>,
+    ray_map: Res<'_, RayMap>,
 ) {
     // Cast an automatically moving ray and bounce it off of surfaces
     let t = ops::cos((time.elapsed_seconds() - 4.0).max(0.0) * LASER_SPEED) * PI;
@@ -69,9 +69,9 @@ fn bounce_ray(mut ray: Ray3d, ray_cast: &mut MeshRayCast, gizmos: &mut Gizmos, c
 
 // Set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // Make a box of planes facing inward so the laser gets trapped inside
     let plane_mesh = meshes.add(Plane3d::default());

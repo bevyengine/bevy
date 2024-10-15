@@ -24,19 +24,23 @@ impl Plugin for SpritePickingBackend {
 }
 
 pub fn sprite_picking(
-    pointers: Query<(&PointerId, &PointerLocation)>,
-    cameras: Query<(Entity, &Camera, &GlobalTransform, &OrthographicProjection)>,
-    primary_window: Query<Entity, With<PrimaryWindow>>,
-    images: Res<Assets<Image>>,
-    texture_atlas_layout: Res<Assets<TextureAtlasLayout>>,
-    sprite_query: Query<(
-        Entity,
-        &Sprite,
-        &GlobalTransform,
-        Option<&PickingBehavior>,
-        &ViewVisibility,
-    )>,
-    mut output: EventWriter<PointerHits>,
+    pointers: Query<'_, '_, (&PointerId, &PointerLocation)>,
+    cameras: Query<'_, '_, (Entity, &Camera, &GlobalTransform, &OrthographicProjection)>,
+    primary_window: Query<'_, '_, Entity, With<PrimaryWindow>>,
+    images: Res<'_, Assets<Image>>,
+    texture_atlas_layout: Res<'_, Assets<TextureAtlasLayout>>,
+    sprite_query: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &Sprite,
+            &GlobalTransform,
+            Option<&PickingBehavior>,
+            &ViewVisibility,
+        ),
+    >,
+    mut output: EventWriter<'_, PointerHits>,
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()

@@ -19,7 +19,7 @@ struct MyType<T> {
     value: T,
 }
 
-fn setup(type_registry: Res<AppTypeRegistry>) {
+fn setup(type_registry: Res<'_, AppTypeRegistry>) {
     let type_registry = type_registry.read();
 
     let registration = type_registry.get(TypeId::of::<MyType<u32>>()).unwrap();

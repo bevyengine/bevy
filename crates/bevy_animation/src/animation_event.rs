@@ -38,26 +38,26 @@ pub(crate) fn trigger_animation_event(
 /// #[derive(Event, AnimationEvent, Reflect, Clone)]
 /// struct Say(String);
 ///
-/// fn on_say(trigger: Trigger<Say>) {
+/// fn on_say(trigger: Trigger<'_, Say>) {
 ///     println!("{}", trigger.event().0);
 /// }
 ///
 /// fn setup_animation(
-///     mut commands: Commands,
-///     mut animations: ResMut<Assets<AnimationClip>>,
-///     mut graphs: ResMut<Assets<AnimationGraph>>,
+///     mut commands: Commands<'_, '_>,
+///     mut animations: ResMut<'_, Assets<AnimationClip>>,
+///     mut graphs: ResMut<'_, Assets<AnimationGraph>>,
 /// ) {
 ///     // Create a new animation and add an event at 1.0s.
 ///     let mut animation = AnimationClip::default();
 ///     animation.add_event(1.0, Say("Hello".into()));
-///     
+///
 ///     // Create an animation graph.
 ///     let (graph, animation_index) = AnimationGraph::from_clip(animations.add(animation));
 ///
 ///     // Start playing the animation.
 ///     let mut player = AnimationPlayer::default();
 ///     player.play(animation_index).repeat();
-///     
+///
 ///     commands.spawn((AnimationGraphHandle(graphs.add(graph)), player));
 /// }
 /// #
@@ -153,7 +153,7 @@ impl TupleStruct for AnimationEventData {
         1
     }
 
-    fn iter_fields(&self) -> TupleStructFieldIter {
+    fn iter_fields(&self) -> TupleStructFieldIter<'_> {
         TupleStructFieldIter::new(self)
     }
 
@@ -215,11 +215,11 @@ impl PartialReflect for AnimationEventData {
         Ok(())
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::TupleStruct(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::TupleStruct(self)
     }
 

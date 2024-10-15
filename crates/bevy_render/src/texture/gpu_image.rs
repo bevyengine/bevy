@@ -41,7 +41,7 @@ impl RenderAsset for GpuImage {
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
         image: Self::SourceAsset,
-        (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
+        (render_device, render_queue, default_sampler): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let texture = render_device.create_texture_with_data(
             render_queue,

@@ -21,7 +21,7 @@ struct AllTuples {
 }
 
 impl Parse for AllTuples {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
         let fake_variadic = input.call(parse_fake_variadic_attr)?;
         let macro_ident = input.parse::<Ident>()?;
         input.parse::<Comma>()?;
@@ -328,7 +328,7 @@ pub fn all_tuples_with_size(input: TokenStream) -> TokenStream {
 }
 
 /// Parses the attribute `#[doc(fake_variadic)]`
-fn parse_fake_variadic_attr(input: ParseStream) -> Result<bool> {
+fn parse_fake_variadic_attr(input: ParseStream<'_>) -> Result<bool> {
     let attribute = match input.call(Attribute::parse_outer)? {
         attributes if attributes.is_empty() => return Ok(false),
         attributes if attributes.len() == 1 => attributes[0].clone(),

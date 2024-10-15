@@ -3,7 +3,7 @@ use bevy_ecs::prelude::*;
 #[derive(Component, Debug)]
 struct Foo;
 
-fn for_loops(mut query: Query<&mut Foo>) {
+fn for_loops(mut query: Query<'_, '_, &mut Foo>) {
     // this should fail to compile
     for _ in query.iter_mut() {
         for _ in query.to_readonly().iter() {}
@@ -32,7 +32,7 @@ fn for_loops(mut query: Query<&mut Foo>) {
     }
 }
 
-fn single_mut_query(mut query: Query<&mut Foo>) {
+fn single_mut_query(mut query: Query<'_, '_, &mut Foo>) {
     // this should fail to compile
     {
         let mut mut_foo = query.single_mut();
@@ -42,7 +42,7 @@ fn single_mut_query(mut query: Query<&mut Foo>) {
         //~^ E0502
 
         let ref_foo = readonly_query.single();
-    
+
         *mut_foo = Foo;
 
         println!("{ref_foo:?}");

@@ -25,14 +25,14 @@ struct MyComponent(f32);
 #[derive(Resource, PartialEq, Debug)]
 struct MyResource(f32);
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     // Note the first change detection log correctly points to this line because the component is
     // added. Although commands are deferred, they are able to track the original calling location.
     commands.spawn(MyComponent(0.0));
     commands.insert_resource(MyResource(0.0));
 }
 
-fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)>) {
+fn change_component(time: Res<'_, Time>, mut query: Query<'_, '_, (Entity, &mut MyComponent)>) {
     for (entity, mut component) in &mut query {
         if rand::thread_rng().gen_bool(0.1) {
             let new_component = MyComponent(time.elapsed_seconds().round());
@@ -49,7 +49,7 @@ fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)
 /// This is a duplicate of the `change_component` system, added to show that change tracking can
 /// help you find *where* your component is being changed, when there are multiple possible
 /// locations.
-fn change_component_2(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)>) {
+fn change_component_2(time: Res<'_, Time>, mut query: Query<'_, '_, (Entity, &mut MyComponent)>) {
     for (entity, mut component) in &mut query {
         if rand::thread_rng().gen_bool(0.1) {
             let new_component = MyComponent(time.elapsed_seconds().round());
@@ -60,7 +60,7 @@ fn change_component_2(time: Res<Time>, mut query: Query<(Entity, &mut MyComponen
 }
 
 /// Change detection concepts for components apply similarly to resources.
-fn change_resource(time: Res<Time>, mut my_resource: ResMut<MyResource>) {
+fn change_resource(time: Res<'_, Time>, mut my_resource: ResMut<'_, MyResource>) {
     if rand::thread_rng().gen_bool(0.1) {
         let new_resource = MyResource(time.elapsed_seconds().round());
         info!("New value: {new_resource:?}");
@@ -71,11 +71,11 @@ fn change_resource(time: Res<Time>, mut my_resource: ResMut<MyResource>) {
 /// Query filters like [`Changed<T>`] and [`Added<T>`] ensure only entities matching these filters
 /// will be returned by the query.
 ///
-/// Using the [`Ref<T>`] system param allows you to access change detection information, but does
+/// Using the [`Ref<'_, T>`] system param allows you to access change detection information, but does
 /// not filter the query.
 fn change_detection(
-    changed_components: Query<Ref<MyComponent>, Changed<MyComponent>>,
-    my_resource: Res<MyResource>,
+    changed_components: Query<'_, '_, Ref<'_, MyComponent>, Changed<MyComponent>>,
+    my_resource: Res<'_, MyResource>,
 ) {
     for component in &changed_components {
         // By default, you can only tell that a component was changed.

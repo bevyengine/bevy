@@ -63,10 +63,10 @@ fn main() {
 
 /// set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     let icosphere_mesh = meshes.add(Sphere::new(0.9).mesh().ico(7).unwrap());
     let cube_mesh = meshes.add(Cuboid::new(0.7, 0.7, 0.7));
@@ -382,10 +382,11 @@ impl Default for ExampleState {
 
 #[allow(clippy::too_many_arguments)]
 fn example_control_system(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
+    mut commands: Commands<'_, '_>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    controllable: Query<'_, '_, (&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
     camera: Single<
+        '_,
         (
             Entity,
             &mut Camera,
@@ -396,10 +397,10 @@ fn example_control_system(
         ),
         With<Camera3d>,
     >,
-    mut display: Single<&mut Text, With<ExampleDisplay>>,
-    mut state: Local<ExampleState>,
-    time: Res<Time>,
-    input: Res<ButtonInput<KeyCode>>,
+    mut display: Single<'_, &mut Text, With<ExampleDisplay>>,
+    mut state: Local<'_, ExampleState>,
+    time: Res<'_, Time>,
+    input: Res<'_, ButtonInput<KeyCode>>,
 ) {
     if input.pressed(KeyCode::Digit2) {
         state.diffuse_transmission = (state.diffuse_transmission + time.delta_seconds()).min(1.0);
@@ -599,9 +600,9 @@ fn example_control_system(
 }
 
 fn flicker_system(
-    mut flame: Single<&mut Transform, (With<Flicker>, With<Mesh3d>)>,
-    light: Single<(&mut PointLight, &mut Transform), (With<Flicker>, Without<Mesh3d>)>,
-    time: Res<Time>,
+    mut flame: Single<'_, &mut Transform, (With<Flicker>, With<Mesh3d>)>,
+    light: Single<'_, (&mut PointLight, &mut Transform), (With<Flicker>, Without<Mesh3d>)>,
+    time: Res<'_, Time>,
 ) {
     let s = time.elapsed_seconds();
     let a = ops::cos(s * 6.0) * 0.0125 + ops::cos(s * 4.0) * 0.025;

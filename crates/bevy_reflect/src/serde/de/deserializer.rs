@@ -118,7 +118,7 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
         impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
             type Value = Box<dyn PartialReflect>;
 
-            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
                 formatter
                     .write_str("map containing `type` and `value` entries for the reflected value")
             }
@@ -384,9 +384,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 }
                 TypeInfo::Opaque(_) => {
                     // This case should already be handled
-                    Err(make_custom_error(format_args!(
-                        "type `{type_path}` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`",
-                    )))
+                    Err(make_custom_error(format_args!("type `{type_path}` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`",)))
                 }
             }
         };

@@ -72,13 +72,13 @@ impl<E: Event> Clone for EventId<E> {
 }
 
 impl<E: Event> fmt::Display for EventId<E> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         <Self as fmt::Debug>::fmt(self, f)
     }
 }
 
 impl<E: Event> fmt::Debug for EventId<E> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "event<{}>#{}",

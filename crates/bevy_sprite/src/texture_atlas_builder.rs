@@ -180,7 +180,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     /// # use bevy_asset::*;
     /// # use bevy_render::prelude::*;
     ///
-    /// fn my_system(mut commands: Commands, mut textures: ResMut<Assets<Image>>, mut layouts: ResMut<Assets<TextureAtlasLayout>>) {
+    /// fn my_system(mut commands: Commands<'_, '_>, mut textures: ResMut<'_, Assets<Image>>, mut layouts: ResMut<'_, Assets<TextureAtlasLayout>>) {
     ///     // Declare your builder
     ///     let mut builder = TextureAtlasBuilder::default();
     ///     // Customize it

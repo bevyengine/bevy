@@ -7,7 +7,7 @@ use bevy_macro_utils::fq_std::{FQBox, FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
-pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
+pub(crate) fn impl_struct(reflect_struct: &ReflectStruct<'_>) -> proc_macro2::TokenStream {
     let fqoption = FQOption.into_token_stream();
 
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
@@ -170,7 +170,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 #bevy_reflect_path::ReflectRef::Struct(self)
             }
             #[inline]
-            fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut {
+            fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut<'_> {
                 #bevy_reflect_path::ReflectMut::Struct(self)
             }
             #[inline]

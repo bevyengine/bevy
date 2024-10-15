@@ -9,7 +9,7 @@ fn main() {
         .run();
 }
 
-fn touch_system(touches: Res<Touches>) {
+fn touch_system(touches: Res<'_, Touches>) {
     for touch in touches.iter_just_pressed() {
         info!(
             "just pressed touch with id: {:?}, at: {:?}",

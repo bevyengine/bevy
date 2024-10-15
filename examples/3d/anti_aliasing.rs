@@ -36,8 +36,9 @@ type TaaComponents = (
 );
 
 fn modify_aa(
-    keys: Res<ButtonInput<KeyCode>>,
+    keys: Res<'_, ButtonInput<KeyCode>>,
     camera: Single<
+        '_,
         (
             Entity,
             Option<&mut Fxaa>,
@@ -47,7 +48,7 @@ fn modify_aa(
         ),
         With<Camera>,
     >,
-    mut commands: Commands,
+    mut commands: Commands<'_, '_>,
 ) {
     let (camera_entity, fxaa, smaa, taa, mut msaa) = camera.into_inner();
     let mut camera = commands.entity(camera_entity);
@@ -153,8 +154,8 @@ fn modify_aa(
 }
 
 fn modify_sharpening(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut ContrastAdaptiveSharpening>,
+    keys: Res<'_, ButtonInput<KeyCode>>,
+    mut query: Query<'_, '_, &mut ContrastAdaptiveSharpening>,
 ) {
     for mut cas in &mut query {
         if keys.just_pressed(KeyCode::Digit0) {
@@ -178,6 +179,7 @@ fn modify_sharpening(
 
 fn update_ui(
     camera: Single<
+        '_,
         (
             Option<&Fxaa>,
             Option<&Smaa>,
@@ -187,7 +189,7 @@ fn update_ui(
         ),
         With<Camera>,
     >,
-    mut ui: Single<&mut Text>,
+    mut ui: Single<'_, &mut Text>,
 ) {
     let (fxaa, smaa, taa, cas, msaa) = *camera;
 
@@ -250,11 +252,11 @@ fn update_ui(
 
 /// Set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut images: ResMut<'_, Assets<Image>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     // Plane
     commands.spawn((

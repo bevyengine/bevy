@@ -45,7 +45,7 @@ fn main() {
 }
 
 /// Spawns the objects in the scene.
-fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+fn setup(mut commands: Commands<'_, '_>, mut meshes: ResMut<'_, Assets<Mesh>>) {
     // Build a custom triangle mesh with colors
     // We define a custom mesh because the examples only uses a limited
     // set of vertex attributes for simplicity
@@ -271,14 +271,19 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
 /// the opaque render phases of each view.
 #[allow(clippy::too_many_arguments)]
 fn queue_custom_mesh_pipeline(
-    pipeline_cache: Res<PipelineCache>,
-    custom_mesh_pipeline: Res<CustomMeshPipeline>,
-    mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
-    opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
-    mut specialized_mesh_pipelines: ResMut<SpecializedMeshPipelines<CustomMeshPipeline>>,
-    views: Query<(Entity, &RenderVisibleEntities, &ExtractedView, &Msaa), With<ExtractedView>>,
-    render_meshes: Res<RenderAssets<RenderMesh>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    custom_mesh_pipeline: Res<'_, CustomMeshPipeline>,
+    mut opaque_render_phases: ResMut<'_, ViewBinnedRenderPhases<Opaque3d>>,
+    opaque_draw_functions: Res<'_, DrawFunctions<Opaque3d>>,
+    mut specialized_mesh_pipelines: ResMut<'_, SpecializedMeshPipelines<CustomMeshPipeline>>,
+    views: Query<
+        '_,
+        '_,
+        (Entity, &RenderVisibleEntities, &ExtractedView, &Msaa),
+        With<ExtractedView>,
+    >,
+    render_meshes: Res<'_, RenderAssets<RenderMesh>>,
+    render_mesh_instances: Res<'_, RenderMeshInstances>,
 ) {
     // Get the id for our custom draw function
     let draw_function_id = opaque_draw_functions

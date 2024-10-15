@@ -17,13 +17,13 @@ fn main() {
 
 /// This system prints out all mouse events as they come in
 fn print_mouse_events_system(
-    mut mouse_button_input_events: EventReader<MouseButtonInput>,
-    mut mouse_motion_events: EventReader<MouseMotion>,
-    mut cursor_moved_events: EventReader<CursorMoved>,
-    mut mouse_wheel_events: EventReader<MouseWheel>,
-    mut pinch_gesture_events: EventReader<PinchGesture>,
-    mut rotation_gesture_events: EventReader<RotationGesture>,
-    mut double_tap_gesture_events: EventReader<DoubleTapGesture>,
+    mut mouse_button_input_events: EventReader<'_, '_, MouseButtonInput>,
+    mut mouse_motion_events: EventReader<'_, '_, MouseMotion>,
+    mut cursor_moved_events: EventReader<'_, '_, CursorMoved>,
+    mut mouse_wheel_events: EventReader<'_, '_, MouseWheel>,
+    mut pinch_gesture_events: EventReader<'_, '_, PinchGesture>,
+    mut rotation_gesture_events: EventReader<'_, '_, RotationGesture>,
+    mut double_tap_gesture_events: EventReader<'_, '_, DoubleTapGesture>,
 ) {
     for event in mouse_button_input_events.read() {
         info!("{:?}", event);

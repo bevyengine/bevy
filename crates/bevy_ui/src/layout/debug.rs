@@ -60,18 +60,7 @@ fn print_node(
     } else {
         "└── "
     };
-    writeln!(
-        acc,
-        "{lines}{fork} {display} [x: {x:<4} y: {y:<4} width: {width:<4} height: {height:<4}] ({entity:?}) {measured}",
-        lines = lines_string,
-        fork = fork_string,
-        display = display_variant,
-        x = layout.location.x,
-        y = layout.location.y,
-        width = layout.size.width,
-        height = layout.size.height,
-        measured = if tree.get_node_context(node).is_some() { "measured" } else { "" }
-    ).ok();
+    writeln!(acc, "{lines}{fork} {display} [x: {x:<4} y: {y:<4} width: {width:<4} height: {height:<4}] ({entity:?}) {measured}", lines = lines_string, fork = fork_string, display = display_variant, x = layout.location.x, y = layout.location.y, width = layout.size.width, height = layout.size.height, measured = if tree.get_node_context(node).is_some() { "measured" } else { "" }).ok();
     let bar = if has_sibling { "│   " } else { "    " };
     let new_string = lines_string + bar;
 

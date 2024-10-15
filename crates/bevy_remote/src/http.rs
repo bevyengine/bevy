@@ -193,10 +193,10 @@ struct HostHeaders(pub Headers);
 
 /// A system that starts up the Bevy Remote Protocol HTTP server.
 fn start_http_server(
-    request_sender: Res<BrpSender>,
-    address: Res<HostAddress>,
-    remote_port: Res<HostPort>,
-    headers: Res<HostHeaders>,
+    request_sender: Res<'_, BrpSender>,
+    address: Res<'_, HostAddress>,
+    remote_port: Res<'_, HostPort>,
+    headers: Res<'_, HostHeaders>,
 ) {
     IoTaskPool::get()
         .spawn(server_main(

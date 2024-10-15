@@ -55,7 +55,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// world.insert_resource(Counter::default());
     ///
     /// let mut schedule = Schedule::default();
-    /// schedule.add_systems(|mut events: EventReader<MyEvent>, counter: Res<Counter>| {
+    /// schedule.add_systems(|mut events: EventReader<'_, '_, MyEvent>, counter: Res<'_, Counter>| {
     ///     events.par_read().for_each(|MyEvent { value }| {
     ///         counter.0.fetch_add(*value, Ordering::Relaxed);
     ///     });
@@ -91,7 +91,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// #[derive(Event)]
     /// struct CollisionEvent;
     ///
-    /// fn play_collision_sound(mut events: EventReader<CollisionEvent>) {
+    /// fn play_collision_sound(mut events: EventReader<'_, '_, CollisionEvent>) {
     ///     if !events.is_empty() {
     ///         events.clear();
     ///         // Play a sound

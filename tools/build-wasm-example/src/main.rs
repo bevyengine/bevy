@@ -73,22 +73,13 @@ fn main() {
             parameters.push("--features");
             parameters.push(&features_string);
         }
-        let cmd = cmd!(
-            sh,
-            "cargo build {parameters...} --profile release --target wasm32-unknown-unknown --example {example}"
-        );
+        let cmd = cmd!(sh, "cargo build {parameters...} --profile release --target wasm32-unknown-unknown --example {example}");
         cmd.run().expect("Error building example");
 
-        cmd!(
-            sh,
-            "wasm-bindgen --out-dir examples/wasm/target --out-name wasm_example --target web target/wasm32-unknown-unknown/release/examples/{example}.wasm"
-        )
-        .run()
-        .expect("Error creating wasm binding");
+        cmd!(sh, "wasm-bindgen --out-dir examples/wasm/target --out-name wasm_example --target web target/wasm32-unknown-unknown/release/examples/{example}.wasm").run().expect("Error creating wasm binding");
 
         if cli.optimize_size {
-            cmd!(sh, "wasm-opt -Oz --output examples/wasm/target/wasm_example_bg.wasm.optimized examples/wasm/target/wasm_example_bg.wasm")
-                .run().expect("Failed to optimize for size. Do you have wasm-opt correctly set up?");
+            cmd!(sh, "wasm-opt -Oz --output examples/wasm/target/wasm_example_bg.wasm.optimized examples/wasm/target/wasm_example_bg.wasm").run().expect("Failed to optimize for size. Do you have wasm-opt correctly set up?");
         }
 
         if cli.test {

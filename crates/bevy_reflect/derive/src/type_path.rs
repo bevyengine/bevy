@@ -6,7 +6,7 @@ use syn::{
     Generics, Path, PathSegment, Token,
 };
 
-pub(crate) fn parse_path_no_leading_colon(input: ParseStream) -> syn::Result<Path> {
+pub(crate) fn parse_path_no_leading_colon(input: ParseStream<'_>) -> syn::Result<Path> {
     if input.peek(Token![::]) {
         return Err(input.error("did not expect a leading double colon (`::`)"));
     }
@@ -35,7 +35,7 @@ impl CustomPathDef {
         self.path
     }
 
-    pub fn parse_parenthesized(input: ParseStream) -> syn::Result<Option<Self>> {
+    pub fn parse_parenthesized(input: ParseStream<'_>) -> syn::Result<Option<Self>> {
         if input.peek(Paren) {
             let path;
             parenthesized!(path in input);
@@ -45,7 +45,7 @@ impl CustomPathDef {
         }
     }
 
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         input.parse::<Token![in]>()?;
 
         let custom_path = parse_path_no_leading_colon(input)?;
@@ -77,7 +77,7 @@ pub(crate) enum NamedTypePathDef {
 }
 
 impl Parse for NamedTypePathDef {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let custom_path = CustomPathDef::parse_parenthesized(input)?;
 
         let path = Path::parse_mod_style(input)?;

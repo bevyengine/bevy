@@ -21,8 +21,8 @@ struct AnimationIndices {
 struct AnimationTimer(Timer);
 
 fn animate_sprite(
-    time: Res<Time>,
-    mut query: Query<(&AnimationIndices, &mut AnimationTimer, &mut Sprite)>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, (&AnimationIndices, &mut AnimationTimer, &mut Sprite)>,
 ) {
     for (indices, mut timer, mut sprite) in &mut query {
         timer.tick(time.delta());
@@ -40,9 +40,9 @@ fn animate_sprite(
 }
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut texture_atlas_layouts: ResMut<'_, Assets<TextureAtlasLayout>>,
 ) {
     let texture = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);

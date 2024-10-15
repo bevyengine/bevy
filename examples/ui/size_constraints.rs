@@ -38,7 +38,7 @@ struct ButtonValue(Val);
 #[derive(Event)]
 struct ButtonActivatedEvent(Entity);
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // ui camera
     commands.spawn(Camera2d);
 
@@ -290,13 +290,15 @@ fn spawn_button(
 
 fn update_buttons(
     mut button_query: Query<
+        '_,
+        '_,
         (Entity, &Interaction, &Constraint, &ButtonValue),
         Changed<Interaction>,
     >,
-    mut bar_style: Single<&mut Style, With<Bar>>,
-    mut text_query: Query<&mut TextColor>,
-    children_query: Query<&Children>,
-    mut button_activated_event: EventWriter<ButtonActivatedEvent>,
+    mut bar_style: Single<'_, &mut Style, With<Bar>>,
+    mut text_query: Query<'_, '_, &mut TextColor>,
+    children_query: Query<'_, '_, &Children>,
+    mut button_activated_event: EventWriter<'_, ButtonActivatedEvent>,
 ) {
     for (button_id, interaction, constraint, value) in button_query.iter_mut() {
         match interaction {
@@ -352,12 +354,12 @@ fn update_buttons(
 }
 
 fn update_radio_buttons_colors(
-    mut event_reader: EventReader<ButtonActivatedEvent>,
-    button_query: Query<(Entity, &Constraint, &Interaction)>,
-    mut border_query: Query<&mut BorderColor>,
-    mut color_query: Query<&mut BackgroundColor>,
-    mut text_query: Query<&mut TextColor>,
-    children_query: Query<&Children>,
+    mut event_reader: EventReader<'_, '_, ButtonActivatedEvent>,
+    button_query: Query<'_, '_, (Entity, &Constraint, &Interaction)>,
+    mut border_query: Query<'_, '_, &mut BorderColor>,
+    mut color_query: Query<'_, '_, &mut BackgroundColor>,
+    mut text_query: Query<'_, '_, &mut TextColor>,
+    children_query: Query<'_, '_, &Children>,
 ) {
     for &ButtonActivatedEvent(button_id) in event_reader.read() {
         let (_, target_constraint, _) = button_query.get(button_id).unwrap();

@@ -18,7 +18,7 @@ struct AnimationState {
     speed: f32,
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn(Camera2d);
     commands.insert_resource(AnimationState {
         min: 128.0,
@@ -36,7 +36,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn animate(mut sprites: Query<&mut Sprite>, mut state: ResMut<AnimationState>, time: Res<Time>) {
+fn animate(
+    mut sprites: Query<'_, '_, &mut Sprite>,
+    mut state: ResMut<'_, AnimationState>,
+    time: Res<'_, Time>,
+) {
     if state.current >= state.max || state.current <= state.min {
         state.speed = -state.speed;
     };

@@ -277,7 +277,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
 
     fn run<'w>(
         &self,
-        _: &mut RenderGraphContext,
+        _: &mut RenderGraphContext<'_>,
         render_context: &mut RenderContext<'w>,
         (
             view_target,
@@ -411,11 +411,13 @@ impl FromWorld for ScreenSpaceReflectionsPipeline {
 
 /// Sets up screen space reflection pipelines for each applicable view.
 pub fn prepare_ssr_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>,
-    ssr_pipeline: Res<ScreenSpaceReflectionsPipeline>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>,
+    ssr_pipeline: Res<'_, ScreenSpaceReflectionsPipeline>,
     views: Query<
+        '_,
+        '_,
         (
             Entity,
             &ExtractedView,
@@ -473,11 +475,11 @@ pub fn prepare_ssr_pipelines(
 /// Gathers up screen space reflection settings for each applicable view and
 /// writes them into a GPU buffer.
 pub fn prepare_ssr_settings(
-    mut commands: Commands,
-    views: Query<(Entity, Option<&ScreenSpaceReflectionsUniform>), With<ExtractedView>>,
-    mut ssr_settings_buffer: ResMut<ScreenSpaceReflectionsBuffer>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    mut commands: Commands<'_, '_>,
+    views: Query<'_, '_, (Entity, Option<&ScreenSpaceReflectionsUniform>), With<ExtractedView>>,
+    mut ssr_settings_buffer: ResMut<'_, ScreenSpaceReflectionsBuffer>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
 ) {
     let Some(mut writer) =
         ssr_settings_buffer.get_writer(views.iter().len(), &render_device, &render_queue)

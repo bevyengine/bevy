@@ -44,7 +44,7 @@ struct FadeIn;
 #[derive(Component)]
 struct FadeOut;
 
-fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
+fn setup(asset_server: Res<'_, AssetServer>, mut commands: Commands<'_, '_>) {
     // Instantiate the game state resources
     commands.insert_resource(GameState::default());
     commands.insert_resource(GameStateTimer(Timer::from_seconds(
@@ -61,10 +61,10 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
 
 // Every time the GameState resource changes, this system is run to trigger the song change.
 fn change_track(
-    mut commands: Commands,
-    soundtrack_player: Res<SoundtrackPlayer>,
-    soundtrack: Query<Entity, With<AudioSink>>,
-    game_state: Res<GameState>,
+    mut commands: Commands<'_, '_>,
+    soundtrack_player: Res<'_, SoundtrackPlayer>,
+    soundtrack: Query<'_, '_, Entity, With<AudioSink>>,
+    game_state: Res<'_, GameState>,
 ) {
     if game_state.is_changed() {
         // Fade out all currently running tracks
@@ -109,9 +109,9 @@ const FADE_TIME: f32 = 2.0;
 // Fades in the audio of entities that has the FadeIn component. Removes the FadeIn component once
 // full volume is reached.
 fn fade_in(
-    mut commands: Commands,
-    mut audio_sink: Query<(&mut AudioSink, Entity), With<FadeIn>>,
-    time: Res<Time>,
+    mut commands: Commands<'_, '_>,
+    mut audio_sink: Query<'_, '_, (&mut AudioSink, Entity), With<FadeIn>>,
+    time: Res<'_, Time>,
 ) {
     for (audio, entity) in audio_sink.iter_mut() {
         audio.set_volume(audio.volume() + time.delta_seconds() / FADE_TIME);
@@ -125,9 +125,9 @@ fn fade_in(
 // Fades out the audio of entities that has the FadeOut component. Despawns the entities once audio
 // volume reaches zero.
 fn fade_out(
-    mut commands: Commands,
-    mut audio_sink: Query<(&mut AudioSink, Entity), With<FadeOut>>,
-    time: Res<Time>,
+    mut commands: Commands<'_, '_>,
+    mut audio_sink: Query<'_, '_, (&mut AudioSink, Entity), With<FadeOut>>,
+    time: Res<'_, Time>,
 ) {
     for (audio, entity) in audio_sink.iter_mut() {
         audio.set_volume(audio.volume() - time.delta_seconds() / FADE_TIME);
@@ -139,9 +139,9 @@ fn fade_out(
 
 // Every time the timer ends, switches between the "Peaceful" and "Battle" state.
 fn cycle_game_state(
-    mut timer: ResMut<GameStateTimer>,
-    mut game_state: ResMut<GameState>,
-    time: Res<Time>,
+    mut timer: ResMut<'_, GameStateTimer>,
+    mut game_state: ResMut<'_, GameState>,
+    time: Res<'_, Time>,
 ) {
     timer.0.tick(time.delta());
     if timer.0.just_finished() {

@@ -44,9 +44,9 @@ fn main() {
 
 /// Set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     commands.spawn((
         Name::new("Camera"),
@@ -79,7 +79,7 @@ fn setup(
     ));
 }
 
-fn instructions(mut commands: Commands) {
+fn instructions(mut commands: Commands<'_, '_>) {
     commands
         .spawn((
             Name::new("Instructions"),
@@ -102,11 +102,11 @@ fn instructions(mut commands: Commands) {
 }
 
 fn orbit(
-    mut camera: Single<&mut Transform, With<Camera>>,
-    camera_settings: Res<CameraSettings>,
-    mouse_buttons: Res<ButtonInput<MouseButton>>,
-    mouse_motion: Res<AccumulatedMouseMotion>,
-    time: Res<Time>,
+    mut camera: Single<'_, &mut Transform, With<Camera>>,
+    camera_settings: Res<'_, CameraSettings>,
+    mouse_buttons: Res<'_, ButtonInput<MouseButton>>,
+    mouse_motion: Res<'_, AccumulatedMouseMotion>,
+    time: Res<'_, Time>,
 ) {
     let delta = mouse_motion.delta;
     let mut delta_roll = 0.0;

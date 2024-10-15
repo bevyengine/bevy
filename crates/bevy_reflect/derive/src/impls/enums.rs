@@ -8,7 +8,7 @@ use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::{Fields, Path};
 
-pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream {
+pub(crate) fn impl_enum(reflect_enum: &ReflectEnum<'_>) -> proc_macro2::TokenStream {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
     let enum_path = reflect_enum.meta().type_path();
     let is_remote = reflect_enum.meta().is_remote_wrapper();
@@ -252,7 +252,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 #bevy_reflect_path::ReflectRef::Enum(self)
             }
 
-            fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut {
+            fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut<'_> {
                 #bevy_reflect_path::ReflectMut::Enum(self)
             }
 
@@ -278,7 +278,11 @@ struct EnumImpls {
     enum_variant_type: Vec<proc_macro2::TokenStream>,
 }
 
-fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Ident) -> EnumImpls {
+fn generate_impls(
+    reflect_enum: &ReflectEnum<'_>,
+    ref_index: &Ident,
+    ref_name: &Ident,
+) -> EnumImpls {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
 
     let mut enum_field = Vec::new();
@@ -314,8 +318,8 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
         });
 
         fn process_fields(
-            fields: &[StructField],
-            mut f: impl FnMut(&StructField) + Sized,
+            fields: &[StructField<'_>],
+            mut f: impl FnMut(&StructField<'_>) + Sized,
         ) -> usize {
             let mut field_len = 0;
             for field in fields.iter() {
@@ -337,7 +341,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
         /// If the field is a remote type, then the value will be transmuted accordingly.
         fn process_field_value(
             ident: &Ident,
-            field: &StructField,
+            field: &StructField<'_>,
             is_mutable: bool,
             bevy_reflect_path: &Path,
         ) -> proc_macro2::TokenStream {
@@ -364,7 +368,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                 });
             }
             EnumVariantFields::Unnamed(fields) => {
-                let field_len = process_fields(fields, |field: &StructField| {
+                let field_len = process_fields(fields, |field: &StructField<'_>| {
                     let reflection_index = field
                         .reflection_index
                         .expect("reflection index should exist for active field");
@@ -388,7 +392,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                 });
             }
             EnumVariantFields::Named(fields) => {
-                let field_len = process_fields(fields, |field: &StructField| {
+                let field_len = process_fields(fields, |field: &StructField<'_>| {
                     let field_ident = field.data.ident.as_ref().unwrap();
                     let field_name = field_ident.to_string();
                     let reflection_index = field

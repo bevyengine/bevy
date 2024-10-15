@@ -28,10 +28,10 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
 ) {
     commands.spawn((
         Camera3d::default(),
@@ -203,9 +203,9 @@ fn setup(
 struct Pause(bool);
 
 fn animate_light_direction(
-    time: Res<Time>,
-    mut query: Query<&mut Transform, With<DirectionalLight>>,
-    pause: Res<Pause>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, &mut Transform, With<DirectionalLight>>,
+    pause: Res<'_, Pause>,
 ) {
     if pause.0 {
         return;
@@ -216,10 +216,10 @@ fn animate_light_direction(
 }
 
 fn setup_parallax(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     // The normal map. Note that to generate it in the GIMP image editor, you should
     // open the depth map, and do Filters → Generic → Normal Map
@@ -261,7 +261,11 @@ struct Spin {
     speed: f32,
 }
 
-fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>, pause: Res<Pause>) {
+fn spin(
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, (&mut Transform, &Spin)>,
+    pause: Res<'_, Pause>,
+) {
     if pause.0 {
         return;
     }
@@ -282,15 +286,15 @@ enum DefaultRenderMode {
 
 #[allow(clippy::too_many_arguments)]
 fn switch_mode(
-    mut text: Single<&mut Text>,
-    mut commands: Commands,
-    keys: Res<ButtonInput<KeyCode>>,
-    mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    cameras: Query<Entity, With<Camera>>,
-    mut pause: ResMut<Pause>,
-    mut hide_ui: Local<bool>,
-    mut mode: Local<DefaultRenderMode>,
+    mut text: Single<'_, &mut Text>,
+    mut commands: Commands<'_, '_>,
+    keys: Res<'_, ButtonInput<KeyCode>>,
+    mut default_opaque_renderer_method: ResMut<'_, DefaultOpaqueRendererMethod>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    cameras: Query<'_, '_, Entity, With<Camera>>,
+    mut pause: ResMut<'_, Pause>,
+    mut hide_ui: Local<'_, bool>,
+    mut mode: Local<'_, DefaultRenderMode>,
 ) {
     text.clear();
 

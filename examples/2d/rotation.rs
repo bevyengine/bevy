@@ -49,7 +49,7 @@ struct RotateToPlayer {
 /// * `Z` axis goes from far to near (`+Z` points towards you, out of the screen)
 ///
 /// The origin is at the center of the screen.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     let ship_handle = asset_server.load("textures/simplespace/ship_C.png");
     let enemy_a_handle = asset_server.load("textures/simplespace/enemy_A.png");
     let enemy_b_handle = asset_server.load("textures/simplespace/enemy_B.png");
@@ -100,9 +100,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Demonstrates applying rotation and movement based on keyboard input.
 fn player_movement_system(
-    time: Res<Time>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    query: Single<(&Player, &mut Transform)>,
+    time: Res<'_, Time>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    query: Single<'_, (&Player, &mut Transform)>,
 ) {
     let (ship, mut transform) = query.into_inner();
 
@@ -142,8 +142,8 @@ fn player_movement_system(
 
 /// Demonstrates snapping the enemy ship to face the player ship immediately.
 fn snap_to_player_system(
-    mut query: Query<&mut Transform, (With<SnapToPlayer>, Without<Player>)>,
-    player_transform: Single<&Transform, With<Player>>,
+    mut query: Query<'_, '_, &mut Transform, (With<SnapToPlayer>, Without<Player>)>,
+    player_transform: Single<'_, &Transform, With<Player>>,
 ) {
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();
@@ -183,9 +183,9 @@ fn snap_to_player_system(
 /// floating point precision loss, so it pays to clamp your dot product value before calling
 /// `acos`.
 fn rotate_to_player_system(
-    time: Res<Time>,
-    mut query: Query<(&RotateToPlayer, &mut Transform), Without<Player>>,
-    player_transform: Single<&Transform, With<Player>>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, (&RotateToPlayer, &mut Transform), Without<Player>>,
+    player_transform: Single<'_, &Transform, With<Player>>,
 ) {
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();

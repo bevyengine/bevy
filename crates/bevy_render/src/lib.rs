@@ -13,7 +13,6 @@
 compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
 extern crate alloc;
-extern crate core;
 
 pub mod alpha;
 pub mod batching;
@@ -294,7 +293,7 @@ impl Plugin for RenderPlugin {
                     ));
 
                     let mut system_state: SystemState<
-                        Query<&RawHandleWrapperHolder, With<PrimaryWindow>>,
+                        Query<'_, '_, &RawHandleWrapperHolder, With<PrimaryWindow>>,
                     > = SystemState::new(app.world_mut());
                     let primary_window = system_state.get(app.world()).get_single().ok().cloned();
                     let settings = render_creation.clone();
@@ -308,16 +307,10 @@ impl Plugin for RenderPlugin {
 
                         // SAFETY: Plugins should be set up on the main thread.
                         let surface = primary_window.and_then(|wrapper| unsafe {
-                            let maybe_handle = wrapper.0.lock().expect(
-                                "Couldn't get the window handle in time for renderer initialization",
-                            );
+                            let maybe_handle = wrapper.0.lock().expect("Couldn't get the window handle in time for renderer initialization");
                             if let Some(wrapper) = maybe_handle.as_ref() {
                                 let handle = wrapper.get_handle();
-                                Some(
-                                    instance
-                                        .create_surface(handle)
-                                        .expect("Failed to create wgpu surface"),
-                                )
+                                Some(instance.create_surface(handle).expect("Failed to create wgpu surface"))
                             } else {
                                 None
                             }
@@ -431,7 +424,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(adapter_info)
                 .add_systems(
                     Render,
-                    (|mut bpf: ResMut<RenderAssetBytesPerFrame>| {
+                    (|mut bpf: ResMut<'_, RenderAssetBytesPerFrame>| {
                         bpf.reset();
                     })
                     .in_set(RenderSet::Cleanup),
@@ -519,7 +512,7 @@ unsafe fn initialize_render_app(app: &mut App) {
 /// the render schedule rather than during extraction to allow the commands to run in parallel with the
 /// main app when pipelined rendering is enabled.
 fn apply_extract_commands(render_world: &mut World) {
-    render_world.resource_scope(|render_world, mut schedules: Mut<Schedules>| {
+    render_world.resource_scope(|render_world, mut schedules: Mut<'_, Schedules>| {
         schedules
             .get_mut(ExtractSchedule)
             .unwrap()

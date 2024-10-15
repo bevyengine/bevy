@@ -110,11 +110,11 @@ impl FromWorld for AutoExposureResources {
 }
 
 fn queue_view_auto_exposure_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut compute_pipelines: ResMut<SpecializedComputePipelines<AutoExposurePipeline>>,
-    pipeline: Res<AutoExposurePipeline>,
-    view_targets: Query<(Entity, &AutoExposure)>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut compute_pipelines: ResMut<'_, SpecializedComputePipelines<AutoExposurePipeline>>,
+    pipeline: Res<'_, AutoExposurePipeline>,
+    view_targets: Query<'_, '_, (Entity, &AutoExposure)>,
 ) {
     for (entity, auto_exposure) in view_targets.iter() {
         let histogram_pipeline =

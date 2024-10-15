@@ -37,11 +37,11 @@ impl Plugin for UpscalingPlugin {
 pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
 
 fn prepare_view_upscaling_pipelines(
-    mut commands: Commands,
-    mut pipeline_cache: ResMut<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
-    blit_pipeline: Res<BlitPipeline>,
-    view_targets: Query<(Entity, &ViewTarget, Option<&ExtractedCamera>)>,
+    mut commands: Commands<'_, '_>,
+    mut pipeline_cache: ResMut<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<BlitPipeline>>,
+    blit_pipeline: Res<'_, BlitPipeline>,
+    view_targets: Query<'_, '_, (Entity, &ViewTarget, Option<&ExtractedCamera>)>,
 ) {
     let mut output_textures = HashSet::new();
     for (entity, view_target, camera) in view_targets.iter() {

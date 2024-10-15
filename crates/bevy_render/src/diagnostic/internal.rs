@@ -578,7 +578,10 @@ pub struct RenderDiagnostic {
 pub struct RenderDiagnosticsMutex(pub(crate) Arc<Mutex<Option<RenderDiagnostics>>>);
 
 /// Updates render diagnostics measurements.
-pub fn sync_diagnostics(mutex: Res<RenderDiagnosticsMutex>, mut store: ResMut<DiagnosticsStore>) {
+pub fn sync_diagnostics(
+    mutex: Res<'_, RenderDiagnosticsMutex>,
+    mut store: ResMut<'_, DiagnosticsStore>,
+) {
     let Some(diagnostics) = mutex.0.lock().ok().and_then(|mut v| v.take()) else {
         return;
     };

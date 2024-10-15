@@ -100,9 +100,9 @@ struct GlobalWireframe2dMaterial {
 }
 
 fn setup_global_wireframe_material(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<Wireframe2dMaterial>>,
-    config: Res<Wireframe2dConfig>,
+    mut commands: Commands<'_, '_>,
+    mut materials: ResMut<'_, Assets<Wireframe2dMaterial>>,
+    config: Res<'_, Wireframe2dConfig>,
 ) {
     // Create the handle used for the global material
     commands.insert_resource(GlobalWireframe2dMaterial {
@@ -114,9 +114,9 @@ fn setup_global_wireframe_material(
 
 /// Updates the wireframe material of all entities without a [`Wireframe2dColor`] or without a [`Wireframe2d`] component
 fn global_color_changed(
-    config: Res<Wireframe2dConfig>,
-    mut materials: ResMut<Assets<Wireframe2dMaterial>>,
-    global_material: Res<GlobalWireframe2dMaterial>,
+    config: Res<'_, Wireframe2dConfig>,
+    mut materials: ResMut<'_, Assets<Wireframe2dMaterial>>,
+    global_material: Res<'_, GlobalWireframe2dMaterial>,
 ) {
     if let Some(global_material) = materials.get_mut(&global_material.handle) {
         global_material.color = config.default_color.into();
@@ -126,8 +126,10 @@ fn global_color_changed(
 /// Updates the wireframe material when the color in [`Wireframe2dColor`] changes
 #[allow(clippy::type_complexity)]
 fn wireframe_color_changed(
-    mut materials: ResMut<Assets<Wireframe2dMaterial>>,
+    mut materials: ResMut<'_, Assets<Wireframe2dMaterial>>,
     mut colors_changed: Query<
+        '_,
+        '_,
         (&mut MeshMaterial2d<Wireframe2dMaterial>, &Wireframe2dColor),
         (With<Wireframe2d>, Changed<Wireframe2dColor>),
     >,
@@ -142,9 +144,11 @@ fn wireframe_color_changed(
 /// Applies or remove the wireframe material to any mesh with a [`Wireframe2d`] component, and removes it
 /// for any mesh with a [`NoWireframe2d`] component.
 fn apply_wireframe_material(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<Wireframe2dMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut materials: ResMut<'_, Assets<Wireframe2dMaterial>>,
     wireframes: Query<
+        '_,
+        '_,
         (Entity, Option<&Wireframe2dColor>),
         (
             With<Wireframe2d>,
@@ -152,14 +156,16 @@ fn apply_wireframe_material(
         ),
     >,
     no_wireframes: Query<
+        '_,
+        '_,
         Entity,
         (
             With<NoWireframe2d>,
             With<MeshMaterial2d<Wireframe2dMaterial>>,
         ),
     >,
-    mut removed_wireframes: RemovedComponents<Wireframe2d>,
-    global_material: Res<GlobalWireframe2dMaterial>,
+    mut removed_wireframes: RemovedComponents<'_, '_, Wireframe2d>,
+    global_material: Res<'_, GlobalWireframe2dMaterial>,
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
         if let Some(mut commands) = commands.get_entity(e) {
@@ -186,9 +192,11 @@ type Wireframe2dFilter = (With<Mesh2d>, Without<Wireframe2d>, Without<NoWirefram
 
 /// Applies or removes a wireframe material on any mesh without a [`Wireframe2d`] or [`NoWireframe2d`] component.
 fn apply_global_wireframe_material(
-    mut commands: Commands,
-    config: Res<Wireframe2dConfig>,
+    mut commands: Commands<'_, '_>,
+    config: Res<'_, Wireframe2dConfig>,
     meshes_without_material: Query<
+        '_,
+        '_,
         Entity,
         (
             Wireframe2dFilter,
@@ -196,10 +204,12 @@ fn apply_global_wireframe_material(
         ),
     >,
     meshes_with_global_material: Query<
+        '_,
+        '_,
         Entity,
         (Wireframe2dFilter, With<MeshMaterial2d<Wireframe2dMaterial>>),
     >,
-    global_material: Res<GlobalWireframe2dMaterial>,
+    global_material: Res<'_, GlobalWireframe2dMaterial>,
 ) {
     if config.global {
         let mut material_to_spawn = vec![];

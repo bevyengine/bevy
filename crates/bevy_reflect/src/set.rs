@@ -172,9 +172,7 @@ impl DynamicSet {
         value: &dyn PartialReflect,
     ) -> impl FnMut(&Box<dyn PartialReflect>) -> bool + '_ {
         |other| {
-            value
-                .reflect_partial_eq(&**other)
-                .expect("Underlying type does not reflect `PartialEq` and hence doesn't support equality checks")
+            value.reflect_partial_eq(&**other).expect("Underlying type does not reflect `PartialEq` and hence doesn't support equality checks")
         }
     }
 }
@@ -303,11 +301,11 @@ impl PartialReflect for DynamicSet {
         ReflectKind::Set
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Set(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Set(self)
     }
 

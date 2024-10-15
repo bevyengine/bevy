@@ -20,7 +20,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn(Camera2d);
 
     let text_font = TextFont {
@@ -79,7 +79,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 /// System that changes the scale of the ui when pressing up or down on the keyboard.
-fn change_scaling(input: Res<ButtonInput<KeyCode>>, mut ui_scale: ResMut<TargetScale>) {
+fn change_scaling(input: Res<'_, ButtonInput<KeyCode>>, mut ui_scale: ResMut<'_, TargetScale>) {
     if input.just_pressed(KeyCode::ArrowUp) {
         let scale = (ui_scale.target_scale * 2.0).min(8.);
         ui_scale.set_scale(scale);
@@ -123,9 +123,9 @@ impl TargetScale {
 }
 
 fn apply_scaling(
-    time: Res<Time>,
-    mut target_scale: ResMut<TargetScale>,
-    mut ui_scale: ResMut<UiScale>,
+    time: Res<'_, Time>,
+    mut target_scale: ResMut<'_, TargetScale>,
+    mut ui_scale: ResMut<'_, UiScale>,
 ) {
     if target_scale.tick(time.delta()).already_completed() {
         return;

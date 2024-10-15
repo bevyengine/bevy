@@ -195,7 +195,7 @@ fn main() {
 }
 
 /// Spawns the objects in the scene.
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     // Spawn a single entity that has custom rendering. It'll be extracted into
     // the render world via [`ExtractComponent`].
     commands.spawn((
@@ -220,19 +220,19 @@ fn setup(mut commands: Commands) {
 ///
 /// This must be done in a startup system because it needs the [`RenderDevice`]
 /// and [`RenderQueue`] to exist, and they don't until [`App::run`] is called.
-fn prepare_custom_phase_item_buffers(mut commands: Commands) {
+fn prepare_custom_phase_item_buffers(mut commands: Commands<'_, '_>) {
     commands.init_resource::<CustomPhaseItemBuffers>();
 }
 
 /// A render-world system that enqueues the entity with custom rendering into
 /// the opaque render phases of each view.
 fn queue_custom_phase_item(
-    pipeline_cache: Res<PipelineCache>,
-    custom_phase_pipeline: Res<CustomPhasePipeline>,
-    mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
-    opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
-    mut specialized_render_pipelines: ResMut<SpecializedRenderPipelines<CustomPhasePipeline>>,
-    views: Query<(Entity, &RenderVisibleEntities, &Msaa), With<ExtractedView>>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    custom_phase_pipeline: Res<'_, CustomPhasePipeline>,
+    mut opaque_render_phases: ResMut<'_, ViewBinnedRenderPhases<Opaque3d>>,
+    opaque_draw_functions: Res<'_, DrawFunctions<Opaque3d>>,
+    mut specialized_render_pipelines: ResMut<'_, SpecializedRenderPipelines<CustomPhasePipeline>>,
+    views: Query<'_, '_, (Entity, &RenderVisibleEntities, &Msaa), With<ExtractedView>>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
         .read()

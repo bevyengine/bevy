@@ -57,7 +57,7 @@ use derive_more::derive::From;
 /// }
 ///
 /// // Spawn an entity using `CustomMaterial`.
-/// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
+/// fn setup(mut commands: Commands<'_, '_>, mut materials: ResMut<'_, Assets<CustomMaterial>>, asset_server: Res<'_, AssetServer>) {
 ///     commands.spawn(MaterialNodeBundle {
 ///         style: Style {
 ///             width: Val::Percent(100.0),

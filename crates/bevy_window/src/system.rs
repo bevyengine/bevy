@@ -10,7 +10,10 @@ use bevy_ecs::prelude::*;
 /// Ensure that you read the caveats documented on that field if doing so.
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
-pub fn exit_on_all_closed(mut app_exit_events: EventWriter<AppExit>, windows: Query<&Window>) {
+pub fn exit_on_all_closed(
+    mut app_exit_events: EventWriter<'_, AppExit>,
+    windows: Query<'_, '_, &Window>,
+) {
     if windows.is_empty() {
         bevy_utils::tracing::info!("No windows are open, exiting");
         app_exit_events.send(AppExit::Success);
@@ -23,8 +26,8 @@ pub fn exit_on_all_closed(mut app_exit_events: EventWriter<AppExit>, windows: Qu
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
 pub fn exit_on_primary_closed(
-    mut app_exit_events: EventWriter<AppExit>,
-    windows: Query<(), (With<Window>, With<PrimaryWindow>)>,
+    mut app_exit_events: EventWriter<'_, AppExit>,
+    windows: Query<'_, '_, (), (With<Window>, With<PrimaryWindow>)>,
 ) {
     if windows.is_empty() {
         bevy_utils::tracing::info!("Primary window was closed, exiting");
@@ -40,9 +43,9 @@ pub fn exit_on_primary_closed(
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
 pub fn close_when_requested(
-    mut commands: Commands,
-    mut closed: EventReader<WindowCloseRequested>,
-    closing: Query<Entity, With<ClosingWindow>>,
+    mut commands: Commands<'_, '_>,
+    mut closed: EventReader<'_, '_, WindowCloseRequested>,
+    closing: Query<'_, '_, Entity, With<ClosingWindow>>,
 ) {
     // This was inserted by us on the last frame so now we can despawn the window
     for window in closing.iter() {

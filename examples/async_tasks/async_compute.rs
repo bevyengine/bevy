@@ -31,9 +31,9 @@ struct BoxMaterialHandle(Handle<StandardMaterial>);
 /// Resources, and stores their handles as resources so we can access
 /// them later when we're ready to render our Boxes
 fn add_assets(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     let box_mesh_handle = meshes.add(Cuboid::new(0.25, 0.25, 0.25));
     commands.insert_resource(BoxMeshHandle(box_mesh_handle));
@@ -49,7 +49,7 @@ struct ComputeTransform(Task<CommandQueue>);
 /// work that potentially spans multiple frames/ticks. A separate
 /// system, [`handle_tasks`], will poll the spawned tasks on subsequent
 /// frames/ticks, and use the results to spawn cubes
-fn spawn_tasks(mut commands: Commands) {
+fn spawn_tasks(mut commands: Commands<'_, '_>) {
     let thread_pool = AsyncComputeTaskPool::get();
     for x in 0..NUM_CUBES {
         for y in 0..NUM_CUBES {
@@ -73,8 +73,8 @@ fn spawn_tasks(mut commands: Commands) {
                     command_queue.push(move |world: &mut World| {
                         let (box_mesh_handle, box_material_handle) = {
                             let mut system_state = SystemState::<(
-                                Res<BoxMeshHandle>,
-                                Res<BoxMaterialHandle>,
+                                Res<'_, BoxMeshHandle>,
+                                Res<'_, BoxMaterialHandle>,
                             )>::new(world);
                             let (box_mesh_handle, box_material_handle) =
                                 system_state.get_mut(world);
@@ -108,7 +108,10 @@ fn spawn_tasks(mut commands: Commands) {
 /// tasks to see if they're complete. If the task is complete it takes the result, adds a
 /// new [`Mesh3d`] and [`MeshMaterial3d`] to the entity using the result from the task's work, and
 /// removes the task component from the entity.
-fn handle_tasks(mut commands: Commands, mut transform_tasks: Query<&mut ComputeTransform>) {
+fn handle_tasks(
+    mut commands: Commands<'_, '_>,
+    mut transform_tasks: Query<'_, '_, &mut ComputeTransform>,
+) {
     for mut task in &mut transform_tasks {
         if let Some(mut commands_queue) = block_on(future::poll_once(&mut task.0)) {
             // append the returned command queue to have it execute later
@@ -118,7 +121,7 @@ fn handle_tasks(mut commands: Commands, mut transform_tasks: Query<&mut ComputeT
 }
 
 /// This system is only used to setup light and camera for the environment
-fn setup_env(mut commands: Commands) {
+fn setup_env(mut commands: Commands<'_, '_>) {
     // Used to center camera on spawned cubes
     let offset = if NUM_CUBES % 2 == 0 {
         (NUM_CUBES / 2) as f32 - 0.5

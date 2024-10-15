@@ -17,11 +17,11 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
-    mut animation_clips: ResMut<Assets<AnimationClip>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut animation_graphs: ResMut<'_, Assets<AnimationGraph>>,
+    mut animation_clips: ResMut<'_, Assets<AnimationClip>>,
 ) {
     // Create the animation:
     let AnimationInfo {

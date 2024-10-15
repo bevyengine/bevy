@@ -35,9 +35,9 @@ fn main() {
 
 // Startup system to setup the scene and spawn all relevant entities.
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // Spawn a cube to scale.
     commands.spawn((
@@ -62,7 +62,7 @@ fn setup(
 
 // This system will check if a scaled entity went above or below the entities scaling bounds
 // and change the direction of the scaling vector.
-fn change_scale_direction(mut cubes: Query<(&mut Transform, &mut Scaling)>) {
+fn change_scale_direction(mut cubes: Query<'_, '_, (&mut Transform, &mut Scaling)>) {
     for (mut transform, mut cube) in &mut cubes {
         // If an entity scaled beyond the maximum of its size in any dimension
         // the scaling vector is flipped so the scaling is gradually reverted.
@@ -88,7 +88,7 @@ fn change_scale_direction(mut cubes: Query<(&mut Transform, &mut Scaling)>) {
 
 // This system will scale any entity with assigned Scaling in each direction
 // by cycling through the directions to scale.
-fn scale_cube(mut cubes: Query<(&mut Transform, &Scaling)>, timer: Res<Time>) {
+fn scale_cube(mut cubes: Query<'_, '_, (&mut Transform, &Scaling)>, timer: Res<'_, Time>) {
     for (mut transform, cube) in &mut cubes {
         transform.scale += cube.scale_direction * cube.scale_speed * timer.delta_seconds();
     }

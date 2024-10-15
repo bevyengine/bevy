@@ -132,11 +132,11 @@ fn compute_sprite_slices(
 /// System reacting to added or modified [`Image`] handles, and recompute sprite slices
 /// on matching sprite entities with a [`ImageScaleMode`] component
 pub(crate) fn compute_slices_on_asset_event(
-    mut commands: Commands,
-    mut events: EventReader<AssetEvent<Image>>,
-    images: Res<Assets<Image>>,
-    atlas_layouts: Res<Assets<TextureAtlasLayout>>,
-    sprites: Query<(Entity, &ImageScaleMode, &Sprite)>,
+    mut commands: Commands<'_, '_>,
+    mut events: EventReader<'_, '_, AssetEvent<Image>>,
+    images: Res<'_, Assets<Image>>,
+    atlas_layouts: Res<'_, Assets<TextureAtlasLayout>>,
+    sprites: Query<'_, '_, (Entity, &ImageScaleMode, &Sprite)>,
 ) {
     // We store the asset ids of added/modified image assets
     let added_handles: HashSet<_> = events
@@ -163,10 +163,12 @@ pub(crate) fn compute_slices_on_asset_event(
 /// System reacting to changes on relevant sprite bundle components to compute the sprite slices
 /// on matching sprite entities with a [`ImageScaleMode`] component
 pub(crate) fn compute_slices_on_sprite_change(
-    mut commands: Commands,
-    images: Res<Assets<Image>>,
-    atlas_layouts: Res<Assets<TextureAtlasLayout>>,
+    mut commands: Commands<'_, '_>,
+    images: Res<'_, Assets<Image>>,
+    atlas_layouts: Res<'_, Assets<TextureAtlasLayout>>,
     changed_sprites: Query<
+        '_,
+        '_,
         (Entity, &ImageScaleMode, &Sprite),
         Or<(Changed<ImageScaleMode>, Changed<Sprite>)>,
     >,

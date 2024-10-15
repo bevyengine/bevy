@@ -25,7 +25,7 @@ impl Texture {
     }
 
     /// Creates a view of this texture.
-    pub fn create_view(&self, desc: &wgpu::TextureViewDescriptor) -> TextureView {
+    pub fn create_view(&self, desc: &wgpu::TextureViewDescriptor<'_>) -> TextureView {
         TextureView::from(self.value.create_view(desc))
     }
 }

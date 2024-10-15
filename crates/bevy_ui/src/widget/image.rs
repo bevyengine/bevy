@@ -35,7 +35,7 @@ pub struct ImageMeasure {
 }
 
 impl Measure for ImageMeasure {
-    fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
+    fn measure(&mut self, measure_args: MeasureArgs<'_>, style: &taffy::Style) -> Vec2 {
         let MeasureArgs {
             width,
             height,
@@ -94,13 +94,14 @@ type UpdateImageFilter = With<Node>;
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
-    mut previous_combined_scale_factor: Local<f32>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    ui_scale: Res<UiScale>,
-    textures: Res<Assets<Image>>,
-
-    atlases: Res<Assets<TextureAtlasLayout>>,
+    mut previous_combined_scale_factor: Local<'_, f32>,
+    windows: Query<'_, '_, &Window, With<PrimaryWindow>>,
+    ui_scale: Res<'_, UiScale>,
+    textures: Res<'_, Assets<Image>>,
+    atlases: Res<'_, Assets<TextureAtlasLayout>>,
     mut query: Query<
+        '_,
+        '_,
         (
             &mut ContentSize,
             &UiImage,

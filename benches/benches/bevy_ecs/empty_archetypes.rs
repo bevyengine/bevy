@@ -9,7 +9,7 @@ criterion_main!(benches);
 struct A<const N: u16>(f32);
 
 fn iter(
-    query: Query<(
+    query: Query<'_, '_, (
         &A<0>,
         &A<1>,
         &A<2>,
@@ -31,7 +31,7 @@ fn iter(
 }
 
 fn for_each(
-    query: Query<(
+    query: Query<'_, '_, (
         &A<0>,
         &A<1>,
         &A<2>,
@@ -53,8 +53,8 @@ fn for_each(
 }
 
 fn par_for_each(
-    task_pool: Res<ComputeTaskPool>,
-    query: Query<(
+    task_pool: Res<'_, ComputeTaskPool>,
+    query: Query<'_, '_, (
         &A<0>,
         &A<1>,
         &A<2>,

@@ -26,7 +26,7 @@ fn main() {
 #[derive(Component)]
 struct MyComponent;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn((
         Sprite::from_image(asset_server.load("branding/icon.png")),
@@ -36,9 +36,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn remove_component(
-    time: Res<Time>,
-    mut commands: Commands,
-    query: Query<Entity, With<MyComponent>>,
+    time: Res<'_, Time>,
+    mut commands: Commands<'_, '_>,
+    query: Query<'_, '_, Entity, With<MyComponent>>,
 ) {
     // After two seconds have passed the `Component` is removed.
     if time.elapsed_seconds() > 2.0 {
@@ -48,7 +48,10 @@ fn remove_component(
     }
 }
 
-fn react_on_removal(trigger: Trigger<OnRemove, MyComponent>, mut query: Query<&mut Sprite>) {
+fn react_on_removal(
+    trigger: Trigger<'_, OnRemove, MyComponent>,
+    mut query: Query<'_, '_, &mut Sprite>,
+) {
     // The `OnRemove` trigger was automatically called on the `Entity` that had its `MyComponent` removed.
     let entity = trigger.entity();
     if let Ok(mut sprite) = query.get_mut(entity) {

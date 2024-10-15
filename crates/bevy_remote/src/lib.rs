@@ -744,7 +744,7 @@ pub struct BrpSender(Sender<BrpMessage>);
 #[derive(Debug, Resource, Deref, DerefMut)]
 pub struct BrpReceiver(Receiver<BrpMessage>);
 
-fn setup_mailbox_channel(mut commands: Commands) {
+fn setup_mailbox_channel(mut commands: Commands<'_, '_>) {
     // Create the channel and the mailbox.
     let (request_sender, request_receiver) = async_channel::bounded(CHANNEL_SIZE);
     commands.insert_resource(BrpSender(request_sender));
@@ -833,7 +833,7 @@ fn process_single_ongoing_watching_request(
         })?
 }
 
-fn remove_closed_watching_requests(mut requests: ResMut<RemoteWatchingRequests>) {
+fn remove_closed_watching_requests(mut requests: ResMut<'_, RemoteWatchingRequests>) {
     for i in (0..requests.0.len()).rev() {
         let Some((message, _)) = requests.0.get(i) else {
             unreachable!()

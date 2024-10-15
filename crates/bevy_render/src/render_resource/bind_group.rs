@@ -387,7 +387,7 @@ pub enum OwnedBindingResource {
 }
 
 impl OwnedBindingResource {
-    pub fn get_binding(&self) -> BindingResource {
+    pub fn get_binding(&self) -> BindingResource<'_> {
         match self {
             OwnedBindingResource::Buffer(buffer) => buffer.as_entire_binding(),
             OwnedBindingResource::TextureView(view) => BindingResource::TextureView(view),

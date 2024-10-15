@@ -69,8 +69,8 @@ use derive_more::derive::{Display, Error};
 /// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
 /// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
 /// #     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> { todo!() }
-/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
-/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #     fn reflect_ref(&self) -> ReflectRef<'_> { todo!() }
+/// #     fn reflect_mut(&mut self) -> ReflectMut<'_> { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
@@ -316,10 +316,7 @@ macro_rules! impl_cast_method {
         pub fn $name(&self) -> Result<&$info, TypeInfoError> {
             match self {
                 Self::$kind(info) => Ok(info),
-                _ => Err(TypeInfoError::KindMismatch {
-                    expected: ReflectKind::$kind,
-                    received: self.kind(),
-                }),
+                _ => Err(TypeInfoError::KindMismatch { expected: ReflectKind::$kind, received: self.kind() }),
             }
         }
     };

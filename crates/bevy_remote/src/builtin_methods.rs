@@ -350,7 +350,7 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
 pub fn process_remote_get_watching_request(
     In(params): In<Option<Value>>,
     world: &World,
-    mut removal_cursors: Local<HashMap<ComponentId, EventCursor<RemovedComponentEntity>>>,
+    mut removal_cursors: Local<'_, HashMap<ComponentId, EventCursor<RemovedComponentEntity>>>,
 ) -> BrpResult<Option<Value>> {
     let BrpGetParams {
         entity,
@@ -449,7 +449,7 @@ fn reflect_components_to_response(
     components: Vec<String>,
     strict: bool,
     entity: Entity,
-    entity_ref: EntityRef,
+    entity_ref: EntityRef<'_>,
     type_registry: &TypeRegistry,
 ) -> BrpResult<BrpGetResponse> {
     let mut response = if strict {
@@ -488,7 +488,7 @@ fn reflect_components_to_response(
 fn reflect_component(
     component_path: &str,
     entity: Entity,
-    entity_ref: EntityRef,
+    entity_ref: EntityRef<'_>,
     type_registry: &TypeRegistry,
 ) -> BrpResult<Map<String, Value>> {
     let reflect_component =
@@ -541,7 +541,7 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
         get_component_ids(&type_registry, world, without).map_err(BrpError::component_error)?;
     let with = get_component_ids(&type_registry, world, with).map_err(BrpError::component_error)?;
 
-    let mut query = QueryBuilder::<FilteredEntityRef>::new(world);
+    let mut query = QueryBuilder::<FilteredEntityRef<'_>>::new(world);
     for (_, component) in &components {
         query.ref_id(*component);
     }
@@ -751,7 +751,7 @@ pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World)
 pub fn process_remote_list_watching_request(
     In(params): In<Option<Value>>,
     world: &World,
-    mut removal_cursors: Local<HashMap<ComponentId, EventCursor<RemovedComponentEntity>>>,
+    mut removal_cursors: Local<'_, HashMap<ComponentId, EventCursor<RemovedComponentEntity>>>,
 ) -> BrpResult<Option<Value>> {
     let BrpListParams { entity } = parse_some(params)?;
     let entity_ref = get_entity(world, entity)?;
@@ -843,7 +843,7 @@ fn get_component_ids(
 /// This is intended to be used on an entity which has already been filtered; components
 /// where the value is not present on an entity are simply skipped.
 fn build_components_map<'a>(
-    entity_ref: FilteredEntityRef,
+    entity_ref: FilteredEntityRef<'_>,
     paths_and_reflect_components: impl Iterator<Item = (&'a str, &'a ReflectComponent)>,
     type_registry: &TypeRegistry,
 ) -> AnyhowResult<HashMap<String, Value>> {
@@ -870,7 +870,7 @@ fn build_components_map<'a>(
 /// (`paths_and_reflect_components`), return a map which associates each component to
 /// a boolean value indicating whether or not that component is present on the entity.
 fn build_has_map<'a>(
-    entity_ref: FilteredEntityRef,
+    entity_ref: FilteredEntityRef<'_>,
     paths_and_reflect_components: impl Iterator<Item = (&'a str, &'a ReflectComponent)>,
 ) -> HashMap<String, Value> {
     let mut has_map = HashMap::new();
@@ -934,7 +934,7 @@ fn deserialize_components(
 /// the given entity (`entity_world_mut`).
 fn insert_reflected_components(
     type_registry: &TypeRegistry,
-    mut entity_world_mut: EntityWorldMut,
+    mut entity_world_mut: EntityWorldMut<'_>,
     reflect_components: Vec<Box<dyn PartialReflect>>,
 ) -> AnyhowResult<()> {
     for reflected in reflect_components {

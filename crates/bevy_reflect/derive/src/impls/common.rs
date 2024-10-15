@@ -5,8 +5,8 @@ use quote::quote;
 use crate::{derive_data::ReflectMeta, where_clause_options::WhereClauseOptions};
 
 pub fn impl_full_reflect(
-    meta: &ReflectMeta,
-    where_clause_options: &WhereClauseOptions,
+    meta: &ReflectMeta<'_>,
+    where_clause_options: &WhereClauseOptions<'_, '_>,
 ) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
@@ -82,26 +82,23 @@ pub fn impl_full_reflect(
 }
 
 pub fn common_partial_reflect_methods(
-    meta: &ReflectMeta,
+    meta: &ReflectMeta<'_>,
     default_partial_eq_delegate: impl FnOnce() -> Option<proc_macro2::TokenStream>,
     default_hash_delegate: impl FnOnce() -> Option<proc_macro2::TokenStream>,
 ) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
 
     let debug_fn = meta.attrs().get_debug_impl();
-    let partial_eq_fn = meta
-        .attrs()
-        .get_partial_eq_impl(bevy_reflect_path)
-        .or_else(move || {
-            let default_delegate = default_partial_eq_delegate();
-            default_delegate.map(|func| {
-                quote! {
-                    fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<bool> {
-                        (#func)(self, value)
-                    }
+    let partial_eq_fn = meta.attrs().get_partial_eq_impl(bevy_reflect_path).or_else(move || {
+        let default_delegate = default_partial_eq_delegate();
+        default_delegate.map(|func| {
+            quote! {
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<bool> {
+                    (#func)(self, value)
                 }
-            })
-        });
+            }
+        })
+    });
     let hash_fn = meta
         .attrs()
         .get_hash_impl(bevy_reflect_path)

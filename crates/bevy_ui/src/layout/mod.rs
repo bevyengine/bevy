@@ -96,37 +96,43 @@ struct CameraLayoutInfo {
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
-    mut commands: Commands,
-    mut buffers: Local<UiLayoutSystemBuffers>,
-    primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
-    camera_data: (Query<(Entity, &Camera)>, DefaultUiCamera),
-    ui_scale: Res<UiScale>,
-    mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
-    mut resize_events: EventReader<bevy_window::WindowResized>,
-    mut ui_surface: ResMut<UiSurface>,
-    root_nodes: UiRootNodes,
+    mut commands: Commands<'_, '_>,
+    mut buffers: Local<'_, UiLayoutSystemBuffers>,
+    primary_window: Query<'_, '_, (Entity, &Window), With<PrimaryWindow>>,
+    camera_data: (Query<'_, '_, (Entity, &Camera)>, DefaultUiCamera<'_, '_>),
+    ui_scale: Res<'_, UiScale>,
+    mut scale_factor_events: EventReader<'_, '_, WindowScaleFactorChanged>,
+    mut resize_events: EventReader<'_, '_, bevy_window::WindowResized>,
+    mut ui_surface: ResMut<'_, UiSurface>,
+    root_nodes: UiRootNodes<'_, '_>,
     mut style_query: Query<
+        '_,
+        '_,
         (
             Entity,
-            Ref<Style>,
+            Ref<'_, Style>,
             Option<&mut ContentSize>,
             Option<&TargetCamera>,
         ),
         With<Node>,
     >,
-    node_query: Query<(Entity, Option<Ref<Parent>>), With<Node>>,
-    ui_children: UiChildren,
-    mut removed_components: UiLayoutSystemRemovedComponentParam,
-    mut node_transform_query: Query<(
-        &mut Node,
-        &mut Transform,
-        &Style,
-        Option<&BorderRadius>,
-        Option<&Outline>,
-        Option<&ScrollPosition>,
-    )>,
-    #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut ComputedTextBlock>,
-    #[cfg(feature = "bevy_text")] mut font_system: ResMut<CosmicFontSystem>,
+    node_query: Query<'_, '_, (Entity, Option<Ref<'_, Parent>>), With<Node>>,
+    ui_children: UiChildren<'_, '_>,
+    mut removed_components: UiLayoutSystemRemovedComponentParam<'_, '_>,
+    mut node_transform_query: Query<
+        '_,
+        '_,
+        (
+            &mut Node,
+            &mut Transform,
+            &Style,
+            Option<&BorderRadius>,
+            Option<&Outline>,
+            Option<&ScrollPosition>,
+        ),
+    >,
+    #[cfg(feature = "bevy_text")] mut buffer_query: Query<'_, '_, &mut ComputedTextBlock>,
+    #[cfg(feature = "bevy_text")] mut font_system: ResMut<'_, CosmicFontSystem>,
 ) {
     let UiLayoutSystemBuffers {
         interned_root_nodes,
@@ -163,38 +169,27 @@ pub fn ui_layout_system(
     // Precalculate the layout info for each camera, so we have fast access to it for each node
     camera_layout_info.clear();
 
-    style_query
-        .iter_many(root_nodes.iter())
-        .for_each(|(entity, _, _, target_camera)| {
-            match camera_with_default(target_camera) {
-                Some(camera_entity) => {
-                    let Ok((_, camera)) = cameras.get(camera_entity) else {
-                        warn!(
-                            "TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist",
-                            camera_entity
-                        );
-                        return;
-                    };
-                    let layout_info = camera_layout_info
-                        .entry(camera_entity)
-                        .or_insert_with(|| calculate_camera_layout_info(camera));
-                    layout_info.root_nodes.push(entity);
-                }
-                None => {
-                    if cameras.is_empty() {
-                        warn!("No camera found to render UI to. To fix this, add at least one camera to the scene.");
-                    } else {
-                        warn!(
-                            "Multiple cameras found, causing UI target ambiguity. \
-                            To fix this, add an explicit `TargetCamera` component to the root UI node {:?}",
-                            entity
-                        );
-                    }
-                }
-            }
-
+    style_query.iter_many(root_nodes.iter()).for_each(|(entity, _, _, target_camera)| match camera_with_default(target_camera) {
+        Some(camera_entity) => {
+            let Ok((_, camera)) = cameras.get(camera_entity) else {
+                warn!("TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist", camera_entity);
+                return;
+            };
+            let layout_info = camera_layout_info.entry(camera_entity).or_insert_with(|| calculate_camera_layout_info(camera));
+            layout_info.root_nodes.push(entity);
         }
-    );
+        None => {
+            if cameras.is_empty() {
+                warn!("No camera found to render UI to. To fix this, add at least one camera to the scene.");
+            } else {
+                warn!(
+                    "Multiple cameras found, causing UI target ambiguity. \
+                            To fix this, add an explicit `TargetCamera` component to the root UI node {:?}",
+                    entity
+                );
+            }
+        }
+    });
 
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_components.removed_content_sizes.read() {
@@ -312,19 +307,23 @@ with UI components as a child of an entity without UI components, your UI layout
 
     // Returns the combined bounding box of the node and any of its overflowing children.
     fn update_uinode_geometry_recursive(
-        commands: &mut Commands,
+        commands: &mut Commands<'_, '_>,
         entity: Entity,
         ui_surface: &UiSurface,
         root_size: Option<Vec2>,
-        node_transform_query: &mut Query<(
-            &mut Node,
-            &mut Transform,
-            &Style,
-            Option<&BorderRadius>,
-            Option<&Outline>,
-            Option<&ScrollPosition>,
-        )>,
-        ui_children: &UiChildren,
+        node_transform_query: &mut Query<
+            '_,
+            '_,
+            (
+                &mut Node,
+                &mut Transform,
+                &Style,
+                Option<&BorderRadius>,
+                Option<&Outline>,
+                Option<&ScrollPosition>,
+            ),
+        >,
+        ui_children: &UiChildren<'_, '_>,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
@@ -902,8 +901,8 @@ mod tests {
         struct MovingUiNode;
 
         fn update_camera_viewports(
-            primary_window_query: Query<&Window, With<PrimaryWindow>>,
-            mut cameras: Query<&mut Camera>,
+            primary_window_query: Query<'_, '_, &Window, With<PrimaryWindow>>,
+            mut cameras: Query<'_, '_, &mut Camera>,
         ) {
             let primary_window = primary_window_query
                 .get_single()
@@ -925,9 +924,9 @@ mod tests {
 
         fn move_ui_node(
             In(pos): In<Vec2>,
-            mut commands: Commands,
-            cameras: Query<(Entity, &Camera)>,
-            moving_ui_query: Query<Entity, With<MovingUiNode>>,
+            mut commands: Commands<'_, '_>,
+            cameras: Query<'_, '_, (Entity, &Camera)>,
+            moving_ui_query: Query<'_, '_, Entity, With<MovingUiNode>>,
         ) {
             let (target_camera_entity, _) = cameras
                 .iter()

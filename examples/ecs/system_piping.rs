@@ -39,12 +39,12 @@ struct Message(String);
 struct OptionalWarning(Result<(), String>);
 
 // This system produces a Result<usize> output by trying to parse the Message resource.
-fn parse_message_system(message: Res<Message>) -> Result<usize, ParseIntError> {
+fn parse_message_system(message: Res<'_, Message>) -> Result<usize, ParseIntError> {
     message.parse::<usize>()
 }
 
 // This system produces a Result<()> output by trying to parse the Message resource.
-fn parse_error_message_system(message: Res<Message>) -> Result<(), ParseIntError> {
+fn parse_error_message_system(message: Res<'_, Message>) -> Result<(), ParseIntError> {
     message.parse::<usize>()?;
     Ok(())
 }
@@ -60,13 +60,13 @@ fn handler_system(In(result): In<Result<usize, ParseIntError>>) {
 }
 
 // This system produces a String output by trying to clone the String from the Message resource.
-fn data_pipe_system(message: Res<Message>) -> String {
+fn data_pipe_system(message: Res<'_, Message>) -> String {
     message.0.clone()
 }
 
 // This system produces an Result<String> output by trying to extract a String from the
 // OptionalWarning resource. Try changing the OptionalWarning resource to None. You should
 // not see the warning message printed.
-fn warning_pipe_system(message: Res<OptionalWarning>) -> Result<(), String> {
+fn warning_pipe_system(message: Res<'_, OptionalWarning>) -> Result<(), String> {
     message.0.clone()
 }

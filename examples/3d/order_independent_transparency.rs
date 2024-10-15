@@ -21,9 +21,9 @@ fn main() {
 
 /// set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // camera
     commands
@@ -63,10 +63,10 @@ fn setup(
 }
 
 fn toggle_oit(
-    mut commands: Commands,
-    text: Single<Entity, With<Text>>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    q: Single<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
+    mut commands: Commands<'_, '_>,
+    text: Single<'_, Entity, With<Text>>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    q: Single<'_, (Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
     mut text_writer: UiTextWriter,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyT) {
@@ -89,12 +89,12 @@ fn toggle_oit(
 }
 
 fn cycle_scenes(
-    mut commands: Commands,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    q: Query<Entity, With<Mesh3d>>,
-    mut scene_id: Local<usize>,
+    mut commands: Commands<'_, '_>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    q: Query<'_, '_, Entity, With<Mesh3d>>,
+    mut scene_id: Local<'_, usize>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyC) {
         // depsawn current scene
@@ -116,7 +116,7 @@ fn cycle_scenes(
 /// Technically, when using `alpha_to_coverage` with MSAA this particular example wouldn't break,
 /// but it breaks when disabling MSAA and is enough to show the difference between OIT enabled vs disabled.
 fn spawn_spheres(
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
 ) {
@@ -168,7 +168,7 @@ fn spawn_spheres(
 /// This is useful to make sure transparent meshes drawn with OIT
 /// are properly occluded by opaque meshes.
 fn spawn_occlusion_test(
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
 ) {

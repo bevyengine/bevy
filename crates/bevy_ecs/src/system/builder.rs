@@ -50,7 +50,7 @@ use super::{init_query_param, Res, ResMut, Resource, SystemState};
 ///         .build_state(&mut world)
 ///         .build_system(|param, res| {
 ///             let param: MyParam = param;
-///             let res: Res<R> = res;
+///             let res: Res<'_, R> = res;
 ///         });
 /// }
 ///
@@ -60,7 +60,7 @@ use super::{init_query_param, Res, ResMut, Resource, SystemState};
 ///     // parameter list and call `build_any_system()`.
 ///     (builder, ParamBuilder)
 ///         .build_state(&mut world)
-///         .build_any_system(|param: MyParam, res: Res<R>| {});
+///         .build_any_system(|param: MyParam, res: Res<'_, R>| {});
 /// }
 /// ```
 ///
@@ -75,7 +75,7 @@ use super::{init_query_param, Res, ResMut, Resource, SystemState};
 /// for common system parameters that can be used to guide closure parameter inference.
 ///
 /// [`QueryParamBuilder`] can build a [`Query`] to add additional filters,
-/// or to configure the components available to [`FilteredEntityRef`](crate::world::FilteredEntityRef) or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
+/// or to configure the components available to [`FilteredEntityRef`](crate::world::FilteredEntityRef<'_>) or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
 /// You can also use a [`QueryState`] to build a [`Query`].
 ///
 /// [`LocalBuilder`] can build a [`Local`] to supply the initial value for the `Local`.
@@ -143,7 +143,7 @@ pub unsafe trait SystemParamBuilder<P: SystemParam>: Sized {
 /// # let mut world = World::new();
 /// # world.insert_resource(R);
 /// #
-/// fn my_system(res: Res<R>, param: MyParam, query: Query<&A>) {
+/// fn my_system(res: Res<'_, R>, param: MyParam, query: Query<'_, '_, &A>) {
 ///     // ...
 /// }
 ///
@@ -176,12 +176,12 @@ impl ParamBuilder {
         Self
     }
 
-    /// Helper method for reading a [`Resource`] as a param, equivalent to `of::<Res<T>>()`
+    /// Helper method for reading a [`Resource`] as a param, equivalent to `of::<Res<'_, T>>()`
     pub fn resource<'w, T: Resource>() -> impl SystemParamBuilder<Res<'w, T>> {
         Self
     }
 
-    /// Helper method for mutably accessing a [`Resource`] as a param, equivalent to `of::<ResMut<T>>()`
+    /// Helper method for mutably accessing a [`Resource`] as a param, equivalent to `of::<ResMut<'_, T>>()`
     pub fn resource_mut<'w, T: Resource>() -> impl SystemParamBuilder<ResMut<'w, T>> {
         Self
     }
@@ -191,13 +191,13 @@ impl ParamBuilder {
         Self
     }
 
-    /// Helper method for adding a [`Query`] as a param, equivalent to `of::<Query<D>>()`
+    /// Helper method for adding a [`Query`] as a param, equivalent to `of::<Query<'_, '_, D>>()`
     pub fn query<'w, 's, D: QueryData + 'static>() -> impl SystemParamBuilder<Query<'w, 's, D, ()>>
     {
         Self
     }
 
-    /// Helper method for adding a filtered [`Query`] as a param, equivalent to `of::<Query<D, F>>()`
+    /// Helper method for adding a filtered [`Query`] as a param, equivalent to `of::<Query<'_, '_, D, F>>()`
     pub fn query_filtered<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>(
     ) -> impl SystemParamBuilder<Query<'w, 's, D, F>> {
         Self
@@ -218,7 +218,7 @@ unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
 /// A [`SystemParamBuilder`] for a [`Query`].
 /// This takes a closure accepting an `&mut` [`QueryBuilder`] and uses the builder to construct the query's state.
 /// This can be used to add additional filters,
-/// or to configure the components available to [`FilteredEntityRef`](crate::world::FilteredEntityRef) or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
+/// or to configure the components available to [`FilteredEntityRef`](crate::world::FilteredEntityRef<'_>) or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
 ///
 /// ## Example
 ///
@@ -236,7 +236,7 @@ unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
 ///     builder.with::<Player>();
 /// }),)
 ///     .build_state(&mut world)
-///     .build_system(|query: Query<()>| {
+///     .build_system(|query: Query<'_, '_, ()>| {
 ///         for _ in &query {
 ///             // This only includes entities with an `Player` component.
 ///         }
@@ -253,7 +253,7 @@ unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
 ///     }),
 /// ],)
 ///     .build_state(&mut world)
-///     .build_system(|query: Vec<Query<()>>| {});
+///     .build_system(|query: Vec<Query<'_, '_, ()>>| {});
 /// ```
 pub struct QueryParamBuilder<T>(T);
 
@@ -261,18 +261,18 @@ impl<T> QueryParamBuilder<T> {
     /// Creates a [`SystemParamBuilder`] for a [`Query`] that accepts a callback to configure the [`QueryBuilder`].
     pub fn new<D: QueryData, F: QueryFilter>(f: T) -> Self
     where
-        T: FnOnce(&mut QueryBuilder<D, F>),
+        T: FnOnce(&mut QueryBuilder<'_, D, F>),
     {
         Self(f)
     }
 }
 
 impl<'a, D: QueryData, F: QueryFilter>
-    QueryParamBuilder<Box<dyn FnOnce(&mut QueryBuilder<D, F>) + 'a>>
+    QueryParamBuilder<Box<dyn FnOnce(&mut QueryBuilder<'_, D, F>) + 'a>>
 {
     /// Creates a [`SystemParamBuilder`] for a [`Query`] that accepts a callback to configure the [`QueryBuilder`].
     /// This boxes the callback so that it has a common type and can be put in a `Vec`.
-    pub fn new_box(f: impl FnOnce(&mut QueryBuilder<D, F>) + 'a) -> Self {
+    pub fn new_box(f: impl FnOnce(&mut QueryBuilder<'_, D, F>) + 'a) -> Self {
         Self(Box::new(f))
     }
 }
@@ -283,7 +283,7 @@ unsafe impl<
         's,
         D: QueryData + 'static,
         F: QueryFilter + 'static,
-        T: FnOnce(&mut QueryBuilder<D, F>),
+        T: FnOnce(&mut QueryBuilder<'_, D, F>),
     > SystemParamBuilder<Query<'w, 's, D, F>> for QueryParamBuilder<T>
 {
     fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> QueryState<D, F> {
@@ -363,7 +363,7 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>>
 /// # world.run_system_once(system);
 ///
 /// fn buildable_system_with_tuple(
-///     mut set: ParamSet<(Query<&mut Health>, Query<&mut Health>, &World)>,
+///     mut set: ParamSet<'_, '_, (Query<'_, '_, &mut Health>, Query<'_, '_, &mut Health>, &World)>,
 /// ) {
 ///     // The first parameter is built from the first builder,
 ///     // so this will iterate over enemies.
@@ -387,7 +387,7 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>>
 ///     .build_system(buildable_system_with_vec);
 /// # world.run_system_once(system);
 ///
-/// fn buildable_system_with_vec(mut set: ParamSet<Vec<Query<&mut Health>>>) {
+/// fn buildable_system_with_vec(mut set: ParamSet<Vec<Query<'_, '_, &mut Health>>>) {
 ///     // As with tuples, the first parameter is built from the first builder,
 ///     // so this will iterate over enemies.
 ///     for mut health in set.get_mut(0).iter_mut() {}
@@ -513,7 +513,7 @@ unsafe impl<'a, 'w, 's> SystemParamBuilder<DynSystemParam<'w, 's>> for DynParamB
 /// # let mut world = World::new();
 /// let system = (LocalBuilder(100),)
 ///     .build_state(&mut world)
-///     .build_system(|local: Local<usize>| {
+///     .build_system(|local: Local<'_, usize>| {
 ///         assert_eq!(*local, 100);
 ///     });
 /// # world.run_system_once(system);
@@ -541,23 +541,23 @@ impl<T> FilteredResourcesParamBuilder<T> {
     /// Creates a [`SystemParamBuilder`] for a [`FilteredResources`] that accepts a callback to configure the [`FilteredResourcesBuilder`].
     pub fn new(f: T) -> Self
     where
-        T: FnOnce(&mut FilteredResourcesBuilder),
+        T: FnOnce(&mut FilteredResourcesBuilder<'_>),
     {
         Self(f)
     }
 }
 
-impl<'a> FilteredResourcesParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesBuilder) + 'a>> {
+impl<'a> FilteredResourcesParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesBuilder<'_>) + 'a>> {
     /// Creates a [`SystemParamBuilder`] for a [`FilteredResources`] that accepts a callback to configure the [`FilteredResourcesBuilder`].
     /// This boxes the callback so that it has a common type.
-    pub fn new_box(f: impl FnOnce(&mut FilteredResourcesBuilder) + 'a) -> Self {
+    pub fn new_box(f: impl FnOnce(&mut FilteredResourcesBuilder<'_>) + 'a) -> Self {
         Self(Box::new(f))
     }
 }
 
 // SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
 // conflicts with any prior access, a panic will occur.
-unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder)>
+unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesBuilder<'_>)>
     SystemParamBuilder<FilteredResources<'w, 's>> for FilteredResourcesParamBuilder<T>
 {
     fn build(
@@ -604,23 +604,25 @@ impl<T> FilteredResourcesMutParamBuilder<T> {
     /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to configure the [`FilteredResourcesMutBuilder`].
     pub fn new(f: T) -> Self
     where
-        T: FnOnce(&mut FilteredResourcesMutBuilder),
+        T: FnOnce(&mut FilteredResourcesMutBuilder<'_>),
     {
         Self(f)
     }
 }
 
-impl<'a> FilteredResourcesMutParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesMutBuilder) + 'a>> {
+impl<'a>
+    FilteredResourcesMutParamBuilder<Box<dyn FnOnce(&mut FilteredResourcesMutBuilder<'_>) + 'a>>
+{
     /// Creates a [`SystemParamBuilder`] for a [`FilteredResourcesMut`] that accepts a callback to configure the [`FilteredResourcesMutBuilder`].
     /// This boxes the callback so that it has a common type.
-    pub fn new_box(f: impl FnOnce(&mut FilteredResourcesMutBuilder) + 'a) -> Self {
+    pub fn new_box(f: impl FnOnce(&mut FilteredResourcesMutBuilder<'_>) + 'a) -> Self {
         Self(Box::new(f))
     }
 }
 
 // SAFETY: Resource ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this FilteredResources
 // conflicts with any prior access, a panic will occur.
-unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
+unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder<'_>)>
     SystemParamBuilder<FilteredResourcesMut<'w, 's>> for FilteredResourcesMutParamBuilder<T>
 {
     fn build(
@@ -697,15 +699,15 @@ mod tests {
     #[derive(Resource, Default)]
     struct R;
 
-    fn local_system(local: Local<u64>) -> u64 {
+    fn local_system(local: Local<'_, u64>) -> u64 {
         *local
     }
 
-    fn query_system(query: Query<()>) -> usize {
+    fn query_system(query: Query<'_, '_, ()>) -> usize {
         query.iter().count()
     }
 
-    fn multi_param_system(a: Local<u64>, b: Local<u64>) -> u64 {
+    fn multi_param_system(a: Local<'_, u64>, b: Local<'_, u64>) -> u64 {
         *a + *b + 1
     }
 
@@ -787,7 +789,7 @@ mod tests {
             }),
         ],)
             .build_state(&mut world)
-            .build_system(|params: Vec<Query<&mut A>>| {
+            .build_system(|params: Vec<Query<'_, '_, &mut A>>| {
                 let mut count: usize = 0;
                 params
                     .into_iter()
@@ -833,9 +835,11 @@ mod tests {
             }),
         )),)
             .build_state(&mut world)
-            .build_system(|mut params: ParamSet<(Query<&mut A>, Query<&mut A>)>| {
-                params.p0().iter().count() + params.p1().iter().count()
-            });
+            .build_system(
+                |mut params: ParamSet<'_, '_, (Query<'_, '_, &mut A>, Query<'_, '_, &mut A>)>| {
+                    params.p0().iter().count() + params.p1().iter().count()
+                },
+            );
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 5);
@@ -860,7 +864,7 @@ mod tests {
             }),
         ]),)
             .build_state(&mut world)
-            .build_system(|mut params: ParamSet<Vec<Query<&mut A>>>| {
+            .build_system(|mut params: ParamSet<'_, '_, Vec<Query<'_, '_, &mut A>>>| {
                 let mut count = 0;
                 params.for_each(|mut query| count += query.iter_mut().count());
                 count
@@ -879,18 +883,24 @@ mod tests {
 
         let system = (
             DynParamBuilder::new(LocalBuilder(3_usize)),
-            DynParamBuilder::new::<Query<()>>(QueryParamBuilder::new(|builder| {
+            DynParamBuilder::new::<Query<'_, '_, ()>>(QueryParamBuilder::new(|builder| {
                 builder.with::<A>();
             })),
             DynParamBuilder::new::<&Entities>(ParamBuilder),
         )
             .build_state(&mut world)
             .build_system(
-                |mut p0: DynSystemParam, mut p1: DynSystemParam, mut p2: DynSystemParam| {
-                    let local = *p0.downcast_mut::<Local<usize>>().unwrap();
-                    let query_count = p1.downcast_mut::<Query<()>>().unwrap().iter().count();
+                |mut p0: DynSystemParam<'_, '_>,
+                 mut p1: DynSystemParam<'_, '_>,
+                 mut p2: DynSystemParam<'_, '_>| {
+                    let local = *p0.downcast_mut::<Local<'_, usize>>().unwrap();
+                    let query_count = p1
+                        .downcast_mut::<Query<'_, '_, ()>>()
+                        .unwrap()
+                        .iter()
+                        .count();
                     let _entities = p2.downcast_mut::<&Entities>().unwrap();
-                    assert!(p0.downcast_mut::<Query<()>>().is_none());
+                    assert!(p0.downcast_mut::<Query<'_, '_, ()>>().is_none());
                     local + query_count
                 },
             );
@@ -920,7 +930,7 @@ mod tests {
             }),
         },)
             .build_state(&mut world)
-            .build_system(|param: CustomParam| *param.local + param.query.iter().count());
+            .build_system(|param: CustomParam<'_, '_>| *param.local + param.query.iter().count());
 
         let output = world.run_system_once(system).unwrap();
         assert_eq!(output, 101);
@@ -936,7 +946,7 @@ mod tests {
             }),
         )
             .build_state(&mut world)
-            .build_system(|_r: Res<R>, _fr: FilteredResources| {});
+            .build_system(|_r: Res<'_, R>, _fr: FilteredResources<'_, '_>| {});
     }
 
     #[test]
@@ -950,7 +960,7 @@ mod tests {
             }),
         )
             .build_state(&mut world)
-            .build_system(|_r: ResMut<R>, _fr: FilteredResources| {});
+            .build_system(|_r: ResMut<'_, R>, _fr: FilteredResources<'_, '_>| {});
     }
 
     #[test]
@@ -964,7 +974,7 @@ mod tests {
             }),
         )
             .build_state(&mut world)
-            .build_system(|_r: ResMut<R>, _fr: FilteredResources| {});
+            .build_system(|_r: ResMut<'_, R>, _fr: FilteredResources<'_, '_>| {});
     }
 
     #[test]
@@ -977,7 +987,7 @@ mod tests {
             }),
         )
             .build_state(&mut world)
-            .build_system(|_r: Res<R>, _fr: FilteredResourcesMut| {});
+            .build_system(|_r: Res<'_, R>, _fr: FilteredResourcesMut<'_, '_>| {});
     }
 
     #[test]
@@ -991,7 +1001,7 @@ mod tests {
             }),
         )
             .build_state(&mut world)
-            .build_system(|_r: ResMut<R>, _fr: FilteredResourcesMut| {});
+            .build_system(|_r: ResMut<'_, R>, _fr: FilteredResourcesMut<'_, '_>| {});
     }
 
     #[test]
@@ -1005,7 +1015,7 @@ mod tests {
             }),
         )
             .build_state(&mut world)
-            .build_system(|_r: Res<R>, _fr: FilteredResourcesMut| {});
+            .build_system(|_r: Res<'_, R>, _fr: FilteredResourcesMut<'_, '_>| {});
     }
 
     #[test]
@@ -1019,7 +1029,7 @@ mod tests {
             }),
         )
             .build_state(&mut world)
-            .build_system(|_r: Res<R>, _fr: FilteredResourcesMut| {});
+            .build_system(|_r: Res<'_, R>, _fr: FilteredResourcesMut<'_, '_>| {});
     }
 
     #[test]
@@ -1033,6 +1043,6 @@ mod tests {
             }),
         )
             .build_state(&mut world)
-            .build_system(|_r: ResMut<R>, _fr: FilteredResourcesMut| {});
+            .build_system(|_r: ResMut<'_, R>, _fr: FilteredResourcesMut<'_, '_>| {});
     }
 }

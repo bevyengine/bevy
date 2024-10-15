@@ -190,7 +190,7 @@ where
     unsafe fn validate_param(
         state: &Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> bool {
         // SAFETY: Delegated to existing `SystemParam` implementations.
         unsafe { GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world) }

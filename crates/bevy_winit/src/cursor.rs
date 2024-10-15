@@ -88,11 +88,11 @@ pub enum CustomCursor {
 }
 
 fn update_cursors(
-    mut commands: Commands,
-    windows: Query<(Entity, Ref<CursorIcon>), With<Window>>,
-    cursor_cache: Res<CustomCursorCache>,
-    images: Res<Assets<Image>>,
-    mut queue: Local<HashSet<Entity>>,
+    mut commands: Commands<'_, '_>,
+    windows: Query<'_, '_, (Entity, Ref<'_, CursorIcon>), With<Window>>,
+    cursor_cache: Res<'_, CustomCursorCache>,
+    images: Res<'_, Assets<Image>>,
+    mut queue: Local<'_, HashSet<Entity>>,
 ) {
     for (entity, cursor) in windows.iter() {
         if !(queue.remove(&entity) || cursor.is_changed()) {
@@ -107,9 +107,7 @@ fn update_cursors(
                     CursorSource::CustomCached(cache_key)
                 } else {
                     let Some(image) = images.get(handle) else {
-                        warn!(
-                            "Cursor image {handle:?} is not loaded yet and couldn't be used. Trying again next frame."
-                        );
+                        warn!("Cursor image {handle:?} is not loaded yet and couldn't be used. Trying again next frame.");
                         queue.insert(entity);
                         continue;
                     };
@@ -161,7 +159,10 @@ fn update_cursors(
 }
 
 /// Resets the cursor to the default icon when `CursorIcon` is removed.
-fn on_remove_cursor_icon(trigger: Trigger<OnRemove, CursorIcon>, mut commands: Commands) {
+fn on_remove_cursor_icon(
+    trigger: Trigger<'_, OnRemove, CursorIcon>,
+    mut commands: Commands<'_, '_>,
+) {
     // Use `try_insert` to avoid panic if the window is being destroyed.
     commands
         .entity(trigger.entity())

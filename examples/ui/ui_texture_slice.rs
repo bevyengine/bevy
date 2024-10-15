@@ -19,10 +19,12 @@ fn main() {
 
 fn button_system(
     mut interaction_query: Query<
+        '_,
+        '_,
         (&Interaction, &Children, &mut UiImage),
         (Changed<Interaction>, With<Button>),
     >,
-    mut text_query: Query<&mut Text>,
+    mut text_query: Query<'_, '_, &mut Text>,
 ) {
     for (interaction, children, mut image) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
@@ -43,7 +45,7 @@ fn button_system(
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     let image = asset_server.load("textures/fantasy_ui_borders/panel-border-010.png");
 
     let slicer = TextureSlicer {

@@ -49,7 +49,7 @@ struct Config {
     fancy: bool,
 }
 
-fn input(mut config: ResMut<Config>, input: Res<ButtonInput<KeyCode>>) {
+fn input(mut config: ResMut<'_, Config>, input: Res<'_, ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::ArrowUp) {
         config.line_count += 10_000;
     }
@@ -61,7 +61,7 @@ fn input(mut config: ResMut<Config>, input: Res<ButtonInput<KeyCode>>) {
     }
 }
 
-fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
+fn system(config: Res<'_, Config>, time: Res<'_, Time>, mut draw: Gizmos) {
     if !config.fancy {
         for _ in 0..(config.line_count / SYSTEM_COUNT) {
             draw.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
@@ -79,7 +79,7 @@ fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
     }
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     warn!(include_str!("warning_string.txt"));
 
     commands.spawn((
@@ -98,7 +98,11 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-fn ui_system(mut text: Single<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
+fn ui_system(
+    mut text: Single<'_, &mut Text>,
+    config: Res<'_, Config>,
+    diag: Res<'_, DiagnosticsStore>,
+) {
     let Some(fps) = diag
         .get(&FrameTimeDiagnosticsPlugin::FPS)
         .and_then(Diagnostic::smoothed)

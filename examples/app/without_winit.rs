@@ -9,6 +9,6 @@ fn main() {
         .run();
 }
 
-fn setup_system(mut commands: Commands) {
+fn setup_system(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera3d::default());
 }

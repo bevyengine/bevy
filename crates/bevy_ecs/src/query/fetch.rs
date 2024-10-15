@@ -82,7 +82,7 @@ use smallvec::SmallVec;
 ///     component_b: &'static ComponentB,
 /// }
 ///
-/// fn my_system(query: Query<MyQuery>) {
+/// fn my_system(query: Query<'_, '_, MyQuery>) {
 ///     for q in &query {
 ///         q.component_a;
 ///     }
@@ -176,7 +176,7 @@ use smallvec::SmallVec;
 ///     }
 /// }
 ///
-/// fn my_system(mut health_query: Query<HealthQuery>) {
+/// fn my_system(mut health_query: Query<'_, '_, HealthQuery>) {
 ///     // The item returned by the iterator is of type `HealthQueryReadOnlyItem`.
 ///     for health in health_query.iter() {
 ///         println!("Total: {}", health.total());
@@ -259,7 +259,7 @@ use smallvec::SmallVec;
 ///     id: Entity,
 ///     marker: PhantomData<T>,
 /// }
-/// # fn my_system(q: Query<GenericQuery<()>>) {}
+/// # fn my_system(q: Query<'_, '_, GenericQuery<()>>) {}
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
@@ -491,10 +491,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
-        assert!(
-            !access.access().has_any_component_write(),
-            "EntityRef conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-        );
+        assert!(!access.access().has_any_component_write(), "EntityRef conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",);
         access.read_all_components();
     }
 
@@ -571,10 +568,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
-        assert!(
-            !access.access().has_any_component_read(),
-            "EntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
-        );
+        assert!(!access.access().has_any_component_read(), "EntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",);
         access.write_all_components();
     }
 
@@ -661,10 +655,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
         state: &Self::State,
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
-        assert!(
-            filtered_access.access().is_compatible(&state.access),
-            "FilteredEntityRef conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
-        );
+        assert!(filtered_access.access().is_compatible(&state.access), "FilteredEntityRef conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",);
         filtered_access.access.extend(&state.access);
     }
 
@@ -755,10 +746,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
         state: &Self::State,
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
-        assert!(
-            filtered_access.access().is_compatible(&state.access),
-            "FilteredEntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
-        );
+        assert!(filtered_access.access().is_compatible(&state.access), "FilteredEntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",);
         filtered_access.access.extend(&state.access);
     }
 
@@ -1184,11 +1172,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         &component_id: &ComponentId,
         access: &mut FilteredAccess<ComponentId>,
     ) {
-        assert!(
-            !access.access().has_component_write(component_id),
-            "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-            core::any::type_name::<T>(),
-        );
+        assert!(!access.access().has_component_write(component_id), "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.", core::any::type_name::<T>(),);
         access.add_component_read(component_id);
     }
 
@@ -1383,11 +1367,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         &component_id: &ComponentId,
         access: &mut FilteredAccess<ComponentId>,
     ) {
-        assert!(
-            !access.access().has_component_write(component_id),
-            "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-            core::any::type_name::<T>(),
-        );
+        assert!(!access.access().has_component_write(component_id), "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.", core::any::type_name::<T>(),);
         access.add_component_read(component_id);
     }
 
@@ -1582,11 +1562,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         &component_id: &ComponentId,
         access: &mut FilteredAccess<ComponentId>,
     ) {
-        assert!(
-            !access.access().has_component_read(component_id),
-            "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
-            core::any::type_name::<T>(),
-        );
+        assert!(!access.access().has_component_read(component_id), "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.", core::any::type_name::<T>(),);
         access.add_component_write(component_id);
     }
 
@@ -1611,9 +1587,9 @@ unsafe impl<'__w, T: Component> QueryData for &'__w mut T {
     type ReadOnly = &'__w T;
 }
 
-/// When `Mut<T>` is used in a query, it will be converted to `Ref<T>` when transformed into its read-only form, providing access to change detection methods.
+/// When `Mut<'_, T>` is used in a query, it will be converted to `Ref<'_, T>` when transformed into its read-only form, providing access to change detection methods.
 ///
-/// By contrast `&mut T` will result in a `Mut<T>` item in mutable form to record mutations, but result in a bare `&T` in read-only form.
+/// By contrast `&mut T` will result in a `Mut<'_, T>` item in mutable form to record mutations, but result in a bare `&T` in read-only form.
 ///
 /// SAFETY:
 /// `fetch` accesses a single component mutably.
@@ -1684,11 +1660,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     ) {
         // Update component access here instead of in `<&mut T as WorldQuery>` to avoid erroneously referencing
         // `&mut T` in error message.
-        assert!(
-            !access.access().has_component_read(component_id),
-            "Mut<{}> conflicts with a previous access in this query. Mutable component access mut be unique.",
-            core::any::type_name::<T>(),
-        );
+        assert!(!access.access().has_component_read(component_id), "Mut<'_, {}> conflicts with a previous access in this query. Mutable component access mut be unique.", core::any::type_name::<T>(),);
         access.add_component_write(component_id);
     }
 
@@ -1711,7 +1683,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     }
 }
 
-// SAFETY: access of `Ref<T>` is a subset of `Mut<T>`
+// SAFETY: access of `Ref<'_, T>` is a subset of `Mut<'_, T>`
 unsafe impl<'__w, T: Component> QueryData for Mut<'__w, T> {
     type ReadOnly = Ref<'__w, T>;
 }
@@ -1852,7 +1824,7 @@ unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 ///
 /// # Footguns
 ///
-/// Note that a `Query<Has<T>>` will match all existing entities.
+/// Note that a `Query<'_, '_, Has<T>>` will match all existing entities.
 /// Beware! Even if it matches all entities, it doesn't mean that `query.get(entity)`
 /// will always return `Ok(bool)`.
 ///
@@ -1873,7 +1845,7 @@ unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 /// # #[derive(Component)]
 /// # struct Name { name: &'static str };
 /// #
-/// fn food_entity_system(query: Query<(&Name, Has<IsHungry>) >) {
+/// fn food_entity_system(query: Query<'_, '_, (&Name, Has<IsHungry>) >) {
 ///     for (name, is_hungry) in &query {
 ///         if is_hungry{
 ///             println!("{} would like some food.", name.name);
@@ -1898,7 +1870,7 @@ unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 /// #
 /// // Unlike `Option<&T>`, `Has<T>` is compatible with `&mut T`
 /// // as it does not actually access any data.
-/// fn alphabet_entity_system(mut alphas: Query<(&mut Alpha, Has<Beta>)>, mut betas: Query<(&mut Beta, Has<Alpha>)>) {
+/// fn alphabet_entity_system(mut alphas: Query<'_, '_, (&mut Alpha, Has<Beta>)>, mut betas: Query<'_, '_, (&mut Beta, Has<Alpha>)>) {
 ///     for (mut alpha, has_beta) in alphas.iter_mut() {
 ///         alpha.has_beta = has_beta;
 ///     }
@@ -2007,7 +1979,7 @@ unsafe impl<T: Component> ReadOnlyQueryData for Has<T> {}
 
 /// The `AnyOf` query parameter fetches entities with any of the component types included in T.
 ///
-/// `Query<AnyOf<(&A, &B, &mut C)>>` is equivalent to `Query<(Option<&A>, Option<&B>, Option<&mut C>), Or<(With<A>, With<B>, With<C>)>>`.
+/// `Query<'_, '_, AnyOf<(&A, &B, &mut C)>>` is equivalent to `Query<'_, '_, (Option<&A>, Option<&B>, Option<&mut C>), Or<(With<A>, With<B>, With<C>)>>`.
 /// Each of the components in `T` is returned as an `Option`, as with `Option<A>` queries.
 /// Entities are guaranteed to have at least one of the components in `T`.
 pub struct AnyOf<T>(PhantomData<T>);
@@ -2175,7 +2147,7 @@ all_tuples!(
 );
 all_tuples!(impl_anytuple_fetch, 0, 15, F, S);
 
-/// [`WorldQuery`] used to nullify queries by turning `Query<D>` into `Query<NopWorldQuery<D>>`
+/// [`WorldQuery`] used to nullify queries by turning `Query<'_, '_, D>` into `Query<'_, '_, NopWorldQuery<D>>`
 ///
 /// This will rarely be useful to consumers of `bevy_ecs`.
 pub(crate) struct NopWorldQuery<D: QueryData>(PhantomData<D>);
@@ -2194,7 +2166,7 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
 
     #[inline(always)]
     unsafe fn init_fetch(
-        _world: UnsafeWorldCell,
+        _world: UnsafeWorldCell<'_>,
         _state: &D::State,
         _last_run: Tick,
         _this_run: Tick,
@@ -2416,7 +2388,7 @@ mod tests {
         #[derive(QueryData)]
         pub struct UnitQuery;
 
-        fn my_system(_: Query<(NamedQuery, TupleQuery, UnitQuery)>) {}
+        fn my_system(_: Query<'_, '_, (NamedQuery, TupleQuery, UnitQuery)>) {}
 
         assert_is_system(my_system);
     }
@@ -2430,7 +2402,7 @@ mod tests {
             _marker: PhantomData<Marker>,
         }
 
-        fn ignored_system(_: Query<IgnoredQuery<()>>) {}
+        fn ignored_system(_: Query<'_, '_, IgnoredQuery<()>>) {}
 
         assert_is_system(ignored_system);
     }
@@ -2451,7 +2423,7 @@ mod tests {
 
         let _ = private::DReadOnly { a: &A };
 
-        fn my_system(query: Query<private::D>) {
+        fn my_system(query: Query<'_, '_, private::D>) {
             for q in &query {
                 let _ = &q.a;
             }
@@ -2483,7 +2455,7 @@ mod tests {
 
         impl ClientState for C {}
 
-        fn client_system(_: Query<Client<C>>) {}
+        fn client_system(_: Query<'_, '_, Client<C>>) {}
 
         assert_is_system(client_system);
     }

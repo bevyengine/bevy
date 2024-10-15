@@ -46,7 +46,10 @@ impl RenderDevice {
 
     /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
     #[inline]
-    pub fn create_shader_module(&self, desc: wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
+    pub fn create_shader_module(
+        &self,
+        desc: wgpu::ShaderModuleDescriptor<'_>,
+    ) -> wgpu::ShaderModule {
         #[cfg(feature = "spirv_shader_passthrough")]
         match &desc.source {
             wgpu::ShaderSource::SpirV(source)
@@ -90,7 +93,7 @@ impl RenderDevice {
     #[inline]
     pub fn create_command_encoder(
         &self,
-        desc: &wgpu::CommandEncoderDescriptor,
+        desc: &wgpu::CommandEncoderDescriptor<'_>,
     ) -> wgpu::CommandEncoder {
         self.device.create_command_encoder(desc)
     }
@@ -99,8 +102,8 @@ impl RenderDevice {
     #[inline]
     pub fn create_render_bundle_encoder(
         &self,
-        desc: &wgpu::RenderBundleEncoderDescriptor,
-    ) -> wgpu::RenderBundleEncoder {
+        desc: &wgpu::RenderBundleEncoderDescriptor<'_>,
+    ) -> wgpu::RenderBundleEncoder<'_> {
         self.device.create_render_bundle_encoder(desc)
     }
 
@@ -140,14 +143,14 @@ impl RenderDevice {
     #[inline]
     pub fn create_pipeline_layout(
         &self,
-        desc: &wgpu::PipelineLayoutDescriptor,
+        desc: &wgpu::PipelineLayoutDescriptor<'_>,
     ) -> wgpu::PipelineLayout {
         self.device.create_pipeline_layout(desc)
     }
 
     /// Creates a [`RenderPipeline`].
     #[inline]
-    pub fn create_render_pipeline(&self, desc: &RawRenderPipelineDescriptor) -> RenderPipeline {
+    pub fn create_render_pipeline(&self, desc: &RawRenderPipelineDescriptor<'_>) -> RenderPipeline {
         let wgpu_render_pipeline = self.device.create_render_pipeline(desc);
         RenderPipeline::from(wgpu_render_pipeline)
     }
@@ -156,20 +159,20 @@ impl RenderDevice {
     #[inline]
     pub fn create_compute_pipeline(
         &self,
-        desc: &wgpu::ComputePipelineDescriptor,
+        desc: &wgpu::ComputePipelineDescriptor<'_>,
     ) -> ComputePipeline {
         let wgpu_compute_pipeline = self.device.create_compute_pipeline(desc);
         ComputePipeline::from(wgpu_compute_pipeline)
     }
 
     /// Creates a [`Buffer`].
-    pub fn create_buffer(&self, desc: &wgpu::BufferDescriptor) -> Buffer {
+    pub fn create_buffer(&self, desc: &wgpu::BufferDescriptor<'_>) -> Buffer {
         let wgpu_buffer = self.device.create_buffer(desc);
         Buffer::from(wgpu_buffer)
     }
 
     /// Creates a [`Buffer`] and initializes it with the specified data.
-    pub fn create_buffer_with_data(&self, desc: &wgpu::util::BufferInitDescriptor) -> Buffer {
+    pub fn create_buffer_with_data(&self, desc: &wgpu::util::BufferInitDescriptor<'_>) -> Buffer {
         let wgpu_buffer = self.device.create_buffer_init(desc);
         Buffer::from(wgpu_buffer)
     }
@@ -181,7 +184,7 @@ impl RenderDevice {
     pub fn create_texture_with_data(
         &self,
         render_queue: &RenderQueue,
-        desc: &wgpu::TextureDescriptor,
+        desc: &wgpu::TextureDescriptor<'_>,
         order: wgpu::util::TextureDataOrder,
         data: &[u8],
     ) -> Texture {
@@ -194,7 +197,7 @@ impl RenderDevice {
     /// Creates a new [`Texture`].
     ///
     /// `desc` specifies the general format of the texture.
-    pub fn create_texture(&self, desc: &wgpu::TextureDescriptor) -> Texture {
+    pub fn create_texture(&self, desc: &wgpu::TextureDescriptor<'_>) -> Texture {
         let wgpu_texture = self.device.create_texture(desc);
         Texture::from(wgpu_texture)
     }
@@ -202,7 +205,7 @@ impl RenderDevice {
     /// Creates a new [`Sampler`].
     ///
     /// `desc` specifies the behavior of the sampler.
-    pub fn create_sampler(&self, desc: &wgpu::SamplerDescriptor) -> Sampler {
+    pub fn create_sampler(&self, desc: &wgpu::SamplerDescriptor<'_>) -> Sampler {
         let wgpu_sampler = self.device.create_sampler(desc);
         Sampler::from(wgpu_sampler)
     }
@@ -213,7 +216,11 @@ impl RenderDevice {
     ///
     /// - A old [`SurfaceTexture`](wgpu::SurfaceTexture) is still alive referencing an old surface.
     /// - Texture format requested is unsupported on the surface.
-    pub fn configure_surface(&self, surface: &wgpu::Surface, config: &wgpu::SurfaceConfiguration) {
+    pub fn configure_surface(
+        &self,
+        surface: &wgpu::Surface<'_>,
+        config: &wgpu::SurfaceConfiguration,
+    ) {
         surface.configure(&self.device, config);
     }
 
@@ -224,7 +231,7 @@ impl RenderDevice {
 
     pub fn map_buffer(
         &self,
-        buffer: &wgpu::BufferSlice,
+        buffer: &wgpu::BufferSlice<'_>,
         map_mode: wgpu::MapMode,
         callback: impl FnOnce(Result<(), BufferAsyncError>) + Send + 'static,
     ) {

@@ -42,7 +42,7 @@ struct MyEvent {
 }
 
 // In every frame we will send an event with a 50/50 chance
-fn sending_system(mut event_writer: EventWriter<MyEvent>) {
+fn sending_system(mut event_writer: EventWriter<'_, MyEvent>) {
     let random_value: f32 = rand::random();
     if random_value > 0.5 {
         event_writer.send(MyEvent {
@@ -54,7 +54,7 @@ fn sending_system(mut event_writer: EventWriter<MyEvent>) {
 
 // This system listens for events of the type MyEvent
 // If an event is received it will be printed to the console
-fn receiving_system(mut event_reader: EventReader<MyEvent>) {
+fn receiving_system(mut event_reader: EventReader<'_, '_, MyEvent>) {
     for my_event in event_reader.read() {
         println!(
             "    Received message {:?}, with random value of {}",

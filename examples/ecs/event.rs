@@ -38,9 +38,9 @@ impl Default for DamageTimer {
 // The 'send_default' method will send the event with the default value if the event
 // has a 'Default' implementation.
 fn deal_damage_over_time(
-    time: Res<Time>,
-    mut state: ResMut<DamageTimer>,
-    mut events: EventWriter<DealDamage>,
+    time: Res<'_, Time>,
+    mut state: ResMut<'_, DamageTimer>,
+    mut events: EventWriter<'_, DealDamage>,
 ) {
     if state.tick(time.delta()).finished() {
         // Events can be sent with 'send' and constructed just like any other object.
@@ -55,8 +55,8 @@ fn deal_damage_over_time(
 // over all the &mut T that this system has not read yet. Note, you can have multiple
 // 'EventReader', 'EventWriter', and 'EventMutator' in a given system, as long as the types (T) are different.
 fn apply_armor_to_damage(
-    mut dmg_events: EventMutator<DealDamage>,
-    mut armor_events: EventWriter<ArmorBlockedDamage>,
+    mut dmg_events: EventMutator<'_, '_, DealDamage>,
+    mut armor_events: EventWriter<'_, ArmorBlockedDamage>,
 ) {
     for event in dmg_events.read() {
         event.amount -= 1;
@@ -74,8 +74,8 @@ fn apply_armor_to_damage(
 // Again, note you can have multiple 'EventReader', 'EventWriter', and 'EventMutator' in a given system,
 // as long as the types (T) are different.
 fn apply_damage_to_health(
-    mut dmg_events: EventReader<DealDamage>,
-    mut rcvd_events: EventWriter<DamageReceived>,
+    mut dmg_events: EventReader<'_, '_, DealDamage>,
+    mut rcvd_events: EventWriter<'_, DamageReceived>,
 ) {
     for event in dmg_events.read() {
         info!("Applying {} damage", event.amount);
@@ -93,7 +93,7 @@ fn apply_damage_to_health(
 //
 // As before, events are read using an 'EventReader' by calling 'read'. This returns an iterator over all the &T
 // that this system has not read yet.
-fn play_damage_received_sound(mut dmg_events: EventReader<DamageReceived>) {
+fn play_damage_received_sound(mut dmg_events: EventReader<'_, '_, DamageReceived>) {
     for _ in dmg_events.read() {
         info!("Playing a sound.");
     }
@@ -101,7 +101,7 @@ fn play_damage_received_sound(mut dmg_events: EventReader<DamageReceived>) {
 
 // Note that both systems receive the same 'DamageReceived' events. Any number of systems can
 // receive the same event type.
-fn play_damage_received_particle_effect(mut dmg_events: EventReader<DamageReceived>) {
+fn play_damage_received_particle_effect(mut dmg_events: EventReader<'_, '_, DamageReceived>) {
     for _ in dmg_events.read() {
         info!("Playing particle effect.");
     }

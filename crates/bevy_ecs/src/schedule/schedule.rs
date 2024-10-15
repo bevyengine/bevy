@@ -464,7 +464,7 @@ impl Schedule {
         }
     }
 
-    /// Directly applies any accumulated [`Deferred`](crate::system::Deferred) system parameters (like [`Commands`](crate::prelude::Commands)) to the `world`.
+    /// Directly applies any accumulated [`Deferred`](crate::system::Deferred) system parameters (like [`Commands`](crate::prelude::Commands<'_, '_>)) to the `world`.
     ///
     /// Like always, deferred system parameters are applied in the "topological sort order" of the schedule graph.
     /// As a result, buffers from one system are only guaranteed to be applied before those of other systems
@@ -1376,7 +1376,7 @@ impl ScheduleGraph {
                         }
                         AccessConflicts::All => {
                             // there is no specific component conflicting, but the systems are overall incompatible
-                            // for example 2 systems with `Query<EntityMut>`
+                            // for example 2 systems with `Query<'_, '_, EntityMut<'_>>`
                             conflicting_systems.push((a, b, Vec::new()));
                         }
                     }
@@ -1868,9 +1868,9 @@ impl ScheduleGraph {
         let n_ambiguities = ambiguities.len();
 
         let mut message = format!(
-                "{n_ambiguities} pairs of systems with conflicting data access have indeterminate execution order. \
+            "{n_ambiguities} pairs of systems with conflicting data access have indeterminate execution order. \
                 Consider adding `before`, `after`, or `ambiguous_with` relationships between these:\n",
-            );
+        );
 
         for (name_a, name_b, conflicts) in self.conflicts_to_string(ambiguities, components) {
             writeln!(message, " -- {name_a} and {name_b}").unwrap();
@@ -2092,8 +2092,8 @@ mod tests {
         let mut world = World::default();
         schedule.add_systems(
             (
-                |mut commands: Commands| commands.insert_resource(Resource1),
-                |_: Res<Resource1>| {},
+                |mut commands: Commands<'_, '_>| commands.insert_resource(Resource1),
+                |_: Res<'_, Resource1>| {},
             )
                 .chain(),
         );
@@ -2111,10 +2111,10 @@ mod tests {
         schedule.add_systems(
             (
                 (
-                    |mut commands: Commands| commands.insert_resource(Resource1),
-                    |mut commands: Commands| commands.insert_resource(Resource2),
+                    |mut commands: Commands<'_, '_>| commands.insert_resource(Resource1),
+                    |mut commands: Commands<'_, '_>| commands.insert_resource(Resource2),
                 ),
-                |_: Res<Resource1>, _: Res<Resource2>| {},
+                |_: Res<'_, Resource1>, _: Res<'_, Resource2>| {},
             )
                 .chain(),
         );
@@ -2126,10 +2126,10 @@ mod tests {
         // merges sync points on rebuild
         schedule.add_systems(((
             (
-                |mut commands: Commands| commands.insert_resource(Resource1),
-                |mut commands: Commands| commands.insert_resource(Resource2),
+                |mut commands: Commands<'_, '_>| commands.insert_resource(Resource1),
+                |mut commands: Commands<'_, '_>| commands.insert_resource(Resource2),
             ),
-            |_: Res<Resource1>, _: Res<Resource2>| {},
+            |_: Res<'_, Resource1>, _: Res<'_, Resource2>| {},
         )
             .chain(),));
         schedule.run(&mut world);
@@ -2144,9 +2144,9 @@ mod tests {
         // insert two consecutive command systems, it should create two sync points
         schedule.add_systems(
             (
-                |mut commands: Commands| commands.insert_resource(Resource1),
-                |mut commands: Commands| commands.insert_resource(Resource2),
-                |_: Res<Resource1>, _: Res<Resource2>| {},
+                |mut commands: Commands<'_, '_>| commands.insert_resource(Resource1),
+                |mut commands: Commands<'_, '_>| commands.insert_resource(Resource2),
+                |_: Res<'_, Resource1>, _: Res<'_, Resource2>| {},
             )
                 .chain(),
         );
@@ -2165,8 +2165,8 @@ mod tests {
         let mut world = World::default();
         schedule.add_systems(
             (
-                |mut commands: Commands| commands.insert_resource(Resource1),
-                |res: Option<Res<Resource1>>| assert!(res.is_none()),
+                |mut commands: Commands<'_, '_>| commands.insert_resource(Resource1),
+                |res: Option<Res<'_, Resource1>>| assert!(res.is_none()),
             )
                 .chain(),
         );
@@ -2178,11 +2178,11 @@ mod tests {
     mod no_sync_edges {
         use super::*;
 
-        fn insert_resource(mut commands: Commands) {
+        fn insert_resource(mut commands: Commands<'_, '_>) {
             commands.insert_resource(Resource1);
         }
 
-        fn resource_does_not_exist(res: Option<Res<Resource1>>) {
+        fn resource_does_not_exist(res: Option<Res<'_, Resource1>>) {
             assert!(res.is_none());
         }
 
@@ -2293,15 +2293,15 @@ mod tests {
                 schedule.add_systems(
                     (
                         (
-                            |mut commands: Commands| commands.insert_resource(Ra),
-                            |mut commands: Commands| commands.insert_resource(Rb),
+                            |mut commands: Commands<'_, '_>| commands.insert_resource(Ra),
+                            |mut commands: Commands<'_, '_>| commands.insert_resource(Rb),
                         ),
                         (
-                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                            |res_a: Option<Res<'_, Ra>>, res_b: Option<Res<'_, Rb>>| {
                                 assert!(res_a.is_some());
                                 assert!(res_b.is_some());
                             },
-                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                            |res_a: Option<Res<'_, Ra>>, res_b: Option<Res<'_, Rb>>| {
                                 assert!(res_a.is_some());
                                 assert!(res_b.is_some());
                             },
@@ -2315,15 +2315,15 @@ mod tests {
                 schedule.add_systems(
                     (
                         (
-                            |mut commands: Commands| commands.insert_resource(Ra),
-                            |mut commands: Commands| commands.insert_resource(Rb),
+                            |mut commands: Commands<'_, '_>| commands.insert_resource(Ra),
+                            |mut commands: Commands<'_, '_>| commands.insert_resource(Rb),
                         ),
                         (
-                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                            |res_a: Option<Res<'_, Ra>>, res_b: Option<Res<'_, Rb>>| {
                                 assert!(res_a.is_none());
                                 assert!(res_b.is_none());
                             },
-                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                            |res_a: Option<Res<'_, Ra>>, res_b: Option<Res<'_, Rb>>| {
                                 assert!(res_a.is_none());
                                 assert!(res_b.is_none());
                             },
@@ -2340,19 +2340,19 @@ mod tests {
                 schedule.add_systems(
                     (
                         (
-                            |mut commands: Commands| commands.insert_resource(Ra),
-                            |mut commands: Commands, res_a: Option<Res<Ra>>| {
+                            |mut commands: Commands<'_, '_>| commands.insert_resource(Ra),
+                            |mut commands: Commands<'_, '_>, res_a: Option<Res<'_, Ra>>| {
                                 commands.insert_resource(Rb);
                                 assert!(res_a.is_some());
                             },
                         )
                             .chain(),
                         (
-                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                            |res_a: Option<Res<'_, Ra>>, res_b: Option<Res<'_, Rb>>| {
                                 assert!(res_a.is_some());
                                 assert!(res_b.is_some());
                             },
-                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                            |res_a: Option<Res<'_, Ra>>, res_b: Option<Res<'_, Rb>>| {
                                 assert!(res_a.is_some());
                                 assert!(res_b.is_some());
                             },
@@ -2366,19 +2366,19 @@ mod tests {
                 schedule.add_systems(
                     (
                         (
-                            |mut commands: Commands| commands.insert_resource(Ra),
-                            |mut commands: Commands, res_a: Option<Res<Ra>>| {
+                            |mut commands: Commands<'_, '_>| commands.insert_resource(Ra),
+                            |mut commands: Commands<'_, '_>, res_a: Option<Res<'_, Ra>>| {
                                 commands.insert_resource(Rb);
                                 assert!(res_a.is_some());
                             },
                         )
                             .chain(),
                         (
-                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                            |res_a: Option<Res<'_, Ra>>, res_b: Option<Res<'_, Rb>>| {
                                 assert!(res_a.is_some());
                                 assert!(res_b.is_none());
                             },
-                            |res_a: Option<Res<Ra>>, res_b: Option<Res<Rb>>| {
+                            |res_a: Option<Res<'_, Ra>>, res_b: Option<Res<'_, Rb>>| {
                                 assert!(res_a.is_some());
                                 assert!(res_b.is_none());
                             },
@@ -2395,20 +2395,20 @@ mod tests {
                 schedule.add_systems(
                     (
                         (
-                            |mut commands: Commands| commands.insert_resource(Ra),
-                            |mut commands: Commands| commands.insert_resource(Rb),
+                            |mut commands: Commands<'_, '_>| commands.insert_resource(Ra),
+                            |mut commands: Commands<'_, '_>| commands.insert_resource(Rb),
                         ),
                         (
-                            |mut commands: Commands,
-                             res_a: Option<Res<Ra>>,
-                             res_b: Option<Res<Rb>>| {
+                            |mut commands: Commands<'_, '_>,
+                             res_a: Option<Res<'_, Ra>>,
+                             res_b: Option<Res<'_, Rb>>| {
                                 commands.insert_resource(Rc);
                                 assert!(res_a.is_some());
                                 assert!(res_b.is_some());
                             },
-                            |res_a: Option<Res<Ra>>,
-                             res_b: Option<Res<Rb>>,
-                             res_c: Option<Res<Rc>>| {
+                            |res_a: Option<Res<'_, Ra>>,
+                             res_b: Option<Res<'_, Rb>>,
+                             res_c: Option<Res<'_, Rc>>| {
                                 assert!(res_a.is_some());
                                 assert!(res_b.is_some());
                                 assert!(res_c.is_some());
@@ -2424,20 +2424,20 @@ mod tests {
                 schedule.add_systems(
                     (
                         (
-                            |mut commands: Commands| commands.insert_resource(Ra),
-                            |mut commands: Commands| commands.insert_resource(Rb),
+                            |mut commands: Commands<'_, '_>| commands.insert_resource(Ra),
+                            |mut commands: Commands<'_, '_>| commands.insert_resource(Rb),
                         ),
                         (
-                            |mut commands: Commands,
-                             res_a: Option<Res<Ra>>,
-                             res_b: Option<Res<Rb>>| {
+                            |mut commands: Commands<'_, '_>,
+                             res_a: Option<Res<'_, Ra>>,
+                             res_b: Option<Res<'_, Rb>>| {
                                 commands.insert_resource(Rc);
                                 assert!(res_a.is_none());
                                 assert!(res_b.is_none());
                             },
-                            |res_a: Option<Res<Ra>>,
-                             res_b: Option<Res<Rb>>,
-                             res_c: Option<Res<Rc>>| {
+                            |res_a: Option<Res<'_, Ra>>,
+                             res_b: Option<Res<'_, Rb>>,
+                             res_c: Option<Res<'_, Rc>>| {
                                 assert!(res_a.is_some());
                                 assert!(res_b.is_some());
                                 assert!(res_c.is_some());
@@ -2456,24 +2456,24 @@ mod tests {
                 schedule.add_systems(
                     (
                         (
-                            |mut commands: Commands| commands.insert_resource(Ra),
-                            |mut commands: Commands, res_a: Option<Res<Ra>>| {
+                            |mut commands: Commands<'_, '_>| commands.insert_resource(Ra),
+                            |mut commands: Commands<'_, '_>, res_a: Option<Res<'_, Ra>>| {
                                 commands.insert_resource(Rb);
                                 assert!(res_a.is_some());
                             },
                         )
                             .chain(),
                         (
-                            |mut commands: Commands,
-                             res_a: Option<Res<Ra>>,
-                             res_b: Option<Res<Rb>>| {
+                            |mut commands: Commands<'_, '_>,
+                             res_a: Option<Res<'_, Ra>>,
+                             res_b: Option<Res<'_, Rb>>| {
                                 commands.insert_resource(Rc);
                                 assert!(res_a.is_some());
                                 assert!(res_b.is_some());
                             },
-                            |res_a: Option<Res<Ra>>,
-                             res_b: Option<Res<Rb>>,
-                             res_c: Option<Res<Rc>>| {
+                            |res_a: Option<Res<'_, Ra>>,
+                             res_b: Option<Res<'_, Rb>>,
+                             res_c: Option<Res<'_, Rc>>| {
                                 assert!(res_a.is_some());
                                 assert!(res_b.is_some());
                                 assert!(res_c.is_some());
@@ -2489,24 +2489,24 @@ mod tests {
                 schedule.add_systems(
                     (
                         (
-                            |mut commands: Commands| commands.insert_resource(Ra),
-                            |mut commands: Commands, res_a: Option<Res<Ra>>| {
+                            |mut commands: Commands<'_, '_>| commands.insert_resource(Ra),
+                            |mut commands: Commands<'_, '_>, res_a: Option<Res<'_, Ra>>| {
                                 commands.insert_resource(Rb);
                                 assert!(res_a.is_some());
                             },
                         )
                             .chain(),
                         (
-                            |mut commands: Commands,
-                             res_a: Option<Res<Ra>>,
-                             res_b: Option<Res<Rb>>| {
+                            |mut commands: Commands<'_, '_>,
+                             res_a: Option<Res<'_, Ra>>,
+                             res_b: Option<Res<'_, Rb>>| {
                                 commands.insert_resource(Rc);
                                 assert!(res_a.is_some());
                                 assert!(res_b.is_none());
                             },
-                            |res_a: Option<Res<Ra>>,
-                             res_b: Option<Res<Rb>>,
-                             res_c: Option<Res<Rc>>| {
+                            |res_a: Option<Res<'_, Ra>>,
+                             res_b: Option<Res<'_, Rb>>,
+                             res_c: Option<Res<'_, Rc>>| {
                                 assert!(res_a.is_some());
                                 assert!(res_b.is_some());
                                 assert!(res_c.is_some());
@@ -2532,7 +2532,9 @@ mod tests {
         let schedule = Schedule::new(TestSchedule);
 
         schedules.insert(schedule);
-        schedules.add_systems(TestSchedule, |mut ran: ResMut<CheckSystemRan>| ran.0 += 1);
+        schedules.add_systems(TestSchedule, |mut ran: ResMut<'_, CheckSystemRan>| {
+            ran.0 += 1
+        });
 
         let mut world = World::new();
 
@@ -2550,7 +2552,9 @@ mod tests {
     fn add_systems_to_non_existing_schedule() {
         let mut schedules = Schedules::default();
 
-        schedules.add_systems(TestSchedule, |mut ran: ResMut<CheckSystemRan>| ran.0 += 1);
+        schedules.add_systems(TestSchedule, |mut ran: ResMut<'_, CheckSystemRan>| {
+            ran.0 += 1
+        });
 
         let mut world = World::new();
 
@@ -2580,7 +2584,7 @@ mod tests {
         schedules.configure_sets(TestSchedule, (TestSet::First, TestSet::Second).chain());
         schedules.add_systems(
             TestSchedule,
-            (|mut ran: ResMut<CheckSystemRan>| {
+            (|mut ran: ResMut<'_, CheckSystemRan>| {
                 assert_eq!(ran.0, 0);
                 ran.0 += 1;
             })
@@ -2589,7 +2593,7 @@ mod tests {
 
         schedules.add_systems(
             TestSchedule,
-            (|mut ran: ResMut<CheckSystemRan>| {
+            (|mut ran: ResMut<'_, CheckSystemRan>| {
                 assert_eq!(ran.0, 1);
                 ran.0 += 1;
             })
@@ -2615,7 +2619,7 @@ mod tests {
         schedules.configure_sets(TestSchedule, (TestSet::First, TestSet::Second).chain());
         schedules.add_systems(
             TestSchedule,
-            (|mut ran: ResMut<CheckSystemRan>| {
+            (|mut ran: ResMut<'_, CheckSystemRan>| {
                 assert_eq!(ran.0, 0);
                 ran.0 += 1;
             })
@@ -2624,7 +2628,7 @@ mod tests {
 
         schedules.add_systems(
             TestSchedule,
-            (|mut ran: ResMut<CheckSystemRan>| {
+            (|mut ran: ResMut<'_, CheckSystemRan>| {
                 assert_eq!(ran.0, 1);
                 ran.0 += 1;
             })

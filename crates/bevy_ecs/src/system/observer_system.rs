@@ -66,7 +66,7 @@ mod tests {
 
     #[test]
     fn test_piped_observer_systems_no_input() {
-        fn a(_: Trigger<TriggerEvent>) {}
+        fn a(_: Trigger<'_, TriggerEvent>) {}
         fn b() {}
 
         let mut world = World::new();
@@ -75,7 +75,7 @@ mod tests {
 
     #[test]
     fn test_piped_observer_systems_with_inputs() {
-        fn a(_: Trigger<TriggerEvent>) -> u32 {
+        fn a(_: Trigger<'_, TriggerEvent>) -> u32 {
             3
         }
         fn b(_: In<u32>) {}

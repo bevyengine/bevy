@@ -142,18 +142,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
             .add_render_graph_edges(Core3d, (NodePbr::GpuPreprocess, NodePbr::ShadowPass))
             .init_resource::<PreprocessPipelines>()
             .init_resource::<SpecializedComputePipelines<PreprocessPipeline>>()
-            .add_systems(
-                Render,
-                (
-                    prepare_preprocess_pipelines.in_set(RenderSet::Prepare),
-                    prepare_preprocess_bind_groups
-                        .run_if(
-                            resource_exists::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
-                        )
-                        .in_set(RenderSet::PrepareBindGroups),
-                    write_mesh_culling_data_buffer.in_set(RenderSet::PrepareResourcesFlush),
-                )
-            );
+            .add_systems(Render, (prepare_preprocess_pipelines.in_set(RenderSet::Prepare), prepare_preprocess_bind_groups.run_if(resource_exists::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>).in_set(RenderSet::PrepareBindGroups), write_mesh_culling_data_buffer.in_set(RenderSet::PrepareResourcesFlush)));
     }
 }
 
@@ -172,7 +161,7 @@ impl Node for GpuPreprocessNode {
 
     fn run<'w>(
         &self,
-        _: &mut RenderGraphContext,
+        _: &mut RenderGraphContext<'_>,
         render_context: &mut RenderContext<'w>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
@@ -341,9 +330,9 @@ fn preprocess_direct_bind_group_layout_entries() -> DynamicBindGroupLayoutEntrie
 
 /// A system that specializes the `mesh_preprocess.wgsl` pipelines if necessary.
 pub fn prepare_preprocess_pipelines(
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedComputePipelines<PreprocessPipeline>>,
-    mut preprocess_pipelines: ResMut<PreprocessPipelines>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedComputePipelines<PreprocessPipeline>>,
+    mut preprocess_pipelines: ResMut<'_, PreprocessPipelines>,
 ) {
     preprocess_pipelines.direct.prepare(
         &pipeline_cache,
@@ -376,13 +365,13 @@ impl PreprocessPipeline {
 /// A system that attaches the mesh uniform buffers to the bind groups for the
 /// variants of the mesh preprocessing compute shader.
 pub fn prepare_preprocess_bind_groups(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
-    indirect_parameters_buffer: Res<IndirectParametersBuffer>,
-    mesh_culling_data_buffer: Res<MeshCullingDataBuffer>,
-    view_uniforms: Res<ViewUniforms>,
-    pipelines: Res<PreprocessPipelines>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    batched_instance_buffers: Res<'_, BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+    indirect_parameters_buffer: Res<'_, IndirectParametersBuffer>,
+    mesh_culling_data_buffer: Res<'_, MeshCullingDataBuffer>,
+    view_uniforms: Res<'_, ViewUniforms>,
+    pipelines: Res<'_, PreprocessPipelines>,
 ) {
     // Grab the `BatchedInstanceBuffers`.
     let BatchedInstanceBuffers {
@@ -467,9 +456,9 @@ pub fn prepare_preprocess_bind_groups(
 
 /// Writes the information needed to do GPU mesh culling to the GPU.
 pub fn write_mesh_culling_data_buffer(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut mesh_culling_data_buffer: ResMut<'_, MeshCullingDataBuffer>,
 ) {
     mesh_culling_data_buffer.write_buffer(&render_device, &render_queue);
     mesh_culling_data_buffer.clear();

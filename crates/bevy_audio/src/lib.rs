@@ -19,7 +19,7 @@
 //!         .run();
 //! }
 //!
-//! fn play_background_audio(asset_server: Res<AssetServer>, mut commands: Commands) {
+//! fn play_background_audio(asset_server: Res<'_, AssetServer>, mut commands: Commands<'_, '_>) {
 //!     commands.spawn((
 //!         AudioPlayer::<AudioSource>(asset_server.load("background_audio.ogg")),
 //!         PlaybackSettings::LOOP,

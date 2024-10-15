@@ -9,8 +9,8 @@ use syn::Type;
 
 /// Creates the `GetTypeRegistration` impl for the given type data.
 pub(crate) fn impl_get_type_registration<'a>(
-    meta: &ReflectMeta,
-    where_clause_options: &WhereClauseOptions,
+    meta: &ReflectMeta<'_>,
+    where_clause_options: &WhereClauseOptions<'_, '_>,
     serialization_data: Option<&SerializationDataDef>,
     type_dependencies: Option<impl Iterator<Item = &'a Type>>,
 ) -> proc_macro2::TokenStream {

@@ -102,9 +102,9 @@ fn setup(world: &mut World) {
 }
 
 fn trigger_hooks(
-    mut commands: Commands,
-    keys: Res<ButtonInput<KeyCode>>,
-    index: Res<MyComponentIndex>,
+    mut commands: Commands<'_, '_>,
+    keys: Res<'_, ButtonInput<KeyCode>>,
+    index: Res<'_, MyComponentIndex>,
 ) {
     for (key, entity) in index.iter() {
         if !keys.pressed(*key) {

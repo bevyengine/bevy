@@ -49,7 +49,7 @@ pub enum NodeMeasure {
 }
 
 impl Measure for NodeMeasure {
-    fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
+    fn measure(&mut self, measure_args: MeasureArgs<'_>, style: &taffy::Style) -> Vec2 {
         match self {
             NodeMeasure::Fixed(fixed) => fixed.measure(measure_args, style),
             #[cfg(feature = "bevy_text")]
@@ -68,7 +68,7 @@ pub struct FixedMeasure {
 }
 
 impl Measure for FixedMeasure {
-    fn measure(&mut self, _: MeasureArgs, _: &taffy::Style) -> Vec2 {
+    fn measure(&mut self, _: MeasureArgs<'_>, _: &taffy::Style) -> Vec2 {
         self.size
     }
 }

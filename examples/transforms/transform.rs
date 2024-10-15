@@ -39,9 +39,9 @@ fn main() {
 
 // Startup system to setup the scene and spawn all relevant entities.
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // Add an object (sphere) for visualizing scaling.
     commands.spawn((
@@ -87,7 +87,7 @@ fn setup(
 }
 
 // This system will move the cube forward.
-fn move_cube(mut cubes: Query<(&mut Transform, &mut CubeState)>, timer: Res<Time>) {
+fn move_cube(mut cubes: Query<'_, '_, (&mut Transform, &mut CubeState)>, timer: Res<'_, Time>) {
     for (mut transform, cube) in &mut cubes {
         // Move the cube forward smoothly at a given move_speed.
         let forward = transform.forward();
@@ -99,9 +99,9 @@ fn move_cube(mut cubes: Query<(&mut Transform, &mut CubeState)>, timer: Res<Time
 // Due to the forward movement the resulting movement
 // will be a circular motion around the center_sphere.
 fn rotate_cube(
-    mut cubes: Query<(&mut Transform, &mut CubeState), Without<Center>>,
-    center_spheres: Query<&Transform, With<Center>>,
-    timer: Res<Time>,
+    mut cubes: Query<'_, '_, (&mut Transform, &mut CubeState), Without<Center>>,
+    center_spheres: Query<'_, '_, &Transform, With<Center>>,
+    timer: Res<'_, Time>,
 ) {
     // Calculate the point to circle around. (The position of the center_sphere)
     let mut center: Vec3 = Vec3::ZERO;
@@ -124,8 +124,8 @@ fn rotate_cube(
 // This system will scale down the sphere in the center of the scene
 // according to the traveling distance of the orbiting cube(s) from their start position(s).
 fn scale_down_sphere_proportional_to_cube_travel_distance(
-    cubes: Query<(&Transform, &CubeState), Without<Center>>,
-    mut centers: Query<(&mut Transform, &Center)>,
+    cubes: Query<'_, '_, (&Transform, &CubeState), Without<Center>>,
+    mut centers: Query<'_, '_, (&mut Transform, &Center)>,
 ) {
     // First we need to calculate the length of between
     // the current position of the orbiting cube and the spawn position.

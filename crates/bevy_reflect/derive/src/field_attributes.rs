@@ -113,7 +113,7 @@ impl FieldAttributes {
     }
 
     /// Parses a single field attribute.
-    fn parse_field_attribute(&mut self, input: ParseStream) -> syn::Result<()> {
+    fn parse_field_attribute(&mut self, input: ParseStream<'_>) -> syn::Result<()> {
         let lookahead = input.lookahead1();
         if lookahead.peek(Token![@]) {
             self.parse_custom_attribute(input)
@@ -134,7 +134,7 @@ impl FieldAttributes {
     ///
     /// Examples:
     /// - `#[reflect(ignore)]`
-    fn parse_ignore(&mut self, input: ParseStream) -> syn::Result<()> {
+    fn parse_ignore(&mut self, input: ParseStream<'_>) -> syn::Result<()> {
         if self.ignore != ReflectIgnoreBehavior::None {
             return Err(input.error(format!(
                 "only one of {:?} is allowed",
@@ -151,7 +151,7 @@ impl FieldAttributes {
     ///
     /// Examples:
     /// - `#[reflect(skip_serializing)]`
-    fn parse_skip_serializing(&mut self, input: ParseStream) -> syn::Result<()> {
+    fn parse_skip_serializing(&mut self, input: ParseStream<'_>) -> syn::Result<()> {
         if self.ignore != ReflectIgnoreBehavior::None {
             return Err(input.error(format!(
                 "only one of {:?} is allowed",
@@ -169,7 +169,7 @@ impl FieldAttributes {
     /// Examples:
     /// - `#[reflect(default)]`
     /// - `#[reflect(default = "path::to::func")]`
-    fn parse_default(&mut self, input: ParseStream) -> syn::Result<()> {
+    fn parse_default(&mut self, input: ParseStream<'_>) -> syn::Result<()> {
         if !matches!(self.default, DefaultBehavior::Required) {
             return Err(input.error(format!("only one of {:?} is allowed", [DEFAULT_ATTR])));
         }
@@ -193,15 +193,15 @@ impl FieldAttributes {
     /// Examples:
     /// - `#[reflect(@(foo = "bar"))]`
     /// - `#[reflect(@(min = 0.0, max = 1.0))]`
-    fn parse_custom_attribute(&mut self, input: ParseStream) -> syn::Result<()> {
+    fn parse_custom_attribute(&mut self, input: ParseStream<'_>) -> syn::Result<()> {
         self.custom_attributes.parse_custom_attribute(input)
     }
 
     /// Parse `remote` attribute.
     ///
     /// Examples:
-    /// - `#[reflect(remote = path::to::RemoteType)]`
-    fn parse_remote(&mut self, input: ParseStream) -> syn::Result<()> {
+    /// - `#[reflect(remote = path::to::RemoteType<'_>)]`
+    fn parse_remote(&mut self, input: ParseStream<'_>) -> syn::Result<()> {
         if let Some(remote) = self.remote.as_ref() {
             return Err(input.error(format!(
                 "remote type already specified as {}",

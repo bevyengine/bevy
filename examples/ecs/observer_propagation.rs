@@ -24,7 +24,7 @@ fn main() {
 // We're going to model how attack damage can be partially blocked by the goblin's armor using
 // event bubbling. Our events will target the armor, and if the armor isn't strong enough to block
 // the attack it will continue up and hit the goblin.
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands
         .spawn((Name::new("Goblin"), HitPoints(50)))
         .observe(take_damage)
@@ -68,7 +68,7 @@ struct HitPoints(u16);
 struct Armor(u16);
 
 /// A normal bevy system that attacks a piece of the goblin's armor on a timer.
-fn attack_armor(entities: Query<Entity, With<Armor>>, mut commands: Commands) {
+fn attack_armor(entities: Query<'_, '_, Entity, With<Armor>>, mut commands: Commands<'_, '_>) {
     let mut rng = thread_rng();
     if let Some(target) = entities.iter().choose(&mut rng) {
         let damage = rng.gen_range(1..20);
@@ -77,14 +77,14 @@ fn attack_armor(entities: Query<Entity, With<Armor>>, mut commands: Commands) {
     }
 }
 
-fn attack_hits(trigger: Trigger<Attack>, name: Query<&Name>) {
+fn attack_hits(trigger: Trigger<'_, Attack>, name: Query<'_, '_, &Name>) {
     if let Ok(name) = name.get(trigger.entity()) {
         info!("Attack hit {}", name);
     }
 }
 
 /// A callback placed on [`Armor`], checking if it absorbed all the [`Attack`] damage.
-fn block_attack(mut trigger: Trigger<Attack>, armor: Query<(&Armor, &Name)>) {
+fn block_attack(mut trigger: Trigger<'_, Attack>, armor: Query<'_, '_, (&Armor, &Name)>) {
     let (armor, name) = armor.get(trigger.entity()).unwrap();
     let attack = trigger.event_mut();
     let damage = attack.damage.saturating_sub(**armor);
@@ -104,10 +104,10 @@ fn block_attack(mut trigger: Trigger<Attack>, armor: Query<(&Armor, &Name)>) {
 /// A callback on the armor wearer, triggered when a piece of armor is not able to block an attack,
 /// or the wearer is attacked directly.
 fn take_damage(
-    trigger: Trigger<Attack>,
-    mut hp: Query<(&mut HitPoints, &Name)>,
-    mut commands: Commands,
-    mut app_exit: EventWriter<AppExit>,
+    trigger: Trigger<'_, Attack>,
+    mut hp: Query<'_, '_, (&mut HitPoints, &Name)>,
+    mut commands: Commands<'_, '_>,
+    mut app_exit: EventWriter<'_, AppExit>,
 ) {
     let attack = trigger.event();
     let (mut hp, name) = hp.get_mut(trigger.entity()).unwrap();

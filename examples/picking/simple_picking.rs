@@ -13,9 +13,9 @@ fn main() {
 
 /// set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     commands
         .spawn((
@@ -28,11 +28,11 @@ fn setup(
             },
         ))
         .observe(
-            |_click: Trigger<Pointer<Click>>,
-             mut commands: Commands,
-             mut meshes: ResMut<Assets<Mesh>>,
-             mut materials: ResMut<Assets<StandardMaterial>>,
-             mut num: Local<usize>| {
+            |_click: Trigger<'_, Pointer<Click>>,
+             mut commands: Commands<'_, '_>,
+             mut meshes: ResMut<'_, Assets<Mesh>>,
+             mut materials: ResMut<'_, Assets<StandardMaterial>>,
+             mut num: Local<'_, usize>| {
                 commands.spawn((
                     Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
                     MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
@@ -42,13 +42,13 @@ fn setup(
             },
         )
         .observe(
-            |evt: Trigger<Pointer<Out>>, mut texts: Query<&mut TextColor>| {
+            |evt: Trigger<'_, Pointer<Out>>, mut texts: Query<'_, '_, &mut TextColor>| {
                 let mut color = texts.get_mut(evt.entity()).unwrap();
                 color.0 = Color::WHITE;
             },
         )
         .observe(
-            |evt: Trigger<Pointer<Over>>, mut texts: Query<&mut TextColor>| {
+            |evt: Trigger<'_, Pointer<Over>>, mut texts: Query<'_, '_, &mut TextColor>| {
                 let mut color = texts.get_mut(evt.entity()).unwrap();
                 color.0 = CYAN_400.into();
             },

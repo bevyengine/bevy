@@ -32,11 +32,11 @@ struct Movable;
 
 /// set up a simple 3D scene
 fn setup(
-    parameters: Res<Parameters>,
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
+    parameters: Res<'_, Parameters>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     // ground plane
     commands.spawn((
@@ -251,10 +251,10 @@ fn setup(
 }
 
 fn update_exposure(
-    key_input: Res<ButtonInput<KeyCode>>,
-    mut parameters: ResMut<Parameters>,
-    mut exposure: Single<&mut Exposure>,
-    text: Single<Entity, With<Text>>,
+    key_input: Res<'_, ButtonInput<KeyCode>>,
+    mut parameters: ResMut<'_, Parameters>,
+    mut exposure: Single<'_, &mut Exposure>,
+    text: Single<'_, Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     // TODO: Clamp values to a reasonable range
@@ -289,8 +289,8 @@ fn update_exposure(
 }
 
 fn animate_light_direction(
-    time: Res<Time>,
-    mut query: Query<&mut Transform, With<DirectionalLight>>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, &mut Transform, With<DirectionalLight>>,
 ) {
     for mut transform in &mut query {
         transform.rotate_y(time.delta_seconds() * 0.5);
@@ -298,9 +298,9 @@ fn animate_light_direction(
 }
 
 fn movement(
-    input: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
-    mut query: Query<&mut Transform, With<Movable>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, &mut Transform, With<Movable>>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;

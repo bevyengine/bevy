@@ -113,8 +113,8 @@ impl ViewNode for BloomNode {
     // instead we write into our own bloom texture and then directly back onto main.
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        _graph: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
         (
             camera,
             view_target,
@@ -124,7 +124,7 @@ impl ViewNode for BloomNode {
             bloom_settings,
             upsampling_pipeline_ids,
             downsampling_pipeline_ids,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<'_, Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         if bloom_settings.intensity == 0.0 {
@@ -324,10 +324,10 @@ impl BloomTexture {
 }
 
 fn prepare_bloom_textures(
-    mut commands: Commands,
-    mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera, &Bloom)>,
+    mut commands: Commands<'_, '_>,
+    mut texture_cache: ResMut<'_, TextureCache>,
+    render_device: Res<'_, RenderDevice>,
+    views: Query<'_, '_, (Entity, &ExtractedCamera, &Bloom)>,
 ) {
     for (entity, camera, bloom) in &views {
         if let Some(UVec2 {
@@ -397,12 +397,12 @@ struct BloomBindGroups {
 }
 
 fn prepare_bloom_bind_groups(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    downsampling_pipeline: Res<BloomDownsamplingPipeline>,
-    upsampling_pipeline: Res<BloomUpsamplingPipeline>,
-    views: Query<(Entity, &BloomTexture)>,
-    uniforms: Res<ComponentUniforms<BloomUniforms>>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    downsampling_pipeline: Res<'_, BloomDownsamplingPipeline>,
+    upsampling_pipeline: Res<'_, BloomUpsamplingPipeline>,
+    views: Query<'_, '_, (Entity, &BloomTexture)>,
+    uniforms: Res<'_, ComponentUniforms<BloomUniforms>>,
 ) {
     let sampler = &downsampling_pipeline.sampler;
 

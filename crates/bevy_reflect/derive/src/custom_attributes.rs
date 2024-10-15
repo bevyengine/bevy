@@ -34,7 +34,7 @@ impl CustomAttributes {
     /// - `#[reflect(@Foo))]`
     /// - `#[reflect(@Bar::baz("qux"))]`
     /// - `#[reflect(@0..256u8)]`
-    pub fn parse_custom_attribute(&mut self, input: ParseStream) -> syn::Result<()> {
+    pub fn parse_custom_attribute(&mut self, input: ParseStream<'_>) -> syn::Result<()> {
         input.parse::<Token![@]>()?;
         self.push(input.parse()?)
     }

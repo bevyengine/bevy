@@ -79,8 +79,8 @@ mod sealed {
 /// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
 /// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
 /// #     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> { todo!() }
-/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
-/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #     fn reflect_ref(&self) -> ReflectRef<'_> { todo!() }
+/// #     fn reflect_mut(&mut self) -> ReflectMut<'_> { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
@@ -167,8 +167,8 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
 /// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
 /// #     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> { todo!() }
-/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
-/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #     fn reflect_ref(&self) -> ReflectRef<'_> { todo!() }
+/// #     fn reflect_mut(&mut self) -> ReflectMut<'_> { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
@@ -197,7 +197,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| format!("my_crate::foo::Foo<{}>", T::type_path()))
 ///     }
-///     
+///
 ///     fn short_type_path() -> &'static str {
 ///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| format!("Foo<{}>", T::short_type_path()))

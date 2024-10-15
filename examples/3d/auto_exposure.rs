@@ -30,11 +30,11 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut compensation_curves: ResMut<Assets<AutoExposureCompensationCurve>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut compensation_curves: ResMut<'_, Assets<AutoExposureCompensationCurve>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     let metering_mask = asset_server.load("textures/basic_metering_mask.png");
 
@@ -129,14 +129,7 @@ fn setup(
 
     let text_style = TextFont::default();
 
-    commands.spawn((Text::new("Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask"),
-            text_style.clone(), Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        })
-    );
+    commands.spawn((Text::new("Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask"), text_style.clone(), Style { position_type: PositionType::Absolute, top: Val::Px(12.0), left: Val::Px(12.0), ..default() }));
 
     commands.spawn((
         Text::default(),
@@ -161,12 +154,12 @@ struct ExampleResources {
 }
 
 fn example_control_system(
-    camera: Single<(&mut Transform, &mut AutoExposure), With<Camera3d>>,
-    mut display: Single<&mut Text, With<ExampleDisplay>>,
-    mut mask_image: Single<&mut Style, With<UiImage>>,
-    time: Res<Time>,
-    input: Res<ButtonInput<KeyCode>>,
-    resources: Res<ExampleResources>,
+    camera: Single<'_, (&mut Transform, &mut AutoExposure), With<Camera3d>>,
+    mut display: Single<'_, &mut Text, With<ExampleDisplay>>,
+    mut mask_image: Single<'_, &mut Style, With<UiImage>>,
+    time: Res<'_, Time>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    resources: Res<'_, ExampleResources>,
 ) {
     let (mut camera_transform, mut auto_exposure) = camera.into_inner();
 

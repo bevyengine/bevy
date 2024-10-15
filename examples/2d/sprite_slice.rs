@@ -10,7 +10,7 @@ fn main() {
 }
 
 fn spawn_sprites(
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
     texture_handle: Handle<Image>,
     mut position: Vec3,
     slice_border: f32,
@@ -97,7 +97,7 @@ fn spawn_sprites(
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn(Camera2d);
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let style = TextFont {

@@ -13,7 +13,7 @@ fn main() {
 }
 
 // This system prints messages when you press or release the left mouse button:
-fn mouse_click_system(mouse_button_input: Res<ButtonInput<MouseButton>>) {
+fn mouse_click_system(mouse_button_input: Res<'_, ButtonInput<MouseButton>>) {
     if mouse_button_input.pressed(MouseButton::Left) {
         info!("left mouse currently pressed");
     }
@@ -29,8 +29,8 @@ fn mouse_click_system(mouse_button_input: Res<ButtonInput<MouseButton>>) {
 
 // This system prints messages when you finish dragging or scrolling with your mouse
 fn mouse_move_system(
-    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
-    accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
+    accumulated_mouse_motion: Res<'_, AccumulatedMouseMotion>,
+    accumulated_mouse_scroll: Res<'_, AccumulatedMouseScroll>,
 ) {
     if accumulated_mouse_motion.delta != Vec2::ZERO {
         let delta = accumulated_mouse_motion.delta;

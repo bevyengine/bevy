@@ -115,9 +115,9 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    currently_selected_option: Res<SelectedColorGradingOption>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    currently_selected_option: Res<'_, SelectedColorGradingOption>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     // Create the scene.
     add_basic_scene(&mut commands, &asset_server);
@@ -135,7 +135,7 @@ fn setup(
 }
 
 /// Adds all the buttons on the bottom of the scene.
-fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &ColorGrading) {
+fn add_buttons(commands: &mut Commands<'_, '_>, font: &Handle<Font>, color_grading: &ColorGrading) {
     // Spawn the parent node that contains all the buttons.
     commands
         .spawn(NodeBundle {
@@ -310,7 +310,7 @@ fn add_button_for_value(
 
 /// Creates the help text at the top of the screen.
 fn add_help_text(
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
     font: &Handle<Font>,
     currently_selected_option: &SelectedColorGradingOption,
 ) {
@@ -348,7 +348,11 @@ fn add_text<'a>(
     ))
 }
 
-fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading: ColorGrading) {
+fn add_camera(
+    commands: &mut Commands<'_, '_>,
+    asset_server: &AssetServer,
+    color_grading: ColorGrading,
+) {
     commands.spawn((
         Camera3d::default(),
         Camera {
@@ -374,7 +378,7 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
     ));
 }
 
-fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
+fn add_basic_scene(commands: &mut Commands<'_, '_>, asset_server: &AssetServer) {
     // Spawn the main scene.
     commands.spawn(SceneRoot(asset_server.load(
         GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
@@ -540,8 +544,13 @@ impl SelectedColorGradingOption {
 
 /// Handles mouse clicks on the buttons when the user clicks on a new one.
 fn handle_button_presses(
-    mut interactions: Query<(&Interaction, &ColorGradingOptionWidget), Changed<Interaction>>,
-    mut currently_selected_option: ResMut<SelectedColorGradingOption>,
+    mut interactions: Query<
+        '_,
+        '_,
+        (&Interaction, &ColorGradingOptionWidget),
+        Changed<Interaction>,
+    >,
+    mut currently_selected_option: ResMut<'_, SelectedColorGradingOption>,
 ) {
     for (interaction, widget) in interactions.iter_mut() {
         if widget.widget_type == ColorGradingOptionWidgetType::Button
@@ -554,16 +563,25 @@ fn handle_button_presses(
 
 /// Updates the state of the UI based on the current state.
 fn update_ui_state(
-    mut buttons: Query<(
-        &mut BackgroundColor,
-        &mut BorderColor,
-        &ColorGradingOptionWidget,
-    )>,
-    button_text: Query<(Entity, &ColorGradingOptionWidget), (With<Text>, Without<HelpText>)>,
-    help_text: Single<Entity, With<HelpText>>,
+    mut buttons: Query<
+        '_,
+        '_,
+        (
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &ColorGradingOptionWidget,
+        ),
+    >,
+    button_text: Query<
+        '_,
+        '_,
+        (Entity, &ColorGradingOptionWidget),
+        (With<Text>, Without<HelpText>),
+    >,
+    help_text: Single<'_, Entity, With<HelpText>>,
     mut writer: UiTextWriter,
-    cameras: Single<Ref<ColorGrading>>,
-    currently_selected_option: Res<SelectedColorGradingOption>,
+    cameras: Single<'_, Ref<'_, ColorGrading>>,
+    currently_selected_option: Res<'_, SelectedColorGradingOption>,
 ) {
     // Exit early if the UI didn't change
     if !currently_selected_option.is_changed() && !cameras.is_changed() {
@@ -619,9 +637,9 @@ fn create_help_text(currently_selected_option: &SelectedColorGradingOption) -> S
 /// Processes keyboard input to change the value of the currently-selected color
 /// grading option.
 fn adjust_color_grading_option(
-    mut color_grading: Single<&mut ColorGrading>,
-    input: Res<ButtonInput<KeyCode>>,
-    currently_selected_option: Res<SelectedColorGradingOption>,
+    mut color_grading: Single<'_, &mut ColorGrading>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    currently_selected_option: Res<'_, SelectedColorGradingOption>,
 ) {
     let mut delta = 0.0;
     if input.pressed(KeyCode::ArrowLeft) {

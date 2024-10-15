@@ -30,7 +30,7 @@ impl<'a> TupleVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for TupleVisitor<'a> {
     type Value = DynamicTuple;
 
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str("reflected tuple value")
     }
 

@@ -69,13 +69,13 @@ impl DrawState {
     }
 
     /// Marks the vertex `buffer` as bound to the `index`.
-    fn set_vertex_buffer(&mut self, index: usize, buffer_slice: BufferSlice) {
+    fn set_vertex_buffer(&mut self, index: usize, buffer_slice: BufferSlice<'_>) {
         self.vertex_buffers[index] = Some(self.buffer_slice_key(&buffer_slice));
         self.stores_state = true;
     }
 
     /// Checks, whether the vertex `buffer` is already bound to the `index`.
-    fn is_vertex_buffer_set(&self, index: usize, buffer_slice: &BufferSlice) -> bool {
+    fn is_vertex_buffer_set(&self, index: usize, buffer_slice: &BufferSlice<'_>) -> bool {
         if let Some(current) = self.vertex_buffers.get(index) {
             *current == Some(self.buffer_slice_key(buffer_slice))
         } else {
@@ -84,7 +84,7 @@ impl DrawState {
     }
 
     /// Returns the value used for checking whether `BufferSlice`s are equivalent.
-    fn buffer_slice_key(&self, buffer_slice: &BufferSlice) -> (BufferId, u64, u64) {
+    fn buffer_slice_key(&self, buffer_slice: &BufferSlice<'_>) -> (BufferId, u64, u64) {
         (
             buffer_slice.id(),
             buffer_slice.offset(),

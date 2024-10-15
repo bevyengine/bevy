@@ -41,11 +41,11 @@ impl<C: Component + GpuArrayBufferable> Default for GpuComponentArrayBufferPlugi
 }
 
 fn prepare_gpu_component_array_buffers<C: Component + GpuArrayBufferable>(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut gpu_array_buffer: ResMut<GpuArrayBuffer<C>>,
-    components: Query<(Entity, &C)>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut gpu_array_buffer: ResMut<'_, GpuArrayBuffer<C>>,
+    components: Query<'_, '_, (Entity, &C)>,
 ) {
     gpu_array_buffer.clear();
 

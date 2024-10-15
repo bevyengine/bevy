@@ -311,8 +311,8 @@ struct LineGizmoHandles {
 /// Gizmo contexts should be handled like a stack, so if you push a new context,
 /// you must pop the context before the parent context ends.
 pub fn start_gizmo_context<Config, Clear>(
-    mut swap: ResMut<GizmoStorage<Config, Swap<Clear>>>,
-    mut default: ResMut<GizmoStorage<Config, ()>>,
+    mut swap: ResMut<'_, GizmoStorage<Config, Swap<Clear>>>,
+    mut default: ResMut<'_, GizmoStorage<Config, ()>>,
 ) where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -326,8 +326,8 @@ pub fn start_gizmo_context<Config, Clear>(
 ///
 /// This must be called before [`UpdateGizmoMeshes`] in the [`Last`] schedule.
 pub fn end_gizmo_context<Config, Clear>(
-    mut swap: ResMut<GizmoStorage<Config, Swap<Clear>>>,
-    mut default: ResMut<GizmoStorage<Config, ()>>,
+    mut swap: ResMut<'_, GizmoStorage<Config, Swap<Clear>>>,
+    mut default: ResMut<'_, GizmoStorage<Config, ()>>,
 ) where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -338,8 +338,8 @@ pub fn end_gizmo_context<Config, Clear>(
 
 /// Collect the requested gizmos into a specific clear context.
 pub fn collect_requested_gizmos<Config, Clear>(
-    mut update: ResMut<GizmoStorage<Config, ()>>,
-    mut context: ResMut<GizmoStorage<Config, Clear>>,
+    mut update: ResMut<'_, GizmoStorage<Config, ()>>,
+    mut context: ResMut<'_, GizmoStorage<Config, Clear>>,
 ) where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -349,7 +349,7 @@ pub fn collect_requested_gizmos<Config, Clear>(
 }
 
 /// Clear out the contextual gizmos.
-pub fn clear_gizmo_context<Config, Clear>(mut context: ResMut<GizmoStorage<Config, Clear>>)
+pub fn clear_gizmo_context<Config, Clear>(mut context: ResMut<'_, GizmoStorage<Config, Clear>>)
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -361,8 +361,8 @@ where
 ///
 /// This should be before [`UpdateGizmoMeshes`].
 pub fn propagate_gizmos<Config, Clear>(
-    mut update_storage: ResMut<GizmoStorage<Config, ()>>,
-    contextual_storage: Res<GizmoStorage<Config, Clear>>,
+    mut update_storage: ResMut<'_, GizmoStorage<Config, ()>>,
+    contextual_storage: Res<'_, GizmoStorage<Config, Clear>>,
 ) where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -378,10 +378,10 @@ pub struct UpdateGizmoMeshes;
 ///
 /// This also clears the default `GizmoStorage`.
 fn update_gizmo_meshes<Config: GizmoConfigGroup>(
-    mut line_gizmos: ResMut<Assets<LineGizmo>>,
-    mut handles: ResMut<LineGizmoHandles>,
-    mut storage: ResMut<GizmoStorage<Config, ()>>,
-    config_store: Res<GizmoConfigStore>,
+    mut line_gizmos: ResMut<'_, Assets<LineGizmo>>,
+    mut handles: ResMut<'_, LineGizmoHandles>,
+    mut storage: ResMut<'_, GizmoStorage<Config, ()>>,
+    config_store: Res<'_, GizmoConfigStore>,
 ) {
     if storage.list_positions.is_empty() {
         handles.list.insert(TypeId::of::<Config>(), None);
@@ -430,9 +430,9 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
 
 #[cfg(feature = "bevy_render")]
 fn extract_gizmo_data(
-    mut commands: Commands,
-    handles: Extract<Res<LineGizmoHandles>>,
-    config: Extract<Res<GizmoConfigStore>>,
+    mut commands: Commands<'_, '_>,
+    handles: Extract<'_, '_, Res<'_, LineGizmoHandles>>,
+    config: Extract<'_, '_, Res<'_, GizmoConfigStore>>,
 ) {
     for (group_type_id, handle) in handles.list.iter().chain(handles.strip.iter()) {
         let Some((config, _)) = config.get_config_dyn(group_type_id) else {
@@ -520,7 +520,7 @@ impl RenderAsset for GpuLineGizmo {
 
     fn prepare_asset(
         gizmo: Self::SourceAsset,
-        render_device: &mut SystemParamItem<Self::Param>,
+        render_device: &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let position_buffer_data = cast_slice(&gizmo.positions);
         let position_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
@@ -560,10 +560,10 @@ struct LineGizmoUniformBindgroup {
 
 #[cfg(feature = "bevy_render")]
 fn prepare_line_gizmo_bind_group(
-    mut commands: Commands,
-    line_gizmo_uniform_layout: Res<LineGizmoUniformBindgroupLayout>,
-    render_device: Res<RenderDevice>,
-    line_gizmo_uniforms: Res<ComponentUniforms<LineGizmoUniform>>,
+    mut commands: Commands<'_, '_>,
+    line_gizmo_uniform_layout: Res<'_, LineGizmoUniformBindgroupLayout>,
+    render_device: Res<'_, RenderDevice>,
+    line_gizmo_uniforms: Res<'_, ComponentUniforms<LineGizmoUniform>>,
 ) {
     if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
         commands.insert_resource(LineGizmoUniformBindgroup {

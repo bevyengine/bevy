@@ -16,7 +16,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
 
     // spawn the container with default z-index.

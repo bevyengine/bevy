@@ -209,10 +209,10 @@ struct GpuReadback {
 }
 
 fn sync_readbacks(
-    mut main_world: ResMut<MainWorld>,
-    mut buffer_pool: ResMut<GpuReadbackBufferPool>,
-    mut readbacks: ResMut<GpuReadbacks>,
-    max_unused_frames: Res<GpuReadbackMaxUnusedFrames>,
+    mut main_world: ResMut<'_, MainWorld>,
+    mut buffer_pool: ResMut<'_, GpuReadbackBufferPool>,
+    mut readbacks: ResMut<'_, GpuReadbacks>,
+    max_unused_frames: Res<'_, GpuReadbackMaxUnusedFrames>,
 ) {
     readbacks.mapped.retain(|readback| {
         if let Ok((entity, buffer, result)) = readback.rx.try_recv() {
@@ -228,12 +228,12 @@ fn sync_readbacks(
 }
 
 fn prepare_buffers(
-    render_device: Res<RenderDevice>,
-    mut readbacks: ResMut<GpuReadbacks>,
-    mut buffer_pool: ResMut<GpuReadbackBufferPool>,
-    gpu_images: Res<RenderAssets<GpuImage>>,
-    ssbos: Res<RenderAssets<GpuShaderStorageBuffer>>,
-    handles: Query<(&MainEntity, &Readback)>,
+    render_device: Res<'_, RenderDevice>,
+    mut readbacks: ResMut<'_, GpuReadbacks>,
+    mut buffer_pool: ResMut<'_, GpuReadbackBufferPool>,
+    gpu_images: Res<'_, RenderAssets<GpuImage>>,
+    ssbos: Res<'_, RenderAssets<GpuShaderStorageBuffer>>,
+    handles: Query<'_, '_, (&MainEntity, &Readback)>,
 ) {
     for (entity, readback) in handles.iter() {
         match readback {
@@ -325,7 +325,7 @@ pub(crate) fn submit_readback_commands(world: &World, command_encoder: &mut Comm
 }
 
 /// Move requested readbacks to mapped readbacks after commands have been submitted in render system
-fn map_buffers(mut readbacks: ResMut<GpuReadbacks>) {
+fn map_buffers(mut readbacks: ResMut<'_, GpuReadbacks>) {
     let requested = readbacks.requested.drain(..).collect::<Vec<GpuReadback>>();
     for readback in requested {
         let slice = readback.buffer.slice(..);

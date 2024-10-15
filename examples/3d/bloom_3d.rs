@@ -23,9 +23,9 @@ fn main() {
 }
 
 fn setup_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     commands.spawn((
         Camera3d::default(),
@@ -98,11 +98,11 @@ fn setup_scene(
 // ------------------------------------------------------------------------------------------------
 
 fn update_bloom_settings(
-    camera: Single<(Entity, Option<&mut Bloom>), With<Camera>>,
-    mut text: Single<&mut Text>,
-    mut commands: Commands,
-    keycode: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
+    camera: Single<'_, (Entity, Option<&mut Bloom>), With<Camera>>,
+    mut text: Single<'_, &mut Text>,
+    mut commands: Commands<'_, '_>,
+    keycode: Res<'_, ButtonInput<KeyCode>>,
+    time: Res<'_, Time>,
 ) {
     let bloom = camera.into_inner();
 
@@ -211,7 +211,7 @@ fn update_bloom_settings(
 #[derive(Component)]
 struct Bouncing;
 
-fn bounce_spheres(time: Res<Time>, mut query: Query<&mut Transform, With<Bouncing>>) {
+fn bounce_spheres(time: Res<'_, Time>, mut query: Query<'_, '_, &mut Transform, With<Bouncing>>) {
     for mut transform in query.iter_mut() {
         transform.translation.y =
             ops::sin(transform.translation.x + transform.translation.z + time.elapsed_seconds());

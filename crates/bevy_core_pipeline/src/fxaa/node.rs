@@ -26,9 +26,9 @@ impl ViewNode for FxaaNode {
 
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (target, pipeline, fxaa): QueryItem<Self::ViewQuery>,
+        _graph: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
+        (target, pipeline, fxaa): QueryItem<'_, Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();

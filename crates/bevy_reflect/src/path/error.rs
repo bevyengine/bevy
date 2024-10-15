@@ -30,7 +30,7 @@ pub enum AccessErrorKind {
 }
 
 impl AccessErrorKind {
-    pub(super) fn with_access(self, access: Access, offset: Option<usize>) -> AccessError {
+    pub(super) fn with_access(self, access: Access<'_>, offset: Option<usize>) -> AccessError<'_> {
         AccessError {
             kind: self,
             access,
@@ -64,7 +64,7 @@ impl<'a> AccessError<'a> {
     }
 
     /// The returns the [`Access`] that this [`AccessError`] occurred in.
-    pub const fn access(&self) -> &Access {
+    pub const fn access(&self) -> &Access<'_> {
         &self.access
     }
 
@@ -89,40 +89,13 @@ impl fmt::Display for AccessError<'_> {
         write!(f, ": ")?;
 
         match kind {
-            AccessErrorKind::MissingField(type_accessed) => {
-                match access {
-                    Access::Field(field) => write!(
-                        f,
-                        "The {type_accessed} accessed doesn't have {} `{}` field",
-                        if let Some("a" | "e" | "i" | "o" | "u") = field.get(0..1) {
-                            "an"
-                        } else {
-                            "a"
-                        },
-                        access.display_value()
-                    ),
-                    Access::FieldIndex(_) => write!(
-                        f,
-                        "The {type_accessed} accessed doesn't have field index `{}`",
-                        access.display_value(),
-                    ),
-                    Access::TupleIndex(_) | Access::ListIndex(_) => write!(
-                        f,
-                        "The {type_accessed} accessed doesn't have index `{}`",
-                        access.display_value()
-                    )
-                }
-            }
-            AccessErrorKind::IncompatibleTypes { expected, actual } => write!(
-                f,
-                "Expected {} access to access a {expected}, found a {actual} instead.",
-                access.kind()
-            ),
-            AccessErrorKind::IncompatibleEnumVariantTypes { expected, actual } => write!(
-                f,
-                "Expected variant {} access to access a {expected:?} variant, found a {actual:?} variant instead.",
-                access.kind()
-            ),
+            AccessErrorKind::MissingField(type_accessed) => match access {
+                Access::Field(field) => write!(f, "The {type_accessed} accessed doesn't have {} `{}` field", if let Some("a" | "e" | "i" | "o" | "u") = field.get(0..1) { "an" } else { "a" }, access.display_value()),
+                Access::FieldIndex(_) => write!(f, "The {type_accessed} accessed doesn't have field index `{}`", access.display_value(),),
+                Access::TupleIndex(_) | Access::ListIndex(_) => write!(f, "The {type_accessed} accessed doesn't have index `{}`", access.display_value()),
+            },
+            AccessErrorKind::IncompatibleTypes { expected, actual } => write!(f, "Expected {} access to access a {expected}, found a {actual} instead.", access.kind()),
+            AccessErrorKind::IncompatibleEnumVariantTypes { expected, actual } => write!(f, "Expected variant {} access to access a {expected:?} variant, found a {actual:?} variant instead.", access.kind()),
         }
     }
 }

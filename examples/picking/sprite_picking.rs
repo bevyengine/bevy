@@ -13,8 +13,8 @@ fn main() {
 }
 
 fn move_sprite(
-    time: Res<Time>,
-    mut sprite: Query<&mut Transform, (Without<Sprite>, With<Children>)>,
+    time: Res<'_, Time>,
+    mut sprite: Query<'_, '_, &mut Transform, (Without<Sprite>, With<Children>)>,
 ) {
     let t = time.elapsed_seconds() * 0.1;
     for mut transform in &mut sprite {
@@ -28,7 +28,7 @@ fn move_sprite(
 }
 
 /// Set up a scene that tests all sprite anchor types.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn(Camera2d);
 
     let len = 128.0;
@@ -98,8 +98,8 @@ struct AnimationIndices {
 struct AnimationTimer(Timer);
 
 fn animate_sprite(
-    time: Res<Time>,
-    mut query: Query<(&AnimationIndices, &mut AnimationTimer, &mut Sprite)>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, (&AnimationIndices, &mut AnimationTimer, &mut Sprite)>,
 ) {
     for (indices, mut timer, mut sprite) in &mut query {
         let Some(texture_atlas) = &mut sprite.texture_atlas else {
@@ -119,9 +119,9 @@ fn animate_sprite(
 }
 
 fn setup_atlas(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut texture_atlas_layouts: ResMut<'_, Assets<TextureAtlasLayout>>,
 ) {
     let texture_handle = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
     let layout = TextureAtlasLayout::from_grid(UVec2::new(24, 24), 7, 1, None, None);
@@ -148,7 +148,9 @@ fn setup_atlas(
 }
 
 // An observer listener that changes the target entity's color.
-fn recolor_on<E: Debug + Clone + Reflect>(color: Color) -> impl Fn(Trigger<E>, Query<&mut Sprite>) {
+fn recolor_on<E: Debug + Clone + Reflect>(
+    color: Color,
+) -> impl Fn(Trigger<E>, Query<'_, '_, &mut Sprite>) {
     move |ev, mut sprites| {
         let Ok(mut sprite) = sprites.get_mut(ev.entity()) else {
             return;

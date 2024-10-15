@@ -17,10 +17,10 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     commands.spawn((
         Camera2d,
@@ -71,11 +71,11 @@ fn setup(
 // ------------------------------------------------------------------------------------------------
 
 fn update_bloom_settings(
-    camera: Single<(Entity, Option<&mut Bloom>), With<Camera>>,
-    mut text: Single<&mut Text>,
-    mut commands: Commands,
-    keycode: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
+    camera: Single<'_, (Entity, Option<&mut Bloom>), With<Camera>>,
+    mut text: Single<'_, &mut Text>,
+    mut commands: Commands<'_, '_>,
+    keycode: Res<'_, ButtonInput<KeyCode>>,
+    time: Res<'_, Time>,
 ) {
     let bloom = camera.into_inner();
 

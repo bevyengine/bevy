@@ -57,13 +57,13 @@ use core::{
 /// # struct ComponentA;
 /// # fn immutable_ref(
 /// // A component can be accessed by shared reference...
-/// query: Query<&ComponentA>
+/// query: Query<'_, '_, &ComponentA>
 /// # ) {}
 /// # bevy_ecs::system::assert_is_system(immutable_ref);
 ///
 /// # fn mutable_ref(
 /// // ... or by mutable reference.
-/// query: Query<&mut ComponentA>
+/// query: Query<'_, '_, &mut ComponentA>
 /// # ) {}
 /// # bevy_ecs::system::assert_is_system(mutable_ref);
 /// ```
@@ -81,7 +81,7 @@ use core::{
 /// # fn system(
 /// // Just `ComponentA` data will be accessed, but only for entities that also contain
 /// // `ComponentB`.
-/// query: Query<&ComponentA, With<ComponentB>>
+/// query: Query<'_, '_, &ComponentA, With<ComponentB>>
 /// # ) {}
 /// # bevy_ecs::system::assert_is_system(system);
 /// ```
@@ -103,7 +103,7 @@ use core::{
 /// # #[derive(Component)]
 /// # struct ComponentD;
 /// # fn immutable_ref(
-/// query: Query<(&ComponentA, &ComponentB), (With<ComponentC>, Without<ComponentD>)>
+/// query: Query<'_, '_, (&ComponentA, &ComponentB), (With<ComponentC>, Without<ComponentD>)>
 /// # ) {}
 /// # bevy_ecs::system::assert_is_system(immutable_ref);
 /// ```
@@ -117,7 +117,7 @@ use core::{
 /// # #[derive(Component)]
 /// # struct ComponentA;
 /// # fn system(
-/// query: Query<(Entity, &ComponentA)>
+/// query: Query<'_, '_, (Entity, &ComponentA)>
 /// # ) {}
 /// # bevy_ecs::system::assert_is_system(system);
 /// ```
@@ -136,7 +136,7 @@ use core::{
 /// # struct ComponentB;
 /// # fn system(
 /// // Generates items for entities that contain `ComponentA`, and optionally `ComponentB`.
-/// query: Query<(&ComponentA, Option<&ComponentB>)>
+/// query: Query<'_, '_, (&ComponentA, Option<&ComponentB>)>
 /// # ) {}
 /// # bevy_ecs::system::assert_is_system(system);
 /// ```
@@ -164,8 +164,8 @@ use core::{
 /// # struct Enemy;
 /// #
 /// fn randomize_health(
-///     player_query: Query<&mut Health, With<Player>>,
-///     enemy_query: Query<&mut Health, With<Enemy>>,
+///     player_query: Query<'_, '_, &mut Health, With<Player>>,
+///     enemy_query: Query<'_, '_, &mut Health, With<Enemy>>,
 /// )
 /// # {}
 /// # let mut randomize_health_system = IntoSystem::into_system(randomize_health);
@@ -187,8 +187,8 @@ use core::{
 /// # struct Enemy;
 /// #
 /// fn randomize_health(
-///     player_query: Query<&mut Health, (With<Player>, Without<Enemy>)>,
-///     enemy_query: Query<&mut Health, (With<Enemy>, Without<Player>)>,
+///     player_query: Query<'_, '_, &mut Health, (With<Player>, Without<Enemy>)>,
+///     enemy_query: Query<'_, '_, &mut Health, (With<Enemy>, Without<Player>)>,
 /// )
 /// # {}
 /// # let mut randomize_health_system = IntoSystem::into_system(randomize_health);
@@ -211,7 +211,7 @@ use core::{
 /// # #[derive(Component)]
 /// # struct ComponentA;
 /// # fn system(
-/// query: Query<(EntityRef, &ComponentA)>
+/// query: Query<'_, '_, (EntityRef, &ComponentA)>
 /// # ) {}
 /// # bevy_ecs::system::assert_is_system(system);
 /// ```
@@ -227,7 +227,7 @@ use core::{
 /// # struct ComponentA;
 /// # fn system(
 /// // This will panic!
-/// query: Query<(EntityRef, &mut ComponentA)>
+/// query: Query<'_, '_, (EntityRef, &mut ComponentA)>
 /// # ) {}
 /// # bevy_ecs::system::assert_system_does_not_conflict(system);
 /// ```
@@ -239,8 +239,8 @@ use core::{
 /// # struct ComponentB;
 /// # fn system(
 /// // This will not panic.
-/// query_a: Query<EntityRef, With<ComponentA>>,
-/// query_b: Query<&mut ComponentB, Without<ComponentA>>,
+/// query_a: Query<'_, '_, EntityRef, With<ComponentA>>,
+/// query_b: Query<'_, '_, &mut ComponentB, Without<ComponentA>>,
 /// # ) {}
 /// # bevy_ecs::system::assert_system_does_not_conflict(system);
 /// ```
@@ -310,7 +310,7 @@ use core::{
 /// # #[derive(Component)]
 /// # struct ComponentA;
 /// # fn system(
-/// # query: Query<&ComponentA>,
+/// # query: Query<'_, '_, &ComponentA>,
 /// # ) {
 /// // This might be result in better performance...
 /// query.iter().for_each(|component| {
@@ -368,7 +368,7 @@ pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = ()> {
 }
 
 impl<D: QueryData, F: QueryFilter> core::fmt::Debug for Query<'_, '_, D, F> {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Query")
             .field("matched_entities", &self.iter().count())
             .field("state", &self.state)
@@ -409,7 +409,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns another `Query` from this that fetches the read-only version of the query items.
     ///
-    /// For example, `Query<(&mut D1, &D2, &mut D3), With<F>>` will become `Query<(&D1, &D2, &D3), With<F>>`.
+    /// For example, `Query<'_, '_, (&mut D1, &D2, &mut D3), With<F>>` will become `Query<'_, '_, (&D1, &D2, &D3), With<F>>`.
     /// This can be useful when working around the borrow checker,
     /// or reusing functionality between systems via functions that accept query types.
     pub fn to_readonly(&self) -> Query<'_, 's, D::ReadOnly, F> {
@@ -432,9 +432,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # #[derive(Component)]
     /// # struct ComponentA;
     ///
-    /// fn helper_system(query: Query<&ComponentA>) { /* ... */}
+    /// fn helper_system(query: Query<'_, '_, &ComponentA>) { /* ... */}
     ///
-    /// fn system(mut query: Query<&ComponentA>) {
+    /// fn system(mut query: Query<'_, '_, &ComponentA>) {
     ///     helper_system(query.reborrow());
     ///     // Can still use query here:
     ///     for component in &query {
@@ -463,7 +463,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # #[derive(Component)]
     /// # struct Player { name: String }
     /// #
-    /// fn report_names_system(query: Query<&Player>) {
+    /// fn report_names_system(query: Query<'_, '_, &Player>) {
     ///     for player in &query {
     ///         println!("Say hello to {}!", player.name);
     ///     }
@@ -500,7 +500,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// #
     /// # #[derive(Component)]
     /// # struct Velocity { x: f32, y: f32, z: f32 }
-    /// fn gravity_system(mut query: Query<&mut Velocity>) {
+    /// fn gravity_system(mut query: Query<'_, '_, &mut Velocity>) {
     ///     const DELTA: f32 = 1.0 / 60.0;
     ///     for mut velocity in &mut query {
     ///         velocity.y -= 9.8 * DELTA;
@@ -533,7 +533,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # #[derive(Component)]
     /// # struct ComponentA;
     /// #
-    /// fn some_system(query: Query<&ComponentA>) {
+    /// fn some_system(query: Query<'_, '_, &ComponentA>) {
     ///     for [a1, a2] in query.iter_combinations() {
     ///         // ...
     ///     }
@@ -570,7 +570,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Component)]
     /// # struct ComponentA;
-    /// fn some_system(mut query: Query<&mut ComponentA>) {
+    /// fn some_system(mut query: Query<'_, '_, &mut ComponentA>) {
     ///     let mut combinations = query.iter_combinations_mut();
     ///     while let Some([mut a1, mut a2]) = combinations.fetch_next() {
     ///         // mutably access components data
@@ -613,8 +613,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// }
     ///
     /// fn system(
-    ///     friends_query: Query<&Friends>,
-    ///     counter_query: Query<&Counter>,
+    ///     friends_query: Query<'_, '_, &Friends>,
+    ///     counter_query: Query<'_, '_, &Counter>,
     /// ) {
     ///     for friends in &friends_query {
     ///         for counter in counter_query.iter_many(&friends.list) {
@@ -666,8 +666,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// }
     ///
     /// fn system(
-    ///     friends_query: Query<&Friends>,
-    ///     mut counter_query: Query<&mut Counter>,
+    ///     friends_query: Query<'_, '_, &Friends>,
+    ///     mut counter_query: Query<'_, '_, &mut Counter>,
     /// ) {
     ///     for friends in &friends_query {
     ///         let mut iter = counter_query.iter_many_mut(&friends.list);
@@ -821,7 +821,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// #
     /// # #[derive(Component)]
     /// # struct Velocity { x: f32, y: f32, z: f32 }
-    /// fn gravity_system(mut query: Query<&mut Velocity>) {
+    /// fn gravity_system(mut query: Query<'_, '_, &mut Velocity>) {
     ///     const DELTA: f32 = 1.0 / 60.0;
     ///     query.par_iter_mut().for_each(|mut velocity| {
     ///         velocity.y -= 9.8 * DELTA;
@@ -862,8 +862,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # struct Character { name: String }
     /// #
     /// fn print_selected_character_name_system(
-    ///        query: Query<&Character>,
-    ///        selection: Res<SelectedCharacter>
+    ///        query: Query<'_, '_, &Character>,
+    ///        selection: Res<'_, SelectedCharacter>
     /// )
     /// {
     ///     if let Ok(selected_character) = query.get(selection.entity) {
@@ -877,7 +877,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_mut`](Self::get_mut) to get a mutable query item.
     #[inline]
-    pub fn get(&self, entity: Entity) -> Result<ROQueryItem<'_, D>, QueryEntityError> {
+    pub fn get(&self, entity: Entity) -> Result<ROQueryItem<'_, D>, QueryEntityError<'_>> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -904,7 +904,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many<const N: usize>(
         &self,
         entities: [Entity; N],
-    ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError> {
+    ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError<'_>> {
         // SAFETY:
         // - `&self` ensures there is no mutable access to any components accessible to this query.
         // - `self.world` matches `self.state`.
@@ -940,7 +940,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     }
     /// }
     ///
-    /// fn check_all_targets_in_range(targeting_query: Query<(Entity, &Targets, &Position)>, targets_query: Query<&Position>){
+    /// fn check_all_targets_in_range(targeting_query: Query<'_, '_, (Entity, &Targets, &Position)>, targets_query: Query<'_, '_, &Position>){
     ///     for (targeting_entity, targets, origin) in &targeting_query {
     ///         // We can use "destructuring" to unpack the results nicely
     ///         let [target_1, target_2, target_3] = targets_query.many(targets.0);
@@ -982,7 +982,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # #[derive(Component)]
     /// # struct Health(u32);
     /// #
-    /// fn poison_system(mut query: Query<&mut Health>, poisoned: Res<PoisonedCharacter>) {
+    /// fn poison_system(mut query: Query<'_, '_, &mut Health>, poisoned: Res<'_, PoisonedCharacter>) {
     ///     if let Ok(mut health) = query.get_mut(poisoned.character_id) {
     ///         health.0 -= 1;
     ///     }
@@ -994,7 +994,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get`](Self::get) to get a read-only query item.
     #[inline]
-    pub fn get_mut(&mut self, entity: Entity) -> Result<D::Item<'_>, QueryEntityError> {
+    pub fn get_mut(&mut self, entity: Entity) -> Result<D::Item<'_>, QueryEntityError<'_>> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -1016,7 +1016,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'_>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'_>; N], QueryEntityError<'_>> {
         // SAFETY: scheduler ensures safe Query world access
         unsafe {
             self.state
@@ -1053,7 +1053,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     y: f32,
     /// }
     ///
-    /// fn spring_forces(spring_query: Query<&Spring>, mut mass_query: Query<(&Position, &mut Force)>){
+    /// fn spring_forces(spring_query: Query<'_, '_, &Spring>, mut mass_query: Query<'_, '_, (&Position, &mut Force)>){
     ///     for spring in &spring_query {
     ///          // We can use "destructuring" to unpack our query items nicely
     ///          let [(position_1, mut force_1), (position_2, mut force_2)] = mass_query.many_mut(spring.connected_entities);
@@ -1096,7 +1096,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_mut`](Self::get_mut) for the safe version.
     #[inline]
-    pub unsafe fn get_unchecked(&self, entity: Entity) -> Result<D::Item<'_>, QueryEntityError> {
+    pub unsafe fn get_unchecked(
+        &self,
+        entity: Entity,
+    ) -> Result<D::Item<'_>, QueryEntityError<'_>> {
         // SEMI-SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -1119,7 +1122,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # struct Player;
     /// # #[derive(Component)]
     /// # struct Position(f32, f32);
-    /// fn player_system(query: Query<&Position, With<Player>>) {
+    /// fn player_system(query: Query<'_, '_, &Position, With<Player>>) {
     ///     let player_position = query.single();
     ///     // do something with player_position
     /// }
@@ -1146,7 +1149,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # use bevy_ecs::query::QuerySingleError;
     /// # #[derive(Component)]
     /// # struct PlayerScore(i32);
-    /// fn player_scoring_system(query: Query<&PlayerScore>) {
+    /// fn player_scoring_system(query: Query<'_, '_, &PlayerScore>) {
     ///     match query.get_single() {
     ///         Ok(PlayerScore(score)) => {
     ///             println!("Score: {}", score);
@@ -1196,7 +1199,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # #[derive(Component)]
     /// # struct Health(u32);
     /// #
-    /// fn regenerate_player_health_system(mut query: Query<&mut Health, With<Player>>) {
+    /// fn regenerate_player_health_system(mut query: Query<'_, '_, &mut Health, With<Player>>) {
     ///     let mut health = query.single_mut();
     ///     health.0 += 1;
     /// }
@@ -1226,7 +1229,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # #[derive(Component)]
     /// # struct Health(u32);
     /// #
-    /// fn regenerate_player_health_system(mut query: Query<&mut Health, With<Player>>) {
+    /// fn regenerate_player_health_system(mut query: Query<'_, '_, &mut Health, With<Player>>) {
     ///     let mut health = query.get_single_mut().expect("Error: Could not find a single player.");
     ///     health.0 += 1;
     /// }
@@ -1266,7 +1269,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # struct Player;
     /// # #[derive(Resource)]
     /// # struct Score(u32);
-    /// fn update_score_system(query: Query<(), With<Player>>, mut score: ResMut<Score>) {
+    /// fn update_score_system(query: Query<'_, '_, (), With<Player>>, mut score: ResMut<'_, Score>) {
     ///     if !query.is_empty() {
     ///         score.0 += 1;
     ///     }
@@ -1305,7 +1308,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// #     entity: Entity,
     /// # }
     /// #
-    /// fn targeting_system(in_range_query: Query<&InRange>, target: Res<Target>) {
+    /// fn targeting_system(in_range_query: Query<'_, '_, &InRange>, target: Res<'_, Target>) {
     ///     if in_range_query.contains(target.entity) {
     ///         println!("Bam!")
     ///     }
@@ -1325,7 +1328,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns a [`QueryLens`] that can be used to get a query with a more general fetch.
     ///
-    /// For example, this can transform a `Query<(&A, &mut B)>` to a `Query<&B>`.
+    /// For example, this can transform a `Query<'_, '_, (&A, &mut B)>` to a `Query<'_, '_, &B>`.
     /// This can be useful for passing the query to another function. Note that since
     /// filter terms are dropped, non-archetypal filters like [`Added`](crate::query::Added) and
     /// [`Changed`](crate::query::Changed) will not be respected. To maintain or change filter
@@ -1356,13 +1359,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// }
     ///
     /// // We can use the function in a system that takes the exact query.
-    /// fn system_1(mut query: Query<&A>) {
+    /// fn system_1(mut query: Query<'_, '_, &A>) {
     ///     reusable_function(&mut query.as_query_lens());
     /// }
     ///
     /// // We can also use it with a query that does not match exactly
     /// // by transmuting it.
-    /// fn system_2(mut query: Query<(&mut A, &B)>) {
+    /// fn system_2(mut query: Query<'_, '_, (&mut A, &B)>) {
     ///     let mut lens = query.transmute_lens::<&A>();
     ///     reusable_function(&mut lens);
     /// }
@@ -1380,9 +1383,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * Can always add/remove [`Entity`]
     /// * Can always add/remove [`EntityLocation`]
     /// * Can always add/remove [`&Archetype`]
-    /// * `Ref<T>` <-> `&T`
+    /// * `Ref<'_, T>` <-> `&T`
     /// * `&mut T` -> `&T`
-    /// * `&mut T` -> `Ref<T>`
+    /// * `&mut T` -> `Ref<'_, T>`
     /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
     ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
@@ -1418,7 +1421,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns a [`QueryLens`] that can be used to get a query with the combined fetch.
     ///
-    /// For example, this can take a `Query<&A>` and a `Query<&B>` and return a `Query<(&A, &B)>`.
+    /// For example, this can take a `Query<'_, '_, &A>` and a `Query<'_, '_, &B>` and return a `Query<'_, '_, (&A, &B)>`.
     /// The returned query will only return items with both `A` and `B`. Note that since filters
     /// are dropped, non-archetypal filters like `Added` and `Changed` will not be respected.
     /// To maintain or change filter terms see `Self::join_filtered`.
@@ -1443,9 +1446,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # world.spawn((Transform, Enemy));
     ///
     /// fn system(
-    ///     mut transforms: Query<&Transform>,
-    ///     mut players: Query<&Player>,
-    ///     mut enemies: Query<&Enemy>
+    ///     mut transforms: Query<'_, '_, &Transform>,
+    ///     mut players: Query<'_, '_, &Player>,
+    ///     mut enemies: Query<'_, '_, &Enemy>
     /// ) {
     ///     let mut players_transforms: QueryLens<(&Transform, &Player)> = transforms.join(&mut players);
     ///     for (transform, player) in &players_transforms.query() {
@@ -1472,7 +1475,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// See [`Self::transmute_lens`] for more details.
     pub fn join<OtherD: QueryData, NewD: QueryData>(
         &mut self,
-        other: &mut Query<OtherD>,
+        other: &mut Query<'_, '_, OtherD>,
     ) -> QueryLens<'_, NewD> {
         self.join_filtered(other)
     }
@@ -1491,7 +1494,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         NewF: QueryFilter,
     >(
         &mut self,
-        other: &mut Query<OtherD, OtherF>,
+        other: &mut Query<'_, '_, OtherD, OtherF>,
     ) -> QueryLens<'_, NewD, NewF> {
         let state = self
             .state
@@ -1546,8 +1549,8 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # struct Character { name: String }
     /// #
     /// fn print_selected_character_name_system(
-    ///        query: Query<&Character>,
-    ///        selection: Res<SelectedCharacter>
+    ///        query: Query<'_, '_, &Character>,
+    ///        selection: Res<'_, SelectedCharacter>
     /// )
     /// {
     ///     if let Ok(selected_character) = query.get(selection.entity) {
@@ -1557,7 +1560,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
     /// ```
     #[inline]
-    pub fn get_inner(&self, entity: Entity) -> Result<ROQueryItem<'w, D>, QueryEntityError> {
+    pub fn get_inner(&self, entity: Entity) -> Result<ROQueryItem<'w, D>, QueryEntityError<'_>> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -1586,7 +1589,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # #[derive(Component)]
     /// # struct Player { name: String }
     /// #
-    /// fn report_names_system(query: Query<&Player>) {
+    /// fn report_names_system(query: Query<'_, '_, &Player>) {
     ///     for player in &query {
     ///         println!("Say hello to {}!", player.name);
     ///     }
@@ -1648,7 +1651,7 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if zero or more than one matching entity exists.
 /// This will cause systems that use this parameter to be skipped.
 ///
-/// Use [`Option<Single<D, F>>`] instead if zero or one matching entities can exist.
+/// Use [`Option<Single<'_, D, F>>`] instead if zero or one matching entities can exist.
 ///
 /// See [`Query`] for more details.
 pub struct Single<'w, D: QueryData, F: QueryFilter = ()> {

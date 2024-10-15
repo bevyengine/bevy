@@ -50,9 +50,9 @@ fn main() {
 
 /// set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // Red cube: Never renders a wireframe
     commands.spawn((
@@ -112,10 +112,10 @@ fn setup(
 
 /// This system let's you toggle various wireframe settings
 fn update_colors(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut config: ResMut<WireframeConfig>,
-    mut wireframe_colors: Query<&mut WireframeColor, With<Wireframe>>,
-    mut text: Single<&mut Text>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut config: ResMut<'_, WireframeConfig>,
+    mut wireframe_colors: Query<'_, '_, &mut WireframeColor, With<Wireframe>>,
+    mut text: Single<'_, &mut Text>,
 ) {
     text.0 = format!(
         "Controls

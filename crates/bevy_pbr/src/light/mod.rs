@@ -293,7 +293,9 @@ pub struct Cascade {
     pub(crate) texel_size: f32,
 }
 
-pub fn clear_directional_light_cascades(mut lights: Query<(&DirectionalLight, &mut Cascades)>) {
+pub fn clear_directional_light_cascades(
+    mut lights: Query<'_, '_, (&DirectionalLight, &mut Cascades)>,
+) {
     for (directional_light, mut cascades) in lights.iter_mut() {
         if !directional_light.shadows_enabled {
             continue;
@@ -303,14 +305,18 @@ pub fn clear_directional_light_cascades(mut lights: Query<(&DirectionalLight, &m
 }
 
 pub fn build_directional_light_cascades<P: CameraProjection + Component>(
-    directional_light_shadow_map: Res<DirectionalLightShadowMap>,
-    views: Query<(Entity, &GlobalTransform, &P, &Camera)>,
-    mut lights: Query<(
-        &GlobalTransform,
-        &DirectionalLight,
-        &CascadeShadowConfig,
-        &mut Cascades,
-    )>,
+    directional_light_shadow_map: Res<'_, DirectionalLightShadowMap>,
+    views: Query<'_, '_, (Entity, &GlobalTransform, &P, &Camera)>,
+    mut lights: Query<
+        '_,
+        '_,
+        (
+            &GlobalTransform,
+            &DirectionalLight,
+            &CascadeShadowConfig,
+            &mut Cascades,
+        ),
+    >,
 ) {
     let views = views
         .iter()
@@ -536,6 +542,8 @@ pub(crate) fn directional_light_order(
 
 pub fn update_directional_light_frusta(
     mut views: Query<
+        '_,
+        '_,
         (
             &Cascades,
             &DirectionalLight,
@@ -574,8 +582,10 @@ pub fn update_directional_light_frusta(
 
 // NOTE: Run this after assign_lights_to_clusters!
 pub fn update_point_light_frusta(
-    global_lights: Res<GlobalVisibleClusterableObjects>,
+    global_lights: Res<'_, GlobalVisibleClusterableObjects>,
     mut views: Query<
+        '_,
+        '_,
         (Entity, &GlobalTransform, &PointLight, &mut CubemapFrusta),
         Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
     >,
@@ -622,8 +632,10 @@ pub fn update_point_light_frusta(
 }
 
 pub fn update_spot_light_frusta(
-    global_lights: Res<GlobalVisibleClusterableObjects>,
+    global_lights: Res<'_, GlobalVisibleClusterableObjects>,
     mut views: Query<
+        '_,
+        '_,
         (Entity, &GlobalTransform, &SpotLight, &mut Frustum),
         Or<(Changed<GlobalTransform>, Changed<SpotLight>)>,
     >,
@@ -673,8 +685,10 @@ fn shrink_entities(visible_entities: &mut Vec<Entity>) {
 }
 
 pub fn check_dir_light_mesh_visibility(
-    mut commands: Commands,
+    mut commands: Commands<'_, '_>,
     mut directional_lights: Query<
+        '_,
+        '_,
         (
             &DirectionalLight,
             &CascadesFrusta,
@@ -685,6 +699,8 @@ pub fn check_dir_light_mesh_visibility(
         Without<SpotLight>,
     >,
     visible_entity_query: Query<
+        '_,
+        '_,
         (
             Entity,
             &InheritedVisibility,
@@ -700,9 +716,9 @@ pub fn check_dir_light_mesh_visibility(
             With<Mesh3d>,
         ),
     >,
-    visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
-    mut defer_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
-    mut view_visible_entities_queue: Local<Parallel<Vec<Vec<Entity>>>>,
+    visible_entity_ranges: Option<Res<'_, VisibleEntityRanges>>,
+    mut defer_visible_entities_queue: Local<'_, Parallel<Vec<Entity>>>,
+    mut view_visible_entities_queue: Local<'_, Parallel<Vec<Vec<Entity>>>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
 
@@ -837,22 +853,32 @@ pub fn check_dir_light_mesh_visibility(
 }
 
 pub fn check_point_light_mesh_visibility(
-    visible_point_lights: Query<&VisibleClusterableObjects>,
-    mut point_lights: Query<(
-        &PointLight,
-        &GlobalTransform,
-        &CubemapFrusta,
-        &mut CubemapVisibleEntities,
-        Option<&RenderLayers>,
-    )>,
-    mut spot_lights: Query<(
-        &SpotLight,
-        &GlobalTransform,
-        &Frustum,
-        &mut VisibleMeshEntities,
-        Option<&RenderLayers>,
-    )>,
+    visible_point_lights: Query<'_, '_, &VisibleClusterableObjects>,
+    mut point_lights: Query<
+        '_,
+        '_,
+        (
+            &PointLight,
+            &GlobalTransform,
+            &CubemapFrusta,
+            &mut CubemapVisibleEntities,
+            Option<&RenderLayers>,
+        ),
+    >,
+    mut spot_lights: Query<
+        '_,
+        '_,
+        (
+            &SpotLight,
+            &GlobalTransform,
+            &Frustum,
+            &mut VisibleMeshEntities,
+            Option<&RenderLayers>,
+        ),
+    >,
     mut visible_entity_query: Query<
+        '_,
+        '_,
         (
             Entity,
             &InheritedVisibility,
@@ -869,9 +895,9 @@ pub fn check_point_light_mesh_visibility(
             With<Mesh3d>,
         ),
     >,
-    visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
-    mut cubemap_visible_entities_queue: Local<Parallel<[Vec<Entity>; 6]>>,
-    mut spot_visible_entities_queue: Local<Parallel<Vec<Entity>>>,
+    visible_entity_ranges: Option<Res<'_, VisibleEntityRanges>>,
+    mut cubemap_visible_entities_queue: Local<'_, Parallel<[Vec<Entity>; 6]>>,
+    mut spot_visible_entities_queue: Local<'_, Parallel<Vec<Entity>>>,
 ) {
     let visible_entity_ranges = visible_entity_ranges.as_deref();
     for visible_lights in &visible_point_lights {

@@ -68,9 +68,10 @@ impl ViewNode for CopyDeferredLightingIdNode {
 
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        _graph: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
         (_view_target, view_prepass_textures, deferred_lighting_id_depth_texture): QueryItem<
+            '_,
             Self::ViewQuery,
         >,
         world: &World,
@@ -175,10 +176,10 @@ pub struct DeferredLightingIdDepthTexture {
 }
 
 fn prepare_deferred_lighting_id_textures(
-    mut commands: Commands,
-    mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<DeferredPrepass>>,
+    mut commands: Commands<'_, '_>,
+    mut texture_cache: ResMut<'_, TextureCache>,
+    render_device: Res<'_, RenderDevice>,
+    views: Query<'_, '_, (Entity, &ExtractedCamera), With<DeferredPrepass>>,
 ) {
     for (entity, camera) in &views {
         if let Some(UVec2 {

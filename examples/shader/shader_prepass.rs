@@ -39,12 +39,12 @@ fn main() {
 
 /// set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
-    mut std_materials: ResMut<Assets<StandardMaterial>>,
-    mut depth_materials: ResMut<Assets<PrepassOutputMaterial>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<CustomMaterial>>,
+    mut std_materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut depth_materials: ResMut<'_, Assets<PrepassOutputMaterial>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     // camera
     commands.spawn((
@@ -174,7 +174,7 @@ impl Material for CustomMaterial {
 #[derive(Component)]
 struct Rotates;
 
-fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
+fn rotate(mut q: Query<'_, '_, &mut Transform, With<Rotates>>, time: Res<'_, Time>) {
     for mut t in q.iter_mut() {
         let rot = (ops::sin(time.elapsed_seconds()) * 0.5 + 0.5) * std::f32::consts::PI * 2.0;
         t.rotation = Quat::from_rotation_z(rot);
@@ -210,11 +210,11 @@ impl Material for PrepassOutputMaterial {
 
 /// Every time you press space, it will cycle between transparent, depth and normals view
 fn toggle_prepass_view(
-    mut prepass_view: Local<u32>,
-    keycode: Res<ButtonInput<KeyCode>>,
-    material_handle: Single<&MeshMaterial3d<PrepassOutputMaterial>>,
-    mut materials: ResMut<Assets<PrepassOutputMaterial>>,
-    text: Single<Entity, With<Text>>,
+    mut prepass_view: Local<'_, u32>,
+    keycode: Res<'_, ButtonInput<KeyCode>>,
+    material_handle: Single<'_, &MeshMaterial3d<PrepassOutputMaterial>>,
+    mut materials: ResMut<'_, Assets<PrepassOutputMaterial>>,
+    text: Single<'_, Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     if keycode.just_pressed(KeyCode::Space) {

@@ -53,38 +53,50 @@ impl ClusterableObjectAssignmentData {
 // NOTE: Run this before update_point_light_frusta!
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn assign_objects_to_clusters(
-    mut commands: Commands,
-    mut global_clusterable_objects: ResMut<GlobalVisibleClusterableObjects>,
-    mut views: Query<(
-        Entity,
-        &GlobalTransform,
-        &Camera,
-        &Frustum,
-        &ClusterConfig,
-        &mut Clusters,
-        Option<&RenderLayers>,
-        Option<&mut VisibleClusterableObjects>,
-    )>,
-    point_lights_query: Query<(
-        Entity,
-        &GlobalTransform,
-        &PointLight,
-        Option<&RenderLayers>,
-        Option<&VolumetricLight>,
-        &ViewVisibility,
-    )>,
-    spot_lights_query: Query<(
-        Entity,
-        &GlobalTransform,
-        &SpotLight,
-        Option<&RenderLayers>,
-        Option<&VolumetricLight>,
-        &ViewVisibility,
-    )>,
-    mut clusterable_objects: Local<Vec<ClusterableObjectAssignmentData>>,
-    mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
-    mut max_clusterable_objects_warning_emitted: Local<bool>,
-    render_device: Option<Res<RenderDevice>>,
+    mut commands: Commands<'_, '_>,
+    mut global_clusterable_objects: ResMut<'_, GlobalVisibleClusterableObjects>,
+    mut views: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &GlobalTransform,
+            &Camera,
+            &Frustum,
+            &ClusterConfig,
+            &mut Clusters,
+            Option<&RenderLayers>,
+            Option<&mut VisibleClusterableObjects>,
+        ),
+    >,
+    point_lights_query: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &GlobalTransform,
+            &PointLight,
+            Option<&RenderLayers>,
+            Option<&VolumetricLight>,
+            &ViewVisibility,
+        ),
+    >,
+    spot_lights_query: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &GlobalTransform,
+            &SpotLight,
+            Option<&RenderLayers>,
+            Option<&VolumetricLight>,
+            &ViewVisibility,
+        ),
+    >,
+    mut clusterable_objects: Local<'_, Vec<ClusterableObjectAssignmentData>>,
+    mut cluster_aabb_spheres: Local<'_, Vec<Option<Sphere>>>,
+    mut max_clusterable_objects_warning_emitted: Local<'_, bool>,
+    render_device: Option<Res<'_, RenderDevice>>,
 ) {
     let Some(render_device) = render_device else {
         return;

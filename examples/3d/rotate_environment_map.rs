@@ -20,10 +20,10 @@ pub fn main() {
 
 /// Initializes the scene.
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     let sphere_mesh = create_sphere_mesh(&mut meshes);
     spawn_sphere(&mut commands, &mut materials, &asset_server, &sphere_mesh);
@@ -33,8 +33,8 @@ fn setup(
 
 /// Rotate the skybox and the environment map per frame.
 fn rotate_skybox_and_environment_map(
-    mut environments: Query<(&mut Skybox, &mut EnvironmentMapLight)>,
-    time: Res<Time>,
+    mut environments: Query<'_, '_, (&mut Skybox, &mut EnvironmentMapLight)>,
+    time: Res<'_, Time>,
 ) {
     let now = time.elapsed_seconds();
     let rotation = Quat::from_rotation_y(0.2 * now);
@@ -58,7 +58,7 @@ fn create_sphere_mesh(meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
 
 /// Spawn a regular object with a clearcoat layer. This looks like car paint.
 fn spawn_sphere(
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
     materials: &mut Assets<StandardMaterial>,
     asset_server: &AssetServer,
     sphere_mesh: &Handle<Mesh>,
@@ -82,7 +82,7 @@ fn spawn_sphere(
 }
 
 /// Spawns a light.
-fn spawn_light(commands: &mut Commands) {
+fn spawn_light(commands: &mut Commands<'_, '_>) {
     commands.spawn(PointLight {
         color: WHITE.into(),
         intensity: 100000.0,
@@ -91,7 +91,7 @@ fn spawn_light(commands: &mut Commands) {
 }
 
 /// Spawns a camera with associated skybox and environment map.
-fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
+fn spawn_camera(commands: &mut Commands<'_, '_>, asset_server: &AssetServer) {
     commands
         .spawn((
             Camera3d::default(),

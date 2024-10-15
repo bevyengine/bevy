@@ -56,7 +56,7 @@ struct B;
 // so the borrows of the `EventWriter` and `EventReader` don't overlap.
 // Note that these borrowing rules are checked at system initialization time,
 // not at compile time, as Bevy uses internal unsafe code to split the `World` into disjoint pieces.
-fn read_and_write_different_event_types(mut a: EventWriter<A>, mut b: EventReader<B>) {
+fn read_and_write_different_event_types(mut a: EventWriter<'_, A>, mut b: EventReader<'_, '_, B>) {
     for _ in b.read() {}
     a.send(A);
 }
@@ -70,7 +70,7 @@ struct DebugEvent {
 }
 
 /// A system that sends all combinations of events.
-fn send_events(mut events: EventWriter<DebugEvent>, frame_count: Res<FrameCount>) {
+fn send_events(mut events: EventWriter<'_, DebugEvent>, frame_count: Res<'_, FrameCount>) {
     println!("Sending events for frame {:?}", frame_count.0);
 
     events.send(DebugEvent {
@@ -98,7 +98,7 @@ fn send_events(mut events: EventWriter<DebugEvent>, frame_count: Res<FrameCount>
 /// A system that prints all events sent since the last time this system ran.
 ///
 /// Note that some events will be printed twice, because they were sent twice.
-fn debug_events(mut events: EventReader<DebugEvent>) {
+fn debug_events(mut events: EventReader<'_, '_, DebugEvent>) {
     for event in events.read() {
         println!("{event:?}");
     }
@@ -106,8 +106,8 @@ fn debug_events(mut events: EventReader<DebugEvent>) {
 
 /// A system that both sends and receives events using [`ParamSet`].
 fn send_and_receive_param_set(
-    mut param_set: ParamSet<(EventReader<DebugEvent>, EventWriter<DebugEvent>)>,
-    frame_count: Res<FrameCount>,
+    mut param_set: ParamSet<'_, '_, (EventReader<DebugEvent>, EventWriter<DebugEvent>)>,
+    frame_count: Res<'_, FrameCount>,
 ) {
     println!(
         "Sending and receiving events for frame {} with a `ParamSet`",
@@ -135,10 +135,10 @@ fn send_and_receive_param_set(
 fn send_and_receive_manual_event_reader(
     // The `Local` `SystemParam` stores state inside the system itself, rather than in the world.
     // `EventCursor<T>` is the internal state of `EventReader<T>`, which tracks which events have been seen.
-    mut local_event_reader: Local<EventCursor<DebugEvent>>,
+    mut local_event_reader: Local<'_, EventCursor<DebugEvent>>,
     // We can access the `Events` resource mutably, allowing us to both read and write its contents.
-    mut events: ResMut<Events<DebugEvent>>,
-    frame_count: Res<FrameCount>,
+    mut events: ResMut<'_, Events<DebugEvent>>,
+    frame_count: Res<'_, FrameCount>,
 ) {
     println!(
         "Sending and receiving events for frame {} with a `Local<EventCursor>",

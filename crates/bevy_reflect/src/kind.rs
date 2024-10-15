@@ -88,7 +88,7 @@ impl core::fmt::Display for ReflectKind {
 
 macro_rules! impl_reflect_kind_conversions {
     ($name:ident$(<$lifetime:lifetime>)?) => {
-        impl $name$(<$lifetime>)? {
+        impl$(<$lifetime>)? $name$(<$lifetime>)? {
             /// Returns the "kind" of this reflected type without any information.
             pub fn kind(&self) -> ReflectKind {
                 match self {
@@ -107,8 +107,8 @@ macro_rules! impl_reflect_kind_conversions {
             }
         }
 
-        impl From<$name$(<$lifetime>)?> for ReflectKind {
-            fn from(value: $name) -> Self {
+        impl$(<$lifetime>)? From<$name$(<$lifetime>)?> for ReflectKind {
+            fn from(value: $name$(<$lifetime>)?) -> Self {
                 match value {
                     $name::Struct(_) => Self::Struct,
                     $name::TupleStruct(_) => Self::TupleStruct,
@@ -144,10 +144,7 @@ macro_rules! impl_cast_method {
         pub fn $name(self) -> Result<$retval, ReflectKindMismatchError> {
             match self {
                 Self::Opaque(value) => Ok(value),
-                _ => Err(ReflectKindMismatchError {
-                    expected: ReflectKind::Opaque,
-                    received: self.kind(),
-                }),
+                _ => Err(ReflectKindMismatchError { expected: ReflectKind::Opaque, received: self.kind() }),
             }
         }
     };
@@ -157,10 +154,7 @@ macro_rules! impl_cast_method {
         pub fn $name(self) -> Result<$retval, ReflectKindMismatchError> {
             match self {
                 Self::$kind(value) => Ok(value),
-                _ => Err(ReflectKindMismatchError {
-                    expected: ReflectKind::$kind,
-                    received: self.kind(),
-                }),
+                _ => Err(ReflectKindMismatchError { expected: ReflectKind::$kind, received: self.kind() }),
             }
         }
     };
@@ -187,7 +181,7 @@ pub enum ReflectRef<'a> {
     Function(&'a dyn Function),
     Opaque(&'a dyn PartialReflect),
 }
-impl_reflect_kind_conversions!(ReflectRef<'_>);
+impl_reflect_kind_conversions!(ReflectRef<'a>);
 
 impl<'a> ReflectRef<'a> {
     impl_cast_method!(as_struct: Struct => &'a dyn Struct);
@@ -222,7 +216,8 @@ pub enum ReflectMut<'a> {
     Function(&'a mut dyn Function),
     Opaque(&'a mut dyn PartialReflect),
 }
-impl_reflect_kind_conversions!(ReflectMut<'_>);
+
+impl_reflect_kind_conversions!(ReflectMut<'a>);
 
 impl<'a> ReflectMut<'a> {
     impl_cast_method!(as_struct: Struct => &'a mut dyn Struct);
@@ -257,6 +252,7 @@ pub enum ReflectOwned {
     Function(Box<dyn Function>),
     Opaque(Box<dyn PartialReflect>),
 }
+
 impl_reflect_kind_conversions!(ReflectOwned);
 
 impl ReflectOwned {

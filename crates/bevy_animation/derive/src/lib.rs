@@ -1,7 +1,5 @@
 //! Derive macros for `bevy_animation`.
 
-extern crate proc_macro;
-
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::quote;

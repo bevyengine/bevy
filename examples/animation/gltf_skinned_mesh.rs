@@ -17,7 +17,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // Create a camera
     commands.spawn((
         Camera3d::default(),
@@ -43,10 +43,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// In this example, we want to get and animate the second joint.
 /// It is similar to the animation defined in `models/SimpleSkin/SimpleSkin.gltf`.
 fn joint_animation(
-    time: Res<Time>,
-    parent_query: Query<&Parent, With<SkinnedMesh>>,
-    children_query: Query<&Children>,
-    mut transform_query: Query<&mut Transform>,
+    time: Res<'_, Time>,
+    parent_query: Query<'_, '_, &Parent, With<SkinnedMesh>>,
+    children_query: Query<'_, '_, &Children>,
+    mut transform_query: Query<'_, '_, &mut Transform>,
 ) {
     // Iter skinned mesh entity
     for skinned_mesh_parent in &parent_query {

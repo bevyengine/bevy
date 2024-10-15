@@ -116,10 +116,10 @@ fn main() {
 // Spawns the 3D objects in the scene, and loads the fox animation from the glTF
 // file.
 fn setup_scene(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // Spawn the camera.
     commands.spawn((
@@ -154,7 +154,7 @@ fn setup_scene(
 }
 
 // Creates the UI.
-fn setup_ui(mut commands: Commands) {
+fn setup_ui(mut commands: Commands<'_, '_>) {
     // Add help text.
     commands.spawn((
         Text::new("Click on a button to toggle animations for its associated bones"),
@@ -359,11 +359,11 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
 // Builds up the animation graph, including the mask groups, and adds it to the
 // entity with the `AnimationPlayer` that the glTF loader created.
 fn setup_animation_graph_once_loaded(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
-    mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
-    targets: Query<(Entity, &AnimationTarget)>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut animation_graphs: ResMut<'_, Assets<AnimationGraph>>,
+    mut players: Query<'_, '_, (Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
+    targets: Query<'_, '_, (Entity, &AnimationTarget)>,
 ) {
     for (entity, mut player) in &mut players {
         // Load the animation clip from the glTF file.
@@ -428,11 +428,11 @@ fn setup_animation_graph_once_loaded(
 // A system that handles requests from the user to toggle mask groups on and
 // off.
 fn handle_button_toggles(
-    mut interactions: Query<(&Interaction, &mut AnimationControl), Changed<Interaction>>,
-    mut animation_players: Query<&AnimationGraphHandle, With<AnimationPlayer>>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
-    mut animation_nodes: Option<ResMut<AnimationNodes>>,
-    mut app_state: ResMut<AppState>,
+    mut interactions: Query<'_, '_, (&Interaction, &mut AnimationControl), Changed<Interaction>>,
+    mut animation_players: Query<'_, '_, &AnimationGraphHandle, With<AnimationPlayer>>,
+    mut animation_graphs: ResMut<'_, Assets<AnimationGraph>>,
+    mut animation_nodes: Option<ResMut<'_, AnimationNodes>>,
+    mut app_state: ResMut<'_, AppState>,
 ) {
     let Some(ref mut animation_nodes) = animation_nodes else {
         return;
@@ -472,10 +472,10 @@ fn handle_button_toggles(
 
 // A system that updates the UI based on the current app state.
 fn update_ui(
-    mut animation_controls: Query<(&AnimationControl, &mut BackgroundColor, &Children)>,
-    texts: Query<Entity, With<Text>>,
+    mut animation_controls: Query<'_, '_, (&AnimationControl, &mut BackgroundColor, &Children)>,
+    texts: Query<'_, '_, Entity, With<Text>>,
     mut writer: UiTextWriter,
-    app_state: Res<AppState>,
+    app_state: Res<'_, AppState>,
 ) {
     for (animation_control, mut background_color, kids) in animation_controls.iter_mut() {
         let enabled =

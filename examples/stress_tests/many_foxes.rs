@@ -106,12 +106,12 @@ struct Ring {
 }
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
-    foxes: Res<Foxes>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut animation_graphs: ResMut<'_, Assets<AnimationGraph>>,
+    foxes: Res<'_, Foxes>,
 ) {
     warn!(include_str!("warning_string.txt"));
 
@@ -230,11 +230,11 @@ fn setup(
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
-    animations: Res<Animations>,
-    foxes: Res<Foxes>,
-    mut commands: Commands,
-    mut player: Query<(Entity, &mut AnimationPlayer)>,
-    mut done: Local<bool>,
+    animations: Res<'_, Animations>,
+    foxes: Res<'_, Foxes>,
+    mut commands: Commands<'_, '_>,
+    mut player: Query<'_, '_, (Entity, &mut AnimationPlayer)>,
+    mut done: Local<'_, bool>,
 ) {
     if !*done && player.iter().len() == foxes.count {
         for (entity, mut player) in &mut player {
@@ -253,9 +253,9 @@ fn setup_scene_once_loaded(
 }
 
 fn update_fox_rings(
-    time: Res<Time>,
-    foxes: Res<Foxes>,
-    mut rings: Query<(&Ring, &RotationDirection, &mut Transform)>,
+    time: Res<'_, Time>,
+    foxes: Res<'_, Foxes>,
+    mut rings: Query<'_, '_, (&Ring, &RotationDirection, &mut Transform)>,
 ) {
     if !foxes.moving {
         return;
@@ -269,11 +269,11 @@ fn update_fox_rings(
 }
 
 fn keyboard_animation_control(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut animation_player: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
-    animations: Res<Animations>,
-    mut current_animation: Local<usize>,
-    mut foxes: ResMut<Foxes>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut animation_player: Query<'_, '_, (&mut AnimationPlayer, &mut AnimationTransitions)>,
+    animations: Res<'_, Animations>,
+    mut current_animation: Local<'_, usize>,
+    mut foxes: ResMut<'_, Foxes>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         foxes.moving = !foxes.moving;

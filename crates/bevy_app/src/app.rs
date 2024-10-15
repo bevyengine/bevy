@@ -795,12 +795,12 @@ impl App {
     /// app.register_required_components::<A, B>();
     /// app.register_required_components::<B, C>();
     ///
-    /// fn setup(mut commands: Commands) {
+    /// fn setup(mut commands: Commands<'_, '_>) {
     ///     // This will implicitly also insert B and C with their Default constructors.
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    /// fn validate(query: Option<Single<'_, (&A, &B, &C)>>) {
     ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(0));
@@ -857,13 +857,13 @@ impl App {
     /// app.register_required_components_with::<B, C>(|| C(1));
     /// app.register_required_components_with::<A, C>(|| C(2));
     ///
-    /// fn setup(mut commands: Commands) {
+    /// fn setup(mut commands: Commands<'_, '_>) {
     ///     // This will implicitly also insert B with its Default constructor and C
     ///     // with the custom constructor defined by A.
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    /// fn validate(query: Option<Single<'_, (&A, &B, &C)>>) {
     ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(2));
@@ -923,12 +923,12 @@ impl App {
     /// // Duplicate registration! This will fail.
     /// assert!(app.try_register_required_components::<A, B>().is_err());
     ///
-    /// fn setup(mut commands: Commands) {
+    /// fn setup(mut commands: Commands<'_, '_>) {
     ///     // This will implicitly also insert B and C with their Default constructors.
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    /// fn validate(query: Option<Single<'_, (&A, &B, &C)>>) {
     ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(0));
@@ -987,13 +987,13 @@ impl App {
     /// // Duplicate registration! Even if the constructors were different, this would fail.
     /// assert!(app.try_register_required_components_with::<B, C>(|| C(1)).is_err());
     ///
-    /// fn setup(mut commands: Commands) {
+    /// fn setup(mut commands: Commands<'_, '_>) {
     ///     // This will implicitly also insert B with its Default constructor and C
     ///     // with the custom constructor defined by A.
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    /// fn validate(query: Option<Single<'_, (&A, &B, &C)>>) {
     ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(2));
@@ -1141,8 +1141,8 @@ impl App {
     /// struct A;
     ///
     /// // these systems are ambiguous on A
-    /// fn system_1(_: Query<&mut A>) {}
-    /// fn system_2(_: Query<&A>) {}
+    /// fn system_1(_: Query<'_, '_, &mut A>) {}
+    /// fn system_2(_: Query<'_, '_, &A>) {}
     ///
     /// let mut app = App::new();
     /// app.configure_schedules(ScheduleBuildSettings {
@@ -1179,8 +1179,8 @@ impl App {
     /// struct R;
     ///
     /// // these systems are ambiguous on R
-    /// fn system_1(_: ResMut<R>) {}
-    /// fn system_2(_: Res<R>) {}
+    /// fn system_1(_: ResMut<'_, R>) {}
+    /// fn system_2(_: Res<'_, R>) {}
     ///
     /// let mut app = App::new();
     /// app.configure_schedules(ScheduleBuildSettings {
@@ -1267,7 +1267,7 @@ impl App {
     /// # struct Friend;
     /// #
     /// // An observer system can be any system where the first parameter is a trigger
-    /// app.add_observer(|trigger: Trigger<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
+    /// app.add_observer(|trigger: Trigger<'_, Party>, friends: Query<'_, '_, Entity, With<Friend>>, mut commands: Commands<'_, '_>| {
     ///     if trigger.event().friends_allowed {
     ///         for friend in friends.iter() {
     ///             commands.trigger_targets(Invite, friend);
@@ -1459,11 +1459,11 @@ mod tests {
     #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
     struct EnterMainMenu;
 
-    fn bar(mut commands: Commands) {
+    fn bar(mut commands: Commands<'_, '_>) {
         commands.spawn_empty();
     }
 
-    fn foo(mut commands: Commands) {
+    fn foo(mut commands: Commands<'_, '_>) {
         commands.spawn_empty();
     }
 
@@ -1596,12 +1596,12 @@ mod tests {
         let mut app = App::new();
         app.world_mut().spawn_batch(iter::repeat(Foo).take(5));
 
-        fn despawn_one_foo(mut commands: Commands, foos: Query<Entity, With<Foo>>) {
+        fn despawn_one_foo(mut commands: Commands<'_, '_>, foos: Query<'_, '_, Entity, With<Foo>>) {
             if let Some(e) = foos.iter().next() {
                 commands.entity(e).despawn();
             };
         }
-        fn check_despawns(mut removed_foos: RemovedComponents<Foo>) {
+        fn check_despawns(mut removed_foos: RemovedComponents<'_, '_, Foo>) {
             let mut despawn_count = 0;
             for _ in removed_foos.read() {
                 despawn_count += 1;
@@ -1630,7 +1630,7 @@ mod tests {
 
         let mut app = App::new();
         app.world_mut().insert_resource(Foo(0));
-        app.add_systems(Update, |mut foo: ResMut<Foo>| {
+        app.add_systems(Update, |mut foo: ResMut<'_, Foo>| {
             foo.0 += 1;
         });
 
@@ -1646,7 +1646,7 @@ mod tests {
 
     #[test]
     fn runner_returns_correct_exit_code() {
-        fn raise_exits(mut exits: EventWriter<AppExit>) {
+        fn raise_exits(mut exits: EventWriter<'_, AppExit>) {
             // Exit codes chosen by a fair dice roll.
             // Unlikely to overlap with default values.
             exits.send(AppExit::Success);
@@ -1682,7 +1682,7 @@ mod tests {
             AppExit::Success
         }
 
-        fn my_system(_: Res<MyState>) {
+        fn my_system(_: Res<'_, MyState>) {
             // access state during app update
         }
 

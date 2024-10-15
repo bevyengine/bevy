@@ -268,7 +268,7 @@ pub fn query_get(criterion: &mut Criterion) {
                 .spawn_batch((0..entity_count).map(|_| Table::default()))
                 .collect();
             entities.shuffle(&mut deterministic_rand());
-            let mut query = SystemState::<Query<&Table>>::new(&mut world);
+            let mut query = SystemState::<Query<'_, '_, &Table>>::new(&mut world);
             let query = query.get(&world);
 
             bencher.iter(|| {
@@ -287,7 +287,7 @@ pub fn query_get(criterion: &mut Criterion) {
                 .spawn_batch((0..entity_count).map(|_| Sparse::default()))
                 .collect();
             entities.shuffle(&mut deterministic_rand());
-            let mut query = SystemState::<Query<&Sparse>>::new(&mut world);
+            let mut query = SystemState::<Query<'_, '_, &Sparse>>::new(&mut world);
             let query = query.get(&world);
 
             bencher.iter(|| {
@@ -318,7 +318,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
                 .collect();
             entity_groups.shuffle(&mut deterministic_rand());
 
-            let mut query = SystemState::<Query<&Table>>::new(&mut world);
+            let mut query = SystemState::<Query<'_, '_, &Table>>::new(&mut world);
             let query = query.get(&world);
 
             bencher.iter(|| {
@@ -341,7 +341,7 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
                 .collect();
             entity_groups.shuffle(&mut deterministic_rand());
 
-            let mut query = SystemState::<Query<&Sparse>>::new(&mut world);
+            let mut query = SystemState::<Query<'_, '_, &Sparse>>::new(&mut world);
             let query = query.get(&world);
 
             bencher.iter(|| {

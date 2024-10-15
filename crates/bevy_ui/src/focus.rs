@@ -150,16 +150,16 @@ pub struct NodeQuery {
 /// Entities with a hidden [`ViewVisibility`] are always treated as released.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_focus_system(
-    mut state: Local<State>,
-    camera_query: Query<(Entity, &Camera)>,
-    default_ui_camera: DefaultUiCamera,
-    primary_window: Query<Entity, With<PrimaryWindow>>,
-    windows: Query<&Window>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    touches_input: Res<Touches>,
-    ui_scale: Res<UiScale>,
-    ui_stack: Res<UiStack>,
-    mut node_query: Query<NodeQuery>,
+    mut state: Local<'_, State>,
+    camera_query: Query<'_, '_, (Entity, &Camera)>,
+    default_ui_camera: DefaultUiCamera<'_, '_>,
+    primary_window: Query<'_, '_, Entity, With<PrimaryWindow>>,
+    windows: Query<'_, '_, &Window>,
+    mouse_button_input: Res<'_, ButtonInput<MouseButton>>,
+    touches_input: Res<'_, Touches>,
+    ui_scale: Res<'_, UiScale>,
+    ui_stack: Res<'_, UiStack>,
+    mut node_query: Query<'_, '_, NodeQuery>,
 ) {
     let primary_window = primary_window.iter().next();
 

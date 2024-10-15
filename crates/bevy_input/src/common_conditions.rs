@@ -36,11 +36,11 @@ use core::hash::Hash;
 ///         .add_plugins(DefaultPlugins)
 ///         .init_resource::<Paused>()
 ///         .add_systems(Update, toggle_pause_state.run_if(input_just_pressed(KeyCode::Escape)))
-///         .add_systems(Update, pause_menu.run_if(|paused: Res<Paused>| paused.0))
+///         .add_systems(Update, pause_menu.run_if(|paused: Res<'_, Paused>| paused.0))
 ///         .run();
 /// }
 ///
-/// fn toggle_pause_state(mut paused: ResMut<Paused>) {
+/// fn toggle_pause_state(mut paused: ResMut<'_, Paused>) {
 ///     paused.0 = !paused.0;
 /// }
 ///
@@ -51,23 +51,23 @@ use core::hash::Hash;
 pub fn input_toggle_active<T>(
     default: bool,
     input: T,
-) -> impl FnMut(Res<ButtonInput<T>>) -> bool + Clone
+) -> impl FnMut(Res<'_, ButtonInput<T>>) -> bool + Clone
 where
     T: Copy + Eq + Hash + Send + Sync + 'static,
 {
     let mut active = default;
-    move |inputs: Res<ButtonInput<T>>| {
+    move |inputs: Res<'_, ButtonInput<T>>| {
         active ^= inputs.just_pressed(input);
         active
     }
 }
 
 /// Run condition that is active if [`ButtonInput::pressed`] is true for the given input.
-pub fn input_pressed<T>(input: T) -> impl FnMut(Res<ButtonInput<T>>) -> bool + Clone
+pub fn input_pressed<T>(input: T) -> impl FnMut(Res<'_, ButtonInput<T>>) -> bool + Clone
 where
     T: Copy + Eq + Hash + Send + Sync + 'static,
 {
-    move |inputs: Res<ButtonInput<T>>| inputs.pressed(input)
+    move |inputs: Res<'_, ButtonInput<T>>| inputs.pressed(input)
 }
 
 /// Run condition that is active if [`ButtonInput::just_pressed`] is true for the given input.
@@ -85,19 +85,19 @@ where
 ///
 /// # fn jump() {}
 /// ```
-pub fn input_just_pressed<T>(input: T) -> impl FnMut(Res<ButtonInput<T>>) -> bool + Clone
+pub fn input_just_pressed<T>(input: T) -> impl FnMut(Res<'_, ButtonInput<T>>) -> bool + Clone
 where
     T: Copy + Eq + Hash + Send + Sync + 'static,
 {
-    move |inputs: Res<ButtonInput<T>>| inputs.just_pressed(input)
+    move |inputs: Res<'_, ButtonInput<T>>| inputs.just_pressed(input)
 }
 
 /// Run condition that is active if [`ButtonInput::just_released`] is true for the given input.
-pub fn input_just_released<T>(input: T) -> impl FnMut(Res<ButtonInput<T>>) -> bool + Clone
+pub fn input_just_released<T>(input: T) -> impl FnMut(Res<'_, ButtonInput<T>>) -> bool + Clone
 where
     T: Copy + Eq + Hash + Send + Sync + 'static,
 {
-    move |inputs: Res<ButtonInput<T>>| inputs.just_released(input)
+    move |inputs: Res<'_, ButtonInput<T>>| inputs.just_released(input)
 }
 
 #[cfg(test)]

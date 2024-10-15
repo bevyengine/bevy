@@ -2,8 +2,6 @@
 #![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
-extern crate proc_macro;
-
 mod states;
 
 use bevy_macro_utils::BevyManifest;

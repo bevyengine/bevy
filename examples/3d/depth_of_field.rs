@@ -67,7 +67,11 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: Res<AppSettings>) {
+fn setup(
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    app_settings: Res<'_, AppSettings>,
+) {
     // Spawn the camera. Enable HDR and bloom, as that highlights the depth of
     // field effect.
     let mut camera = commands.spawn((
@@ -104,7 +108,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 }
 
 /// Adjusts the focal distance and f-number per user inputs.
-fn adjust_focus(input: Res<ButtonInput<KeyCode>>, mut app_settings: ResMut<AppSettings>) {
+fn adjust_focus(input: Res<'_, ButtonInput<KeyCode>>, mut app_settings: ResMut<'_, AppSettings>) {
     // Change the focal distance if the user requested.
     let distance_delta = if input.pressed(KeyCode::ArrowDown) {
         -FOCAL_DISTANCE_SPEED
@@ -130,7 +134,7 @@ fn adjust_focus(input: Res<ButtonInput<KeyCode>>, mut app_settings: ResMut<AppSe
 }
 
 /// Changes the depth of field mode (Gaussian, bokeh, off) per user inputs.
-fn change_mode(input: Res<ButtonInput<KeyCode>>, mut app_settings: ResMut<AppSettings>) {
+fn change_mode(input: Res<'_, ButtonInput<KeyCode>>, mut app_settings: ResMut<'_, AppSettings>) {
     if !input.just_pressed(KeyCode::Space) {
         return;
     }
@@ -162,9 +166,9 @@ impl Default for AppSettings {
 
 /// Writes the depth of field settings into the camera.
 fn update_dof_settings(
-    mut commands: Commands,
-    view_targets: Query<Entity, With<Camera>>,
-    app_settings: Res<AppSettings>,
+    mut commands: Commands<'_, '_>,
+    view_targets: Query<'_, '_, Entity, With<Camera>>,
+    app_settings: Res<'_, AppSettings>,
 ) {
     let depth_of_field: Option<DepthOfField> = (*app_settings).into();
     for view in view_targets.iter() {
@@ -181,11 +185,13 @@ fn update_dof_settings(
 
 /// Makes one-time adjustments to the scene that can't be encoded in glTF.
 fn tweak_scene(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut lights: Query<&mut DirectionalLight, Changed<DirectionalLight>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut lights: Query<'_, '_, &mut DirectionalLight, Changed<DirectionalLight>>,
     mut named_entities: Query<
+        '_,
+        '_,
         (Entity, &Name, &MeshMaterial3d<StandardMaterial>),
         (With<Mesh3d>, Without<Lightmap>),
     >,
@@ -208,7 +214,7 @@ fn tweak_scene(
 }
 
 /// Update the help text entity per the current app settings.
-fn update_text(mut texts: Query<&mut Text>, app_settings: Res<AppSettings>) {
+fn update_text(mut texts: Query<'_, '_, &mut Text>, app_settings: Res<'_, AppSettings>) {
     for mut text in texts.iter_mut() {
         *text = create_text(&app_settings);
     }

@@ -200,7 +200,7 @@ impl ContainerAttributes {
     /// - `Hash, Debug(custom_debug), MyTrait`
     pub fn parse_terminated(
         &mut self,
-        input: ParseStream,
+        input: ParseStream<'_>,
         trait_: ReflectTraitToImpl,
     ) -> syn::Result<()> {
         terminated_parser(Token![,], |stream| {
@@ -220,13 +220,13 @@ impl ContainerAttributes {
         meta: &MetaList,
         trait_: ReflectTraitToImpl,
     ) -> syn::Result<()> {
-        meta.parse_args_with(|stream: ParseStream| self.parse_terminated(stream, trait_))
+        meta.parse_args_with(|stream: ParseStream<'_>| self.parse_terminated(stream, trait_))
     }
 
     /// Parse a single container attribute.
     fn parse_container_attribute(
         &mut self,
-        input: ParseStream,
+        input: ParseStream<'_>,
         trait_: ReflectTraitToImpl,
     ) -> syn::Result<()> {
         let lookahead = input.lookahead1();
@@ -259,13 +259,11 @@ impl ContainerAttributes {
     ///
     /// Examples:
     /// - `#[reflect(MyTrait)]` (registers `ReflectMyTrait`)
-    fn parse_ident(&mut self, input: ParseStream) -> syn::Result<()> {
+    fn parse_ident(&mut self, input: ParseStream<'_>) -> syn::Result<()> {
         let ident = input.parse::<Ident>()?;
 
         if input.peek(token::Paren) {
-            return Err(syn::Error::new(ident.span(), format!(
-                "only [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",
-            )));
+            return Err(syn::Error::new(ident.span(), format!("only [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",)));
         }
 
         let ident_name = ident.to_string();
@@ -285,7 +283,7 @@ impl ContainerAttributes {
     /// Examples:
     /// - `#[reflect(Debug)]`
     /// - `#[reflect(Debug(custom_debug_fn))]`
-    fn parse_debug(&mut self, input: ParseStream) -> syn::Result<()> {
+    fn parse_debug(&mut self, input: ParseStream<'_>) -> syn::Result<()> {
         let ident = input.parse::<kw::Debug>()?;
 
         if input.peek(token::Paren) {
@@ -305,7 +303,7 @@ impl ContainerAttributes {
     /// Examples:
     /// - `#[reflect(PartialEq)]`
     /// - `#[reflect(PartialEq(custom_partial_eq_fn))]`
-    fn parse_partial_eq(&mut self, input: ParseStream) -> syn::Result<()> {
+    fn parse_partial_eq(&mut self, input: ParseStream<'_>) -> syn::Result<()> {
         let ident = input.parse::<kw::PartialEq>()?;
 
         if input.peek(token::Paren) {
@@ -325,7 +323,7 @@ impl ContainerAttributes {
     /// Examples:
     /// - `#[reflect(Hash)]`
     /// - `#[reflect(Hash(custom_hash_fn))]`
-    fn parse_hash(&mut self, input: ParseStream) -> syn::Result<()> {
+    fn parse_hash(&mut self, input: ParseStream<'_>) -> syn::Result<()> {
         let ident = input.parse::<kw::Hash>()?;
 
         if input.peek(token::Paren) {
@@ -344,7 +342,7 @@ impl ContainerAttributes {
     ///
     /// Examples:
     /// - `#[reflect(opaque)]`
-    fn parse_opaque(&mut self, input: ParseStream) -> syn::Result<()> {
+    fn parse_opaque(&mut self, input: ParseStream<'_>) -> syn::Result<()> {
         input.parse::<kw::opaque>()?;
         self.is_opaque = true;
         Ok(())
@@ -354,7 +352,7 @@ impl ContainerAttributes {
     ///
     /// Examples:
     /// - `#[reflect(no_field_bounds)]`
-    fn parse_no_field_bounds(&mut self, input: ParseStream) -> syn::Result<()> {
+    fn parse_no_field_bounds(&mut self, input: ParseStream<'_>) -> syn::Result<()> {
         input.parse::<kw::no_field_bounds>()?;
         self.no_field_bounds = true;
         Ok(())
@@ -364,7 +362,7 @@ impl ContainerAttributes {
     ///
     /// Examples:
     /// - `#[reflect(where T: Debug)]`
-    fn parse_custom_where(&mut self, input: ParseStream) -> syn::Result<()> {
+    fn parse_custom_where(&mut self, input: ParseStream<'_>) -> syn::Result<()> {
         self.custom_where = Some(input.parse()?);
         Ok(())
     }
@@ -375,7 +373,7 @@ impl ContainerAttributes {
     /// - `#[reflect(from_reflect = false)]`
     fn parse_from_reflect(
         &mut self,
-        input: ParseStream,
+        input: ParseStream<'_>,
         trait_: ReflectTraitToImpl,
     ) -> syn::Result<()> {
         let pair = input.parse::<MetaNameValue>()?;
@@ -408,7 +406,7 @@ impl ContainerAttributes {
     /// - `#[reflect(type_path = false)]`
     fn parse_type_path(
         &mut self,
-        input: ParseStream,
+        input: ParseStream<'_>,
         trait_: ReflectTraitToImpl,
     ) -> syn::Result<()> {
         let pair = input.parse::<MetaNameValue>()?;

@@ -127,7 +127,11 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<ButtonMaterials>) {
+fn setup(
+    mut commands: Commands<'_, '_>,
+    meshes: Res<'_, ButtonMeshes>,
+    materials: Res<'_, ButtonMaterials>,
+) {
     commands.spawn(Camera2d);
 
     // Buttons
@@ -253,9 +257,9 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
 }
 
 fn setup_sticks(
-    mut commands: Commands,
-    meshes: Res<ButtonMeshes>,
-    materials: Res<ButtonMaterials>,
+    mut commands: Commands<'_, '_>,
+    meshes: Res<'_, ButtonMeshes>,
+    materials: Res<'_, ButtonMaterials>,
 ) {
     // NOTE: This stops making sense because in entities because there isn't a "global" default,
     // instead each gamepad has its own default setting
@@ -342,9 +346,9 @@ fn setup_sticks(
 }
 
 fn setup_triggers(
-    mut commands: Commands,
-    meshes: Res<ButtonMeshes>,
-    materials: Res<ButtonMaterials>,
+    mut commands: Commands<'_, '_>,
+    meshes: Res<'_, ButtonMeshes>,
+    materials: Res<'_, ButtonMaterials>,
 ) {
     let mut spawn_trigger = |x, y, button_type| {
         commands
@@ -372,7 +376,7 @@ fn setup_triggers(
     spawn_trigger(BUTTONS_X, BUTTONS_Y + 145., GamepadButton::RightTrigger2);
 }
 
-fn setup_connected(mut commands: Commands) {
+fn setup_connected(mut commands: Commands<'_, '_>) {
     // This is UI text, unlike other text in this example which is 2d.
     commands
         .spawn((
@@ -389,9 +393,9 @@ fn setup_connected(mut commands: Commands) {
 }
 
 fn update_buttons(
-    gamepads: Query<&Gamepad>,
-    materials: Res<ButtonMaterials>,
-    mut query: Query<(&mut MeshMaterial2d<ColorMaterial>, &ReactTo)>,
+    gamepads: Query<'_, '_, &Gamepad>,
+    materials: Res<'_, ButtonMaterials>,
+    mut query: Query<'_, '_, (&mut MeshMaterial2d<ColorMaterial>, &ReactTo)>,
 ) {
     for buttons in &gamepads {
         for (mut handle, react_to) in query.iter_mut() {
@@ -405,8 +409,8 @@ fn update_buttons(
     }
 }
 fn update_button_values(
-    mut events: EventReader<GamepadButtonChangedEvent>,
-    mut query: Query<(&mut Text2d, &TextWithButtonValue)>,
+    mut events: EventReader<'_, '_, GamepadButtonChangedEvent>,
+    mut query: Query<'_, '_, (&mut Text2d, &TextWithButtonValue)>,
 ) {
     for button_event in events.read() {
         for (mut text, text_with_button_value) in query.iter_mut() {
@@ -418,9 +422,9 @@ fn update_button_values(
 }
 
 fn update_axes(
-    mut axis_events: EventReader<GamepadAxisChangedEvent>,
-    mut query: Query<(&mut Transform, &MoveWithAxes)>,
-    text_query: Query<(Entity, &TextWithAxes)>,
+    mut axis_events: EventReader<'_, '_, GamepadAxisChangedEvent>,
+    mut query: Query<'_, '_, (&mut Transform, &MoveWithAxes)>,
+    text_query: Query<'_, '_, (Entity, &TextWithAxes)>,
     mut writer: TextWriter2d,
 ) {
     for axis_event in axis_events.read() {
@@ -446,9 +450,9 @@ fn update_axes(
 }
 
 fn update_connected(
-    mut connected: EventReader<GamepadConnectionEvent>,
-    gamepads: Query<(Entity, &Gamepad)>,
-    text: Single<Entity, With<ConnectedGamepadsText>>,
+    mut connected: EventReader<'_, '_, GamepadConnectionEvent>,
+    gamepads: Query<'_, '_, (Entity, &Gamepad)>,
+    text: Single<'_, Entity, With<ConnectedGamepadsText>>,
     mut writer: UiTextWriter,
 ) {
     if connected.is_empty() {

@@ -650,7 +650,7 @@ impl ImageSamplerDescriptor {
         }
     }
 
-    pub fn as_wgpu(&self) -> wgpu::SamplerDescriptor {
+    pub fn as_wgpu(&self) -> wgpu::SamplerDescriptor<'_> {
         wgpu::SamplerDescriptor {
             label: self.label.as_deref(),
             address_mode_u: self.address_mode_u.into(),
@@ -761,7 +761,7 @@ impl From<wgpu::SamplerBorderColor> for ImageSamplerBorderColor {
 }
 
 impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
-    fn from(value: wgpu::SamplerDescriptor) -> Self {
+    fn from(value: wgpu::SamplerDescriptor<'_>) -> Self {
         ImageSamplerDescriptor {
             label: value.label.map(ToString::to_string),
             address_mode_u: value.address_mode_u.into(),
@@ -1016,7 +1016,7 @@ impl Image {
     pub fn from_buffer(
         #[cfg(all(debug_assertions, feature = "dds"))] name: String,
         buffer: &[u8],
-        image_type: ImageType,
+        image_type: ImageType<'_>,
         #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
         image_sampler: ImageSampler,

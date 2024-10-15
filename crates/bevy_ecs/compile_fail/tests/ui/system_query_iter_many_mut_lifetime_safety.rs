@@ -3,7 +3,7 @@ use bevy_ecs::prelude::*;
 #[derive(Component)]
 struct A(usize);
 
-fn system(mut query: Query<&mut A>, e: Entity) {
+fn system(mut query: Query<'_, '_, &mut A>, e: Entity) {
     let mut results = Vec::new();
     let mut iter = query.iter_many_mut([e, e]);
     //~v E0499

@@ -46,7 +46,7 @@ impl Bird {
 #[derive(Component, Debug)]
 struct Left;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     let bird_left = Bird::Normal;
     let bird_right = Bird::Normal;
     commands.spawn(Camera2d);
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn spawn_text(mut commands: Commands) {
+fn spawn_text(mut commands: Commands<'_, '_>) {
     commands
         .spawn((
             Name::new("Instructions"),
@@ -113,8 +113,8 @@ fn spawn_text(mut commands: Commands) {
 }
 
 fn alter_handle(
-    asset_server: Res<AssetServer>,
-    mut right_bird: Query<(&mut Bird, &mut Sprite), Without<Left>>,
+    asset_server: Res<'_, AssetServer>,
+    mut right_bird: Query<'_, '_, (&mut Bird, &mut Sprite), Without<Left>>,
 ) {
     // Image handles, like other parts of the ECS, can be queried as mutable and modified at
     // runtime. We only spawned one bird without the `Left` marker component.
@@ -131,7 +131,10 @@ fn alter_handle(
     sprite.image = asset_server.load(bird.get_texture_path());
 }
 
-fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Query<&Sprite, With<Left>>) {
+fn alter_asset(
+    mut images: ResMut<'_, Assets<Image>>,
+    left_bird: Query<'_, '_, &Sprite, With<Left>>,
+) {
     // It's convenient to retrieve the asset handle stored with the bird on the left. However,
     // we could just as easily have retained this in a resource or a dedicated component.
     let Ok(sprite) = left_bird.get_single() else {

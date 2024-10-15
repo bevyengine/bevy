@@ -10,7 +10,7 @@
 //! |                    | Change Density (Exponential Fogs)   |
 //! | `Z` / `X`          | Move End Distance (Linear Fog)      |
 //! | `-` / `=`          | Adjust Fog Red Channel              |
-//! | `[` / `]`          | Adjust Fog Green Channel            |
+//! | `[` / [`Commands`]`          | Adjust Fog Green Channel            |
 //! | `;` / `'`          | Adjust Fog Blue Channel             |
 //! | `.` / `?`          | Adjust Fog Alpha Channel            |
 
@@ -32,7 +32,7 @@ fn main() {
         .run();
 }
 
-fn setup_camera_fog(mut commands: Commands) {
+fn setup_camera_fog(mut commands: Commands<'_, '_>) {
     commands.spawn((
         Camera3d::default(),
         DistanceFog {
@@ -47,9 +47,9 @@ fn setup_camera_fog(mut commands: Commands) {
 }
 
 fn setup_pyramid_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     let stone = materials.add(StandardMaterial {
         base_color: Srgba::hex("28221B").unwrap().into(),
@@ -115,7 +115,7 @@ fn setup_pyramid_scene(
     ));
 }
 
-fn setup_instructions(mut commands: Commands) {
+fn setup_instructions(mut commands: Commands<'_, '_>) {
     commands.spawn((
         Text::default(),
         Style {
@@ -128,10 +128,10 @@ fn setup_instructions(mut commands: Commands) {
 }
 
 fn update_system(
-    camera: Single<(&mut DistanceFog, &mut Transform)>,
-    mut text: Single<&mut Text>,
-    time: Res<Time>,
-    keycode: Res<ButtonInput<KeyCode>>,
+    camera: Single<'_, (&mut DistanceFog, &mut Transform)>,
+    mut text: Single<'_, &mut Text>,
+    time: Res<'_, Time>,
+    keycode: Res<'_, ButtonInput<KeyCode>>,
 ) {
     let now = time.elapsed_seconds();
     let delta = time.delta_seconds();

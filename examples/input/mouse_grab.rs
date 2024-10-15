@@ -12,9 +12,9 @@ fn main() {
 // This system grabs the mouse when the left mouse button is pressed
 // and releases it when the escape key is pressed
 fn grab_mouse(
-    mut window: Single<&mut Window>,
-    mouse: Res<ButtonInput<MouseButton>>,
-    key: Res<ButtonInput<KeyCode>>,
+    mut window: Single<'_, &mut Window>,
+    mouse: Res<'_, ButtonInput<MouseButton>>,
+    key: Res<'_, ButtonInput<KeyCode>>,
 ) {
     if mouse.just_pressed(MouseButton::Left) {
         window.cursor_options.visible = false;

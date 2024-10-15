@@ -19,9 +19,9 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // Spawn a cube to rotate.
     commands.spawn((
@@ -45,7 +45,7 @@ fn setup(
 }
 
 // This system will rotate any entity in the scene with a Rotatable component around its y-axis.
-fn rotate_cube(mut cubes: Query<(&mut Transform, &Rotatable)>, timer: Res<Time>) {
+fn rotate_cube(mut cubes: Query<'_, '_, (&mut Transform, &Rotatable)>, timer: Res<'_, Time>) {
     for (mut transform, cube) in &mut cubes {
         // The speed is first multiplied by TAU which is a full rotation (360deg) in radians,
         // and then multiplied by delta_seconds which is the time that passed last frame.

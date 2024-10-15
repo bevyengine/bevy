@@ -15,10 +15,10 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // Space between the two ears
     let gap = 4.0;
@@ -86,9 +86,9 @@ struct Emitter {
 }
 
 fn update_positions(
-    time: Res<Time>,
-    mut emitters: Query<(&mut Transform, &mut Emitter), With<Emitter>>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    time: Res<'_, Time>,
+    mut emitters: Query<'_, '_, (&mut Transform, &mut Emitter), With<Emitter>>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
 ) {
     for (mut emitter_transform, mut emitter) in emitters.iter_mut() {
         if keyboard.just_pressed(KeyCode::Space) {
@@ -109,9 +109,9 @@ fn update_positions(
 }
 
 fn update_listener(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
-    mut listeners: Single<&mut Transform, With<SpatialListener>>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
+    time: Res<'_, Time>,
+    mut listeners: Single<'_, &mut Transform, With<SpatialListener>>,
 ) {
     let speed = 2.;
 

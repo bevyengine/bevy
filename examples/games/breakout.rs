@@ -179,10 +179,10 @@ struct ScoreboardUi;
 
 // Add the game's entities to our world
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     // Camera
     commands.spawn(Camera2d);
@@ -300,9 +300,9 @@ fn setup(
 }
 
 fn move_paddle(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut paddle_transform: Single<&mut Transform, With<Paddle>>,
-    time: Res<Time>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut paddle_transform: Single<'_, &mut Transform, With<Paddle>>,
+    time: Res<'_, Time>,
 ) {
     let mut direction = 0.0;
 
@@ -326,7 +326,7 @@ fn move_paddle(
     paddle_transform.translation.x = new_paddle_position.clamp(left_bound, right_bound);
 }
 
-fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>) {
+fn apply_velocity(mut query: Query<'_, '_, (&mut Transform, &Velocity)>, time: Res<'_, Time>) {
     for (mut transform, velocity) in &mut query {
         transform.translation.x += velocity.x * time.delta_seconds();
         transform.translation.y += velocity.y * time.delta_seconds();
@@ -334,19 +334,19 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>
 }
 
 fn update_scoreboard(
-    score: Res<Score>,
-    score_root: Single<Entity, (With<ScoreboardUi>, With<Text>)>,
+    score: Res<'_, Score>,
+    score_root: Single<'_, Entity, (With<ScoreboardUi>, With<Text>)>,
     mut writer: UiTextWriter,
 ) {
     *writer.text(*score_root, 1) = score.to_string();
 }
 
 fn check_for_collisions(
-    mut commands: Commands,
-    mut score: ResMut<Score>,
-    ball_query: Single<(&mut Velocity, &Transform), With<Ball>>,
-    collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
-    mut collision_events: EventWriter<CollisionEvent>,
+    mut commands: Commands<'_, '_>,
+    mut score: ResMut<'_, Score>,
+    ball_query: Single<'_, (&mut Velocity, &Transform), With<Ball>>,
+    collider_query: Query<'_, '_, (Entity, &Transform, Option<&Brick>), With<Collider>>,
+    mut collision_events: EventWriter<'_, CollisionEvent>,
 ) {
     let (mut ball_velocity, ball_transform) = ball_query.into_inner();
 
@@ -396,9 +396,9 @@ fn check_for_collisions(
 }
 
 fn play_collision_sound(
-    mut commands: Commands,
-    mut collision_events: EventReader<CollisionEvent>,
-    sound: Res<CollisionSound>,
+    mut commands: Commands<'_, '_>,
+    mut collision_events: EventReader<'_, '_, CollisionEvent>,
+    sound: Res<'_, CollisionSound>,
 ) {
     // Play a sound once per frame if a collision occurred.
     if !collision_events.is_empty() {

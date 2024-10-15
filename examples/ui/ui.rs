@@ -29,7 +29,7 @@ fn main() {
     app.run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // Camera
     commands.spawn((Camera2d, IsDefaultUiCamera));
 
@@ -320,8 +320,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 #[cfg(feature = "bevy_dev_tools")]
 // The system that will enable/disable the debug outlines around the nodes
 fn toggle_overlay(
-    input: Res<ButtonInput<KeyCode>>,
-    mut options: ResMut<bevy::dev_tools::ui_debug_overlay::UiDebugOptions>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut options: ResMut<'_, bevy::dev_tools::ui_debug_overlay::UiDebugOptions>,
 ) {
     info_once!("The debug outlines are enabled, press Space to turn them on/off");
     if input.just_pressed(KeyCode::Space) {
@@ -332,10 +332,10 @@ fn toggle_overlay(
 
 /// Updates the scroll position of scrollable nodes in response to mouse input
 pub fn update_scroll_position(
-    mut mouse_wheel_events: EventReader<MouseWheel>,
-    hover_map: Res<HoverMap>,
-    mut scrolled_node_query: Query<&mut ScrollPosition>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut mouse_wheel_events: EventReader<'_, '_, MouseWheel>,
+    hover_map: Res<'_, HoverMap>,
+    mut scrolled_node_query: Query<'_, '_, &mut ScrollPosition>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.read() {
         let (mut dx, mut dy) = match mouse_wheel_event.unit {

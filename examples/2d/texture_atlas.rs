@@ -29,15 +29,15 @@ enum AppState {
 #[derive(Resource, Default)]
 struct RpgSpriteFolder(Handle<LoadedFolder>);
 
-fn load_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn load_textures(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // load multiple, individual sprites from a folder
     commands.insert_resource(RpgSpriteFolder(asset_server.load_folder("textures/rpg")));
 }
 
 fn check_textures(
-    mut next_state: ResMut<NextState<AppState>>,
-    rpg_sprite_folder: Res<RpgSpriteFolder>,
-    mut events: EventReader<AssetEvent<LoadedFolder>>,
+    mut next_state: ResMut<'_, NextState<AppState>>,
+    rpg_sprite_folder: Res<'_, RpgSpriteFolder>,
+    mut events: EventReader<'_, '_, AssetEvent<LoadedFolder>>,
 ) {
     // Advance the `AppState` once all sprite handles have been loaded by the `AssetServer`
     for event in events.read() {
@@ -48,12 +48,12 @@ fn check_textures(
 }
 
 fn setup(
-    mut commands: Commands,
-    rpg_sprite_handles: Res<RpgSpriteFolder>,
-    asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    loaded_folders: Res<Assets<LoadedFolder>>,
-    mut textures: ResMut<Assets<Image>>,
+    mut commands: Commands<'_, '_>,
+    rpg_sprite_handles: Res<'_, RpgSpriteFolder>,
+    asset_server: Res<'_, AssetServer>,
+    mut texture_atlases: ResMut<'_, Assets<TextureAtlasLayout>>,
+    loaded_folders: Res<'_, Assets<LoadedFolder>>,
+    mut textures: ResMut<'_, Assets<Image>>,
 ) {
     let loaded_folder = loaded_folders.get(&rpg_sprite_handles.0).unwrap();
 
@@ -219,7 +219,7 @@ fn create_texture_atlas(
     folder: &LoadedFolder,
     padding: Option<UVec2>,
     sampling: Option<ImageSampler>,
-    textures: &mut ResMut<Assets<Image>>,
+    textures: &mut ResMut<'_, Assets<Image>>,
 ) -> (TextureAtlasLayout, TextureAtlasSources, Handle<Image>) {
     // Build a texture atlas using the individual sprites
     let mut texture_atlas_builder = TextureAtlasBuilder::default();
@@ -250,7 +250,7 @@ fn create_texture_atlas(
 
 /// Create and spawn a sprite from a texture atlas
 fn create_sprite_from_atlas(
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
     translation: (f32, f32, f32),
     atlas_texture: Handle<Image>,
     atlas_sources: TextureAtlasSources,
@@ -272,7 +272,7 @@ fn create_sprite_from_atlas(
 
 /// Create and spawn a label (text)
 fn create_label(
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
     translation: (f32, f32, f32),
     text: &str,
     text_style: TextFont,

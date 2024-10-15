@@ -48,23 +48,23 @@ use crate::{AnimationClip, AnimationTargetId};
 /// For example, consider the following graph:
 ///
 /// ```text
-/// ┌────────────┐                                      
-/// │            │                                      
-/// │    Idle    ├─────────────────────┐                
-/// │            │                     │                
-/// └────────────┘                     │                
-///                                    │                
+/// ┌────────────┐
+/// │            │
+/// │    Idle    ├─────────────────────┐
+/// │            │                     │
+/// └────────────┘                     │
+///                                    │
 /// ┌────────────┐                     │  ┌────────────┐
 /// │            │                     │  │            │
 /// │    Run     ├──┐                  ├──┤    Root    │
 /// │            │  │  ┌────────────┐  │  │            │
 /// └────────────┘  │  │   Blend    │  │  └────────────┘
-///                 ├──┤            ├──┘                
-/// ┌────────────┐  │  │    0.5     │                   
-/// │            │  │  └────────────┘                   
-/// │    Walk    ├──┘                                   
-/// │            │                                      
-/// └────────────┘                                      
+///                 ├──┤            ├──┘
+/// ┌────────────┐  │  │    0.5     │
+/// │            │  │  └────────────┘
+/// │    Walk    ├──┘
+/// │            │
+/// └────────────┘
 /// ```
 ///
 /// In this case, assuming that Idle, Run, and Walk are all playing with weight
@@ -821,9 +821,9 @@ impl From<AnimationGraph> for SerializedAnimationGraph {
 /// The [`ThreadedAnimationGraph`] contains acceleration structures that allow
 /// for quick evaluation of that graph's animations.
 pub(crate) fn thread_animation_graphs(
-    mut threaded_animation_graphs: ResMut<ThreadedAnimationGraphs>,
-    animation_graphs: Res<Assets<AnimationGraph>>,
-    mut animation_graph_asset_events: EventReader<AssetEvent<AnimationGraph>>,
+    mut threaded_animation_graphs: ResMut<'_, ThreadedAnimationGraphs>,
+    animation_graphs: Res<'_, Assets<AnimationGraph>>,
+    mut animation_graph_asset_events: EventReader<'_, '_, AssetEvent<AnimationGraph>>,
 ) {
     for animation_graph_asset_event in animation_graph_asset_events.read() {
         match *animation_graph_asset_event {

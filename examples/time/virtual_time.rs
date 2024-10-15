@@ -40,7 +40,11 @@ struct RealTime;
 struct VirtualTime;
 
 /// Setup the example
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMut<Time<Virtual>>) {
+fn setup(
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut time: ResMut<'_, Time<Virtual>>,
+) {
     // start with double `Virtual` time resulting in one of the sprites moving at twice the speed
     // of the other sprite which moves based on `Real` (unscaled) time
     time.set_relative_speed(2.);
@@ -127,9 +131,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
 
 /// Move sprites using `Real` (unscaled) time
 fn move_real_time_sprites(
-    mut sprite_query: Query<&mut Transform, (With<Sprite>, With<RealTime>)>,
+    mut sprite_query: Query<'_, '_, &mut Transform, (With<Sprite>, With<RealTime>)>,
     // `Real` time which is not scaled or paused
-    time: Res<Time<Real>>,
+    time: Res<'_, Time<Real>>,
 ) {
     for mut transform in sprite_query.iter_mut() {
         // move roughly half the screen in a `Real` second
@@ -141,11 +145,11 @@ fn move_real_time_sprites(
 
 /// Move sprites using `Virtual` (scaled) time
 fn move_virtual_time_sprites(
-    mut sprite_query: Query<&mut Transform, (With<Sprite>, With<VirtualTime>)>,
+    mut sprite_query: Query<'_, '_, &mut Transform, (With<Sprite>, With<VirtualTime>)>,
     // the default `Time` is either `Time<Virtual>` in regular systems
     // or `Time<Fixed>` in fixed timestep systems so `Time::delta()`,
     // `Time::elapsed()` will return the appropriate values either way
-    time: Res<Time>,
+    time: Res<'_, Time>,
 ) {
     for mut transform in sprite_query.iter_mut() {
         // move roughly half the screen in a `Virtual` second
@@ -161,7 +165,7 @@ fn get_sprite_translation_x(elapsed: f32) -> f32 {
 }
 
 /// Update the speed of `Time<Virtual>.` by `DELTA`
-fn change_time_speed<const DELTA: i8>(mut time: ResMut<Time<Virtual>>) {
+fn change_time_speed<const DELTA: i8>(mut time: ResMut<'_, Time<Virtual>>) {
     let time_speed = (time.relative_speed() + DELTA as f32)
         .round()
         .clamp(0.25, 5.);
@@ -171,7 +175,7 @@ fn change_time_speed<const DELTA: i8>(mut time: ResMut<Time<Virtual>>) {
 }
 
 /// pause or resume `Relative` time
-fn toggle_pause(mut time: ResMut<Time<Virtual>>) {
+fn toggle_pause(mut time: ResMut<'_, Time<Virtual>>) {
     if time.is_paused() {
         time.unpause();
     } else {
@@ -180,7 +184,10 @@ fn toggle_pause(mut time: ResMut<Time<Virtual>>) {
 }
 
 /// Update the `Real` time info text
-fn update_real_time_info_text(time: Res<Time<Real>>, mut query: Query<&mut Text, With<RealTime>>) {
+fn update_real_time_info_text(
+    time: Res<'_, Time<Real>>,
+    mut query: Query<'_, '_, &mut Text, With<RealTime>>,
+) {
     for mut text in &mut query {
         **text = format!(
             "REAL TIME\nElapsed: {:.1}\nDelta: {:.5}\n",
@@ -192,8 +199,8 @@ fn update_real_time_info_text(time: Res<Time<Real>>, mut query: Query<&mut Text,
 
 /// Update the `Virtual` time info text
 fn update_virtual_time_info_text(
-    time: Res<Time<Virtual>>,
-    mut query: Query<&mut Text, With<VirtualTime>>,
+    time: Res<'_, Time<Virtual>>,
+    mut query: Query<'_, '_, &mut Text, With<VirtualTime>>,
 ) {
     for mut text in &mut query {
         **text = format!(

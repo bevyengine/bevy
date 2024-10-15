@@ -29,7 +29,7 @@ impl Benchmark {
             .take(10_000),
         );
 
-        fn query_system(mut query: Query<(&Velocity, &mut Position)>) {
+        fn query_system(mut query: Query<'_, '_, (&Velocity, &mut Position)>) {
             for (velocity, mut position) in &mut query {
                 position.0 += velocity.0;
             }

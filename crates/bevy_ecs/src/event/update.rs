@@ -20,16 +20,16 @@ pub struct EventUpdates;
 ///
 /// This will change the behavior of the [`EventRegistry`] to only run after a fixed update cycle has passed.
 /// Normally, this will simply run every frame.
-pub fn signal_event_update_system(signal: Option<ResMut<EventRegistry>>) {
+pub fn signal_event_update_system(signal: Option<ResMut<'_, EventRegistry>>) {
     if let Some(mut registry) = signal {
         registry.should_update = ShouldUpdateEvents::Ready;
     }
 }
 
 /// A system that calls [`Events::update`](super::Events::update) on all registered [`Events`][super::Events] in the world.
-pub fn event_update_system(world: &mut World, mut last_change_tick: Local<Tick>) {
+pub fn event_update_system(world: &mut World, mut last_change_tick: Local<'_, Tick>) {
     if world.contains_resource::<EventRegistry>() {
-        world.resource_scope(|world, mut registry: Mut<EventRegistry>| {
+        world.resource_scope(|world, mut registry: Mut<'_, EventRegistry>| {
             registry.run_updates(world, *last_change_tick);
 
             registry.should_update = match registry.should_update {
@@ -51,7 +51,7 @@ pub fn event_update_system(world: &mut World, mut last_change_tick: Local<Tick>)
 /// we will wait for it to be run again before updating the events.
 ///
 /// Otherwise, we will always update the events.
-pub fn event_update_condition(maybe_signal: Option<Res<EventRegistry>>) -> bool {
+pub fn event_update_condition(maybe_signal: Option<Res<'_, EventRegistry>>) -> bool {
     match maybe_signal {
         Some(signal) => match signal.should_update {
             ShouldUpdateEvents::Always | ShouldUpdateEvents::Ready => true,

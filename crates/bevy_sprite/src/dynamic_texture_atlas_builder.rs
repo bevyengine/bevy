@@ -51,11 +51,7 @@ impl DynamicTextureAtlasBuilder {
             (texture.height() + self.padding).try_into().unwrap(),
         ));
         if let Some(allocation) = allocation {
-            assert!(
-                <GpuImage as RenderAsset>::asset_usage(atlas_texture)
-                    .contains(RenderAssetUsages::MAIN_WORLD),
-                "The asset at atlas_texture_handle must have the RenderAssetUsages::MAIN_WORLD usage flag set"
-            );
+            assert!(<GpuImage as RenderAsset>::asset_usage(atlas_texture).contains(RenderAssetUsages::MAIN_WORLD), "The asset at atlas_texture_handle must have the RenderAssetUsages::MAIN_WORLD usage flag set");
 
             self.place_texture(atlas_texture, allocation, texture);
             let mut rect: URect = to_rect(allocation.rectangle);

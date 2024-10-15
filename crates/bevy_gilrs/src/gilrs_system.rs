@@ -14,11 +14,11 @@ use bevy_input::gamepad::{
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
 
 pub fn gilrs_event_startup_system(
-    mut commands: Commands,
+    mut commands: Commands<'_, '_>,
     #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
-    #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
-    mut gamepads: ResMut<GilrsGamepads>,
-    mut events: EventWriter<GamepadConnectionEvent>,
+    #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<'_, Gilrs>,
+    mut gamepads: ResMut<'_, GilrsGamepads>,
+    mut events: EventWriter<'_, GamepadConnectionEvent>,
 ) {
     for (id, gamepad) in gilrs.0.get().gamepads() {
         // Create entity and add to mapping
@@ -40,14 +40,14 @@ pub fn gilrs_event_startup_system(
 }
 
 pub fn gilrs_event_system(
-    mut commands: Commands,
+    mut commands: Commands<'_, '_>,
     #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
-    #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
-    mut gamepads: ResMut<GilrsGamepads>,
-    mut events: EventWriter<RawGamepadEvent>,
-    mut connection_events: EventWriter<GamepadConnectionEvent>,
-    mut button_events: EventWriter<RawGamepadButtonChangedEvent>,
-    mut axis_event: EventWriter<RawGamepadAxisChangedEvent>,
+    #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<'_, Gilrs>,
+    mut gamepads: ResMut<'_, GilrsGamepads>,
+    mut events: EventWriter<'_, RawGamepadEvent>,
+    mut connection_events: EventWriter<'_, GamepadConnectionEvent>,
+    mut button_events: EventWriter<'_, RawGamepadButtonChangedEvent>,
+    mut axis_event: EventWriter<'_, RawGamepadAxisChangedEvent>,
 ) {
     let gilrs = gilrs.0.get();
     while let Some(gilrs_event) = gilrs.next_event().filter_ev(&axis_dpad_to_button, gilrs) {

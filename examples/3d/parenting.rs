@@ -16,7 +16,7 @@ fn main() {
 struct Rotator;
 
 /// rotates the parent, which will result in the child also rotating
-fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotator>>) {
+fn rotator_system(time: Res<'_, Time>, mut query: Query<'_, '_, &mut Transform, With<Rotator>>) {
     for mut transform in &mut query {
         transform.rotate_x(3.0 * time.delta_seconds());
     }
@@ -24,9 +24,9 @@ fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Rotator
 
 /// set up a simple scene with a "parent" cube and a "child" cube
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     let cube_handle = meshes.add(Cuboid::new(2.0, 2.0, 2.0));
     let cube_material_handle = materials.add(StandardMaterial {

@@ -26,7 +26,7 @@ pub trait FromArg {
     /// Creates an item from an argument.
     ///
     /// The argument must be of the expected type and ownership.
-    fn from_arg(arg: Arg) -> Result<Self::This<'_>, ArgError>;
+    fn from_arg(arg: Arg<'_>) -> Result<Self::This<'_>, ArgError>;
 }
 
 /// Implements the [`FromArg`] trait for the given type.
@@ -64,7 +64,7 @@ macro_rules! impl_from_arg {
         )?
         {
             type This<'from_arg> = $ty;
-            fn from_arg(arg: $crate::func::args::Arg) -> Result<Self::This<'_>, $crate::func::args::ArgError> {
+            fn from_arg(arg: $crate::func::args::Arg<'_>) -> Result<Self::This<'_>, $crate::func::args::ArgError> {
                 arg.take_owned()
             }
         }
@@ -79,7 +79,7 @@ macro_rules! impl_from_arg {
         )?
         {
             type This<'from_arg> = &'from_arg $ty;
-            fn from_arg(arg: $crate::func::args::Arg) -> Result<Self::This<'_>, $crate::func::args::ArgError> {
+            fn from_arg(arg: $crate::func::args::Arg<'_>) -> Result<Self::This<'_>, $crate::func::args::ArgError> {
                 arg.take_ref()
             }
         }
@@ -94,7 +94,7 @@ macro_rules! impl_from_arg {
         )?
         {
             type This<'from_arg> = &'from_arg mut $ty;
-            fn from_arg(arg: $crate::func::args::Arg) -> Result<Self::This<'_>, $crate::func::args::ArgError> {
+            fn from_arg(arg: $crate::func::args::Arg<'_>) -> Result<Self::This<'_>, $crate::func::args::ArgError> {
                 arg.take_mut()
             }
         }

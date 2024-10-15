@@ -32,7 +32,7 @@ pub struct SystemMeta {
     /// in the multithreaded executor.
     ///
     /// We use a [`ArchetypeComponentId`] as it is more precise than just checking [`ComponentId`]:
-    /// for example if you have one system with `Query<&mut T, With<A>>` and one system with `Query<&mut T, With<B>>`
+    /// for example if you have one system with `Query<'_, '_, &mut T, With<A>>` and one system with `Query<'_, '_, &mut T, With<B>>`
     /// they conflict if you just look at the [`ComponentId`] of `T`; but if there are no archetypes with
     /// both `A`, `B` and `T` then in practice there's no risk of conflict. By using [`ArchetypeComponentId`]
     /// we can be more precise because we can check if the existing archetypes of the [`World`]
@@ -109,7 +109,7 @@ impl SystemMeta {
         self.has_deferred
     }
 
-    /// Marks the system as having deferred buffers like [`Commands`](`super::Commands`)
+    /// Marks the system as having deferred buffers like [`Commands`](`super::Commands<'_, '_>`)
     /// This lets the scheduler insert [`apply_deferred`](`crate::prelude::apply_deferred`) systems automatically.
     #[inline]
     pub fn set_has_deferred(&mut self) {
@@ -250,8 +250,8 @@ where
 /// // as if you were writing an ordinary system.
 /// let mut system_state: SystemState<(
 ///     EventWriter<MyEvent>,
-///     Option<ResMut<MyResource>>,
-///     Query<&MyComponent>,
+///     Option<ResMut<'_, MyResource>>,
+///     Query<'_, '_, &MyComponent>,
 /// )> = SystemState::new(&mut world);
 ///
 /// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
@@ -285,7 +285,7 @@ where
 /// });
 ///
 /// // Later, fetch the cached system state, saving on overhead
-/// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
+/// world.resource_scope(|world, mut cached_state: Mut<'_, CachedSystemState>| {
 ///     let mut event_reader = cached_state.event_state.get_mut(world);
 ///
 ///     for events in event_reader.read() {
@@ -314,7 +314,7 @@ macro_rules! impl_build_system {
             pub fn build_system<
                 Out: 'static,
                 Marker,
-                F: FnMut($(SystemParamItem<$param>),*) -> Out
+                F: FnMut($(SystemParamItem<'_, '_, $param>),*) -> Out
                     + SystemParamFunction<Marker, Param = ($($param,)*), In = (), Out = Out>
             >
             (
@@ -332,7 +332,7 @@ macro_rules! impl_build_system {
                 Input: SystemInput,
                 Out: 'static,
                 Marker,
-                F: FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out
+                F: FnMut(In<Input>, $(SystemParamItem<'_, '_, $param>),*) -> Out
                     + SystemParamFunction<Marker, Param = ($($param,)*), In = Input, Out = Out>,
             >(
                 self,
@@ -425,7 +425,7 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 
     /// Applies all state queued up for [`SystemParam`] values. For example, this will apply commands queued up
-    /// by a [`Commands`](`super::Commands`) parameter to the given [`World`].
+    /// by a [`Commands`](`super::Commands<'_, '_>`) parameter to the given [`World`].
     /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]
     /// are finished being used.
     pub fn apply(&mut self, world: &mut World) {
@@ -439,7 +439,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// - The passed [`UnsafeWorldCell`] must have read-only access to
     ///   world data in `archetype_component_access`.
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    pub unsafe fn validate_param(state: &Self, world: UnsafeWorldCell) -> bool {
+    pub unsafe fn validate_param(state: &Self, world: UnsafeWorldCell<'_>) -> bool {
         // SAFETY: Delegated to existing `SystemParam` implementations.
         unsafe { Param::validate_param(&state.param_state, &state.meta, world) }
     }
@@ -489,7 +489,7 @@ impl<Param: SystemParam> SystemState<Param> {
     ///
     /// This method only accesses world metadata.
     #[inline]
-    pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
+    pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell<'_>) {
         assert_eq!(self.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
 
         let archetypes = world.archetypes();
@@ -707,7 +707,7 @@ where
     unsafe fn run_unsafe(
         &mut self,
         input: SystemIn<'_, Self>,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> Self::Out {
         #[cfg(feature = "trace")]
         let _span_guard = self.system_meta.system_span.enter();
@@ -739,13 +739,13 @@ where
     }
 
     #[inline]
-    fn queue_deferred(&mut self, world: DeferredWorld) {
+    fn queue_deferred(&mut self, world: DeferredWorld<'_>) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
         F::Param::queue(param_state, &self.system_meta, world);
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell<'_>) -> bool {
         let param_state = self.param_state.as_ref().expect(Self::PARAM_MESSAGE);
         // SAFETY:
         // - The caller has invoked `update_archetype_component_access`, which will panic
@@ -774,7 +774,7 @@ where
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
     }
 
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell<'_>) {
         assert_eq!(self.world_id, Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         let archetypes = world.archetypes();
         let old_generation =
@@ -842,7 +842,7 @@ where
 /// pub fn pipe<A, B, AMarker, BMarker>(
 ///     mut a: A,
 ///     mut b: B,
-/// ) -> impl FnMut(StaticSystemInput<A::In>, ParamSet<(A::Param, B::Param)>) -> B::Out
+/// ) -> impl FnMut(StaticSystemInput<A::In>, ParamSet<'_, '_, (A::Param, B::Param)>) -> B::Out
 /// where
 ///     // We need A and B to be systems, add those bounds
 ///     A: SystemParamFunction<AMarker>,
@@ -870,7 +870,7 @@ where
 /// #[derive(Resource)]
 /// struct Message(String);
 ///
-/// fn parse_message(message: Res<Message>) -> Result<usize, ParseIntError> {
+/// fn parse_message(message: Res<'_, Message>) -> Result<usize, ParseIntError> {
 ///     message.0.parse::<usize>()
 /// }
 ///
@@ -897,7 +897,7 @@ pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
     fn run(
         &mut self,
         input: <Self::In as SystemInput>::Inner<'_>,
-        param_value: SystemParamItem<Self::Param>,
+        param_value: SystemParamItem<'_, '_, Self::Param>,
     ) -> Self::Out;
 }
 
@@ -913,14 +913,14 @@ macro_rules! impl_system_function {
             Func: Send + Sync + 'static,
             for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
-                FnMut($(SystemParamItem<$param>),*) -> Out,
+                FnMut($(SystemParamItem<'_, '_, $param>),*) -> Out,
             Out: 'static
         {
             type In = ();
             type Out = Out;
             type Param = ($($param,)*);
             #[inline]
-            fn run(&mut self, _input: (), param_value: SystemParamItem< ($($param,)*)>) -> Out {
+            fn run(&mut self, _input: (), param_value: SystemParamItem<'_, '_, ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
@@ -942,7 +942,7 @@ macro_rules! impl_system_function {
             Func: Send + Sync + 'static,
             for <'a> &'a mut Func:
                 FnMut(In, $($param),*) -> Out +
-                FnMut(In::Param<'_>, $(SystemParamItem<$param>),*) -> Out,
+                FnMut(In::Param<'_>, $(SystemParamItem<'_, '_, $param>),*) -> Out,
             In: SystemInput + 'static,
             Out: 'static
         {
@@ -950,7 +950,7 @@ macro_rules! impl_system_function {
             type Out = Out;
             type Param = ($($param,)*);
             #[inline]
-            fn run(&mut self, input: In::Inner<'_>, param_value: SystemParamItem< ($($param,)*)>) -> Out {
+            fn run(&mut self, input: In::Inner<'_>, param_value: SystemParamItem<'_, '_, ($($param,)*)>) -> Out {
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<In: SystemInput, Out, $($param,)*>(
                     mut f: impl FnMut(In::Param<'_>, $($param,)*)->Out,

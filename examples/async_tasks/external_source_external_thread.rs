@@ -22,7 +22,7 @@ struct StreamReceiver(Receiver<u32>);
 #[derive(Event)]
 struct StreamEvent(u32);
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
 
     let (tx, rx) = bounded::<u32>(10);
@@ -47,13 +47,13 @@ fn setup(mut commands: Commands) {
 }
 
 // This system reads from the receiver and sends events to Bevy
-fn read_stream(receiver: Res<StreamReceiver>, mut events: EventWriter<StreamEvent>) {
+fn read_stream(receiver: Res<'_, StreamReceiver>, mut events: EventWriter<'_, StreamEvent>) {
     for from_stream in receiver.try_iter() {
         events.send(StreamEvent(from_stream));
     }
 }
 
-fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
+fn spawn_text(mut commands: Commands<'_, '_>, mut reader: EventReader<'_, '_, StreamEvent>) {
     for (per_frame, event) in reader.read().enumerate() {
         commands.spawn((
             Text2d::new(event.0.to_string()),
@@ -64,9 +64,9 @@ fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
 }
 
 fn move_text(
-    mut commands: Commands,
-    mut texts: Query<(Entity, &mut Transform), With<Text2d>>,
-    time: Res<Time>,
+    mut commands: Commands<'_, '_>,
+    mut texts: Query<'_, '_, (Entity, &mut Transform), With<Text2d>>,
+    time: Res<'_, Time>,
 ) {
     for (entity, mut position) in &mut texts {
         position.translation -= Vec3::new(0.0, 100.0 * time.delta_seconds(), 0.0);

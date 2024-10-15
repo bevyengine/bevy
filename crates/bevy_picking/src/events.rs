@@ -11,7 +11,7 @@
 //! # use bevy_picking::prelude::*;
 //! # let mut world = World::default();
 //! world.spawn_empty()
-//!     .observe(|trigger: Trigger<Pointer<Over>>| {
+//!     .observe(|trigger: Trigger<'_, Pointer<Over>>| {
 //!         println!("I am being hovered over");
 //!     });
 //! ```
@@ -288,16 +288,16 @@ pub struct PointerState {
 #[allow(clippy::too_many_arguments)]
 pub fn pointer_events(
     // Input
-    mut input_events: EventReader<PointerInput>,
+    mut input_events: EventReader<'_, '_, PointerInput>,
     // ECS State
-    pointers: Query<&PointerLocation>,
-    pointer_map: Res<PointerMap>,
-    hover_map: Res<HoverMap>,
-    previous_hover_map: Res<PreviousHoverMap>,
+    pointers: Query<'_, '_, &PointerLocation>,
+    pointer_map: Res<'_, PointerMap>,
+    hover_map: Res<'_, HoverMap>,
+    previous_hover_map: Res<'_, PreviousHoverMap>,
     // Local state
-    mut pointer_state: Local<HashMap<(PointerId, PointerButton), PointerState>>,
+    mut pointer_state: Local<'_, HashMap<(PointerId, PointerButton), PointerState>>,
     // Output
-    mut commands: Commands,
+    mut commands: Commands<'_, '_>,
 ) {
     // Setup utilities
     let now = Instant::now();

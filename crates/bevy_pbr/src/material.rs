@@ -90,10 +90,10 @@ use core::{
 ///
 /// // Spawn an entity with a mesh using `CustomMaterial`.
 /// fn setup(
-///     mut commands: Commands,
-///     mut meshes: ResMut<Assets<Mesh>>,
-///     mut materials: ResMut<Assets<CustomMaterial>>,
-///     asset_server: Res<AssetServer>
+///     mut commands: Commands<'_, '_>,
+///     mut meshes: ResMut<'_, Assets<Mesh>>,
+///     mut materials: ResMut<'_, Assets<CustomMaterial>>,
+///     asset_server: Res<'_, AssetServer>
 /// ) {
 ///     commands.spawn((
 ///         Mesh3d(meshes.add(Capsule3d::default())),
@@ -551,14 +551,14 @@ pub const fn screen_space_specular_transmission_pipeline_key(
 }
 
 pub(super) fn clear_material_instances<M: Material>(
-    mut material_instances: ResMut<RenderMaterialInstances<M>>,
+    mut material_instances: ResMut<'_, RenderMaterialInstances<M>>,
 ) {
     material_instances.clear();
 }
 
 fn extract_mesh_materials<M: Material>(
-    mut material_instances: ResMut<RenderMaterialInstances<M>>,
-    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial3d<M>)>>,
+    mut material_instances: ResMut<'_, RenderMaterialInstances<M>>,
+    query: Extract<'_, '_, Query<'_, '_, (Entity, &ViewVisibility, &MeshMaterial3d<M>)>>,
 ) {
     for (entity, view_visibility, material) in &query {
         if view_visibility.get() {
@@ -569,8 +569,12 @@ fn extract_mesh_materials<M: Material>(
 
 /// Extracts default materials for 3D meshes with no [`MeshMaterial3d`].
 pub(super) fn extract_default_materials(
-    mut material_instances: ResMut<RenderMaterialInstances<StandardMaterial>>,
-    query: Extract<Query<(Entity, &ViewVisibility), (With<Mesh3d>, Without<HasMaterial3d>)>>,
+    mut material_instances: ResMut<'_, RenderMaterialInstances<StandardMaterial>>,
+    query: Extract<
+        '_,
+        '_,
+        Query<'_, '_, (Entity, &ViewVisibility), (With<Mesh3d>, Without<HasMaterial3d>)>,
+    >,
 ) {
     for (entity, view_visibility) in &query {
         if view_visibility.get() {
@@ -589,48 +593,52 @@ pub fn queue_material_meshes<M: Material>(
         transmissive_draw_functions,
         transparent_draw_functions,
     ): (
-        Res<DrawFunctions<Opaque3d>>,
-        Res<DrawFunctions<AlphaMask3d>>,
-        Res<DrawFunctions<Transmissive3d>>,
-        Res<DrawFunctions<Transparent3d>>,
+        Res<'_, DrawFunctions<Opaque3d>>,
+        Res<'_, DrawFunctions<AlphaMask3d>>,
+        Res<'_, DrawFunctions<Transmissive3d>>,
+        Res<'_, DrawFunctions<Transparent3d>>,
     ),
-    material_pipeline: Res<MaterialPipeline<M>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
-    render_meshes: Res<RenderAssets<RenderMesh>>,
-    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
-    render_lightmaps: Res<RenderLightmaps>,
-    render_visibility_ranges: Res<RenderVisibilityRanges>,
-    mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
-    mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
-    mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(
-        Entity,
-        &ExtractedView,
-        &RenderVisibleEntities,
-        &Msaa,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-        Option<&ShadowFilteringMethod>,
-        Has<ScreenSpaceAmbientOcclusion>,
+    material_pipeline: Res<'_, MaterialPipeline<M>>,
+    mut pipelines: ResMut<'_, SpecializedMeshPipelines<MaterialPipeline<M>>>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    render_meshes: Res<'_, RenderAssets<RenderMesh>>,
+    render_materials: Res<'_, RenderAssets<PreparedMaterial<M>>>,
+    render_mesh_instances: Res<'_, RenderMeshInstances>,
+    render_material_instances: Res<'_, RenderMaterialInstances<M>>,
+    render_lightmaps: Res<'_, RenderLightmaps>,
+    render_visibility_ranges: Res<'_, RenderVisibilityRanges>,
+    mut opaque_render_phases: ResMut<'_, ViewBinnedRenderPhases<Opaque3d>>,
+    mut alpha_mask_render_phases: ResMut<'_, ViewBinnedRenderPhases<AlphaMask3d>>,
+    mut transmissive_render_phases: ResMut<'_, ViewSortedRenderPhases<Transmissive3d>>,
+    mut transparent_render_phases: ResMut<'_, ViewSortedRenderPhases<Transparent3d>>,
+    views: Query<
+        '_,
+        '_,
         (
-            Has<NormalPrepass>,
-            Has<DepthPrepass>,
-            Has<MotionVectorPrepass>,
-            Has<DeferredPrepass>,
+            Entity,
+            &ExtractedView,
+            &RenderVisibleEntities,
+            &Msaa,
+            Option<&Tonemapping>,
+            Option<&DebandDither>,
+            Option<&ShadowFilteringMethod>,
+            Has<ScreenSpaceAmbientOcclusion>,
+            (
+                Has<NormalPrepass>,
+                Has<DepthPrepass>,
+                Has<MotionVectorPrepass>,
+                Has<DeferredPrepass>,
+            ),
+            Option<&Camera3d>,
+            Has<TemporalJitter>,
+            Option<&Projection>,
+            (
+                Has<RenderViewLightProbes<EnvironmentMapLight>>,
+                Has<RenderViewLightProbes<IrradianceVolume>>,
+            ),
+            Has<OrderIndependentTransparencySettings>,
         ),
-        Option<&Camera3d>,
-        Has<TemporalJitter>,
-        Option<&Projection>,
-        (
-            Has<RenderViewLightProbes<EnvironmentMapLight>>,
-            Has<RenderViewLightProbes<IrradianceVolume>>,
-        ),
-        Has<OrderIndependentTransparencySettings>,
-    )>,
+    >,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -983,7 +991,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, pipeline, default_opaque_render_method, ref mut material_param): &mut SystemParamItem<Self::Param>,
+        (render_device, pipeline, default_opaque_render_method, ref mut material_param): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match material.as_bind_group(&pipeline.material_layout, render_device, material_param) {
             Ok(prepared) => {

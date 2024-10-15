@@ -13,16 +13,16 @@ use quote::{quote, ToTokens};
 use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
 
 /// Implements `FromReflect` for the given struct
-pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
+pub(crate) fn impl_struct(reflect_struct: &ReflectStruct<'_>) -> proc_macro2::TokenStream {
     impl_struct_internal(reflect_struct, false)
 }
 
 /// Implements `FromReflect` for the given tuple struct
-pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
+pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct<'_>) -> proc_macro2::TokenStream {
     impl_struct_internal(reflect_struct, true)
 }
 
-pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
+pub(crate) fn impl_opaque(meta: &ReflectMeta<'_>) -> proc_macro2::TokenStream {
     let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
@@ -41,7 +41,7 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 }
 
 /// Implements `FromReflect` for the given enum type
-pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream {
+pub(crate) fn impl_enum(reflect_enum: &ReflectEnum<'_>) -> proc_macro2::TokenStream {
     let fqoption = FQOption.into_token_stream();
 
     let enum_path = reflect_enum.meta().type_path();
@@ -101,7 +101,7 @@ impl MemberValuePair {
 }
 
 fn impl_struct_internal(
-    reflect_struct: &ReflectStruct,
+    reflect_struct: &ReflectStruct<'_>,
     is_tuple: bool,
 ) -> proc_macro2::TokenStream {
     let fqoption = FQOption.into_token_stream();
@@ -195,7 +195,7 @@ fn impl_struct_internal(
 ///
 /// Each value of the `MemberValuePair` is a token stream that generates a
 /// a default value for the ignored field.
-fn get_ignored_fields(reflect_struct: &ReflectStruct) -> MemberValuePair {
+fn get_ignored_fields(reflect_struct: &ReflectStruct<'_>) -> MemberValuePair {
     MemberValuePair::new(
         reflect_struct
             .ignored_fields()
@@ -218,7 +218,7 @@ fn get_ignored_fields(reflect_struct: &ReflectStruct) -> MemberValuePair {
 /// Each value of the `MemberValuePair` is a token stream that generates a
 /// closure of type `fn() -> Option<T>` where `T` is that field's type.
 fn get_active_fields(
-    reflect_struct: &ReflectStruct,
+    reflect_struct: &ReflectStruct<'_>,
     dyn_struct_name: &Ident,
     struct_type: &Ident,
     is_tuple: bool,

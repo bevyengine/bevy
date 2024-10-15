@@ -182,7 +182,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
     /// Takes a function over mutable access to a [`QueryBuilder`], calls that function
     /// on an empty builder and then adds all accesses from that builder to self as optional.
-    pub fn optional(&mut self, f: impl Fn(&mut QueryBuilder)) -> &mut Self {
+    pub fn optional(&mut self, f: impl Fn(&mut QueryBuilder<'_>)) -> &mut Self {
         let mut builder = QueryBuilder::new(self.world);
         f(&mut builder);
         self.access.extend_access(builder.access());
@@ -193,7 +193,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     /// on an empty builder and then adds all accesses from that builder to self.
     ///
     /// Primarily used when inside a [`Self::or`] closure to group several terms.
-    pub fn and(&mut self, f: impl Fn(&mut QueryBuilder)) -> &mut Self {
+    pub fn and(&mut self, f: impl Fn(&mut QueryBuilder<'_>)) -> &mut Self {
         let mut builder = QueryBuilder::new(self.world);
         f(&mut builder);
         let access = builder.access().clone();
@@ -222,7 +222,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     /// // is equivalent to
     /// QueryBuilder::<Entity>::new(&mut world).filter::<Or<(With<A>, With<B>)>>();
     /// ```
-    pub fn or(&mut self, f: impl Fn(&mut QueryBuilder)) -> &mut Self {
+    pub fn or(&mut self, f: impl Fn(&mut QueryBuilder<'_>)) -> &mut Self {
         let mut builder = QueryBuilder::new(self.world);
         builder.or = true;
         builder.first = true;
@@ -381,7 +381,7 @@ mod tests {
         let mut world = World::new();
         let entity = world.spawn((A(0), B(1))).id();
 
-        let mut query = QueryBuilder::<FilteredEntityRef>::new(&mut world)
+        let mut query = QueryBuilder::<'_, FilteredEntityRef<'_>>::new(&mut world)
             .data::<&A>()
             .data::<&B>()
             .build();
@@ -404,7 +404,7 @@ mod tests {
         let component_id_a = world.register_component::<A>();
         let component_id_b = world.register_component::<B>();
 
-        let mut query = QueryBuilder::<FilteredEntityRef>::new(&mut world)
+        let mut query = QueryBuilder::<'_, FilteredEntityRef<'_>>::new(&mut world)
             .ref_id(component_id_a)
             .ref_id(component_id_b)
             .build();

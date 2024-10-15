@@ -18,7 +18,7 @@ use bevy_ecs::{
 ///
 /// #[derive(Event, Debug)]
 /// pub struct MyEvent(pub u32); // Custom event type.
-/// fn my_system(mut reader: EventMutator<MyEvent>) {
+/// fn my_system(mut reader: EventMutator<'_,MyEvent>) {
 ///     for event in reader.read() {
 ///         event.0 += 1;
 ///         println!("received event: {:?}", event);
@@ -83,7 +83,7 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// world.insert_resource(Counter::default());
     ///
     /// let mut schedule = Schedule::default();
-    /// schedule.add_systems(|mut events: EventMutator<MyEvent>, counter: Res<Counter>| {
+    /// schedule.add_systems(|mut events: EventMutator<'_,MyEvent>, counter: Res<'_, Counter>| {
     ///     events.par_read().for_each(|MyEvent { value }| {
     ///         counter.0.fetch_add(*value, Ordering::Relaxed);
     ///     });
@@ -119,7 +119,7 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// #[derive(Event)]
     /// struct CollisionEvent;
     ///
-    /// fn play_collision_sound(mut events: EventMutator<CollisionEvent>) {
+    /// fn play_collision_sound(mut events: EventMutator<'_,CollisionEvent>) {
     ///     if !events.is_empty() {
     ///         events.clear();
     ///         // Play a sound

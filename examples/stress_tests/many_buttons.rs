@@ -79,7 +79,7 @@ fn main() {
     }
 
     if args.relayout {
-        app.add_systems(Update, |mut style_query: Query<&mut Style>| {
+        app.add_systems(Update, |mut style_query: Query<'_, '_, &mut Style>| {
             style_query
                 .iter_mut()
                 .for_each(|mut style| style.set_changed());
@@ -87,7 +87,7 @@ fn main() {
     }
 
     if args.recompute_text {
-        app.add_systems(Update, |mut text_query: Query<&mut Text>| {
+        app.add_systems(Update, |mut text_query: Query<'_, '_, &mut Text>| {
             text_query
                 .iter_mut()
                 .for_each(|mut text| text.set_changed());
@@ -97,7 +97,7 @@ fn main() {
     app.insert_resource(args).run();
 }
 
-fn set_text_colors_changed(mut colors: Query<&mut TextColor>) {
+fn set_text_colors_changed(mut colors: Query<'_, '_, &mut TextColor>) {
     for mut text_color in colors.iter_mut() {
         text_color.set_changed();
     }
@@ -108,6 +108,8 @@ struct IdleColor(Color);
 
 fn button_system(
     mut interaction_query: Query<
+        '_,
+        '_,
         (&Interaction, &mut BackgroundColor, &IdleColor),
         Changed<Interaction>,
     >,
@@ -120,7 +122,11 @@ fn button_system(
     }
 }
 
-fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
+fn setup_flex(
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    args: Res<'_, Args>,
+) {
     warn!(include_str!("warning_string.txt"));
     let image = if 0 < args.image_freq {
         Some(asset_server.load("branding/icon.png"))
@@ -177,7 +183,11 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
         });
 }
 
-fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
+fn setup_grid(
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    args: Res<'_, Args>,
+) {
     warn!(include_str!("warning_string.txt"));
     let image = if 0 < args.image_freq {
         Some(asset_server.load("branding/icon.png"))

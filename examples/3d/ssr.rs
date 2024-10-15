@@ -116,12 +116,12 @@ fn main() {
 
 // Set up the scene.
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    mut water_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, Water>>>,
-    asset_server: Res<AssetServer>,
-    app_settings: Res<AppSettings>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut standard_materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut water_materials: ResMut<'_, Assets<ExtendedMaterial<StandardMaterial, Water>>>,
+    asset_server: Res<'_, AssetServer>,
+    app_settings: Res<'_, AppSettings>,
 ) {
     spawn_cube(
         &mut commands,
@@ -142,7 +142,7 @@ fn setup(
 
 // Spawns the rotating cube.
 fn spawn_cube(
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
     asset_server: &AssetServer,
     meshes: &mut Assets<Mesh>,
     standard_materials: &mut Assets<StandardMaterial>,
@@ -161,7 +161,7 @@ fn spawn_cube(
 }
 
 // Spawns the flight helmet.
-fn spawn_flight_helmet(commands: &mut Commands, asset_server: &AssetServer) {
+fn spawn_flight_helmet(commands: &mut Commands<'_, '_>, asset_server: &AssetServer) {
     commands.spawn((
         SceneRoot(
             asset_server
@@ -175,7 +175,7 @@ fn spawn_flight_helmet(commands: &mut Commands, asset_server: &AssetServer) {
 
 // Spawns the water plane.
 fn spawn_water(
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
     asset_server: &AssetServer,
     meshes: &mut Assets<Mesh>,
     water_materials: &mut Assets<ExtendedMaterial<StandardMaterial, Water>>,
@@ -219,7 +219,7 @@ fn spawn_water(
 }
 
 // Spawns the camera.
-fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
+fn spawn_camera(commands: &mut Commands<'_, '_>, asset_server: &AssetServer) {
     // Create the camera. Add an environment map and skybox so the water has
     // something interesting to reflect, other than the cube. Enable deferred
     // rendering by adding depth and deferred prepasses. Turn on FXAA to make
@@ -250,7 +250,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 }
 
 // Spawns the help text.
-fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
+fn spawn_text(commands: &mut Commands<'_, '_>, app_settings: &AppSettings) {
     commands.spawn((
         create_text(app_settings),
         Style {
@@ -288,8 +288,8 @@ impl MaterialExtension for Water {
 
 /// Rotates the model on the Y axis a bit every frame.
 fn rotate_model(
-    mut query: Query<&mut Transform, Or<(With<CubeModel>, With<FlightHelmetModel>)>>,
-    time: Res<Time>,
+    mut query: Query<'_, '_, &mut Transform, Or<(With<CubeModel>, With<FlightHelmetModel>)>>,
+    time: Res<'_, Time>,
 ) {
     for mut transform in query.iter_mut() {
         transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.0, time.elapsed_seconds(), 0.0);
@@ -298,9 +298,9 @@ fn rotate_model(
 
 // Processes input related to camera movement.
 fn move_camera(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut mouse_wheel_input: EventReader<MouseWheel>,
-    mut cameras: Query<&mut Transform, With<Camera>>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut mouse_wheel_input: EventReader<'_, '_, MouseWheel>,
+    mut cameras: Query<'_, '_, &mut Transform, With<Camera>>,
 ) {
     let (mut distance_delta, mut theta_delta) = (0.0, 0.0);
 
@@ -342,13 +342,18 @@ fn move_camera(
 // Adjusts app settings per user input.
 #[allow(clippy::too_many_arguments)]
 fn adjust_app_settings(
-    mut commands: Commands,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut app_settings: ResMut<AppSettings>,
-    mut cameras: Query<Entity, With<Camera>>,
-    mut cube_models: Query<&mut Visibility, (With<CubeModel>, Without<FlightHelmetModel>)>,
-    mut flight_helmet_models: Query<&mut Visibility, (Without<CubeModel>, With<FlightHelmetModel>)>,
-    mut text: Query<&mut Text>,
+    mut commands: Commands<'_, '_>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut app_settings: ResMut<'_, AppSettings>,
+    mut cameras: Query<'_, '_, Entity, With<Camera>>,
+    mut cube_models: Query<'_, '_, &mut Visibility, (With<CubeModel>, Without<FlightHelmetModel>)>,
+    mut flight_helmet_models: Query<
+        '_,
+        '_,
+        &mut Visibility,
+        (Without<CubeModel>, With<FlightHelmetModel>),
+    >,
+    mut text: Query<'_, '_, &mut Text>,
 ) {
     // If there are no changes, we're going to bail for efficiency. Record that
     // here.

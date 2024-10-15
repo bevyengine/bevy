@@ -48,8 +48,8 @@ impl<S: FreelyMutableState> Default for StateScopedEvents<S> {
 }
 
 fn cleanup_state_scoped_event<S: FreelyMutableState>(
-    mut c: Commands,
-    mut transitions: EventReader<StateTransitionEvent<S>>,
+    mut c: Commands<'_, '_>,
+    mut transitions: EventReader<'_, '_, StateTransitionEvent<S>>,
 ) {
     let Some(transition) = transitions.read().last() else {
         return;

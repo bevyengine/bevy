@@ -531,7 +531,7 @@ impl<A: Asset> Assets<A> {
 
     /// A system that synchronizes the state of assets in this collection with the [`AssetServer`]. This manages
     /// [`Handle`] drop events.
-    pub fn track_assets(mut assets: ResMut<Self>, asset_server: Res<AssetServer>) {
+    pub fn track_assets(mut assets: ResMut<'_, Self>, asset_server: Res<'_, AssetServer>) {
         let assets = &mut *assets;
         // note that we must hold this lock for the entire duration of this function to ensure
         // that `asset_server.load` calls that occur during it block, which ensures that
@@ -559,7 +559,7 @@ impl<A: Asset> Assets<A> {
     /// A system that applies accumulated asset change events to the [`Events`] resource.
     ///
     /// [`Events`]: bevy_ecs::event::Events
-    pub fn asset_events(mut assets: ResMut<Self>, mut events: EventWriter<AssetEvent<A>>) {
+    pub fn asset_events(mut assets: ResMut<'_, Self>, mut events: EventWriter<'_, AssetEvent<A>>) {
         events.send_batch(assets.queued_events.drain(..));
     }
 
@@ -567,7 +567,7 @@ impl<A: Asset> Assets<A> {
     /// flush.
     ///
     /// [`asset_events`]: Self::asset_events
-    pub(crate) fn asset_events_condition(assets: Res<Self>) -> bool {
+    pub(crate) fn asset_events_condition(assets: Res<'_, Self>) -> bool {
         !assets.queued_events.is_empty()
     }
 }

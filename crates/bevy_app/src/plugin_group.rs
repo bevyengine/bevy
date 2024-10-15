@@ -377,11 +377,7 @@ impl PluginGroupBuilder {
                     if let Err(AppError::DuplicatePlugin { plugin_name }) =
                         app.add_boxed_plugin(entry.plugin)
                     {
-                        panic!(
-                            "Error adding plugin {} in group {}: plugin was already added in application",
-                            plugin_name,
-                            self.group_name
-                        );
+                        panic!("Error adding plugin {} in group {}: plugin was already added in application", plugin_name, self.group_name);
                     }
                 }
             }

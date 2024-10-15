@@ -173,7 +173,7 @@ impl<'env> DynamicFunctionMut<'env> {
     /// the number of arguments expected by the function's [`FunctionInfo`].
     ///
     /// The function itself may also return any errors it needs to.
-    pub fn call_once(mut self, args: ArgList) -> FunctionResult {
+    pub fn call_once(mut self, args: ArgList<'_>) -> FunctionResult<'_> {
         let expected_arg_count = self.info.arg_count();
         let received_arg_count = args.len();
 
@@ -271,8 +271,8 @@ mod tests {
         }
 
         let mut total = 0;
-        let closure: DynamicFunctionMut = make_closure(|a: i32, b: i32| total = a + b);
-        let _: DynamicFunctionMut = make_closure(closure);
+        let closure: DynamicFunctionMut<'_> = make_closure(|a: i32, b: i32| total = a + b);
+        let _: DynamicFunctionMut<'_> = make_closure(closure);
     }
 
     #[test]

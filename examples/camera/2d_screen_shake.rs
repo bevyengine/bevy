@@ -30,9 +30,9 @@ fn main() {
 }
 
 fn setup_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
 ) {
     // World where we move the player
     commands.spawn((
@@ -62,7 +62,7 @@ fn setup_scene(
     commands.init_resource::<ScreenShake>();
 }
 
-fn setup_instructions(mut commands: Commands) {
+fn setup_instructions(mut commands: Commands<'_, '_>) {
     commands.spawn((
         Text::new("Hold space to trigger a screen shake"),
         Style {
@@ -74,7 +74,7 @@ fn setup_instructions(mut commands: Commands) {
     ));
 }
 
-fn setup_camera(mut commands: Commands) {
+fn setup_camera(mut commands: Commands<'_, '_>) {
     commands.spawn((
         Camera2d,
         Camera {
@@ -118,9 +118,9 @@ impl ScreenShake {
 }
 
 fn trigger_shake_on_space(
-    time: Res<Time>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut screen_shake: ResMut<ScreenShake>,
+    time: Res<'_, Time>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut screen_shake: ResMut<'_, ScreenShake>,
 ) {
     if keyboard_input.pressed(KeyCode::Space) {
         let screen_shake_clone = screen_shake.clone();
@@ -129,14 +129,15 @@ fn trigger_shake_on_space(
             MAX_OFFSET,
             screen_shake_clone.trauma + TRAUMA_INCREMENT * time.delta_seconds(),
             Vec2 { x: 0.0, y: 0.0 },
-        ); // final_position should be your current player position
+        );
+        // final_position should be your current player position
     }
 }
 
 fn screen_shake(
-    time: Res<Time>,
-    mut screen_shake: ResMut<ScreenShake>,
-    mut query: Query<(&mut Camera, &mut Transform)>,
+    time: Res<'_, Time>,
+    mut screen_shake: ResMut<'_, ScreenShake>,
+    mut query: Query<'_, '_, (&mut Camera, &mut Transform)>,
 ) {
     let mut rng = ChaCha8Rng::from_entropy();
     let shake = screen_shake.trauma * screen_shake.trauma;

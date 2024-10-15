@@ -345,11 +345,13 @@ impl FromWorld for TonemappingPipeline {
 pub struct ViewTonemappingPipeline(CachedRenderPipelineId);
 
 pub fn prepare_view_tonemapping_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
-    upscaling_pipeline: Res<TonemappingPipeline>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<TonemappingPipeline>>,
+    upscaling_pipeline: Res<'_, TonemappingPipeline>,
     view_targets: Query<
+        '_,
+        '_,
         (
             Entity,
             &ExtractedView,
@@ -431,7 +433,7 @@ pub fn get_lut_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 2] {
 
 // allow(dead_code) so it doesn't complain when the tonemapping_luts feature is disabled
 #[allow(dead_code)]
-fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
+fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType<'_>) -> Image {
     let image_sampler = ImageSampler::Descriptor(bevy_render::texture::ImageSamplerDescriptor {
         label: Some("Tonemapping LUT sampler".to_string()),
         address_mode_u: bevy_render::texture::ImageAddressMode::ClampToEdge,

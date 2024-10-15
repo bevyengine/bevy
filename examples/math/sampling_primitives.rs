@@ -272,10 +272,10 @@ struct CameraRig {
 }
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    shapes: Res<SampledShapes>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    shapes: Res<'_, SampledShapes>,
 ) {
     // Use seeded rng and store it in a resource; this makes the random output reproducible.
     let seeded_rng = ChaCha8Rng::seed_from_u64(4); // Chosen by a fair die roll, guaranteed to be random.
@@ -415,16 +415,16 @@ fn setup(
 // Handle user inputs from the keyboard:
 #[allow(clippy::too_many_arguments)]
 fn handle_keypress(
-    mut commands: Commands,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut mode: ResMut<SamplingMode>,
-    mut spawn_mode: ResMut<SpawningMode>,
-    samples: Query<Entity, With<SamplePoint>>,
-    shapes: Res<SampledShapes>,
-    mut spawn_queue: ResMut<SpawnQueue>,
-    mut counter: ResMut<PointCounter>,
-    mut text_menus: Query<&mut Visibility, With<Text>>,
-    mut camera_rig: Single<&mut CameraRig>,
+    mut commands: Commands<'_, '_>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
+    mut mode: ResMut<'_, SamplingMode>,
+    mut spawn_mode: ResMut<'_, SpawningMode>,
+    samples: Query<'_, '_, Entity, With<SamplePoint>>,
+    shapes: Res<'_, SampledShapes>,
+    mut spawn_queue: ResMut<'_, SpawnQueue>,
+    mut counter: ResMut<'_, PointCounter>,
+    mut text_menus: Query<'_, '_, &mut Visibility, With<Text>>,
+    mut camera_rig: Single<'_, &mut CameraRig>,
 ) {
     // R => restart, deleting all samples
     if keyboard.just_pressed(KeyCode::KeyR) {
@@ -511,11 +511,11 @@ fn handle_keypress(
 
 // Handle user mouse input for panning the camera around:
 fn handle_mouse(
-    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
-    accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
-    mut button_events: EventReader<MouseButtonInput>,
-    mut camera_rig: Single<&mut CameraRig>,
-    mut mouse_pressed: ResMut<MousePressed>,
+    accumulated_mouse_motion: Res<'_, AccumulatedMouseMotion>,
+    accumulated_mouse_scroll: Res<'_, AccumulatedMouseScroll>,
+    mut button_events: EventReader<'_, '_, MouseButtonInput>,
+    mut camera_rig: Single<'_, &mut CameraRig>,
+    mut mouse_pressed: ResMut<'_, MousePressed>,
 ) {
     // Store left-pressed state in the MousePressed resource
     for button_event in button_events.read() {
@@ -548,15 +548,15 @@ fn handle_mouse(
 
 #[allow(clippy::too_many_arguments)]
 fn spawn_points(
-    mut commands: Commands,
-    mode: ResMut<SamplingMode>,
-    shapes: Res<SampledShapes>,
-    mut random_source: ResMut<RandomSource>,
-    sample_mesh: Res<PointMesh>,
-    sample_material: Res<PointMaterial>,
-    mut spawn_queue: ResMut<SpawnQueue>,
-    mut counter: ResMut<PointCounter>,
-    spawn_mode: ResMut<SpawningMode>,
+    mut commands: Commands<'_, '_>,
+    mode: ResMut<'_, SamplingMode>,
+    shapes: Res<'_, SampledShapes>,
+    mut random_source: ResMut<'_, RandomSource>,
+    sample_mesh: Res<'_, PointMesh>,
+    sample_material: Res<'_, PointMaterial>,
+    mut spawn_queue: ResMut<'_, SpawnQueue>,
+    mut counter: ResMut<'_, PointCounter>,
+    spawn_mode: ResMut<'_, SpawningMode>,
 ) {
     if let SpawningMode::Automatic = *spawn_mode {
         spawn_queue.0 += POINTS_PER_FRAME;
@@ -600,11 +600,11 @@ fn spawn_points(
 }
 
 fn despawn_points(
-    mut commands: Commands,
-    samples: Query<Entity, With<SamplePoint>>,
-    spawn_mode: Res<SpawningMode>,
-    mut counter: ResMut<PointCounter>,
-    mut random_source: ResMut<RandomSource>,
+    mut commands: Commands<'_, '_>,
+    samples: Query<'_, '_, Entity, With<SamplePoint>>,
+    spawn_mode: Res<'_, SpawningMode>,
+    mut counter: ResMut<'_, PointCounter>,
+    mut random_source: ResMut<'_, RandomSource>,
 ) {
     // Do not despawn automatically in manual mode
     if let SpawningMode::Manual = *spawn_mode {
@@ -634,9 +634,9 @@ fn despawn_points(
 }
 
 fn animate_spawning(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut samples: Query<(Entity, &mut Transform, &mut SpawningPoint)>,
+    mut commands: Commands<'_, '_>,
+    time: Res<'_, Time>,
+    mut samples: Query<'_, '_, (Entity, &mut Transform, &mut SpawningPoint)>,
 ) {
     let dt = time.delta_seconds();
 
@@ -650,9 +650,9 @@ fn animate_spawning(
 }
 
 fn animate_despawning(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut samples: Query<(Entity, &mut Transform, &mut DespawningPoint)>,
+    mut commands: Commands<'_, '_>,
+    time: Res<'_, Time>,
+    mut samples: Query<'_, '_, (Entity, &mut Transform, &mut DespawningPoint)>,
 ) {
     let dt = time.delta_seconds();
 
@@ -667,7 +667,7 @@ fn animate_despawning(
     }
 }
 
-fn update_camera(mut camera: Query<(&mut Transform, &CameraRig), Changed<CameraRig>>) {
+fn update_camera(mut camera: Query<'_, '_, (&mut Transform, &CameraRig), Changed<CameraRig>>) {
     for (mut transform, rig) in camera.iter_mut() {
         let looking_direction =
             Quat::from_rotation_y(-rig.yaw) * Quat::from_rotation_x(rig.pitch) * Vec3::Z;
@@ -677,8 +677,8 @@ fn update_camera(mut camera: Query<(&mut Transform, &CameraRig), Changed<CameraR
 }
 
 fn update_lights(
-    mut lights: Query<&mut PointLight, With<FireflyLights>>,
-    counter: Res<PointCounter>,
+    mut lights: Query<'_, '_, &mut PointLight, With<FireflyLights>>,
+    counter: Res<'_, PointCounter>,
 ) {
     let saturation = (counter.0 as f32 / MAX_POINTS as f32).min(2.0);
     let intensity = 40_000.0 * saturation;

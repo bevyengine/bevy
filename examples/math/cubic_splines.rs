@@ -32,7 +32,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     // Initialize the modes with their defaults:
     let spline_mode = SplineMode::default();
     commands.insert_resource(spline_mode);
@@ -155,10 +155,10 @@ struct ControlPoints {
 ///
 /// [control points]: ControlPoints
 fn update_curve(
-    control_points: Res<ControlPoints>,
-    spline_mode: Res<SplineMode>,
-    cycling_mode: Res<CyclingMode>,
-    mut curve: ResMut<Curve>,
+    control_points: Res<'_, ControlPoints>,
+    spline_mode: Res<'_, SplineMode>,
+    cycling_mode: Res<'_, CyclingMode>,
+    mut curve: ResMut<'_, Curve>,
 ) {
     if !control_points.is_changed() && !spline_mode.is_changed() && !cycling_mode.is_changed() {
         return;
@@ -169,7 +169,7 @@ fn update_curve(
 
 /// This system uses gizmos to draw the current [`Curve`] by breaking it up into a large number
 /// of line segments.
-fn draw_curve(curve: Res<Curve>, mut gizmos: Gizmos) {
+fn draw_curve(curve: Res<'_, Curve>, mut gizmos: Gizmos) {
     let Some(ref curve) = curve.0 else {
         return;
     };
@@ -186,8 +186,8 @@ fn draw_curve(curve: Res<Curve>, mut gizmos: Gizmos) {
 ///
 /// [control points]: ControlPoints
 fn draw_control_points(
-    control_points: Res<ControlPoints>,
-    spline_mode: Res<SplineMode>,
+    control_points: Res<'_, ControlPoints>,
+    spline_mode: Res<'_, SplineMode>,
     mut gizmos: Gizmos,
 ) {
     for &(point, tangent) in &control_points.points_and_tangents {
@@ -248,8 +248,8 @@ struct SplineModeText;
 struct CyclingModeText;
 
 fn update_spline_mode_text(
-    spline_mode: Res<SplineMode>,
-    mut spline_mode_text: Query<&mut Text, With<SplineModeText>>,
+    spline_mode: Res<'_, SplineMode>,
+    mut spline_mode_text: Query<'_, '_, &mut Text, With<SplineModeText>>,
 ) {
     if !spline_mode.is_changed() {
         return;
@@ -263,8 +263,8 @@ fn update_spline_mode_text(
 }
 
 fn update_cycling_mode_text(
-    cycling_mode: Res<CyclingMode>,
-    mut cycling_mode_text: Query<&mut Text, With<CyclingModeText>>,
+    cycling_mode: Res<'_, CyclingMode>,
+    mut cycling_mode_text: Query<'_, '_, &mut Text, With<CyclingModeText>>,
 ) {
     if !cycling_mode.is_changed() {
         return;
@@ -296,8 +296,8 @@ struct MousePosition(Option<Vec2>);
 
 /// Update the current cursor position and track it in the [`MousePosition`] resource.
 fn handle_mouse_move(
-    mut cursor_events: EventReader<CursorMoved>,
-    mut mouse_position: ResMut<MousePosition>,
+    mut cursor_events: EventReader<'_, '_, CursorMoved>,
+    mut mouse_position: ResMut<'_, MousePosition>,
 ) {
     if let Some(cursor_event) = cursor_events.read().last() {
         mouse_position.0 = Some(cursor_event.position);
@@ -307,11 +307,11 @@ fn handle_mouse_move(
 /// This system handles updating the [`MouseEditMove`] resource, orchestrating the logical part
 /// of the click-and-drag motion which actually creates new control points.
 fn handle_mouse_press(
-    mut button_events: EventReader<MouseButtonInput>,
-    mouse_position: Res<MousePosition>,
-    mut edit_move: ResMut<MouseEditMove>,
-    mut control_points: ResMut<ControlPoints>,
-    camera: Query<(&Camera, &GlobalTransform)>,
+    mut button_events: EventReader<'_, '_, MouseButtonInput>,
+    mouse_position: Res<'_, MousePosition>,
+    mut edit_move: ResMut<'_, MouseEditMove>,
+    mut control_points: ResMut<'_, ControlPoints>,
+    camera: Query<'_, '_, (&Camera, &GlobalTransform)>,
 ) {
     let Some(mouse_pos) = mouse_position.0 else {
         return;
@@ -365,10 +365,10 @@ fn handle_mouse_press(
 
 /// This system handles drawing the "preview" control point based on the state of [`MouseEditMove`].
 fn draw_edit_move(
-    edit_move: Res<MouseEditMove>,
-    mouse_position: Res<MousePosition>,
+    edit_move: Res<'_, MouseEditMove>,
+    mouse_position: Res<'_, MousePosition>,
     mut gizmos: Gizmos,
-    camera: Query<(&Camera, &GlobalTransform)>,
+    camera: Query<'_, '_, (&Camera, &GlobalTransform)>,
 ) {
     let Some(start) = edit_move.start else {
         return;
@@ -396,10 +396,10 @@ fn draw_edit_move(
 
 /// This system handles all keyboard commands.
 fn handle_keypress(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut spline_mode: ResMut<SplineMode>,
-    mut cycling_mode: ResMut<CyclingMode>,
-    mut control_points: ResMut<ControlPoints>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
+    mut spline_mode: ResMut<'_, SplineMode>,
+    mut cycling_mode: ResMut<'_, CyclingMode>,
+    mut control_points: ResMut<'_, ControlPoints>,
 ) {
     // S => change spline mode
     if keyboard.just_pressed(KeyCode::KeyS) {

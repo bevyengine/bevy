@@ -24,9 +24,9 @@ struct MovingCameraMarker;
 
 /// Set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     let transform = Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y);
 
@@ -232,8 +232,8 @@ fn setup(
 }
 
 fn move_camera_view(
-    mut movable_camera_query: Query<&mut Camera, With<MovingCameraMarker>>,
-    time: Res<Time>,
+    mut movable_camera_query: Query<'_, '_, &mut Camera, With<MovingCameraMarker>>,
+    time: Res<'_, Time>,
 ) {
     for mut camera in movable_camera_query.iter_mut() {
         if let Some(sub_view) = &mut camera.sub_camera_view {
@@ -245,8 +245,8 @@ fn move_camera_view(
 
 // To ensure viewports remain the same at any window size
 fn resize_viewports(
-    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
-    mut viewports: Query<(&mut Camera, &ExampleViewports)>,
+    windows: Query<'_, '_, &Window, With<bevy::window::PrimaryWindow>>,
+    mut viewports: Query<'_, '_, (&mut Camera, &ExampleViewports)>,
 ) {
     let Ok(window) = windows.get_single() else {
         return;

@@ -68,7 +68,7 @@ struct LevelData {
     level_2_id: SystemId,
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     let level_data = LevelData {
         unload_level_id: commands.register_system(unload_current_level),
         level_1_id: commands.register_system(load_level_1),
@@ -96,10 +96,10 @@ fn setup(mut commands: Commands) {
 
 // Selects the level you want to load.
 fn level_selection(
-    mut commands: Commands,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    level_data: Res<LevelData>,
-    loading_state: Res<LoadingState>,
+    mut commands: Commands<'_, '_>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
+    level_data: Res<'_, LevelData>,
+    loading_state: Res<'_, LoadingState>,
 ) {
     // Only trigger a load if the current level is fully loaded.
     if let LoadingState::LevelReady = loading_state.as_ref() {
@@ -119,9 +119,9 @@ struct LevelComponents;
 
 // Removes all currently loaded level assets from the game World.
 fn unload_current_level(
-    mut commands: Commands,
-    mut loading_state: ResMut<LoadingState>,
-    entities: Query<Entity, With<LevelComponents>>,
+    mut commands: Commands<'_, '_>,
+    mut loading_state: ResMut<'_, LoadingState>,
+    entities: Query<'_, '_, Entity, With<LevelComponents>>,
 ) {
     *loading_state = LoadingState::LevelLoading;
     for entity in entities.iter() {
@@ -130,9 +130,9 @@ fn unload_current_level(
 }
 
 fn load_level_1(
-    mut commands: Commands,
-    mut loading_data: ResMut<LoadingData>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut loading_data: ResMut<'_, LoadingData>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     // Spawn the camera.
     commands.spawn((
@@ -163,9 +163,9 @@ fn load_level_1(
 }
 
 fn load_level_2(
-    mut commands: Commands,
-    mut loading_data: ResMut<LoadingData>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut loading_data: ResMut<'_, LoadingData>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     // Spawn the camera.
     commands.spawn((
@@ -195,10 +195,10 @@ fn load_level_2(
 
 // Monitors current loading status of assets.
 fn update_loading_data(
-    mut loading_data: ResMut<LoadingData>,
-    mut loading_state: ResMut<LoadingState>,
-    asset_server: Res<AssetServer>,
-    pipelines_ready: Res<PipelinesReady>,
+    mut loading_data: ResMut<'_, LoadingData>,
+    mut loading_state: ResMut<'_, LoadingState>,
+    asset_server: Res<'_, AssetServer>,
+    pipelines_ready: Res<'_, PipelinesReady>,
 ) {
     if !loading_data.loading_assets.is_empty() || !pipelines_ready.0 {
         // If we are still loading assets / pipelines are not fully compiled,
@@ -238,7 +238,7 @@ fn update_loading_data(
 struct LoadingScreen;
 
 // Spawns the necessary components for the loading screen.
-fn load_loading_screen(mut commands: Commands) {
+fn load_loading_screen(mut commands: Commands<'_, '_>) {
     let text_style = TextFont {
         font_size: 67.0,
         ..default()
@@ -275,8 +275,8 @@ fn load_loading_screen(mut commands: Commands) {
 
 // Determines when to show the loading screen
 fn display_loading_screen(
-    mut loading_screen: Single<&mut Visibility, (With<LoadingScreen>, With<Node>)>,
-    loading_state: Res<LoadingState>,
+    mut loading_screen: Single<'_, &mut Visibility, (With<LoadingScreen>, With<Node>)>,
+    loading_state: Res<'_, LoadingState>,
 ) {
     let visibility = match loading_state.as_ref() {
         LoadingState::LevelLoading => Visibility::Visible,
@@ -310,7 +310,10 @@ mod pipelines_ready {
     #[derive(Resource, Debug, Default)]
     pub struct PipelinesReady(pub bool);
 
-    fn update_pipelines_ready(mut main_world: ResMut<MainWorld>, pipelines: Res<PipelineCache>) {
+    fn update_pipelines_ready(
+        mut main_world: ResMut<'_, MainWorld>,
+        pipelines: Res<'_, PipelineCache>,
+    ) {
         if let Some(mut pipelines_ready) = main_world.get_resource_mut::<PipelinesReady>() {
             pipelines_ready.0 = pipelines.waiting_pipelines().count() == 0;
         }

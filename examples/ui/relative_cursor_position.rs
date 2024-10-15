@@ -14,7 +14,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn((
         Camera2d,
         Camera {
@@ -68,8 +68,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// This systems polls the relative cursor position and displays its value in a text component.
 fn relative_cursor_position_system(
-    relative_cursor_position: Single<&RelativeCursorPosition>,
-    output_query: Single<(&mut Text, &mut TextColor)>,
+    relative_cursor_position: Single<'_, &RelativeCursorPosition>,
+    output_query: Single<'_, (&mut Text, &mut TextColor)>,
 ) {
     let (mut output, mut text_color) = output_query.into_inner();
 

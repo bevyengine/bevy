@@ -110,7 +110,7 @@ impl<T> DerefMut for In<T> {
 /// #[derive(Resource, Default)]
 /// struct Log(String);
 ///
-/// fn log(InRef(msg): InRef<str>, mut log: ResMut<Log>) {
+/// fn log(InRef(msg): InRef<str>, mut log: ResMut<'_, Log>) {
 ///     writeln!(log.0, "{}", msg).unwrap();
 /// }
 ///
@@ -164,7 +164,7 @@ impl<'i, T: ?Sized> Deref for InRef<'i, T> {
 /// let mut world = World::new();
 /// let mut square_system = IntoSystem::into_system(square);
 /// square_system.initialize(&mut world);
-///     
+///
 /// let mut value = 12;
 /// square_system.run(&mut value, &mut world);
 /// assert_eq!(value, 144);

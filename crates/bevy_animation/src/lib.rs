@@ -7,6 +7,7 @@
 
 //! Animation for the game engine Bevy
 
+#[allow(unused_extern_crates)]
 extern crate alloc;
 
 pub mod animatable;
@@ -158,11 +159,11 @@ impl PartialReflect for VariableCurve {
         Ok(())
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::TupleStruct(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::TupleStruct(self)
     }
 
@@ -236,7 +237,7 @@ impl TupleStruct for VariableCurve {
         1
     }
 
-    fn iter_fields(&self) -> TupleStructFieldIter {
+    fn iter_fields(&self) -> TupleStructFieldIter<'_> {
         TupleStructFieldIter::new(self)
     }
 
@@ -953,10 +954,10 @@ impl AnimationPlayer {
 
 /// A system that triggers untargeted animation events for the currently-playing animations.
 fn trigger_untargeted_animation_events(
-    mut commands: Commands,
-    clips: Res<Assets<AnimationClip>>,
-    graphs: Res<Assets<AnimationGraph>>,
-    players: Query<(Entity, &AnimationPlayer, &AnimationGraphHandle)>,
+    mut commands: Commands<'_, '_>,
+    clips: Res<'_, Assets<AnimationClip>>,
+    graphs: Res<'_, Assets<AnimationGraph>>,
+    players: Query<'_, '_, (Entity, &AnimationPlayer, &AnimationGraphHandle)>,
 ) {
     for (entity, player, graph_id) in &players {
         // The graph might not have loaded yet. Safely bail.
@@ -1000,10 +1001,10 @@ fn trigger_untargeted_animation_events(
 
 /// A system that advances the time for all playing animations.
 pub fn advance_animations(
-    time: Res<Time>,
-    animation_clips: Res<Assets<AnimationClip>>,
-    animation_graphs: Res<Assets<AnimationGraph>>,
-    mut players: Query<(&mut AnimationPlayer, &AnimationGraphHandle)>,
+    time: Res<'_, Time>,
+    animation_clips: Res<'_, Assets<AnimationClip>>,
+    animation_graphs: Res<'_, Assets<AnimationGraph>>,
+    mut players: Query<'_, '_, (&mut AnimationPlayer, &AnimationGraphHandle)>,
 ) {
     let delta_seconds = time.delta_seconds();
     players
@@ -1051,18 +1052,22 @@ pub type AnimationEntityMut<'w> = EntityMutExcept<
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
 pub fn animate_targets(
-    par_commands: ParallelCommands,
-    clips: Res<Assets<AnimationClip>>,
-    graphs: Res<Assets<AnimationGraph>>,
-    threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
-    players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
-    mut targets: Query<(
-        Entity,
-        &AnimationTarget,
-        Option<&mut Transform>,
-        AnimationEntityMut,
-    )>,
-    animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
+    par_commands: ParallelCommands<'_, '_>,
+    clips: Res<'_, Assets<AnimationClip>>,
+    graphs: Res<'_, Assets<AnimationGraph>>,
+    threaded_animation_graphs: Res<'_, ThreadedAnimationGraphs>,
+    players: Query<'_, '_, (&AnimationPlayer, &AnimationGraphHandle)>,
+    mut targets: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &AnimationTarget,
+            Option<&mut Transform>,
+            AnimationEntityMut<'_>,
+        ),
+    >,
+    animation_evaluation_state: Local<'_, ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
     // Evaluate all animation targets in parallel.
     targets
@@ -1400,8 +1405,8 @@ impl AnimationEvaluationState {
     /// components being animated.
     fn commit_all(
         &mut self,
-        mut transform: Option<Mut<Transform>>,
-        mut entity_mut: AnimationEntityMut,
+        mut transform: Option<Mut<'_, Transform>>,
+        mut entity_mut: AnimationEntityMut<'_>,
     ) -> Result<(), AnimationEvaluationError> {
         for (curve_evaluator_type, _) in self.current_curve_evaluator_types.drain() {
             self.curve_evaluators
@@ -1506,7 +1511,7 @@ impl<'a> TriggeredEvents<'a> {
         self.lower.is_empty() && self.upper.is_empty()
     }
 
-    fn iter(&self) -> TriggeredEventsIter {
+    fn iter(&self) -> TriggeredEventsIter<'_> {
         match self.direction {
             TriggeredEventsDir::Forward => TriggeredEventsIter::Forward(self.lower.iter()),
             TriggeredEventsDir::Reverse => TriggeredEventsIter::Reverse(self.lower.iter().rev()),

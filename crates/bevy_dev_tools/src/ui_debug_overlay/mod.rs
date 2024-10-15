@@ -66,10 +66,10 @@ impl UiDebugOptions {
 
 /// The system responsible to change the [`Camera`] config based on changes in [`UiDebugOptions`] and [`GizmoConfig`](bevy_gizmos::prelude::GizmoConfig).
 fn update_debug_camera(
-    mut gizmo_config: ResMut<GizmoConfigStore>,
-    mut options: ResMut<UiDebugOptions>,
-    mut cmds: Commands,
-    mut debug_cams: Query<&mut Camera, With<DebugOverlayCamera>>,
+    mut gizmo_config: ResMut<'_, GizmoConfigStore>,
+    mut options: ResMut<'_, UiDebugOptions>,
+    mut cmds: Commands<'_, '_>,
+    mut debug_cams: Query<'_, '_, &mut Camera, With<DebugOverlayCamera>>,
 ) {
     if !options.is_changed() && !gizmo_config.is_changed() {
         return;
@@ -118,7 +118,12 @@ fn update_debug_camera(
 }
 
 /// The function that goes over every children of given [`Entity`], skipping the not visible ones and drawing the gizmos outlines.
-fn outline_nodes(outline: &OutlineParam, draw: &mut InsetGizmo, this_entity: Entity, scale: f32) {
+fn outline_nodes(
+    outline: &OutlineParam<'_, '_>,
+    draw: &mut InsetGizmo<'_, '_>,
+    this_entity: Entity,
+    scale: f32,
+) {
     let Ok(to_iter) = outline.children.get(this_entity) else {
         return;
     };
@@ -171,10 +176,12 @@ struct CameraParam<'w, 's> {
 
 /// system responsible for drawing the gizmos lines around all the node roots, iterating recursively through all visible children.
 fn outline_roots(
-    outline: OutlineParam,
-    draw: Gizmos<UiGizmosDebug>,
-    cam: CameraParam,
+    outline: OutlineParam<'_, '_>,
+    draw: Gizmos<'_, '_, UiGizmosDebug>,
+    cam: CameraParam<'_, '_>,
     roots: Query<
+        '_,
+        '_,
         (
             Entity,
             &GlobalTransform,
@@ -184,9 +191,9 @@ fn outline_roots(
         ),
         Without<Parent>,
     >,
-    window: Query<&Window, With<PrimaryWindow>>,
-    nonprimary_windows: Query<&Window, Without<PrimaryWindow>>,
-    options: Res<UiDebugOptions>,
+    window: Query<'_, '_, &Window, With<PrimaryWindow>>,
+    nonprimary_windows: Query<'_, '_, &Window, Without<PrimaryWindow>>,
+    options: Res<'_, UiDebugOptions>,
 ) {
     if !options.enabled {
         return;
@@ -245,7 +252,7 @@ fn outline_roots(
 }
 
 /// Function responsible for drawing the gizmos lines around the given Entity
-fn outline_node(entity: Entity, rect: LayoutRect, draw: &mut InsetGizmo) {
+fn outline_node(entity: Entity, rect: LayoutRect, draw: &mut InsetGizmo<'_, '_>) {
     let color = Hsla::sequential_dispersed(entity.index());
 
     draw.rect_2d(rect, color.into());

@@ -34,7 +34,7 @@ struct MorphData {
     mesh: Handle<Mesh>,
 }
 
-fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
+fn setup(asset_server: Res<'_, AssetServer>, mut commands: Commands<'_, '_>) {
     commands.insert_resource(MorphData {
         the_wave: asset_server
             .load(GltfAssetLabel::Animation(2).from_asset("models/animated/MorphStressTest.gltf")),
@@ -61,11 +61,11 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
 
 /// Plays an [`AnimationClip`] from the loaded [`Gltf`] on the [`AnimationPlayer`] created by the spawned scene.
 fn setup_animations(
-    mut has_setup: Local<bool>,
-    mut commands: Commands,
-    mut players: Query<(Entity, &Name, &mut AnimationPlayer)>,
-    morph_data: Res<MorphData>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut has_setup: Local<'_, bool>,
+    mut commands: Commands<'_, '_>,
+    mut players: Query<'_, '_, (Entity, &Name, &mut AnimationPlayer)>,
+    morph_data: Res<'_, MorphData>,
+    mut graphs: ResMut<'_, Assets<AnimationGraph>>,
 ) {
     if *has_setup {
         return;
@@ -89,9 +89,9 @@ fn setup_animations(
 /// You can get the target names in their corresponding [`Mesh`].
 /// They are in the order of the weights.
 fn name_morphs(
-    mut has_printed: Local<bool>,
-    morph_data: Res<MorphData>,
-    meshes: Res<Assets<Mesh>>,
+    mut has_printed: Local<'_, bool>,
+    morph_data: Res<'_, MorphData>,
+    meshes: Res<'_, Assets<Mesh>>,
 ) {
     if *has_printed {
         return;

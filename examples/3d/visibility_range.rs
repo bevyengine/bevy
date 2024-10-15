@@ -87,11 +87,11 @@ fn main() {
 
 // Set up a simple 3D scene. Load the two meshes.
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
-    app_status: Res<AppStatus>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    asset_server: Res<'_, AssetServer>,
+    app_status: Res<'_, AppStatus>,
 ) {
     // Spawn a plane.
     commands.spawn((
@@ -165,9 +165,9 @@ fn setup(
 // determines which `Scene` they're under, and adds the `VisibilityRange`
 // component as appropriate.
 fn set_visibility_ranges(
-    mut commands: Commands,
-    mut new_meshes: Query<Entity, Added<Mesh3d>>,
-    parents: Query<(Option<&Parent>, Option<&MainModel>)>,
+    mut commands: Commands<'_, '_>,
+    mut new_meshes: Query<'_, '_, Entity, Added<Mesh3d>>,
+    parents: Query<'_, '_, (Option<&Parent>, Option<&MainModel>)>,
 ) {
     // Loop over each newly-added mesh.
     for new_mesh in new_meshes.iter_mut() {
@@ -205,9 +205,9 @@ fn set_visibility_ranges(
 
 // Process the movement controls.
 fn move_camera(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut mouse_wheel_events: EventReader<MouseWheel>,
-    mut cameras: Query<&mut Transform, With<Camera3d>>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut mouse_wheel_events: EventReader<'_, '_, MouseWheel>,
+    mut cameras: Query<'_, '_, &mut Transform, With<Camera3d>>,
 ) {
     let (mut zoom_delta, mut theta_delta) = (0.0, 0.0);
 
@@ -247,9 +247,9 @@ fn move_camera(
 
 // Toggles modes if the user requests.
 fn update_mode(
-    mut meshes: Query<(&mut VisibilityRange, &MainModel)>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut app_status: ResMut<AppStatus>,
+    mut meshes: Query<'_, '_, (&mut VisibilityRange, &MainModel)>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut app_status: ResMut<'_, AppStatus>,
 ) {
     // Toggle the mode as requested.
     if keyboard_input.just_pressed(KeyCode::Digit1) || keyboard_input.just_pressed(KeyCode::Numpad1)
@@ -285,7 +285,7 @@ fn update_mode(
 }
 
 // A system that updates the help text.
-fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
+fn update_help_text(mut text_query: Query<'_, '_, &mut Text>, app_status: Res<'_, AppStatus>) {
     for mut text in text_query.iter_mut() {
         *text = app_status.create_text();
     }

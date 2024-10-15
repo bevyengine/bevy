@@ -23,7 +23,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     // camera
     commands.spawn(Camera2d);
     // root node
@@ -67,8 +67,8 @@ fn setup(mut commands: Commands) {
 
 /// Set the title of the window to the current override
 fn display_override(
-    mut window: Single<&mut Window>,
-    mut custom_text: Single<&mut Text, With<CustomText>>,
+    mut window: Single<'_, &mut Window>,
+    mut custom_text: Single<'_, &mut Text, With<CustomText>>,
 ) {
     let text = format!(
         "Scale factor: {:.1} {}",
@@ -85,7 +85,7 @@ fn display_override(
 }
 
 /// This system toggles scale factor overrides when enter is pressed
-fn toggle_override(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window>) {
+fn toggle_override(input: Res<'_, ButtonInput<KeyCode>>, mut window: Single<'_, &mut Window>) {
     if input.just_pressed(KeyCode::Enter) {
         let scale_factor_override = window.resolution.scale_factor_override();
         window
@@ -95,7 +95,7 @@ fn toggle_override(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Win
 }
 
 /// This system changes the scale factor override when up or down is pressed
-fn change_scale_factor(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window>) {
+fn change_scale_factor(input: Res<'_, ButtonInput<KeyCode>>, mut window: Single<'_, &mut Window>) {
     let scale_factor_override = window.resolution.scale_factor_override();
     if input.just_pressed(KeyCode::ArrowUp) {
         window

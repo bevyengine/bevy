@@ -99,19 +99,19 @@ pub struct ReflectComponent(ReflectComponentFns);
 #[derive(Clone)]
 pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::insert()`].
-    pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
+    pub insert: fn(&mut EntityWorldMut<'_>, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::apply()`].
-    pub apply: fn(EntityMut, &dyn PartialReflect),
+    pub apply: fn(EntityMut<'_>, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectComponent::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
+    pub apply_or_insert: fn(&mut EntityWorldMut<'_>, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::remove()`].
-    pub remove: fn(&mut EntityWorldMut),
+    pub remove: fn(&mut EntityWorldMut<'_>),
     /// Function pointer implementing [`ReflectComponent::contains()`].
-    pub contains: fn(FilteredEntityRef) -> bool,
+    pub contains: fn(FilteredEntityRef<'_>) -> bool,
     /// Function pointer implementing [`ReflectComponent::reflect()`].
-    pub reflect: fn(FilteredEntityRef) -> Option<&dyn Reflect>,
+    pub reflect: fn(FilteredEntityRef<'_>) -> Option<&dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
-    pub reflect_mut: fn(FilteredEntityMut) -> Option<Mut<dyn Reflect>>,
+    pub reflect_mut: fn(FilteredEntityMut<'_>) -> Option<Mut<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
     ///
     /// # Safety
@@ -138,7 +138,7 @@ impl ReflectComponent {
     /// Insert a reflected [`Component`] into the entity like [`insert()`](EntityWorldMut::insert).
     pub fn insert(
         &self,
-        entity: &mut EntityWorldMut,
+        entity: &mut EntityWorldMut<'_>,
         component: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {
@@ -157,7 +157,7 @@ impl ReflectComponent {
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value or insert a new one if it does not exist.
     pub fn apply_or_insert(
         &self,
-        entity: &mut EntityWorldMut,
+        entity: &mut EntityWorldMut<'_>,
         component: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {
@@ -165,7 +165,7 @@ impl ReflectComponent {
     }
 
     /// Removes this [`Component`] type from the entity. Does nothing if it doesn't exist.
-    pub fn remove(&self, entity: &mut EntityWorldMut) {
+    pub fn remove(&self, entity: &mut EntityWorldMut<'_>) {
         (self.0.remove)(entity);
     }
 

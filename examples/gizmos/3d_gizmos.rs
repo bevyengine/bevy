@@ -21,9 +21,9 @@ fn main() {
 struct MyRoundGizmos {}
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     commands.spawn((
         Camera3d::default(),
@@ -74,7 +74,7 @@ fn setup(
 fn draw_example_collection(
     mut gizmos: Gizmos,
     mut my_gizmos: Gizmos<MyRoundGizmos>,
-    time: Res<Time>,
+    time: Res<'_, Time>,
 ) {
     gizmos.grid(
         Quat::from_rotation_x(PI / 2.),
@@ -180,9 +180,9 @@ fn draw_example_collection(
 }
 
 fn update_config(
-    mut config_store: ResMut<GizmoConfigStore>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
+    mut config_store: ResMut<'_, GizmoConfigStore>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
+    time: Res<'_, Time>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyT) {
         for (_, config, _) in config_store.iter_mut() {

@@ -48,7 +48,7 @@ struct BufferAccessor<'a> {
 impl<'a> BufferAccessor<'a> {
     /// Creates an iterator over the elements in this accessor
     fn iter<T: gltf::accessor::Item>(self) -> Result<gltf::accessor::Iter<'a, T>, AccessFailed> {
-        gltf::accessor::Iter::new(self.accessor, |buffer: gltf::Buffer| {
+        gltf::accessor::Iter::new(self.accessor, |buffer: gltf::Buffer<'_>| {
             self.buffer_data.get(buffer.index()).map(Vec::as_slice)
         })
         .ok_or(AccessFailed::MalformedData)
@@ -256,7 +256,7 @@ pub(crate) enum ConvertAttributeError {
 
 pub(crate) fn convert_attribute(
     semantic: gltf::Semantic,
-    accessor: gltf::Accessor,
+    accessor: gltf::Accessor<'_>,
     buffer_data: &Vec<Vec<u8>>,
     custom_vertex_attributes: &HashMap<Box<str>, MeshVertexAttribute>,
 ) -> Result<(MeshVertexAttribute, Values), ConvertAttributeError> {

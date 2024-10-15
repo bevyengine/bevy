@@ -26,9 +26,9 @@ pub(super) struct ExtractedStateBuffers {
 }
 
 pub(super) fn extract_buffers(
-    mut commands: Commands,
-    changed: Extract<Query<(RenderEntity, &AutoExposure), Changed<AutoExposure>>>,
-    mut removed: Extract<RemovedComponents<AutoExposure>>,
+    mut commands: Commands<'_, '_>,
+    changed: Extract<'_, '_, Query<'_, '_, (RenderEntity, &AutoExposure), Changed<AutoExposure>>>,
+    mut removed: Extract<'_, '_, RemovedComponents<'_, '_, AutoExposure>>,
 ) {
     commands.insert_resource(ExtractedStateBuffers {
         changed: changed
@@ -40,10 +40,10 @@ pub(super) fn extract_buffers(
 }
 
 pub(super) fn prepare_buffers(
-    device: Res<RenderDevice>,
-    queue: Res<RenderQueue>,
-    mut extracted: ResMut<ExtractedStateBuffers>,
-    mut buffers: ResMut<AutoExposureBuffers>,
+    device: Res<'_, RenderDevice>,
+    queue: Res<'_, RenderQueue>,
+    mut extracted: ResMut<'_, ExtractedStateBuffers>,
+    mut buffers: ResMut<'_, AutoExposureBuffers>,
 ) {
     for (entity, settings) in extracted.changed.drain(..) {
         let (min_log_lum, max_log_lum) = settings.range.into_inner();

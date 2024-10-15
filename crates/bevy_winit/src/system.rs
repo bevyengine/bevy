@@ -54,7 +54,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
         mut handlers,
         accessibility_requested,
         monitors,
-    ): SystemParamItem<CreateWindowParams<F>>,
+    ): SystemParamItem<'_, '_, CreateWindowParams<'_, '_, F>>,
 ) {
     for (entity, mut window, handle_holder) in &mut created_windows {
         if winit_windows.get_window(entity).is_some() {
@@ -127,8 +127,8 @@ pub fn create_windows<F: QueryFilter + 'static>(
 /// Check whether keyboard focus was lost. This is different from window
 /// focus in that swapping between Bevy windows keeps window focus.
 pub(crate) fn check_keyboard_focus_lost(
-    mut focus_events: EventReader<WindowFocused>,
-    mut keyboard_focus: EventWriter<KeyboardFocusLost>,
+    mut focus_events: EventReader<'_, '_, WindowFocused>,
+    mut keyboard_focus: EventWriter<'_, KeyboardFocusLost>,
 ) {
     let mut focus_lost = false;
     let mut focus_gained = false;
@@ -147,7 +147,7 @@ pub(crate) fn check_keyboard_focus_lost(
 /// Synchronize available monitors as reported by [`winit`] with [`Monitor`] entities in the world.
 pub fn create_monitors(
     event_loop: &ActiveEventLoop,
-    (mut commands, mut monitors): SystemParamItem<CreateMonitorParams>,
+    (mut commands, mut monitors): SystemParamItem<'_, '_, CreateMonitorParams<'_, '_>>,
 ) {
     let primary_monitor = event_loop.primary_monitor();
     let mut seen_monitors = vec![false; monitors.monitors.len()];
@@ -209,14 +209,14 @@ pub fn create_monitors(
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn despawn_windows(
-    closing: Query<Entity, With<ClosingWindow>>,
-    mut closed: RemovedComponents<Window>,
-    window_entities: Query<Entity, With<Window>>,
-    mut closing_events: EventWriter<WindowClosing>,
-    mut closed_events: EventWriter<WindowClosed>,
-    mut winit_windows: NonSendMut<WinitWindows>,
-    mut windows_to_drop: Local<Vec<WindowWrapper<winit::window::Window>>>,
-    mut exit_events: EventReader<AppExit>,
+    closing: Query<'_, '_, Entity, With<ClosingWindow>>,
+    mut closed: RemovedComponents<'_, '_, Window>,
+    window_entities: Query<'_, '_, Entity, With<Window>>,
+    mut closing_events: EventWriter<'_, WindowClosing>,
+    mut closed_events: EventWriter<'_, WindowClosed>,
+    mut winit_windows: NonSendMut<'_, WinitWindows>,
+    mut windows_to_drop: Local<'_, Vec<WindowWrapper<winit::window::Window>>>,
+    mut exit_events: EventReader<'_, '_, AppExit>,
 ) {
     // Drop all the windows that are waiting to be closed
     windows_to_drop.clear();
@@ -265,10 +265,10 @@ pub struct CachedWindow {
 /// - [`Window::canvas`] cannot be changed after the window is created.
 /// - [`Window::focused`] cannot be manually changed to `false` after the window is created.
 pub(crate) fn changed_windows(
-    mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
-    winit_windows: NonSendMut<WinitWindows>,
-    monitors: Res<WinitMonitors>,
-    mut window_resized: EventWriter<WindowResized>,
+    mut changed_windows: Query<'_, '_, (Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
+    winit_windows: NonSendMut<'_, WinitWindows>,
+    monitors: Res<'_, WinitMonitors>,
+    mut window_resized: EventWriter<'_, WindowResized>,
 ) {
     for (entity, mut window, mut cache) in &mut changed_windows {
         let Some(winit_window) = winit_windows.get_window(entity) else {

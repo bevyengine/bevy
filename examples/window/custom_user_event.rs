@@ -46,13 +46,13 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
 }
 
 fn send_event(
-    input: Res<ButtonInput<KeyCode>>,
-    event_loop_proxy: Res<EventLoopProxyWrapper<CustomEvent>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    event_loop_proxy: Res<'_, EventLoopProxyWrapper<CustomEvent>>,
 ) {
     if input.just_pressed(KeyCode::Space) {
         let _ = event_loop_proxy.send_event(CustomEvent::WakeUp);
@@ -70,7 +70,7 @@ fn send_event(
     }
 }
 
-fn handle_event(mut events: EventReader<CustomEvent>) {
+fn handle_event(mut events: EventReader<'_, '_, CustomEvent>) {
     for evt in events.read() {
         info!("Received event: {evt:?}");
     }
@@ -86,7 +86,7 @@ pub(crate) mod wasm {
     use wasm_bindgen::{prelude::*, JsCast};
     use web_sys::KeyboardEvent;
 
-    pub(crate) fn setup_js_closure(event_loop: Res<EventLoopProxyWrapper<CustomEvent>>) {
+    pub(crate) fn setup_js_closure(event_loop: Res<'_, EventLoopProxyWrapper<CustomEvent>>) {
         let window = web_sys::window().unwrap();
         let document = window.document().unwrap();
 

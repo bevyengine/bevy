@@ -96,8 +96,8 @@ fn print_message_system() {
 
 // Systems can also read and modify resources. This system starts a new "round" on each update:
 // NOTE: "mut" denotes that the resource is "mutable"
-// Res<GameRules> is read-only. ResMut<GameState> can modify the resource
-fn new_round_system(game_rules: Res<GameRules>, mut game_state: ResMut<GameState>) {
+// Res<'_, GameRules> is read-only. ResMut<'_, GameState> can modify the resource
+fn new_round_system(game_rules: Res<'_, GameRules>, mut game_state: ResMut<'_, GameState>) {
     game_state.current_round += 1;
     println!(
         "Begin round {} of {}",
@@ -106,17 +106,17 @@ fn new_round_system(game_rules: Res<GameRules>, mut game_state: ResMut<GameState
 }
 
 // This system updates the score for each entity with the `Player`, `Score` and `PlayerStreak` components.
-fn score_system(mut query: Query<(&Player, &mut Score, &mut PlayerStreak)>) {
+fn score_system(mut query: Query<'_, '_, (&Player, &mut Score, &mut PlayerStreak)>) {
     for (player, mut score, mut streak) in &mut query {
         let scored_a_point = random::<bool>();
         if scored_a_point {
             // Accessing components immutably is done via a regular reference - `player`
             // has type `&Player`.
             //
-            // Accessing components mutably is performed via type `Mut<T>` - `score`
-            // has type `Mut<Score>` and `streak` has type `Mut<PlayerStreak>`.
+            // Accessing components mutably is performed via type `Mut<'_, T>` - `score`
+            // has type `Mut<'_, Score>` and `streak` has type `Mut<'_, PlayerStreak>`.
             //
-            // `Mut<T>` implements `Deref<T>`, so struct fields can be updated using
+            // `Mut<'_, T>` implements `Deref<T>`, so struct fields can be updated using
             // standard field update syntax ...
             score.value += 1;
             // ... and matching against enums requires dereferencing them
@@ -147,9 +147,9 @@ fn score_system(mut query: Query<(&Player, &mut Score, &mut PlayerStreak)>) {
 // This system runs on all entities with the `Player` and `Score` components, but it also
 // accesses the `GameRules` resource to determine if a player has won.
 fn score_check_system(
-    game_rules: Res<GameRules>,
-    mut game_state: ResMut<GameState>,
-    query: Query<(&Player, &Score)>,
+    game_rules: Res<'_, GameRules>,
+    mut game_state: ResMut<'_, GameState>,
+    query: Query<'_, '_, (&Player, &Score)>,
 ) {
     for (player, score) in &query {
         if score.value == game_rules.winning_score {
@@ -162,9 +162,9 @@ fn score_check_system(
 // tells our App to quit. Check out the "event.rs" example if you want to learn more about using
 // events.
 fn game_over_system(
-    game_rules: Res<GameRules>,
-    game_state: Res<GameState>,
-    mut app_exit_events: EventWriter<AppExit>,
+    game_rules: Res<'_, GameRules>,
+    game_state: Res<'_, GameState>,
+    mut app_exit_events: EventWriter<'_, AppExit>,
 ) {
     if let Some(ref player) = game_state.winning_player {
         println!("{player} won the game!");
@@ -180,7 +180,7 @@ fn game_over_system(
 // "startup" system from a "normal" system is how it is registered:
 //      Startup: app.add_systems(Startup, startup_system)
 //      Normal:  app.add_systems(Update, normal_system)
-fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
+fn startup_system(mut commands: Commands<'_, '_>, mut game_state: ResMut<'_, GameState>) {
     // Create our game rules resource
     commands.insert_resource(GameRules {
         max_rounds: 10,
@@ -217,9 +217,9 @@ fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
 // is not thread safe. Command buffers give us the ability to queue up changes to our World without
 // directly accessing it
 fn new_player_system(
-    mut commands: Commands,
-    game_rules: Res<GameRules>,
-    mut game_state: ResMut<GameState>,
+    mut commands: Commands<'_, '_>,
+    game_rules: Res<'_, GameRules>,
+    mut game_state: ResMut<'_, GameState>,
 ) {
     // Randomly add a new player
     let add_new_player = random::<bool>();
@@ -273,7 +273,7 @@ fn exclusive_player_system(world: &mut World) {
 //
 // *: `FromWorld` is a trait which creates a value using the contents of the `World`.
 // For any type which is `Default`, like `u32` in this example, `FromWorld` creates the default value.
-fn print_at_end_round(mut counter: Local<u32>) {
+fn print_at_end_round(mut counter: Local<'_, u32>) {
     *counter += 1;
     println!("In set 'Last' for the {}th time", *counter);
     // Print an empty line between rounds

@@ -19,7 +19,7 @@ pub(crate) struct FieldAccessors {
 }
 
 impl FieldAccessors {
-    pub fn new(reflect_struct: &ReflectStruct) -> Self {
+    pub fn new(reflect_struct: &ReflectStruct<'_>) -> Self {
         let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
         let fields_ref = Self::get_fields(reflect_struct, |field, accessor| {
             match &field.attrs.remote {
@@ -54,11 +54,11 @@ impl FieldAccessors {
     }
 
     fn get_fields<F>(
-        reflect_struct: &ReflectStruct,
+        reflect_struct: &ReflectStruct<'_>,
         mut wrapper_fn: F,
     ) -> Vec<proc_macro2::TokenStream>
     where
-        F: FnMut(&StructField, proc_macro2::TokenStream) -> proc_macro2::TokenStream,
+        F: FnMut(&StructField<'_>, proc_macro2::TokenStream) -> proc_macro2::TokenStream,
     {
         let is_remote = reflect_struct.meta().is_remote_wrapper();
         reflect_struct

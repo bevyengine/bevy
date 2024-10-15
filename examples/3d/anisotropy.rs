@@ -63,7 +63,11 @@ fn main() {
 }
 
 /// Creates the initial scene.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res<AppStatus>) {
+fn setup(
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    app_status: Res<'_, AppStatus>,
+) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_translation(CAMERA_INITIAL_POSITION).looking_at(Vec3::ZERO, Vec3::Y),
@@ -80,7 +84,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
 }
 
 /// Spawns the help text.
-fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
+fn spawn_text(commands: &mut Commands<'_, '_>, app_status: &AppStatus) {
     commands.spawn((
         app_status.create_help_text(),
         Style {
@@ -96,9 +100,11 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
 ///
 /// This allows the user to press Enter to toggle anisotropy on and off.
 fn create_material_variants(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
     new_meshes: Query<
+        '_,
+        '_,
         (Entity, &MeshMaterial3d<StandardMaterial>),
         (
             Added<MeshMaterial3d<StandardMaterial>>,
@@ -125,8 +131,8 @@ fn create_material_variants(
 
 /// A system that animates the light every frame, if there is one.
 fn animate_light(
-    mut lights: Query<&mut Transform, Or<(With<DirectionalLight>, With<PointLight>)>>,
-    time: Res<Time>,
+    mut lights: Query<'_, '_, &mut Transform, Or<(With<DirectionalLight>, With<PointLight>)>>,
+    time: Res<'_, Time>,
 ) {
     let now = time.elapsed_seconds();
     for mut transform in lights.iter_mut() {
@@ -137,10 +143,10 @@ fn animate_light(
 
 /// A system that rotates the camera if the environment map is enabled.
 fn rotate_camera(
-    mut camera: Query<&mut Transform, With<Camera>>,
-    app_status: Res<AppStatus>,
-    time: Res<Time>,
-    mut stopwatch: Local<Stopwatch>,
+    mut camera: Query<'_, '_, &mut Transform, With<Camera>>,
+    app_status: Res<'_, AppStatus>,
+    time: Res<'_, Time>,
+    mut stopwatch: Local<'_, Stopwatch>,
 ) {
     if app_status.light_mode == LightMode::EnvironmentMap {
         stopwatch.tick(time.delta());
@@ -157,13 +163,13 @@ fn rotate_camera(
 
 /// Handles requests from the user to change the lighting or toggle anisotropy.
 fn handle_input(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    cameras: Query<Entity, With<Camera>>,
-    lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>)>>,
-    mut meshes: Query<(&mut MeshMaterial3d<StandardMaterial>, &MaterialVariants)>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut app_status: ResMut<AppStatus>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    cameras: Query<'_, '_, Entity, With<Camera>>,
+    lights: Query<'_, '_, Entity, Or<(With<DirectionalLight>, With<PointLight>)>>,
+    mut meshes: Query<'_, '_, (&mut MeshMaterial3d<StandardMaterial>, &MaterialVariants)>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
+    mut app_status: ResMut<'_, AppStatus>,
 ) {
     // If Space was pressed, change the lighting.
     if keyboard.just_pressed(KeyCode::Space) {
@@ -221,7 +227,7 @@ fn handle_input(
 }
 
 /// A system that updates the help text based on the current app status.
-fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
+fn update_help_text(mut text_query: Query<'_, '_, &mut Text>, app_status: Res<'_, AppStatus>) {
     for mut text in text_query.iter_mut() {
         *text = app_status.create_help_text();
     }
@@ -229,7 +235,7 @@ fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>
 
 /// Adds the skybox and environment map to the scene.
 fn add_skybox_and_environment_map(
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
     asset_server: &AssetServer,
     entity: Entity,
 ) {
@@ -249,7 +255,7 @@ fn add_skybox_and_environment_map(
 }
 
 /// Spawns a rotating directional light.
-fn spawn_directional_light(commands: &mut Commands) {
+fn spawn_directional_light(commands: &mut Commands<'_, '_>) {
     commands.spawn(DirectionalLight {
         color: WHITE.into(),
         illuminance: 3000.0,
@@ -258,7 +264,7 @@ fn spawn_directional_light(commands: &mut Commands) {
 }
 
 /// Spawns a rotating point light.
-fn spawn_point_light(commands: &mut Commands) {
+fn spawn_point_light(commands: &mut Commands<'_, '_>) {
     commands.spawn(PointLight {
         color: WHITE.into(),
         intensity: 200000.0,

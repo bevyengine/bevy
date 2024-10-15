@@ -10,7 +10,7 @@
 //! # use bevy_math::prelude::Circle;
 //! # use bevy_mesh::*;
 //! #
-//! # fn setup(mut meshes: ResMut<Assets<Mesh>>) {
+//! # fn setup(mut meshes: ResMut<'_, Assets<Mesh>>) {
 //! // Create circle mesh with default configuration
 //! let circle = meshes.add(Circle { radius: 25.0 });
 //!

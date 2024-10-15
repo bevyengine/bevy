@@ -25,10 +25,10 @@ fn main() {
 struct Cube;
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut images: ResMut<'_, Assets<Image>>,
 ) {
     let size = Extent3d {
         width: 512,
@@ -99,7 +99,6 @@ fn setup(
         base_color_texture: Some(image_handle),
         reflectance: 0.02,
         unlit: false,
-
         ..default()
     });
 
@@ -120,7 +119,7 @@ fn setup(
 
 const ROTATION_SPEED: f32 = 0.5;
 
-fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Cube>>) {
+fn rotator_system(time: Res<'_, Time>, mut query: Query<'_, '_, &mut Transform, With<Cube>>) {
     for mut transform in &mut query {
         transform.rotate_x(1.0 * time.delta_seconds() * ROTATION_SPEED);
         transform.rotate_y(0.7 * time.delta_seconds() * ROTATION_SPEED);

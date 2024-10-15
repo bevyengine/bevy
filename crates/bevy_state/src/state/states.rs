@@ -33,7 +33,7 @@ use core::hash::Hash;
 ///     InGame,
 /// }
 ///
-/// fn handle_escape_pressed(mut next_state: ResMut<NextState<GameState>>) {
+/// fn handle_escape_pressed(mut next_state: ResMut<'_, NextState<GameState>>) {
 /// #   let escape_pressed = true;
 ///     if escape_pressed {
 ///         next_state.set(GameState::SettingsMenu);

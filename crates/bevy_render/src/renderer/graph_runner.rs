@@ -51,9 +51,7 @@ pub enum RenderGraphRunnerError {
         expected: SlotType,
         actual: SlotType,
     },
-    #[display(
-        "node (name: '{node_name:?}') has {slot_count} input slots, but was provided {value_count} values"
-    )]
+    #[display("node (name: '{node_name:?}') has {slot_count} input slots, but was provided {value_count} values")]
     MismatchedInputCount {
         node_name: InternedRenderLabel,
         slot_count: usize,

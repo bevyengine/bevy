@@ -27,7 +27,7 @@ fn main() {
         .run();
 }
 
-fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_scene(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn(Camera2d);
 
     // The default font has a limited number of glyphs, so use the full version for
@@ -73,9 +73,9 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn toggle_ime(
-    input: Res<ButtonInput<MouseButton>>,
-    mut window: Single<&mut Window>,
-    status_text: Single<Entity, (With<Node>, With<Text>)>,
+    input: Res<'_, ButtonInput<MouseButton>>,
+    mut window: Single<'_, &mut Window>,
+    status_text: Single<'_, Entity, (With<Node>, With<Text>)>,
     mut ui_writer: UiTextWriter,
 ) {
     if input.just_pressed(MouseButton::Left) {
@@ -92,9 +92,9 @@ struct Bubble {
 }
 
 fn bubbling_text(
-    mut commands: Commands,
-    mut bubbles: Query<(Entity, &mut Transform, &mut Bubble)>,
-    time: Res<Time>,
+    mut commands: Commands<'_, '_>,
+    mut bubbles: Query<'_, '_, (Entity, &mut Transform, &mut Bubble)>,
+    time: Res<'_, Time>,
 ) {
     for (entity, mut transform, mut bubble) in bubbles.iter_mut() {
         if bubble.timer.tick(time.delta()).just_finished() {
@@ -105,9 +105,9 @@ fn bubbling_text(
 }
 
 fn listen_ime_events(
-    mut events: EventReader<Ime>,
-    status_text: Single<Entity, (With<Node>, With<Text>)>,
-    mut edit_text: Single<&mut Text2d, (Without<Node>, Without<Bubble>)>,
+    mut events: EventReader<'_, '_, Ime>,
+    status_text: Single<'_, Entity, (With<Node>, With<Text>)>,
+    mut edit_text: Single<'_, &mut Text2d, (Without<Node>, Without<Bubble>)>,
     mut ui_writer: UiTextWriter,
 ) {
     for event in events.read() {
@@ -133,9 +133,9 @@ fn listen_ime_events(
 }
 
 fn listen_keyboard_input_events(
-    mut commands: Commands,
-    mut events: EventReader<KeyboardInput>,
-    edit_text: Single<(&mut Text2d, &TextFont), (Without<Node>, Without<Bubble>)>,
+    mut commands: Commands<'_, '_>,
+    mut events: EventReader<'_, '_, KeyboardInput>,
+    edit_text: Single<'_, (&mut Text2d, &TextFont), (Without<Node>, Without<Bubble>)>,
 ) {
     let (mut text, style) = edit_text.into_inner();
     for event in events.read() {

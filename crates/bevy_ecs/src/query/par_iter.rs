@@ -51,13 +51,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     /// use crate::{bevy_ecs::prelude::Component, bevy_ecs::system::Query};
     /// #[derive(Component)]
     /// struct T;
-    /// fn system(query: Query<&T>){
+    /// fn system(query: Query<'_, '_, &T>){
     ///     let mut queue: Parallel<usize> = Parallel::default();
     ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread;
     ///     query.par_iter().for_each_init(|| queue.borrow_local_mut(),|local_queue,item| {
     ///         **local_queue += 1;
     ///      });
-    ///     
+    ///
     ///     // collect value from every thread
     ///     let entity_count: usize = queue.iter_mut().map(|v| *v).sum();
     /// }

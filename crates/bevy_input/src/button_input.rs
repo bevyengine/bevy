@@ -88,11 +88,11 @@ use {
 ///         .run();
 /// }
 ///
-/// fn print_mouse(mouse: Res<ButtonInput<MouseButton>>) {
+/// fn print_mouse(mouse: Res<'_, ButtonInput<MouseButton>>) {
 ///     println!("Mouse: {:?}", mouse.get_pressed().collect::<Vec<_>>());
 /// }
 ///
-/// fn print_keyboard(keyboard: Res<ButtonInput<KeyCode>>) {
+/// fn print_keyboard(keyboard: Res<'_, ButtonInput<KeyCode>>) {
 ///     if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight])
 ///         && keyboard.any_pressed([KeyCode::AltLeft, KeyCode::AltRight])
 ///         && keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])

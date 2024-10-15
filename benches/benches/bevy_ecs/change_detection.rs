@@ -186,7 +186,7 @@ fn few_changed_detection_generic<T: Component + Default + BenchModify>(
                     let mut world = setup::<T>(entity_count);
                     world.clear_trackers();
                     let mut query = world.query::<&mut T>();
-                    let mut to_modify: Vec<bevy_ecs::prelude::Mut<T>> =
+                    let mut to_modify: Vec<bevy_ecs::prelude::Mut<'_, T>> =
                         query.iter_mut(&mut world).collect();
                     to_modify.shuffle(&mut deterministic_rand());
                     for component in to_modify[0..amount_to_modify].iter_mut() {
@@ -265,7 +265,7 @@ fn none_changed_detection(criterion: &mut Criterion) {
         );
     }
 }
-fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut, i: u16) {
+fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut<'_>, i: u16) {
     if i & 1 << B != 0 {
         entity.insert(Data::<B>(1.0));
     }

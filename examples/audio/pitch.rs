@@ -18,15 +18,15 @@ struct PlayPitch;
 #[derive(Resource)]
 struct PitchFrequency(f32);
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands.insert_resource(PitchFrequency(220.0));
 }
 
 fn play_pitch(
-    mut pitch_assets: ResMut<Assets<Pitch>>,
-    frequency: Res<PitchFrequency>,
-    mut events: EventReader<PlayPitch>,
-    mut commands: Commands,
+    mut pitch_assets: ResMut<'_, Assets<Pitch>>,
+    frequency: Res<'_, PitchFrequency>,
+    mut events: EventReader<'_, '_, PlayPitch>,
+    mut commands: Commands<'_, '_>,
 ) {
     for _ in events.read() {
         info!("playing pitch with frequency: {}", frequency.0);
@@ -39,9 +39,9 @@ fn play_pitch(
 }
 
 fn keyboard_input_system(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut frequency: ResMut<PitchFrequency>,
-    mut events: EventWriter<PlayPitch>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut frequency: ResMut<'_, PitchFrequency>,
+    mut events: EventWriter<'_, PlayPitch>,
 ) {
     if keyboard_input.just_pressed(KeyCode::ArrowUp) {
         frequency.0 *= ops::powf(2.0f32, 1.0 / 12.0);

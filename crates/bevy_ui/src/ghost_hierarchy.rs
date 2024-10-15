@@ -178,7 +178,7 @@ mod tests {
                 .with_child(A(9));
         });
 
-        let mut system_state = SystemState::<(UiRootNodes, Query<&A>)>::new(world);
+        let mut system_state = SystemState::<(UiRootNodes<'_, '_>, Query<'_, '_, &A>)>::new(world);
         let (ui_root_nodes, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query.iter_many(ui_root_nodes.iter()).collect();
@@ -211,7 +211,7 @@ mod tests {
         world.entity_mut(n7).add_children(&[n8]);
         world.entity_mut(n9).add_children(&[n10]);
 
-        let mut system_state = SystemState::<(UiChildren, Query<&A>)>::new(world);
+        let mut system_state = SystemState::<(UiChildren<'_, '_>, Query<'_, '_, &A>)>::new(world);
         let (ui_children, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query

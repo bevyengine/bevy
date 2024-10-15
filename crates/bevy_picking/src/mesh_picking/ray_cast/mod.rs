@@ -144,7 +144,7 @@ type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;
 /// # use bevy_picking::prelude::*;
 /// # #[derive(Component)]
 /// # struct Foo;
-/// fn ray_cast_system(mut ray_cast: MeshRayCast, foo_query: Query<(), With<Foo>>) {
+/// fn ray_cast_system(mut ray_cast: MeshRayCast, foo_query: Query<'_, '_, (), With<Foo>>) {
 ///     let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
 ///
 ///     // Only ray cast against entities with the `Foo` component.
@@ -205,7 +205,11 @@ pub struct MeshRayCast<'w, 's> {
 
 impl<'w, 's> MeshRayCast<'w, 's> {
     /// Casts the `ray` into the world and returns a sorted list of intersections, nearest first.
-    pub fn cast_ray(&mut self, ray: Ray3d, settings: &RayCastSettings) -> &[(Entity, RayMeshHit)] {
+    pub fn cast_ray(
+        &mut self,
+        ray: Ray3d,
+        settings: &RayCastSettings<'_>,
+    ) -> &[(Entity, RayMeshHit)] {
         let ray_cull = info_span!("ray culling");
         let ray_cull_guard = ray_cull.enter();
 

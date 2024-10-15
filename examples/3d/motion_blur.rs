@@ -16,7 +16,7 @@ fn main() {
         .run();
 }
 
-fn setup_camera(mut commands: Commands) {
+fn setup_camera(mut commands: Commands<'_, '_>) {
     commands.spawn((
         Camera3d::default(),
         // Add the `MotionBlur` component to a camera to enable motion blur.
@@ -49,11 +49,11 @@ struct CameraTracked;
 struct Rotates;
 
 fn setup_scene(
-    asset_server: Res<AssetServer>,
-    mut images: ResMut<Assets<Image>>,
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<'_, AssetServer>,
+    mut images: ResMut<'_, Assets<Image>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
@@ -103,7 +103,7 @@ fn spawn_cars(
     asset_server: &AssetServer,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
 ) {
     const N_CARS: usize = 20;
     let box_mesh = meshes.add(Cuboid::new(0.3, 0.15, 0.55));
@@ -170,7 +170,7 @@ fn spawn_cars(
 fn spawn_barriers(
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
 ) {
     const N_CONES: usize = 100;
     let capsule = meshes.add(Capsule3d::default());
@@ -199,7 +199,7 @@ fn spawn_barriers(
 fn spawn_trees(
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
 ) {
     const N_TREES: usize = 30;
     let capsule = meshes.add(Capsule3d::default());
@@ -230,7 +230,7 @@ fn spawn_trees(
     spawn_with_offset(-0.07);
 }
 
-fn setup_ui(mut commands: Commands) {
+fn setup_ui(mut commands: Commands<'_, '_>) {
     commands
         .spawn((
             Text::default(),
@@ -251,11 +251,11 @@ fn setup_ui(mut commands: Commands) {
 }
 
 fn keyboard_inputs(
-    mut motion_blur: Single<&mut MotionBlur>,
-    presses: Res<ButtonInput<KeyCode>>,
-    text: Single<Entity, With<Text>>,
+    mut motion_blur: Single<'_, &mut MotionBlur>,
+    presses: Res<'_, ButtonInput<KeyCode>>,
+    text: Single<'_, Entity, With<Text>>,
     mut writer: UiTextWriter,
-    mut camera: ResMut<CameraMode>,
+    mut camera: ResMut<'_, CameraMode>,
 ) {
     if presses.just_pressed(KeyCode::Digit1) {
         motion_blur.shutter_angle -= 0.25;
@@ -295,9 +295,9 @@ fn race_track_pos(offset: f32, t: f32) -> Vec2 {
 }
 
 fn move_cars(
-    time: Res<Time>,
-    mut movables: Query<(&mut Transform, &Moves, &Children)>,
-    mut spins: Query<&mut Transform, (Without<Moves>, With<Rotates>)>,
+    time: Res<'_, Time>,
+    mut movables: Query<'_, '_, (&mut Transform, &Moves, &Children)>,
+    mut spins: Query<'_, '_, &mut Transform, (Without<Moves>, With<Rotates>)>,
 ) {
     for (mut transform, moves, children) in &mut movables {
         let time = time.elapsed_seconds() * 0.25;
@@ -325,9 +325,9 @@ fn move_cars(
 }
 
 fn move_camera(
-    camera: Single<(&mut Transform, &mut Projection), Without<CameraTracked>>,
-    tracked: Single<&Transform, With<CameraTracked>>,
-    mode: Res<CameraMode>,
+    camera: Single<'_, (&mut Transform, &mut Projection), Without<CameraTracked>>,
+    tracked: Single<'_, &Transform, With<CameraTracked>>,
+    mode: Res<'_, CameraMode>,
 ) {
     let (mut transform, mut projection) = camera.into_inner();
     match *mode {

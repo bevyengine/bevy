@@ -31,10 +31,10 @@ fn main() {
 
 /// set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     let base_color = Color::srgb(0.9, 0.2, 0.3);
     let icosphere_mesh = meshes.add(Sphere::new(0.9).mesh().ico(7).unwrap());
@@ -167,15 +167,7 @@ fn setup(
 
     let label_text_style = (text_style.clone(), TextColor(ORANGE.into()));
 
-    commands.spawn((Text::new("Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors"),
-            text_style.clone(),
-        Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        })
-    );
+    commands.spawn((Text::new("Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors"), text_style.clone(), Style { position_type: PositionType::Absolute, top: Val::Px(12.0), left: Val::Px(12.0), ..default() }));
 
     commands.spawn((
         Text::default(),
@@ -252,15 +244,15 @@ impl Default for ExampleState {
 
 #[allow(clippy::too_many_arguments)]
 fn example_control_system(
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
-    camera: Single<(&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
-    mut labels: Query<(&mut Style, &ExampleLabel)>,
-    mut display: Single<&mut Text, With<ExampleDisplay>>,
-    labelled: Query<&GlobalTransform>,
-    mut state: Local<ExampleState>,
-    time: Res<Time>,
-    input: Res<ButtonInput<KeyCode>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    controllable: Query<'_, '_, (&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
+    camera: Single<'_, (&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
+    mut labels: Query<'_, '_, (&mut Style, &ExampleLabel)>,
+    mut display: Single<'_, &mut Text, With<ExampleDisplay>>,
+    labelled: Query<'_, '_, &GlobalTransform>,
+    mut state: Local<'_, ExampleState>,
+    time: Res<'_, Time>,
+    input: Res<'_, ButtonInput<KeyCode>>,
 ) {
     if input.pressed(KeyCode::ArrowUp) {
         state.alpha = (state.alpha + time.delta_seconds()).min(1.0);

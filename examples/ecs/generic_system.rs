@@ -49,7 +49,7 @@ fn main() {
         .run();
 }
 
-fn setup_system(mut commands: Commands) {
+fn setup_system(mut commands: Commands<'_, '_>) {
     commands.spawn((
         PrinterTick(Timer::from_seconds(1.0, TimerMode::Repeating)),
         TextToPrint("I will print until you press space.".to_string()),
@@ -63,7 +63,10 @@ fn setup_system(mut commands: Commands) {
     ));
 }
 
-fn print_text_system(time: Res<Time>, mut query: Query<(&mut PrinterTick, &TextToPrint)>) {
+fn print_text_system(
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, (&mut PrinterTick, &TextToPrint)>,
+) {
     for (mut timer, text) in &mut query {
         if timer.tick(time.delta()).just_finished() {
             info!("{}", text.0);
@@ -72,8 +75,8 @@ fn print_text_system(time: Res<Time>, mut query: Query<(&mut PrinterTick, &TextT
 }
 
 fn transition_to_in_game_system(
-    mut next_state: ResMut<NextState<AppState>>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<'_, NextState<AppState>>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.pressed(KeyCode::Space) {
         next_state.set(AppState::InGame);
@@ -82,7 +85,10 @@ fn transition_to_in_game_system(
 
 // Type arguments on functions come after the function name, but before ordinary arguments.
 // Here, the `Component` trait is a trait bound on T, our generic type
-fn cleanup_system<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) {
+fn cleanup_system<T: Component>(
+    mut commands: Commands<'_, '_>,
+    query: Query<'_, '_, Entity, With<T>>,
+) {
     for e in &query {
         commands.entity(e).despawn_recursive();
     }

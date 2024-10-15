@@ -7,7 +7,7 @@ use rand_chacha::ChaCha8Rng;
 #[derive(Component, Deref)]
 struct Velocity(Vec2);
 
-fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn spawn_system(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn(Camera2d);
     let texture = asset_server.load("branding/icon.png");
 
@@ -24,7 +24,7 @@ fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 // Move sprites according to their velocity
-fn move_system(mut sprites: Query<(&mut Transform, &Velocity)>) {
+fn move_system(mut sprites: Query<'_, '_, (&mut Transform, &Velocity)>) {
     // Compute the new location of each sprite in parallel on the
     // ComputeTaskPool
     //
@@ -41,7 +41,10 @@ fn move_system(mut sprites: Query<(&mut Transform, &Velocity)>) {
 }
 
 // Bounce sprites outside the window
-fn bounce_system(window: Single<&Window>, mut sprites: Query<(&Transform, &mut Velocity)>) {
+fn bounce_system(
+    window: Single<'_, &Window>,
+    mut sprites: Query<'_, '_, (&Transform, &mut Velocity)>,
+) {
     let width = window.width();
     let height = window.height();
     let left = width / -2.0;

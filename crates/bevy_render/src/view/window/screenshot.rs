@@ -63,7 +63,7 @@ pub struct ScreenshotCaptured(pub Image);
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::view::screenshot::{save_to_disk, Screenshot};
 ///
-/// fn take_screenshot(mut commands: Commands) {
+/// fn take_screenshot(mut commands: Commands<'_, '_>) {
 ///    commands.spawn(Screenshot::primary_window())
 ///       .observe(save_to_disk("screenshot.png"));
 /// }
@@ -124,7 +124,7 @@ struct RenderScreenshotsPrepared(EntityHashMap<ScreenshotPreparedState>);
 struct RenderScreenshotsSender(Sender<(Entity, Image)>);
 
 /// Saves the captured screenshot to disk at the provided path.
-pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(Trigger<ScreenshotCaptured>) {
+pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(Trigger<'_, ScreenshotCaptured>) {
     let path = path.as_ref().to_owned();
     move |trigger| {
         let img = trigger.event().deref().clone();
@@ -185,15 +185,18 @@ pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(Trigger<ScreenshotCapt
     }
 }
 
-fn clear_screenshots(mut commands: Commands, screenshots: Query<Entity, With<Captured>>) {
+fn clear_screenshots(
+    mut commands: Commands<'_, '_>,
+    screenshots: Query<'_, '_, Entity, With<Captured>>,
+) {
     for entity in screenshots.iter() {
         commands.entity(entity).despawn_recursive();
     }
 }
 
 pub fn trigger_screenshots(
-    mut commands: Commands,
-    captured_screenshots: ResMut<CapturedScreenshots>,
+    mut commands: Commands<'_, '_>,
+    captured_screenshots: ResMut<'_, CapturedScreenshots>,
 ) {
     let captured_screenshots = captured_screenshots.lock().unwrap();
     while let Ok((entity, image)) = captured_screenshots.try_recv() {
@@ -203,18 +206,19 @@ pub fn trigger_screenshots(
 }
 
 fn extract_screenshots(
-    mut targets: ResMut<RenderScreenshotTargets>,
-    mut main_world: ResMut<MainWorld>,
+    mut targets: ResMut<'_, RenderScreenshotTargets>,
+    mut main_world: ResMut<'_, MainWorld>,
     mut system_state: Local<
+        '_,
         Option<
             SystemState<(
-                Commands,
-                Query<Entity, With<PrimaryWindow>>,
-                Query<(Entity, &Screenshot), Without<Capturing>>,
+                Commands<'_, '_>,
+                Query<'_, '_, Entity, With<PrimaryWindow>>,
+                Query<'_, '_, (Entity, &Screenshot), Without<Capturing>>,
             )>,
         >,
     >,
-    mut seen_targets: Local<HashSet<NormalizedRenderTarget>>,
+    mut seen_targets: Local<'_, HashSet<NormalizedRenderTarget>>,
 ) {
     if system_state.is_none() {
         *system_state = Some(SystemState::new(&mut main_world));
@@ -255,16 +259,16 @@ fn extract_screenshots(
 
 #[allow(clippy::too_many_arguments)]
 fn prepare_screenshots(
-    targets: Res<RenderScreenshotTargets>,
-    mut prepared: ResMut<RenderScreenshotsPrepared>,
-    window_surfaces: Res<WindowSurfaces>,
-    render_device: Res<RenderDevice>,
-    screenshot_pipeline: Res<ScreenshotToScreenPipeline>,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
-    images: Res<RenderAssets<GpuImage>>,
-    manual_texture_views: Res<ManualTextureViews>,
-    mut view_target_attachments: ResMut<ViewTargetAttachments>,
+    targets: Res<'_, RenderScreenshotTargets>,
+    mut prepared: ResMut<'_, RenderScreenshotsPrepared>,
+    window_surfaces: Res<'_, WindowSurfaces>,
+    render_device: Res<'_, RenderDevice>,
+    screenshot_pipeline: Res<'_, ScreenshotToScreenPipeline>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
+    images: Res<'_, RenderAssets<GpuImage>>,
+    manual_texture_views: Res<'_, ManualTextureViews>,
+    mut view_target_attachments: ResMut<'_, ViewTargetAttachments>,
 ) {
     prepared.clear();
     for (entity, target) in targets.iter() {

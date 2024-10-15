@@ -131,9 +131,7 @@ impl Plugin for PipelinedRenderingPlugin {
         let (app_to_render_sender, app_to_render_receiver) = async_channel::bounded::<SubApp>(1);
         let (render_to_app_sender, render_to_app_receiver) = async_channel::bounded::<SubApp>(1);
 
-        let mut render_app = app
-            .remove_sub_app(RenderApp)
-            .expect("Unable to get RenderApp. Another plugin may have removed the RenderApp before PipelinedRenderingPlugin");
+        let mut render_app = app.remove_sub_app(RenderApp).expect("Unable to get RenderApp. Another plugin may have removed the RenderApp before PipelinedRenderingPlugin");
 
         // clone main thread executor to render world
         let executor = app.world().get_resource::<MainThreadExecutor>().unwrap();
@@ -182,8 +180,8 @@ impl Plugin for PipelinedRenderingPlugin {
 // This function waits for the rendering world to be received,
 // runs extract, and then sends the rendering world back to the render thread.
 fn renderer_extract(app_world: &mut World, _world: &mut World) {
-    app_world.resource_scope(|world, main_thread_executor: Mut<MainThreadExecutor>| {
-        world.resource_scope(|world, mut render_channels: Mut<RenderAppChannels>| {
+    app_world.resource_scope(|world, main_thread_executor: Mut<'_, MainThreadExecutor>| {
+        world.resource_scope(|world, mut render_channels: Mut<'_, RenderAppChannels>| {
             // we use a scope here to run any main thread tasks that the render world still needs to run
             // while we wait for the render world to be received.
             if let Some(mut render_app) = ComputeTaskPool::get()

@@ -44,9 +44,9 @@ impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
 
 /// This system extracts the resource of the corresponding [`Resource`] type
 pub fn extract_resource<R: ExtractResource>(
-    mut commands: Commands,
-    main_resource: Extract<Option<Res<R::Source>>>,
-    target_resource: Option<ResMut<R>>,
+    mut commands: Commands<'_, '_>,
+    main_resource: Extract<'_, '_, Option<Res<'_, R::Source>>>,
+    target_resource: Option<ResMut<'_, R>>,
 ) {
     if let Some(main_resource) = main_resource.as_ref() {
         if let Some(mut target_resource) = target_resource {

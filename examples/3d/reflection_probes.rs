@@ -80,12 +80,12 @@ fn main() {
 
 // Spawns all the scene objects.
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
-    app_status: Res<AppStatus>,
-    cubemaps: Res<Cubemaps>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    asset_server: Res<'_, AssetServer>,
+    app_status: Res<'_, AppStatus>,
+    cubemaps: Res<'_, Cubemaps>,
 ) {
     spawn_scene(&mut commands, &asset_server);
     spawn_camera(&mut commands);
@@ -95,14 +95,14 @@ fn setup(
 }
 
 // Spawns the cubes, light, and camera.
-fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
+fn spawn_scene(commands: &mut Commands<'_, '_>, asset_server: &AssetServer) {
     commands.spawn(SceneRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb")),
     ));
 }
 
 // Spawns the camera.
-fn spawn_camera(commands: &mut Commands) {
+fn spawn_camera(commands: &mut Commands<'_, '_>) {
     commands.spawn((
         Camera3d::default(),
         Camera {
@@ -115,7 +115,7 @@ fn spawn_camera(commands: &mut Commands) {
 
 // Creates the sphere mesh and spawns it.
 fn spawn_sphere(
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
 ) {
@@ -135,7 +135,7 @@ fn spawn_sphere(
 }
 
 // Spawns the reflection probe.
-fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
+fn spawn_reflection_probe(commands: &mut Commands<'_, '_>, cubemaps: &Cubemaps) {
     commands.spawn((
         LightProbe,
         EnvironmentMapLight {
@@ -150,7 +150,7 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
 }
 
 // Spawns the help text.
-fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
+fn spawn_text(commands: &mut Commands<'_, '_>, app_status: &AppStatus) {
     // Create the text.
     commands.spawn((
         app_status.create_text(),
@@ -167,9 +167,9 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
 // managed by the scene spawner, as it's part of the glTF file with the cubes, so we have to add
 // the environment map after the fact.
 fn add_environment_map_to_camera(
-    mut commands: Commands,
-    query: Query<Entity, Added<Camera3d>>,
-    cubemaps: Res<Cubemaps>,
+    mut commands: Commands<'_, '_>,
+    query: Query<'_, '_, Entity, Added<Camera3d>>,
+    cubemaps: Res<'_, Cubemaps>,
 ) {
     for camera_entity in query.iter() {
         commands
@@ -185,12 +185,12 @@ fn add_environment_map_to_camera(
 
 // A system that handles switching between different reflection modes.
 fn change_reflection_type(
-    mut commands: Commands,
-    light_probe_query: Query<Entity, With<LightProbe>>,
-    camera_query: Query<Entity, With<Camera3d>>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut app_status: ResMut<AppStatus>,
-    cubemaps: Res<Cubemaps>,
+    mut commands: Commands<'_, '_>,
+    light_probe_query: Query<'_, '_, Entity, With<LightProbe>>,
+    camera_query: Query<'_, '_, Entity, With<Camera3d>>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
+    mut app_status: ResMut<'_, AppStatus>,
+    cubemaps: Res<'_, Cubemaps>,
 ) {
     // Only do anything if space was pressed.
     if !keyboard.just_pressed(KeyCode::Space) {
@@ -226,14 +226,14 @@ fn change_reflection_type(
 }
 
 // A system that handles enabling and disabling rotation.
-fn toggle_rotation(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<AppStatus>) {
+fn toggle_rotation(keyboard: Res<'_, ButtonInput<KeyCode>>, mut app_status: ResMut<'_, AppStatus>) {
     if keyboard.just_pressed(KeyCode::Enter) {
         app_status.rotating = !app_status.rotating;
     }
 }
 
 // A system that updates the help text.
-fn update_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
+fn update_text(mut text_query: Query<'_, '_, &mut Text>, app_status: Res<'_, AppStatus>) {
     for mut text in text_query.iter_mut() {
         *text = app_status.create_text();
     }
@@ -294,9 +294,9 @@ fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLig
 
 // Rotates the camera a bit every frame.
 fn rotate_camera(
-    time: Res<Time>,
-    mut camera_query: Query<&mut Transform, With<Camera3d>>,
-    app_status: Res<AppStatus>,
+    time: Res<'_, Time>,
+    mut camera_query: Query<'_, '_, &mut Transform, With<Camera3d>>,
+    app_status: Res<'_, AppStatus>,
 ) {
     if !app_status.rotating {
         return;

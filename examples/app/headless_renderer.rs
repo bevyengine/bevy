@@ -133,12 +133,12 @@ enum SceneState {
 }
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-    mut scene_controller: ResMut<SceneController>,
-    render_device: Res<RenderDevice>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut images: ResMut<'_, Assets<Image>>,
+    mut scene_controller: ResMut<'_, SceneController>,
+    render_device: Res<'_, RenderDevice>,
 ) {
     let render_target = setup_render_target(
         &mut commands,
@@ -218,10 +218,10 @@ impl Plugin for ImageCopyPlugin {
 
 /// Setups render target and cpu image for saving, changes scene state into render mode
 fn setup_render_target(
-    commands: &mut Commands,
-    images: &mut ResMut<Assets<Image>>,
+    commands: &mut Commands<'_, '_>,
+    images: &mut ResMut<'_, Assets<Image>>,
     render_device: &Res<RenderDevice>,
-    scene_controller: &mut ResMut<SceneController>,
+    scene_controller: &mut ResMut<'_, SceneController>,
     pre_roll_frames: u32,
     scene_name: String,
 ) -> RenderTarget {
@@ -316,7 +316,10 @@ impl ImageCopier {
 }
 
 /// Extracting `ImageCopier`s into render world, because `ImageCopyDriver` accesses them
-fn image_copy_extract(mut commands: Commands, image_copiers: Extract<Query<&ImageCopier>>) {
+fn image_copy_extract(
+    mut commands: Commands<'_, '_>,
+    image_copiers: Extract<'_, '_, Query<'_, '_, &ImageCopier>>,
+) {
     commands.insert_resource(ImageCopiers(
         image_copiers.iter().cloned().collect::<Vec<ImageCopier>>(),
     ));
@@ -334,8 +337,8 @@ struct ImageCopyDriver;
 impl render_graph::Node for ImageCopyDriver {
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        _graph: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let image_copiers = world.get_resource::<ImageCopiers>().unwrap();
@@ -398,9 +401,9 @@ impl render_graph::Node for ImageCopyDriver {
 
 /// runs in render world after Render stage to send image from buffer via channel (receiver is in main world)
 fn receive_image_from_buffer(
-    image_copiers: Res<ImageCopiers>,
-    render_device: Res<RenderDevice>,
-    sender: Res<RenderWorldSender>,
+    image_copiers: Res<'_, ImageCopiers>,
+    render_device: Res<'_, RenderDevice>,
+    sender: Res<'_, RenderWorldSender>,
 ) {
     for image_copier in image_copiers.0.iter() {
         if !image_copier.enabled() {
@@ -471,12 +474,12 @@ struct ImageToSave(Handle<Image>);
 
 // Takes from channel image content sent from render world and saves it to disk
 fn update(
-    images_to_save: Query<&ImageToSave>,
-    receiver: Res<MainWorldReceiver>,
-    mut images: ResMut<Assets<Image>>,
-    mut scene_controller: ResMut<SceneController>,
-    mut app_exit_writer: EventWriter<AppExit>,
-    mut file_number: Local<u32>,
+    images_to_save: Query<'_, '_, &ImageToSave>,
+    receiver: Res<'_, MainWorldReceiver>,
+    mut images: ResMut<'_, Assets<Image>>,
+    mut scene_controller: ResMut<'_, SceneController>,
+    mut app_exit_writer: EventWriter<'_, AppExit>,
+    mut file_number: Local<'_, u32>,
 ) {
     if let SceneState::Render(n) = scene_controller.state {
         if n < 1 {

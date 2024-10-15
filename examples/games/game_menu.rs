@@ -41,7 +41,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
 }
 
@@ -70,7 +70,7 @@ mod splash {
     #[derive(Resource, Deref, DerefMut)]
     struct SplashTimer(Timer);
 
-    fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    fn splash_setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
         let icon = asset_server.load("branding/icon.png");
         // Display the logo
         commands
@@ -104,9 +104,9 @@ mod splash {
 
     // Tick the timer, and change state when finished
     fn countdown(
-        mut game_state: ResMut<NextState<GameState>>,
-        time: Res<Time>,
-        mut timer: ResMut<SplashTimer>,
+        mut game_state: ResMut<'_, NextState<GameState>>,
+        time: Res<'_, Time>,
+        mut timer: ResMut<'_, SplashTimer>,
     ) {
         if timer.tick(time.delta()).finished() {
             game_state.set(GameState::Menu);
@@ -138,9 +138,9 @@ mod game {
     struct GameTimer(Timer);
 
     fn game_setup(
-        mut commands: Commands,
-        display_quality: Res<DisplayQuality>,
-        volume: Res<Volume>,
+        mut commands: Commands<'_, '_>,
+        display_quality: Res<'_, DisplayQuality>,
+        volume: Res<'_, Volume>,
     ) {
         commands
             .spawn((
@@ -227,9 +227,9 @@ mod game {
 
     // Tick the timer, and change state when finished
     fn game(
-        time: Res<Time>,
-        mut game_state: ResMut<NextState<GameState>>,
-        mut timer: ResMut<GameTimer>,
+        time: Res<'_, Time>,
+        mut game_state: ResMut<'_, NextState<GameState>>,
+        mut timer: ResMut<'_, GameTimer>,
     ) {
         if timer.tick(time.delta()).finished() {
             game_state.set(GameState::Menu);
@@ -343,6 +343,8 @@ mod menu {
     // This system handles changing all buttons color based on mouse interaction
     fn button_system(
         mut interaction_query: Query<
+            '_,
+            '_,
             (&Interaction, &mut BackgroundColor, Option<&SelectedOption>),
             (Changed<Interaction>, With<Button>),
         >,
@@ -360,10 +362,15 @@ mod menu {
     // This system updates the settings when a new value for a setting is selected, and marks
     // the button as the one currently selected
     fn setting_button<T: Resource + Component + PartialEq + Copy>(
-        interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
-        selected_query: Single<(Entity, &mut BackgroundColor), With<SelectedOption>>,
-        mut commands: Commands,
-        mut setting: ResMut<T>,
+        interaction_query: Query<
+            '_,
+            '_,
+            (&Interaction, &T, Entity),
+            (Changed<Interaction>, With<Button>),
+        >,
+        selected_query: Single<'_, (Entity, &mut BackgroundColor), With<SelectedOption>>,
+        mut commands: Commands<'_, '_>,
+        mut setting: ResMut<'_, T>,
     ) {
         let (previous_button, mut previous_button_color) = selected_query.into_inner();
         for (interaction, button_setting, entity) in &interaction_query {
@@ -376,11 +383,11 @@ mod menu {
         }
     }
 
-    fn menu_setup(mut menu_state: ResMut<NextState<MenuState>>) {
+    fn menu_setup(mut menu_state: ResMut<'_, NextState<MenuState>>) {
         menu_state.set(MenuState::Main);
     }
 
-    fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    fn main_menu_setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
         // Common style for all buttons on the screen
         let button_style = Style {
             width: Val::Px(300.0),
@@ -517,7 +524,7 @@ mod menu {
             });
     }
 
-    fn settings_menu_setup(mut commands: Commands) {
+    fn settings_menu_setup(mut commands: Commands<'_, '_>) {
         let button_style = Style {
             width: Val::Px(200.0),
             height: Val::Px(65.0),
@@ -583,7 +590,10 @@ mod menu {
             });
     }
 
-    fn display_settings_menu_setup(mut commands: Commands, display_quality: Res<DisplayQuality>) {
+    fn display_settings_menu_setup(
+        mut commands: Commands<'_, '_>,
+        display_quality: Res<'_, DisplayQuality>,
+    ) {
         let button_style = Style {
             width: Val::Px(200.0),
             height: Val::Px(65.0),
@@ -689,7 +699,7 @@ mod menu {
             });
     }
 
-    fn sound_settings_menu_setup(mut commands: Commands, volume: Res<Volume>) {
+    fn sound_settings_menu_setup(mut commands: Commands<'_, '_>, volume: Res<'_, Volume>) {
         let button_style = Style {
             width: Val::Px(200.0),
             height: Val::Px(65.0),
@@ -777,12 +787,14 @@ mod menu {
 
     fn menu_action(
         interaction_query: Query<
+            '_,
+            '_,
             (&Interaction, &MenuButtonAction),
             (Changed<Interaction>, With<Button>),
         >,
-        mut app_exit_events: EventWriter<AppExit>,
-        mut menu_state: ResMut<NextState<MenuState>>,
-        mut game_state: ResMut<NextState<GameState>>,
+        mut app_exit_events: EventWriter<'_, AppExit>,
+        mut menu_state: ResMut<'_, NextState<MenuState>>,
+        mut game_state: ResMut<'_, NextState<GameState>>,
     ) {
         for (interaction, menu_button_action) in &interaction_query {
             if *interaction == Interaction::Pressed {
@@ -812,7 +824,10 @@ mod menu {
 }
 
 // Generic system that takes a component as a parameter, and will despawn all entities with that component
-fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
+fn despawn_screen<T: Component>(
+    to_despawn: Query<'_, '_, Entity, With<T>>,
+    mut commands: Commands<'_, '_>,
+) {
     for entity in &to_despawn {
         commands.entity(entity).despawn_recursive();
     }

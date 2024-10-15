@@ -7,8 +7,6 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
-extern crate proc_macro;
-
 mod bevy_main;
 mod derefs;
 mod enum_variant_meta;

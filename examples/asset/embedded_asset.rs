@@ -26,7 +26,7 @@ impl Plugin for EmbeddedAssetPlugin {
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn(Camera2d);
 
     // Each example is its own crate (with name from [[example]] in Cargo.toml).

@@ -1104,7 +1104,7 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
 
 /// This system sorts the [`PhaseItem`]s of all [`SortedRenderPhase`]s of this
 /// type.
-pub fn sort_phase_system<I>(mut render_phases: ResMut<ViewSortedRenderPhases<I>>)
+pub fn sort_phase_system<I>(mut render_phases: ResMut<'_, ViewSortedRenderPhases<I>>)
 where
     I: SortedPhaseItem,
 {

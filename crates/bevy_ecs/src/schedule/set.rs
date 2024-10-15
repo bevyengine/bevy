@@ -226,7 +226,7 @@ mod tests {
         let mut world = World::new();
 
         let mut schedule = Schedule::new(A);
-        schedule.add_systems(|mut flag: ResMut<Flag>| flag.0 = true);
+        schedule.add_systems(|mut flag: ResMut<'_, Flag>| flag.0 = true);
         world.add_schedule(schedule);
 
         let interned = A.intern();

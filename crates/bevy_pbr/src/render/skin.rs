@@ -74,9 +74,9 @@ impl Default for SkinUniforms {
 }
 
 pub fn prepare_skins(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut uniform: ResMut<SkinUniforms>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut uniform: ResMut<'_, SkinUniforms>,
 ) {
     if uniform.current_buffer.is_empty() {
         return;
@@ -119,11 +119,11 @@ pub fn prepare_skins(
 // which normally only support fixed size arrays. You just have to make sure
 // in the shader that you only read the values that are valid for that binding.
 pub fn extract_skins(
-    skin_indices: ResMut<SkinIndices>,
-    uniform: ResMut<SkinUniforms>,
-    query: Extract<Query<(Entity, &ViewVisibility, &SkinnedMesh)>>,
-    inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
-    joints: Extract<Query<&GlobalTransform>>,
+    skin_indices: ResMut<'_, SkinIndices>,
+    uniform: ResMut<'_, SkinUniforms>,
+    query: Extract<'_, '_, Query<'_, '_, (Entity, &ViewVisibility, &SkinnedMesh)>>,
+    inverse_bindposes: Extract<'_, '_, Res<'_, Assets<SkinnedMeshInverseBindposes>>>,
+    joints: Extract<'_, '_, Query<'_, '_, &GlobalTransform>>,
 ) {
     // Borrow check workaround.
     let (skin_indices, uniform) = (skin_indices.into_inner(), uniform.into_inner());
@@ -183,8 +183,8 @@ pub fn extract_skins(
 // NOTE: The skinned joints uniform buffer has to be bound at a dynamic offset per
 // entity and so cannot currently be batched.
 pub fn no_automatic_skin_batching(
-    mut commands: Commands,
-    query: Query<Entity, (With<SkinnedMesh>, Without<NoAutomaticBatching>)>,
+    mut commands: Commands<'_, '_>,
+    query: Query<'_, '_, Entity, (With<SkinnedMesh>, Without<NoAutomaticBatching>)>,
 ) {
     for entity in &query {
         commands.entity(entity).try_insert(NoAutomaticBatching);

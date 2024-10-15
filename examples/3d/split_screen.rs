@@ -16,10 +16,10 @@ fn main() {
 
 /// set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // plane
     commands.spawn((
@@ -168,9 +168,9 @@ enum Direction {
 }
 
 fn set_camera_viewports(
-    windows: Query<&Window>,
-    mut resize_events: EventReader<WindowResized>,
-    mut query: Query<(&CameraPosition, &mut Camera)>,
+    windows: Query<'_, '_, &Window>,
+    mut resize_events: EventReader<'_, '_, WindowResized>,
+    mut query: Query<'_, '_, (&CameraPosition, &mut Camera)>,
 ) {
     // We need to dynamically resize the camera's viewports whenever the window size changes
     // so then each camera always takes up half the screen.
@@ -192,10 +192,12 @@ fn set_camera_viewports(
 #[allow(clippy::type_complexity)]
 fn button_system(
     interaction_query: Query<
+        '_,
+        '_,
         (&Interaction, &TargetCamera, &RotateCamera),
         (Changed<Interaction>, With<Button>),
     >,
-    mut camera_query: Query<&mut Transform, With<Camera>>,
+    mut camera_query: Query<'_, '_, &mut Transform, With<Camera>>,
 ) {
     for (interaction, target_camera, RotateCamera(direction)) in &interaction_query {
         if let Interaction::Pressed = *interaction {

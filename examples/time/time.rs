@@ -22,7 +22,7 @@ fn banner() {
 fn help() {
     println!("The app reads commands line-by-line from standard input.");
     println!();
-    println!("Commands:");
+    println!("Commands<'_, '_>:");
     println!("  empty line: Run app.update() once on the Bevy App");
     println!("  q: Quit the app.");
     println!("  f: Set speed to fast, 2x");
@@ -84,7 +84,7 @@ fn runner(mut app: App) -> AppExit {
     AppExit::Success
 }
 
-fn print_real_time(time: Res<Time<Real>>) {
+fn print_real_time(time: Res<'_, Time<Real>>) {
     println!(
         "PreUpdate: this is real time clock, delta is {:?} and elapsed is {:?}",
         time.delta(),
@@ -92,7 +92,7 @@ fn print_real_time(time: Res<Time<Real>>) {
     );
 }
 
-fn print_fixed_time(time: Res<Time>) {
+fn print_fixed_time(time: Res<'_, Time>) {
     println!(
         "FixedUpdate: this is generic time clock inside fixed, delta is {:?} and elapsed is {:?}",
         time.delta(),
@@ -100,7 +100,7 @@ fn print_fixed_time(time: Res<Time>) {
     );
 }
 
-fn print_time(time: Res<Time>) {
+fn print_time(time: Res<'_, Time>) {
     println!(
         "Update: this is generic time clock, delta is {:?} and elapsed is {:?}",
         time.delta(),

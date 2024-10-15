@@ -16,7 +16,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     let image = asset_server.load_with_settings(
         "textures/fantasy_ui_borders/numbered_slices.png",
         |settings: &mut ImageLoaderSettings| {

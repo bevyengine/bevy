@@ -38,11 +38,11 @@ fn main() {
 }
 
 fn touch_camera(
-    window: Single<&Window>,
-    mut touches: EventReader<TouchInput>,
-    mut camera_transform: Single<&mut Transform, With<Camera3d>>,
-    mut last_position: Local<Option<Vec2>>,
-    mut rotations: EventReader<RotationGesture>,
+    window: Single<'_, &Window>,
+    mut touches: EventReader<'_, '_, TouchInput>,
+    mut camera_transform: Single<'_, &mut Transform, With<Camera3d>>,
+    mut last_position: Local<'_, Option<Vec2>>,
+    mut rotations: EventReader<'_, '_, RotationGesture>,
 ) {
     for touch in touches.read() {
         if touch.phase == TouchPhase::Started {
@@ -69,9 +69,9 @@ fn touch_camera(
 
 /// set up a simple 3D scene
 fn setup_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // plane
     commands.spawn((
@@ -139,6 +139,8 @@ fn setup_scene(
 
 fn button_handler(
     mut interaction_query: Query<
+        '_,
+        '_,
         (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
@@ -158,7 +160,7 @@ fn button_handler(
     }
 }
 
-fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
+fn setup_music(asset_server: Res<'_, AssetServer>, mut commands: Commands<'_, '_>) {
     commands.spawn((
         AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
         PlaybackSettings::LOOP,
@@ -168,8 +170,8 @@ fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
 // Pause audio when app goes into background and resume when it returns.
 // This is handled by the OS on iOS, but not on Android.
 fn handle_lifetime(
-    mut lifecycle_events: EventReader<AppLifecycle>,
-    music_controller: Query<&AudioSink>,
+    mut lifecycle_events: EventReader<'_, '_, AppLifecycle>,
+    music_controller: Query<'_, '_, &AudioSink>,
 ) {
     let Ok(music_controller) = music_controller.get_single() else {
         return;

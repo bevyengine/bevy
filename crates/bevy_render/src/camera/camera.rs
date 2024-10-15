@@ -328,7 +328,7 @@ pub struct Camera {
     pub sub_camera_view: Option<SubCameraView>,
 }
 
-fn warn_on_no_render_graph(world: DeferredWorld, entity: Entity, _: ComponentId) {
+fn warn_on_no_render_graph(world: DeferredWorld<'_>, entity: Entity, _: ComponentId) {
     if !world.entity(entity).contains::<CameraRenderGraph>() {
         warn!("Entity {entity} has a `Camera` component, but it doesn't have a render graph configured. Consider adding a `Camera2d` or `Camera3d` component, or manually adding a `CameraRenderGraph` component if you need a custom render graph.");
     }
@@ -874,15 +874,15 @@ impl NormalizedRenderTarget {
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
 #[allow(clippy::too_many_arguments)]
 pub fn camera_system<T: CameraProjection + Component>(
-    mut window_resized_events: EventReader<WindowResized>,
-    mut window_created_events: EventReader<WindowCreated>,
-    mut window_scale_factor_changed_events: EventReader<WindowScaleFactorChanged>,
-    mut image_asset_events: EventReader<AssetEvent<Image>>,
-    primary_window: Query<Entity, With<PrimaryWindow>>,
-    windows: Query<(Entity, &Window)>,
-    images: Res<Assets<Image>>,
-    manual_texture_views: Res<ManualTextureViews>,
-    mut cameras: Query<(&mut Camera, &mut T)>,
+    mut window_resized_events: EventReader<'_, '_, WindowResized>,
+    mut window_created_events: EventReader<'_, '_, WindowCreated>,
+    mut window_scale_factor_changed_events: EventReader<'_, '_, WindowScaleFactorChanged>,
+    mut image_asset_events: EventReader<'_, '_, AssetEvent<Image>>,
+    primary_window: Query<'_, '_, Entity, With<PrimaryWindow>>,
+    windows: Query<'_, '_, (Entity, &Window)>,
+    images: Res<'_, Assets<Image>>,
+    manual_texture_views: Res<'_, ManualTextureViews>,
+    mut cameras: Query<'_, '_, (&mut Camera, &mut T)>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -1016,26 +1016,32 @@ pub struct ExtractedCamera {
 }
 
 pub fn extract_cameras(
-    mut commands: Commands,
+    mut commands: Commands<'_, '_>,
     query: Extract<
-        Query<(
-            RenderEntity,
-            &Camera,
-            &CameraRenderGraph,
-            &GlobalTransform,
-            &VisibleEntities,
-            &Frustum,
-            Option<&ColorGrading>,
-            Option<&Exposure>,
-            Option<&TemporalJitter>,
-            Option<&RenderLayers>,
-            Option<&Projection>,
-            Has<GpuCulling>,
-        )>,
+        '_,
+        '_,
+        Query<
+            '_,
+            '_,
+            (
+                RenderEntity,
+                &Camera,
+                &CameraRenderGraph,
+                &GlobalTransform,
+                &VisibleEntities,
+                &Frustum,
+                Option<&ColorGrading>,
+                Option<&Exposure>,
+                Option<&TemporalJitter>,
+                Option<&RenderLayers>,
+                Option<&Projection>,
+                Has<GpuCulling>,
+            ),
+        >,
     >,
-    primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
-    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
-    mapper: Extract<Query<&RenderEntity>>,
+    primary_window: Extract<'_, '_, Query<'_, '_, Entity, With<PrimaryWindow>>>,
+    gpu_preprocessing_support: Res<'_, GpuPreprocessingSupport>,
+    mapper: Extract<'_, '_, Query<'_, '_, &RenderEntity>>,
 ) {
     let primary_window = primary_window.iter().next();
     for (
@@ -1168,8 +1174,8 @@ pub struct SortedCamera {
 }
 
 pub fn sort_cameras(
-    mut sorted_cameras: ResMut<SortedCameras>,
-    mut cameras: Query<(Entity, &mut ExtractedCamera)>,
+    mut sorted_cameras: ResMut<'_, SortedCameras>,
+    mut cameras: Query<'_, '_, (Entity, &mut ExtractedCamera)>,
 ) {
     sorted_cameras.0.clear();
     for (entity, camera) in cameras.iter() {
@@ -1237,9 +1243,7 @@ pub struct TemporalJitter {
 impl TemporalJitter {
     pub fn jitter_projection(&self, clip_from_view: &mut Mat4, view_size: Vec2) {
         if clip_from_view.w_axis.w == 1.0 {
-            warn!(
-                "TemporalJitter not supported with OrthographicProjection. Use PerspectiveProjection instead."
-            );
+            warn!("TemporalJitter not supported with OrthographicProjection. Use PerspectiveProjection instead.");
             return;
         }
 

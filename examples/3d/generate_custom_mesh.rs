@@ -26,10 +26,10 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
 ) {
     // Import the custom texture.
     let custom_texture_handle: Handle<Image> = asset_server.load("textures/array_texture.png");
@@ -71,11 +71,11 @@ fn setup(
 // System to receive input from the user,
 // check out examples/input/ for more examples about user input.
 fn input_handler(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mesh_query: Query<&Mesh3d, With<CustomUV>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut query: Query<&mut Transform, With<CustomUV>>,
-    time: Res<Time>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mesh_query: Query<'_, '_, &Mesh3d, With<CustomUV>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut query: Query<'_, '_, &mut Transform, With<CustomUV>>,
+    time: Res<'_, Time>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         let mesh_handle = mesh_query.get_single().expect("Query not successful");

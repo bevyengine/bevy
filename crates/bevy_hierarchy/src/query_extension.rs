@@ -50,7 +50,7 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
 
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s descendants.
     ///
-    /// Can only be called on a [`Query`] of [`Children`] (i.e. `Query<&Children>`).
+    /// Can only be called on a [`Query`] of [`Children`] (i.e. `Query<'_, '_, &Children>`).
     ///
     /// Traverses the hierarchy breadth-first and does not include the entity itself.
     ///
@@ -60,7 +60,7 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// # use bevy_hierarchy::prelude::*;
     /// # #[derive(Component)]
     /// # struct Marker;
-    /// fn system(entity: Single<Entity, With<Marker>>, children_query: Query<&Children>) {
+    /// fn system(entity: Single<'_, Entity, With<Marker>>, children_query: Query<'_, '_, &Children>) {
     ///     for descendant in children_query.iter_descendants(*entity) {
     ///         // Do something!
     ///     }
@@ -73,7 +73,7 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
 
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s descendants.
     ///
-    /// Can only be called on a [`Query`] of [`Children`] (i.e. `Query<&Children>`).
+    /// Can only be called on a [`Query`] of [`Children`] (i.e. `Query<'_, '_, &Children>`).
     ///
     /// This is a depth-first alternative to [`HierarchyQueryExt::iter_descendants`].
     fn iter_descendants_depth_first(
@@ -86,7 +86,7 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s ancestors.
     ///
     /// Does not include the entity itself.
-    /// Can only be called on a [`Query`] of [`Parent`] (i.e. `Query<&Parent>`).
+    /// Can only be called on a [`Query`] of [`Parent`] (i.e. `Query<'_, '_, &Parent>`).
     ///
     /// # Examples
     /// ```
@@ -94,7 +94,7 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// # use bevy_hierarchy::prelude::*;
     /// # #[derive(Component)]
     /// # struct Marker;
-    /// fn system(entity: Single<Entity, With<Marker>>, parent_query: Query<&Parent>) {
+    /// fn system(entity: Single<'_, Entity, With<Marker>>, parent_query: Query<'_, '_, &Parent>) {
     ///     for ancestor in parent_query.iter_ancestors(*entity) {
     ///         // Do something!
     ///     }
@@ -332,7 +332,8 @@ mod tests {
         world.entity_mut(a0).add_children(&[a1, a2]);
         world.entity_mut(a1).add_children(&[a3]);
 
-        let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
+        let mut system_state =
+            SystemState::<(Query<'_, '_, &Children>, Query<'_, '_, &A>)>::new(world);
         let (children_query, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query
@@ -351,7 +352,8 @@ mod tests {
         world.entity_mut(a0).add_children(&[a1, a2]);
         world.entity_mut(a1).add_children(&[a3]);
 
-        let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
+        let mut system_state =
+            SystemState::<(Query<'_, '_, &Children>, Query<'_, '_, &A>)>::new(world);
         let (children_query, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query
@@ -370,7 +372,8 @@ mod tests {
         world.entity_mut(a0).add_children(&[a1]);
         world.entity_mut(a1).add_children(&[a2]);
 
-        let mut system_state = SystemState::<(Query<&Parent>, Query<&A>)>::new(world);
+        let mut system_state =
+            SystemState::<(Query<'_, '_, &Parent>, Query<'_, '_, &A>)>::new(world);
         let (parent_query, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query.iter_many(parent_query.iter_ancestors(a2)).collect();
@@ -387,7 +390,7 @@ mod tests {
         world.entity_mut(a0).add_children(&[a1]);
         world.entity_mut(a1).add_children(&[a2]);
 
-        let mut system_state = SystemState::<Query<&Parent>>::new(world);
+        let mut system_state = SystemState::<Query<'_, '_, &Parent>>::new(world);
         let parent_query = system_state.get(world);
 
         assert_eq!(a0, parent_query.root_ancestor(a2));
@@ -404,7 +407,8 @@ mod tests {
         world.entity_mut(a0).add_children(&[a1, a2]);
         world.entity_mut(a1).add_children(&[a3]);
 
-        let mut system_state = SystemState::<(Query<&Children>, Query<&A>)>::new(world);
+        let mut system_state =
+            SystemState::<(Query<'_, '_, &Children>, Query<'_, '_, &A>)>::new(world);
         let (children_query, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query.iter_many(children_query.iter_leaves(a0)).collect();
@@ -421,8 +425,10 @@ mod tests {
         world.entity_mut(a0).add_children(&[a1, a2, a3]);
         world.entity_mut(a2).add_children(&[a4]);
 
-        let mut system_state =
-            SystemState::<(Query<(Option<&Parent>, Option<&Children>)>, Query<&A>)>::new(world);
+        let mut system_state = SystemState::<(
+            Query<'_, '_, (Option<&Parent>, Option<&Children>)>,
+            Query<'_, '_, &A>,
+        )>::new(world);
         let (hierarchy_query, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query

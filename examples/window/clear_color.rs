@@ -13,11 +13,14 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
 }
 
-fn change_clear_color(input: Res<ButtonInput<KeyCode>>, mut clear_color: ResMut<ClearColor>) {
+fn change_clear_color(
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut clear_color: ResMut<'_, ClearColor>,
+) {
     if input.just_pressed(KeyCode::Space) {
         clear_color.0 = PURPLE.into();
     }

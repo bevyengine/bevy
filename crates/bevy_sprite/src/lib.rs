@@ -179,12 +179,19 @@ impl Plugin for SpritePlugin {
 ///
 /// Used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds_2d(
-    mut commands: Commands,
-    meshes: Res<Assets<Mesh>>,
-    images: Res<Assets<Image>>,
-    atlases: Res<Assets<TextureAtlasLayout>>,
-    meshes_without_aabb: Query<(Entity, &Mesh2d), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    mut commands: Commands<'_, '_>,
+    meshes: Res<'_, Assets<Mesh>>,
+    images: Res<'_, Assets<Image>>,
+    atlases: Res<'_, Assets<TextureAtlasLayout>>,
+    meshes_without_aabb: Query<
+        '_,
+        '_,
+        (Entity, &Mesh2d),
+        (Without<Aabb>, Without<NoFrustumCulling>),
+    >,
     sprites_to_recalculate_aabb: Query<
+        '_,
+        '_,
         (Entity, &Sprite),
         (
             Or<(Without<Aabb>, Changed<Sprite>)>,

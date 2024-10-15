@@ -16,7 +16,7 @@ fn main() {
 #[derive(Component)]
 struct ExampleDisplay;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -50,15 +50,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn check_for_gltf_extras(
-    gltf_extras_per_entity: Query<(
-        Entity,
-        Option<&Name>,
-        Option<&GltfSceneExtras>,
-        Option<&GltfExtras>,
-        Option<&GltfMeshExtras>,
-        Option<&GltfMaterialExtras>,
-    )>,
-    mut display: Single<&mut Text, With<ExampleDisplay>>,
+    gltf_extras_per_entity: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            Option<&Name>,
+            Option<&GltfSceneExtras>,
+            Option<&GltfExtras>,
+            Option<&GltfMeshExtras>,
+            Option<&GltfMaterialExtras>,
+        ),
+    >,
+    mut display: Single<'_, &mut Text, With<ExampleDisplay>>,
 ) {
     let mut gltf_extra_infos_lines: Vec<String> = vec![];
 

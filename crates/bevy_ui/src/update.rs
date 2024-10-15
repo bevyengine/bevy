@@ -14,10 +14,10 @@ use bevy_utils::HashSet;
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
-    mut commands: Commands,
-    root_nodes: UiRootNodes,
-    mut node_query: Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
-    ui_children: UiChildren,
+    mut commands: Commands<'_, '_>,
+    root_nodes: UiRootNodes<'_, '_>,
+    mut node_query: Query<'_, '_, (&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
+    ui_children: UiChildren<'_, '_>,
 ) {
     for root_node in root_nodes.iter() {
         update_clipping(
@@ -31,9 +31,9 @@ pub fn update_clipping_system(
 }
 
 fn update_clipping(
-    commands: &mut Commands,
-    ui_children: &UiChildren,
-    node_query: &mut Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
+    commands: &mut Commands<'_, '_>,
+    ui_children: &UiChildren<'_, '_>,
+    node_query: &mut Query<'_, '_, (&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
     entity: Entity,
     mut maybe_inherited_clip: Option<Rect>,
 ) {
@@ -98,14 +98,16 @@ fn update_clipping(
 }
 
 pub fn update_target_camera_system(
-    mut commands: Commands,
+    mut commands: Commands<'_, '_>,
     changed_root_nodes_query: Query<
+        '_,
+        '_,
         (Entity, Option<&TargetCamera>),
         (With<Node>, Changed<TargetCamera>),
     >,
-    node_query: Query<(Entity, Option<&TargetCamera>), With<Node>>,
-    ui_root_nodes: UiRootNodes,
-    ui_children: UiChildren,
+    node_query: Query<'_, '_, (Entity, Option<&TargetCamera>), With<Node>>,
+    ui_root_nodes: UiRootNodes<'_, '_>,
+    ui_children: UiChildren<'_, '_>,
 ) {
     // Track updated entities to prevent redundant updates, as `Commands` changes are deferred,
     // and updates done for changed_children_query can overlap with itself or with root_node_query
@@ -146,9 +148,9 @@ pub fn update_target_camera_system(
 fn update_children_target_camera(
     entity: Entity,
     camera_to_set: Option<&TargetCamera>,
-    node_query: &Query<(Entity, Option<&TargetCamera>), With<Node>>,
-    ui_children: &UiChildren,
-    commands: &mut Commands,
+    node_query: &Query<'_, '_, (Entity, Option<&TargetCamera>), With<Node>>,
+    ui_children: &UiChildren<'_, '_>,
+    commands: &mut Commands<'_, '_>,
     updated_entities: &mut HashSet<Entity>,
 ) {
     for child in ui_children.iter_ui_children(entity) {

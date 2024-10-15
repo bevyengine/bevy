@@ -17,7 +17,7 @@ use bevy::{
 };
 
 const PROMPT: &str = "
-Commands:
+Commands<'_, '_>:
     comp, c   Create new components
     spawn, s  Spawn entities
     query, q  Query for entities

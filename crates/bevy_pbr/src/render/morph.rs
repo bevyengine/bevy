@@ -57,9 +57,9 @@ impl Default for MorphUniforms {
 }
 
 pub fn prepare_morphs(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut uniform: ResMut<MorphUniforms>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut uniform: ResMut<'_, MorphUniforms>,
 ) {
     if uniform.current_buffer.is_empty() {
         return;
@@ -107,9 +107,9 @@ fn add_to_alignment<T: NoUninit + Default>(buffer: &mut RawBufferVec<T>) {
 // Notes on implementation: see comment on top of the extract_skins system in skin module.
 // This works similarly, but for `f32` instead of `Mat4`
 pub fn extract_morphs(
-    morph_indices: ResMut<MorphIndices>,
-    uniform: ResMut<MorphUniforms>,
-    query: Extract<Query<(Entity, &ViewVisibility, &MeshMorphWeights)>>,
+    morph_indices: ResMut<'_, MorphIndices>,
+    uniform: ResMut<'_, MorphUniforms>,
+    query: Extract<'_, '_, Query<'_, '_, (Entity, &ViewVisibility, &MeshMorphWeights)>>,
 ) {
     // Borrow check workaround.
     let (morph_indices, uniform) = (morph_indices.into_inner(), uniform.into_inner());
@@ -141,8 +141,8 @@ pub fn extract_morphs(
 // NOTE: Because morph targets require per-morph target texture bindings, they cannot
 // currently be batched.
 pub fn no_automatic_morph_batching(
-    mut commands: Commands,
-    query: Query<Entity, (With<MeshMorphWeights>, Without<NoAutomaticBatching>)>,
+    mut commands: Commands<'_, '_>,
+    query: Query<'_, '_, Entity, (With<MeshMorphWeights>, Without<NoAutomaticBatching>)>,
 ) {
     for entity in &query {
         commands.entity(entity).try_insert(NoAutomaticBatching);

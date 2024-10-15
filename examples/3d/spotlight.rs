@@ -35,9 +35,9 @@ struct Movable;
 
 /// set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // ground plane
     commands.spawn((
@@ -137,7 +137,7 @@ fn setup(
     ));
 }
 
-fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)>) {
+fn light_sway(time: Res<'_, Time>, mut query: Query<'_, '_, (&mut Transform, &mut SpotLight)>) {
     for (mut transform, mut angles) in query.iter_mut() {
         transform.rotation = Quat::from_euler(
             EulerRot::XYZ,
@@ -152,9 +152,9 @@ fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)
 }
 
 fn movement(
-    input: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
-    mut query: Query<&mut Transform, With<Movable>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, &mut Transform, With<Movable>>,
 ) {
     // Calculate translation to move the cubes and ground plane
     let mut translation = Vec3::ZERO;
@@ -189,9 +189,9 @@ fn movement(
 }
 
 fn rotation(
-    mut transform: Single<&mut Transform, With<Camera>>,
-    input: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
+    mut transform: Single<'_, &mut Transform, With<Camera>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    time: Res<'_, Time>,
 ) {
     let delta = time.delta_seconds();
 

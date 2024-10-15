@@ -32,7 +32,7 @@ where
     pub(crate) fn new(
         world: &'w mut World,
         iter: I,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'_>,
     ) -> Self {
         // Ensure all entity allocations are accounted for so `self.entities` can realloc if
         // necessary

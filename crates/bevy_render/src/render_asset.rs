@@ -61,7 +61,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// ECS data may be accessed via `param`.
     fn prepare_asset(
         source_asset: Self::SourceAsset,
-        param: &mut SystemParamItem<Self::Param>,
+        param: &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>>;
 }
 
@@ -206,11 +206,11 @@ impl<A: RenderAsset> FromWorld for CachedExtractRenderAssetSystemState<A> {
 /// This system extracts all created or modified assets of the corresponding [`RenderAsset::SourceAsset`] type
 /// into the "render world".
 pub(crate) fn extract_render_asset<A: RenderAsset>(
-    mut commands: Commands,
-    mut main_world: ResMut<MainWorld>,
+    mut commands: Commands<'_, '_>,
+    mut main_world: ResMut<'_, MainWorld>,
 ) {
     main_world.resource_scope(
-        |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
+        |world, mut cached_state: Mut<'_, CachedExtractRenderAssetSystemState<A>>| {
             let (mut events, mut assets) = cached_state.state.get_mut(world);
 
             let mut changed_assets = HashSet::default();
@@ -280,11 +280,11 @@ impl<A: RenderAsset> Default for PrepareNextFrameAssets<A> {
 /// This system prepares all assets of the corresponding [`RenderAsset::SourceAsset`] type
 /// which where extracted this frame for the GPU.
 pub fn prepare_assets<A: RenderAsset>(
-    mut extracted_assets: ResMut<ExtractedAssets<A>>,
-    mut render_assets: ResMut<RenderAssets<A>>,
-    mut prepare_next_frame: ResMut<PrepareNextFrameAssets<A>>,
-    param: StaticSystemParam<<A as RenderAsset>::Param>,
-    mut bpf: ResMut<RenderAssetBytesPerFrame>,
+    mut extracted_assets: ResMut<'_, ExtractedAssets<A>>,
+    mut render_assets: ResMut<'_, RenderAssets<A>>,
+    mut prepare_next_frame: ResMut<'_, PrepareNextFrameAssets<A>>,
+    param: StaticSystemParam<'_, '_, <A as RenderAsset>::Param>,
+    mut bpf: ResMut<'_, RenderAssetBytesPerFrame>,
 ) {
     let mut wrote_asset_count = 0;
 

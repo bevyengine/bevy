@@ -28,10 +28,10 @@ struct FirstPassCube;
 struct MainPassCube;
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut images: ResMut<'_, Assets<Image>>,
 ) {
     let size = Extent3d {
         width: 512,
@@ -121,7 +121,10 @@ fn setup(
 }
 
 /// Rotates the inner cube (first pass)
-fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<FirstPassCube>>) {
+fn rotator_system(
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, &mut Transform, With<FirstPassCube>>,
+) {
     for mut transform in &mut query {
         transform.rotate_x(1.5 * time.delta_seconds());
         transform.rotate_z(1.3 * time.delta_seconds());
@@ -129,7 +132,10 @@ fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<FirstPa
 }
 
 /// Rotates the outer cube (main pass)
-fn cube_rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<MainPassCube>>) {
+fn cube_rotator_system(
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, &mut Transform, With<MainPassCube>>,
+) {
     for mut transform in &mut query {
         transform.rotate_x(1.0 * time.delta_seconds());
         transform.rotate_y(0.7 * time.delta_seconds());

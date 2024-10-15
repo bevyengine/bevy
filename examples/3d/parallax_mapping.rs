@@ -54,7 +54,7 @@ impl Default for CurrentMethod {
     }
 }
 impl fmt::Display for CurrentMethod {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0 {
             ParallaxMappingMethod::Occlusion => write!(f, "Parallax Occlusion Mapping"),
             ParallaxMappingMethod::Relief { max_steps } => {
@@ -76,12 +76,12 @@ impl CurrentMethod {
 }
 
 fn update_parallax_depth_scale(
-    input: Res<ButtonInput<KeyCode>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut target_depth: Local<TargetDepth>,
-    mut depth_update: Local<bool>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut target_depth: Local<'_, TargetDepth>,
+    mut depth_update: Local<'_, bool>,
     mut writer: UiTextWriter,
-    text: Single<Entity, With<Text>>,
+    text: Single<'_, Entity, With<Text>>,
 ) {
     if input.just_pressed(KeyCode::Digit1) {
         target_depth.0 -= DEPTH_UPDATE_STEP;
@@ -107,11 +107,11 @@ fn update_parallax_depth_scale(
 }
 
 fn switch_method(
-    input: Res<ButtonInput<KeyCode>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    text: Single<Entity, With<Text>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    text: Single<'_, Entity, With<Text>>,
     mut writer: UiTextWriter,
-    mut current: Local<CurrentMethod>,
+    mut current: Local<'_, CurrentMethod>,
 ) {
     if input.just_pressed(KeyCode::Space) {
         current.next_method();
@@ -127,10 +127,10 @@ fn switch_method(
 }
 
 fn update_parallax_layers(
-    input: Res<ButtonInput<KeyCode>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut target_layers: Local<TargetLayers>,
-    text: Single<Entity, With<Text>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut target_layers: Local<'_, TargetLayers>,
+    text: Single<'_, Entity, With<Text>>,
     mut writer: UiTextWriter,
 ) {
     if input.just_pressed(KeyCode::Digit3) {
@@ -150,7 +150,7 @@ fn update_parallax_layers(
     }
 }
 
-fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>) {
+fn spin(time: Res<'_, Time>, mut query: Query<'_, '_, (&mut Transform, &Spin)>) {
     for (mut transform, spin) in query.iter_mut() {
         transform.rotate_local_y(spin.speed * time.delta_seconds());
         transform.rotate_local_x(spin.speed * time.delta_seconds());
@@ -183,9 +183,9 @@ const CAMERA_POSITIONS: &[Transform] = &[
 ];
 
 fn move_camera(
-    mut camera: Single<&mut Transform, With<CameraController>>,
-    mut current_view: Local<usize>,
-    button: Res<ButtonInput<MouseButton>>,
+    mut camera: Single<'_, &mut Transform, With<CameraController>>,
+    mut current_view: Local<'_, usize>,
+    button: Res<'_, ButtonInput<MouseButton>>,
 ) {
     if button.just_pressed(MouseButton::Left) {
         *current_view = (*current_view + 1) % CAMERA_POSITIONS.len();
@@ -196,10 +196,10 @@ fn move_camera(
 }
 
 fn setup(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     // The normal map. Note that to generate it in the GIMP image editor, you should
     // open the depth map, and do Filters → Generic → Normal Map

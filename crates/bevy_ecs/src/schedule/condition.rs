@@ -35,14 +35,14 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn every_other_time() -> impl Condition<()> {
-///     IntoSystem::into_system(|mut flag: Local<bool>| {
+///     IntoSystem::into_system(|mut flag: Local<'_, bool>| {
 ///         *flag = !*flag;
 ///         *flag
 ///     })
 /// }
 ///
 /// # #[derive(Resource)] struct DidRun(bool);
-/// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
+/// # fn my_system(mut did_run: ResMut<'_, DidRun>) { did_run.0 = true; }
 /// # let mut schedule = Schedule::default();
 /// schedule.add_systems(my_system.run_if(every_other_time()));
 /// # let mut world = World::new();
@@ -65,7 +65,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # fn always_true() -> bool { true }
 /// # let mut app = Schedule::default();
 /// # #[derive(Resource)] struct DidRun(bool);
-/// # fn my_system(mut did_run: ResMut<DidRun>) { did_run.0 = true; }
+/// # fn my_system(mut did_run: ResMut<'_, DidRun>) { did_run.0 = true; }
 /// app.add_systems(my_system.run_if(always_true.pipe(identity())));
 /// # let mut world = World::new();
 /// # world.insert_resource(DidRun(false));
@@ -298,7 +298,7 @@ pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In>
     /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # #[derive(Resource)] struct C(bool);
-    /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
+    /// # fn my_system(mut c: ResMut<'_, C>) { c.0 = true; }
     /// app.add_systems(
     ///     // Only run the system if either `A` or `B` exist.
     ///     my_system.run_if(resource_exists::<A>.or(resource_exists::<B>)),
@@ -345,7 +345,7 @@ pub trait Condition<Marker, In: SystemInput = ()>: sealed::Condition<Marker, In>
     /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # #[derive(Resource)] struct C(bool);
-    /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
+    /// # fn my_system(mut c: ResMut<'_, C>) { c.0 = true; }
     /// app.add_systems(
     ///     // Only run the system if either `A` or `B` exist.
     ///     my_system.run_if(resource_exists::<A>.or(resource_exists::<B>)),
@@ -517,7 +517,7 @@ pub mod common_conditions {
     ///     my_system.run_if(run_once),
     /// );
     ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
+    /// fn my_system(mut counter: ResMut<'_, Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
@@ -529,7 +529,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn run_once(mut has_run: Local<bool>) -> bool {
+    pub fn run_once(mut has_run: Local<'_, bool>) -> bool {
         if !*has_run {
             *has_run = true;
             true
@@ -554,7 +554,7 @@ pub mod common_conditions {
     ///     my_system.run_if(resource_exists::<Counter>),
     /// );
     ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
+    /// fn my_system(mut counter: ResMut<'_, Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
@@ -566,7 +566,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn resource_exists<T>(res: Option<Res<T>>) -> bool
+    pub fn resource_exists<T>(res: Option<Res<'_, T>>) -> bool
     where
         T: Resource,
     {
@@ -594,7 +594,7 @@ pub mod common_conditions {
     ///     my_system.run_if(resource_equals(Counter(0))),
     /// );
     ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
+    /// fn my_system(mut counter: ResMut<'_, Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
@@ -606,11 +606,11 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn resource_equals<T>(value: T) -> impl FnMut(Res<T>) -> bool
+    pub fn resource_equals<T>(value: T) -> impl FnMut(Res<'_, T>) -> bool
     where
         T: Resource + PartialEq,
     {
-        move |res: Res<T>| *res == value
+        move |res: Res<'_, T>| *res == value
     }
 
     /// Generates a [`Condition`]-satisfying closure that returns `true`
@@ -632,7 +632,7 @@ pub mod common_conditions {
     ///     my_system.run_if(resource_exists_and_equals(Counter(0))),
     /// );
     ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
+    /// fn my_system(mut counter: ResMut<'_, Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
@@ -648,11 +648,11 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn resource_exists_and_equals<T>(value: T) -> impl FnMut(Option<Res<T>>) -> bool
+    pub fn resource_exists_and_equals<T>(value: T) -> impl FnMut(Option<Res<'_, T>>) -> bool
     where
         T: Resource + PartialEq,
     {
-        move |res: Option<Res<T>>| match res {
+        move |res: Option<Res<'_, T>>| match res {
             Some(res) => *res == value,
             None => false,
         }
@@ -675,7 +675,7 @@ pub mod common_conditions {
     ///     my_system.run_if(resource_added::<Counter>),
     /// );
     ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
+    /// fn my_system(mut counter: ResMut<'_, Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
@@ -689,7 +689,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn resource_added<T>(res: Option<Res<T>>) -> bool
+    pub fn resource_added<T>(res: Option<Res<'_, T>>) -> bool
     where
         T: Resource,
     {
@@ -732,7 +732,7 @@ pub mod common_conditions {
     ///     ),
     /// );
     ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
+    /// fn my_system(mut counter: ResMut<'_, Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
@@ -746,7 +746,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 51);
     /// ```
-    pub fn resource_changed<T>(res: Res<T>) -> bool
+    pub fn resource_changed<T>(res: Res<'_, T>) -> bool
     where
         T: Resource,
     {
@@ -785,7 +785,7 @@ pub mod common_conditions {
     ///     ),
     /// );
     ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
+    /// fn my_system(mut counter: ResMut<'_, Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
@@ -803,7 +803,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 51);
     /// ```
-    pub fn resource_exists_and_changed<T>(res: Option<Res<T>>) -> bool
+    pub fn resource_exists_and_changed<T>(res: Option<Res<'_, T>>) -> bool
     where
         T: Resource,
     {
@@ -851,7 +851,7 @@ pub mod common_conditions {
     /// struct MyResource;
     ///
     /// // If `Counter` exists, increment it, otherwise insert `MyResource`
-    /// fn my_system(mut commands: Commands, mut counter: Option<ResMut<Counter>>) {
+    /// fn my_system(mut commands: Commands<'_, '_>, mut counter: Option<ResMut<'_, Counter>>) {
     ///     if let Some(mut counter) = counter {
     ///         counter.0 += 1;
     ///     } else {
@@ -875,7 +875,10 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.contains_resource::<MyResource>(), true);
     /// ```
-    pub fn resource_changed_or_removed<T>(res: Option<Res<T>>, mut existed: Local<bool>) -> bool
+    pub fn resource_changed_or_removed<T>(
+        res: Option<Res<'_, T>>,
+        mut existed: Local<'_, bool>,
+    ) -> bool
     where
         T: Resource,
     {
@@ -911,7 +914,7 @@ pub mod common_conditions {
     /// #[derive(Resource, Default)]
     /// struct MyResource;
     ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
+    /// fn my_system(mut counter: ResMut<'_, Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
@@ -927,7 +930,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn resource_removed<T>(res: Option<Res<T>>, mut existed: Local<bool>) -> bool
+    pub fn resource_removed<T>(res: Option<Res<'_, T>>, mut existed: Local<'_, bool>) -> bool
     where
         T: Resource,
     {
@@ -964,7 +967,7 @@ pub mod common_conditions {
     /// #[derive(Event)]
     /// struct MyEvent;
     ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
+    /// fn my_system(mut counter: ResMut<'_, Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
@@ -978,7 +981,7 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn on_event<T: Event>(mut reader: EventReader<T>) -> bool {
+    pub fn on_event<T: Event>(mut reader: EventReader<'_, '_, T>) -> bool {
         // The events need to be consumed, so that there are no false positives on subsequent
         // calls of the run condition. Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
@@ -1005,7 +1008,7 @@ pub mod common_conditions {
     /// #[derive(Component)]
     /// struct MyComponent;
     ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
+    /// fn my_system(mut counter: ResMut<'_, Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
@@ -1019,13 +1022,13 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn any_with_component<T: Component>(query: Query<(), With<T>>) -> bool {
+    pub fn any_with_component<T: Component>(query: Query<'_, '_, (), With<T>>) -> bool {
         !query.is_empty()
     }
 
     /// A [`Condition`]-satisfying system that returns `true`
     /// if there are any entity with a component of the given type removed.
-    pub fn any_component_removed<T: Component>(mut removals: RemovedComponents<T>) -> bool {
+    pub fn any_component_removed<T: Component>(mut removals: RemovedComponents<'_, '_, T>) -> bool {
         // `RemovedComponents` based on events and therefore events need to be consumed,
         // so that there are no false positives on subsequent calls of the run condition.
         // Simply checking `is_empty` would not be enough.
@@ -1052,7 +1055,7 @@ pub mod common_conditions {
     ///     my_system.run_if(not(always)),
     /// );
     ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
+    /// fn my_system(mut counter: ResMut<'_, Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
@@ -1093,7 +1096,7 @@ pub mod common_conditions {
     /// #[derive(Resource)]
     /// struct MyResource;
     ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
+    /// fn my_system(mut counter: ResMut<'_, Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
@@ -1116,11 +1119,13 @@ pub mod common_conditions {
         CIn: SystemInput,
         C: Condition<Marker, CIn>,
     {
-        IntoSystem::into_system(condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| {
-            let changed = *prev != new;
-            *prev = new;
-            changed
-        }))
+        IntoSystem::into_system(
+            condition.pipe(|In(new): In<bool>, mut prev: Local<'_, bool>| {
+                let changed = *prev != new;
+                *prev = new;
+                changed
+            }),
+        )
     }
 
     /// Generates a [`Condition`] that returns true when the result of
@@ -1144,7 +1149,7 @@ pub mod common_conditions {
     /// #[derive(Resource)]
     /// struct MyResource;
     ///
-    /// fn my_system(mut counter: ResMut<Counter>) {
+    /// fn my_system(mut counter: ResMut<'_, Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
@@ -1173,7 +1178,7 @@ pub mod common_conditions {
         C: Condition<Marker, CIn>,
     {
         IntoSystem::into_system(condition.pipe(
-            move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
+            move |In(new): In<bool>, mut prev: Local<'_, bool>| -> bool {
                 let now_true = *prev != new && new == to;
                 *prev = new;
                 now_true
@@ -1365,15 +1370,15 @@ mod tests {
     #[derive(Resource, Default)]
     struct Counter(usize);
 
-    fn increment_counter(mut counter: ResMut<Counter>) {
+    fn increment_counter(mut counter: ResMut<'_, Counter>) {
         counter.0 += 1;
     }
 
-    fn double_counter(mut counter: ResMut<Counter>) {
+    fn double_counter(mut counter: ResMut<'_, Counter>) {
         counter.0 *= 2;
     }
 
-    fn every_other_time(mut has_ran: Local<bool>) -> bool {
+    fn every_other_time(mut has_ran: Local<'_, bool>) -> bool {
         *has_ran = !*has_ran;
         *has_ran
     }

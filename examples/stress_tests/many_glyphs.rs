@@ -41,7 +41,7 @@ fn main() {
     app.run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     warn!(include_str!("warning_string.txt"));
 
     commands.spawn(Camera2d);
@@ -86,7 +86,7 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-fn force_text_recomputation(mut text_query: Query<&mut TextLayout>) {
+fn force_text_recomputation(mut text_query: Query<'_, '_, &mut TextLayout>) {
     for mut block in &mut text_query {
         block.set_changed();
     }

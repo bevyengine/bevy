@@ -36,8 +36,8 @@ impl AnimationEvent for MessageEvent {
 }
 
 fn edit_message(
-    mut event_reader: EventReader<MessageEvent>,
-    text: Single<(&mut Text2d, &mut TextColor), With<MessageText>>,
+    mut event_reader: EventReader<'_, '_, MessageEvent>,
+    text: Single<'_, (&mut Text2d, &mut TextColor), With<MessageText>>,
 ) {
     let (mut text, mut color) = text.into_inner();
     for event in event_reader.read() {
@@ -47,9 +47,9 @@ fn edit_message(
 }
 
 fn setup(
-    mut commands: Commands,
-    mut animations: ResMut<Assets<AnimationClip>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut commands: Commands<'_, '_>,
+    mut animations: ResMut<'_, Assets<AnimationClip>>,
+    mut graphs: ResMut<'_, Assets<AnimationGraph>>,
 ) {
     // Camera
     commands.spawn((
@@ -108,7 +108,7 @@ fn setup(
 }
 
 // Slowly fade out the text opacity.
-fn animate_text_opacity(mut colors: Query<&mut TextColor>, time: Res<Time>) {
+fn animate_text_opacity(mut colors: Query<'_, '_, &mut TextColor>, time: Res<'_, Time>) {
     for mut color in &mut colors {
         let a = color.0.alpha();
         color.0.set_alpha(a - time.delta_seconds());

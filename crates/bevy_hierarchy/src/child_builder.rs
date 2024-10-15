@@ -267,7 +267,7 @@ impl Command for RemoveParent {
 /// # #[derive(Bundle)]
 /// # struct MyChildBundle {}
 /// #
-/// # fn test(mut commands: Commands) {
+/// # fn test(mut commands: Commands<'_, '_>) {
 /// commands.spawn(MyBundle {}).with_children(|child_builder| {
 ///     child_builder.spawn(MyChildBundle {});
 ///     child_builder.spawn(MyChildBundle {});
@@ -314,13 +314,13 @@ impl ChildBuild for ChildBuilder<'_> {
     where
         Self: 'a;
 
-    fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands {
+    fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'_> {
         let e = self.commands.spawn(bundle);
         self.add_children.children.push(e.id());
         e
     }
 
-    fn spawn_empty(&mut self) -> EntityCommands {
+    fn spawn_empty(&mut self) -> EntityCommands<'_> {
         let e = self.commands.spawn_empty();
         self.add_children.children.push(e.id());
         e
@@ -543,7 +543,7 @@ impl ChildBuild for WorldChildBuilder<'_> {
     where
         Self: 'a;
 
-    fn spawn(&mut self, bundle: impl Bundle) -> EntityWorldMut {
+    fn spawn(&mut self, bundle: impl Bundle) -> EntityWorldMut<'_> {
         let entity = self.world.spawn((bundle, Parent(self.parent))).id();
         add_child_unchecked(self.world, self.parent, entity);
         push_events(
@@ -556,7 +556,7 @@ impl ChildBuild for WorldChildBuilder<'_> {
         self.world.entity_mut(entity)
     }
 
-    fn spawn_empty(&mut self) -> EntityWorldMut {
+    fn spawn_empty(&mut self) -> EntityWorldMut<'_> {
         let entity = self.world.spawn(Parent(self.parent)).id();
         add_child_unchecked(self.world, self.parent, entity);
         push_events(
@@ -582,7 +582,10 @@ impl ChildBuild for WorldChildBuilder<'_> {
 impl BuildChildren for EntityWorldMut<'_> {
     type Builder<'a> = WorldChildBuilder<'a>;
 
-    fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self {
+    fn with_children(
+        &mut self,
+        spawn_children: impl FnOnce(&mut WorldChildBuilder<'_>),
+    ) -> &mut Self {
         let parent = self.id();
         self.world_scope(|world| {
             spawn_children(&mut WorldChildBuilder { world, parent });

@@ -58,8 +58,8 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
     // TODO: Reuse compute/render passes between logical passes where possible, as they're expensive
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        graph: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let Ok((
@@ -331,7 +331,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
 }
 
 fn fill_cluster_buffers_pass(
-    render_context: &mut RenderContext,
+    render_context: &mut RenderContext<'_>,
     fill_cluster_buffers_bind_group: &BindGroup,
     fill_cluster_buffers_pass_pipeline: &ComputePipeline,
     fill_cluster_buffers_pass_workgroups: u32,
@@ -355,7 +355,7 @@ fn fill_cluster_buffers_pass(
 #[allow(clippy::too_many_arguments)]
 fn cull_pass(
     label: &'static str,
-    render_context: &mut RenderContext,
+    render_context: &mut RenderContext<'_>,
     culling_bind_group: &BindGroup,
     view_offset: &ViewUniformOffset,
     previous_view_offset: &PreviousViewUniformOffset,
@@ -392,7 +392,7 @@ fn cull_pass(
 #[allow(clippy::too_many_arguments)]
 fn raster_pass(
     first_pass: bool,
-    render_context: &mut RenderContext,
+    render_context: &mut RenderContext<'_>,
     visibility_buffer_hardware_software_indirect_args: &Buffer,
     visibility_buffer_hardware_raster_indirect_args: &Buffer,
     dummy_render_target: &TextureView,
@@ -458,7 +458,7 @@ fn raster_pass(
 }
 
 fn downsample_depth(
-    render_context: &mut RenderContext,
+    render_context: &mut RenderContext<'_>,
     meshlet_view_resources: &MeshletViewResources,
     meshlet_view_bind_groups: &MeshletViewBindGroups,
     downsample_depth_first_pipeline: &ComputePipeline,
@@ -491,8 +491,8 @@ fn downsample_depth(
 }
 
 fn resolve_depth(
-    render_context: &mut RenderContext,
-    depth_stencil_attachment: RenderPassDepthStencilAttachment,
+    render_context: &mut RenderContext<'_>,
+    depth_stencil_attachment: RenderPassDepthStencilAttachment<'_>,
     meshlet_view_resources: &MeshletViewResources,
     meshlet_view_bind_groups: &MeshletViewBindGroups,
     resolve_depth_pipeline: &RenderPipeline,
@@ -519,7 +519,7 @@ fn resolve_depth(
 }
 
 fn resolve_material_depth(
-    render_context: &mut RenderContext,
+    render_context: &mut RenderContext<'_>,
     meshlet_view_resources: &MeshletViewResources,
     meshlet_view_bind_groups: &MeshletViewBindGroups,
     resolve_material_depth_pipeline: &RenderPipeline,

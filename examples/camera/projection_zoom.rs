@@ -27,11 +27,11 @@ fn main() {
 
 /// Set up a simple 3D scene
 fn setup(
-    asset_server: Res<AssetServer>,
-    mut camera_settings: ResMut<CameraSettings>,
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<'_, AssetServer>,
+    mut camera_settings: ResMut<'_, CameraSettings>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // Perspective projections use field of view, expressed in radians. We would
     // normally not set it to more than π, which represents a 180° FOV.
@@ -88,7 +88,7 @@ fn setup(
     ));
 }
 
-fn instructions(mut commands: Commands) {
+fn instructions(mut commands: Commands<'_, '_>) {
     commands
         .spawn((
             Name::new("Instructions"),
@@ -112,9 +112,9 @@ fn instructions(mut commands: Commands) {
 }
 
 fn switch_projection(
-    mut camera: Single<&mut Projection, With<Camera>>,
-    camera_settings: Res<CameraSettings>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut camera: Single<'_, &mut Projection, With<Camera>>,
+    camera_settings: Res<'_, CameraSettings>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         // Switch projection type
@@ -134,9 +134,9 @@ fn switch_projection(
 }
 
 fn zoom(
-    camera: Single<&mut Projection, With<Camera>>,
-    camera_settings: Res<CameraSettings>,
-    mouse_wheel_input: Res<AccumulatedMouseScroll>,
+    camera: Single<'_, &mut Projection, With<Camera>>,
+    camera_settings: Res<'_, CameraSettings>,
+    mouse_wheel_input: Res<'_, AccumulatedMouseScroll>,
 ) {
     // Usually, you won't need to handle both types of projection. This is by way of demonstration.
     match *camera.into_inner() {

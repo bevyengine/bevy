@@ -14,8 +14,6 @@
 //! [`TypePath`]: crate::derive_type_path
 //! [`reflect_trait`]: macro@reflect_trait
 
-extern crate proc_macro;
-
 mod attribute_parser;
 mod container_attributes;
 mod custom_attributes;
@@ -546,11 +544,11 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// # Example
 ///
-/// Given a remote type, `RemoteType`:
+/// Given a remote type, `RemoteType<'_>`:
 ///
 /// ```
 /// #[derive(Default)]
-/// struct RemoteType<T>
+/// struct RemoteType<'_><T>
 /// where
 ///   T: Default + Clone,
 /// {
@@ -564,7 +562,7 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// ```ignore
 /// use external_crate::RemoteType;
 ///
-/// #[reflect_remote(RemoteType<T>)]
+/// #[reflect_remote(RemoteType<'_><T>)]
 /// #[derive(Default)]
 /// pub struct WrapperType<T: Default + Clone> {
 ///   pub foo: T,
@@ -579,7 +577,7 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// #[derive(Default)]
 /// #[repr(transparent)]
-/// pub struct Wrapper<T: Default + Clone>(RemoteType<T>);
+/// pub struct Wrapper<T: Default + Clone>(RemoteType<'_><T>);
 /// ```
 ///
 /// # Usage as a Field
@@ -591,8 +589,8 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// ```ignore
 /// #[derive(Reflect)]
 /// struct SomeStruct {
-///   #[reflect(remote = RemoteTypeWrapper)]
-///   data: RemoteType
+///   #[reflect(remote = RemoteType<'_>Wrapper)]
+///   data: RemoteType<'_>
 /// }
 /// ```
 ///

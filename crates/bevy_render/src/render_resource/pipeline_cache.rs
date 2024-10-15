@@ -685,17 +685,15 @@ impl PipelineCache {
                 };
 
                 let fragment_module = match &descriptor.fragment {
-                    Some(fragment) => {
-                        match shader_cache.get(
-                            &device,
-                            id,
-                            fragment.shader.id(),
-                            &fragment.shader_defs,
-                        ) {
-                            Ok(module) => Some(module),
-                            Err(err) => return Err(err),
-                        }
-                    }
+                    Some(fragment) => match shader_cache.get(
+                        &device,
+                        id,
+                        fragment.shader.id(),
+                        &fragment.shader_defs,
+                    ) {
+                        Ok(module) => Some(module),
+                        Err(err) => return Err(err),
+                    },
                     None => None,
                 };
 
@@ -910,14 +908,14 @@ impl PipelineCache {
         self.waiting_pipelines.insert(id);
     }
 
-    pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
+    pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<'_, Self>) {
         cache.process_queue();
     }
 
     pub(crate) fn extract_shaders(
-        mut cache: ResMut<Self>,
-        shaders: Extract<Res<Assets<Shader>>>,
-        mut events: Extract<EventReader<AssetEvent<Shader>>>,
+        mut cache: ResMut<'_, Self>,
+        shaders: Extract<'_, '_, Res<'_, Assets<Shader>>>,
+        mut events: Extract<'_, '_, EventReader<'_, '_, AssetEvent<Shader>>>,
     ) {
         for event in events.read() {
             #[allow(clippy::match_same_arms)]

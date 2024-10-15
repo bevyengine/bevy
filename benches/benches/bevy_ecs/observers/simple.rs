@@ -40,7 +40,7 @@ pub fn observe_simple(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn empty_listener_base(trigger: Trigger<EventBase>) {
+fn empty_listener_base(trigger: Trigger<'_, EventBase>) {
     black_box(trigger);
 }
 

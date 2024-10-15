@@ -236,7 +236,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         let state = self.state.get_mut().unwrap();
         if self.apply_final_deferred {
             // Do one final apply buffers after all systems have completed
-            // Commands should be applied while on the scope's thread, not the executor's thread
+            // Commands<'_, '_> should be applied while on the scope's thread, not the executor's thread
             let res = apply_deferred(&state.unapplied_systems, systems, world);
             if let Err(payload) = res {
                 let panic_payload = self.panic_payload.get_mut().unwrap();
@@ -352,7 +352,7 @@ impl ExecutorState {
         }
     }
 
-    fn tick(&mut self, context: &Context, conditions: &mut Conditions) {
+    fn tick(&mut self, context: &Context<'_, '_, '_>, conditions: &mut Conditions<'_>) {
         #[cfg(feature = "trace")]
         let _span = context.environment.executor.executor_span.enter();
 
@@ -375,7 +375,11 @@ impl ExecutorState {
     ///   have been mutably borrowed (such as the systems currently running).
     /// - `world_cell` must have permission to access all world data (not counting
     ///   any world data that is claimed by systems currently running on this executor).
-    unsafe fn spawn_system_tasks(&mut self, context: &Context, conditions: &mut Conditions) {
+    unsafe fn spawn_system_tasks(
+        &mut self,
+        context: &Context<'_, '_, '_>,
+        conditions: &mut Conditions<'_>,
+    ) {
         if self.exclusive_running {
             return;
         }
@@ -460,8 +464,8 @@ impl ExecutorState {
         &mut self,
         system_index: usize,
         system: &mut BoxedSystem,
-        conditions: &mut Conditions,
-        world: UnsafeWorldCell,
+        conditions: &mut Conditions<'_>,
+        world: UnsafeWorldCell<'_>,
     ) -> bool {
         let system_meta = &self.system_task_metadata[system_index];
         if system_meta.is_exclusive && self.num_running_systems > 0 {
@@ -524,8 +528,8 @@ impl ExecutorState {
         &mut self,
         system_index: usize,
         system: &mut BoxedSystem,
-        conditions: &mut Conditions,
-        world: UnsafeWorldCell,
+        conditions: &mut Conditions<'_>,
+        world: UnsafeWorldCell<'_>,
     ) -> bool {
         let mut should_run = !self.skipped_systems.contains(system_index);
 
@@ -588,7 +592,7 @@ impl ExecutorState {
     ///   used by the specified system.
     /// - `update_archetype_component_access` must have been called with `world`
     ///   on the system associated with `system_index`.
-    unsafe fn spawn_system_task(&mut self, context: &Context, system_index: usize) {
+    unsafe fn spawn_system_task(&mut self, context: &Context<'_, '_, '_>, system_index: usize) {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *context.environment.systems[system_index].get() };
         // Move the full context object into the new future.
@@ -625,7 +629,11 @@ impl ExecutorState {
 
     /// # Safety
     /// Caller must ensure no systems are currently borrowed.
-    unsafe fn spawn_exclusive_system_task(&mut self, context: &Context, system_index: usize) {
+    unsafe fn spawn_exclusive_system_task(
+        &mut self,
+        context: &Context<'_, '_, '_>,
+        system_index: usize,
+    ) {
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *context.environment.systems[system_index].get() };
         // Move the full context object into the new future.
@@ -737,7 +745,7 @@ fn apply_deferred(
 ///   with `world` for each condition in `conditions`.
 unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [BoxedCondition],
-    world: UnsafeWorldCell,
+    world: UnsafeWorldCell<'_>,
 ) -> bool {
     // not short-circuiting is intentional
     #[allow(clippy::unnecessary_fold)]
@@ -799,7 +807,7 @@ mod tests {
             (
                 (|| {}).run_if(|| false),
                 // This system depends on a system that is always skipped.
-                |mut commands: Commands| {
+                |mut commands: Commands<'_, '_>| {
                     commands.insert_resource(R);
                 },
             )
@@ -817,7 +825,7 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
         schedule.set_executor_kind(ExecutorKind::MultiThreaded);
-        schedule.add_systems(((|_: Commands| {}), |_: Commands| {}).chain());
+        schedule.add_systems(((|_: Commands<'_, '_>| {}), |_: Commands<'_, '_>| {}).chain());
         schedule.run(&mut world);
     }
 }

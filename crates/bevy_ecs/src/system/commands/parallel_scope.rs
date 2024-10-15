@@ -32,7 +32,7 @@ struct ParallelCommandQueue {
 /// # struct Velocity;
 /// # impl Velocity { fn magnitude(&self) -> f32 { 42.0 } }
 /// fn parallel_command_system(
-///     mut query: Query<(Entity, &Velocity)>,
+///     mut query: Query<'_, '_, (Entity, &Velocity)>,
 ///     par_commands: ParallelCommands
 /// ) {
 ///     query.par_iter().for_each(|(entity, velocity)| {
@@ -66,7 +66,7 @@ impl<'w, 's> ParallelCommands<'w, 's> {
     /// Temporarily provides access to the [`Commands`] for the current thread.
     ///
     /// For an example, see the type-level documentation for [`ParallelCommands`].
-    pub fn command_scope<R>(&self, f: impl FnOnce(Commands) -> R) -> R {
+    pub fn command_scope<R>(&self, f: impl FnOnce(Commands<'_, '_>) -> R) -> R {
         self.state.thread_queues.scope(|queue| {
             let commands = Commands::new_from_entities(queue, self.entities);
             f(commands)

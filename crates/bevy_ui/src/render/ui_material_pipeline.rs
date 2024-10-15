@@ -358,12 +358,16 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
 }
 
 pub fn extract_ui_material_nodes<M: UiMaterial>(
-    mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
-    materials: Extract<Res<Assets<M>>>,
-    default_ui_camera: Extract<DefaultUiCamera>,
+    mut commands: Commands<'_, '_>,
+    mut extracted_uinodes: ResMut<'_, ExtractedUiMaterialNodes<M>>,
+    materials: Extract<'_, '_, Res<'_, Assets<M>>>,
+    default_ui_camera: Extract<'_, '_, DefaultUiCamera<'_, '_>>,
     uinode_query: Extract<
+        '_,
+        '_,
         Query<
+            '_,
+            '_,
             (
                 Entity,
                 &Node,
@@ -376,7 +380,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             Without<BackgroundColor>,
         >,
     >,
-    render_entity_lookup: Extract<Query<RenderEntity>>,
+    render_entity_lookup: Extract<'_, '_, Query<'_, '_, RenderEntity>>,
 ) {
     // If there is only one camera, we use it as default
     let default_single_camera = default_ui_camera.get();
@@ -428,16 +432,16 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_uimaterial_nodes<M: UiMaterial>(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut ui_meta: ResMut<UiMaterialMeta<M>>,
-    mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
-    view_uniforms: Res<ViewUniforms>,
-    globals_buffer: Res<GlobalsBuffer>,
-    ui_material_pipeline: Res<UiMaterialPipeline<M>>,
-    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut previous_len: Local<usize>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut ui_meta: ResMut<'_, UiMaterialMeta<M>>,
+    mut extracted_uinodes: ResMut<'_, ExtractedUiMaterialNodes<M>>,
+    view_uniforms: Res<'_, ViewUniforms>,
+    globals_buffer: Res<'_, GlobalsBuffer>,
+    ui_material_pipeline: Res<'_, UiMaterialPipeline<M>>,
+    mut phases: ResMut<'_, ViewSortedRenderPhases<TransparentUi>>,
+    mut previous_len: Local<'_, usize>,
 ) {
     if let (Some(view_binding), Some(globals_binding)) = (
         view_uniforms.uniforms.binding(),
@@ -590,7 +594,11 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, pipeline, ref mut material_param): &mut SystemParamItem<Self::Param>,
+        (render_device, pipeline, ref mut material_param): &mut SystemParamItem<
+            '_,
+            '_,
+            Self::Param,
+        >,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match material.as_bind_group(&pipeline.ui_layout, render_device, material_param) {
             Ok(prepared) => Ok(PreparedUiMaterial {
@@ -608,14 +616,14 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_ui_material_nodes<M: UiMaterial>(
-    extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
-    draw_functions: Res<DrawFunctions<TransparentUi>>,
-    ui_material_pipeline: Res<UiMaterialPipeline<M>>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<UiMaterialPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
-    render_materials: Res<RenderAssets<PreparedUiMaterial<M>>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<&ExtractedView>,
+    extracted_uinodes: Res<'_, ExtractedUiMaterialNodes<M>>,
+    draw_functions: Res<'_, DrawFunctions<TransparentUi>>,
+    ui_material_pipeline: Res<'_, UiMaterialPipeline<M>>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<UiMaterialPipeline<M>>>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    render_materials: Res<'_, RenderAssets<PreparedUiMaterial<M>>>,
+    mut transparent_render_phases: ResMut<'_, ViewSortedRenderPhases<TransparentUi>>,
+    mut views: Query<'_, '_, &ExtractedView>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {

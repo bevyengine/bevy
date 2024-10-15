@@ -61,14 +61,14 @@ pub struct NodeQuery {
 /// Bevy's [`UiStack`] orders all nodes in the order they will be rendered, which is the same order
 /// we need for determining picking.
 pub fn ui_picking(
-    pointers: Query<(&PointerId, &PointerLocation)>,
-    camera_query: Query<(Entity, &Camera, Has<IsDefaultUiCamera>)>,
-    default_ui_camera: DefaultUiCamera,
-    primary_window: Query<Entity, With<PrimaryWindow>>,
-    ui_scale: Res<UiScale>,
-    ui_stack: Res<UiStack>,
-    node_query: Query<NodeQuery>,
-    mut output: EventWriter<PointerHits>,
+    pointers: Query<'_, '_, (&PointerId, &PointerLocation)>,
+    camera_query: Query<'_, '_, (Entity, &Camera, Has<IsDefaultUiCamera>)>,
+    default_ui_camera: DefaultUiCamera<'_, '_>,
+    primary_window: Query<'_, '_, Entity, With<PrimaryWindow>>,
+    ui_scale: Res<'_, UiScale>,
+    ui_stack: Res<'_, UiStack>,
+    node_query: Query<'_, '_, NodeQuery>,
+    mut output: EventWriter<'_, PointerHits>,
 ) {
     // For each camera, the pointer and its position
     let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::new();

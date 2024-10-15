@@ -13,16 +13,16 @@ struct EnemyDied(u32);
 #[derive(Resource)]
 struct Score(u32);
 
-fn update_score(mut dead_enemies: EventReader<EnemyDied>, mut score: ResMut<Score>) {
+fn update_score(mut dead_enemies: EventReader<'_, '_, EnemyDied>, mut score: ResMut<'_, Score>) {
     for value in dead_enemies.read() {
         score.0 += value.0;
     }
 }
 
 fn despawn_dead_enemies(
-    mut commands: Commands,
-    mut dead_enemies: EventWriter<EnemyDied>,
-    enemies: Query<(Entity, &Enemy)>,
+    mut commands: Commands<'_, '_>,
+    mut dead_enemies: EventWriter<'_, EnemyDied>,
+    enemies: Query<'_, '_, (Entity, &Enemy)>,
 ) {
     for (entity, enemy) in &enemies {
         if enemy.hit_points == 0 {
@@ -32,13 +32,13 @@ fn despawn_dead_enemies(
     }
 }
 
-fn hurt_enemies(mut enemies: Query<&mut Enemy>) {
+fn hurt_enemies(mut enemies: Query<'_, '_, &mut Enemy>) {
     for mut enemy in &mut enemies {
         enemy.hit_points -= 1;
     }
 }
 
-fn spawn_enemy(mut commands: Commands, keyboard_input: Res<ButtonInput<KeyCode>>) {
+fn spawn_enemy(mut commands: Commands<'_, '_>, keyboard_input: Res<'_, ButtonInput<KeyCode>>) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         commands.spawn(Enemy {
             hit_points: 5,

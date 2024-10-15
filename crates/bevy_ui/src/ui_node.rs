@@ -1857,7 +1857,7 @@ impl Default for BorderColor {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
 /// # use bevy_color::palettes::basic::{RED, BLUE};
-/// fn setup_ui(mut commands: Commands) {
+/// fn setup_ui(mut commands: Commands<'_, '_>) {
 ///     commands.spawn((
 ///         NodeBundle {
 ///             style: Style {
@@ -1879,8 +1879,8 @@ impl Default for BorderColor {
 /// # use bevy_ui::prelude::*;
 /// # use bevy_color::Color;
 /// fn outline_hovered_button_system(
-///     mut commands: Commands,
-///     mut node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
+///     mut commands: Commands<'_, '_>,
+///     mut node_query: Query<'_, '_, (Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
 /// ) {
 ///     for (entity, interaction, mut maybe_outline) in node_query.iter_mut() {
 ///         let outline_color =
@@ -2074,7 +2074,7 @@ pub struct GlobalZIndex(pub i32);
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
 /// # use bevy_color::palettes::basic::{BLUE};
-/// fn setup_ui(mut commands: Commands) {
+/// fn setup_ui(mut commands: Commands<'_, '_>) {
 ///     commands.spawn((
 ///         NodeBundle {
 ///             style: Style {
@@ -2463,12 +2463,12 @@ impl TargetCamera {
 ///
 /// ```
 /// # use bevy_ui::prelude::*;
-/// # use bevy_ecs::prelude::Commands;
+/// # use bevy_ecs::prelude::Commands<'_, '_>;
 /// # use bevy_render::camera::{Camera, RenderTarget};
 /// # use bevy_core_pipeline::prelude::Camera2d;
 /// # use bevy_window::{Window, WindowRef};
 ///
-/// fn spawn_camera(mut commands: Commands) {
+/// fn spawn_camera(mut commands: Commands<'_, '_>) {
 ///     let another_window = commands.spawn(Window {
 ///         title: String::from("Another window"),
 ///         ..Default::default()
@@ -2505,9 +2505,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
                 .iter()
                 .filter(|(_, c)| match c.target {
                     RenderTarget::Window(WindowRef::Primary) => true,
-                    RenderTarget::Window(WindowRef::Entity(w)) => {
-                        self.primary_window.get(w).is_ok()
-                    }
+                    RenderTarget::Window(WindowRef::Entity(w)) => self.primary_window.get(w).is_ok(),
                     _ => false,
                 })
                 .max_by_key(|(e, c)| (c.order, *e))
@@ -2526,7 +2524,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 /// use bevy_ecs::prelude::*;
 /// use bevy_ui::prelude::*;
 ///
-/// fn spawn_camera(mut commands: Commands) {
+/// fn spawn_camera(mut commands: Commands<'_, '_>) {
 ///     commands.spawn((
 ///         Camera2d,
 ///         // This will cause all Ui in this camera to be rendered without
@@ -2553,7 +2551,7 @@ pub enum UiAntiAlias {
 /// use bevy_ecs::prelude::*;
 /// use bevy_ui::prelude::*;
 ///
-/// fn spawn_camera(mut commands: Commands) {
+/// fn spawn_camera(mut commands: Commands<'_, '_>) {
 ///     commands.spawn((
 ///         Camera2d,
 ///         UiBoxShadowSamples(6),

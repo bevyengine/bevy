@@ -36,7 +36,7 @@ impl Plugin for AabbGizmoPlugin {
                 PostUpdate,
                 (
                     draw_aabbs,
-                    draw_all_aabbs.run_if(|config: Res<GizmoConfigStore>| {
+                    draw_all_aabbs.run_if(|config: Res<'_, GizmoConfigStore>| {
                         config.config::<AabbGizmoConfigGroup>().1.draw_all
                     }),
                 )
@@ -73,8 +73,8 @@ pub struct ShowAabbGizmo {
 }
 
 fn draw_aabbs(
-    query: Query<(Entity, &Aabb, &GlobalTransform, &ShowAabbGizmo)>,
-    mut gizmos: Gizmos<AabbGizmoConfigGroup>,
+    query: Query<'_, '_, (Entity, &Aabb, &GlobalTransform, &ShowAabbGizmo)>,
+    mut gizmos: Gizmos<'_, '_, AabbGizmoConfigGroup>,
 ) {
     for (entity, &aabb, &transform, gizmo) in &query {
         let color = gizmo
@@ -86,8 +86,8 @@ fn draw_aabbs(
 }
 
 fn draw_all_aabbs(
-    query: Query<(Entity, &Aabb, &GlobalTransform), Without<ShowAabbGizmo>>,
-    mut gizmos: Gizmos<AabbGizmoConfigGroup>,
+    query: Query<'_, '_, (Entity, &Aabb, &GlobalTransform), Without<ShowAabbGizmo>>,
+    mut gizmos: Gizmos<'_, '_, AabbGizmoConfigGroup>,
 ) {
     for (entity, &aabb, &transform) in &query {
         let color = gizmos

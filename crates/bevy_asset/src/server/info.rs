@@ -352,7 +352,7 @@ impl AssetInfos {
     }
 
     /// Returns `true` if the asset at this path should be reloaded
-    pub(crate) fn should_reload(&self, path: &AssetPath) -> bool {
+    pub(crate) fn should_reload(&self, path: &AssetPath<'_>) -> bool {
         if self.is_path_alive(path) {
             return true;
         }
@@ -400,12 +400,9 @@ impl AssetInfos {
         loading_deps.retain(|dep_id| {
             if let Some(dep_info) = self.get_mut(*dep_id) {
                 match dep_info.rec_dep_load_state {
-                    RecursiveDependencyLoadState::Loading
-                    | RecursiveDependencyLoadState::NotLoaded => {
+                    RecursiveDependencyLoadState::Loading | RecursiveDependencyLoadState::NotLoaded => {
                         // If dependency is loading, wait for it.
-                        dep_info
-                            .dependants_waiting_on_recursive_dep_load
-                            .insert(loaded_asset_id);
+                        dep_info.dependants_waiting_on_recursive_dep_load.insert(loaded_asset_id);
                     }
                     RecursiveDependencyLoadState::Loaded => {
                         // If dependency is loaded, reduce our count by one
@@ -439,10 +436,7 @@ impl AssetInfos {
                 }
             } else {
                 // the dependency id does not exist, which implies it was manually removed or never existed in the first place
-                warn!(
-                    "Dependency {:?} from asset {:?} is unknown. This asset's dependency load status will not switch to 'Loaded' until the unknown dependency is loaded.",
-                    dep_id, loaded_asset_id
-                );
+                warn!("Dependency {:?} from asset {:?} is unknown. This asset's dependency load status will not switch to 'Loaded' until the unknown dependency is loaded.", dep_id, loaded_asset_id);
                 true
             }
         });
@@ -773,12 +767,16 @@ pub(crate) fn unwrap_with_context<T>(
         Err(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified) => None,
         Err(GetOrCreateHandleInternalError::MissingHandleProviderError(_)) => match type_info {
             Either::Left(type_name) => {
-                panic!("Cannot allocate an Asset Handle of type '{type_name}' because the asset type has not been initialized. \
-                    Make sure you have called `app.init_asset::<{type_name}>()`");
+                panic!(
+                    "Cannot allocate an Asset Handle of type '{type_name}' because the asset type has not been initialized. \
+                    Make sure you have called `app.init_asset::<{type_name}>()`"
+                );
             }
             Either::Right(type_id) => {
-                panic!("Cannot allocate an AssetHandle of type '{type_id:?}' because the asset type has not been initialized. \
-                    Make sure you have called `app.init_asset::<(actual asset type)>()`")
+                panic!(
+                    "Cannot allocate an AssetHandle of type '{type_id:?}' because the asset type has not been initialized. \
+                    Make sure you have called `app.init_asset::<(actual asset type)>()`"
+                )
             }
         },
     }

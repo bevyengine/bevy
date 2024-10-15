@@ -37,15 +37,15 @@ pub(crate) struct ReflectOpaqueDef {
 }
 
 impl ReflectOpaqueDef {
-    pub fn parse_reflect(input: ParseStream) -> syn::Result<Self> {
+    pub fn parse_reflect(input: ParseStream<'_>) -> syn::Result<Self> {
         Self::parse(input, ReflectTraitToImpl::Reflect)
     }
 
-    pub fn parse_from_reflect(input: ParseStream) -> syn::Result<Self> {
+    pub fn parse_from_reflect(input: ParseStream<'_>) -> syn::Result<Self> {
         Self::parse(input, ReflectTraitToImpl::FromReflect)
     }
 
-    fn parse(input: ParseStream, trait_: ReflectTraitToImpl) -> syn::Result<Self> {
+    fn parse(input: ParseStream<'_>, trait_: ReflectTraitToImpl) -> syn::Result<Self> {
         let attrs = input.call(Attribute::parse_outer)?;
 
         let custom_path = CustomPathDef::parse_parenthesized(input)?;

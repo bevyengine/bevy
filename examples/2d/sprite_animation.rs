@@ -24,7 +24,7 @@ fn main() {
 }
 
 // This system runs when the user clicks the left arrow key or right arrow key
-fn trigger_animation<S: Component>(mut animation: Single<&mut AnimationConfig, With<S>>) {
+fn trigger_animation<S: Component>(mut animation: Single<'_, &mut AnimationConfig, With<S>>) {
     // we create a new timer when the animation is triggered
     animation.frame_timer = AnimationConfig::timer_from_fps(animation.fps);
 }
@@ -54,7 +54,10 @@ impl AnimationConfig {
 
 // This system loops through all the sprites in the `TextureAtlas`, from  `first_sprite_index` to
 // `last_sprite_index` (both defined in `AnimationConfig`).
-fn execute_animations(time: Res<Time>, mut query: Query<(&mut AnimationConfig, &mut Sprite)>) {
+fn execute_animations(
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, (&mut AnimationConfig, &mut Sprite)>,
+) {
     for (mut config, mut sprite) in &mut query {
         // we track how long the current sprite has been displayed for
         config.frame_timer.tick(time.delta());
@@ -83,9 +86,9 @@ struct LeftSprite;
 struct RightSprite;
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut texture_atlas_layouts: ResMut<'_, Assets<TextureAtlasLayout>>,
 ) {
     commands.spawn(Camera2d);
 

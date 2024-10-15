@@ -44,7 +44,7 @@ struct PrintMessageState {
     timer: Timer,
 }
 
-fn print_message_system(mut state: ResMut<PrintMessageState>, time: Res<Time>) {
+fn print_message_system(mut state: ResMut<'_, PrintMessageState>, time: Res<'_, Time>) {
     if state.timer.tick(time.delta()).finished() {
         info!("{}", state.message);
     }

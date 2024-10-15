@@ -40,9 +40,9 @@ struct FollowingSphere;
 struct RandomSource(ChaCha8Rng);
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // A plane:
     commands.spawn((
@@ -90,11 +90,11 @@ fn setup(
 }
 
 fn move_target(
-    mut target: Single<&mut Transform, With<TargetSphere>>,
-    target_speed: Res<TargetSphereSpeed>,
-    mut target_pos: ResMut<TargetPosition>,
-    time: Res<Time>,
-    mut rng: ResMut<RandomSource>,
+    mut target: Single<'_, &mut Transform, With<TargetSphere>>,
+    target_speed: Res<'_, TargetSphereSpeed>,
+    mut target_pos: ResMut<'_, TargetPosition>,
+    time: Res<'_, Time>,
+    mut rng: ResMut<'_, RandomSource>,
 ) {
     match Dir3::new(target_pos.0 - target.translation) {
         // The target and the present position of the target sphere are far enough to have a well-
@@ -117,10 +117,10 @@ fn move_target(
 }
 
 fn move_follower(
-    mut following: Single<&mut Transform, With<FollowingSphere>>,
-    target: Single<&Transform, (With<TargetSphere>, Without<FollowingSphere>)>,
-    decay_rate: Res<DecayRate>,
-    time: Res<Time>,
+    mut following: Single<'_, &mut Transform, With<FollowingSphere>>,
+    target: Single<'_, &Transform, (With<TargetSphere>, Without<FollowingSphere>)>,
+    decay_rate: Res<'_, DecayRate>,
+    time: Res<'_, Time>,
 ) {
     let decay_rate = decay_rate.0;
     let delta_time = time.delta_seconds();

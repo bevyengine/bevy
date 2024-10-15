@@ -68,8 +68,11 @@ pub trait System: Send + Sync + 'static {
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn run_unsafe(&mut self, input: SystemIn<'_, Self>, world: UnsafeWorldCell)
-        -> Self::Out;
+    unsafe fn run_unsafe(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell<'_>,
+    ) -> Self::Out;
 
     /// Runs the system with the given input in the world.
     ///
@@ -96,7 +99,7 @@ pub trait System: Send + Sync + 'static {
 
     /// Enqueues any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers)
     /// of this system into the world's command buffer.
-    fn queue_deferred(&mut self, world: DeferredWorld);
+    fn queue_deferred(&mut self, world: DeferredWorld<'_>);
 
     /// Validates that all parameters can be acquired and that system can run without panic.
     /// Built-in executors use this to prevent invalid systems from running.
@@ -117,7 +120,7 @@ pub trait System: Send + Sync + 'static {
     /// - The method [`System::update_archetype_component_access`] must be called at some
     ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
     ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool;
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell<'_>) -> bool;
 
     /// Safe version of [`System::validate_param_unsafe`].
     /// that runs on exclusive, single-threaded `world` pointer.
@@ -138,7 +141,7 @@ pub trait System: Send + Sync + 'static {
     /// ## Note for implementors
     /// `world` may only be used to access metadata. This can be done in safe code
     /// via functions such as [`UnsafeWorldCell::archetypes`].
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell);
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell<'_>);
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
@@ -172,7 +175,7 @@ pub trait System: Send + Sync + 'static {
 /// may implement this trait.
 ///
 /// [`ReadOnlySystemParam`]: crate::system::ReadOnlySystemParam
-/// [`Commands`]: crate::system::Commands
+/// [`Commands`]: crate::system::Commands<'_, '_>
 ///
 /// # Safety
 ///
@@ -238,7 +241,7 @@ where
 /// #[derive(Resource, Default)]
 /// struct Counter(u8);
 ///
-/// fn increment(mut counter: Local<Counter>) {
+/// fn increment(mut counter: Local<'_, Counter>) {
 ///    counter.0 += 1;
 ///    println!("{}", counter.0);
 /// }
@@ -268,7 +271,7 @@ where
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::RunSystemOnce;
 /// let mut world = World::default();
-/// let entity = world.run_system_once(|mut commands: Commands| {
+/// let entity = world.run_system_once(|mut commands: Commands<'_, '_>| {
 ///     commands.spawn_empty().id()
 /// }).unwrap();
 /// # assert!(world.get_entity(entity).is_ok());
@@ -288,7 +291,7 @@ where
 /// world.spawn(T(0));
 /// world.spawn(T(1));
 /// world.spawn(T(1));
-/// let count = world.run_system_once(|query: Query<&T>| {
+/// let count = world.run_system_once(|query: Query<'_, '_, &T>| {
 ///     query.iter().filter(|t| t.0 == 1).count()
 /// }).unwrap();
 ///
@@ -304,7 +307,7 @@ where
 /// #[derive(Component)]
 /// struct T(usize);
 ///
-/// fn count(query: Query<&T>) -> usize {
+/// fn count(query: Query<'_, '_, &T>) -> usize {
 ///     query.iter().filter(|t| t.0 == 1).count()
 /// }
 ///
@@ -387,7 +390,7 @@ mod tests {
 
         impl Resource for T {}
 
-        fn system(In(n): In<usize>, mut commands: Commands) -> usize {
+        fn system(In(n): In<usize>, mut commands: Commands<'_, '_>) -> usize {
             commands.insert_resource(T(n));
             n + 1
         }
@@ -402,7 +405,7 @@ mod tests {
     struct Counter(u8);
 
     #[allow(dead_code)]
-    fn count_up(mut counter: ResMut<Counter>) {
+    fn count_up(mut counter: ResMut<'_, Counter>) {
         counter.0 += 1;
     }
 
@@ -418,7 +421,7 @@ mod tests {
     }
 
     #[allow(dead_code)]
-    fn spawn_entity(mut commands: Commands) {
+    fn spawn_entity(mut commands: Commands<'_, '_>) {
         commands.spawn_empty();
     }
 
@@ -432,7 +435,7 @@ mod tests {
 
     #[test]
     fn non_send_resources() {
-        fn non_send_count_down(mut ns: NonSendMut<Counter>) {
+        fn non_send_count_down(mut ns: NonSendMut<'_, Counter>) {
             ns.0 -= 1;
         }
 
@@ -447,7 +450,7 @@ mod tests {
     fn run_system_once_invalid_params() {
         struct T;
         impl Resource for T {}
-        fn system(_: Res<T>) {}
+        fn system(_: Res<'_, T>) {}
 
         let mut world = World::default();
         // This fails because `T` has not been added to the world yet.

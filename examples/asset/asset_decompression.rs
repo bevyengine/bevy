@@ -103,7 +103,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn(Camera2d);
 
     commands.spawn(Compressed::<Image> {
@@ -113,10 +113,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn decompress<T: Component + From<Handle<A>>, A: Asset>(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut compressed_assets: ResMut<Assets<GzAsset>>,
-    query: Query<(Entity, &Compressed<A>)>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut compressed_assets: ResMut<'_, Assets<GzAsset>>,
+    query: Query<'_, '_, (Entity, &Compressed<A>)>,
 ) {
     for (entity, Compressed { compressed, .. }) in query.iter() {
         let Some(GzAsset { uncompressed }) = compressed_assets.remove(compressed) else {

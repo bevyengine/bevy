@@ -86,7 +86,7 @@ impl Default for FpsOverlayConfig {
 #[derive(Component)]
 struct FpsText;
 
-fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
+fn setup(mut commands: Commands<'_, '_>, overlay_config: Res<'_, FpsOverlayConfig>) {
     commands
         .spawn((
             NodeBundle {
@@ -112,9 +112,9 @@ fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
 }
 
 fn update_text(
-    diagnostic: Res<DiagnosticsStore>,
-    query: Query<Entity, With<FpsText>>,
-    mut writer: UiTextWriter,
+    diagnostic: Res<'_, DiagnosticsStore>,
+    query: Query<'_, '_, Entity, With<FpsText>>,
+    mut writer: UiTextWriter<'_, '_>,
 ) {
     for entity in &query {
         if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS) {
@@ -126,9 +126,9 @@ fn update_text(
 }
 
 fn customize_text(
-    overlay_config: Res<FpsOverlayConfig>,
-    query: Query<Entity, With<FpsText>>,
-    mut writer: UiTextWriter,
+    overlay_config: Res<'_, FpsOverlayConfig>,
+    query: Query<'_, '_, Entity, With<FpsText>>,
+    mut writer: UiTextWriter<'_, '_>,
 ) {
     for entity in &query {
         writer.for_each_font(entity, |mut font| {
@@ -139,8 +139,8 @@ fn customize_text(
 }
 
 fn toggle_display(
-    overlay_config: Res<FpsOverlayConfig>,
-    mut query: Query<&mut Visibility, With<FpsText>>,
+    overlay_config: Res<'_, FpsOverlayConfig>,
+    mut query: Query<'_, '_, &mut Visibility, With<FpsText>>,
 ) {
     for mut visibility in &mut query {
         visibility.set_if_neq(match overlay_config.enabled {

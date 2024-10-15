@@ -78,8 +78,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
     pub fn binding_layout(device: &RenderDevice) -> BindGroupLayoutEntryBuilder {
         if device.limits().max_storage_buffers_per_shader_stage == 0 {
             uniform_buffer_sized(
-                true,
-                // BatchedUniformBuffer uses a MaxCapacityArray that is runtime-sized, so we use
+                true, // BatchedUniformBuffer uses a MaxCapacityArray that is runtime-sized, so we use
                 // None here and let wgpu figure out the size.
                 None,
             )
@@ -88,7 +87,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         }
     }
 
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.binding(),
             GpuArrayBuffer::Storage(buffer) => buffer.binding(),

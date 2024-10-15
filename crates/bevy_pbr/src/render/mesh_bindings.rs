@@ -55,7 +55,7 @@ mod entry {
         BindGroupEntry, BindingResource, Buffer, BufferBinding, BufferSize, Sampler, TextureView,
     };
 
-    fn entry(binding: u32, size: u64, buffer: &Buffer) -> BindGroupEntry {
+    fn entry(binding: u32, size: u64, buffer: &Buffer) -> BindGroupEntry<'_> {
         BindGroupEntry {
             binding,
             resource: BindingResource::Buffer(BufferBinding {
@@ -65,28 +65,31 @@ mod entry {
             }),
         }
     }
-    pub(super) fn model(binding: u32, resource: BindingResource) -> BindGroupEntry {
+    pub(super) fn model(binding: u32, resource: BindingResource<'_>) -> BindGroupEntry<'_> {
         BindGroupEntry { binding, resource }
     }
-    pub(super) fn skinning(binding: u32, buffer: &Buffer) -> BindGroupEntry {
+    pub(super) fn skinning(binding: u32, buffer: &Buffer) -> BindGroupEntry<'_> {
         entry(binding, JOINT_BUFFER_SIZE as u64, buffer)
     }
-    pub(super) fn weights(binding: u32, buffer: &Buffer) -> BindGroupEntry {
+    pub(super) fn weights(binding: u32, buffer: &Buffer) -> BindGroupEntry<'_> {
         entry(binding, MORPH_BUFFER_SIZE as u64, buffer)
     }
-    pub(super) fn targets(binding: u32, texture: &TextureView) -> BindGroupEntry {
+    pub(super) fn targets(binding: u32, texture: &TextureView) -> BindGroupEntry<'_> {
         BindGroupEntry {
             binding,
             resource: BindingResource::TextureView(texture),
         }
     }
-    pub(super) fn lightmaps_texture_view(binding: u32, texture: &TextureView) -> BindGroupEntry {
+    pub(super) fn lightmaps_texture_view(
+        binding: u32,
+        texture: &TextureView,
+    ) -> BindGroupEntry<'_> {
         BindGroupEntry {
             binding,
             resource: BindingResource::TextureView(texture),
         }
     }
-    pub(super) fn lightmaps_sampler(binding: u32, sampler: &Sampler) -> BindGroupEntry {
+    pub(super) fn lightmaps_sampler(binding: u32, sampler: &Sampler) -> BindGroupEntry<'_> {
         BindGroupEntry {
             binding,
             resource: BindingResource::Sampler(sampler),
@@ -286,7 +289,11 @@ impl MeshLayouts {
 
     // ---------- BindGroup methods ----------
 
-    pub fn model_only(&self, render_device: &RenderDevice, model: &BindingResource) -> BindGroup {
+    pub fn model_only(
+        &self,
+        render_device: &RenderDevice,
+        model: &BindingResource<'_>,
+    ) -> BindGroup {
         render_device.create_bind_group(
             "model_only_mesh_bind_group",
             &self.model_only,
@@ -297,7 +304,7 @@ impl MeshLayouts {
     pub fn lightmapped(
         &self,
         render_device: &RenderDevice,
-        model: &BindingResource,
+        model: &BindingResource<'_>,
         lightmap: &GpuImage,
     ) -> BindGroup {
         render_device.create_bind_group(
@@ -315,7 +322,7 @@ impl MeshLayouts {
     pub fn skinned(
         &self,
         render_device: &RenderDevice,
-        model: &BindingResource,
+        model: &BindingResource<'_>,
         current_skin: &Buffer,
     ) -> BindGroup {
         render_device.create_bind_group(
@@ -338,7 +345,7 @@ impl MeshLayouts {
     pub fn skinned_motion(
         &self,
         render_device: &RenderDevice,
-        model: &BindingResource,
+        model: &BindingResource<'_>,
         current_skin: &Buffer,
         prev_skin: &Buffer,
     ) -> BindGroup {
@@ -357,7 +364,7 @@ impl MeshLayouts {
     pub fn morphed(
         &self,
         render_device: &RenderDevice,
-        model: &BindingResource,
+        model: &BindingResource<'_>,
         current_weights: &Buffer,
         targets: &TextureView,
     ) -> BindGroup {
@@ -382,7 +389,7 @@ impl MeshLayouts {
     pub fn morphed_motion(
         &self,
         render_device: &RenderDevice,
-        model: &BindingResource,
+        model: &BindingResource<'_>,
         current_weights: &Buffer,
         targets: &TextureView,
         prev_weights: &Buffer,
@@ -404,7 +411,7 @@ impl MeshLayouts {
     pub fn morphed_skinned(
         &self,
         render_device: &RenderDevice,
-        model: &BindingResource,
+        model: &BindingResource<'_>,
         current_skin: &Buffer,
         current_weights: &Buffer,
         targets: &TextureView,
@@ -432,7 +439,7 @@ impl MeshLayouts {
     pub fn morphed_skinned_motion(
         &self,
         render_device: &RenderDevice,
-        model: &BindingResource,
+        model: &BindingResource<'_>,
         current_skin: &Buffer,
         current_weights: &Buffer,
         targets: &TextureView,

@@ -614,11 +614,11 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
 /// A system, part of the render app, that specializes the three pipelines
 /// needed for SMAA according to each view's SMAA settings.
 fn prepare_smaa_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut specialized_render_pipelines: ResMut<SmaaSpecializedRenderPipelines>,
-    smaa_pipelines: Res<SmaaPipelines>,
-    view_targets: Query<(Entity, &ExtractedView, &Smaa)>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut specialized_render_pipelines: ResMut<'_, SmaaSpecializedRenderPipelines>,
+    smaa_pipelines: Res<'_, SmaaPipelines>,
+    view_targets: Query<'_, '_, (Entity, &ExtractedView, &Smaa)>,
 ) {
     for (entity, view, smaa) in &view_targets {
         let edge_detection_pipeline_id = specialized_render_pipelines.edge_detection.specialize(
@@ -661,11 +661,11 @@ fn prepare_smaa_pipelines(
 /// A system, part of the render app, that builds the [`SmaaInfoUniform`] data
 /// for each view with SMAA enabled and writes the resulting data to GPU memory.
 fn prepare_smaa_uniforms(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    view_targets: Query<(Entity, &ExtractedView), With<Smaa>>,
-    mut smaa_info_buffer: ResMut<SmaaInfoUniformBuffer>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    view_targets: Query<'_, '_, (Entity, &ExtractedView), With<Smaa>>,
+    mut smaa_info_buffer: ResMut<'_, SmaaInfoUniformBuffer>,
 ) {
     smaa_info_buffer.clear();
     for (entity, view) in &view_targets {
@@ -692,10 +692,10 @@ fn prepare_smaa_uniforms(
 /// texture; phase 2 (blend weight calculation) needs a four-channel RGBA
 /// texture.
 fn prepare_smaa_textures(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    mut texture_cache: ResMut<TextureCache>,
-    view_targets: Query<(Entity, &ExtractedCamera), (With<ExtractedView>, With<Smaa>)>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    mut texture_cache: ResMut<'_, TextureCache>,
+    view_targets: Query<'_, '_, (Entity, &ExtractedCamera), (With<ExtractedView>, With<Smaa>)>,
 ) {
     for (entity, camera) in &view_targets {
         let Some(texture_size) = camera.physical_target_size else {
@@ -765,11 +765,11 @@ fn prepare_smaa_textures(
 /// A system, part of the render app, that builds the SMAA bind groups for each
 /// view with SMAA enabled.
 fn prepare_smaa_bind_groups(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    smaa_pipelines: Res<SmaaPipelines>,
-    images: Res<RenderAssets<GpuImage>>,
-    view_targets: Query<(Entity, &SmaaTextures), (With<ExtractedView>, With<Smaa>)>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    smaa_pipelines: Res<'_, SmaaPipelines>,
+    images: Res<'_, RenderAssets<GpuImage>>,
+    view_targets: Query<'_, '_, (Entity, &SmaaTextures), (With<ExtractedView>, With<Smaa>)>,
 ) {
     // Fetch the two lookup textures. These are bundled in this library.
     let (Some(search_texture), Some(area_texture)) = (
@@ -837,7 +837,7 @@ impl ViewNode for SmaaNode {
 
     fn run<'w>(
         &self,
-        _: &mut RenderGraphContext,
+        _: &mut RenderGraphContext<'_>,
         render_context: &mut RenderContext<'w>,
         (
             view_target,
@@ -919,7 +919,7 @@ impl ViewNode for SmaaNode {
 /// examine them.
 #[allow(clippy::too_many_arguments)]
 fn perform_edge_detection(
-    render_context: &mut RenderContext,
+    render_context: &mut RenderContext<'_>,
     smaa_pipelines: &SmaaPipelines,
     smaa_textures: &SmaaTextures,
     view_smaa_bind_groups: &SmaaBindGroups,
@@ -973,7 +973,7 @@ fn perform_edge_detection(
 /// pixels it doesn't need to examine.
 #[allow(clippy::too_many_arguments)]
 fn perform_blending_weight_calculation(
-    render_context: &mut RenderContext,
+    render_context: &mut RenderContext<'_>,
     smaa_pipelines: &SmaaPipelines,
     smaa_textures: &SmaaTextures,
     view_smaa_bind_groups: &SmaaBindGroups,
@@ -1032,7 +1032,7 @@ fn perform_blending_weight_calculation(
 /// texture. It's the only phase that writes to the postprocessing destination.
 #[allow(clippy::too_many_arguments)]
 fn perform_neighborhood_blending(
-    render_context: &mut RenderContext,
+    render_context: &mut RenderContext<'_>,
     smaa_pipelines: &SmaaPipelines,
     view_smaa_bind_groups: &SmaaBindGroups,
     smaa_info_uniform_buffer: &SmaaInfoUniformBuffer,

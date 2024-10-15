@@ -88,7 +88,7 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 ///     }
 /// }
 ///
-/// fn some_system(mut commands: Commands) {
+/// fn some_system(mut commands: Commands<'_, '_>) {
 ///     commands.queue(AddToCounter(42));
 /// }
 /// ```
@@ -262,7 +262,7 @@ impl World {
     /// Creates a new [`Commands`] instance that writes to the world's command queue
     /// Use [`World::flush`] to apply all queued commands
     #[inline]
-    pub fn commands(&mut self) -> Commands {
+    pub fn commands(&mut self) -> Commands<'_, '_> {
         // SAFETY: command_queue is stored on world and always valid while the world exists
         unsafe { Commands::new_raw_from_entities(self.command_queue.clone(), &self.entities) }
     }
@@ -945,7 +945,7 @@ impl World {
     /// scheme worked out to share an ID space (which doesn't happen by default).
     #[inline]
     #[deprecated(since = "0.15.0", note = "use `World::spawn` instead")]
-    pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityWorldMut> {
+    pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityWorldMut<'_>> {
         self.flush();
         match self.entities.alloc_at_without_replacement(entity) {
             AllocAtWithoutReplacement::Exists(location) => {
@@ -1291,7 +1291,7 @@ impl World {
     /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
-    pub fn spawn_empty(&mut self) -> EntityWorldMut {
+    pub fn spawn_empty(&mut self) -> EntityWorldMut<'_> {
         self.flush();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
@@ -1359,7 +1359,7 @@ impl World {
     /// assert_eq!(position.x, 2.0);
     /// ```
     #[track_caller]
-    pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
+    pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
@@ -1382,7 +1382,7 @@ impl World {
 
     /// # Safety
     /// must be called on an entity that was just allocated
-    unsafe fn spawn_at_empty_internal(&mut self, entity: Entity) -> EntityWorldMut {
+    unsafe fn spawn_at_empty_internal(&mut self, entity: Entity) -> EntityWorldMut<'_> {
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
         let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
@@ -1470,7 +1470,7 @@ impl World {
     /// position.x = 1.0;
     /// ```
     #[inline]
-    pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
+    pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<'_, T>> {
         // SAFETY:
         // - `as_unsafe_world_cell` is the only thing that is borrowing world
         // - `as_unsafe_world_cell` provides mutable permission to everything
@@ -1520,7 +1520,7 @@ impl World {
     pub(crate) fn despawn_with_caller(
         &mut self,
         entity: Entity,
-        caller: &'static Location,
+        caller: &'static Location<'_>,
         log_warning: bool,
     ) -> bool {
         self.flush();
@@ -1764,7 +1764,7 @@ impl World {
     pub(crate) fn insert_resource_with_caller<R: Resource>(
         &mut self,
         value: R,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'_>,
     ) {
         let component_id = self.components.register_resource::<R>();
         OwningPtr::make(value, |ptr| {
@@ -2035,7 +2035,7 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_ref<R: Resource>(&self) -> Ref<R> {
+    pub fn resource_ref<R: Resource>(&self) -> Ref<'_, R> {
         match self.get_resource_ref() {
             Some(x) => x,
             None => panic!(
@@ -2083,7 +2083,7 @@ impl World {
 
     /// Gets a reference including change detection to the resource of the given type if it exists.
     #[inline]
-    pub fn get_resource_ref<R: Resource>(&self) -> Option<Ref<R>> {
+    pub fn get_resource_ref<R: Resource>(&self) -> Option<Ref<'_, R>> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
         // - `&self` ensures nothing in world is borrowed mutably
@@ -2345,7 +2345,7 @@ impl World {
     pub(crate) fn insert_or_spawn_batch_with_caller<I, B>(
         &mut self,
         iter: I,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'_>,
     ) -> Result<(), Vec<Entity>>
     where
         I: IntoIterator,
@@ -2538,7 +2538,7 @@ impl World {
         &mut self,
         iter: I,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'_>,
     ) where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
@@ -2689,7 +2689,7 @@ impl World {
         &mut self,
         iter: I,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'_>,
     ) where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
@@ -2786,14 +2786,17 @@ impl World {
     /// world.insert_resource(A(1));
     /// let entity = world.spawn(B(1)).id();
     ///
-    /// world.resource_scope(|world, mut a: Mut<A>| {
+    /// world.resource_scope(|world, mut a: Mut<'_, A>| {
     ///     let b = world.get_mut::<B>(entity).unwrap();
     ///     a.0 += b.0;
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
     #[track_caller]
-    pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
+    pub fn resource_scope<R: Resource, U>(
+        &mut self,
+        f: impl FnOnce(&mut World, Mut<'_, R>) -> U,
+    ) -> U {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
 
@@ -2822,10 +2825,12 @@ impl World {
             changed_by: &mut _caller,
         };
         let result = f(self, value_mut);
-        assert!(!self.contains_resource::<R>(),
+        assert!(
+            !self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
             This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
-            core::any::type_name::<R>());
+            core::any::type_name::<R>()
+        );
 
         OwningPtr::make(value, |ptr| {
             // SAFETY: pointer is of type R
@@ -2878,10 +2883,7 @@ impl World {
         events: impl IntoIterator<Item = E>,
     ) -> Option<SendBatchIds<E>> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
-            bevy_utils::tracing::error!(
-                "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
-                core::any::type_name::<E>()
-            );
+            bevy_utils::tracing::error!("Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ", core::any::type_name::<E>());
             return None;
         };
         Some(events_resource.send_batch(events))
@@ -2900,7 +2902,7 @@ impl World {
         &mut self,
         component_id: ComponentId,
         value: OwningPtr<'_>,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'_>,
     ) {
         let change_tick = self.change_tick();
 
@@ -2934,7 +2936,7 @@ impl World {
         &mut self,
         component_id: ComponentId,
         value: OwningPtr<'_>,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'_>,
     ) {
         let change_tick = self.change_tick();
 
@@ -3681,7 +3683,7 @@ impl World {
     /// # schedule.add_systems(tick_counter);
     /// # world.init_resource::<Schedules>();
     /// # world.add_schedule(schedule);
-    /// # fn tick_counter(mut counter: ResMut<Counter>) { counter.0 += 1; }
+    /// # fn tick_counter(mut counter: ResMut<'_, Counter>) { counter.0 += 1; }
     /// // Run the schedule five times.
     /// world.schedule_scope(MySchedule, |world, schedule| {
     ///     for _ in 0..5 {
@@ -3750,7 +3752,7 @@ impl World {
 }
 
 impl fmt::Debug for World {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // SAFETY: `UnsafeWorldCell` requires that this must only access metadata.
         // Accessing any data stored in the world would be unsound.
         f.debug_struct("World")

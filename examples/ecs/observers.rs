@@ -16,10 +16,10 @@ fn main() {
         // Observers are systems that run when an event is "triggered". This observer runs whenever
         // `ExplodeMines` is triggered.
         .add_observer(
-            |trigger: Trigger<ExplodeMines>,
-             mines: Query<&Mine>,
-             index: Res<SpatialIndex>,
-             mut commands: Commands| {
+            |trigger: Trigger<'_, ExplodeMines>,
+             mines: Query<'_, '_, &Mine>,
+             index: Res<'_, SpatialIndex>,
+             mut commands: Commands<'_, '_>| {
                 // You can access the trigger data via the `Observer`
                 let event = trigger.event();
                 // Access resources
@@ -69,7 +69,7 @@ struct ExplodeMines {
 #[derive(Event)]
 struct Explode;
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
     commands.spawn((
         Text::new(
@@ -113,9 +113,9 @@ fn setup(mut commands: Commands) {
 }
 
 fn on_add_mine(
-    trigger: Trigger<OnAdd, Mine>,
-    query: Query<&Mine>,
-    mut index: ResMut<SpatialIndex>,
+    trigger: Trigger<'_, OnAdd, Mine>,
+    query: Query<'_, '_, &Mine>,
+    mut index: ResMut<'_, SpatialIndex>,
 ) {
     let mine = query.get(trigger.entity()).unwrap();
     let tile = (
@@ -127,9 +127,9 @@ fn on_add_mine(
 
 // Remove despawned mines from our index
 fn on_remove_mine(
-    trigger: Trigger<OnRemove, Mine>,
-    query: Query<&Mine>,
-    mut index: ResMut<SpatialIndex>,
+    trigger: Trigger<'_, OnRemove, Mine>,
+    query: Query<'_, '_, &Mine>,
+    mut index: ResMut<'_, SpatialIndex>,
 ) {
     let mine = query.get(trigger.entity()).unwrap();
     let tile = (
@@ -141,7 +141,11 @@ fn on_remove_mine(
     });
 }
 
-fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands) {
+fn explode_mine(
+    trigger: Trigger<'_, Explode>,
+    query: Query<'_, '_, &Mine>,
+    mut commands: Commands<'_, '_>,
+) {
     // If a triggered event is targeting a specific entity you can access it with `.entity()`
     let id = trigger.entity();
     let Some(mut entity) = commands.get_entity(id) else {
@@ -158,7 +162,7 @@ fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Co
 }
 
 // Draw a circle for each mine using `Gizmos`
-fn draw_shapes(mut gizmos: Gizmos, mines: Query<&Mine>) {
+fn draw_shapes(mut gizmos: Gizmos, mines: Query<'_, '_, &Mine>) {
     for mine in &mines {
         gizmos.circle_2d(
             mine.pos,
@@ -170,10 +174,10 @@ fn draw_shapes(mut gizmos: Gizmos, mines: Query<&Mine>) {
 
 // Trigger `ExplodeMines` at the position of a given click
 fn handle_click(
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    camera: Single<(&Camera, &GlobalTransform)>,
-    windows: Single<&Window>,
-    mut commands: Commands,
+    mouse_button_input: Res<'_, ButtonInput<MouseButton>>,
+    camera: Single<'_, (&Camera, &GlobalTransform)>,
+    windows: Single<'_, &Window>,
+    mut commands: Commands<'_, '_>,
 ) {
     let (camera, camera_transform) = *camera;
     if let Some(pos) = windows

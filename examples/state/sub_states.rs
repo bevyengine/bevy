@@ -61,8 +61,10 @@ fn main() {
 }
 
 fn menu(
-    mut next_state: ResMut<NextState<AppState>>,
+    mut next_state: ResMut<'_, NextState<AppState>>,
     mut interaction_query: Query<
+        '_,
+        '_,
         (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
@@ -83,15 +85,15 @@ fn menu(
     }
 }
 
-fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
+fn cleanup_menu(mut commands: Commands<'_, '_>, menu_data: Res<'_, MenuData>) {
     commands.entity(menu_data.button_entity).despawn_recursive();
 }
 
 const SPEED: f32 = 100.0;
 fn movement(
-    time: Res<Time>,
-    input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut Transform, With<Sprite>>,
+    time: Res<'_, Time>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut query: Query<'_, '_, &mut Transform, With<Sprite>>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
@@ -114,7 +116,7 @@ fn movement(
     }
 }
 
-fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
+fn change_color(time: Res<'_, Time>, mut query: Query<'_, '_, &mut Sprite>) {
     for mut sprite in &mut query {
         let new_color = LinearRgba {
             blue: ops::sin(time.elapsed_seconds() * 0.5) + 2.0,
@@ -126,9 +128,9 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
 }
 
 fn toggle_pause(
-    input: Res<ButtonInput<KeyCode>>,
-    current_state: Res<State<IsPaused>>,
-    mut next_state: ResMut<NextState<IsPaused>>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    current_state: Res<'_, State<IsPaused>>,
+    mut next_state: ResMut<'_, NextState<IsPaused>>,
 ) {
     if input.just_pressed(KeyCode::Space) {
         next_state.set(match current_state.get() {
@@ -150,11 +152,11 @@ mod ui {
     pub const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
     pub const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
-    pub fn setup(mut commands: Commands) {
+    pub fn setup(mut commands: Commands<'_, '_>) {
         commands.spawn(Camera2d);
     }
 
-    pub fn setup_menu(mut commands: Commands) {
+    pub fn setup_menu(mut commands: Commands<'_, '_>) {
         let button_entity = commands
             .spawn(NodeBundle {
                 style: Style {
@@ -197,11 +199,11 @@ mod ui {
         commands.insert_resource(MenuData { button_entity });
     }
 
-    pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
+    pub fn setup_game(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
         commands.spawn(Sprite::from_image(asset_server.load("branding/icon.png")));
     }
 
-    pub fn setup_paused_screen(mut commands: Commands) {
+    pub fn setup_paused_screen(mut commands: Commands<'_, '_>) {
         commands
             .spawn((
                 StateScoped(IsPaused::Paused),

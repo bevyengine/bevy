@@ -208,11 +208,11 @@ impl PartialReflect for DynamicFunction<'static> {
         ReflectKind::Function
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Function(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Function(self)
     }
 
@@ -236,7 +236,7 @@ impl PartialReflect for DynamicFunction<'static> {
         Debug::fmt(self, f)
     }
 
-    fn serializable(&self) -> Option<Serializable> {
+    fn serializable(&self) -> Option<Serializable<'_>> {
         None
     }
 
@@ -319,8 +319,8 @@ mod tests {
         }
 
         let c = 23;
-        let function: DynamicFunction = make_closure(|a: i32, b: i32| a + b + c);
-        let _: DynamicFunction = make_closure(function);
+        let function: DynamicFunction<'_> = make_closure(|a: i32, b: i32| a + b + c);
+        let _: DynamicFunction<'_> = make_closure(function);
     }
 
     #[test]

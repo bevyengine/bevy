@@ -38,7 +38,7 @@ fn _assert_send_sync_ui_surface_impl_safe() {
 }
 
 impl fmt::Debug for UiSurface {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("UiSurface")
             .field("entity_to_taffy", &self.entity_to_taffy)
             .field("camera_roots", &self.camera_roots)
@@ -200,6 +200,8 @@ impl UiSurface {
         camera: Entity,
         render_target_resolution: UVec2,
         #[cfg(feature = "bevy_text")] buffer_query: &'a mut bevy_ecs::prelude::Query<
+            '_,
+            '_,
             &mut bevy_text::ComputedTextBlock,
         >,
         #[cfg(feature = "bevy_text")] font_system: &'a mut bevy_text::cosmic_text::FontSystem,
@@ -298,7 +300,7 @@ impl UiSurface {
 fn get_text_buffer<'a>(
     needs_buffer: bool,
     ctx: &mut NodeMeasure,
-    query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
+    query: &'a mut bevy_ecs::prelude::Query<'_, '_, &mut bevy_text::ComputedTextBlock>,
 ) -> Option<&'a mut bevy_text::ComputedTextBlock> {
     // We avoid a query lookup whenever the buffer is not required.
     if !needs_buffer {

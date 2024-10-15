@@ -9,7 +9,7 @@ use quote::{quote, ToTokens};
 
 /// Returns an expression for a `NonGenericTypeCell` or `GenericTypeCell`  to generate `'static` references.
 fn static_type_cell(
-    meta: &ReflectMeta,
+    meta: &ReflectMeta<'_>,
     property: TypedProperty,
     generator: TokenStream,
 ) -> TokenStream {
@@ -28,9 +28,7 @@ fn static_type_cell(
         }
     } else {
         let cell_type = match property {
-            TypedProperty::TypePath => unreachable!(
-                "Cannot have a non-generic type path cell. Use string literals and core::concat instead."
-            ),
+            TypedProperty::TypePath => unreachable!("Cannot have a non-generic type path cell. Use string literals and core::concat instead."),
             TypedProperty::TypeInfo => quote!(NonGenericTypeInfoCell),
         };
 
@@ -49,7 +47,7 @@ pub(crate) enum TypedProperty {
     TypePath,
 }
 
-pub(crate) fn impl_type_path(meta: &ReflectMeta) -> TokenStream {
+pub(crate) fn impl_type_path(meta: &ReflectMeta<'_>) -> TokenStream {
     let where_clause_options = WhereClauseOptions::new(meta);
 
     if !meta.attrs().type_path_attrs().should_auto_derive() {
@@ -131,8 +129,8 @@ pub(crate) fn impl_type_path(meta: &ReflectMeta) -> TokenStream {
 }
 
 pub(crate) fn impl_typed(
-    meta: &ReflectMeta,
-    where_clause_options: &WhereClauseOptions,
+    meta: &ReflectMeta<'_>,
+    where_clause_options: &WhereClauseOptions<'_, '_>,
     type_info_generator: TokenStream,
 ) -> TokenStream {
     let type_path = meta.type_path();

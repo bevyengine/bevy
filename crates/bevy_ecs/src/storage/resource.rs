@@ -65,12 +65,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         }
         if self.origin_thread_id != Some(std::thread::current().id()) {
             // Panic in tests, as testing for aborting is nearly impossible
-            panic!(
-                "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
-                self.type_name,
-                self.origin_thread_id,
-                std::thread::current().id()
-            );
+            panic!("Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.", self.type_name, self.origin_thread_id, std::thread::current().id());
         }
     }
 
@@ -171,7 +166,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         &mut self,
         value: OwningPtr<'_>,
         change_tick: Tick,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'_>,
     ) {
         if self.is_present() {
             self.validate_access();
@@ -209,7 +204,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         &mut self,
         value: OwningPtr<'_>,
         change_ticks: ComponentTicks,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'_>,
     ) {
         if self.is_present() {
             self.validate_access();
@@ -353,20 +348,10 @@ impl<const SEND: bool> Resources<SEND> {
         self.resources.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
             if SEND {
-                assert!(
-                    component_info.is_send_and_sync(),
-                    "Send + Sync resource {} initialized as non_send. It may have been inserted via World::insert_non_send_resource by accident. Try using World::insert_resource instead.",
-                    component_info.name(),
-                );
+                assert!(component_info.is_send_and_sync(), "Send + Sync resource {} initialized as non_send. It may have been inserted via World::insert_non_send_resource by accident. Try using World::insert_resource instead.", component_info.name(),);
             }
             // SAFETY: component_info.drop() is valid for the types that will be inserted.
-            let data = unsafe {
-                BlobVec::new(
-                    component_info.layout(),
-                    component_info.drop(),
-                    1
-                )
-            };
+            let data = unsafe { BlobVec::new(component_info.layout(), component_info.drop(), 1) };
             ResourceData {
                 data: ManuallyDrop::new(data),
                 added_ticks: UnsafeCell::new(Tick::new(0)),
@@ -375,7 +360,7 @@ impl<const SEND: bool> Resources<SEND> {
                 id: f(),
                 origin_thread_id: None,
                 #[cfg(feature = "track_change_detection")]
-                changed_by: UnsafeCell::new(Location::caller())
+                changed_by: UnsafeCell::new(Location::caller()),
             }
         })
     }

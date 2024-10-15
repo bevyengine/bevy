@@ -118,9 +118,9 @@ impl Plugin for OrderIndependentTransparencyPlugin {
 // but when multiple cameras are present on the same window
 // bevy reuses the same depth texture so we need to set this on all cameras with the same render target.
 fn configure_depth_texture_usages(
-    p: Query<Entity, With<PrimaryWindow>>,
-    cameras: Query<(&Camera, Has<OrderIndependentTransparencySettings>)>,
-    mut new_cameras: Query<(&mut Camera3d, &Camera), Added<Camera3d>>,
+    p: Query<'_, '_, Entity, With<PrimaryWindow>>,
+    cameras: Query<'_, '_, (&Camera, Has<OrderIndependentTransparencySettings>)>,
+    mut new_cameras: Query<'_, '_, (&mut Camera3d, &Camera), Added<Camera3d>>,
 ) {
     if new_cameras.is_empty() {
         return;
@@ -145,7 +145,7 @@ fn configure_depth_texture_usages(
     }
 }
 
-fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>) {
+fn check_msaa(cameras: Query<'_, '_, &Msaa, With<OrderIndependentTransparencySettings>>) {
     for msaa in &cameras {
         if msaa.samples() > 1 {
             panic!("MSAA is not supported when using OrderIndependentTransparency");
@@ -205,18 +205,20 @@ pub struct OitLayersCountOffset {
 /// Cameras with smaller viewports or less layers will simply use the big buffer and ignore the rest.
 #[allow(clippy::type_complexity)]
 pub fn prepare_oit_buffers(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
     cameras: Query<
+        '_,
+        '_,
         (&ExtractedCamera, &OrderIndependentTransparencySettings),
         (
             Changed<ExtractedCamera>,
             Changed<OrderIndependentTransparencySettings>,
         ),
     >,
-    camera_oit_uniforms: Query<(Entity, &OrderIndependentTransparencySettings)>,
-    mut buffers: ResMut<OitBuffers>,
+    camera_oit_uniforms: Query<'_, '_, (Entity, &OrderIndependentTransparencySettings)>,
+    mut buffers: ResMut<'_, OitBuffers>,
 ) {
     // Get the max buffer size for any OIT enabled camera
     let mut max_layer_ids_size = usize::MIN;

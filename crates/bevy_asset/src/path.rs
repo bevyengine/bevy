@@ -232,7 +232,7 @@ impl<'a> AssetPath<'a> {
     /// Gets the "asset source", if one was defined. If none was defined, the default source
     /// will be used.
     #[inline]
-    pub fn source(&self) -> &AssetSourceId {
+    pub fn source(&self) -> &AssetSourceId<'_> {
         &self.source
     }
 
@@ -588,7 +588,7 @@ struct AssetPathVisitor;
 impl<'de> Visitor<'de> for AssetPathVisitor {
     type Value = AssetPath<'static>;
 
-    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         formatter.write_str("string AssetPath")
     }
 

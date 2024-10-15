@@ -24,9 +24,9 @@ fn main() {
 
 /// set up a 3D scene to test shadow biases and perspective projections
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     let spawn_plane_depth = 500.0f32;
     let spawn_height = 2.0;
@@ -105,9 +105,9 @@ fn setup(
 }
 
 fn toggle_light(
-    input: Res<ButtonInput<KeyCode>>,
-    mut point_lights: Query<&mut PointLight>,
-    mut directional_lights: Query<&mut DirectionalLight>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut point_lights: Query<'_, '_, &mut PointLight>,
+    mut directional_lights: Query<'_, '_, &mut DirectionalLight>,
 ) {
     if input.just_pressed(KeyCode::KeyL) {
         for mut light in &mut point_lights {
@@ -130,14 +130,18 @@ fn toggle_light(
 }
 
 fn toggle_shadows(
-    mut commands: Commands,
-    input: Res<ButtonInput<KeyCode>>,
-    mut queries: ParamSet<(
-        Query<Entity, (With<Mesh3d>, With<NotShadowCaster>)>,
-        Query<Entity, (With<Mesh3d>, With<NotShadowReceiver>)>,
-        Query<Entity, (With<Mesh3d>, Without<NotShadowCaster>)>,
-        Query<Entity, (With<Mesh3d>, Without<NotShadowReceiver>)>,
-    )>,
+    mut commands: Commands<'_, '_>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut queries: ParamSet<
+        '_,
+        '_,
+        (
+            Query<'_, '_, Entity, (With<Mesh3d>, With<NotShadowCaster>)>,
+            Query<'_, '_, Entity, (With<Mesh3d>, With<NotShadowReceiver>)>,
+            Query<'_, '_, Entity, (With<Mesh3d>, Without<NotShadowCaster>)>,
+            Query<'_, '_, Entity, (With<Mesh3d>, Without<NotShadowReceiver>)>,
+        ),
+    >,
 ) {
     if input.just_pressed(KeyCode::KeyC) {
         println!("Toggling casters");

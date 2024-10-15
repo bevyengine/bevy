@@ -19,7 +19,7 @@
 /// impl_function_traits!(foo::bar::Baz<T, U>; <T: Clone, U>);
 /// ```
 ///
-/// For generic const parameters, they must be given in square brackets (`[` and `]`):
+/// For generic const parameters, they must be given in square brackets (`[` and [`Commands`]`):
 ///
 /// ```ignore
 /// impl_function_traits!(foo::bar::Baz<T, N>; <T> [const N: usize]);

@@ -221,7 +221,7 @@ impl SceneSpawner {
         id: AssetId<DynamicScene>,
         entity_map: &mut EntityHashMap<Entity>,
     ) -> Result<(), SceneSpawnError> {
-        world.resource_scope(|world, scenes: Mut<Assets<DynamicScene>>| {
+        world.resource_scope(|world, scenes: Mut<'_, Assets<DynamicScene>>| {
             let scene = scenes
                 .get(id)
                 .ok_or(SceneSpawnError::NonExistentScene { id })?;
@@ -250,7 +250,7 @@ impl SceneSpawner {
         id: AssetId<Scene>,
         entity_map: &mut EntityHashMap<Entity>,
     ) -> Result<(), SceneSpawnError> {
-        world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
+        world.resource_scope(|world, scenes: Mut<'_, Assets<Scene>>| {
             let scene = scenes
                 .get(id)
                 .ok_or(SceneSpawnError::NonExistentRealScene { id })?;
@@ -421,7 +421,7 @@ impl SceneSpawner {
 
 /// System that handles scheduled scene instance spawning and despawning through a [`SceneSpawner`].
 pub fn scene_spawner_system(world: &mut World) {
-    world.resource_scope(|world, mut scene_spawner: Mut<SceneSpawner>| {
+    world.resource_scope(|world, mut scene_spawner: Mut<'_, SceneSpawner>| {
         // remove any loading instances where parent is deleted
         let mut dead_instances = HashSet::default();
         scene_spawner
@@ -582,9 +582,9 @@ mod tests {
     fn observe_trigger(app: &mut App, scene_id: InstanceId, scene_entity: Entity) {
         // Add observer
         app.world_mut().add_observer(
-            move |trigger: Trigger<SceneInstanceReady>,
-                  scene_spawner: Res<SceneSpawner>,
-                  mut trigger_count: ResMut<TriggerCount>| {
+            move |trigger: Trigger<'_, SceneInstanceReady>,
+                  scene_spawner: Res<'_, SceneSpawner>,
+                  mut trigger_count: ResMut<'_, TriggerCount>| {
                 assert_eq!(
                     trigger.event().instance_id,
                     scene_id,
@@ -606,7 +606,7 @@ mod tests {
         // Check observer is triggered once.
         app.update();
         app.world_mut()
-            .run_system_once(|trigger_count: Res<TriggerCount>| {
+            .run_system_once(|trigger_count: Res<'_, TriggerCount>| {
                 assert_eq!(
                     trigger_count.0, 1,
                     "wrong number of `SceneInstanceReady` triggers"
@@ -735,7 +735,7 @@ mod tests {
         // Despawn scene.
         app.world_mut()
             .run_system_once(
-                |mut commands: Commands, query: Query<Entity, With<ComponentA>>| {
+                |mut commands: Commands<'_, '_>, query: Query<'_, '_, Entity, With<ComponentA>>| {
                     for entity in query.iter() {
                         commands.entity(entity).despawn_recursive();
                     }

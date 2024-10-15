@@ -8,8 +8,8 @@ use crate::{
 use quote::quote;
 
 pub(crate) fn impl_function_traits(
-    meta: &ReflectMeta,
-    where_clause_options: &WhereClauseOptions,
+    meta: &ReflectMeta<'_>,
+    where_clause_options: &WhereClauseOptions<'_, '_>,
 ) -> proc_macro2::TokenStream {
     let get_ownership = impl_get_ownership(meta, where_clause_options);
     let from_arg = impl_from_arg(meta, where_clause_options);

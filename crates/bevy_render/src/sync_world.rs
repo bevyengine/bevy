@@ -92,14 +92,15 @@ impl Plugin for SyncWorldPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity>();
         app.add_observer(
-            |trigger: Trigger<OnAdd, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+            |trigger: Trigger<'_, OnAdd, SyncToRenderWorld>,
+             mut pending: ResMut<'_, PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(trigger.entity()));
             },
         );
         app.add_observer(
-            |trigger: Trigger<OnRemove, SyncToRenderWorld>,
-             mut pending: ResMut<PendingSyncEntity>,
-             query: Query<&RenderEntity>| {
+            |trigger: Trigger<'_, OnRemove, SyncToRenderWorld>,
+             mut pending: ResMut<'_, PendingSyncEntity>,
+             query: Query<'_, '_, &RenderEntity>| {
                 if let Ok(e) = query.get(trigger.entity()) {
                     pending.push(EntityRecord::Removed(*e));
                 };
@@ -190,7 +191,7 @@ pub(crate) struct PendingSyncEntity {
 }
 
 pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut World) {
-    main_world.resource_scope(|world, mut pending: Mut<PendingSyncEntity>| {
+    main_world.resource_scope(|world, mut pending: Mut<'_, PendingSyncEntity>| {
         // TODO : batching record
         for record in pending.drain(..) {
             match record {
@@ -225,7 +226,7 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                         let id = render_world.spawn(MainEntity(main_entity)).id();
                         render_entity.0 = id;
                     }
-                },
+                }
             }
         }
     });
@@ -233,8 +234,8 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
 
 pub(crate) fn despawn_temporary_render_entities(
     world: &mut World,
-    state: &mut SystemState<Query<Entity, With<TemporaryRenderEntity>>>,
-    mut local: Local<Vec<Entity>>,
+    state: &mut SystemState<Query<'_, '_, Entity, With<TemporaryRenderEntity>>>,
+    mut local: Local<'_, Vec<Entity>>,
 ) {
     let query = state.get(world);
 
@@ -487,14 +488,15 @@ mod tests {
         main_world.init_resource::<PendingSyncEntity>();
 
         main_world.add_observer(
-            |trigger: Trigger<OnAdd, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+            |trigger: Trigger<'_, OnAdd, SyncToRenderWorld>,
+             mut pending: ResMut<'_, PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(trigger.entity()));
             },
         );
         main_world.add_observer(
-            |trigger: Trigger<OnRemove, SyncToRenderWorld>,
-             mut pending: ResMut<PendingSyncEntity>,
-             query: Query<&RenderEntity>| {
+            |trigger: Trigger<'_, OnRemove, SyncToRenderWorld>,
+             mut pending: ResMut<'_, PendingSyncEntity>,
+             query: Query<'_, '_, &RenderEntity>| {
                 if let Ok(e) = query.get(trigger.entity()) {
                     pending.push(EntityRecord::Removed(*e));
                 };

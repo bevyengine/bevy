@@ -32,9 +32,9 @@ fn main() {
 
 // Startup system to setup the scene and spawn all relevant entities.
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // Add a cube to visualize translation.
     let entity_spawn = Vec3::ZERO;
@@ -59,7 +59,7 @@ fn setup(
 }
 
 // This system will move all Movable entities with a Transform
-fn move_cube(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Res<Time>) {
+fn move_cube(mut cubes: Query<'_, '_, (&mut Transform, &mut Movable)>, timer: Res<'_, Time>) {
     for (mut transform, mut cube) in &mut cubes {
         // Check if the entity moved too far from its spawn, if so invert the moving direction.
         if (cube.spawn - transform.translation).length() > cube.max_distance {

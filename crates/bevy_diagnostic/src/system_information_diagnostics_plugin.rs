@@ -82,7 +82,7 @@ pub mod internal {
             .init_resource::<SysinfoTasks>();
     }
 
-    fn setup_system(mut diagnostics: ResMut<DiagnosticsStore>) {
+    fn setup_system(mut diagnostics: ResMut<'_, DiagnosticsStore>) {
         diagnostics
             .add(Diagnostic::new(SystemInformationDiagnosticsPlugin::CPU_USAGE).with_suffix("%"));
         diagnostics
@@ -100,11 +100,11 @@ pub mod internal {
     }
 
     fn launch_diagnostic_tasks(
-        mut tasks: ResMut<SysinfoTasks>,
+        mut tasks: ResMut<'_, SysinfoTasks>,
         // TODO: Consider a fair mutex
-        mut sysinfo: Local<Option<Arc<Mutex<System>>>>,
+        mut sysinfo: Local<'_, Option<Arc<Mutex<System>>>>,
         // TODO: FromWorld for Instant?
-        mut last_refresh: Local<Option<Instant>>,
+        mut last_refresh: Local<'_, Option<Instant>>,
     ) {
         let sysinfo = sysinfo.get_or_insert_with(|| {
             Arc::new(Mutex::new(System::new_with_specifics(
@@ -147,7 +147,10 @@ pub mod internal {
         }
     }
 
-    fn read_diagnostic_tasks(mut diagnostics: Diagnostics, mut tasks: ResMut<SysinfoTasks>) {
+    fn read_diagnostic_tasks(
+        mut diagnostics: Diagnostics<'_, '_>,
+        mut tasks: ResMut<'_, SysinfoTasks>,
+    ) {
         tasks.tasks.retain_mut(|task| {
             let Some(data) = block_on(poll_once(task)) else {
                 return true;

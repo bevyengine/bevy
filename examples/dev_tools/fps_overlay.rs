@@ -38,7 +38,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     // We need to spawn a camera (2d or 3d) to see the overlay
     commands.spawn(Camera2d);
 
@@ -64,7 +64,10 @@ fn setup(mut commands: Commands) {
         });
 }
 
-fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOverlayConfig>) {
+fn customize_config(
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut overlay: ResMut<'_, FpsOverlayConfig>,
+) {
     if input.just_pressed(KeyCode::Digit1) {
         // Changing resource will affect overlay
         if overlay.text_color == OverlayColor::GREEN {

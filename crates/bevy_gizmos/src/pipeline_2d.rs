@@ -280,14 +280,14 @@ type DrawLineJointGizmo2d = (
 
 #[allow(clippy::too_many_arguments)]
 fn queue_line_gizmos_2d(
-    draw_functions: Res<DrawFunctions<Transparent2d>>,
-    pipeline: Res<LineGizmoPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
-    pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
-    line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
+    draw_functions: Res<'_, DrawFunctions<Transparent2d>>,
+    pipeline: Res<'_, LineGizmoPipeline>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<LineGizmoPipeline>>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    line_gizmos: Query<'_, '_, (Entity, &MainEntity, &GizmoMeshConfig)>,
+    line_gizmo_assets: Res<'_, RenderAssets<GpuLineGizmo>>,
+    mut transparent_render_phases: ResMut<'_, ViewSortedRenderPhases<Transparent2d>>,
+    mut views: Query<'_, '_, (Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
 
@@ -333,14 +333,14 @@ fn queue_line_gizmos_2d(
 
 #[allow(clippy::too_many_arguments)]
 fn queue_line_joint_gizmos_2d(
-    draw_functions: Res<DrawFunctions<Transparent2d>>,
-    pipeline: Res<LineJointGizmoPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<LineJointGizmoPipeline>>,
-    pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
-    line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
+    draw_functions: Res<'_, DrawFunctions<Transparent2d>>,
+    pipeline: Res<'_, LineJointGizmoPipeline>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<LineJointGizmoPipeline>>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    line_gizmos: Query<'_, '_, (Entity, &MainEntity, &GizmoMeshConfig)>,
+    line_gizmo_assets: Res<'_, RenderAssets<GpuLineGizmo>>,
+    mut transparent_render_phases: ResMut<'_, ViewSortedRenderPhases<Transparent2d>>,
+    mut views: Query<'_, '_, (Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
 ) {
     let draw_function = draw_functions
         .read()

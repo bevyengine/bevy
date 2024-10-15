@@ -35,7 +35,7 @@ impl Default for Countdown {
     }
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     // Add an entity to the world with a timer
     commands.spawn(PrintOnCompletionTimer(Timer::from_seconds(
         5.0,
@@ -45,7 +45,10 @@ fn setup(mut commands: Commands) {
 
 /// This system ticks the `Timer` on the entity with the `PrintOnCompletionTimer`
 /// component using bevy's `Time` resource to get the delta between each update.
-fn print_when_completed(time: Res<Time>, mut query: Query<&mut PrintOnCompletionTimer>) {
+fn print_when_completed(
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, &mut PrintOnCompletionTimer>,
+) {
     for mut timer in &mut query {
         if timer.tick(time.delta()).just_finished() {
             info!("Entity timer just finished");
@@ -55,7 +58,7 @@ fn print_when_completed(time: Res<Time>, mut query: Query<&mut PrintOnCompletion
 
 /// This system controls ticking the timer within the countdown resource and
 /// handling its state.
-fn countdown(time: Res<Time>, mut countdown: ResMut<Countdown>) {
+fn countdown(time: Res<'_, Time>, mut countdown: ResMut<'_, Countdown>) {
     countdown.main_timer.tick(time.delta());
 
     // The API encourages this kind of timer state checking (if you're only checking for one value)

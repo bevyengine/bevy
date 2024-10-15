@@ -103,9 +103,9 @@ struct GlobalWireframeMaterial {
 }
 
 fn setup_global_wireframe_material(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<WireframeMaterial>>,
-    config: Res<WireframeConfig>,
+    mut commands: Commands<'_, '_>,
+    mut materials: ResMut<'_, Assets<WireframeMaterial>>,
+    config: Res<'_, WireframeConfig>,
 ) {
     // Create the handle used for the global material
     commands.insert_resource(GlobalWireframeMaterial {
@@ -117,9 +117,9 @@ fn setup_global_wireframe_material(
 
 /// Updates the wireframe material of all entities without a [`WireframeColor`] or without a [`Wireframe`] component
 fn global_color_changed(
-    config: Res<WireframeConfig>,
-    mut materials: ResMut<Assets<WireframeMaterial>>,
-    global_material: Res<GlobalWireframeMaterial>,
+    config: Res<'_, WireframeConfig>,
+    mut materials: ResMut<'_, Assets<WireframeMaterial>>,
+    global_material: Res<'_, GlobalWireframeMaterial>,
 ) {
     if let Some(global_material) = materials.get_mut(&global_material.handle) {
         global_material.color = config.default_color.into();
@@ -129,8 +129,10 @@ fn global_color_changed(
 /// Updates the wireframe material when the color in [`WireframeColor`] changes
 #[allow(clippy::type_complexity)]
 fn wireframe_color_changed(
-    mut materials: ResMut<Assets<WireframeMaterial>>,
+    mut materials: ResMut<'_, Assets<WireframeMaterial>>,
     mut colors_changed: Query<
+        '_,
+        '_,
         (&mut MeshMaterial3d<WireframeMaterial>, &WireframeColor),
         (With<Wireframe>, Changed<WireframeColor>),
     >,
@@ -145,15 +147,22 @@ fn wireframe_color_changed(
 /// Applies or remove the wireframe material to any mesh with a [`Wireframe`] component, and removes it
 /// for any mesh with a [`NoWireframe`] component.
 fn apply_wireframe_material(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<WireframeMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut materials: ResMut<'_, Assets<WireframeMaterial>>,
     wireframes: Query<
+        '_,
+        '_,
         (Entity, Option<&WireframeColor>),
         (With<Wireframe>, Without<MeshMaterial3d<WireframeMaterial>>),
     >,
-    no_wireframes: Query<Entity, (With<NoWireframe>, With<MeshMaterial3d<WireframeMaterial>>)>,
-    mut removed_wireframes: RemovedComponents<Wireframe>,
-    global_material: Res<GlobalWireframeMaterial>,
+    no_wireframes: Query<
+        '_,
+        '_,
+        Entity,
+        (With<NoWireframe>, With<MeshMaterial3d<WireframeMaterial>>),
+    >,
+    mut removed_wireframes: RemovedComponents<'_, '_, Wireframe>,
+    global_material: Res<'_, GlobalWireframeMaterial>,
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
         if let Some(mut commands) = commands.get_entity(e) {
@@ -173,18 +182,22 @@ type WireframeFilter = (With<Mesh3d>, Without<Wireframe>, Without<NoWireframe>);
 
 /// Applies or removes a wireframe material on any mesh without a [`Wireframe`] or [`NoWireframe`] component.
 fn apply_global_wireframe_material(
-    mut commands: Commands,
-    config: Res<WireframeConfig>,
+    mut commands: Commands<'_, '_>,
+    config: Res<'_, WireframeConfig>,
     meshes_without_material: Query<
+        '_,
+        '_,
         (Entity, Option<&WireframeColor>),
         (WireframeFilter, Without<MeshMaterial3d<WireframeMaterial>>),
     >,
     meshes_with_global_material: Query<
+        '_,
+        '_,
         Entity,
         (WireframeFilter, With<MeshMaterial3d<WireframeMaterial>>),
     >,
-    global_material: Res<GlobalWireframeMaterial>,
-    mut materials: ResMut<Assets<WireframeMaterial>>,
+    global_material: Res<'_, GlobalWireframeMaterial>,
+    mut materials: ResMut<'_, Assets<WireframeMaterial>>,
 ) {
     if config.global {
         let mut material_to_spawn = vec![];

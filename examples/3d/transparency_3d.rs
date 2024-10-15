@@ -13,9 +13,9 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // Opaque plane, uses `alpha_mode: Opaque` by default
     commands.spawn((
@@ -107,7 +107,7 @@ fn setup(
 ///   samples in use. For example, assuming 8xMSAA, the object will be
 ///   completely opaque, then will be 7/8 opaque (1/8 transparent), then will be
 ///   6/8 opaque, then 5/8, etc.
-pub fn fade_transparency(time: Res<Time>, mut materials: ResMut<Assets<StandardMaterial>>) {
+pub fn fade_transparency(time: Res<'_, Time>, mut materials: ResMut<'_, Assets<StandardMaterial>>) {
     let alpha = (ops::sin(time.elapsed_seconds()) / 2.0) + 0.5;
     for (_, material) in materials.iter_mut() {
         material.base_color.set_alpha(alpha);

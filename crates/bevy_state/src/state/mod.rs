@@ -377,7 +377,7 @@ mod tests {
 
         schedules.insert({
             let mut schedule = Schedule::new(OnEnter(TestNewcomputedState::A1));
-            schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
+            schedule.add_systems(|mut count: ResMut<'_, ComputedStateTransitionCounter>| {
                 count.enter += 1;
             });
             schedule
@@ -385,7 +385,7 @@ mod tests {
 
         schedules.insert({
             let mut schedule = Schedule::new(OnExit(TestNewcomputedState::A1));
-            schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
+            schedule.add_systems(|mut count: ResMut<'_, ComputedStateTransitionCounter>| {
                 count.exit += 1;
             });
             schedule
@@ -393,7 +393,7 @@ mod tests {
 
         schedules.insert({
             let mut schedule = Schedule::new(OnEnter(TestNewcomputedState::B1));
-            schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
+            schedule.add_systems(|mut count: ResMut<'_, ComputedStateTransitionCounter>| {
                 count.enter += 1;
             });
             schedule
@@ -401,7 +401,7 @@ mod tests {
 
         schedules.insert({
             let mut schedule = Schedule::new(OnExit(TestNewcomputedState::B1));
-            schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
+            schedule.add_systems(|mut count: ResMut<'_, ComputedStateTransitionCounter>| {
                 count.exit += 1;
             });
             schedule
@@ -409,7 +409,7 @@ mod tests {
 
         schedules.insert({
             let mut schedule = Schedule::new(OnEnter(TestNewcomputedState::B2));
-            schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
+            schedule.add_systems(|mut count: ResMut<'_, ComputedStateTransitionCounter>| {
                 count.enter += 1;
             });
             schedule
@@ -417,7 +417,7 @@ mod tests {
 
         schedules.insert({
             let mut schedule = Schedule::new(OnExit(TestNewcomputedState::B2));
-            schedule.add_systems(|mut count: ResMut<ComputedStateTransitionCounter>| {
+            schedule.add_systems(|mut count: ResMut<'_, ComputedStateTransitionCounter>| {
                 count.exit += 1;
             });
             schedule
@@ -510,16 +510,16 @@ mod tests {
         SimpleState::register_state(apply_changes);
 
         let mut on_exit = Schedule::new(OnExit(SimpleState::A));
-        on_exit.add_systems(|mut c: ResMut<TransitionCounter>| c.exit += 1);
+        on_exit.add_systems(|mut c: ResMut<'_, TransitionCounter>| c.exit += 1);
         schedules.insert(on_exit);
         let mut on_transition = Schedule::new(OnTransition {
             exited: SimpleState::A,
             entered: SimpleState::A,
         });
-        on_transition.add_systems(|mut c: ResMut<TransitionCounter>| c.transition += 1);
+        on_transition.add_systems(|mut c: ResMut<'_, TransitionCounter>| c.transition += 1);
         schedules.insert(on_transition);
         let mut on_enter = Schedule::new(OnEnter(SimpleState::A));
-        on_enter.add_systems(|mut c: ResMut<TransitionCounter>| c.enter += 1);
+        on_enter.add_systems(|mut c: ResMut<'_, TransitionCounter>| c.enter += 1);
         schedules.insert(on_enter);
         world.insert_resource(TransitionCounter::default());
 
@@ -661,8 +661,8 @@ mod tests {
         TransitionTestingComputedState::register_computed_state_systems(apply_changes);
 
         world.init_resource::<TransitionTracker>();
-        fn register_transition(string: &'static str) -> impl Fn(ResMut<TransitionTracker>) {
-            move |mut transitions: ResMut<TransitionTracker>| transitions.0.push(string)
+        fn register_transition(string: &'static str) -> impl Fn(ResMut<'_, TransitionTracker>) {
+            move |mut transitions: ResMut<'_, TransitionTracker>| transitions.0.push(string)
         }
 
         schedules.add_systems(

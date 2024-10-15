@@ -169,7 +169,7 @@ pub mod ray {
     /// # use bevy_picking::backend::ray::RayMap;
     /// # use bevy_picking::backend::PointerHits;
     /// // My raycasting backend
-    /// pub fn update_hits(ray_map: Res<RayMap>, mut output_events: EventWriter<PointerHits>,) {
+    /// pub fn update_hits(ray_map: Res<'_, RayMap>, mut output_events: EventWriter<'_, PointerHits>,) {
     ///     for (&ray_id, &ray) in ray_map.iter() {
     ///         // Run a raycast with each ray, returning any `PointerHits` found.
     ///     }
@@ -195,10 +195,10 @@ pub mod ray {
         /// combination of pointer entity and camera entity where the pointer
         /// intersects the camera's viewport.
         pub fn repopulate(
-            mut ray_map: ResMut<Self>,
-            primary_window_entity: Query<Entity, With<PrimaryWindow>>,
-            cameras: Query<(Entity, &Camera, &GlobalTransform)>,
-            pointers: Query<(&PointerId, &PointerLocation)>,
+            mut ray_map: ResMut<'_, Self>,
+            primary_window_entity: Query<'_, '_, Entity, With<PrimaryWindow>>,
+            cameras: Query<'_, '_, (Entity, &Camera, &GlobalTransform)>,
+            pointers: Query<'_, '_, (&PointerId, &PointerLocation)>,
         ) {
             ray_map.map.clear();
 
@@ -221,7 +221,7 @@ pub mod ray {
     }
 
     fn make_ray(
-        primary_window_entity: &Query<Entity, With<PrimaryWindow>>,
+        primary_window_entity: &Query<'_, '_, Entity, With<PrimaryWindow>>,
         camera: &Camera,
         camera_tfm: &GlobalTransform,
         pointer_loc: &PointerLocation,

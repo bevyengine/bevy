@@ -45,9 +45,9 @@ fn main() {
 }
 
 fn star(
-    mut commands: Commands,
+    mut commands: Commands<'_, '_>,
     // We will add a new Mesh for the star being created
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
 ) {
     // Let's define the mesh for the object we want to draw: a nice star.
     // We will specify here what kind of topology is used to define the mesh,
@@ -326,14 +326,14 @@ impl Plugin for ColoredMesh2dPlugin {
 
 /// Extract the [`ColoredMesh2d`] marker component into the render app
 pub fn extract_colored_mesh2d(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
+    mut commands: Commands<'_, '_>,
+    mut previous_len: Local<'_, usize>,
     // When extracting, you must use `Extract` to mark the `SystemParam`s
     // which should be taken from the main world.
     query: Extract<
-        Query<(Entity, &ViewVisibility, &GlobalTransform, &Mesh2d), With<ColoredMesh2d>>,
+        Query<'_, '_, (Entity, &ViewVisibility, &GlobalTransform, &Mesh2d), With<ColoredMesh2d>>,
     >,
-    mut render_mesh_instances: ResMut<RenderColoredMesh2dInstances>,
+    mut render_mesh_instances: ResMut<'_, RenderColoredMesh2dInstances>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, transform, handle) in &query {
@@ -364,14 +364,14 @@ pub fn extract_colored_mesh2d(
 /// Queue the 2d meshes marked with [`ColoredMesh2d`] using our custom pipeline and draw function
 #[allow(clippy::too_many_arguments)]
 pub fn queue_colored_mesh2d(
-    transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
-    colored_mesh2d_pipeline: Res<ColoredMesh2dPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<ColoredMesh2dPipeline>>,
-    pipeline_cache: Res<PipelineCache>,
-    render_meshes: Res<RenderAssets<RenderMesh>>,
-    render_mesh_instances: Res<RenderColoredMesh2dInstances>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    views: Query<(Entity, &RenderVisibleEntities, &ExtractedView, &Msaa)>,
+    transparent_draw_functions: Res<'_, DrawFunctions<Transparent2d>>,
+    colored_mesh2d_pipeline: Res<'_, ColoredMesh2dPipeline>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<ColoredMesh2dPipeline>>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    render_meshes: Res<'_, RenderAssets<RenderMesh>>,
+    render_mesh_instances: Res<'_, RenderColoredMesh2dInstances>,
+    mut transparent_render_phases: ResMut<'_, ViewSortedRenderPhases<Transparent2d>>,
+    views: Query<'_, '_, (Entity, &RenderVisibleEntities, &ExtractedView, &Msaa)>,
 ) {
     if render_mesh_instances.is_empty() {
         return;

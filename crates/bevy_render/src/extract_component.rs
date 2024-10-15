@@ -124,11 +124,11 @@ impl<C: Component + ShaderType> Default for ComponentUniforms<C> {
 /// This system prepares all components of the corresponding component type.
 /// They are transformed into uniforms and stored in the [`ComponentUniforms`] resource.
 fn prepare_uniform_components<C>(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut component_uniforms: ResMut<ComponentUniforms<C>>,
-    components: Query<(Entity, &C)>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut component_uniforms: ResMut<'_, ComponentUniforms<C>>,
+    components: Query<'_, '_, (Entity, &C)>,
 ) where
     C: Component + ShaderType + WriteInto + Clone,
 {
@@ -197,9 +197,9 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
 fn extract_components<C: ExtractComponent>(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
-    query: Extract<Query<(RenderEntity, C::QueryData), C::QueryFilter>>,
+    mut commands: Commands<'_, '_>,
+    mut previous_len: Local<'_, usize>,
+    query: Extract<'_, '_, Query<'_, '_, (RenderEntity, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
@@ -213,9 +213,13 @@ fn extract_components<C: ExtractComponent>(
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
 fn extract_visible_components<C: ExtractComponent>(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
-    query: Extract<Query<(RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
+    mut commands: Commands<'_, '_>,
+    mut previous_len: Local<'_, usize>,
+    query: Extract<
+        '_,
+        '_,
+        Query<'_, '_, (RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>,
+    >,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, query_item) in &query {

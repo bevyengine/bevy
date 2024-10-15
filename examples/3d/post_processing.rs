@@ -45,7 +45,11 @@ fn main() {
 }
 
 /// Creates the example scene and spawns the UI.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: Res<AppSettings>) {
+fn setup(
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    app_settings: Res<'_, AppSettings>,
+) {
     // Spawn the camera.
     spawn_camera(&mut commands, &asset_server);
 
@@ -57,7 +61,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 }
 
 /// Spawns the camera, including the [`ChromaticAberration`] component.
-fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
+fn spawn_camera(commands: &mut Commands<'_, '_>, asset_server: &AssetServer) {
     commands.spawn((
         Camera3d::default(),
         Camera {
@@ -88,7 +92,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 ///
 /// This is just the tonemapping test scene, chosen for the fact that it uses a
 /// variety of colors.
-fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
+fn spawn_scene(commands: &mut Commands<'_, '_>, asset_server: &AssetServer) {
     // Spawn the main scene.
     commands.spawn(SceneRoot(asset_server.load(
         GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
@@ -121,7 +125,7 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
 }
 
 /// Spawns the help text at the bottom of the screen.
-fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
+fn spawn_text(commands: &mut Commands<'_, '_>, app_settings: &AppSettings) {
     commands.spawn((
         create_help_text(app_settings),
         Style {
@@ -151,7 +155,10 @@ fn create_help_text(app_settings: &AppSettings) -> Text {
 }
 
 /// Handles requests from the user to change the chromatic aberration intensity.
-fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<ButtonInput<KeyCode>>) {
+fn handle_keyboard_input(
+    mut app_settings: ResMut<'_, AppSettings>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+) {
     let mut delta = 0.0;
     if input.pressed(KeyCode::ArrowLeft) {
         delta -= CHROMATIC_ABERRATION_INTENSITY_ADJUSTMENT_SPEED;
@@ -171,8 +178,8 @@ fn handle_keyboard_input(mut app_settings: ResMut<AppSettings>, input: Res<Butto
 
 /// Updates the [`ChromaticAberration`] settings per the [`AppSettings`].
 fn update_chromatic_aberration_settings(
-    mut chromatic_aberration: Query<&mut ChromaticAberration>,
-    app_settings: Res<AppSettings>,
+    mut chromatic_aberration: Query<'_, '_, &mut ChromaticAberration>,
+    app_settings: Res<'_, AppSettings>,
 ) {
     let intensity = app_settings.chromatic_aberration_intensity;
 
@@ -193,7 +200,7 @@ fn update_chromatic_aberration_settings(
 
 /// Updates the help text at the bottom of the screen to reflect the current
 /// [`AppSettings`].
-fn update_help_text(mut text: Query<&mut Text>, app_settings: Res<AppSettings>) {
+fn update_help_text(mut text: Query<'_, '_, &mut Text>, app_settings: Res<'_, AppSettings>) {
     for mut text in text.iter_mut() {
         *text = create_help_text(&app_settings);
     }

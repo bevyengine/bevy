@@ -32,7 +32,7 @@ pub(crate) struct VariantField<'a, 'b> {
 /// Trait used to control how enum variants are built.
 pub(crate) trait VariantBuilder: Sized {
     /// Returns the enum data.
-    fn reflect_enum(&self) -> &ReflectEnum;
+    fn reflect_enum(&self) -> &ReflectEnum<'_>;
 
     /// Returns a token stream that accesses a field of a variant as an `Option<dyn Reflect>`.
     ///
@@ -42,7 +42,7 @@ pub(crate) trait VariantBuilder: Sized {
     /// # Parameters
     /// * `this`: The identifier of the enum
     /// * `field`: The field to access
-    fn access_field(&self, this: &Ident, field: VariantField) -> TokenStream {
+    fn access_field(&self, this: &Ident, field: VariantField<'_, '_>) -> TokenStream {
         match &field.field.data.ident {
             Some(field_ident) => {
                 let name = field_ident.to_string();
@@ -65,21 +65,21 @@ pub(crate) trait VariantBuilder: Sized {
     ///
     /// # Parameters
     /// * `field`: The field to access
-    fn unwrap_field(&self, field: VariantField) -> TokenStream;
+    fn unwrap_field(&self, field: VariantField<'_, '_>) -> TokenStream;
 
     /// Returns a token stream that constructs a field of a variant as a concrete type
     /// (from a `&dyn Reflect`).
     ///
     /// # Parameters
     /// * `field`: The field to access
-    fn construct_field(&self, field: VariantField) -> TokenStream;
+    fn construct_field(&self, field: VariantField<'_, '_>) -> TokenStream;
 
     /// Returns a token stream that constructs an instance of an active field.
     ///
     /// # Parameters
     /// * `this`: The identifier of the enum
     /// * `field`: The field to access
-    fn on_active_field(&self, this: &Ident, field: VariantField) -> TokenStream {
+    fn on_active_field(&self, this: &Ident, field: VariantField<'_, '_>) -> TokenStream {
         let bevy_reflect_path = self.reflect_enum().meta().bevy_reflect_path();
         let field_accessor = self.access_field(this, field);
 
@@ -127,7 +127,7 @@ pub(crate) trait VariantBuilder: Sized {
     ///
     /// # Parameters
     /// * `field`: The field to access
-    fn on_ignored_field(&self, field: VariantField) -> TokenStream {
+    fn on_ignored_field(&self, field: VariantField<'_, '_>) -> TokenStream {
         match &field.field.attrs.default {
             DefaultBehavior::Func(path) => quote! { #path() },
             _ => quote! { #FQDefault::default() },
@@ -194,22 +194,22 @@ pub(crate) struct FromReflectVariantBuilder<'a> {
 }
 
 impl<'a> FromReflectVariantBuilder<'a> {
-    pub fn new(reflect_enum: &'a ReflectEnum) -> Self {
+    pub fn new(reflect_enum: &'a ReflectEnum<'_>) -> Self {
         Self { reflect_enum }
     }
 }
 
 impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
-    fn reflect_enum(&self) -> &ReflectEnum {
+    fn reflect_enum(&self) -> &ReflectEnum<'_> {
         self.reflect_enum
     }
 
-    fn unwrap_field(&self, field: VariantField) -> TokenStream {
+    fn unwrap_field(&self, field: VariantField<'_, '_>) -> TokenStream {
         let alias = field.alias;
         quote!(#alias?)
     }
 
-    fn construct_field(&self, field: VariantField) -> TokenStream {
+    fn construct_field(&self, field: VariantField<'_, '_>) -> TokenStream {
         let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
         let field_ty = field.field.reflected_type();
         let alias = field.alias;
@@ -226,17 +226,17 @@ pub(crate) struct TryApplyVariantBuilder<'a> {
 }
 
 impl<'a> TryApplyVariantBuilder<'a> {
-    pub fn new(reflect_enum: &'a ReflectEnum) -> Self {
+    pub fn new(reflect_enum: &'a ReflectEnum<'_>) -> Self {
         Self { reflect_enum }
     }
 }
 
 impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
-    fn reflect_enum(&self) -> &ReflectEnum {
+    fn reflect_enum(&self) -> &ReflectEnum<'_> {
         self.reflect_enum
     }
 
-    fn unwrap_field(&self, field: VariantField) -> TokenStream {
+    fn unwrap_field(&self, field: VariantField<'_, '_>) -> TokenStream {
         let VariantField {
             alias,
             variant_name,
@@ -259,7 +259,7 @@ impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
         }
     }
 
-    fn construct_field(&self, field: VariantField) -> TokenStream {
+    fn construct_field(&self, field: VariantField<'_, '_>) -> TokenStream {
         let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
         let alias = field.alias;
         let field_ty = field.field.reflected_type();

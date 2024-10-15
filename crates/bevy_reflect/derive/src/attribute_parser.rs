@@ -8,16 +8,16 @@ use syn::{
 ///
 /// This is functionally the same as [`Punctuated::parse_terminated`],
 /// but accepts a closure rather than a function pointer.
-pub(crate) fn terminated_parser<T, P, F: FnMut(ParseStream) -> syn::Result<T>>(
+pub(crate) fn terminated_parser<T, P, F: FnMut(ParseStream<'_>) -> syn::Result<T>>(
     terminator: P,
     mut parser: F,
-) -> impl FnOnce(ParseStream) -> syn::Result<Punctuated<T, P::Token>>
+) -> impl FnOnce(ParseStream<'_>) -> syn::Result<Punctuated<T, P::Token>>
 where
     P: Peek,
     P::Token: Parse,
 {
     let _ = terminator;
-    move |stream: ParseStream| {
+    move |stream: ParseStream<'_>| {
         let mut punctuated = Punctuated::new();
 
         loop {

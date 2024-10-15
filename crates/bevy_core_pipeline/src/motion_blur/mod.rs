@@ -61,7 +61,7 @@ pub struct MotionBlurBundle {
 /// ```
 /// # use bevy_core_pipeline::{core_3d::Camera3d, motion_blur::MotionBlur};
 /// # use bevy_ecs::prelude::*;
-/// # fn test(mut commands: Commands) {
+/// # fn test(mut commands: Commands<'_, '_>) {
 /// commands.spawn((
 ///     Camera3d::default(),
 ///     MotionBlur::default(),

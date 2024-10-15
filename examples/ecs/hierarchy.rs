@@ -12,7 +12,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn(Camera2d);
     let texture = asset_server.load("branding/icon.png");
 
@@ -24,7 +24,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         // With that entity as a parent, run a lambda that spawns its children
         .with_children(|parent| {
-            // parent is a ChildBuilder, which has a similar API to Commands
+            // parent is a ChildBuilder, which has a similar API to Commands<'_, '_>
             parent.spawn((
                 Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
                 Sprite {
@@ -56,10 +56,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 // A simple system to rotate the root entity, and rotate all its children separately
 fn rotate(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut parents_query: Query<(Entity, &Children), With<Sprite>>,
-    mut transform_query: Query<&mut Transform, With<Sprite>>,
+    mut commands: Commands<'_, '_>,
+    time: Res<'_, Time>,
+    mut parents_query: Query<'_, '_, (Entity, &Children), With<Sprite>>,
+    mut transform_query: Query<'_, '_, &mut Transform, With<Sprite>>,
 ) {
     for (parent, children) in &mut parents_query {
         if let Ok(mut transform) = transform_query.get_mut(parent) {

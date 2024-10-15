@@ -68,8 +68,13 @@ impl Plugin for MorphPlugin {
 ///
 /// Only direct children are updated, to fulfill the expectations of glTF spec.
 pub fn inherit_weights(
-    morph_nodes: Query<(&Children, &MorphWeights), (Without<Mesh3d>, Changed<MorphWeights>)>,
-    mut morph_primitives: Query<&mut MeshMorphWeights, With<Mesh3d>>,
+    morph_nodes: Query<
+        '_,
+        '_,
+        (&Children, &MorphWeights),
+        (Without<Mesh3d>, Changed<MorphWeights>),
+    >,
+    mut morph_primitives: Query<'_, '_, &mut MeshMorphWeights, With<Mesh3d>>,
 ) {
     for (children, parent_weights) in &morph_nodes {
         let mut iter = morph_primitives.iter_many_mut(children);
@@ -169,7 +174,7 @@ impl RenderAsset for RenderMesh {
     /// Converts the extracted mesh into a [`RenderMesh`].
     fn prepare_asset(
         mesh: Self::SourceAsset,
-        (images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
+        (images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let morph_targets = match mesh.morph_targets() {
             Some(mt) => {

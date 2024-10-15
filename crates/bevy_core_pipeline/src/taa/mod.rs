@@ -180,11 +180,9 @@ impl ViewNode for TemporalAntiAliasNode {
 
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
-            Self::ViewQuery,
-        >,
+        _graph: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
+        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<'_, Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         if *msaa != Msaa::Off {
@@ -356,7 +354,7 @@ impl SpecializedRenderPipeline for TaaPipeline {
     }
 }
 
-fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
+fn extract_taa_settings(mut commands: Commands<'_, '_>, mut main_world: ResMut<'_, MainWorld>) {
     let mut cameras_3d = main_world.query_filtered::<(
         RenderEntity,
         &Camera,
@@ -384,9 +382,14 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
 }
 
 fn prepare_taa_jitter_and_mip_bias(
-    frame_count: Res<FrameCount>,
-    mut query: Query<(Entity, &mut TemporalJitter, Option<&MipBias>), With<TemporalAntiAliasing>>,
-    mut commands: Commands,
+    frame_count: Res<'_, FrameCount>,
+    mut query: Query<
+        '_,
+        '_,
+        (Entity, &mut TemporalJitter, Option<&MipBias>),
+        With<TemporalAntiAliasing>,
+    >,
+    mut commands: Commands<'_, '_>,
 ) {
     // Halton sequence (2, 3) - 0.5, skipping i = 0
     let halton_sequence = [
@@ -418,11 +421,11 @@ pub struct TemporalAntiAliasHistoryTextures {
 }
 
 fn prepare_taa_history_textures(
-    mut commands: Commands,
-    mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
-    frame_count: Res<FrameCount>,
-    views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasing>>,
+    mut commands: Commands<'_, '_>,
+    mut texture_cache: ResMut<'_, TextureCache>,
+    render_device: Res<'_, RenderDevice>,
+    frame_count: Res<'_, FrameCount>,
+    views: Query<'_, '_, (Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasing>>,
 ) {
     for (entity, camera, view) in &views {
         if let Some(physical_target_size) = camera.physical_target_size {
@@ -472,11 +475,11 @@ fn prepare_taa_history_textures(
 pub struct TemporalAntiAliasPipelineId(CachedRenderPipelineId);
 
 fn prepare_taa_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<TaaPipeline>>,
-    pipeline: Res<TaaPipeline>,
-    views: Query<(Entity, &ExtractedView, &TemporalAntiAliasing)>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<TaaPipeline>>,
+    pipeline: Res<'_, TaaPipeline>,
+    views: Query<'_, '_, (Entity, &ExtractedView, &TemporalAntiAliasing)>,
 ) {
     for (entity, view, taa_settings) in &views {
         let mut pipeline_key = TaaPipelineKey {

@@ -89,7 +89,7 @@ impl Component for ObserverState {
 ///
 /// Typically refers to the default runner that runs the system stored in the associated [`Observer`] component,
 /// but can be overridden for custom behaviour.
-pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: &mut bool);
+pub type ObserverRunner = fn(DeferredWorld<'_>, ObserverTrigger, PtrMut<'_>, propagate: &mut bool);
 
 /// An [`Observer`] system. Add this [`Component`] to an [`Entity`] to turn it into an "observer".
 ///
@@ -111,7 +111,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 ///     message: String,
 /// }
 ///
-/// world.add_observer(|trigger: Trigger<Speak>| {
+/// world.add_observer(|trigger: Trigger<'_, Speak>| {
 ///     println!("{}", trigger.event().message);
 /// });
 ///
@@ -132,8 +132,8 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # #[derive(Event)]
 /// # struct Speak;
 /// // These are functionally the same:
-/// world.add_observer(|trigger: Trigger<Speak>| {});
-/// world.spawn(Observer::new(|trigger: Trigger<Speak>| {}));
+/// world.add_observer(|trigger: Trigger<'_, Speak>| {});
+/// world.spawn(Observer::new(|trigger: Trigger<'_, Speak>| {}));
 /// ```
 ///
 /// Observers are systems. They can access arbitrary [`World`] data by adding [`SystemParam`]s:
@@ -145,7 +145,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # struct PrintNames;
 /// # #[derive(Component, Debug)]
 /// # struct Name;
-/// world.add_observer(|trigger: Trigger<PrintNames>, names: Query<&Name>| {
+/// world.add_observer(|trigger: Trigger<'_, PrintNames>, names: Query<'_, '_, &Name>| {
 ///     for name in &names {
 ///         println!("{name:?}");
 ///     }
@@ -163,7 +163,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # struct SpawnThing;
 /// # #[derive(Component, Debug)]
 /// # struct Thing;
-/// world.add_observer(|trigger: Trigger<SpawnThing>, mut commands: Commands| {
+/// world.add_observer(|trigger: Trigger<'_, SpawnThing>, mut commands: Commands<'_, '_>| {
 ///     commands.spawn(Thing);
 /// });
 /// ```
@@ -177,7 +177,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # struct A;
 /// # #[derive(Event)]
 /// # struct B;
-/// world.add_observer(|trigger: Trigger<A>, mut commands: Commands| {
+/// world.add_observer(|trigger: Trigger<'_, A>, mut commands: Commands<'_, '_>| {
 ///     commands.trigger(B);
 /// });
 /// ```
@@ -195,7 +195,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// #[derive(Event)]
 /// struct Explode;
 ///
-/// world.add_observer(|trigger: Trigger<Explode>, mut commands: Commands| {
+/// world.add_observer(|trigger: Trigger<'_, Explode>, mut commands: Commands<'_, '_>| {
 ///     println!("Entity {:?} goes BOOM!", trigger.entity());
 ///     commands.entity(trigger.entity()).despawn();
 /// });
@@ -228,12 +228,12 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # let e2 = world.spawn_empty().id();
 /// # #[derive(Event)]
 /// # struct Explode;
-/// world.entity_mut(e1).observe(|trigger: Trigger<Explode>, mut commands: Commands| {
+/// world.entity_mut(e1).observe(|trigger: Trigger<'_, Explode>, mut commands: Commands<'_, '_>| {
 ///     println!("Boom!");
 ///     commands.entity(trigger.entity()).despawn();
 /// });
 ///
-/// world.entity_mut(e2).observe(|trigger: Trigger<Explode>, mut commands: Commands| {
+/// world.entity_mut(e2).observe(|trigger: Trigger<'_, Explode>, mut commands: Commands<'_, '_>| {
 ///     println!("The explosion fizzles! This entity is immune!");
 /// });
 /// ```
@@ -250,7 +250,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # let entity = world.spawn_empty().id();
 /// # #[derive(Event)]
 /// # struct Explode;
-/// let mut observer = Observer::new(|trigger: Trigger<Explode>| {});
+/// let mut observer = Observer::new(|trigger: Trigger<'_, Explode>| {});
 /// observer.watch_entity(entity);
 /// world.spawn(observer);
 /// ```
@@ -326,9 +326,9 @@ impl Component for Observer {
 }
 
 fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
-    mut world: DeferredWorld,
+    mut world: DeferredWorld<'_>,
     observer_trigger: ObserverTrigger,
-    ptr: PtrMut,
+    ptr: PtrMut<'_>,
     propagate: &mut bool,
 ) {
     let world = world.as_unsafe_world_cell();
@@ -352,7 +352,7 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     }
     state.last_trigger_id = last_trigger;
 
-    let trigger: Trigger<E, B> = Trigger::new(
+    let trigger: Trigger<'_, E, B> = Trigger::new(
         // SAFETY: Caller ensures `ptr` is castable to `&mut T`
         unsafe { ptr.deref_mut() },
         propagate,

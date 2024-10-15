@@ -194,30 +194,20 @@ impl Plugin for MeshRenderPlugin {
             render_app.insert_resource(render_mesh_instances);
 
             if use_gpu_instance_buffer_builder {
-                render_app
-                    .init_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
-                    .init_resource::<RenderMeshInstanceGpuQueues>()
-                    .add_systems(
-                        ExtractSchedule,
-                        extract_meshes_for_gpu_building.in_set(ExtractMeshesSet),
-                    )
-                    .add_systems(
-                        Render,
-                        (
-                            gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
-                                .in_set(RenderSet::PrepareResourcesFlush),
-                            gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
-                                .in_set(RenderSet::ManageViews)
-                                .after(prepare_view_targets),
-                            collect_meshes_for_gpu_building
-                                .in_set(RenderSet::PrepareAssets)
-                                .after(allocator::allocate_and_free_meshes)
-                                // This must be before
-                                // `set_mesh_motion_vector_flags` so it doesn't
-                                // overwrite those flags.
-                                .before(set_mesh_motion_vector_flags),
-                        ),
-                    );
+                render_app.init_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>().init_resource::<RenderMeshInstanceGpuQueues>().add_systems(ExtractSchedule, extract_meshes_for_gpu_building.in_set(ExtractMeshesSet)).add_systems(
+                    Render,
+                    (
+                        gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>.in_set(RenderSet::PrepareResourcesFlush),
+                        gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>.in_set(RenderSet::ManageViews).after(prepare_view_targets),
+                        collect_meshes_for_gpu_building
+                            .in_set(RenderSet::PrepareAssets)
+                            .after(allocator::allocate_and_free_meshes)
+                            // This must be before
+                            // `set_mesh_motion_vector_flags` so it doesn't
+                            // overwrite those flags.
+                            .before(set_mesh_motion_vector_flags),
+                    ),
+                );
             } else {
                 let render_device = render_app.world().resource::<RenderDevice>();
                 let cpu_batched_instance_buffer =
@@ -649,7 +639,7 @@ impl RenderMeshInstances {
 
     /// Constructs [`RenderMeshQueueData`] for the given entity, if it has a
     /// mesh attached.
-    pub fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
+    pub fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         match *self {
             RenderMeshInstances::CpuBuilding(ref instances) => {
                 instances.render_mesh_queue_data(entity)
@@ -680,7 +670,7 @@ impl RenderMeshInstancesCpu {
             .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
     }
 
-    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
+    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
@@ -703,7 +693,7 @@ impl RenderMeshInstancesGpu {
             .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
     }
 
-    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
+    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
@@ -867,22 +857,28 @@ pub struct ExtractMeshesSet;
 /// This is the variant of the system that runs when we're *not* using GPU
 /// [`MeshUniform`] building.
 pub fn extract_meshes_for_cpu_building(
-    mut render_mesh_instances: ResMut<RenderMeshInstances>,
-    render_visibility_ranges: Res<RenderVisibilityRanges>,
-    mut render_mesh_instance_queues: Local<Parallel<Vec<(Entity, RenderMeshInstanceCpu)>>>,
+    mut render_mesh_instances: ResMut<'_, RenderMeshInstances>,
+    render_visibility_ranges: Res<'_, RenderVisibilityRanges>,
+    mut render_mesh_instance_queues: Local<'_, Parallel<Vec<(Entity, RenderMeshInstanceCpu)>>>,
     meshes_query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &GlobalTransform,
-            Option<&PreviousGlobalTransform>,
-            &Mesh3d,
-            Has<NotShadowReceiver>,
-            Has<TransmittedShadowReceiver>,
-            Has<NotShadowCaster>,
-            Has<NoAutomaticBatching>,
-            Has<VisibilityRange>,
-        )>,
+        '_,
+        '_,
+        Query<
+            '_,
+            '_,
+            (
+                Entity,
+                &ViewVisibility,
+                &GlobalTransform,
+                Option<&PreviousGlobalTransform>,
+                &Mesh3d,
+                Has<NotShadowReceiver>,
+                Has<TransmittedShadowReceiver>,
+                Has<NotShadowCaster>,
+                Has<NoAutomaticBatching>,
+                Has<VisibilityRange>,
+            ),
+        >,
     >,
 ) {
     meshes_query.par_iter().for_each_init(
@@ -964,26 +960,32 @@ pub fn extract_meshes_for_cpu_building(
 /// This is the variant of the system that runs when we're using GPU
 /// [`MeshUniform`] building.
 pub fn extract_meshes_for_gpu_building(
-    mut render_mesh_instances: ResMut<RenderMeshInstances>,
-    render_visibility_ranges: Res<RenderVisibilityRanges>,
-    mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
+    mut render_mesh_instances: ResMut<'_, RenderMeshInstances>,
+    render_visibility_ranges: Res<'_, RenderVisibilityRanges>,
+    mut render_mesh_instance_queues: ResMut<'_, RenderMeshInstanceGpuQueues>,
     meshes_query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &GlobalTransform,
-            Option<&PreviousGlobalTransform>,
-            Option<&Lightmap>,
-            Option<&Aabb>,
-            &Mesh3d,
-            Has<NotShadowReceiver>,
-            Has<TransmittedShadowReceiver>,
-            Has<NotShadowCaster>,
-            Has<NoAutomaticBatching>,
-            Has<VisibilityRange>,
-        )>,
+        '_,
+        '_,
+        Query<
+            '_,
+            '_,
+            (
+                Entity,
+                &ViewVisibility,
+                &GlobalTransform,
+                Option<&PreviousGlobalTransform>,
+                Option<&Lightmap>,
+                Option<&Aabb>,
+                &Mesh3d,
+                Has<NotShadowReceiver>,
+                Has<TransmittedShadowReceiver>,
+                Has<NotShadowCaster>,
+                Has<NoAutomaticBatching>,
+                Has<VisibilityRange>,
+            ),
+        >,
     >,
-    cameras_query: Extract<Query<(), (With<Camera>, With<GpuCulling>)>>,
+    cameras_query: Extract<'_, '_, Query<'_, '_, (), (With<Camera>, With<GpuCulling>)>>,
 ) {
     let any_gpu_culling = !cameras_query.is_empty();
     for render_mesh_instance_queue in render_mesh_instance_queues.iter_mut() {
@@ -1086,9 +1088,9 @@ pub fn extract_meshes_for_gpu_building(
 /// tables for each mesh, but that would be too slow in the hot mesh queuing
 /// loop.
 fn set_mesh_motion_vector_flags(
-    mut render_mesh_instances: ResMut<RenderMeshInstances>,
-    skin_indices: Res<SkinIndices>,
-    morph_indices: Res<MorphIndices>,
+    mut render_mesh_instances: ResMut<'_, RenderMeshInstances>,
+    skin_indices: Res<'_, SkinIndices>,
+    morph_indices: Res<'_, MorphIndices>,
 ) {
     for &entity in skin_indices.prev.keys() {
         render_mesh_instances
@@ -1103,13 +1105,14 @@ fn set_mesh_motion_vector_flags(
 /// Creates the [`RenderMeshInstanceGpu`]s and [`MeshInputUniform`]s when GPU
 /// mesh uniforms are built.
 pub fn collect_meshes_for_gpu_building(
-    render_mesh_instances: ResMut<RenderMeshInstances>,
+    render_mesh_instances: ResMut<'_, RenderMeshInstances>,
     batched_instance_buffers: ResMut<
+        '_,
         gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>,
     >,
-    mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
-    mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
-    mesh_allocator: Res<MeshAllocator>,
+    mut mesh_culling_data_buffer: ResMut<'_, MeshCullingDataBuffer>,
+    mut render_mesh_instance_queues: ResMut<'_, RenderMeshInstanceGpuQueues>,
+    mesh_allocator: Res<'_, MeshAllocator>,
 ) {
     let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) =
         render_mesh_instances.into_inner()
@@ -1195,10 +1198,10 @@ pub struct MeshPipeline {
 impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
         let mut system_state: SystemState<(
-            Res<RenderDevice>,
-            Res<DefaultImageSampler>,
-            Res<RenderQueue>,
-            Res<MeshPipelineViewLayouts>,
+            Res<'_, RenderDevice>,
+            Res<'_, DefaultImageSampler>,
+            Res<'_, RenderQueue>,
+            Res<'_, MeshPipelineViewLayouts>,
         )> = SystemState::new(world);
         let (render_device, default_sampler, render_queue, view_layouts) =
             system_state.get_mut(world);
@@ -1287,7 +1290,7 @@ impl GetBatchData for MeshPipeline {
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, mesh_allocator): &SystemParamItem<'_, '_, Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -1324,7 +1327,7 @@ impl GetFullBatchData for MeshPipeline {
     type BufferInputData = MeshInputUniform;
 
     fn get_index_and_compare_data(
-        (mesh_instances, lightmaps, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, _): &SystemParamItem<'_, '_, Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
         // This should only be called during GPU building.
@@ -1350,7 +1353,7 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn get_binned_batch_data(
-        (mesh_instances, lightmaps, _, mesh_allocator): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, mesh_allocator): &SystemParamItem<'_, '_, Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<Self::BufferData> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -1375,7 +1378,7 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn get_binned_index(
-        (mesh_instances, _, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, _, _, _): &SystemParamItem<'_, '_, Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<NonMaxU32> {
         // This should only be called during GPU building.
@@ -1393,7 +1396,7 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn get_batch_indirect_parameters_index(
-        (mesh_instances, _, meshes, mesh_allocator): &SystemParamItem<Self::Param>,
+        (mesh_instances, _, meshes, mesh_allocator): &SystemParamItem<'_, '_, Self::Param>,
         indirect_parameters_buffer: &mut IndirectParametersBuffer,
         entity: (Entity, MainEntity),
         instance_index: u32,
@@ -2079,20 +2082,20 @@ impl MeshBindGroupPair {
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_bind_group(
-    meshes: Res<RenderAssets<RenderMesh>>,
-    images: Res<RenderAssets<GpuImage>>,
-    mut groups: ResMut<MeshBindGroups>,
-    mesh_pipeline: Res<MeshPipeline>,
-    render_device: Res<RenderDevice>,
+    meshes: Res<'_, RenderAssets<RenderMesh>>,
+    images: Res<'_, RenderAssets<GpuImage>>,
+    mut groups: ResMut<'_, MeshBindGroups>,
+    mesh_pipeline: Res<'_, MeshPipeline>,
+    render_device: Res<'_, RenderDevice>,
     cpu_batched_instance_buffer: Option<
-        Res<no_gpu_preprocessing::BatchedInstanceBuffer<MeshUniform>>,
+        Res<'_, no_gpu_preprocessing::BatchedInstanceBuffer<MeshUniform>>,
     >,
     gpu_batched_instance_buffers: Option<
-        Res<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
+        Res<'_, gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
     >,
-    skins_uniform: Res<SkinUniforms>,
-    weights_uniform: Res<MorphUniforms>,
-    render_lightmaps: Res<RenderLightmaps>,
+    skins_uniform: Res<'_, SkinUniforms>,
+    weights_uniform: Res<'_, MorphUniforms>,
+    render_lightmaps: Res<'_, RenderLightmaps>,
 ) {
     groups.reset();
 
@@ -2355,7 +2358,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     #[inline]
     fn render<'w>(
         item: &P,
-        has_preprocess_bind_group: ROQueryItem<Self::ViewQuery>,
+        has_preprocess_bind_group: ROQueryItem<'_, Self::ViewQuery>,
         _item_query: Option<()>,
         (
             meshes,

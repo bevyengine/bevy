@@ -33,7 +33,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
 
     fn run<'w>(
         &self,
-        graph: &mut RenderGraphContext,
+        graph: &mut RenderGraphContext<'_>,
         render_context: &mut RenderContext<'w>,
         (view, camera, view_depth_texture, view_prepass_textures): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,

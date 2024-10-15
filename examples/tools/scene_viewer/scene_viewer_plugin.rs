@@ -77,16 +77,16 @@ impl Plugin for SceneViewerPlugin {
     }
 }
 
-fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
+fn toggle_bounding_boxes(mut config: ResMut<'_, GizmoConfigStore>) {
     config.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
 }
 
 fn scene_load_check(
-    asset_server: Res<AssetServer>,
-    mut scenes: ResMut<Assets<Scene>>,
-    gltf_assets: Res<Assets<Gltf>>,
-    mut scene_handle: ResMut<SceneHandle>,
-    mut scene_spawner: ResMut<SceneSpawner>,
+    asset_server: Res<'_, AssetServer>,
+    mut scenes: ResMut<'_, Assets<Scene>>,
+    gltf_assets: Res<'_, Assets<Gltf>>,
+    mut scene_handle: ResMut<'_, SceneHandle>,
+    mut scene_spawner: ResMut<'_, SceneSpawner>,
 ) {
     match scene_handle.instance_id {
         None => {
@@ -142,10 +142,10 @@ fn scene_load_check(
 }
 
 fn update_lights(
-    key_input: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
-    mut query: Query<(&mut Transform, &mut DirectionalLight)>,
-    mut animate_directional_light: Local<bool>,
+    key_input: Res<'_, ButtonInput<KeyCode>>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, (&mut Transform, &mut DirectionalLight)>,
+    mut animate_directional_light: Local<'_, bool>,
 ) {
     for (_, mut light) in &mut query {
         if key_input.just_pressed(KeyCode::KeyU) {
@@ -198,13 +198,17 @@ impl CameraTracker {
 }
 
 fn camera_tracker(
-    mut camera_tracker: ResMut<CameraTracker>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut queries: ParamSet<(
-        Query<(Entity, &mut Camera), (Added<Camera>, Without<CameraController>)>,
-        Query<(Entity, &mut Camera), (Added<Camera>, With<CameraController>)>,
-        Query<&mut Camera>,
-    )>,
+    mut camera_tracker: ResMut<'_, CameraTracker>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut queries: ParamSet<
+        '_,
+        '_,
+        (
+            Query<'_, '_, (Entity, &mut Camera), (Added<Camera>, Without<CameraController>)>,
+            Query<'_, '_, (Entity, &mut Camera), (Added<Camera>, With<CameraController>)>,
+            Query<'_, '_, &mut Camera>,
+        ),
+    >,
 ) {
     // track added scene camera entities first, to ensure they are preferred for the
     // default active camera

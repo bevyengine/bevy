@@ -203,12 +203,12 @@ where
     /// Returns an immutable enumeration of "kinds" of type.
     ///
     /// See [`ReflectRef`].
-    fn reflect_ref(&self) -> ReflectRef;
+    fn reflect_ref(&self) -> ReflectRef<'_>;
 
     /// Returns a mutable enumeration of "kinds" of type.
     ///
     /// See [`ReflectMut`].
-    fn reflect_mut(&mut self) -> ReflectMut;
+    fn reflect_mut(&mut self) -> ReflectMut<'_>;
 
     /// Returns an owned enumeration of "kinds" of type.
     ///
@@ -272,7 +272,7 @@ where
     /// Returns a serializable version of the value.
     ///
     /// If the underlying type does not support serialization, returns `None`.
-    fn serializable(&self) -> Option<Serializable> {
+    fn serializable(&self) -> Option<Serializable<'_>> {
         None
     }
 

@@ -49,8 +49,8 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
 
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        _graph: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
         (
             camera,
             target,
@@ -64,7 +64,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             meshlet_view_materials,
             meshlet_view_bind_groups,
             meshlet_view_resources,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<'_, Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         if meshlet_view_materials.is_empty() {
@@ -155,8 +155,8 @@ impl ViewNode for MeshletPrepassNode {
 
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        _graph: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
         (
             camera,
             view_prepass_textures,
@@ -166,7 +166,7 @@ impl ViewNode for MeshletPrepassNode {
             meshlet_view_materials,
             meshlet_view_bind_groups,
             meshlet_view_resources,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<'_, Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         if meshlet_view_materials.is_empty() {
@@ -278,8 +278,8 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
 
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        _graph: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
         (
             camera,
             view_prepass_textures,
@@ -289,7 +289,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             meshlet_view_materials,
             meshlet_view_bind_groups,
             meshlet_view_resources,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<'_, Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         if meshlet_view_materials.is_empty() {

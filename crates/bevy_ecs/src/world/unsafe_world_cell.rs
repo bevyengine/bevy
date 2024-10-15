@@ -632,7 +632,7 @@ impl<'w> UnsafeWorldCell<'w> {
 }
 
 impl Debug for UnsafeWorldCell<'_> {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // SAFETY: World's Debug implementation only accesses metadata.
         Debug::fmt(unsafe { self.world_metadata() }, f)
     }

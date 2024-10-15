@@ -28,7 +28,7 @@ impl ViewNode for MainOpaquePass2dNode {
 
     fn run<'w>(
         &self,
-        graph: &mut RenderGraphContext,
+        graph: &mut RenderGraphContext<'_>,
         render_context: &mut RenderContext<'w>,
         (camera, target, depth): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,

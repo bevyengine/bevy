@@ -121,10 +121,10 @@ struct ExampleAnimationWeights {
 
 /// Initializes the scene.
 fn setup_assets(
-    mut commands: Commands,
-    mut asset_server: ResMut<AssetServer>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
-    args: Res<Args>,
+    mut commands: Commands<'_, '_>,
+    mut asset_server: ResMut<'_, AssetServer>,
+    mut animation_graphs: ResMut<'_, Assets<AnimationGraph>>,
+    args: Res<'_, Args>,
 ) {
     // Create or load the assets.
     if args.no_load || args.save {
@@ -139,7 +139,7 @@ fn setup_assets(
     }
 }
 
-fn setup_ui(mut commands: Commands) {
+fn setup_ui(mut commands: Commands<'_, '_>) {
     setup_help_text(&mut commands);
     setup_node_rects(&mut commands);
     setup_node_lines(&mut commands);
@@ -149,7 +149,7 @@ fn setup_ui(mut commands: Commands) {
 /// Optionally saves them to disk if `save` is present (corresponding to the
 /// `--save` option).
 fn setup_assets_programmatically(
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
     asset_server: &mut AssetServer,
     animation_graphs: &mut Assets<AnimationGraph>,
     _save: bool,
@@ -203,7 +203,7 @@ fn setup_assets_programmatically(
 }
 
 fn setup_assets_via_serialized_animation_graph(
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
     asset_server: &mut AssetServer,
 ) {
     commands.insert_resource(ExampleAnimationGraph(
@@ -213,10 +213,10 @@ fn setup_assets_via_serialized_animation_graph(
 
 /// Spawns the animated fox.
 fn setup_scene(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     commands.spawn((
         Camera3d::default(),
@@ -249,7 +249,7 @@ fn setup_scene(
 }
 
 /// Places the help text at the top left of the window.
-fn setup_help_text(commands: &mut Commands) {
+fn setup_help_text(commands: &mut Commands<'_, '_>) {
     commands.spawn((
         Text::new(HELP_TEXT),
         Style {
@@ -262,7 +262,7 @@ fn setup_help_text(commands: &mut Commands) {
 }
 
 /// Initializes the node UI widgets.
-fn setup_node_rects(commands: &mut Commands) {
+fn setup_node_rects(commands: &mut Commands<'_, '_>) {
     for (node_rect, node_type) in NODE_RECTS.iter().zip(NODE_TYPES.iter()) {
         let node_string = match *node_type {
             NodeType::Clip(ref clip) => clip.text,
@@ -341,7 +341,7 @@ fn setup_node_rects(commands: &mut Commands) {
 ///
 /// This is a bit hacky: it uses 1-pixel-wide and 1-pixel-high boxes to draw
 /// vertical and horizontal lines, respectively.
-fn setup_node_lines(commands: &mut Commands) {
+fn setup_node_lines(commands: &mut Commands<'_, '_>) {
     for line in &HORIZONTAL_LINES {
         commands.spawn(NodeBundle {
             style: Style {
@@ -377,10 +377,10 @@ fn setup_node_lines(commands: &mut Commands) {
 
 /// Attaches the animation graph to the scene, and plays all three animations.
 fn init_animations(
-    mut commands: Commands,
-    mut query: Query<(Entity, &mut AnimationPlayer)>,
-    animation_graph: Res<ExampleAnimationGraph>,
-    mut done: Local<bool>,
+    mut commands: Commands<'_, '_>,
+    mut query: Query<'_, '_, (Entity, &mut AnimationPlayer)>,
+    animation_graph: Res<'_, ExampleAnimationGraph>,
+    mut done: Local<'_, bool>,
 ) {
     if *done {
         return;
@@ -402,8 +402,8 @@ fn init_animations(
 /// Read cursor position relative to clip nodes, allowing the user to change weights
 /// when dragging the node UI widgets.
 fn handle_weight_drag(
-    mut interaction_query: Query<(&Interaction, &RelativeCursorPosition, &ClipNode)>,
-    mut animation_weights_query: Query<&mut ExampleAnimationWeights>,
+    mut interaction_query: Query<'_, '_, (&Interaction, &RelativeCursorPosition, &ClipNode)>,
+    mut animation_weights_query: Query<'_, '_, &mut ExampleAnimationWeights>,
 ) {
     for (interaction, relative_cursor, clip_node) in &mut interaction_query {
         if !matches!(*interaction, Interaction::Pressed) {
@@ -422,10 +422,15 @@ fn handle_weight_drag(
 
 // Updates the UI based on the weights that the user has chosen.
 fn update_ui(
-    mut text_query: Query<&mut Text>,
-    mut background_query: Query<&mut Style, Without<Text>>,
-    container_query: Query<(&Children, &ClipNode)>,
-    animation_weights_query: Query<&ExampleAnimationWeights, Changed<ExampleAnimationWeights>>,
+    mut text_query: Query<'_, '_, &mut Text>,
+    mut background_query: Query<'_, '_, &mut Style, Without<Text>>,
+    container_query: Query<'_, '_, (&Children, &ClipNode)>,
+    animation_weights_query: Query<
+        '_,
+        '_,
+        &ExampleAnimationWeights,
+        Changed<ExampleAnimationWeights>,
+    >,
 ) {
     for animation_weights in animation_weights_query.iter() {
         for (children, clip_node) in &container_query {
@@ -451,7 +456,7 @@ fn update_ui(
 
 /// Takes the weights that were set in the UI and assigns them to the actual
 /// playing animation.
-fn sync_weights(mut query: Query<(&mut AnimationPlayer, &ExampleAnimationWeights)>) {
+fn sync_weights(mut query: Query<'_, '_, (&mut AnimationPlayer, &ExampleAnimationWeights)>) {
     for (mut animation_player, animation_weights) in query.iter_mut() {
         for (&animation_node_index, &animation_weight) in CLIP_NODE_INDICES
             .iter()

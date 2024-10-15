@@ -15,9 +15,9 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    mut ui_materials: ResMut<Assets<CustomUiMaterial>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut ui_materials: ResMut<'_, Assets<CustomUiMaterial>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     // Camera so we can see UI
     commands.spawn(Camera2d);
@@ -81,9 +81,9 @@ impl UiMaterial for CustomUiMaterial {
 // Fills the slider slowly over 2 seconds and resets it
 // Also updates the color of the image to a rainbow color
 fn animate(
-    mut materials: ResMut<Assets<CustomUiMaterial>>,
-    q: Query<&UiMaterialHandle<CustomUiMaterial>>,
-    time: Res<Time>,
+    mut materials: ResMut<'_, Assets<CustomUiMaterial>>,
+    q: Query<'_, '_, &UiMaterialHandle<CustomUiMaterial>>,
+    time: Res<'_, Time>,
 ) {
     let duration = 2.0;
     for handle in &q {

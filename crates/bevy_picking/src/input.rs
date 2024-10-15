@@ -57,11 +57,11 @@ pub struct PointerInputPlugin {
 }
 
 impl PointerInputPlugin {
-    fn is_mouse_enabled(state: Res<Self>) -> bool {
+    fn is_mouse_enabled(state: Res<'_, Self>) -> bool {
         state.is_mouse_enabled
     }
 
-    fn is_touch_enabled(state: Res<Self>) -> bool {
+    fn is_touch_enabled(state: Res<'_, Self>) -> bool {
         state.is_touch_enabled
     }
 }
@@ -98,19 +98,19 @@ impl Plugin for PointerInputPlugin {
 }
 
 /// Spawns the default mouse pointer.
-pub fn spawn_mouse_pointer(mut commands: Commands) {
+pub fn spawn_mouse_pointer(mut commands: Commands<'_, '_>) {
     commands.spawn(PointerId::Mouse);
 }
 
 /// Sends mouse pointer events to be processed by the core plugin
 pub fn mouse_pick_events(
     // Input
-    mut window_events: EventReader<WindowEvent>,
-    primary_window: Query<Entity, With<PrimaryWindow>>,
+    mut window_events: EventReader<'_, '_, WindowEvent>,
+    primary_window: Query<'_, '_, Entity, With<PrimaryWindow>>,
     // Locals
-    mut cursor_last: Local<Vec2>,
+    mut cursor_last: Local<'_, Vec2>,
     // Output
-    mut pointer_events: EventWriter<PointerInput>,
+    mut pointer_events: EventWriter<'_, PointerInput>,
 ) {
     for window_event in window_events.read() {
         match window_event {
@@ -169,13 +169,13 @@ pub fn mouse_pick_events(
 /// Sends touch pointer events to be consumed by the core plugin
 pub fn touch_pick_events(
     // Input
-    mut window_events: EventReader<WindowEvent>,
-    primary_window: Query<Entity, With<PrimaryWindow>>,
+    mut window_events: EventReader<'_, '_, WindowEvent>,
+    primary_window: Query<'_, '_, Entity, With<PrimaryWindow>>,
     // Locals
-    mut touch_cache: Local<HashMap<u64, TouchInput>>,
+    mut touch_cache: Local<'_, HashMap<u64, TouchInput>>,
     // Output
-    mut commands: Commands,
-    mut pointer_events: EventWriter<PointerInput>,
+    mut commands: Commands<'_, '_>,
+    mut pointer_events: EventWriter<'_, PointerInput>,
 ) {
     for window_event in window_events.read() {
         if let WindowEvent::TouchInput(touch) = window_event {
@@ -250,10 +250,10 @@ pub fn touch_pick_events(
 /// Because each new touch gets assigned a new ID, we need to remove the pointers associated with
 /// touches that are no longer active.
 pub fn deactivate_touch_pointers(
-    mut commands: Commands,
-    mut despawn_list: Local<HashSet<(Entity, PointerId)>>,
-    pointers: Query<(Entity, &PointerId)>,
-    mut touches: EventReader<TouchInput>,
+    mut commands: Commands<'_, '_>,
+    mut despawn_list: Local<'_, HashSet<(Entity, PointerId)>>,
+    pointers: Query<'_, '_, (Entity, &PointerId)>,
+    mut touches: EventReader<'_, '_, TouchInput>,
 ) {
     for touch in touches.read() {
         if let TouchPhase::Ended | TouchPhase::Canceled = touch.phase {

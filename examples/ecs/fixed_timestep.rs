@@ -14,7 +14,7 @@ fn main() {
         .run();
 }
 
-fn frame_update(mut last_time: Local<f32>, time: Res<Time>) {
+fn frame_update(mut last_time: Local<'_, f32>, time: Res<'_, Time>) {
     // Default `Time` is `Time<Virtual>` here
     info!(
         "time since last frame_update: {}",
@@ -23,7 +23,11 @@ fn frame_update(mut last_time: Local<f32>, time: Res<Time>) {
     *last_time = time.elapsed_seconds();
 }
 
-fn fixed_update(mut last_time: Local<f32>, time: Res<Time>, fixed_time: Res<Time<Fixed>>) {
+fn fixed_update(
+    mut last_time: Local<'_, f32>,
+    time: Res<'_, Time>,
+    fixed_time: Res<'_, Time<Fixed>>,
+) {
     // Default `Time`is `Time<Fixed>` here
     info!(
         "time since last fixed_update: {}\n",

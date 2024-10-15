@@ -42,9 +42,9 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     warn!(include_str!("warning_string.txt"));
 
@@ -133,14 +133,21 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 }
 
 // System for rotating the camera
-fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<Camera>>) {
+fn move_camera(
+    time: Res<'_, Time>,
+    mut camera_transform: Single<'_, &mut Transform, With<Camera>>,
+) {
     let delta = time.delta_seconds() * 0.15;
     camera_transform.rotate_z(delta);
     camera_transform.rotate_x(delta);
 }
 
 // System for printing the number of meshes on every tick of the timer
-fn print_light_count(time: Res<Time>, mut timer: Local<PrintingTimer>, lights: Query<&PointLight>) {
+fn print_light_count(
+    time: Res<'_, Time>,
+    mut timer: Local<'_, PrintingTimer>,
+    lights: Query<'_, '_, &PointLight>,
+) {
     timer.0.tick(time.delta());
 
     if timer.0.just_finished() {
@@ -162,10 +169,10 @@ impl Plugin for LogVisibleLights {
 
 // System for printing the number of meshes on every tick of the timer
 fn print_visible_light_count(
-    time: Res<Time>,
-    mut timer: Local<PrintingTimer>,
-    visible: Query<&ExtractedPointLight>,
-    global_light_meta: Res<GlobalClusterableObjectMeta>,
+    time: Res<'_, Time>,
+    mut timer: Local<'_, PrintingTimer>,
+    visible: Query<'_, '_, &ExtractedPointLight>,
+    global_light_meta: Res<'_, GlobalClusterableObjectMeta>,
 ) {
     timer.0.tick(time.delta());
 

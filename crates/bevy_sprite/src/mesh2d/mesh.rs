@@ -207,15 +207,21 @@ pub struct RenderMesh2dInstances(MainEntityHashMap<RenderMesh2dInstance>);
 pub struct Mesh2dMarker;
 
 pub fn extract_mesh2d(
-    mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
+    mut render_mesh_instances: ResMut<'_, RenderMesh2dInstances>,
     query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &GlobalTransform,
-            &Mesh2d,
-            Has<NoAutomaticBatching>,
-        )>,
+        '_,
+        '_,
+        Query<
+            '_,
+            '_,
+            (
+                Entity,
+                &ViewVisibility,
+                &GlobalTransform,
+                &Mesh2d,
+                Has<NoAutomaticBatching>,
+            ),
+        >,
     >,
 ) {
     render_mesh_instances.clear();
@@ -251,9 +257,9 @@ pub struct Mesh2dPipeline {
 impl FromWorld for Mesh2dPipeline {
     fn from_world(world: &mut World) -> Self {
         let mut system_state: SystemState<(
-            Res<RenderDevice>,
-            Res<RenderQueue>,
-            Res<DefaultImageSampler>,
+            Res<'_, RenderDevice>,
+            Res<'_, RenderQueue>,
+            Res<'_, DefaultImageSampler>,
         )> = SystemState::new(world);
         let (render_device, render_queue, default_sampler) = system_state.get_mut(world);
         let render_device = render_device.into_inner();
@@ -356,7 +362,7 @@ impl GetBatchData for Mesh2dPipeline {
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
-        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, _, _): &SystemParamItem<'_, '_, Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let mesh_instance = mesh_instances.get(&main_entity)?;
@@ -374,7 +380,7 @@ impl GetFullBatchData for Mesh2dPipeline {
     type BufferInputData = ();
 
     fn get_binned_batch_data(
-        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, _, _): &SystemParamItem<'_, '_, Self::Param>,
         (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<Self::BufferData> {
         let mesh_instance = mesh_instances.get(&main_entity)?;
@@ -382,7 +388,7 @@ impl GetFullBatchData for Mesh2dPipeline {
     }
 
     fn get_index_and_compare_data(
-        _: &SystemParamItem<Self::Param>,
+        _: &SystemParamItem<'_, '_, Self::Param>,
         _query_item: (Entity, MainEntity),
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
         error!(
@@ -393,7 +399,7 @@ impl GetFullBatchData for Mesh2dPipeline {
     }
 
     fn get_binned_index(
-        _: &SystemParamItem<Self::Param>,
+        _: &SystemParamItem<'_, '_, Self::Param>,
         _query_item: (Entity, MainEntity),
     ) -> Option<NonMaxU32> {
         error!(
@@ -404,7 +410,7 @@ impl GetFullBatchData for Mesh2dPipeline {
     }
 
     fn get_batch_indirect_parameters_index(
-        (mesh_instances, meshes, mesh_allocator): &SystemParamItem<Self::Param>,
+        (mesh_instances, meshes, mesh_allocator): &SystemParamItem<'_, '_, Self::Param>,
         indirect_parameters_buffer: &mut bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer,
         (_entity, main_entity): (Entity, MainEntity),
         instance_index: u32,
@@ -684,10 +690,10 @@ pub struct Mesh2dBindGroup {
 }
 
 pub fn prepare_mesh2d_bind_group(
-    mut commands: Commands,
-    mesh2d_pipeline: Res<Mesh2dPipeline>,
-    render_device: Res<RenderDevice>,
-    mesh2d_uniforms: Res<BatchedInstanceBuffer<Mesh2dUniform>>,
+    mut commands: Commands<'_, '_>,
+    mesh2d_pipeline: Res<'_, Mesh2dPipeline>,
+    render_device: Res<'_, RenderDevice>,
+    mesh2d_uniforms: Res<'_, BatchedInstanceBuffer<Mesh2dUniform>>,
 ) {
     if let Some(binding) = mesh2d_uniforms.instance_data_binding() {
         commands.insert_resource(Mesh2dBindGroup {
@@ -707,15 +713,15 @@ pub struct Mesh2dViewBindGroup {
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh2d_view_bind_groups(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    mesh2d_pipeline: Res<Mesh2dPipeline>,
-    view_uniforms: Res<ViewUniforms>,
-    views: Query<(Entity, &Tonemapping), (With<ExtractedView>, With<Camera2d>)>,
-    globals_buffer: Res<GlobalsBuffer>,
-    tonemapping_luts: Res<TonemappingLuts>,
-    images: Res<RenderAssets<GpuImage>>,
-    fallback_image: Res<FallbackImage>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    mesh2d_pipeline: Res<'_, Mesh2dPipeline>,
+    view_uniforms: Res<'_, ViewUniforms>,
+    views: Query<'_, '_, (Entity, &Tonemapping), (With<ExtractedView>, With<Camera2d>)>,
+    globals_buffer: Res<'_, GlobalsBuffer>,
+    tonemapping_luts: Res<'_, TonemappingLuts>,
+    images: Res<'_, RenderAssets<GpuImage>>,
+    fallback_image: Res<'_, FallbackImage>,
 ) {
     let (Some(view_binding), Some(globals)) = (
         view_uniforms.uniforms.binding(),

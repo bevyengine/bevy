@@ -122,12 +122,12 @@ pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
 /// The system used to update the [`Time`] used by app logic. If there is a render world the time is
 /// sent from there to this system through channels. Otherwise the time is updated in this system.
 pub fn time_system(
-    mut real_time: ResMut<Time<Real>>,
-    mut virtual_time: ResMut<Time<Virtual>>,
-    mut time: ResMut<Time>,
-    update_strategy: Res<TimeUpdateStrategy>,
-    time_recv: Option<Res<TimeReceiver>>,
-    mut has_received_time: Local<bool>,
+    mut real_time: ResMut<'_, Time<Real>>,
+    mut virtual_time: ResMut<'_, Time<Virtual>>,
+    mut time: ResMut<'_, Time>,
+    update_strategy: Res<'_, TimeUpdateStrategy>,
+    time_recv: Option<Res<'_, TimeReceiver>>,
+    mut has_received_time: Local<'_, bool>,
 ) {
     let new_time = if let Some(time_recv) = time_recv {
         // TODO: Figure out how to handle this when using pipelined rendering.
@@ -183,14 +183,14 @@ mod tests {
     #[derive(Resource, Default)]
     struct FixedUpdateCounter(u8);
 
-    fn count_fixed_updates(mut counter: ResMut<FixedUpdateCounter>) {
+    fn count_fixed_updates(mut counter: ResMut<'_, FixedUpdateCounter>) {
         counter.0 += 1;
     }
 
     fn report_time(
-        mut frame_count: Local<u64>,
-        virtual_time: Res<Time<Virtual>>,
-        fixed_time: Res<Time<Fixed>>,
+        mut frame_count: Local<'_, u64>,
+        virtual_time: Res<'_, Time<Virtual>>,
+        fixed_time: Res<'_, Time<Fixed>>,
     ) {
         println!(
             "Virtual time on frame {}: {:?}",
@@ -270,12 +270,12 @@ mod tests {
         app.add_plugins(TimePlugin)
             .add_event::<TestEvent<i32>>()
             .add_event::<TestEvent<()>>()
-            .add_systems(Startup, move |mut ev2: EventWriter<TestEvent<()>>| {
+            .add_systems(Startup, move |mut ev2: EventWriter<'_, TestEvent<()>>| {
                 ev2.send(TestEvent {
                     sender: tx2.clone(),
                 });
             })
-            .add_systems(Update, move |mut ev1: EventWriter<TestEvent<i32>>| {
+            .add_systems(Update, move |mut ev1: EventWriter<'_, TestEvent<i32>>| {
                 // Keep adding events so this event type is processed every update
                 ev1.send(TestEvent {
                     sender: tx1.clone(),
@@ -283,7 +283,8 @@ mod tests {
             })
             .add_systems(
                 Update,
-                |mut ev1: EventReader<TestEvent<i32>>, mut ev2: EventReader<TestEvent<()>>| {
+                |mut ev1: EventReader<'_, '_, TestEvent<i32>>,
+                 mut ev2: EventReader<'_, '_, TestEvent<()>>| {
                     // Read events so they can be dropped
                     for _ in ev1.read() {}
                     for _ in ev2.read() {}
@@ -311,7 +312,7 @@ mod tests {
         let fixed_update_timestep = Time::<Fixed>::default().timestep();
         let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
 
-        fn send_event(mut events: ResMut<Events<DummyEvent>>) {
+        fn send_event(mut events: ResMut<'_, Events<DummyEvent>>) {
             events.send(DummyEvent);
         }
 

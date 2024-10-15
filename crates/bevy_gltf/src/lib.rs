@@ -21,7 +21,7 @@
 //! # use bevy_transform::prelude::*;
 //! # use bevy_gltf::prelude::*;
 //!
-//! fn spawn_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
+//! fn spawn_gltf(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
 //!     commands.spawn((
 //!         // This is equivalent to "models/FlightHelmet/FlightHelmet.gltf#Scene0"
 //!         // The `#Scene0` label here is very important because it tells bevy to load the first scene in the glTF file.
@@ -50,16 +50,16 @@
 //! #[derive(Resource)]
 //! struct HelmetScene(Handle<Gltf>);
 //!
-//! fn load_gltf(mut commands: Commands, asset_server: Res<AssetServer>) {
+//! fn load_gltf(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
 //!     let gltf = asset_server.load("models/FlightHelmet/FlightHelmet.gltf");
 //!     commands.insert_resource(HelmetScene(gltf));
 //! }
 //!
 //! fn spawn_gltf_objects(
-//!     mut commands: Commands,
-//!     helmet_scene: Res<HelmetScene>,
-//!     gltf_assets: Res<Assets<Gltf>>,
-//!     mut loaded: Local<bool>,
+//!     mut commands: Commands<'_, '_>,
+//!     helmet_scene: Res<'_, HelmetScene>,
+//!     gltf_assets: Res<'_, Assets<Gltf>>,
+//!     mut loaded: Local<'_, bool>,
 //! ) {
 //!     // Only do this once
 //!     if *loaded {
@@ -233,7 +233,7 @@ pub struct GltfNode {
 impl GltfNode {
     /// Create a node extracting name and index from glTF def
     pub fn new(
-        node: &gltf::Node,
+        node: &gltf::Node<'_>,
         children: Vec<Handle<GltfNode>>,
         mesh: Option<Handle<GltfMesh>>,
         transform: bevy_transform::prelude::Transform,
@@ -293,7 +293,7 @@ pub struct GltfSkin {
 impl GltfSkin {
     /// Create a skin extracting name and index from glTF def
     pub fn new(
-        skin: &gltf::Skin,
+        skin: &gltf::Skin<'_>,
         joints: Vec<Handle<GltfNode>>,
         inverse_bind_matrices: Handle<SkinnedMeshInverseBindposes>,
         extras: Option<GltfExtras>,
@@ -336,7 +336,7 @@ pub struct GltfMesh {
 impl GltfMesh {
     /// Create a mesh extracting name and index from glTF def
     pub fn new(
-        mesh: &gltf::Mesh,
+        mesh: &gltf::Mesh<'_>,
         primitives: Vec<GltfPrimitive>,
         extras: Option<GltfExtras>,
     ) -> Self {
@@ -382,8 +382,8 @@ pub struct GltfPrimitive {
 impl GltfPrimitive {
     /// Create a primitive extracting name and index from glTF def
     pub fn new(
-        gltf_mesh: &gltf::Mesh,
-        gltf_primitive: &gltf::Primitive,
+        gltf_mesh: &gltf::Mesh<'_>,
+        gltf_primitive: &gltf::Primitive<'_>,
         mesh: Handle<Mesh>,
         material: Option<Handle<StandardMaterial>>,
         extras: Option<GltfExtras>,
@@ -473,7 +473,7 @@ pub struct GltfMaterialName(pub String);
 /// # use bevy_scene::prelude::*;
 /// # use bevy_gltf::prelude::*;
 ///
-/// fn load_gltf_scene(asset_server: Res<AssetServer>) {
+/// fn load_gltf_scene(asset_server: Res<'_, AssetServer>) {
 ///     let gltf_scene: Handle<Scene> = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
 /// }
 /// ```
@@ -486,7 +486,7 @@ pub struct GltfMaterialName(pub String);
 /// # use bevy_scene::prelude::*;
 /// # use bevy_gltf::prelude::*;
 ///
-/// fn load_gltf_scene(asset_server: Res<AssetServer>) {
+/// fn load_gltf_scene(asset_server: Res<'_, AssetServer>) {
 ///     let gltf_scene: Handle<Scene> = asset_server.load(format!("models/FlightHelmet/FlightHelmet.gltf#{}", GltfAssetLabel::Scene(0)));
 /// }
 /// ```
@@ -574,7 +574,7 @@ impl GltfAssetLabel {
     /// # use bevy_scene::prelude::*;
     /// # use bevy_gltf::prelude::*;
     ///
-    /// fn load_gltf_scene(asset_server: Res<AssetServer>) {
+    /// fn load_gltf_scene(asset_server: Res<'_, AssetServer>) {
     ///     let gltf_scene: Handle<Scene> = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
     /// }
     /// ```

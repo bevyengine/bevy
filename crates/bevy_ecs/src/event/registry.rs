@@ -14,7 +14,7 @@ struct RegisteredEvent {
     previously_updated: bool,
     // SAFETY: The component ID and the function must be used to fetch the Events<T> resource
     // of the same type initialized in `register_event`, or improper type casts will occur.
-    update: unsafe fn(MutUntyped),
+    update: unsafe fn(MutUntyped<'_>),
 }
 
 /// A registry of all of the [`Events`] in the [`World`], used by [`event_update_system`](crate::event::update::event_update_system)

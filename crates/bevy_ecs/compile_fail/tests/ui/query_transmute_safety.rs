@@ -11,7 +11,7 @@ fn main() {
     let mut world = World::default();
     world.spawn(Foo(10));
 
-    let mut system_state = SystemState::<Query<(&mut Foo, &Bar)>>::new(&mut world);
+    let mut system_state = SystemState::<Query<'_, '_, (&mut Foo, &Bar)>>::new(&mut world);
     let mut query = system_state.get_mut(&mut world);
 
     {

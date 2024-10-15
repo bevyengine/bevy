@@ -58,7 +58,7 @@ use super::{IntoSystem, ReadOnlySystem, System};
 ///     // The name of the combined system.
 ///     std::borrow::Cow::Borrowed("a ^ b"),
 /// )));
-/// # fn my_system(mut flag: ResMut<RanFlag>) { flag.0 = true; }
+/// # fn my_system(mut flag: ResMut<'_, RanFlag>) { flag.0 = true; }
 /// #
 /// # world.insert_resource(A(0));
 /// # world.insert_resource(B(0));
@@ -170,7 +170,7 @@ where
     unsafe fn run_unsafe(
         &mut self,
         input: SystemIn<'_, Self>,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> Self::Out {
         Func::combine(
             input,
@@ -206,13 +206,13 @@ where
     }
 
     #[inline]
-    fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
+    fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld<'_>) {
         self.a.queue_deferred(world.reborrow());
         self.b.queue_deferred(world);
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell<'_>) -> bool {
         // SAFETY: Delegate to other `System` implementations.
         unsafe { self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world) }
     }
@@ -224,7 +224,7 @@ where
         self.component_access.extend(self.b.component_access());
     }
 
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell<'_>) {
         self.a.update_archetype_component_access(world);
         self.b.update_archetype_component_access(world);
 
@@ -340,7 +340,7 @@ where
 /// #[derive(Resource)]
 /// struct Message(String);
 ///
-/// fn parse_message_system(message: Res<Message>) -> Result<usize, ParseIntError> {
+/// fn parse_message_system(message: Res<'_, Message>) -> Result<usize, ParseIntError> {
 ///     message.0.parse::<usize>()
 /// }
 ///
@@ -410,7 +410,7 @@ where
     unsafe fn run_unsafe(
         &mut self,
         input: SystemIn<'_, Self>,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> Self::Out {
         let value = self.a.run_unsafe(input, world);
         self.b.run_unsafe(value, world)
@@ -426,12 +426,12 @@ where
         self.b.apply_deferred(world);
     }
 
-    fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
+    fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld<'_>) {
         self.a.queue_deferred(world.reborrow());
         self.b.queue_deferred(world);
     }
 
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell<'_>) -> bool {
         // SAFETY: Delegate to other `System` implementations.
         unsafe { self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world) }
     }
@@ -447,7 +447,7 @@ where
         self.component_access.extend(self.b.component_access());
     }
 
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell<'_>) {
         self.a.update_archetype_component_access(world);
         self.b.update_archetype_component_access(world);
 

@@ -51,11 +51,7 @@ pub fn ktx2_buffer_to_image(
                 SupercompressionScheme::ZLIB => {
                     let mut decoder = flate2::bufread::ZlibDecoder::new(_level_data);
                     let mut decompressed = Vec::new();
-                    decoder.read_to_end(&mut decompressed).map_err(|err| {
-                        TextureError::SuperDecompressionError(format!(
-                            "Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",
-                        ))
-                    })?;
+                    decoder.read_to_end(&mut decompressed).map_err(|err| TextureError::SuperDecompressionError(format!("Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",)))?;
                     levels.push(decompressed);
                 }
                 #[cfg(feature = "ruzstd")]
@@ -64,11 +60,7 @@ pub fn ktx2_buffer_to_image(
                     let mut decoder = ruzstd::StreamingDecoder::new(&mut cursor)
                         .map_err(|err| TextureError::SuperDecompressionError(err.to_string()))?;
                     let mut decompressed = Vec::new();
-                    decoder.read_to_end(&mut decompressed).map_err(|err| {
-                        TextureError::SuperDecompressionError(format!(
-                            "Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",
-                        ))
-                    })?;
+                    decoder.read_to_end(&mut decompressed).map_err(|err| TextureError::SuperDecompressionError(format!("Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",)))?;
                     levels.push(decompressed);
                 }
                 _ => {
@@ -92,11 +84,7 @@ pub fn ktx2_buffer_to_image(
                     let (mut original_width, mut original_height) = (width, height);
 
                     for (level, level_data) in levels.iter().enumerate() {
-                        transcoded[level] = level_data
-                            .iter()
-                            .copied()
-                            .map(|v| (Srgba::gamma_function(v as f32 / 255.) * 255.).floor() as u8)
-                            .collect::<Vec<u8>>();
+                        transcoded[level] = level_data.iter().copied().map(|v| (Srgba::gamma_function(v as f32 / 255.) * 255.).floor() as u8).collect::<Vec<u8>>();
 
                         // Next mip dimensions are half the current, minimum 1x1
                         original_width = (original_width / 2).max(1);
@@ -109,11 +97,7 @@ pub fn ktx2_buffer_to_image(
                     let (mut original_width, mut original_height) = (width, height);
 
                     for (level, level_data) in levels.iter().enumerate() {
-                        transcoded[level] = level_data
-                            .iter()
-                            .copied()
-                            .map(|v| (Srgba::gamma_function(v as f32 / 255.) * 255.).floor() as u8)
-                            .collect::<Vec<u8>>();
+                        transcoded[level] = level_data.iter().copied().map(|v| (Srgba::gamma_function(v as f32 / 255.) * 255.).floor() as u8).collect::<Vec<u8>>();
 
                         // Next mip dimensions are half the current, minimum 1x1
                         original_width = (original_width / 2).max(1);
@@ -149,26 +133,16 @@ pub fn ktx2_buffer_to_image(
                 }
                 #[cfg(feature = "basis-universal")]
                 TranscodeFormat::Uastc(data_format) => {
-                    let (transcode_block_format, texture_format) =
-                        get_transcoded_formats(supported_compressed_formats, data_format, is_srgb);
+                    let (transcode_block_format, texture_format) = get_transcoded_formats(supported_compressed_formats, data_format, is_srgb);
                     let texture_format_info = texture_format;
-                    let (block_width_pixels, block_height_pixels) = (
-                        texture_format_info.block_dimensions().0,
-                        texture_format_info.block_dimensions().1,
-                    );
+                    let (block_width_pixels, block_height_pixels) = (texture_format_info.block_dimensions().0, texture_format_info.block_dimensions().1);
                     // Texture is not a depth or stencil format, it is possible to pass `None` and unwrap
                     let block_bytes = texture_format_info.block_copy_size(None).unwrap();
 
                     let transcoder = LowLevelUastcTranscoder::new();
                     for (level, level_data) in levels.iter().enumerate() {
-                        let (level_width, level_height) = (
-                            (width >> level as u32).max(1),
-                            (height >> level as u32).max(1),
-                        );
-                        let (num_blocks_x, num_blocks_y) = (
-                            level_width.div_ceil(block_width_pixels) .max(1),
-                            level_height.div_ceil(block_height_pixels) .max(1),
-                        );
+                        let (level_width, level_height) = ((width >> level as u32).max(1), (height >> level as u32).max(1));
+                        let (num_blocks_x, num_blocks_y) = (level_width.div_ceil(block_width_pixels).max(1), level_height.div_ceil(block_height_pixels).max(1));
                         let level_bytes = (num_blocks_x * num_blocks_y * block_bytes) as usize;
 
                         let mut offset = 0;
@@ -176,26 +150,8 @@ pub fn ktx2_buffer_to_image(
                             for _face in 0..face_count {
                                 // NOTE: SliceParametersUastc does not implement Clone nor Copy so
                                 // it has to be created per use
-                                let slice_parameters = SliceParametersUastc {
-                                    num_blocks_x,
-                                    num_blocks_y,
-                                    has_alpha: false,
-                                    original_width: level_width,
-                                    original_height: level_height,
-                                };
-                                transcoder
-                                    .transcode_slice(
-                                        &level_data[offset..(offset + level_bytes)],
-                                        slice_parameters,
-                                        DecodeFlags::HIGH_QUALITY,
-                                        transcode_block_format,
-                                    )
-                                    .map(|mut transcoded_level| transcoded[level].append(&mut transcoded_level))
-                                    .map_err(|error| {
-                                        TextureError::SuperDecompressionError(format!(
-                                            "Failed to transcode mip level {level} from UASTC to {transcode_block_format:?}: {error:?}",
-                                        ))
-                                    })?;
+                                let slice_parameters = SliceParametersUastc { num_blocks_x, num_blocks_y, has_alpha: false, original_width: level_width, original_height: level_height };
+                                transcoder.transcode_slice(&level_data[offset..(offset + level_bytes)], slice_parameters, DecodeFlags::HIGH_QUALITY, transcode_block_format).map(|mut transcoded_level| transcoded[level].append(&mut transcoded_level)).map_err(|error| TextureError::SuperDecompressionError(format!("Failed to transcode mip level {level} from UASTC to {transcode_block_format:?}: {error:?}",)))?;
                                 offset += level_bytes;
                             }
                         }
@@ -205,11 +161,7 @@ pub fn ktx2_buffer_to_image(
                 // ETC1S is a subset of ETC1 which is a subset of ETC2
                 // TODO: Implement transcoding
                 TranscodeFormat::Etc1s => {
-                    let texture_format = if is_srgb {
-                        TextureFormat::Etc2Rgb8UnormSrgb
-                    } else {
-                        TextureFormat::Etc2Rgb8Unorm
-                    };
+                    let texture_format = if is_srgb { TextureFormat::Etc2Rgb8UnormSrgb } else { TextureFormat::Etc2Rgb8Unorm };
                     if !supported_compressed_formats.supports(texture_format) {
                         return Err(error);
                     }
@@ -477,7 +429,7 @@ fn sample_information_to_data_type(
 
 #[cfg(feature = "ktx2")]
 pub fn ktx2_dfd_to_texture_format(
-    data_format_descriptor: &BasicDataFormatDescriptor,
+    data_format_descriptor: &BasicDataFormatDescriptor<'_>,
     sample_information: &[SampleInformation],
     is_srgb: bool,
 ) -> Result<TextureFormat, TextureError> {

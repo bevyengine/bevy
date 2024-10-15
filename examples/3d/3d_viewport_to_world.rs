@@ -11,9 +11,9 @@ fn main() {
 }
 
 fn draw_cursor(
-    camera_query: Single<(&Camera, &GlobalTransform)>,
-    ground: Single<&GlobalTransform, With<Ground>>,
-    windows: Single<&Window>,
+    camera_query: Single<'_, (&Camera, &GlobalTransform)>,
+    ground: Single<'_, &GlobalTransform, With<Ground>>,
+    windows: Single<'_, &Window>,
     mut gizmos: Gizmos,
 ) {
     let (camera, camera_transform) = *camera_query;
@@ -50,9 +50,9 @@ fn draw_cursor(
 struct Ground;
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // plane
     commands.spawn((

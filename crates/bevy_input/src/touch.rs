@@ -422,8 +422,8 @@ impl Touches {
 /// The main difference between the [`TouchInput`] event and the [`Touches`] resource is that
 /// the latter has convenient functions like [`Touches::just_pressed`] and [`Touches::just_released`].
 pub fn touch_screen_input_system(
-    mut touch_state: ResMut<Touches>,
-    mut touch_input_events: EventReader<TouchInput>,
+    mut touch_state: ResMut<'_, Touches>,
+    mut touch_input_events: EventReader<'_, '_, TouchInput>,
 ) {
     if !touch_state.just_pressed.is_empty() {
         touch_state.just_pressed.clear();

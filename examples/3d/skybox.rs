@@ -57,7 +57,7 @@ struct Cubemap {
     image_handle: Handle<Image>,
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // directional 'sun' light
     commands.spawn((
         DirectionalLight {
@@ -98,11 +98,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 const CUBEMAP_SWAP_DELAY: f32 = 3.0;
 
 fn cycle_cubemap_asset(
-    time: Res<Time>,
-    mut next_swap: Local<f32>,
-    mut cubemap: ResMut<Cubemap>,
-    asset_server: Res<AssetServer>,
-    render_device: Res<RenderDevice>,
+    time: Res<'_, Time>,
+    mut next_swap: Local<'_, f32>,
+    mut cubemap: ResMut<'_, Cubemap>,
+    asset_server: Res<'_, AssetServer>,
+    render_device: Res<'_, RenderDevice>,
 ) {
     let now = time.elapsed_seconds();
     if *next_swap == 0.0 {
@@ -140,10 +140,10 @@ fn cycle_cubemap_asset(
 }
 
 fn asset_loaded(
-    asset_server: Res<AssetServer>,
-    mut images: ResMut<Assets<Image>>,
-    mut cubemap: ResMut<Cubemap>,
-    mut skyboxes: Query<&mut Skybox>,
+    asset_server: Res<'_, AssetServer>,
+    mut images: ResMut<'_, Assets<Image>>,
+    mut cubemap: ResMut<'_, Cubemap>,
+    mut skyboxes: Query<'_, '_, &mut Skybox>,
 ) {
     if !cubemap.is_loaded && asset_server.load_state(&cubemap.image_handle).is_loaded() {
         info!("Swapping to {}...", CUBEMAPS[cubemap.index].0);
@@ -167,8 +167,8 @@ fn asset_loaded(
 }
 
 fn animate_light_direction(
-    time: Res<Time>,
-    mut query: Query<&mut Transform, With<DirectionalLight>>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, &mut Transform, With<DirectionalLight>>,
 ) {
     for mut transform in &mut query {
         transform.rotate_y(time.delta_seconds() * 0.5);

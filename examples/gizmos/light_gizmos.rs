@@ -36,10 +36,10 @@ fn gizmo_color_text(config: &LightGizmoConfigGroup) -> String {
 }
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut config_store: ResMut<GizmoConfigStore>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut config_store: ResMut<'_, GizmoConfigStore>,
 ) {
     // Circular base.
     commands.spawn((
@@ -136,15 +136,15 @@ fn setup(
     }
 }
 
-fn rotate_camera(mut transform: Single<&mut Transform, With<Camera>>, time: Res<Time>) {
+fn rotate_camera(mut transform: Single<'_, &mut Transform, With<Camera>>, time: Res<'_, Time>) {
     transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_seconds() / 2.));
 }
 
 fn update_config(
-    mut config_store: ResMut<GizmoConfigStore>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
-    color_text_query: Single<Entity, With<GizmoColorText>>,
+    mut config_store: ResMut<'_, GizmoConfigStore>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
+    time: Res<'_, Time>,
+    color_text_query: Single<'_, Entity, With<GizmoColorText>>,
     mut writer: UiTextWriter,
 ) {
     if keyboard.just_pressed(KeyCode::KeyD) {

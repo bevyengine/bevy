@@ -36,9 +36,9 @@ impl Default for State {
 struct SeededRng(ChaCha8Rng);
 
 fn atlas_render_system(
-    mut commands: Commands,
-    mut state: ResMut<State>,
-    font_atlas_sets: Res<FontAtlasSets>,
+    mut commands: Commands<'_, '_>,
+    mut state: ResMut<'_, State>,
+    font_atlas_sets: Res<'_, FontAtlasSets>,
 ) {
     if let Some(set) = font_atlas_sets.get(&state.handle) {
         if let Some((_size, font_atlas)) = set.iter().next() {
@@ -63,10 +63,10 @@ fn atlas_render_system(
 }
 
 fn text_update_system(
-    mut state: ResMut<State>,
-    time: Res<Time>,
-    mut query: Query<&mut Text>,
-    mut seeded_rng: ResMut<SeededRng>,
+    mut state: ResMut<'_, State>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, &mut Text>,
+    mut seeded_rng: ResMut<'_, SeededRng>,
 ) {
     if state.timer.tick(time.delta()).finished() {
         for mut text in &mut query {
@@ -81,7 +81,11 @@ fn text_update_system(
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
+fn setup(
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut state: ResMut<'_, State>,
+) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
     commands.spawn(Camera2d);

@@ -145,7 +145,7 @@ impl Stepping {
     /// System to call denoting that a new render frame has begun
     ///
     /// Note: This system is automatically added to the default `MainSchedule`.
-    pub fn begin_frame(stepping: Option<ResMut<Self>>) {
+    pub fn begin_frame(stepping: Option<ResMut<'_, Self>>) {
         if let Some(mut stepping) = stepping {
             stepping.next_frame();
         }
@@ -1361,7 +1361,7 @@ mod tests {
         #[derive(Resource)]
         struct RunCount(usize);
         world.insert_resource(RunCount(0));
-        let second_system = |mut run_count: ResMut<RunCount>| {
+        let second_system = |mut run_count: ResMut<'_, RunCount>| {
             println!("I have run!");
             run_count.0 += 1;
         };

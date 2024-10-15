@@ -155,7 +155,7 @@ impl TextMeasure {
 }
 
 impl Measure for TextMeasure {
-    fn measure(&mut self, measure_args: MeasureArgs, _style: &taffy::Style) -> Vec2 {
+    fn measure(&mut self, measure_args: MeasureArgs<'_>, _style: &taffy::Style) -> Vec2 {
         let MeasureArgs {
             width,
             height,
@@ -207,11 +207,11 @@ fn create_text_measure<'a>(
     fonts: &Assets<Font>,
     scale_factor: f64,
     spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
-    block: Ref<TextLayout>,
+    block: Ref<'_, TextLayout>,
     text_pipeline: &mut TextPipeline,
-    mut content_size: Mut<ContentSize>,
-    mut text_flags: Mut<TextNodeFlags>,
-    mut computed: Mut<ComputedTextBlock>,
+    mut content_size: Mut<'_, ContentSize>,
+    mut text_flags: Mut<'_, TextNodeFlags>,
+    mut computed: Mut<'_, ComputedTextBlock>,
     font_system: &mut CosmicFontSystem,
 ) {
     match text_pipeline.create_text_measure(
@@ -256,16 +256,18 @@ fn create_text_measure<'a>(
 ///     method should be called when only changing the `Text`'s colors.
 #[allow(clippy::too_many_arguments)]
 pub fn measure_text_system(
-    mut scale_factors_buffer: Local<EntityHashMap<f32>>,
-    mut last_scale_factors: Local<EntityHashMap<f32>>,
-    fonts: Res<Assets<Font>>,
-    camera_query: Query<(Entity, &Camera)>,
-    default_ui_camera: DefaultUiCamera,
-    ui_scale: Res<UiScale>,
+    mut scale_factors_buffer: Local<'_, EntityHashMap<f32>>,
+    mut last_scale_factors: Local<'_, EntityHashMap<f32>>,
+    fonts: Res<'_, Assets<Font>>,
+    camera_query: Query<'_, '_, (Entity, &Camera)>,
+    default_ui_camera: DefaultUiCamera<'_, '_>,
+    ui_scale: Res<'_, UiScale>,
     mut text_query: Query<
+        '_,
+        '_,
         (
             Entity,
-            Ref<TextLayout>,
+            Ref<'_, TextLayout>,
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
@@ -273,9 +275,9 @@ pub fn measure_text_system(
         ),
         With<Node>,
     >,
-    mut text_reader: UiTextReader,
-    mut text_pipeline: ResMut<TextPipeline>,
-    mut font_system: ResMut<CosmicFontSystem>,
+    mut text_reader: UiTextReader<'_, '_>,
+    mut text_pipeline: ResMut<'_, TextPipeline>,
+    mut font_system: ResMut<'_, CosmicFontSystem>,
 ) {
     scale_factors_buffer.clear();
 
@@ -332,11 +334,11 @@ fn queue_text(
     scale_factor: f32,
     inverse_scale_factor: f32,
     block: &TextLayout,
-    node: Ref<Node>,
-    mut text_flags: Mut<TextNodeFlags>,
-    text_layout_info: Mut<TextLayoutInfo>,
+    node: Ref<'_, Node>,
+    mut text_flags: Mut<'_, TextNodeFlags>,
+    text_layout_info: Mut<'_, TextLayoutInfo>,
     computed: &mut ComputedTextBlock,
-    text_reader: &mut UiTextReader,
+    text_reader: &mut UiTextReader<'_, '_>,
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
 ) {
@@ -397,28 +399,32 @@ fn queue_text(
 /// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
-    mut textures: ResMut<Assets<Image>>,
-    mut scale_factors_buffer: Local<EntityHashMap<f32>>,
-    mut last_scale_factors: Local<EntityHashMap<f32>>,
-    fonts: Res<Assets<Font>>,
-    camera_query: Query<(Entity, &Camera)>,
-    default_ui_camera: DefaultUiCamera,
-    ui_scale: Res<UiScale>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    mut font_atlas_sets: ResMut<FontAtlasSets>,
-    mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(
-        Entity,
-        Ref<Node>,
-        &TextLayout,
-        &mut TextLayoutInfo,
-        &mut TextNodeFlags,
-        &mut ComputedTextBlock,
-        Option<&TargetCamera>,
-    )>,
-    mut text_reader: UiTextReader,
-    mut font_system: ResMut<CosmicFontSystem>,
-    mut swash_cache: ResMut<SwashCache>,
+    mut textures: ResMut<'_, Assets<Image>>,
+    mut scale_factors_buffer: Local<'_, EntityHashMap<f32>>,
+    mut last_scale_factors: Local<'_, EntityHashMap<f32>>,
+    fonts: Res<'_, Assets<Font>>,
+    camera_query: Query<'_, '_, (Entity, &Camera)>,
+    default_ui_camera: DefaultUiCamera<'_, '_>,
+    ui_scale: Res<'_, UiScale>,
+    mut texture_atlases: ResMut<'_, Assets<TextureAtlasLayout>>,
+    mut font_atlas_sets: ResMut<'_, FontAtlasSets>,
+    mut text_pipeline: ResMut<'_, TextPipeline>,
+    mut text_query: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            Ref<'_, Node>,
+            &TextLayout,
+            &mut TextLayoutInfo,
+            &mut TextNodeFlags,
+            &mut ComputedTextBlock,
+            Option<&TargetCamera>,
+        ),
+    >,
+    mut text_reader: UiTextReader<'_, '_>,
+    mut font_system: ResMut<'_, CosmicFontSystem>,
+    mut swash_cache: ResMut<'_, SwashCache>,
 ) {
     scale_factors_buffer.clear();
 

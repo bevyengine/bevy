@@ -185,7 +185,7 @@ pub enum ExtractedUiItem {
         flip_x: bool,
         flip_y: bool,
         /// Border radius of the UI node.
-        /// Ordering: top left, top right, bottom right, bottom left.   
+        /// Ordering: top left, top right, bottom right, bottom left.
         border_radius: ResolvedBorderRadius,
         /// Border thickness of the UI node.
         /// Ordering: left, top, right, bottom.
@@ -221,21 +221,27 @@ impl ExtractedUiNodes {
 
 #[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_background_colors(
-    mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    default_ui_camera: Extract<DefaultUiCamera>,
+    mut commands: Commands<'_, '_>,
+    mut extracted_uinodes: ResMut<'_, ExtractedUiNodes>,
+    default_ui_camera: Extract<'_, '_, DefaultUiCamera<'_, '_>>,
     uinode_query: Extract<
-        Query<(
-            Entity,
-            &Node,
-            &GlobalTransform,
-            &ViewVisibility,
-            Option<&CalculatedClip>,
-            Option<&TargetCamera>,
-            &BackgroundColor,
-        )>,
+        '_,
+        '_,
+        Query<
+            '_,
+            '_,
+            (
+                Entity,
+                &Node,
+                &GlobalTransform,
+                &ViewVisibility,
+                Option<&CalculatedClip>,
+                Option<&TargetCamera>,
+                &BackgroundColor,
+            ),
+        >,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    mapping: Extract<'_, '_, Query<'_, '_, RenderEntity>>,
 ) {
     for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
         &uinode_query
@@ -283,12 +289,16 @@ pub fn extract_uinode_background_colors(
 
 #[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_images(
-    mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    default_ui_camera: Extract<DefaultUiCamera>,
+    mut commands: Commands<'_, '_>,
+    mut extracted_uinodes: ResMut<'_, ExtractedUiNodes>,
+    texture_atlases: Extract<'_, '_, Res<'_, Assets<TextureAtlasLayout>>>,
+    default_ui_camera: Extract<'_, '_, DefaultUiCamera<'_, '_>>,
     uinode_query: Extract<
+        '_,
+        '_,
         Query<
+            '_,
+            '_,
             (
                 Entity,
                 &Node,
@@ -302,7 +312,7 @@ pub fn extract_uinode_images(
             Without<ImageScaleMode>,
         >,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    mapping: Extract<'_, '_, Query<'_, '_, RenderEntity>>,
 ) {
     for (entity, uinode, transform, view_visibility, clip, camera, image, atlas) in &uinode_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
@@ -374,21 +384,27 @@ pub fn extract_uinode_images(
 }
 
 pub fn extract_uinode_borders(
-    mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    default_ui_camera: Extract<DefaultUiCamera>,
+    mut commands: Commands<'_, '_>,
+    mut extracted_uinodes: ResMut<'_, ExtractedUiNodes>,
+    default_ui_camera: Extract<'_, '_, DefaultUiCamera<'_, '_>>,
     uinode_query: Extract<
-        Query<(
-            Entity,
-            &Node,
-            &GlobalTransform,
-            &ViewVisibility,
-            Option<&CalculatedClip>,
-            Option<&TargetCamera>,
-            AnyOf<(&BorderColor, &Outline)>,
-        )>,
+        '_,
+        '_,
+        Query<
+            '_,
+            '_,
+            (
+                Entity,
+                &Node,
+                &GlobalTransform,
+                &ViewVisibility,
+                Option<&CalculatedClip>,
+                Option<&TargetCamera>,
+                AnyOf<(&BorderColor, &Outline)>,
+            ),
+        >,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    mapping: Extract<'_, '_, Query<'_, '_, RenderEntity>>,
 ) {
     let image = AssetId::<Image>::default();
 
@@ -497,11 +513,15 @@ pub struct DefaultCameraView(pub Entity);
 
 /// Extracts all UI elements associated with a camera into the render world.
 pub fn extract_default_ui_camera_view(
-    mut commands: Commands,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    ui_scale: Extract<Res<UiScale>>,
+    mut commands: Commands<'_, '_>,
+    mut transparent_render_phases: ResMut<'_, ViewSortedRenderPhases<TransparentUi>>,
+    ui_scale: Extract<'_, '_, Res<'_, UiScale>>,
     query: Extract<
+        '_,
+        '_,
         Query<
+            '_,
+            '_,
             (
                 RenderEntity,
                 &Camera,
@@ -511,7 +531,7 @@ pub fn extract_default_ui_camera_view(
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
     >,
-    mut live_entities: Local<EntityHashSet>,
+    mut live_entities: Local<'_, EntityHashSet>,
 ) {
     live_entities.clear();
 
@@ -587,26 +607,32 @@ pub fn extract_default_ui_camera_view(
 #[cfg(feature = "bevy_text")]
 #[allow(clippy::too_many_arguments)]
 pub fn extract_text_sections(
-    mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<&Camera>>,
-    default_ui_camera: Extract<DefaultUiCamera>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    ui_scale: Extract<Res<UiScale>>,
+    mut commands: Commands<'_, '_>,
+    mut extracted_uinodes: ResMut<'_, ExtractedUiNodes>,
+    camera_query: Extract<'_, '_, Query<'_, '_, &Camera>>,
+    default_ui_camera: Extract<'_, '_, DefaultUiCamera<'_, '_>>,
+    texture_atlases: Extract<'_, '_, Res<'_, Assets<TextureAtlasLayout>>>,
+    ui_scale: Extract<'_, '_, Res<'_, UiScale>>,
     uinode_query: Extract<
-        Query<(
-            Entity,
-            &Node,
-            &GlobalTransform,
-            &ViewVisibility,
-            Option<&CalculatedClip>,
-            Option<&TargetCamera>,
-            &ComputedTextBlock,
-            &TextLayoutInfo,
-        )>,
+        '_,
+        '_,
+        Query<
+            '_,
+            '_,
+            (
+                Entity,
+                &Node,
+                &GlobalTransform,
+                &ViewVisibility,
+                Option<&CalculatedClip>,
+                Option<&TargetCamera>,
+                &ComputedTextBlock,
+                &TextLayoutInfo,
+            ),
+        >,
     >,
-    text_styles: Extract<Query<&TextColor>>,
-    mapping: Extract<Query<&RenderEntity>>,
+    text_styles: Extract<'_, '_, Query<'_, '_, &TextColor>>,
+    mapping: Extract<'_, '_, Query<'_, '_, &RenderEntity>>,
 ) {
     let mut start = 0;
     let mut end = 1;
@@ -793,13 +819,13 @@ pub mod shader_flags {
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_uinodes(
-    extracted_uinodes: Res<ExtractedUiNodes>,
-    ui_pipeline: Res<UiPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView, Option<&UiAntiAlias>)>,
-    pipeline_cache: Res<PipelineCache>,
-    draw_functions: Res<DrawFunctions<TransparentUi>>,
+    extracted_uinodes: Res<'_, ExtractedUiNodes>,
+    ui_pipeline: Res<'_, UiPipeline>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<UiPipeline>>,
+    mut transparent_render_phases: ResMut<'_, ViewSortedRenderPhases<TransparentUi>>,
+    mut views: Query<'_, '_, (Entity, &ExtractedView, Option<&UiAntiAlias>)>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    draw_functions: Res<'_, DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
@@ -842,18 +868,18 @@ pub struct UiImageBindGroups {
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_uinodes(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut ui_meta: ResMut<UiMeta>,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    view_uniforms: Res<ViewUniforms>,
-    ui_pipeline: Res<UiPipeline>,
-    mut image_bind_groups: ResMut<UiImageBindGroups>,
-    gpu_images: Res<RenderAssets<GpuImage>>,
-    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    events: Res<SpriteAssetEvents>,
-    mut previous_len: Local<usize>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut ui_meta: ResMut<'_, UiMeta>,
+    mut extracted_uinodes: ResMut<'_, ExtractedUiNodes>,
+    view_uniforms: Res<'_, ViewUniforms>,
+    ui_pipeline: Res<'_, UiPipeline>,
+    mut image_bind_groups: ResMut<'_, UiImageBindGroups>,
+    gpu_images: Res<'_, RenderAssets<GpuImage>>,
+    mut phases: ResMut<'_, ViewSortedRenderPhases<TransparentUi>>,
+    events: Res<'_, SpriteAssetEvents>,
+    mut previous_len: Local<'_, usize>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {

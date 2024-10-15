@@ -128,11 +128,11 @@ const WIDTH: usize = 200;
 const HEIGHT: usize = 200;
 
 fn setup(
-    mut commands: Commands,
-    args: Res<Args>,
-    mesh_assets: ResMut<Assets<Mesh>>,
-    material_assets: ResMut<Assets<StandardMaterial>>,
-    images: ResMut<Assets<Image>>,
+    mut commands: Commands<'_, '_>,
+    args: Res<'_, Args>,
+    mesh_assets: ResMut<'_, Assets<Mesh>>,
+    material_assets: ResMut<'_, Assets<StandardMaterial>>,
+    images: ResMut<'_, Assets<Image>>,
 ) {
     warn!(include_str!("warning_string.txt"));
 
@@ -436,9 +436,9 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 
 // System for rotating the camera
 fn move_camera(
-    time: Res<Time>,
-    args: Res<Args>,
-    mut camera_transform: Single<&mut Transform, With<Camera>>,
+    time: Res<'_, Time>,
+    args: Res<'_, Args>,
+    mut camera_transform: Single<'_, &mut Transform, With<Camera>>,
 ) {
     let delta = 0.15
         * if args.benchmark {
@@ -452,9 +452,9 @@ fn move_camera(
 
 // System for printing the number of meshes on every tick of the timer
 fn print_mesh_count(
-    time: Res<Time>,
-    mut timer: Local<PrintingTimer>,
-    sprites: Query<(&Mesh3d, &ViewVisibility)>,
+    time: Res<'_, Time>,
+    mut timer: Local<'_, PrintingTimer>,
+    sprites: Query<'_, '_, (&Mesh3d, &ViewVisibility)>,
 ) {
     timer.tick(time.delta());
 

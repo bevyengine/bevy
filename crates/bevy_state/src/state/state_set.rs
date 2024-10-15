@@ -95,11 +95,11 @@ impl<S: InnerStateSet> StateSet for S {
         schedule: &mut Schedule,
     ) {
         let apply_state_transition =
-            |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
-             event: EventWriter<StateTransitionEvent<T>>,
-             commands: Commands,
-             current_state: Option<ResMut<State<T>>>,
-             state_set: Option<Res<State<S::RawState>>>| {
+            |mut parent_changed: EventReader<'_, '_, StateTransitionEvent<S::RawState>>,
+             event: EventWriter<'_, StateTransitionEvent<T>>,
+             commands: Commands<'_, '_>,
+             current_state: Option<ResMut<'_, State<T>>>,
+             state_set: Option<Res<'_, State<S::RawState>>>| {
                 if parent_changed.is_empty() {
                     return;
                 }
@@ -166,12 +166,12 @@ impl<S: InnerStateSet> StateSet for S {
         // | true           | false      | true           | true         | Some(current) -> Some(current)   |
 
         let apply_state_transition =
-            |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
-             event: EventWriter<StateTransitionEvent<T>>,
-             commands: Commands,
-             current_state_res: Option<ResMut<State<T>>>,
-             next_state_res: Option<ResMut<NextState<T>>>,
-             state_set: Option<Res<State<S::RawState>>>| {
+            |mut parent_changed: EventReader<'_, '_, StateTransitionEvent<S::RawState>>,
+             event: EventWriter<'_, StateTransitionEvent<T>>,
+             commands: Commands<'_, '_>,
+             current_state_res: Option<ResMut<'_, State<T>>>,
+             next_state_res: Option<ResMut<'_, NextState<T>>>,
+             state_set: Option<Res<'_, State<S::RawState>>>| {
                 let parent_changed = parent_changed.read().last().is_some();
                 let next_state = take_next_state(next_state_res);
 
@@ -243,11 +243,11 @@ macro_rules! impl_state_set_sealed_tuples {
                 schedule: &mut Schedule,
             ) {
                 let apply_state_transition =
-                    |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
-                     event: EventWriter<StateTransitionEvent<T>>,
-                     commands: Commands,
-                     current_state: Option<ResMut<State<T>>>,
-                     ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
+                    |($(mut $evt),*,): ($(EventReader<'_, '_, StateTransitionEvent<$param::RawState>>),*,),
+                     event: EventWriter<'_, StateTransitionEvent<T>>,
+                     commands: Commands<'_, '_>,
+                     current_state: Option<ResMut<'_, State<T>>>,
+                     ($($val),*,): ($(Option<Res<'_, State<$param::RawState>>>),*,)| {
                         if ($($evt.is_empty())&&*) {
                             return;
                         }
@@ -287,12 +287,12 @@ macro_rules! impl_state_set_sealed_tuples {
                 schedule: &mut Schedule,
             ) {
                 let apply_state_transition =
-                    |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
-                     event: EventWriter<StateTransitionEvent<T>>,
-                     commands: Commands,
-                     current_state_res: Option<ResMut<State<T>>>,
-                     next_state_res: Option<ResMut<NextState<T>>>,
-                     ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
+                    |($(mut $evt),*,): ($(EventReader<'_, '_, StateTransitionEvent<$param::RawState>>),*,),
+                     event: EventWriter<'_, StateTransitionEvent<T>>,
+                     commands: Commands<'_, '_>,
+                     current_state_res: Option<ResMut<'_, State<T>>>,
+                     next_state_res: Option<ResMut<'_, NextState<T>>>,
+                     ($($val),*,): ($(Option<Res<'_, State<$param::RawState>>>),*,)| {
                         let parent_changed = ($($evt.read().last().is_some())&&*);
                         let next_state = take_next_state(next_state_res);
 

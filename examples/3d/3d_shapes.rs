@@ -45,10 +45,10 @@ const EXTRUSION_X_EXTENT: f32 = 16.0;
 const Z_EXTENT: f32 = 5.0;
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut images: ResMut<'_, Assets<Image>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     let debug_material = materials.add(StandardMaterial {
         base_color_texture: Some(images.add(uv_debug_texture())),
@@ -144,7 +144,7 @@ fn setup(
     ));
 }
 
-fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
+fn rotate(mut query: Query<'_, '_, &mut Transform, With<Shape>>, time: Res<'_, Time>) {
     for mut transform in &mut query {
         transform.rotate_y(time.delta_seconds() / 2.);
     }
@@ -181,8 +181,8 @@ fn uv_debug_texture() -> Image {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn toggle_wireframe(
-    mut wireframe_config: ResMut<WireframeConfig>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    mut wireframe_config: ResMut<'_, WireframeConfig>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
         wireframe_config.global = !wireframe_config.global;

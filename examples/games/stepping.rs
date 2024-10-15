@@ -81,7 +81,7 @@ struct State {
 }
 
 /// condition to check if the stepping UI has been constructed
-fn initialized(state: Res<State>) -> bool {
+fn initialized(state: Res<'_, State>) -> bool {
     !state.systems.is_empty()
 }
 
@@ -97,11 +97,11 @@ struct SteppingUi;
 /// data may not be available on the first run of the system.  This happens if
 /// one of the stepping schedules has not yet been run.
 fn build_ui(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    schedules: Res<Schedules>,
-    mut stepping: ResMut<Stepping>,
-    mut state: ResMut<State>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    schedules: Res<'_, Schedules>,
+    mut stepping: ResMut<'_, Stepping>,
+    mut state: ResMut<'_, State>,
 ) {
     let mut text_spans = Vec::new();
     let mut always_run = Vec::new();
@@ -182,7 +182,7 @@ fn build_ui(
         });
 }
 
-fn build_stepping_hint(mut commands: Commands) {
+fn build_stepping_hint(mut commands: Commands<'_, '_>) {
     let hint_text = if cfg!(feature = "bevy_debug_stepping") {
         "Press ` to toggle stepping mode (S: step system, Space: step frame)"
     } else {
@@ -206,7 +206,7 @@ fn build_stepping_hint(mut commands: Commands) {
     ));
 }
 
-fn handle_input(keyboard_input: Res<ButtonInput<KeyCode>>, mut stepping: ResMut<Stepping>) {
+fn handle_input(keyboard_input: Res<'_, ButtonInput<KeyCode>>, mut stepping: ResMut<'_, Stepping>) {
     if keyboard_input.just_pressed(KeyCode::Slash) {
         info!("{:#?}", stepping);
     }
@@ -236,10 +236,10 @@ fn handle_input(keyboard_input: Res<ButtonInput<KeyCode>>, mut stepping: ResMut<
 }
 
 fn update_ui(
-    mut commands: Commands,
-    state: Res<State>,
-    stepping: Res<Stepping>,
-    ui: Single<(Entity, &Visibility), With<SteppingUi>>,
+    mut commands: Commands<'_, '_>,
+    state: Res<'_, State>,
+    stepping: Res<'_, Stepping>,
+    ui: Single<'_, (Entity, &Visibility), With<SteppingUi>>,
     mut writer: UiTextWriter,
 ) {
     // ensure the UI is only visible when stepping is enabled

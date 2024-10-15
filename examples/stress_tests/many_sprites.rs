@@ -55,7 +55,11 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<ColorTint>) {
+fn setup(
+    mut commands: Commands<'_, '_>,
+    assets: Res<'_, AssetServer>,
+    color_tint: Res<'_, ColorTint>,
+) {
     warn!(include_str!("warning_string.txt"));
 
     let mut rng = rand::thread_rng();
@@ -104,7 +108,10 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
 }
 
 // System for rotating and translating the camera
-fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<Camera>>) {
+fn move_camera(
+    time: Res<'_, Time>,
+    mut camera_transform: Single<'_, &mut Transform, With<Camera>>,
+) {
     camera_transform.rotate_z(time.delta_seconds() * 0.5);
     **camera_transform = **camera_transform
         * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
@@ -120,7 +127,11 @@ impl Default for PrintingTimer {
 }
 
 // System for printing the number of sprites on every tick of the timer
-fn print_sprite_count(time: Res<Time>, mut timer: Local<PrintingTimer>, sprites: Query<&Sprite>) {
+fn print_sprite_count(
+    time: Res<'_, Time>,
+    mut timer: Local<'_, PrintingTimer>,
+    sprites: Query<'_, '_, &Sprite>,
+) {
     timer.tick(time.delta());
 
     if timer.just_finished() {

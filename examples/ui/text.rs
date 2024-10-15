@@ -25,7 +25,7 @@ struct FpsText;
 #[derive(Component)]
 struct ColorText;
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // UI camera
     commands.spawn(Camera2d);
     // Text with one section
@@ -116,7 +116,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn text_color_system(time: Res<Time>, mut query: Query<&mut TextColor, With<ColorText>>) {
+fn text_color_system(
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, &mut TextColor, With<ColorText>>,
+) {
     for mut text_color in &mut query {
         let seconds = time.elapsed_seconds();
 
@@ -130,8 +133,8 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut TextColor, With<Colo
 }
 
 fn text_update_system(
-    diagnostics: Res<DiagnosticsStore>,
-    mut query: Query<&mut TextSpan, With<FpsText>>,
+    diagnostics: Res<'_, DiagnosticsStore>,
+    mut query: Query<'_, '_, &mut TextSpan, With<FpsText>>,
 ) {
     for mut span in &mut query {
         if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {

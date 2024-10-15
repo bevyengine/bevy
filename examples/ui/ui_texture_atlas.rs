@@ -18,9 +18,9 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut texture_atlases: ResMut<'_, Assets<TextureAtlasLayout>>,
 ) {
     // Camera
     commands.spawn(Camera2d);
@@ -72,8 +72,8 @@ fn setup(
 }
 
 fn increment_atlas_index(
-    mut atlas_images: Query<&mut TextureAtlas>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    mut atlas_images: Query<'_, '_, &mut TextureAtlas>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
         for mut atlas_image in &mut atlas_images {

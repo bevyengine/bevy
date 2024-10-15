@@ -9,6 +9,7 @@
 
 //! This crate is about everything concerning the highest-level, application layer of a Bevy app.
 
+#[allow(unused_extern_crates)]
 extern crate alloc;
 
 mod app;

@@ -154,7 +154,7 @@ where
     unsafe fn run_unsafe(
         &mut self,
         input: SystemIn<'_, Self>,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> Self::Out {
         // SAFETY: `system.run_unsafe` has the same invariants as `self.run_unsafe`.
         self.func.adapt(input, |input| unsafe {
@@ -174,12 +174,12 @@ where
     }
 
     #[inline]
-    fn queue_deferred(&mut self, world: crate::world::DeferredWorld) {
+    fn queue_deferred(&mut self, world: crate::world::DeferredWorld<'_>) {
         self.system.queue_deferred(world);
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell<'_>) -> bool {
         // SAFETY: Delegate to other `System` implementations.
         unsafe { self.system.validate_param_unsafe(world) }
     }
@@ -189,7 +189,7 @@ where
     }
 
     #[inline]
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
+    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell<'_>) {
         self.system.update_archetype_component_access(world);
     }
 

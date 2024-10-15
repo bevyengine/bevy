@@ -37,11 +37,11 @@ struct AnimatedJoint(isize);
 ///   and mark the second joint to be animated.
 /// It is similar to the scene defined in `models/SimpleSkin/SimpleSkin.gltf`
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut skinned_mesh_inverse_bindposes_assets: ResMut<'_, Assets<SkinnedMeshInverseBindposes>>,
 ) {
     // Create a camera
     commands.spawn((
@@ -186,8 +186,8 @@ fn setup(
 
 /// Animate the joint marked with [`AnimatedJoint`] component.
 fn joint_animation(
-    time: Res<Time>,
-    mut query: Query<(&mut Transform, &AnimatedJoint)>,
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, (&mut Transform, &AnimatedJoint)>,
     mut gizmos: Gizmos,
 ) {
     for (mut transform, animated_joint) in &mut query {

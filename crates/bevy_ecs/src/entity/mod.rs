@@ -106,7 +106,7 @@ type IdCursor = isize;
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)]
 /// # struct SomeComponent;
-/// fn setup(mut commands: Commands) {
+/// fn setup(mut commands: Commands<'_, '_>) {
 ///     // Calling `spawn` returns `EntityCommands`.
 ///     let entity = commands.spawn(SomeComponent).id();
 /// }
@@ -128,7 +128,7 @@ type IdCursor = isize;
 /// # #[derive(Component)]
 /// # struct Expired;
 /// #
-/// fn dispose_expired_food(mut commands: Commands, query: Query<Entity, With<Expired>>) {
+/// fn dispose_expired_food(mut commands: Commands<'_, '_>, query: Query<'_, '_, Entity, With<Expired>>) {
 ///     for food_entity in &query {
 ///         commands.entity(food_entity).despawn();
 ///     }
@@ -564,7 +564,7 @@ impl Entities {
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
     #[allow(clippy::unnecessary_fallible_conversions)] // Because `IdCursor::try_from` may fail on 32-bit platforms.
-    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
+    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator<'_> {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
         // negative, meaning they are all new IDs to allocate, or a mix of both.

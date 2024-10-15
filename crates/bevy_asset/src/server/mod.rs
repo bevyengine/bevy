@@ -277,7 +277,7 @@ impl AssetServer {
     /// # use bevy_ecs::prelude::Res;
     /// # use std::path::Path;
     /// // `#path` is a label.
-    /// # fn setup(asset_server: Res<AssetServer>) {
+    /// # fn setup(asset_server: Res<'_, AssetServer>) {
     /// # let handle: Handle<LoadedUntypedAsset> =
     /// asset_server.load("some/file#path");
     ///
@@ -294,7 +294,7 @@ impl AssetServer {
     /// # use bevy_asset::{AssetPath, AssetServer, Handle, LoadedUntypedAsset};
     /// # use bevy_ecs::prelude::Res;
     /// # use std::path::Path;
-    /// # fn setup(asset_server: Res<AssetServer>) {
+    /// # fn setup(asset_server: Res<'_, AssetServer>) {
     /// # let handle: Handle<LoadedUntypedAsset> =
     /// asset_server.load(AssetPath::from_path(Path::new("some/file#path")).with_label("subasset"));
     /// # }
@@ -413,7 +413,7 @@ impl AssetServer {
         &self,
         handle: UntypedHandle,
         path: AssetPath<'static>,
-        mut infos: RwLockWriteGuard<AssetInfos>,
+        mut infos: RwLockWriteGuard<'_, AssetInfos>,
         guard: G,
     ) {
         // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
@@ -447,7 +447,7 @@ impl AssetServer {
         &self,
         path: impl Into<AssetPath<'a>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
-        let path: AssetPath = path.into();
+        let path: AssetPath<'_> = path.into();
         self.load_internal(None, path, false, None).await
     }
 
@@ -523,7 +523,7 @@ impl AssetServer {
     /// #[derive(Resource)]
     /// struct LoadingUntypedHandle(Handle<LoadedUntypedAsset>);
     ///
-    /// fn resolve_loaded_untyped_handle(loading_handle: Res<LoadingUntypedHandle>, loaded_untyped_assets: Res<Assets<LoadedUntypedAsset>>) {
+    /// fn resolve_loaded_untyped_handle(loading_handle: Res<'_, LoadingUntypedHandle>, loaded_untyped_assets: Res<'_, Assets<LoadedUntypedAsset>>) {
     ///     if let Some(loaded_untyped_asset) = loaded_untyped_assets.get(&loading_handle.0) {
     ///         let handle = loaded_untyped_asset.handle.clone();
     ///         // continue working with `handle` which points to the asset at the originally requested path
@@ -854,7 +854,7 @@ impl AssetServer {
         handle
     }
 
-    pub(crate) fn load_folder_internal(&self, id: UntypedAssetId, path: AssetPath) {
+    pub(crate) fn load_folder_internal(&self, id: UntypedAssetId, path: AssetPath<'_>) {
         async fn load_folder<'a>(
             source: AssetSourceId<'static>,
             path: &'a Path,
@@ -898,10 +898,7 @@ impl AssetServer {
         IoTaskPool::get()
             .spawn(async move {
                 let Ok(source) = server.get_source(path.source()) else {
-                    error!(
-                        "Failed to load {path}. AssetSource {:?} does not exist",
-                        path.source()
-                    );
+                    error!("Failed to load {path}. AssetSource {:?} does not exist", path.source());
                     return;
                 };
 
@@ -910,10 +907,7 @@ impl AssetServer {
                     AssetServerMode::Processed { .. } => match source.processed_reader() {
                         Ok(reader) => reader,
                         Err(_) => {
-                            error!(
-                                "Failed to load {path}. AssetSource {:?} does not have a processed AssetReader",
-                                path.source()
-                            );
+                            error!("Failed to load {path}. AssetSource {:?} does not have a processed AssetReader", path.source());
                             return;
                         }
                     },
@@ -921,18 +915,11 @@ impl AssetServer {
 
                 let mut handles = Vec::new();
                 match load_folder(source.id(), path.path(), asset_reader, &server, &mut handles).await {
-                    Ok(_) => server.send_asset_event(InternalAssetEvent::Loaded {
-                        id,
-                        loaded_asset: LoadedAsset::new_with_dependencies(
-                            LoadedFolder { handles },
-                            None,
-                        )
-                        .into(),
-                    }),
+                    Ok(_) => server.send_asset_event(InternalAssetEvent::Loaded { id, loaded_asset: LoadedAsset::new_with_dependencies(LoadedFolder { handles }, None).into() }),
                     Err(err) => {
                         error!("Failed to load folder. {err}");
                         server.send_asset_event(InternalAssetEvent::Failed { id, error: err, path });
-                    },
+                    }
                 }
             })
             .detach();
@@ -1135,7 +1122,7 @@ impl AssetServer {
     /// or is still "alive".
     pub fn get_path_and_type_id_handle(
         &self,
-        path: &AssetPath,
+        path: &AssetPath<'_>,
         type_id: TypeId,
     ) -> Option<UntypedHandle> {
         let infos = self.data.infos.read();
@@ -1144,7 +1131,7 @@ impl AssetServer {
     }
 
     /// Returns the path for the given `id`, if it has one.
-    pub fn get_path(&self, id: impl Into<UntypedAssetId>) -> Option<AssetPath> {
+    pub fn get_path(&self, id: impl Into<UntypedAssetId>) -> Option<AssetPath<'_>> {
         let infos = self.data.infos.read();
         let info = infos.get(id.into())?;
         Some(info.path.as_ref()?.clone())
@@ -1340,7 +1327,7 @@ impl AssetServer {
 
 /// A system that manages internal [`AssetServer`] events, such as finalizing asset loads.
 pub fn handle_internal_asset_events(world: &mut World) {
-    world.resource_scope(|world, server: Mut<AssetServer>| {
+    world.resource_scope(|world, server: Mut<'_, AssetServer>| {
         let mut infos = server.data.infos.write();
         let mut untyped_failures = vec![];
         for event in server.data.asset_event_receiver.try_iter() {
@@ -1385,7 +1372,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
         }
 
         fn queue_ancestors(
-            asset_path: &AssetPath,
+            asset_path: &AssetPath<'_>,
             infos: &AssetInfos,
             paths_to_reload: &mut HashSet<AssetPath<'static>>,
         ) {

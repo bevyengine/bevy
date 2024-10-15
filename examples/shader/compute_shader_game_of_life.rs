@@ -50,7 +50,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+fn setup(mut commands: Commands<'_, '_>, mut images: ResMut<'_, Assets<Image>>) {
     let mut image = Image::new_fill(
         Extent3d {
             width: SIZE.0,
@@ -84,7 +84,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 }
 
 // Switch texture to display every frame to show the one that was written to most recently.
-fn switch_textures(images: Res<GameOfLifeImages>, mut sprite: Single<&mut Sprite>) {
+fn switch_textures(images: Res<'_, GameOfLifeImages>, mut sprite: Single<'_, &mut Sprite>) {
     if sprite.image == images.texture_a {
         sprite.image = images.texture_b.clone_weak();
     } else {
@@ -129,11 +129,11 @@ struct GameOfLifeImages {
 struct GameOfLifeImageBindGroups([BindGroup; 2]);
 
 fn prepare_bind_group(
-    mut commands: Commands,
-    pipeline: Res<GameOfLifePipeline>,
-    gpu_images: Res<RenderAssets<GpuImage>>,
-    game_of_life_images: Res<GameOfLifeImages>,
-    render_device: Res<RenderDevice>,
+    mut commands: Commands<'_, '_>,
+    pipeline: Res<'_, GameOfLifePipeline>,
+    gpu_images: Res<'_, RenderAssets<GpuImage>>,
+    game_of_life_images: Res<'_, GameOfLifeImages>,
+    render_device: Res<'_, RenderDevice>,
 ) {
     let view_a = gpu_images.get(&game_of_life_images.texture_a).unwrap();
     let view_b = gpu_images.get(&game_of_life_images.texture_b).unwrap();
@@ -253,7 +253,7 @@ impl render_graph::Node for GameOfLifeNode {
     fn run(
         &self,
         _graph: &mut render_graph::RenderGraphContext,
-        render_context: &mut RenderContext,
+        render_context: &mut RenderContext<'_>,
         world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
         let bind_groups = &world.resource::<GameOfLifeImageBindGroups>().0;

@@ -24,7 +24,7 @@ fn main() {
         .run();
 }
 
-fn startup(mut cmds: Commands) {
+fn startup(mut cmds: Commands<'_, '_>) {
     //Match viewport to Window size.
     let physical_position = UVec2::new(0, 0);
     let physical_size = Vec2::new(WINDOW_WIDTH, WINDOW_HEIGHT).as_uvec2();
@@ -40,7 +40,7 @@ fn startup(mut cmds: Commands) {
     });
 }
 
-fn toggle_window_mode(mut qry_window: Query<&mut Window>) {
+fn toggle_window_mode(mut qry_window: Query<'_, '_, &mut Window>) {
     let Ok(mut window) = qry_window.get_single_mut() else {
         return;
     };

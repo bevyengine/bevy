@@ -39,7 +39,7 @@ use bevy_reflect::prelude::ReflectDefault;
 ///     InGame,
 /// }
 ///
-/// fn game_logic(game_state: Res<State<GameState>>) {
+/// fn game_logic(game_state: Res<'_, State<GameState>>) {
 ///     match game_state.get() {
 ///         GameState::InGame => {
 ///             // Run game logic here...
@@ -110,7 +110,7 @@ impl<S: States> Deref for State<S> {
 ///     InGame,
 /// }
 ///
-/// fn start_game(mut next_game_state: ResMut<NextState<GameState>>) {
+/// fn start_game(mut next_game_state: ResMut<'_, NextState<GameState>>) {
 ///     next_game_state.set(GameState::InGame);
 /// }
 /// ```
@@ -141,7 +141,7 @@ impl<S: FreelyMutableState> NextState<S> {
 }
 
 pub(crate) fn take_next_state<S: FreelyMutableState>(
-    next_state: Option<ResMut<NextState<S>>>,
+    next_state: Option<ResMut<'_, NextState<S>>>,
 ) -> Option<S> {
     let mut next_state = next_state?;
 

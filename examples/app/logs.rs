@@ -17,7 +17,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
     commands.spawn((
         Text::new("Press P to panic"),
@@ -30,7 +30,7 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-fn panic_on_p(keys: Res<ButtonInput<KeyCode>>) {
+fn panic_on_p(keys: Res<'_, ButtonInput<KeyCode>>) {
     if keys.just_pressed(KeyCode::KeyP) {
         panic!("P pressed, panicking");
     }

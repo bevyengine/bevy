@@ -46,7 +46,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+fn setup(mut commands: Commands<'_, '_>, mut meshes: ResMut<'_, Assets<Mesh>>) {
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
         InstanceMaterialData(
@@ -121,15 +121,15 @@ struct InstanceData {
 
 #[allow(clippy::too_many_arguments)]
 fn queue_custom(
-    transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
-    custom_pipeline: Res<CustomPipeline>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
-    pipeline_cache: Res<PipelineCache>,
-    meshes: Res<RenderAssets<RenderMesh>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
-    material_meshes: Query<(Entity, &MainEntity), With<InstanceMaterialData>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(Entity, &ExtractedView, &Msaa)>,
+    transparent_3d_draw_functions: Res<'_, DrawFunctions<Transparent3d>>,
+    custom_pipeline: Res<'_, CustomPipeline>,
+    mut pipelines: ResMut<'_, SpecializedMeshPipelines<CustomPipeline>>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    meshes: Res<'_, RenderAssets<RenderMesh>>,
+    render_mesh_instances: Res<'_, RenderMeshInstances>,
+    material_meshes: Query<'_, '_, (Entity, &MainEntity), With<InstanceMaterialData>>,
+    mut transparent_render_phases: ResMut<'_, ViewSortedRenderPhases<Transparent3d>>,
+    views: Query<'_, '_, (Entity, &ExtractedView, &Msaa)>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
@@ -174,9 +174,9 @@ struct InstanceBuffer {
 }
 
 fn prepare_instance_buffers(
-    mut commands: Commands,
-    query: Query<(Entity, &InstanceMaterialData)>,
-    render_device: Res<RenderDevice>,
+    mut commands: Commands<'_, '_>,
+    query: Query<'_, '_, (Entity, &InstanceMaterialData)>,
+    render_device: Res<'_, RenderDevice>,
 ) {
     for (entity, instance_data) in &query {
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {

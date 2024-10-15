@@ -16,9 +16,9 @@ fn main() {
 }
 
 fn screenshot_on_spacebar(
-    mut commands: Commands,
-    input: Res<ButtonInput<KeyCode>>,
-    mut counter: Local<u32>,
+    mut commands: Commands<'_, '_>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    mut counter: Local<'_, u32>,
 ) {
     if input.just_pressed(KeyCode::Space) {
         let path = format!("./screenshot-{}.png", *counter);
@@ -30,9 +30,9 @@ fn screenshot_on_spacebar(
 }
 
 fn screenshot_saving(
-    mut commands: Commands,
-    screenshot_saving: Query<Entity, With<Capturing>>,
-    windows: Query<Entity, With<Window>>,
+    mut commands: Commands<'_, '_>,
+    screenshot_saving: Query<'_, '_, Entity, With<Capturing>>,
+    windows: Query<'_, '_, Entity, With<Window>>,
 ) {
     let Ok(window) = windows.get_single() else {
         return;
@@ -52,9 +52,9 @@ fn screenshot_saving(
 
 /// set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // plane
     commands.spawn((

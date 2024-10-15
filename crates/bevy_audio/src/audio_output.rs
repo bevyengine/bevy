@@ -95,10 +95,12 @@ impl<'w, 's> EarPositions<'w, 's> {
 /// This system detects such entities, checks if their source asset
 /// data is available, and creates/inserts the sink.
 pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
-    audio_output: Res<AudioOutput>,
-    audio_sources: Res<Assets<Source>>,
-    global_volume: Res<GlobalVolume>,
+    audio_output: Res<'_, AudioOutput>,
+    audio_sources: Res<'_, Assets<Source>>,
+    global_volume: Res<'_, GlobalVolume>,
     query_nonplaying: Query<
+        '_,
+        '_,
         (
             Entity,
             &AudioPlayer<Source>,
@@ -107,9 +109,9 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
         ),
         (Without<AudioSink>, Without<SpatialAudioSink>),
     >,
-    ear_positions: EarPositions,
-    default_spatial_scale: Res<DefaultSpatialScale>,
-    mut commands: Commands,
+    ear_positions: EarPositions<'_, '_>,
+    default_spatial_scale: Res<'_, DefaultSpatialScale>,
+    mut commands: Commands<'_, '_>,
 ) where
     f32: rodio::cpal::FromSample<Source::DecoderItem>,
 {
@@ -233,20 +235,28 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
 }
 
 pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
-    mut commands: Commands,
+    mut commands: Commands<'_, '_>,
     query_nonspatial_despawn: Query<
+        '_,
+        '_,
         (Entity, &AudioSink),
         (With<PlaybackDespawnMarker>, With<AudioPlayer<T>>),
     >,
     query_spatial_despawn: Query<
+        '_,
+        '_,
         (Entity, &SpatialAudioSink),
         (With<PlaybackDespawnMarker>, With<AudioPlayer<T>>),
     >,
     query_nonspatial_remove: Query<
+        '_,
+        '_,
         (Entity, &AudioSink),
         (With<PlaybackRemoveMarker>, With<AudioPlayer<T>>),
     >,
     query_spatial_remove: Query<
+        '_,
+        '_,
         (Entity, &SpatialAudioSink),
         (With<PlaybackRemoveMarker>, With<AudioPlayer<T>>),
     >,
@@ -284,17 +294,19 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
 }
 
 /// Run Condition to only play audio if the audio output is available
-pub(crate) fn audio_output_available(audio_output: Res<AudioOutput>) -> bool {
+pub(crate) fn audio_output_available(audio_output: Res<'_, AudioOutput>) -> bool {
     audio_output.stream_handle.is_some()
 }
 
 /// Updates spatial audio sinks when emitter positions change.
 pub(crate) fn update_emitter_positions(
     mut emitters: Query<
+        '_,
+        '_,
         (&GlobalTransform, &SpatialAudioSink, &PlaybackSettings),
         Or<(Changed<GlobalTransform>, Changed<PlaybackSettings>)>,
     >,
-    default_spatial_scale: Res<DefaultSpatialScale>,
+    default_spatial_scale: Res<'_, DefaultSpatialScale>,
 ) {
     for (transform, sink, settings) in emitters.iter_mut() {
         let scale = settings.spatial_scale.unwrap_or(default_spatial_scale.0).0;
@@ -306,8 +318,10 @@ pub(crate) fn update_emitter_positions(
 
 /// Updates spatial audio sink ear positions when spatial listeners change.
 pub(crate) fn update_listener_positions(
-    mut emitters: Query<(&SpatialAudioSink, &PlaybackSettings)>,
+    mut emitters: Query<'_, '_, (&SpatialAudioSink, &PlaybackSettings)>,
     changed_listener: Query<
+        '_,
+        '_,
         (),
         (
             Or<(
@@ -318,8 +332,8 @@ pub(crate) fn update_listener_positions(
             With<SpatialListener>,
         ),
     >,
-    ear_positions: EarPositions,
-    default_spatial_scale: Res<DefaultSpatialScale>,
+    ear_positions: EarPositions<'_, '_>,
+    default_spatial_scale: Res<'_, DefaultSpatialScale>,
 ) {
     if !default_spatial_scale.is_changed() && changed_listener.is_empty() {
         return;

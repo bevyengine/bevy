@@ -45,7 +45,7 @@ type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
 /// });
 ///
 /// // Schedule a system that will verify extraction is working.
-/// sub_app.add_systems(Main, |counter: Res<Val>| {
+/// sub_app.add_systems(Main, |counter: Res<'_, Val>| {
 ///     // The value will be copied during extraction, so we should see 10 instead of 100.
 ///     assert_eq!(counter.0, 10);
 /// });

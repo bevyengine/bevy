@@ -11,8 +11,8 @@ fn main() {
 }
 
 fn draw_cursor(
-    camera_query: Single<(&Camera, &GlobalTransform)>,
-    windows: Query<&Window>,
+    camera_query: Single<'_, (&Camera, &GlobalTransform)>,
+    windows: Query<'_, '_, &Window>,
     mut gizmos: Gizmos,
 ) {
     let (camera, camera_transform) = *camera_query;
@@ -33,6 +33,6 @@ fn draw_cursor(
     gizmos.circle_2d(point, 10., WHITE);
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
 }

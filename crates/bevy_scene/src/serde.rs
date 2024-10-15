@@ -237,7 +237,7 @@ struct SceneVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
     type Value = DynamicScene;
 
-    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
         formatter.write_str("scene struct")
     }
 
@@ -326,7 +326,7 @@ struct SceneEntitiesVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
     type Value = Vec<DynamicEntity>;
 
-    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
         formatter.write_str("map of entities")
     }
 
@@ -381,7 +381,7 @@ struct SceneEntityVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
     type Value = DynamicEntity;
 
-    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
         formatter.write_str("entities")
     }
 
@@ -456,7 +456,7 @@ struct SceneMapVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
     type Value = Vec<Box<dyn PartialReflect>>;
 
-    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
         formatter.write_str("map of reflect types")
     }
 
@@ -954,12 +954,7 @@ mod tests {
                         )
                     });
 
-                assert!(
-                    expected
-                        .reflect_partial_eq(received.as_ref())
-                        .unwrap_or_default(),
-                    "components did not match: (expected: `{expected:?}`, received: `{received:?}`)",
-                );
+                assert!(expected.reflect_partial_eq(received.as_ref()).unwrap_or_default(), "components did not match: (expected: `{expected:?}`, received: `{received:?}`)",);
             }
         }
     }

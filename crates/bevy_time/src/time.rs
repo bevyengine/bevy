@@ -58,7 +58,7 @@ use {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_time::prelude::*;
 /// #
-/// fn ambivalent_system(time: Res<Time>) {
+/// fn ambivalent_system(time: Res<'_, Time>) {
 ///     println!("this how I see time: delta {:?}, elapsed {:?}", time.delta(), time.elapsed());
 /// }
 /// ```
@@ -73,7 +73,7 @@ use {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_time::prelude::*;
 /// #
-/// fn real_time_system(time: Res<Time<Real>>) {
+/// fn real_time_system(time: Res<'_, Time<Real>>) {
 ///     println!("this will always be real time: delta {:?}, elapsed {:?}", time.delta(), time.elapsed());
 /// }
 /// ```
@@ -87,7 +87,7 @@ use {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_time::prelude::*;
 /// #
-/// fn fixed_time_system(time: Res<Time<Fixed>>) {
+/// fn fixed_time_system(time: Res<'_, Time<Fixed>>) {
 ///     println!("this will always be the last executed fixed timestep: delta {:?}, elapsed {:?}", time.delta(), time.elapsed());
 /// }
 /// ```
@@ -106,7 +106,7 @@ use {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_time::prelude::*;
 /// #
-/// fn fixed_time_system(time: Res<Time<Virtual>>) {
+/// fn fixed_time_system(time: Res<'_, Time<Virtual>>) {
 ///     println!("this will be virtual time for this update: delta {:?}, elapsed {:?}", time.delta(), time.elapsed());
 ///     println!("also the relative speed of the game is now {}", time.effective_speed());
 /// }
@@ -122,7 +122,7 @@ use {
 /// #[derive(Event)]
 /// struct PauseEvent(bool);
 ///
-/// fn pause_system(mut time: ResMut<Time<Virtual>>, mut events: EventReader<PauseEvent>) {
+/// fn pause_system(mut time: ResMut<'_, Time<Virtual>>, mut events: EventReader<'_, '_, PauseEvent>) {
 ///     for ev in events.read() {
 ///         if ev.0 {
 ///             time.pause();

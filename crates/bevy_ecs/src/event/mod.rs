@@ -437,9 +437,9 @@ mod tests {
         let mut schedule = Schedule::default();
 
         schedule.add_systems(
-            |mut cursor: Local<EventCursor<TestEvent>>,
-             events: Res<Events<TestEvent>>,
-             counter: ResMut<Counter>| {
+            |mut cursor: Local<'_, EventCursor<TestEvent>>,
+             events: Res<'_, Events<TestEvent>>,
+             counter: ResMut<'_, Counter>| {
                 cursor.par_read(&events).for_each(|event| {
                     counter.0.fetch_add(event.i, Ordering::Relaxed);
                 });
@@ -477,9 +477,9 @@ mod tests {
         }
         let mut schedule = Schedule::default();
         schedule.add_systems(
-            |mut cursor: Local<EventCursor<TestEvent>>,
-             mut events: ResMut<Events<TestEvent>>,
-             counter: ResMut<Counter>| {
+            |mut cursor: Local<'_, EventCursor<TestEvent>>,
+             mut events: ResMut<'_, Events<TestEvent>>,
+             counter: ResMut<'_, Counter>| {
                 cursor.par_read_mut(&mut events).for_each(|event| {
                     event.i += 1;
                     counter.0.fetch_add(event.i, Ordering::Relaxed);
@@ -504,7 +504,7 @@ mod tests {
     // Reader & Mutator
     #[test]
     fn ensure_reader_readonly() {
-        fn reader_system(_: EventReader<EmptyTestEvent>) {}
+        fn reader_system(_: EventReader<'_, '_, EmptyTestEvent>) {}
 
         assert_is_read_only_system(reader_system);
     }
@@ -516,10 +516,11 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Events<TestEvent>>();
 
-        let mut reader =
-            IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> Option<TestEvent> {
+        let mut reader = IntoSystem::into_system(
+            |mut events: EventReader<'_, '_, TestEvent>| -> Option<TestEvent> {
                 events.read().last().copied()
-            });
+            },
+        );
         reader.initialize(&mut world);
 
         let last = reader.run((), &mut world);
@@ -546,10 +547,11 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Events<TestEvent>>();
 
-        let mut mutator =
-            IntoSystem::into_system(|mut events: EventMutator<TestEvent>| -> Option<TestEvent> {
+        let mut mutator = IntoSystem::into_system(
+            |mut events: EventMutator<'_, '_, TestEvent>| -> Option<TestEvent> {
                 events.read().last().copied()
-            });
+            },
+        );
         mutator.initialize(&mut world);
 
         let last = mutator.run((), &mut world);
@@ -584,7 +586,7 @@ mod tests {
         world.send_event(TestEvent { i: 4 });
 
         let mut schedule = Schedule::default();
-        schedule.add_systems(|mut events: EventReader<TestEvent>| {
+        schedule.add_systems(|mut events: EventReader<'_, '_, TestEvent>| {
             let mut iter = events.read();
 
             assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));
@@ -611,7 +613,7 @@ mod tests {
         world.send_event(TestEvent { i: 4 });
 
         let mut schedule = Schedule::default();
-        schedule.add_systems(|mut events: EventReader<TestEvent>| {
+        schedule.add_systems(|mut events: EventReader<'_, '_, TestEvent>| {
             let mut iter = events.read();
 
             assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));

@@ -90,10 +90,10 @@ use super::ColorMaterial;
 ///
 /// // Spawn an entity with a mesh using `CustomMaterial`.
 /// fn setup(
-///     mut commands: Commands,
-///     mut meshes: ResMut<Assets<Mesh>>,
-///     mut materials: ResMut<Assets<CustomMaterial>>,
-///     asset_server: Res<AssetServer>,
+///     mut commands: Commands<'_, '_>,
+///     mut meshes: ResMut<'_, Assets<Mesh>>,
+///     mut materials: ResMut<'_, Assets<CustomMaterial>>,
+///     asset_server: Res<'_, AssetServer>,
 /// ) {
 ///     commands.spawn((
 ///         Mesh2d(meshes.add(Circle::new(50.0))),
@@ -167,9 +167,9 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// #
 /// // Spawn an entity with a mesh using `ColorMaterial`.
 /// fn setup(
-///     mut commands: Commands,
-///     mut meshes: ResMut<Assets<Mesh>>,
-///     mut materials: ResMut<Assets<ColorMaterial>>,
+///     mut commands: Commands<'_, '_>,
+///     mut meshes: ResMut<'_, Assets<Mesh>>,
+///     mut materials: ResMut<'_, Assets<ColorMaterial>>,
 /// ) {
 ///     commands.spawn((
 ///         Mesh2d(meshes.add(Circle::new(50.0))),
@@ -195,9 +195,9 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// # use bevy_math::primitives::Circle;
 /// #
 /// fn setup(
-///     mut commands: Commands,
-///     mut meshes: ResMut<Assets<Mesh>>,
-///     mut materials: ResMut<Assets<ColorMaterial>>,
+///     mut commands: Commands<'_, '_>,
+///     mut meshes: ResMut<'_, Assets<Mesh>>,
+///     mut materials: ResMut<'_, Assets<ColorMaterial>>,
 /// ) {
 ///     // Optional: Insert a custom default material.
 ///     materials.insert(
@@ -328,14 +328,18 @@ impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
 }
 
 pub(crate) fn clear_material_2d_instances<M: Material2d>(
-    mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
+    mut material_instances: ResMut<'_, RenderMaterial2dInstances<M>>,
 ) {
     material_instances.clear();
 }
 
 fn extract_mesh_materials_2d<M: Material2d>(
-    mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
-    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial2d<M>), With<Mesh2d>>>,
+    mut material_instances: ResMut<'_, RenderMaterial2dInstances<M>>,
+    query: Extract<
+        '_,
+        '_,
+        Query<'_, '_, (Entity, &ViewVisibility, &MeshMaterial2d<M>), With<Mesh2d>>,
+    >,
 ) {
     for (entity, view_visibility, material) in &query {
         if view_visibility.get() {
@@ -346,8 +350,12 @@ fn extract_mesh_materials_2d<M: Material2d>(
 
 /// Extracts default materials for 2D meshes with no [`MeshMaterial2d`].
 pub(crate) fn extract_default_materials_2d(
-    mut material_instances: ResMut<RenderMaterial2dInstances<ColorMaterial>>,
-    query: Extract<Query<(Entity, &ViewVisibility), (With<Mesh2d>, Without<HasMaterial2d>)>>,
+    mut material_instances: ResMut<'_, RenderMaterial2dInstances<ColorMaterial>>,
+    query: Extract<
+        '_,
+        '_,
+        Query<'_, '_, (Entity, &ViewVisibility), (With<Mesh2d>, Without<HasMaterial2d>)>,
+    >,
 ) {
     let default_material: AssetId<ColorMaterial> = Handle::<ColorMaterial>::default().id();
 
@@ -537,27 +545,31 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material2d_meshes<M: Material2d>(
-    opaque_draw_functions: Res<DrawFunctions<Opaque2d>>,
-    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask2d>>,
-    transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
-    material2d_pipeline: Res<Material2dPipeline<M>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
-    render_meshes: Res<RenderAssets<RenderMesh>>,
-    render_materials: Res<RenderAssets<PreparedMaterial2d<M>>>,
-    mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
-    render_material_instances: Res<RenderMaterial2dInstances<M>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
-    mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
-    views: Query<(
-        Entity,
-        &ExtractedView,
-        &RenderVisibleEntities,
-        &Msaa,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-    )>,
+    opaque_draw_functions: Res<'_, DrawFunctions<Opaque2d>>,
+    alpha_mask_draw_functions: Res<'_, DrawFunctions<AlphaMask2d>>,
+    transparent_draw_functions: Res<'_, DrawFunctions<Transparent2d>>,
+    material2d_pipeline: Res<'_, Material2dPipeline<M>>,
+    mut pipelines: ResMut<'_, SpecializedMeshPipelines<Material2dPipeline<M>>>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    render_meshes: Res<'_, RenderAssets<RenderMesh>>,
+    render_materials: Res<'_, RenderAssets<PreparedMaterial2d<M>>>,
+    mut render_mesh_instances: ResMut<'_, RenderMesh2dInstances>,
+    render_material_instances: Res<'_, RenderMaterial2dInstances<M>>,
+    mut transparent_render_phases: ResMut<'_, ViewSortedRenderPhases<Transparent2d>>,
+    mut opaque_render_phases: ResMut<'_, ViewBinnedRenderPhases<Opaque2d>>,
+    mut alpha_mask_render_phases: ResMut<'_, ViewBinnedRenderPhases<AlphaMask2d>>,
+    views: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &ExtractedView,
+            &RenderVisibleEntities,
+            &Msaa,
+            Option<&Tonemapping>,
+            Option<&DebandDither>,
+        ),
+    >,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -716,7 +728,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, pipeline, material_param): &mut SystemParamItem<Self::Param>,
+        (render_device, pipeline, material_param): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match material.as_bind_group(&pipeline.material2d_layout, render_device, material_param) {
             Ok(prepared) => {

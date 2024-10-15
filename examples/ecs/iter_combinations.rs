@@ -36,10 +36,10 @@ struct BodyBundle {
 }
 
 fn generate_bodies(
-    time: Res<Time<Fixed>>,
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    time: Res<'_, Time<Fixed>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     let mesh = meshes.add(Sphere::new(1.0).mesh().ico(3).unwrap());
 
@@ -119,7 +119,7 @@ fn generate_bodies(
     ));
 }
 
-fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)>) {
+fn interact_bodies(mut query: Query<'_, '_, (&Mass, &GlobalTransform, &mut Acceleration)>) {
     let mut iter = query.iter_combinations_mut();
     while let Some([(Mass(m1), transform1, mut acc1), (Mass(m2), transform2, mut acc2)]) =
         iter.fetch_next()
@@ -134,7 +134,10 @@ fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)
     }
 }
 
-fn integrate(time: Res<Time>, mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>) {
+fn integrate(
+    time: Res<'_, Time>,
+    mut query: Query<'_, '_, (&mut Acceleration, &mut Transform, &mut LastPos)>,
+) {
     let dt_sq = time.delta_seconds() * time.delta_seconds();
     for (mut acceleration, mut transform, mut last_pos) in &mut query {
         // verlet integration
@@ -148,8 +151,8 @@ fn integrate(time: Res<Time>, mut query: Query<(&mut Acceleration, &mut Transfor
 }
 
 fn look_at_star(
-    mut camera: Single<&mut Transform, (With<Camera>, Without<Star>)>,
-    star: Single<&Transform, With<Star>>,
+    mut camera: Single<'_, &mut Transform, (With<Camera>, Without<Star>)>,
+    star: Single<'_, &Transform, With<Star>>,
 ) {
     let new_rotation = camera
         .looking_at(star.translation, Vec3::Y)

@@ -65,7 +65,7 @@ const SHOWCASE_TIMER_SECS: f32 = 3.0;
 
 const CONTRIBUTORS_LIST: &[&str] = &["Carter Anderson", "And Many More"];
 
-fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_contributor_selection(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // Load contributors from the git history log or use default values from
     // the constant array. Contributors are stored in a HashMap with their
     // commit count.
@@ -125,7 +125,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
     commands.insert_resource(contributor_selection);
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     commands.spawn(Camera2d);
 
     let text_style = TextFont {
@@ -157,12 +157,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Finds the next contributor to display and selects the entity
 fn selection(
-    mut timer: ResMut<SelectionTimer>,
-    mut contributor_selection: ResMut<ContributorSelection>,
-    contributor_root: Single<Entity, (With<ContributorDisplay>, With<Text>)>,
-    mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
+    mut timer: ResMut<'_, SelectionTimer>,
+    mut contributor_selection: ResMut<'_, ContributorSelection>,
+    contributor_root: Single<'_, Entity, (With<ContributorDisplay>, With<Text>)>,
+    mut query: Query<'_, '_, (&Contributor, &mut Sprite, &mut Transform)>,
     mut writer: UiTextWriter,
-    time: Res<Time>,
+    time: Res<'_, Time>,
 ) {
     if !timer.0.tick(time.delta()).just_finished() {
         return;
@@ -228,7 +228,7 @@ fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Tran
 }
 
 /// Applies gravity to all entities with a velocity.
-fn gravity(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
+fn gravity(time: Res<'_, Time>, mut velocity_query: Query<'_, '_, &mut Velocity>) {
     let delta = time.delta_seconds();
 
     for mut velocity in &mut velocity_query {
@@ -242,8 +242,8 @@ fn gravity(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
 /// velocity. On collision with the ground it applies an upwards
 /// force.
 fn collisions(
-    window: Single<&Window>,
-    mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
+    window: Single<'_, &Window>,
+    mut query: Query<'_, '_, (&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
     let window_size = window.size();
 
@@ -289,7 +289,7 @@ fn collisions(
 }
 
 /// Apply velocity to positions and rotations.
-fn movement(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
+fn movement(time: Res<'_, Time>, mut query: Query<'_, '_, (&Velocity, &mut Transform)>) {
     let delta = time.delta_seconds();
 
     for (velocity, mut transform) in &mut query {

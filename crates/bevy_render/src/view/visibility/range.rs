@@ -366,9 +366,9 @@ impl VisibleEntityRanges {
 /// This only checks distance from the camera and doesn't frustum or occlusion
 /// cull.
 pub fn check_visibility_ranges(
-    mut visible_entity_ranges: ResMut<VisibleEntityRanges>,
-    view_query: Query<(Entity, &GlobalTransform), With<Camera>>,
-    mut entity_query: Query<(Entity, &GlobalTransform, Option<&Aabb>, &VisibilityRange)>,
+    mut visible_entity_ranges: ResMut<'_, VisibleEntityRanges>,
+    view_query: Query<'_, '_, (Entity, &GlobalTransform), With<Camera>>,
+    mut entity_query: Query<'_, '_, (Entity, &GlobalTransform, Option<&Aabb>, &VisibilityRange)>,
 ) {
     visible_entity_ranges.clear();
 
@@ -413,9 +413,9 @@ pub fn check_visibility_ranges(
 /// Extracts all [`VisibilityRange`] components from the main world to the
 /// render world and inserts them into [`RenderVisibilityRanges`].
 pub fn extract_visibility_ranges(
-    mut render_visibility_ranges: ResMut<RenderVisibilityRanges>,
-    visibility_ranges_query: Extract<Query<(Entity, &VisibilityRange)>>,
-    changed_ranges_query: Extract<Query<Entity, Changed<VisibilityRange>>>,
+    mut render_visibility_ranges: ResMut<'_, RenderVisibilityRanges>,
+    visibility_ranges_query: Extract<'_, '_, Query<'_, '_, (Entity, &VisibilityRange)>>,
+    changed_ranges_query: Extract<'_, '_, Query<'_, '_, Entity, Changed<VisibilityRange>>>,
 ) {
     if changed_ranges_query.is_empty() {
         return;
@@ -429,9 +429,9 @@ pub fn extract_visibility_ranges(
 
 /// Writes the [`RenderVisibilityRanges`] table to the GPU.
 pub fn write_render_visibility_ranges(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut render_visibility_ranges: ResMut<RenderVisibilityRanges>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut render_visibility_ranges: ResMut<'_, RenderVisibilityRanges>,
 ) {
     // If there haven't been any changes, early out.
     if !render_visibility_ranges.buffer_dirty {

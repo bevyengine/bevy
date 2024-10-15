@@ -19,7 +19,7 @@ use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
 use bevy_transform::prelude::GlobalTransform;
 
 fn calc_name(
-    text_reader: &mut UiTextReader,
+    text_reader: &mut UiTextReader<'_, '_>,
     children: impl Iterator<Item = Entity>,
 ) -> Option<Box<str>> {
     let mut name = None;
@@ -36,8 +36,16 @@ fn calc_name(
 }
 
 fn calc_bounds(
-    camera: Query<(&Camera, &GlobalTransform)>,
-    mut nodes: Query<(&mut AccessibilityNode, Ref<Node>, Ref<GlobalTransform>)>,
+    camera: Query<'_, '_, (&Camera, &GlobalTransform)>,
+    mut nodes: Query<
+        '_,
+        '_,
+        (
+            &mut AccessibilityNode,
+            Ref<'_, Node>,
+            Ref<'_, GlobalTransform>,
+        ),
+    >,
 ) {
     if let Ok((camera, camera_transform)) = camera.get_single() {
         for (mut accessible, node, transform) in &mut nodes {
@@ -59,10 +67,10 @@ fn calc_bounds(
 }
 
 fn button_changed(
-    mut commands: Commands,
-    mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Button>>,
-    ui_children: UiChildren,
-    mut text_reader: UiTextReader,
+    mut commands: Commands<'_, '_>,
+    mut query: Query<'_, '_, (Entity, Option<&mut AccessibilityNode>), Changed<Button>>,
+    ui_children: UiChildren<'_, '_>,
+    mut text_reader: UiTextReader<'_, '_>,
 ) {
     for (entity, accessible) in &mut query {
         let name = calc_name(&mut text_reader, ui_children.iter_ui_children(entity));
@@ -86,10 +94,15 @@ fn button_changed(
 }
 
 fn image_changed(
-    mut commands: Commands,
-    mut query: Query<(Entity, Option<&mut AccessibilityNode>), (Changed<UiImage>, Without<Button>)>,
-    ui_children: UiChildren,
-    mut text_reader: UiTextReader,
+    mut commands: Commands<'_, '_>,
+    mut query: Query<
+        '_,
+        '_,
+        (Entity, Option<&mut AccessibilityNode>),
+        (Changed<UiImage>, Without<Button>),
+    >,
+    ui_children: UiChildren<'_, '_>,
+    mut text_reader: UiTextReader<'_, '_>,
 ) {
     for (entity, accessible) in &mut query {
         let name = calc_name(&mut text_reader, ui_children.iter_ui_children(entity));
@@ -113,9 +126,9 @@ fn image_changed(
 }
 
 fn label_changed(
-    mut commands: Commands,
-    mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Label>>,
-    mut text_reader: UiTextReader,
+    mut commands: Commands<'_, '_>,
+    mut query: Query<'_, '_, (Entity, Option<&mut AccessibilityNode>), Changed<Label>>,
+    mut text_reader: UiTextReader<'_, '_>,
 ) {
     for (entity, accessible) in &mut query {
         let values = text_reader

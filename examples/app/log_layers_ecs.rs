@@ -36,7 +36,7 @@ struct CapturedLogEvents(mpsc::Receiver<LogEvent>);
 /// Transfers information from the `LogEvents` resource to [`Events<LogEvent>`](LogEvent).
 fn transfer_log_events(
     receiver: NonSend<CapturedLogEvents>,
-    mut log_events: EventWriter<LogEvent>,
+    mut log_events: EventWriter<'_, LogEvent>,
 ) {
     // Make sure to use `try_iter()` and not `iter()` to prevent blocking.
     log_events.send_batch(receiver.try_iter());
@@ -115,7 +115,7 @@ fn log_system() {
 #[derive(Component)]
 struct LogViewerRoot;
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
 
     commands.spawn((
@@ -135,9 +135,9 @@ fn setup(mut commands: Commands) {
 // This is how we can read our LogEvents.
 // In this example we are reading the LogEvents and inserting them as text into our log viewer.
 fn print_logs(
-    mut events: EventReader<LogEvent>,
-    mut commands: Commands,
-    log_viewer_root: Single<Entity, With<LogViewerRoot>>,
+    mut events: EventReader<'_, '_, LogEvent>,
+    mut commands: Commands<'_, '_>,
+    log_viewer_root: Single<'_, Entity, With<LogViewerRoot>>,
 ) {
     let root_entity = *log_viewer_root;
 

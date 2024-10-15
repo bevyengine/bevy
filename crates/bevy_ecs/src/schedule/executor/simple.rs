@@ -150,7 +150,7 @@ fn skip_automatic_sync_points() {
     use crate::prelude::*;
     let mut sched = Schedule::default();
     sched.set_executor_kind(ExecutorKind::Simple);
-    sched.add_systems((|_: Commands| (), || ()).chain());
+    sched.add_systems((|_: Commands<'_, '_>| (), || ()).chain());
     let mut world = World::new();
     sched.run(&mut world);
 }

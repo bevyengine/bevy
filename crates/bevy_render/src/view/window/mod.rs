@@ -104,11 +104,15 @@ impl DerefMut for ExtractedWindows {
 }
 
 fn extract_windows(
-    mut extracted_windows: ResMut<ExtractedWindows>,
-    mut closing: Extract<EventReader<WindowClosing>>,
-    windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
-    mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
-    mut window_surfaces: ResMut<WindowSurfaces>,
+    mut extracted_windows: ResMut<'_, ExtractedWindows>,
+    mut closing: Extract<'_, '_, EventReader<'_, '_, WindowClosing>>,
+    windows: Extract<
+        '_,
+        '_,
+        Query<'_, '_, (Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>,
+    >,
+    mut removed: Extract<'_, '_, RemovedComponents<'_, '_, RawHandleWrapper>>,
+    mut window_surfaces: ResMut<'_, WindowSurfaces>,
 ) {
     for (entity, window, handle, primary) in windows.iter() {
         if primary.is_some() {
@@ -219,10 +223,10 @@ const NVIDIA_VENDOR_ID: u32 = 0x10DE;
 ///   later.
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_windows(
-    mut windows: ResMut<ExtractedWindows>,
-    mut window_surfaces: ResMut<WindowSurfaces>,
-    render_device: Res<RenderDevice>,
-    #[cfg(target_os = "linux")] render_instance: Res<RenderInstance>,
+    mut windows: ResMut<'_, ExtractedWindows>,
+    mut window_surfaces: ResMut<'_, WindowSurfaces>,
+    render_device: Res<'_, RenderDevice>,
+    #[cfg(target_os = "linux")] render_instance: Res<'_, RenderInstance>,
 ) {
     for window in windows.windows.values_mut() {
         let window_surfaces = window_surfaces.deref_mut();
@@ -309,8 +313,8 @@ pub fn prepare_windows(
 }
 
 pub fn need_surface_configuration(
-    windows: Res<ExtractedWindows>,
-    window_surfaces: Res<WindowSurfaces>,
+    windows: Res<'_, ExtractedWindows>,
+    window_surfaces: Res<'_, WindowSurfaces>,
 ) -> bool {
     for window in windows.windows.values() {
         if !window_surfaces.configured_windows.contains(&window.entity)
@@ -336,11 +340,11 @@ pub fn create_surfaces(
     #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: Option<
         NonSend<bevy_core::NonSendMarker>,
     >,
-    windows: Res<ExtractedWindows>,
-    mut window_surfaces: ResMut<WindowSurfaces>,
-    render_instance: Res<RenderInstance>,
-    render_adapter: Res<RenderAdapter>,
-    render_device: Res<RenderDevice>,
+    windows: Res<'_, ExtractedWindows>,
+    mut window_surfaces: ResMut<'_, WindowSurfaces>,
+    render_instance: Res<'_, RenderInstance>,
+    render_adapter: Res<'_, RenderAdapter>,
+    render_device: Res<'_, RenderDevice>,
 ) {
     for window in windows.windows.values() {
         let data = window_surfaces

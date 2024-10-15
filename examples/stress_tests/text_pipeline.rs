@@ -35,7 +35,7 @@ fn main() {
         .run();
 }
 
-fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn spawn(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     warn!(include_str!("warning_string.txt"));
 
     commands.spawn(Camera2d);
@@ -82,7 +82,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 // changing the bounds of the text will cause a recomputation
-fn update_text_bounds(time: Res<Time>, mut text_bounds_query: Query<&mut TextBounds>) {
+fn update_text_bounds(time: Res<'_, Time>, mut text_bounds_query: Query<'_, '_, &mut TextBounds>) {
     let width = (1. + ops::sin(time.elapsed_seconds())) * 600.0;
     for mut text_bounds in text_bounds_query.iter_mut() {
         text_bounds.width = Some(width);

@@ -160,25 +160,30 @@ impl InstanceManager {
 }
 
 pub fn extract_meshlet_mesh_entities(
-    mut meshlet_mesh_manager: ResMut<MeshletMeshManager>,
-    mut instance_manager: ResMut<InstanceManager>,
-    // TODO: Replace main_world and system_state when Extract<ResMut<Assets<MeshletMesh>>> is possible
-    mut main_world: ResMut<MainWorld>,
+    mut meshlet_mesh_manager: ResMut<'_, MeshletMeshManager>,
+    mut instance_manager: ResMut<'_, InstanceManager>,
+    // TODO: Replace main_world and system_state when Extract<ResMut<'_, Assets<MeshletMesh>>> is possible
+    mut main_world: ResMut<'_, MainWorld>,
     mut system_state: Local<
+        '_,
         Option<
             SystemState<(
-                Query<(
-                    Entity,
-                    &MeshletMesh3d,
-                    &GlobalTransform,
-                    Option<&PreviousGlobalTransform>,
-                    Option<&RenderLayers>,
-                    Has<NotShadowReceiver>,
-                    Has<NotShadowCaster>,
-                )>,
-                Res<AssetServer>,
-                ResMut<Assets<MeshletMesh>>,
-                EventReader<AssetEvent<MeshletMesh>>,
+                Query<
+                    '_,
+                    '_,
+                    (
+                        Entity,
+                        &MeshletMesh3d,
+                        &GlobalTransform,
+                        Option<&PreviousGlobalTransform>,
+                        Option<&RenderLayers>,
+                        Has<NotShadowReceiver>,
+                        Has<NotShadowCaster>,
+                    ),
+                >,
+                Res<'_, AssetServer>,
+                ResMut<'_, Assets<MeshletMesh>>,
+                EventReader<'_, '_, AssetEvent<MeshletMesh>>,
             )>,
         >,
     >,
@@ -241,8 +246,8 @@ pub fn extract_meshlet_mesh_entities(
 /// For each entity in the scene, record what material ID its material was assigned in the `prepare_material_meshlet_meshes` systems,
 /// and note that the material is used by at least one entity in the scene.
 pub fn queue_material_meshlet_meshes<M: Material>(
-    mut instance_manager: ResMut<InstanceManager>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
+    mut instance_manager: ResMut<'_, InstanceManager>,
+    render_material_instances: Res<'_, RenderMaterialInstances<M>>,
 ) {
     let instance_manager = instance_manager.deref_mut();
 

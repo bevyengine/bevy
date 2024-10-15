@@ -275,25 +275,29 @@ type DrawLineJointGizmo3d = (
 
 #[allow(clippy::too_many_arguments)]
 fn queue_line_gizmos_3d(
-    draw_functions: Res<DrawFunctions<Transparent3d>>,
-    pipeline: Res<LineGizmoPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
-    pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
-    line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(
-        Entity,
-        &ExtractedView,
-        &Msaa,
-        Option<&RenderLayers>,
+    draw_functions: Res<'_, DrawFunctions<Transparent3d>>,
+    pipeline: Res<'_, LineGizmoPipeline>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<LineGizmoPipeline>>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    line_gizmos: Query<'_, '_, (Entity, &MainEntity, &GizmoMeshConfig)>,
+    line_gizmo_assets: Res<'_, RenderAssets<GpuLineGizmo>>,
+    mut transparent_render_phases: ResMut<'_, ViewSortedRenderPhases<Transparent3d>>,
+    mut views: Query<
+        '_,
+        '_,
         (
-            Has<NormalPrepass>,
-            Has<DepthPrepass>,
-            Has<MotionVectorPrepass>,
-            Has<DeferredPrepass>,
+            Entity,
+            &ExtractedView,
+            &Msaa,
+            Option<&RenderLayers>,
+            (
+                Has<NormalPrepass>,
+                Has<DepthPrepass>,
+                Has<MotionVectorPrepass>,
+                Has<DeferredPrepass>,
+            ),
         ),
-    )>,
+    >,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
 
@@ -364,25 +368,29 @@ fn queue_line_gizmos_3d(
 
 #[allow(clippy::too_many_arguments)]
 fn queue_line_joint_gizmos_3d(
-    draw_functions: Res<DrawFunctions<Transparent3d>>,
-    pipeline: Res<LineJointGizmoPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<LineJointGizmoPipeline>>,
-    pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
-    line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(
-        Entity,
-        &ExtractedView,
-        &Msaa,
-        Option<&RenderLayers>,
+    draw_functions: Res<'_, DrawFunctions<Transparent3d>>,
+    pipeline: Res<'_, LineJointGizmoPipeline>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<LineJointGizmoPipeline>>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    line_gizmos: Query<'_, '_, (Entity, &MainEntity, &GizmoMeshConfig)>,
+    line_gizmo_assets: Res<'_, RenderAssets<GpuLineGizmo>>,
+    mut transparent_render_phases: ResMut<'_, ViewSortedRenderPhases<Transparent3d>>,
+    mut views: Query<
+        '_,
+        '_,
         (
-            Has<NormalPrepass>,
-            Has<DepthPrepass>,
-            Has<MotionVectorPrepass>,
-            Has<DeferredPrepass>,
+            Entity,
+            &ExtractedView,
+            &Msaa,
+            Option<&RenderLayers>,
+            (
+                Has<NormalPrepass>,
+                Has<DepthPrepass>,
+                Has<MotionVectorPrepass>,
+                Has<DeferredPrepass>,
+            ),
         ),
-    )>,
+    >,
 ) {
     let draw_function = draw_functions
         .read()

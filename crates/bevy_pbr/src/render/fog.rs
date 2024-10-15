@@ -47,11 +47,11 @@ pub struct FogMeta {
 
 /// Prepares fog metadata and writes the fog-related uniform buffers to the GPU
 pub fn prepare_fog(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut fog_meta: ResMut<FogMeta>,
-    views: Query<(Entity, Option<&DistanceFog>), With<ExtractedView>>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut fog_meta: ResMut<'_, FogMeta>,
+    views: Query<'_, '_, (Entity, Option<&DistanceFog>), With<ExtractedView>>,
 ) {
     let views_iter = views.iter();
     let view_count = views_iter.len();

@@ -66,10 +66,10 @@ which is required for texture binding arrays"
 }
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<BindlessMaterial>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<BindlessMaterial>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     commands.spawn((
         Camera3d::default(),

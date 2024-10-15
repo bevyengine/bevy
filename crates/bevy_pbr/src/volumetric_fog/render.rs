@@ -270,10 +270,10 @@ impl FromWorld for VolumetricFogPipeline {
 /// Extracts [`VolumetricFog`], [`FogVolume`], and [`VolumetricLight`]s
 /// from the main world to the render world.
 pub fn extract_volumetric_fog(
-    mut commands: Commands,
-    view_targets: Extract<Query<(RenderEntity, &VolumetricFog)>>,
-    fog_volumes: Extract<Query<(RenderEntity, &FogVolume, &GlobalTransform)>>,
-    volumetric_lights: Extract<Query<(RenderEntity, &VolumetricLight)>>,
+    mut commands: Commands<'_, '_>,
+    view_targets: Extract<'_, '_, Query<'_, '_, (RenderEntity, &VolumetricFog)>>,
+    fog_volumes: Extract<'_, '_, Query<'_, '_, (RenderEntity, &FogVolume, &GlobalTransform)>>,
+    volumetric_lights: Extract<'_, '_, Query<'_, '_, (RenderEntity, &VolumetricLight)>>,
 ) {
     if volumetric_lights.is_empty() {
         return;
@@ -320,7 +320,7 @@ impl ViewNode for VolumetricFogNode {
 
     fn run<'w>(
         &self,
-        _: &mut RenderGraphContext,
+        _: &mut RenderGraphContext<'_>,
         render_context: &mut RenderContext<'w>,
         (
             view_target,
@@ -598,11 +598,13 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
 /// Specializes volumetric fog pipelines for all views with that effect enabled.
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_volumetric_fog_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<VolumetricFogPipeline>>,
-    volumetric_lighting_pipeline: Res<VolumetricFogPipeline>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<VolumetricFogPipeline>>,
+    volumetric_lighting_pipeline: Res<'_, VolumetricFogPipeline>,
     view_targets: Query<
+        '_,
+        '_,
         (
             Entity,
             &ExtractedView,
@@ -614,7 +616,7 @@ pub fn prepare_volumetric_fog_pipelines(
         ),
         With<VolumetricFog>,
     >,
-    meshes: Res<RenderAssets<RenderMesh>>,
+    meshes: Res<'_, RenderAssets<RenderMesh>>,
 ) {
     let plane_mesh = meshes.get(&PLANE_MESH).expect("Plane mesh not found!");
 
@@ -674,13 +676,13 @@ pub fn prepare_volumetric_fog_pipelines(
 
 /// A system that converts [`VolumetricFog`] into [`VolumetricFogUniform`]s.
 pub fn prepare_volumetric_fog_uniforms(
-    mut commands: Commands,
-    mut volumetric_lighting_uniform_buffer: ResMut<VolumetricFogUniformBuffer>,
-    view_targets: Query<(Entity, &ExtractedView, &VolumetricFog)>,
-    fog_volumes: Query<(Entity, &FogVolume, &GlobalTransform)>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut local_from_world_matrices: Local<Vec<Mat4>>,
+    mut commands: Commands<'_, '_>,
+    mut volumetric_lighting_uniform_buffer: ResMut<'_, VolumetricFogUniformBuffer>,
+    view_targets: Query<'_, '_, (Entity, &ExtractedView, &VolumetricFog)>,
+    fog_volumes: Query<'_, '_, (Entity, &FogVolume, &GlobalTransform)>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut local_from_world_matrices: Local<'_, Vec<Mat4>>,
 ) {
     let Some(mut writer) = volumetric_lighting_uniform_buffer.get_writer(
         view_targets.iter().len(),
@@ -758,8 +760,8 @@ pub fn prepare_volumetric_fog_uniforms(
 /// The volumetric lighting pass needs to do this, and it doesn't happen by
 /// default.
 pub fn prepare_view_depth_textures_for_volumetric_fog(
-    mut view_targets: Query<&mut Camera3d>,
-    fog_volumes: Query<&VolumetricFog>,
+    mut view_targets: Query<'_, '_, &mut Camera3d>,
+    fog_volumes: Query<'_, '_, &VolumetricFog>,
 ) {
     if fog_volumes.is_empty() {
         return;

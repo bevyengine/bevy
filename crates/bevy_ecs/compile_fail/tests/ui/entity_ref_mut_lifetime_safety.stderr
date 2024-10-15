@@ -12,7 +12,7 @@ error[E0502]: cannot borrow `e_mut` as mutable because it is also borrowed as im
 error[E0499]: cannot borrow `e_mut` as mutable more than once at a time
   --> tests/ui/entity_ref_mut_lifetime_safety.rs:26:30
    |
-25 |         let mut gotten: Mut<A> = e_mut.get_mut::<A>().unwrap();
+25 |         let mut gotten: Mut<'_, A> = e_mut.get_mut::<A>().unwrap();
    |                                  ----- first mutable borrow occurs here
 26 |         let mut gotten2: A = e_mut.take::<A>().unwrap();
    |                              ^^^^^ second mutable borrow occurs here
@@ -39,7 +39,7 @@ error[E0502]: cannot borrow `e_mut` as mutable because it is also borrowed as im
    |
 44 |         let gotten: &A = e_mut.get::<A>().unwrap();
    |                          ----- immutable borrow occurs here
-45 |         let gotten_mut: Mut<A> = e_mut.get_mut::<A>().unwrap();
+45 |         let gotten_mut: Mut<'_, A> = e_mut.get_mut::<A>().unwrap();
    |                                  ^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
 46 |
 47 |         assert_eq!(gotten, &*gotten_mut); // oops UB
@@ -48,7 +48,7 @@ error[E0502]: cannot borrow `e_mut` as mutable because it is also borrowed as im
 error[E0502]: cannot borrow `e_mut` as immutable because it is also borrowed as mutable
   --> tests/ui/entity_ref_mut_lifetime_safety.rs:52:26
    |
-51 |         let gotten_mut: Mut<A> = e_mut.get_mut::<A>().unwrap();
+51 |         let gotten_mut: Mut<'_, A> = e_mut.get_mut::<A>().unwrap();
    |                                  ----- mutable borrow occurs here
 52 |         let gotten: &A = e_mut.get::<A>().unwrap();
    |                          ^^^^^ immutable borrow occurs here
@@ -70,7 +70,7 @@ error[E0502]: cannot borrow `e_mut` as mutable because it is also borrowed as im
 error[E0499]: cannot borrow `e_mut` as mutable more than once at a time
   --> tests/ui/entity_ref_mut_lifetime_safety.rs:67:9
    |
-66 |         let mut gotten_mut: Mut<A> = e_mut.get_mut::<A>().unwrap();
+66 |         let mut gotten_mut: Mut<'_, A> = e_mut.get_mut::<A>().unwrap();
    |                                      ----- first mutable borrow occurs here
 67 |         e_mut.insert::<B>(B);
    |         ^^^^^ second mutable borrow occurs here

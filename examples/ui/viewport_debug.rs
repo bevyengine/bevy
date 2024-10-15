@@ -37,10 +37,10 @@ fn main() {
 }
 
 fn update(
-    mut timer: Local<f32>,
-    mut visible_tree: Local<Coords>,
-    time: Res<Time>,
-    mut coords_style_query: Query<(&Coords, &mut Style)>,
+    mut timer: Local<'_, f32>,
+    mut visible_tree: Local<'_, Coords>,
+    time: Res<'_, Time>,
+    mut coords_style_query: Query<'_, '_, (&Coords, &mut Style)>,
 ) {
     *timer -= time.delta_seconds();
     if *timer <= 0. {
@@ -59,13 +59,13 @@ fn update(
     }
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
     spawn_with_viewport_coords(&mut commands);
     spawn_with_pixel_coords(&mut commands);
 }
 
-fn spawn_with_viewport_coords(commands: &mut Commands) {
+fn spawn_with_viewport_coords(commands: &mut Commands<'_, '_>) {
     commands
         .spawn((
             NodeBundle {
@@ -152,7 +152,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
         });
 }
 
-fn spawn_with_pixel_coords(commands: &mut Commands) {
+fn spawn_with_pixel_coords(commands: &mut Commands<'_, '_>) {
     commands
         .spawn((
             NodeBundle {

@@ -141,7 +141,11 @@ fn main() {
 }
 
 /// Creates all the objects in the scene.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res<AppStatus>) {
+fn setup(
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    app_status: Res<'_, AppStatus>,
+) {
     spawn_camera(&mut commands, &asset_server);
     spawn_light(&mut commands, &app_status);
     spawn_gltf_scene(&mut commands, &asset_server);
@@ -149,7 +153,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
 }
 
 /// Spawns the camera, with the initial shadow filtering method.
-fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
+fn spawn_camera(commands: &mut Commands<'_, '_>, asset_server: &AssetServer) {
     commands
         .spawn((
             Camera3d::default(),
@@ -176,7 +180,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 }
 
 /// Spawns the initial light.
-fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
+fn spawn_light(commands: &mut Commands<'_, '_>, app_status: &AppStatus) {
     // Because this light can become a directional light, point light, or spot
     // light depending on the settings, we add the union of the components
     // necessary for this light to behave as all three of those.
@@ -200,14 +204,14 @@ fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
 }
 
 /// Loads and spawns the glTF palm tree scene.
-fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
+fn spawn_gltf_scene(commands: &mut Commands<'_, '_>, asset_server: &AssetServer) {
     commands.spawn(SceneRoot(
         asset_server.load("models/PalmTree/PalmTree.gltf#Scene0"),
     ));
 }
 
 /// Spawns all the buttons at the bottom of the screen.
-fn spawn_buttons(commands: &mut Commands) {
+fn spawn_buttons(commands: &mut Commands<'_, '_>) {
     commands
         .spawn(NodeBundle {
             style: widgets::main_ui_style(),
@@ -249,6 +253,8 @@ fn spawn_buttons(commands: &mut Commands) {
 /// to reflect whether PCSS is enabled.
 fn update_radio_buttons(
     mut widgets: Query<
+        '_,
+        '_,
         (
             Entity,
             Option<&mut BackgroundColor>,
@@ -257,7 +263,7 @@ fn update_radio_buttons(
         ),
         Or<(With<RadioButton>, With<RadioButtonText>)>,
     >,
-    app_status: Res<AppStatus>,
+    app_status: Res<'_, AppStatus>,
     mut writer: UiTextWriter,
 ) {
     for (entity, image, has_text, sender) in widgets.iter_mut() {
@@ -278,10 +284,15 @@ fn update_radio_buttons(
 
 /// Handles requests from the user to change the type of light.
 fn handle_light_type_change(
-    mut commands: Commands,
-    mut lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>, With<SpotLight>)>>,
-    mut events: EventReader<WidgetClickEvent<AppSetting>>,
-    mut app_status: ResMut<AppStatus>,
+    mut commands: Commands<'_, '_>,
+    mut lights: Query<
+        '_,
+        '_,
+        Entity,
+        Or<(With<DirectionalLight>, With<PointLight>, With<SpotLight>)>,
+    >,
+    mut events: EventReader<'_, '_, WidgetClickEvent<AppSetting>>,
+    mut app_status: ResMut<'_, AppStatus>,
 ) {
     for event in events.read() {
         let AppSetting::LightType(light_type) = **event else {
@@ -315,10 +326,10 @@ fn handle_light_type_change(
 /// This system is also responsible for enabling and disabling TAA as
 /// appropriate.
 fn handle_shadow_filter_change(
-    mut commands: Commands,
-    mut cameras: Query<(Entity, &mut ShadowFilteringMethod)>,
-    mut events: EventReader<WidgetClickEvent<AppSetting>>,
-    mut app_status: ResMut<AppStatus>,
+    mut commands: Commands<'_, '_>,
+    mut cameras: Query<'_, '_, (Entity, &mut ShadowFilteringMethod)>,
+    mut events: EventReader<'_, '_, WidgetClickEvent<AppSetting>>,
+    mut app_status: ResMut<'_, AppStatus>,
 ) {
     for event in events.read() {
         let AppSetting::ShadowFilter(shadow_filter) = **event else {
@@ -345,9 +356,9 @@ fn handle_shadow_filter_change(
 
 /// Handles requests from the user to toggle soft shadows on and off.
 fn handle_pcss_toggle(
-    mut lights: Query<AnyOf<(&mut DirectionalLight, &mut PointLight, &mut SpotLight)>>,
-    mut events: EventReader<WidgetClickEvent<AppSetting>>,
-    mut app_status: ResMut<AppStatus>,
+    mut lights: Query<'_, '_, AnyOf<(&mut DirectionalLight, &mut PointLight, &mut SpotLight)>>,
+    mut events: EventReader<'_, '_, WidgetClickEvent<AppSetting>>,
+    mut app_status: ResMut<'_, AppStatus>,
 ) {
     for event in events.read() {
         let AppSetting::SoftShadows(value) = **event else {

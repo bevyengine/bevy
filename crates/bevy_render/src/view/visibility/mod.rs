@@ -362,9 +362,9 @@ impl Plugin for VisibilityPlugin {
 ///
 /// This system is used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds(
-    mut commands: Commands,
-    meshes: Res<Assets<Mesh>>,
-    without_aabb: Query<(Entity, &Mesh3d), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    mut commands: Commands<'_, '_>,
+    meshes: Res<'_, Assets<Mesh>>,
+    without_aabb: Query<'_, '_, (Entity, &Mesh3d), (Without<Aabb>, Without<NoFrustumCulling>)>,
 ) {
     for (entity, mesh_handle) in &without_aabb {
         if let Some(mesh) = meshes.get(mesh_handle) {
@@ -380,6 +380,8 @@ pub fn calculate_bounds(
 /// This system is used in [`CameraProjectionPlugin`](crate::camera::CameraProjectionPlugin).
 pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
     mut views: Query<
+        '_,
+        '_,
         (&GlobalTransform, &T, &mut Frustum),
         Or<(Changed<GlobalTransform>, Changed<T>)>,
     >,
@@ -391,11 +393,13 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 
 fn visibility_propagate_system(
     changed: Query<
+        '_,
+        '_,
         (Entity, &Visibility, Option<&Parent>, Option<&Children>),
         (With<InheritedVisibility>, Changed<Visibility>),
     >,
-    mut visibility_query: Query<(&Visibility, &mut InheritedVisibility)>,
-    children_query: Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
+    mut visibility_query: Query<'_, '_, (&Visibility, &mut InheritedVisibility)>,
+    children_query: Query<'_, '_, &Children, (With<Visibility>, With<InheritedVisibility>)>,
 ) {
     for (entity, visibility, parent, children) in &changed {
         let is_visible = match visibility {
@@ -428,8 +432,8 @@ fn visibility_propagate_system(
 fn propagate_recursive(
     parent_is_visible: bool,
     entity: Entity,
-    visibility_query: &mut Query<(&Visibility, &mut InheritedVisibility)>,
-    children_query: &Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
+    visibility_query: &mut Query<'_, '_, (&Visibility, &mut InheritedVisibility)>,
+    children_query: &Query<'_, '_, &Children, (With<Visibility>, With<InheritedVisibility>)>,
     // BLOCKED: https://github.com/rust-lang/rust/issues/31436
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) -> Result<(), ()> {
@@ -459,7 +463,7 @@ fn propagate_recursive(
 /// Resets the view visibility of every entity.
 /// Entities that are visible will be marked as such later this frame
 /// by a [`VisibilitySystems::CheckVisibility`] system.
-fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
+fn reset_view_visibility(mut query: Query<'_, '_, &mut ViewVisibility>) {
     query.iter_mut().for_each(|mut view_visibility| {
         // NOTE: We do not use `set_if_neq` here, as we don't care about
         // change detection for view visibility, and adding a branch to every
@@ -479,16 +483,22 @@ fn reset_view_visibility(mut query: Query<&mut ViewVisibility>) {
 /// system to the [`VisibilitySystems::CheckVisibility`] set so that Bevy will
 /// detect visibility properly for those entities.
 pub fn check_visibility<QF>(
-    mut thread_queues: Local<Parallel<Vec<Entity>>>,
-    mut view_query: Query<(
-        Entity,
-        &mut VisibleEntities,
-        &Frustum,
-        Option<&RenderLayers>,
-        &Camera,
-        Has<NoCpuCulling>,
-    )>,
+    mut thread_queues: Local<'_, Parallel<Vec<Entity>>>,
+    mut view_query: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &mut VisibleEntities,
+            &Frustum,
+            Option<&RenderLayers>,
+            &Camera,
+            Has<NoCpuCulling>,
+        ),
+    >,
     mut visible_aabb_query: Query<
+        '_,
+        '_,
         (
             Entity,
             &InheritedVisibility,
@@ -501,7 +511,7 @@ pub fn check_visibility<QF>(
         ),
         QF,
     >,
-    visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
+    visible_entity_ranges: Option<Res<'_, VisibleEntityRanges>>,
 ) where
     QF: QueryFilter + 'static,
 {
@@ -758,7 +768,7 @@ mod test {
         schedule.run(&mut world);
         world.clear_trackers();
 
-        let mut q = world.query::<Ref<InheritedVisibility>>();
+        let mut q = world.query::<Ref<'_, InheritedVisibility>>();
 
         assert!(!q.get(&world, id1).unwrap().is_changed());
         assert!(!q.get(&world, id2).unwrap().is_changed());

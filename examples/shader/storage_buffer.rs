@@ -20,10 +20,10 @@ fn main() {
 
 /// set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut buffers: ResMut<'_, Assets<ShaderStorageBuffer>>,
+    mut materials: ResMut<'_, Assets<CustomMaterial>>,
 ) {
     // Example data for the storage buffer
     let color_data: Vec<[f32; 4]> = vec![
@@ -62,10 +62,10 @@ fn setup(
 
 // Update the material color by time
 fn update(
-    time: Res<Time>,
-    material_handle: Res<CustomMaterialHandle>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
-    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
+    time: Res<'_, Time>,
+    material_handle: Res<'_, CustomMaterialHandle>,
+    mut materials: ResMut<'_, Assets<CustomMaterial>>,
+    mut buffers: ResMut<'_, Assets<ShaderStorageBuffer>>,
 ) {
     let material = materials.get_mut(&material_handle.0).unwrap();
     let buffer = buffers.get_mut(&material.colors).unwrap();

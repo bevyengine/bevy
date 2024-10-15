@@ -44,10 +44,10 @@ const EXTRUSION_X_EXTENT: f32 = 16.0;
 const Z_EXTENT: f32 = 5.0;
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut scene_materials: ResMut<SceneMaterials>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut scene_materials: ResMut<'_, SceneMaterials>,
 ) {
     // Set up the materials.
     scene_materials.white = materials.add(Color::WHITE);
@@ -160,9 +160,9 @@ fn setup(
 
 /// Changes the material when the pointer is over the mesh.
 fn on_pointer_over(
-    trigger: Trigger<Pointer<Over>>,
-    scene_materials: Res<SceneMaterials>,
-    mut query: Query<&mut MeshMaterial3d<StandardMaterial>>,
+    trigger: Trigger<'_, Pointer<Over>>,
+    scene_materials: Res<'_, SceneMaterials>,
+    mut query: Query<'_, '_, &mut MeshMaterial3d<StandardMaterial>>,
 ) {
     if let Ok(mut material) = query.get_mut(trigger.entity()) {
         material.0 = scene_materials.hover.clone();
@@ -171,9 +171,9 @@ fn on_pointer_over(
 
 /// Resets the material when the pointer leaves the mesh.
 fn on_pointer_out(
-    trigger: Trigger<Pointer<Out>>,
-    scene_materials: Res<SceneMaterials>,
-    mut query: Query<&mut MeshMaterial3d<StandardMaterial>>,
+    trigger: Trigger<'_, Pointer<Out>>,
+    scene_materials: Res<'_, SceneMaterials>,
+    mut query: Query<'_, '_, &mut MeshMaterial3d<StandardMaterial>>,
 ) {
     if let Ok(mut material) = query.get_mut(trigger.entity()) {
         material.0 = scene_materials.white.clone();
@@ -182,9 +182,9 @@ fn on_pointer_out(
 
 /// Changes the material when the pointer is pressed.
 fn on_pointer_down(
-    trigger: Trigger<Pointer<Down>>,
-    scene_materials: Res<SceneMaterials>,
-    mut query: Query<&mut MeshMaterial3d<StandardMaterial>>,
+    trigger: Trigger<'_, Pointer<Down>>,
+    scene_materials: Res<'_, SceneMaterials>,
+    mut query: Query<'_, '_, &mut MeshMaterial3d<StandardMaterial>>,
 ) {
     if let Ok(mut material) = query.get_mut(trigger.entity()) {
         material.0 = scene_materials.pressed.clone();
@@ -193,9 +193,9 @@ fn on_pointer_down(
 
 /// Resets the material when the pointer is released.
 fn on_pointer_up(
-    trigger: Trigger<Pointer<Up>>,
-    scene_materials: Res<SceneMaterials>,
-    mut query: Query<&mut MeshMaterial3d<StandardMaterial>>,
+    trigger: Trigger<'_, Pointer<Up>>,
+    scene_materials: Res<'_, SceneMaterials>,
+    mut query: Query<'_, '_, &mut MeshMaterial3d<StandardMaterial>>,
 ) {
     if let Ok(mut material) = query.get_mut(trigger.entity()) {
         material.0 = scene_materials.hover.clone();
@@ -204,8 +204,8 @@ fn on_pointer_up(
 
 /// Draws the closest point of intersection for pointer hits.
 fn on_mesh_hover(
-    mut pointer_hits: EventReader<PointerHits>,
-    meshes: Query<Entity, With<Mesh3d>>,
+    mut pointer_hits: EventReader<'_, '_, PointerHits>,
+    meshes: Query<'_, '_, Entity, With<Mesh3d>>,
     mut gizmos: Gizmos,
 ) {
     for hit in pointer_hits.read() {
@@ -230,7 +230,7 @@ fn on_mesh_hover(
 }
 
 /// Rotates the shapes.
-fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
+fn rotate(mut query: Query<'_, '_, &mut Transform, With<Shape>>, time: Res<'_, Time>) {
     for mut transform in &mut query {
         transform.rotate_y(time.delta_seconds() / 2.);
     }

@@ -9,10 +9,10 @@ fn main() {
     world.spawn(A(1));
     world.spawn(A(2));
 
-    let mut system_state = SystemState::<Query<&mut A>>::new(&mut world);
+    let mut system_state = SystemState::<Query<'_, '_, &mut A>>::new(&mut world);
     {
         let mut query = system_state.get_mut(&mut world);
-        let mut_vec = query.iter_mut().collect::<Vec<bevy_ecs::prelude::Mut<A>>>();
+        let mut_vec = query.iter_mut().collect::<Vec<bevy_ecs::prelude::Mut<'_, A>>>();
         assert_eq!(
             // this should fail to compile due to the later use of mut_vec
             query.iter().collect::<Vec<&A>>(),

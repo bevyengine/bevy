@@ -191,7 +191,7 @@ impl RenderAsset for GpuAutoExposureCompensationCurve {
 
     fn prepare_asset(
         source: Self::SourceAsset,
-        (render_device, render_queue): &mut SystemParamItem<Self::Param>,
+        (render_device, render_queue): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<Self, bevy_render::render_asset::PrepareAssetError<Self::SourceAsset>> {
         let texture = render_device.create_texture_with_data(
             render_queue,

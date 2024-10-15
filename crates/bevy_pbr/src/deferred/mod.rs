@@ -159,8 +159,8 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
 
     fn run(
         &self,
-        _graph_context: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        _graph_context: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
         (
             view_uniform_offset,
             view_lights_offset,
@@ -172,7 +172,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             target,
             deferred_lighting_id_depth_texture,
             deferred_lighting_pipeline,
-        ): QueryItem<Self::ViewQuery>,
+        ): QueryItem<'_, Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -412,8 +412,8 @@ impl FromWorld for DeferredLightingLayout {
 }
 
 pub fn insert_deferred_lighting_pass_id_component(
-    mut commands: Commands,
-    views: Query<Entity, (With<DeferredPrepass>, Without<PbrDeferredLightingDepthId>)>,
+    mut commands: Commands<'_, '_>,
+    views: Query<'_, '_, Entity, (With<DeferredPrepass>, Without<PbrDeferredLightingDepthId>)>,
 ) {
     for entity in views.iter() {
         commands
@@ -423,11 +423,13 @@ pub fn insert_deferred_lighting_pass_id_component(
 }
 
 pub fn prepare_deferred_lighting_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<DeferredLightingLayout>>,
-    deferred_lighting_layout: Res<DeferredLightingLayout>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<DeferredLightingLayout>>,
+    deferred_lighting_layout: Res<'_, DeferredLightingLayout>,
     views: Query<
+        '_,
+        '_,
         (
             Entity,
             &ExtractedView,

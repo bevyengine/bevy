@@ -7,7 +7,7 @@ use bevy_macro_utils::fq_std::{FQBox, FQClone, FQOption, FQResult};
 use quote::quote;
 
 /// Implements `GetTypeRegistration` and `Reflect` for the given type data.
-pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
+pub(crate) fn impl_opaque(meta: &ReflectMeta<'_>) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
 
@@ -107,7 +107,7 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
             }
 
             #[inline]
-            fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut {
+            fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut<'_> {
                 #bevy_reflect_path::ReflectMut::Opaque(self)
             }
 

@@ -87,7 +87,7 @@ pub trait GetBatchData {
     /// instance data building path, we use
     /// [`GetFullBatchData::get_index_and_compare_data`] instead.
     fn get_batch_data(
-        param: &SystemParamItem<Self::Param>,
+        param: &SystemParamItem<'_, '_, Self::Param>,
         query_item: (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)>;
 }
@@ -108,7 +108,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// buffer building path, we use
     /// [`GetFullBatchData::get_index_and_compare_data`] instead.
     fn get_binned_batch_data(
-        param: &SystemParamItem<Self::Param>,
+        param: &SystemParamItem<'_, '_, Self::Param>,
         query_item: (Entity, MainEntity),
     ) -> Option<Self::BufferData>;
 
@@ -120,7 +120,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// look up any render data. If CPU instance buffer building is in use, this
     /// function will never be called.
     fn get_index_and_compare_data(
-        param: &SystemParamItem<Self::Param>,
+        param: &SystemParamItem<'_, '_, Self::Param>,
         query_item: (Entity, MainEntity),
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)>;
 
@@ -132,7 +132,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// look up any render data. If CPU instance buffer building is in use, this
     /// function will never be called.
     fn get_binned_index(
-        param: &SystemParamItem<Self::Param>,
+        param: &SystemParamItem<'_, '_, Self::Param>,
         query_item: (Entity, MainEntity),
     ) -> Option<NonMaxU32>;
 
@@ -143,7 +143,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// This is only used if GPU culling is enabled (which requires GPU
     /// preprocessing).
     fn get_batch_indirect_parameters_index(
-        param: &SystemParamItem<Self::Param>,
+        param: &SystemParamItem<'_, '_, Self::Param>,
         indirect_parameters_buffer: &mut IndirectParametersBuffer,
         entity: (Entity, MainEntity),
         instance_index: u32,
@@ -151,7 +151,7 @@ pub trait GetFullBatchData: GetBatchData {
 }
 
 /// Sorts a render phase that uses bins.
-pub fn sort_binned_render_phase<BPI>(mut phases: ResMut<ViewBinnedRenderPhases<BPI>>)
+pub fn sort_binned_render_phase<BPI>(mut phases: ResMut<'_, ViewBinnedRenderPhases<BPI>>)
 where
     BPI: BinnedPhaseItem,
 {

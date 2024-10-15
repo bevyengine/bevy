@@ -47,10 +47,10 @@ pub trait FreelyMutableState: States {
 }
 
 fn apply_state_transition<S: FreelyMutableState>(
-    event: EventWriter<StateTransitionEvent<S>>,
-    commands: Commands,
-    current_state: Option<ResMut<State<S>>>,
-    next_state: Option<ResMut<NextState<S>>>,
+    event: EventWriter<'_, StateTransitionEvent<S>>,
+    commands: Commands<'_, '_>,
+    current_state: Option<ResMut<'_, State<S>>>,
+    next_state: Option<ResMut<'_, NextState<S>>>,
 ) {
     let Some(next_state) = take_next_state(next_state) else {
         return;

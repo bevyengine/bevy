@@ -241,11 +241,11 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
 pub struct SkyboxPipelineId(pub CachedRenderPipelineId);
 
 fn prepare_skybox_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
-    pipeline: Res<SkyboxPipeline>,
-    views: Query<(Entity, &ExtractedView, &Msaa), With<Skybox>>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<SkyboxPipeline>>,
+    pipeline: Res<'_, SkyboxPipeline>,
+    views: Query<'_, '_, (Entity, &ExtractedView, &Msaa), With<Skybox>>,
 ) {
     for (entity, view, msaa) in &views {
         let pipeline_id = pipelines.specialize(
@@ -268,13 +268,13 @@ fn prepare_skybox_pipelines(
 pub struct SkyboxBindGroup(pub (BindGroup, u32));
 
 fn prepare_skybox_bind_groups(
-    mut commands: Commands,
-    pipeline: Res<SkyboxPipeline>,
-    view_uniforms: Res<ViewUniforms>,
-    skybox_uniforms: Res<ComponentUniforms<SkyboxUniforms>>,
-    images: Res<RenderAssets<GpuImage>>,
-    render_device: Res<RenderDevice>,
-    views: Query<(Entity, &Skybox, &DynamicUniformIndex<SkyboxUniforms>)>,
+    mut commands: Commands<'_, '_>,
+    pipeline: Res<'_, SkyboxPipeline>,
+    view_uniforms: Res<'_, ViewUniforms>,
+    skybox_uniforms: Res<'_, ComponentUniforms<SkyboxUniforms>>,
+    images: Res<'_, RenderAssets<GpuImage>>,
+    render_device: Res<'_, RenderDevice>,
+    views: Query<'_, '_, (Entity, &Skybox, &DynamicUniformIndex<SkyboxUniforms>)>,
 ) {
     for (entity, skybox, skybox_uniform_index) in &views {
         if let (Some(skybox), Some(view_uniforms), Some(skybox_uniforms)) = (

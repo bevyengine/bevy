@@ -10,7 +10,7 @@ fn main() {
 }
 
 /// This system prints out all keyboard events as they come in
-fn print_keyboard_event_system(mut keyboard_input_events: EventReader<KeyboardInput>) {
+fn print_keyboard_event_system(mut keyboard_input_events: EventReader<'_, '_, KeyboardInput>) {
     for event in keyboard_input_events.read() {
         info!("{:?}", event);
     }

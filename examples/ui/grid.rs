@@ -15,7 +15,7 @@ fn main() {
         .run();
 }
 
-fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn spawn_layout(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     commands.spawn(Camera2d);
 
@@ -36,11 +36,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 //  - The first row will size to the size of its contents
                 //  - The second row take up remaining available space (after rows 1 and 3 have both been sized)
                 //  - The third row will be exactly 20px high
-                grid_template_rows: vec![
-                    GridTrack::auto(),
-                    GridTrack::flex(1.0),
-                    GridTrack::px(20.),
-                ],
+                grid_template_rows: vec![GridTrack::auto(), GridTrack::flex(1.0), GridTrack::px(20.)],
                 ..default()
             },
             background_color: BackgroundColor(Color::WHITE),
@@ -136,19 +132,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|builder| {
-                    builder.spawn((Text::new("Sidebar"),
-                        TextFont {
-                            font: font.clone(),
-                            ..default()
-                        },
-                    ));
-                    builder.spawn((Text::new("A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely."),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: 13.0,
-                            ..default()
-                        },
-                    ));
+                    builder.spawn((Text::new("Sidebar"), TextFont { font: font.clone(), ..default() }));
+                    builder.spawn((Text::new("A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely."), TextFont { font: font.clone(), font_size: 13.0, ..default() }));
                     builder.spawn(NodeBundle::default());
                 });
 
@@ -168,12 +153,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 visibility: Visibility::Hidden,
                 style: Style {
                     position_type: PositionType::Absolute,
-                    margin: UiRect {
-                        top: Val::Px(100.),
-                        bottom: Val::Auto,
-                        left: Val::Auto,
-                        right: Val::Auto,
-                    },
+                    margin: UiRect { top: Val::Px(100.), bottom: Val::Auto, left: Val::Auto, right: Val::Auto },
                     width: Val::Percent(60.),
                     height: Val::Px(300.),
                     max_width: Val::Px(600.),

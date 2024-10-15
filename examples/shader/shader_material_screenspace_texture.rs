@@ -21,11 +21,11 @@ fn main() {
 struct MainCamera;
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut custom_materials: ResMut<Assets<CustomMaterial>>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut custom_materials: ResMut<'_, Assets<CustomMaterial>>,
+    mut standard_materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     commands.spawn((
         Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
@@ -51,7 +51,10 @@ fn setup(
     ));
 }
 
-fn rotate_camera(mut cam_transform: Single<&mut Transform, With<MainCamera>>, time: Res<Time>) {
+fn rotate_camera(
+    mut cam_transform: Single<'_, &mut Transform, With<MainCamera>>,
+    time: Res<'_, Time>,
+) {
     cam_transform.rotate_around(
         Vec3::ZERO,
         Quat::from_axis_angle(Vec3::Y, 45f32.to_radians() * time.delta_seconds()),

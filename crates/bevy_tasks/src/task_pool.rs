@@ -297,7 +297,7 @@ impl TaskPool {
     pub fn scope_with_executor<'env, F, T>(
         &self,
         tick_task_pool_executor: bool,
-        external_executor: Option<&ThreadExecutor>,
+        external_executor: Option<&ThreadExecutor<'_>>,
         f: F,
     ) -> Vec<T>
     where
@@ -329,8 +329,8 @@ impl TaskPool {
     fn scope_with_executor_inner<'env, F, T>(
         &self,
         tick_task_pool_executor: bool,
-        external_executor: &ThreadExecutor,
-        scope_executor: &ThreadExecutor,
+        external_executor: &ThreadExecutor<'_>,
+        scope_executor: &ThreadExecutor<'_>,
         f: F,
     ) -> Vec<T>
     where
@@ -344,9 +344,9 @@ impl TaskPool {
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
-        let executor: &async_executor::Executor = &self.executor;
+        let executor: &async_executor::Executor<'_> = &self.executor;
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
+        let executor: &'env async_executor::Executor<'_> = unsafe { mem::transmute(executor) };
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let external_executor: &'env ThreadExecutor<'env> =
             unsafe { mem::transmute(external_executor) };
@@ -562,7 +562,7 @@ impl TaskPool {
     /// ```
     pub fn with_local_executor<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&async_executor::LocalExecutor) -> R,
+        F: FnOnce(&async_executor::LocalExecutor<'_>) -> R,
     {
         Self::LOCAL_EXECUTOR.with(f)
     }

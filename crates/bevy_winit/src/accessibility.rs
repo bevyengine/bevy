@@ -148,9 +148,9 @@ pub(crate) fn prepare_accessibility_for_window(
 }
 
 fn window_closed(
-    mut adapters: NonSendMut<AccessKitAdapters>,
-    mut handlers: ResMut<WinitActionRequestHandlers>,
-    mut events: EventReader<WindowClosed>,
+    mut adapters: NonSendMut<'_, AccessKitAdapters>,
+    mut handlers: ResMut<'_, WinitActionRequestHandlers>,
+    mut events: EventReader<'_, '_, WindowClosed>,
 ) {
     for WindowClosed { window, .. } in events.read() {
         adapters.remove(window);
@@ -159,8 +159,8 @@ fn window_closed(
 }
 
 fn poll_receivers(
-    handlers: Res<WinitActionRequestHandlers>,
-    mut actions: EventWriter<ActionRequestWrapper>,
+    handlers: Res<'_, WinitActionRequestHandlers>,
+    mut actions: EventWriter<'_, ActionRequestWrapper>,
 ) {
     for (_id, handler) in handlers.iter() {
         let mut handler = handler.lock().unwrap();
@@ -171,23 +171,27 @@ fn poll_receivers(
 }
 
 fn should_update_accessibility_nodes(
-    accessibility_requested: Res<AccessibilityRequested>,
-    manage_accessibility_updates: Res<ManageAccessibilityUpdates>,
+    accessibility_requested: Res<'_, AccessibilityRequested>,
+    manage_accessibility_updates: Res<'_, ManageAccessibilityUpdates>,
 ) -> bool {
     accessibility_requested.get() && manage_accessibility_updates.get()
 }
 
 fn update_accessibility_nodes(
-    mut adapters: NonSendMut<AccessKitAdapters>,
-    focus: Res<Focus>,
-    primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
-    nodes: Query<(
-        Entity,
-        &AccessibilityNode,
-        Option<&Children>,
-        Option<&Parent>,
-    )>,
-    node_entities: Query<Entity, With<AccessibilityNode>>,
+    mut adapters: NonSendMut<'_, AccessKitAdapters>,
+    focus: Res<'_, Focus>,
+    primary_window: Query<'_, '_, (Entity, &Window), With<PrimaryWindow>>,
+    nodes: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &AccessibilityNode,
+            Option<&Children>,
+            Option<&Parent>,
+        ),
+    >,
+    node_entities: Query<'_, '_, Entity, With<AccessibilityNode>>,
 ) {
     let Ok((primary_window_id, primary_window)) = primary_window.get_single() else {
         return;
@@ -209,16 +213,20 @@ fn update_accessibility_nodes(
 }
 
 fn update_adapter(
-    nodes: Query<(
-        Entity,
-        &AccessibilityNode,
-        Option<&Children>,
-        Option<&Parent>,
-    )>,
-    node_entities: Query<Entity, With<AccessibilityNode>>,
+    nodes: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &AccessibilityNode,
+            Option<&Children>,
+            Option<&Parent>,
+        ),
+    >,
+    node_entities: Query<'_, '_, Entity, With<AccessibilityNode>>,
     primary_window: &Window,
     primary_window_id: Entity,
-    focus: Res<Focus>,
+    focus: Res<'_, Focus>,
 ) -> TreeUpdate {
     let mut to_update = vec![];
     let mut window_children = vec![];
@@ -251,7 +259,7 @@ fn update_adapter(
 fn queue_node_for_update(
     node_entity: Entity,
     parent: Option<&Parent>,
-    node_entities: &Query<Entity, With<AccessibilityNode>>,
+    node_entities: &Query<'_, '_, Entity, With<AccessibilityNode>>,
     window_children: &mut Vec<NodeId>,
 ) {
     let should_push = if let Some(parent) = parent {
@@ -267,7 +275,7 @@ fn queue_node_for_update(
 #[inline]
 fn add_children_nodes(
     children: Option<&Children>,
-    node_entities: &Query<Entity, With<AccessibilityNode>>,
+    node_entities: &Query<'_, '_, Entity, With<AccessibilityNode>>,
     node: &mut NodeBuilder,
 ) {
     let Some(children) = children else {

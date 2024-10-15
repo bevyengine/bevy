@@ -23,9 +23,9 @@ fn main() {
 const X_EXTENT: f32 = 900.;
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2d);
 
@@ -77,8 +77,8 @@ fn setup(
 
 #[cfg(not(target_arch = "wasm32"))]
 fn toggle_wireframe(
-    mut wireframe_config: ResMut<Wireframe2dConfig>,
-    keyboard: Res<ButtonInput<KeyCode>>,
+    mut wireframe_config: ResMut<'_, Wireframe2dConfig>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
         wireframe_config.global = !wireframe_config.global;

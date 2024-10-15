@@ -215,7 +215,11 @@ fn main() {
 }
 
 // Spawns all the scene objects.
-fn setup(mut commands: Commands, assets: Res<ExampleAssets>, app_status: Res<AppStatus>) {
+fn setup(
+    mut commands: Commands<'_, '_>,
+    assets: Res<'_, ExampleAssets>,
+    app_status: Res<'_, AppStatus>,
+) {
     spawn_main_scene(&mut commands, &assets);
     spawn_camera(&mut commands, &assets);
     spawn_irradiance_volume(&mut commands, &assets);
@@ -226,11 +230,11 @@ fn setup(mut commands: Commands, assets: Res<ExampleAssets>, app_status: Res<App
     spawn_text(&mut commands, &app_status);
 }
 
-fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
+fn spawn_main_scene(commands: &mut Commands<'_, '_>, assets: &ExampleAssets) {
     commands.spawn(SceneRoot(assets.main_scene.clone()));
 }
 
-fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
+fn spawn_camera(commands: &mut Commands<'_, '_>, assets: &ExampleAssets) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
@@ -242,7 +246,7 @@ fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
     ));
 }
 
-fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
+fn spawn_irradiance_volume(commands: &mut Commands<'_, '_>, assets: &ExampleAssets) {
     commands.spawn((
         Transform::from_matrix(VOXEL_FROM_WORLD),
         IrradianceVolume {
@@ -253,7 +257,7 @@ fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
     ));
 }
 
-fn spawn_light(commands: &mut Commands) {
+fn spawn_light(commands: &mut Commands<'_, '_>) {
     commands.spawn((
         PointLight {
             intensity: 250000.0,
@@ -264,7 +268,7 @@ fn spawn_light(commands: &mut Commands) {
     ));
 }
 
-fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {
+fn spawn_sphere(commands: &mut Commands<'_, '_>, assets: &ExampleAssets) {
     commands
         .spawn((
             Mesh3d(assets.main_sphere.clone()),
@@ -274,11 +278,11 @@ fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {
         .insert(MainObject);
 }
 
-fn spawn_voxel_cube_parent(commands: &mut Commands) {
+fn spawn_voxel_cube_parent(commands: &mut Commands<'_, '_>) {
     commands.spawn((Visibility::Hidden, Transform::default(), VoxelCubeParent));
 }
 
-fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
+fn spawn_fox(commands: &mut Commands<'_, '_>, assets: &ExampleAssets) {
     commands.spawn((
         SceneRoot(assets.fox.clone()),
         Visibility::Hidden,
@@ -287,7 +291,7 @@ fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
     ));
 }
 
-fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
+fn spawn_text(commands: &mut Commands<'_, '_>, app_status: &AppStatus) {
     commands.spawn((
         app_status.create_text(),
         Style {
@@ -300,7 +304,7 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
 }
 
 // A system that updates the help text.
-fn update_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
+fn update_text(mut text_query: Query<'_, '_, &mut Text>, app_status: Res<'_, AppStatus>) {
     for mut text in text_query.iter_mut() {
         *text = app_status.create_text();
     }
@@ -346,9 +350,9 @@ impl AppStatus {
 
 // Rotates the camera a bit every frame.
 fn rotate_camera(
-    mut camera_query: Query<&mut Transform, With<Camera3d>>,
-    time: Res<Time>,
-    app_status: Res<AppStatus>,
+    mut camera_query: Query<'_, '_, &mut Transform, With<Camera3d>>,
+    time: Res<'_, Time>,
+    app_status: Res<'_, AppStatus>,
 ) {
     if !app_status.rotating {
         return;
@@ -366,10 +370,15 @@ fn rotate_camera(
 // Toggles between the unskinned sphere model and the skinned fox model if the
 // user requests it.
 fn change_main_object(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut app_status: ResMut<AppStatus>,
-    mut sphere_query: Query<&mut Visibility, (With<MainObject>, With<Mesh3d>, Without<SceneRoot>)>,
-    mut fox_query: Query<&mut Visibility, (With<MainObject>, With<SceneRoot>)>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
+    mut app_status: ResMut<'_, AppStatus>,
+    mut sphere_query: Query<
+        '_,
+        '_,
+        &mut Visibility,
+        (With<MainObject>, With<Mesh3d>, Without<SceneRoot>),
+    >,
+    mut fox_query: Query<'_, '_, &mut Visibility, (With<MainObject>, With<SceneRoot>)>,
 ) {
     if !keyboard.just_pressed(KeyCode::Tab) {
         return;
@@ -408,12 +417,12 @@ impl Default for AppStatus {
 
 // Turns on and off the irradiance volume as requested by the user.
 fn toggle_irradiance_volumes(
-    mut commands: Commands,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    light_probe_query: Query<Entity, With<LightProbe>>,
-    mut app_status: ResMut<AppStatus>,
-    assets: Res<ExampleAssets>,
-    mut ambient_light: ResMut<AmbientLight>,
+    mut commands: Commands<'_, '_>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
+    light_probe_query: Query<'_, '_, Entity, With<LightProbe>>,
+    mut app_status: ResMut<'_, AppStatus>,
+    assets: Res<'_, ExampleAssets>,
+    mut ambient_light: ResMut<'_, AmbientLight>,
 ) {
     if !keyboard.just_pressed(KeyCode::Space) {
         return;
@@ -437,7 +446,7 @@ fn toggle_irradiance_volumes(
     }
 }
 
-fn toggle_rotation(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<AppStatus>) {
+fn toggle_rotation(keyboard: Res<'_, ButtonInput<KeyCode>>, mut app_status: ResMut<'_, AppStatus>) {
     if keyboard.just_pressed(KeyCode::Enter) {
         app_status.rotating = !app_status.rotating;
     }
@@ -445,10 +454,10 @@ fn toggle_rotation(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<A
 
 // Handles clicks on the plane that reposition the object.
 fn handle_mouse_clicks(
-    buttons: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    cameras: Query<(&Camera, &GlobalTransform)>,
-    mut main_objects: Query<&mut Transform, With<MainObject>>,
+    buttons: Res<'_, ButtonInput<MouseButton>>,
+    windows: Query<'_, '_, &Window, With<PrimaryWindow>>,
+    cameras: Query<'_, '_, (&Camera, &GlobalTransform)>,
+    mut main_objects: Query<'_, '_, &mut Transform, With<MainObject>>,
 ) {
     if !buttons.pressed(MouseButton::Left) {
         return;
@@ -508,9 +517,9 @@ impl FromWorld for ExampleAssets {
 
 // Plays the animation on the fox.
 fn play_animations(
-    mut commands: Commands,
-    assets: Res<ExampleAssets>,
-    mut players: Query<(Entity, &mut AnimationPlayer), Without<AnimationGraphHandle>>,
+    mut commands: Commands<'_, '_>,
+    assets: Res<'_, ExampleAssets>,
+    mut players: Query<'_, '_, (Entity, &mut AnimationPlayer), Without<AnimationGraphHandle>>,
 ) {
     for (entity, mut player) in players.iter_mut() {
         commands
@@ -521,13 +530,13 @@ fn play_animations(
 }
 
 fn create_cubes(
-    image_assets: Res<Assets<Image>>,
-    mut commands: Commands,
-    irradiance_volumes: Query<(&IrradianceVolume, &GlobalTransform)>,
-    voxel_cube_parents: Query<Entity, With<VoxelCubeParent>>,
-    voxel_cubes: Query<Entity, With<VoxelCube>>,
-    example_assets: Res<ExampleAssets>,
-    mut voxel_visualization_material_assets: ResMut<Assets<VoxelVisualizationMaterial>>,
+    image_assets: Res<'_, Assets<Image>>,
+    mut commands: Commands<'_, '_>,
+    irradiance_volumes: Query<'_, '_, (&IrradianceVolume, &GlobalTransform)>,
+    voxel_cube_parents: Query<'_, '_, Entity, With<VoxelCubeParent>>,
+    voxel_cubes: Query<'_, '_, Entity, With<VoxelCube>>,
+    example_assets: Res<'_, ExampleAssets>,
+    mut voxel_visualization_material_assets: ResMut<'_, Assets<VoxelVisualizationMaterial>>,
 ) {
     // If voxel cubes have already been spawned, don't do anything.
     if !voxel_cubes.is_empty() {
@@ -594,8 +603,8 @@ fn create_cubes(
 // Draws a gizmo showing the bounds of the irradiance volume.
 fn draw_gizmo(
     mut gizmos: Gizmos,
-    irradiance_volume_query: Query<&GlobalTransform, With<IrradianceVolume>>,
-    app_status: Res<AppStatus>,
+    irradiance_volume_query: Query<'_, '_, &GlobalTransform, With<IrradianceVolume>>,
+    app_status: Res<'_, AppStatus>,
 ) {
     if app_status.voxels_visible {
         for transform in irradiance_volume_query.iter() {
@@ -606,9 +615,9 @@ fn draw_gizmo(
 
 // Handles a request from the user to toggle the voxel visibility on and off.
 fn toggle_voxel_visibility(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut app_status: ResMut<AppStatus>,
-    mut voxel_cube_parent_query: Query<&mut Visibility, With<VoxelCubeParent>>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
+    mut app_status: ResMut<'_, AppStatus>,
+    mut voxel_cube_parent_query: Query<'_, '_, &mut Visibility, With<VoxelCubeParent>>,
 ) {
     if !keyboard.just_pressed(KeyCode::Backspace) {
         return;

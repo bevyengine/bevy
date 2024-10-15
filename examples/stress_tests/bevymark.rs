@@ -178,12 +178,12 @@ struct BirdScheduled {
 }
 
 fn scheduled_spawner(
-    mut commands: Commands,
-    args: Res<Args>,
-    window: Single<&Window>,
-    mut scheduled: ResMut<BirdScheduled>,
-    mut counter: ResMut<BevyCounter>,
-    bird_resources: ResMut<BirdResources>,
+    mut commands: Commands<'_, '_>,
+    args: Res<'_, Args>,
+    window: Single<'_, &Window>,
+    mut scheduled: ResMut<'_, BirdScheduled>,
+    mut counter: ResMut<'_, BevyCounter>,
+    bird_resources: ResMut<'_, BirdResources>,
 ) {
     if scheduled.waves > 0 {
         let bird_resources = bird_resources.into_inner();
@@ -218,14 +218,14 @@ struct StatsText;
 
 #[allow(clippy::too_many_arguments)]
 fn setup(
-    mut commands: Commands,
-    args: Res<Args>,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    material_assets: ResMut<Assets<ColorMaterial>>,
-    images: ResMut<Assets<Image>>,
-    window: Single<&Window>,
-    counter: ResMut<BevyCounter>,
+    mut commands: Commands<'_, '_>,
+    args: Res<'_, Args>,
+    asset_server: Res<'_, AssetServer>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    material_assets: ResMut<'_, Assets<ColorMaterial>>,
+    images: ResMut<'_, Assets<Image>>,
+    window: Single<'_, &Window>,
+    counter: ResMut<'_, BevyCounter>,
 ) {
     warn!(include_str!("warning_string.txt"));
 
@@ -328,15 +328,15 @@ fn setup(
 
 #[allow(clippy::too_many_arguments)]
 fn mouse_handler(
-    mut commands: Commands,
-    args: Res<Args>,
-    time: Res<Time>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    window: Single<&Window>,
-    bird_resources: ResMut<BirdResources>,
-    mut counter: ResMut<BevyCounter>,
-    mut rng: Local<Option<ChaCha8Rng>>,
-    mut wave: Local<usize>,
+    mut commands: Commands<'_, '_>,
+    args: Res<'_, Args>,
+    time: Res<'_, Time>,
+    mouse_button_input: Res<'_, ButtonInput<MouseButton>>,
+    window: Single<'_, &Window>,
+    bird_resources: ResMut<'_, BirdResources>,
+    mut counter: ResMut<'_, BevyCounter>,
+    mut rng: Local<'_, Option<ChaCha8Rng>>,
+    mut wave: Local<'_, usize>,
 ) {
     if rng.is_none() {
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
@@ -392,7 +392,7 @@ const FIXED_DELTA_TIME: f32 = 1.0 / 60.0;
 
 #[allow(clippy::too_many_arguments)]
 fn spawn_birds(
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
     args: &Args,
     primary_window_resolution: &WindowResolution,
     counter: &mut BevyCounter,
@@ -507,9 +507,9 @@ fn step_movement(translation: &mut Vec3, velocity: &mut Vec3, dt: f32) {
 }
 
 fn movement_system(
-    args: Res<Args>,
-    time: Res<Time>,
-    mut bird_query: Query<(&mut Bird, &mut Transform)>,
+    args: Res<'_, Args>,
+    time: Res<'_, Time>,
+    mut bird_query: Query<'_, '_, (&mut Bird, &mut Transform)>,
 ) {
     let dt = if args.benchmark {
         FIXED_DELTA_TIME
@@ -535,7 +535,10 @@ fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3)
         velocity.y = 0.0;
     }
 }
-fn collision_system(window: Single<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
+fn collision_system(
+    window: Single<'_, &Window>,
+    mut bird_query: Query<'_, '_, (&mut Bird, &Transform)>,
+) {
     let half_extents = 0.5 * window.size();
 
     for (mut bird, transform) in &mut bird_query {
@@ -544,9 +547,9 @@ fn collision_system(window: Single<&Window>, mut bird_query: Query<(&mut Bird, &
 }
 
 fn counter_system(
-    diagnostics: Res<DiagnosticsStore>,
-    counter: Res<BevyCounter>,
-    query: Single<Entity, With<StatsText>>,
+    diagnostics: Res<'_, DiagnosticsStore>,
+    counter: Res<'_, BevyCounter>,
+    query: Single<'_, Entity, With<StatsText>>,
     mut writer: UiTextWriter,
 ) {
     let text = *query;

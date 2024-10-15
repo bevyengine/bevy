@@ -260,9 +260,9 @@ impl MainScheduleOrder {
 
 impl Main {
     /// A system that runs the "main schedule"
-    pub fn run_main(world: &mut World, mut run_at_least_once: Local<bool>) {
+    pub fn run_main(world: &mut World, mut run_at_least_once: Local<'_, bool>) {
         if !*run_at_least_once {
-            world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
+            world.resource_scope(|world, order: Mut<'_, MainScheduleOrder>| {
                 for &label in &order.startup_labels {
                     let _ = world.try_run_schedule(label);
                 }
@@ -270,7 +270,7 @@ impl Main {
             *run_at_least_once = true;
         }
 
-        world.resource_scope(|world, order: Mut<MainScheduleOrder>| {
+        world.resource_scope(|world, order: Mut<'_, MainScheduleOrder>| {
             for &label in &order.labels {
                 let _ = world.try_run_schedule(label);
             }
@@ -363,7 +363,7 @@ impl FixedMainScheduleOrder {
 impl FixedMain {
     /// A system that runs the fixed timestep's "main schedule"
     pub fn run_fixed_main(world: &mut World) {
-        world.resource_scope(|world, order: Mut<FixedMainScheduleOrder>| {
+        world.resource_scope(|world, order: Mut<'_, FixedMainScheduleOrder>| {
             for &label in &order.labels {
                 let _ = world.try_run_schedule(label);
             }

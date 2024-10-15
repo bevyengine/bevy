@@ -38,9 +38,9 @@ struct TransformTracking {
 struct SeededRng(ChaCha8Rng);
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.
@@ -96,7 +96,7 @@ fn setup(
 
 // This system draws the axes based on the cube's transform, with length based on the size of
 // the entity's axis-aligned bounding box (AABB).
-fn draw_axes(mut gizmos: Gizmos, query: Query<(&Transform, &Aabb), With<ShowAxes>>) {
+fn draw_axes(mut gizmos: Gizmos, query: Query<'_, '_, (&Transform, &Aabb), With<ShowAxes>>) {
     for (&transform, &aabb) in &query {
         let length = aabb.half_extents.length();
         gizmos.axes(transform, length);
@@ -105,9 +105,9 @@ fn draw_axes(mut gizmos: Gizmos, query: Query<(&Transform, &Aabb), With<ShowAxes
 
 // This system changes the cubes' transforms to interpolate between random transforms
 fn move_cubes(
-    mut query: Query<(&mut Transform, &mut TransformTracking)>,
-    time: Res<Time>,
-    mut rng: ResMut<SeededRng>,
+    mut query: Query<'_, '_, (&mut Transform, &mut TransformTracking)>,
+    time: Res<'_, Time>,
+    mut rng: ResMut<'_, SeededRng>,
 ) {
     for (mut transform, mut tracking) in &mut query {
         *transform = interpolate_transforms(

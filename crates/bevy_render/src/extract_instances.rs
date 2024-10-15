@@ -105,8 +105,8 @@ where
 }
 
 fn extract_all<EI>(
-    mut extracted_instances: ResMut<ExtractedInstances<EI>>,
-    query: Extract<Query<(Entity, EI::QueryData), EI::QueryFilter>>,
+    mut extracted_instances: ResMut<'_, ExtractedInstances<EI>>,
+    query: Extract<'_, '_, Query<'_, '_, (Entity, EI::QueryData), EI::QueryFilter>>,
 ) where
     EI: ExtractInstance,
 {
@@ -119,8 +119,12 @@ fn extract_all<EI>(
 }
 
 fn extract_visible<EI>(
-    mut extracted_instances: ResMut<ExtractedInstances<EI>>,
-    query: Extract<Query<(Entity, &ViewVisibility, EI::QueryData), EI::QueryFilter>>,
+    mut extracted_instances: ResMut<'_, ExtractedInstances<EI>>,
+    query: Extract<
+        '_,
+        '_,
+        Query<'_, '_, (Entity, &ViewVisibility, EI::QueryData), EI::QueryFilter>,
+    >,
 ) where
     EI: ExtractInstance,
 {

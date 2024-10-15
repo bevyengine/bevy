@@ -21,8 +21,11 @@ struct CommandMeta {
     /// `world` is optional to allow this one function pointer to perform double-duty as a drop.
     ///
     /// Advances `cursor` by the size of `T` in bytes.
-    consume_command_and_get_size:
-        unsafe fn(value: OwningPtr<Unaligned>, world: Option<NonNull<World>>, cursor: &mut usize),
+    consume_command_and_get_size: unsafe fn(
+        value: OwningPtr<'_, Unaligned>,
+        world: Option<NonNull<World>>,
+        cursor: &mut usize,
+    ),
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
@@ -181,7 +184,7 @@ impl RawCommandQueue {
                         command.apply(world);
                         // The command may have queued up world commands, which we flush here to ensure they are also picked up.
                         // If the current command queue already the World Command queue, this will still behave appropriately because the global cursor
-                        // is still at the current `stop`, ensuring only the newly queued Commands will be applied.
+                        // is still at the current `stop`, ensuring only the newly queued Commands<'_, '_> will be applied.
                         world.flush();
                     }
                     // ...or discard it.
@@ -327,7 +330,7 @@ impl SystemBuffer for CommandQueue {
     }
 
     #[inline]
-    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld<'_>) {
         world.commands().append(self);
     }
 }

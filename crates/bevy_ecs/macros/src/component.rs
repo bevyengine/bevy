@@ -128,11 +128,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     let required_component_docs = attrs.requires.map(|r| {
-        let paths = r
-            .iter()
-            .map(|r| format!("[`{}`]", r.path.to_token_stream()))
-            .collect::<Vec<_>>()
-            .join(", ");
+        let paths = r.iter().map(|r| format!("[`{}`]", r.path.to_token_stream())).collect::<Vec<_>>().join(", ");
         let doc = format!("Required Components: {paths}. \n\n A component's Required Components are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively, in depth-first order.");
         quote! {
             #[doc = #doc]
@@ -269,7 +265,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
 }
 
 impl Parse for Require {
-    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
+    fn parse(input: syn::parse::ParseStream<'_>) -> Result<Self> {
         let path = input.parse::<Path>()?;
         let func = if input.peek(Paren) {
             let content;

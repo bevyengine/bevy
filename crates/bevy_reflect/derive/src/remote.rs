@@ -137,7 +137,10 @@ fn generate_remote_wrapper(input: &DeriveInput, remote_ty: &TypePath) -> proc_ma
 /// The `ReflectRemote` trait could likely be made with default method implementations.
 /// However, this makes it really easy for a user to accidentally implement this trait in an unsafe way.
 /// To prevent this, we instead generate the implementation through a macro using this function.
-fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macro2::TokenStream {
+fn impl_reflect_remote(
+    input: &ReflectDerive<'_>,
+    remote_ty: &TypePath,
+) -> proc_macro2::TokenStream {
     let bevy_reflect_path = input.meta().bevy_reflect_path();
 
     let type_path = input.meta().type_path();
@@ -241,7 +244,7 @@ fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macr
 /// }
 /// ```
 pub(crate) fn generate_remote_assertions(
-    derive_data: &ReflectDerive,
+    derive_data: &ReflectDerive<'_>,
 ) -> Option<proc_macro2::TokenStream> {
     struct RemoteAssertionData<'a> {
         ident: Member,
@@ -253,7 +256,7 @@ pub(crate) fn generate_remote_assertions(
 
     let bevy_reflect_path = derive_data.meta().bevy_reflect_path();
 
-    let fields: Box<dyn Iterator<Item = RemoteAssertionData>> = match derive_data {
+    let fields: Box<dyn Iterator<Item = RemoteAssertionData<'_>>> = match derive_data {
         ReflectDerive::Struct(data)
         | ReflectDerive::TupleStruct(data)
         | ReflectDerive::UnitStruct(data) => Box::new(data.active_fields().filter_map(|field| {
@@ -300,9 +303,7 @@ pub(crate) fn generate_remote_assertions(
             };
             let (impl_generics, _, where_clause) = field.generics.split_for_impl();
 
-            let where_reflect_clause = derive_data
-                .where_clause_options()
-                .extend_where_clause(where_clause);
+            let where_reflect_clause = derive_data.where_clause_options().extend_where_clause(where_clause);
 
             let ty = &field.ty;
             let remote_ty = field.remote_ty;
@@ -347,7 +348,9 @@ pub(crate) fn generate_remote_assertions(
 ///
 /// Ideally it would be the other way around, but there's no easy way of doing this without
 /// generating a copy of the struct/enum definition and using that as the base instead of the remote type.
-fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_macro2::TokenStream {
+fn generate_remote_definition_assertions(
+    derive_data: &ReflectDerive<'_>,
+) -> proc_macro2::TokenStream {
     let meta = derive_data.meta();
     let self_ident = format_ident!("__remote__");
     let self_ty = derive_data.remote_ty().unwrap().type_path();
@@ -494,7 +497,7 @@ struct RemoteArgs {
 }
 
 impl Parse for RemoteArgs {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         Ok(Self {
             remote_ty: input.parse()?,
         })

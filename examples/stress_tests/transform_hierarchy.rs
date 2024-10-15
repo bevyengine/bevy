@@ -256,7 +256,7 @@ struct UpdateFilter {
 struct UpdateValue(f32);
 
 /// update positions system
-fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut UpdateValue)>) {
+fn update(time: Res<'_, Time>, mut query: Query<'_, '_, (&mut Transform, &mut UpdateValue)>) {
     for (mut t, mut u) in &mut query {
         u.0 += time.delta_seconds() * 0.1;
         set_translation(&mut t.translation, u.0);
@@ -269,7 +269,7 @@ fn set_translation(translation: &mut Vec3, a: f32) {
     translation.y = ops::sin(a) * 32.0;
 }
 
-fn setup(mut commands: Commands, cfg: Res<Cfg>) {
+fn setup(mut commands: Commands<'_, '_>, cfg: Res<'_, Cfg>) {
     warn!(include_str!("warning_string.txt"));
 
     commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 100.0)));
@@ -354,7 +354,7 @@ impl InsertResult {
 /// the parent map must be ordered (parent must exist before child)
 fn spawn_tree(
     parent_map: &[usize],
-    commands: &mut Commands,
+    commands: &mut Commands<'_, '_>,
     update_filter: &UpdateFilter,
     root_transform: Transform,
 ) -> InsertResult {

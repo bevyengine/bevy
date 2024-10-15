@@ -201,11 +201,11 @@ impl SpecializedRenderPipeline for FxaaPipeline {
 }
 
 pub fn prepare_fxaa_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<FxaaPipeline>>,
-    fxaa_pipeline: Res<FxaaPipeline>,
-    views: Query<(Entity, &ExtractedView, &Fxaa)>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<FxaaPipeline>>,
+    fxaa_pipeline: Res<'_, FxaaPipeline>,
+    views: Query<'_, '_, (Entity, &ExtractedView, &Fxaa)>,
 ) {
     for (entity, view, fxaa) in &views {
         if !fxaa.enabled {

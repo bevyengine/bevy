@@ -84,7 +84,7 @@ impl ExtractComponent for ContrastAdaptiveSharpening {
     type QueryFilter = With<Camera>;
     type Out = (DenoiseCas, CasUniform);
 
-    fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
         if !item.enabled || item.sharpening_strength == 0.0 {
             return None;
         }
@@ -238,11 +238,11 @@ impl SpecializedRenderPipeline for CasPipeline {
 }
 
 fn prepare_cas_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<CasPipeline>>,
-    sharpening_pipeline: Res<CasPipeline>,
-    views: Query<(Entity, &ExtractedView, &DenoiseCas), With<CasUniform>>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<CasPipeline>>,
+    sharpening_pipeline: Res<'_, CasPipeline>,
+    views: Query<'_, '_, (Entity, &ExtractedView, &DenoiseCas), With<CasUniform>>,
 ) {
     for (entity, view, cas) in &views {
         let pipeline_id = pipelines.specialize(

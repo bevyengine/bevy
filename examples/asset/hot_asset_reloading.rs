@@ -14,7 +14,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // Load our mesh:
     let scene_handle =
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/torus/torus.gltf"));

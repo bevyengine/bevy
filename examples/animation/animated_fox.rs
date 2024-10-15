@@ -39,10 +39,10 @@ struct Animations {
 struct OnStep;
 
 fn observe_on_step(
-    trigger: Trigger<OnStep>,
-    particle: Res<ParticleAssets>,
-    mut commands: Commands,
-    transforms: Query<&GlobalTransform>,
+    trigger: Trigger<'_, OnStep>,
+    particle: Res<'_, ParticleAssets>,
+    mut commands: Commands<'_, '_>,
+    transforms: Query<'_, '_, &GlobalTransform>,
 ) {
     let translation = transforms.get(trigger.entity()).unwrap().translation();
     let mut rng = thread_rng();
@@ -63,11 +63,11 @@ fn observe_on_step(
 }
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut graphs: ResMut<'_, Assets<AnimationGraph>>,
 ) {
     // Build the animation graph
     let (graph, node_indices) = AnimationGraph::from_clips([
@@ -127,12 +127,12 @@ fn setup(
 // An `AnimationPlayer` is automatically added to the scene when it's ready.
 // When the player is added, start the animation.
 fn setup_scene_once_loaded(
-    mut commands: Commands,
-    animations: Res<Animations>,
-    feet: Res<FoxFeetTargets>,
-    graphs: Res<Assets<AnimationGraph>>,
-    mut clips: ResMut<Assets<AnimationClip>>,
-    mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
+    mut commands: Commands<'_, '_>,
+    animations: Res<'_, Animations>,
+    feet: Res<'_, FoxFeetTargets>,
+    graphs: Res<'_, Assets<AnimationGraph>>,
+    mut clips: ResMut<'_, Assets<AnimationClip>>,
+    mut players: Query<'_, '_, (Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
 ) {
     fn get_clip<'a>(
         node: AnimationNodeIndex,
@@ -178,10 +178,10 @@ fn setup_scene_once_loaded(
 }
 
 fn keyboard_animation_control(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut animation_players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
-    animations: Res<Animations>,
-    mut current_animation: Local<usize>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut animation_players: Query<'_, '_, (&mut AnimationPlayer, &mut AnimationTransitions)>,
+    animations: Res<'_, Animations>,
+    mut current_animation: Local<'_, usize>,
 ) {
     for (mut player, mut transitions) in &mut animation_players {
         let Some((&playing_animation_index, _)) = player.playing_animations().next() else {
@@ -262,9 +262,9 @@ fn keyboard_animation_control(
 }
 
 fn simulate_particles(
-    mut commands: Commands,
-    mut query: Query<(Entity, &mut Transform, &mut Particle)>,
-    time: Res<Time>,
+    mut commands: Commands<'_, '_>,
+    mut query: Query<'_, '_, (Entity, &mut Transform, &mut Particle)>,
+    time: Res<'_, Time>,
 ) {
     for (entity, mut transform, mut particle) in &mut query {
         if particle.lifeteime_timer.tick(time.delta()).just_finished() {

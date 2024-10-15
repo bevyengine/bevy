@@ -71,28 +71,28 @@ struct B(usize);
 // Data access is determined solely on the basis of the types of the system's parameters
 // Every implementation of the `SystemParam` and `WorldQuery` traits must declare which data is used
 // and whether or not it is mutably accessed.
-fn reads_a(_a: Res<A>) {}
+fn reads_a(_a: Res<'_, A>) {}
 
-fn writes_a(mut a: ResMut<A>) {
+fn writes_a(mut a: ResMut<'_, A>) {
     a.0 += 1;
 }
 
-fn adds_one_to_b(mut b: ResMut<B>) {
+fn adds_one_to_b(mut b: ResMut<'_, B>) {
     b.0 = b.0.saturating_add(1);
 }
 
-fn doubles_b(mut b: ResMut<B>) {
+fn doubles_b(mut b: ResMut<'_, B>) {
     // This will overflow pretty rapidly otherwise
     b.0 = b.0.saturating_mul(2);
 }
 
-fn reads_b(b: Res<B>) {
+fn reads_b(b: Res<'_, B>) {
     // This invariant is always true,
     // because we've fixed the system order so doubling always occurs after adding.
     assert!((b.0 % 2 == 0) || (b.0 == usize::MAX));
 }
 
-fn reads_a_and_b(a: Res<A>, b: Res<B>) {
+fn reads_a_and_b(a: Res<'_, A>, b: Res<'_, B>) {
     // Only display the first few steps to avoid burying the ambiguities in the console
     if b.0 < 10 {
         info!("{}, {}", a.0, b.0);

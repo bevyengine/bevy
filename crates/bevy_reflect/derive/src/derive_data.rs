@@ -200,10 +200,7 @@ impl<'a> ReflectDerive<'a> {
                         ..
                     }) = &pair.value
                     else {
-                        return Err(syn::Error::new(
-                            pair.span(),
-                            format_args!("`#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"),
-                        ));
+                        return Err(syn::Error::new(pair.span(), format_args!("`#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` must be a string literal")));
                     };
 
                     custom_path = Some(syn::parse::Parser::parse_str(
@@ -217,10 +214,7 @@ impl<'a> ReflectDerive<'a> {
                         ..
                     }) = &pair.value
                     else {
-                        return Err(syn::Error::new(
-                            pair.span(),
-                            format_args!("`#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"),
-                        ));
+                        return Err(syn::Error::new(pair.span(), format_args!("`#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` must be a string literal")));
                     };
 
                     custom_type_name = Some(parse_str(&lit.value())?);
@@ -244,10 +238,7 @@ impl<'a> ReflectDerive<'a> {
                 path.segments.push(PathSegment::from(ident));
             }
             (None, Some(name)) => {
-                return Err(syn::Error::new(
-                    name.span(),
-                    format!("cannot use `#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` without a `#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` attribute."),
-                ));
+                return Err(syn::Error::new(name.span(), format!("cannot use `#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` without a `#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` attribute.")));
             }
             _ => (),
         }
@@ -264,10 +255,7 @@ impl<'a> ReflectDerive<'a> {
             && meta.type_path_attrs().should_auto_derive()
             && !meta.type_path().has_custom_path()
         {
-            return Err(syn::Error::new(
-                meta.type_path().span(),
-                format!("a #[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"] attribute must be specified when using {provenance}")
-            ));
+            return Err(syn::Error::new(meta.type_path().span(), format!("a #[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"] attribute must be specified when using {provenance}")));
         }
 
         #[cfg(feature = "documentation")]
@@ -325,7 +313,7 @@ impl<'a> ReflectDerive<'a> {
     }
 
     /// Get the remote type path, if any.
-    pub fn remote_ty(&self) -> Option<RemoteType> {
+    pub fn remote_ty(&self) -> Option<RemoteType<'_>> {
         match self {
             Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
                 data.meta.remote_ty()
@@ -336,7 +324,7 @@ impl<'a> ReflectDerive<'a> {
     }
 
     /// Get the [`ReflectMeta`] for this derived type.
-    pub fn meta(&self) -> &ReflectMeta {
+    pub fn meta(&self) -> &ReflectMeta<'_> {
         match self {
             Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => data.meta(),
             Self::Enum(data) => data.meta(),
@@ -344,7 +332,7 @@ impl<'a> ReflectDerive<'a> {
         }
     }
 
-    pub fn where_clause_options(&self) -> WhereClauseOptions {
+    pub fn where_clause_options(&self) -> WhereClauseOptions<'_, '_> {
         match self {
             Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
                 data.where_clause_options()
@@ -360,7 +348,7 @@ impl<'a> ReflectDerive<'a> {
             .iter()
             .enumerate()
             .map(
-                |(declaration_index, field)| -> Result<StructField, syn::Error> {
+                |(declaration_index, field)| -> Result<StructField<'_>, syn::Error> {
                     let attrs = FieldAttributes::parse_attributes(&field.attrs)?;
 
                     let reflection_index = if attrs.ignore.is_ignored() {
@@ -390,7 +378,7 @@ impl<'a> ReflectDerive<'a> {
     ) -> Result<Vec<EnumVariant<'a>>, syn::Error> {
         let sifter: ResultSifter<EnumVariant<'a>> = variants
             .iter()
-            .map(|variant| -> Result<EnumVariant, syn::Error> {
+            .map(|variant| -> Result<EnumVariant<'_>, syn::Error> {
                 let fields = Self::collect_struct_fields(&variant.fields)?;
 
                 let fields = match variant.fields {
@@ -455,7 +443,7 @@ impl<'a> ReflectMeta<'a> {
     }
 
     /// Get the remote type path, if any.
-    pub fn remote_ty(&self) -> Option<RemoteType> {
+    pub fn remote_ty(&self) -> Option<RemoteType<'_>> {
         self.remote_ty
     }
 
@@ -472,7 +460,7 @@ impl<'a> ReflectMeta<'a> {
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     pub fn get_type_registration(
         &self,
-        where_clause_options: &WhereClauseOptions,
+        where_clause_options: &WhereClauseOptions<'_, '_>,
     ) -> proc_macro2::TokenStream {
         crate::registration::impl_get_type_registration(
             self,
@@ -559,10 +547,10 @@ impl<'a> ReflectStruct<'a> {
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     ///
-    /// Returns a specific implementation for structs and this method should be preferred over the generic [`get_type_registration`](ReflectMeta) method
+    /// Returns a specific implementation for structs and this method should be preferred over the generic [`get_type_registration`](ReflectMeta<'_>) method
     pub fn get_type_registration(
         &self,
-        where_clause_options: &WhereClauseOptions,
+        where_clause_options: &WhereClauseOptions<'_, '_>,
     ) -> proc_macro2::TokenStream {
         crate::registration::impl_get_type_registration(
             self.meta(),
@@ -598,7 +586,7 @@ impl<'a> ReflectStruct<'a> {
         &self.fields
     }
 
-    pub fn where_clause_options(&self) -> WhereClauseOptions {
+    pub fn where_clause_options(&self) -> WhereClauseOptions<'_, '_> {
         WhereClauseOptions::new_with_fields(self.meta(), self.active_types().into_boxed_slice())
     }
 
@@ -696,16 +684,16 @@ impl<'a> ReflectEnum<'a> {
         self.variants.iter().flat_map(EnumVariant::active_fields)
     }
 
-    pub fn where_clause_options(&self) -> WhereClauseOptions {
+    pub fn where_clause_options(&self) -> WhereClauseOptions<'_, '_> {
         WhereClauseOptions::new_with_fields(self.meta(), self.active_types().into_boxed_slice())
     }
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
     ///
-    /// Returns a specific implementation for enums and this method should be preferred over the generic [`get_type_registration`](crate::ReflectMeta) method
+    /// Returns a specific implementation for enums and this method should be preferred over the generic [`get_type_registration`](crate::ReflectMeta<'_>) method
     pub fn get_type_registration(
         &self,
-        where_clause_options: &WhereClauseOptions,
+        where_clause_options: &WhereClauseOptions<'_, '_>,
     ) -> proc_macro2::TokenStream {
         crate::registration::impl_get_type_registration(
             self.meta(),

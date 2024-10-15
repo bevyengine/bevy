@@ -125,12 +125,12 @@ fn handle_rumble_request(
     Ok(())
 }
 pub(crate) fn play_gilrs_rumble(
-    time: Res<Time<Real>>,
+    time: Res<'_, Time<Real>>,
     #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
-    #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
-    gamepads: Res<GilrsGamepads>,
-    mut requests: EventReader<GamepadRumbleRequest>,
-    mut running_rumbles: ResMut<RunningRumbleEffects>,
+    #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<'_, Gilrs>,
+    gamepads: Res<'_, GilrsGamepads>,
+    mut requests: EventReader<'_, '_, GamepadRumbleRequest>,
+    mut running_rumbles: ResMut<'_, RunningRumbleEffects>,
 ) {
     let gilrs = gilrs.0.get();
     let current_time = time.elapsed();
@@ -152,9 +152,7 @@ pub(crate) fn play_gilrs_rumble(
                 if let ff::Error::FfNotSupported(_) = err {
                     debug!("Tried to rumble {gamepad:?}, but it doesn't support force feedback");
                 } else {
-                    warn!(
-                    "Tried to handle rumble request for {gamepad:?} but an error occurred: {err}"
-                    );
+                    warn!("Tried to handle rumble request for {gamepad:?} but an error occurred: {err}");
                 }
             }
             Err(RumbleError::GamepadNotFound) => {

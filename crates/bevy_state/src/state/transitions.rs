@@ -126,9 +126,9 @@ impl<S: States> Default for ApplyStateTransition<S> {
 /// The `new_state` is an option to allow for removal - `None` will trigger the
 /// removal of the `State<S>` resource from the [`World`].
 pub(crate) fn internal_apply_state_transition<S: States>(
-    mut event: EventWriter<StateTransitionEvent<S>>,
-    mut commands: Commands,
-    current_state: Option<ResMut<State<S>>>,
+    mut event: EventWriter<'_, StateTransitionEvent<S>>,
+    mut commands: Commands<'_, '_>,
+    current_state: Option<ResMut<'_, State<S>>>,
     new_state: Option<S>,
 ) {
     match new_state {
@@ -200,7 +200,7 @@ pub fn setup_state_transitions_in_world(world: &mut World) {
 
 /// Returns the latest state transition event of type `S`, if any are available.
 pub fn last_transition<S: States>(
-    mut reader: EventReader<StateTransitionEvent<S>>,
+    mut reader: EventReader<'_, '_, StateTransitionEvent<S>>,
 ) -> Option<StateTransitionEvent<S>> {
     reader.read().last().cloned()
 }

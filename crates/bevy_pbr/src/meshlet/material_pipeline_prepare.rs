@@ -28,17 +28,19 @@ pub struct MeshletViewMaterialsMainOpaquePass(pub Vec<(u32, CachedRenderPipeline
 /// and register the material with [`InstanceManager`].
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
-    resource_manager: ResMut<ResourceManager>,
-    mut instance_manager: ResMut<InstanceManager>,
-    mut cache: Local<HashMap<MeshPipelineKey, CachedRenderPipelineId>>,
-    pipeline_cache: Res<PipelineCache>,
-    material_pipeline: Res<MaterialPipeline<M>>,
-    mesh_pipeline: Res<MeshPipeline>,
-    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
-    asset_server: Res<AssetServer>,
-    mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
+    resource_manager: ResMut<'_, ResourceManager>,
+    mut instance_manager: ResMut<'_, InstanceManager>,
+    mut cache: Local<'_, HashMap<MeshPipelineKey, CachedRenderPipelineId>>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    material_pipeline: Res<'_, MaterialPipeline<M>>,
+    mesh_pipeline: Res<'_, MeshPipeline>,
+    render_materials: Res<'_, RenderAssets<PreparedMaterial<M>>>,
+    render_material_instances: Res<'_, RenderMaterialInstances<M>>,
+    asset_server: Res<'_, AssetServer>,
+    mut mesh_vertex_buffer_layouts: ResMut<'_, MeshVertexBufferLayouts>,
     mut views: Query<
+        '_,
+        '_,
         (
             &mut MeshletViewMaterialsMainOpaquePass,
             &ExtractedView,
@@ -226,16 +228,18 @@ pub struct MeshletViewMaterialsDeferredGBufferPrepass(
 /// and [`super::MeshletDeferredGBufferPrepassNode`] and register the material with [`InstanceManager`].
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
-    resource_manager: ResMut<ResourceManager>,
-    mut instance_manager: ResMut<InstanceManager>,
-    mut cache: Local<HashMap<MeshPipelineKey, CachedRenderPipelineId>>,
-    pipeline_cache: Res<PipelineCache>,
-    prepass_pipeline: Res<PrepassPipeline<M>>,
-    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
-    mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
-    asset_server: Res<AssetServer>,
+    resource_manager: ResMut<'_, ResourceManager>,
+    mut instance_manager: ResMut<'_, InstanceManager>,
+    mut cache: Local<'_, HashMap<MeshPipelineKey, CachedRenderPipelineId>>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    prepass_pipeline: Res<'_, PrepassPipeline<M>>,
+    render_materials: Res<'_, RenderAssets<PreparedMaterial<M>>>,
+    render_material_instances: Res<'_, RenderMaterialInstances<M>>,
+    mut mesh_vertex_buffer_layouts: ResMut<'_, MeshVertexBufferLayouts>,
+    asset_server: Res<'_, AssetServer>,
     mut views: Query<
+        '_,
+        '_,
         (
             &mut MeshletViewMaterialsPrepass,
             &mut MeshletViewMaterialsDeferredGBufferPrepass,

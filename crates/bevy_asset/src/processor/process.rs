@@ -29,7 +29,7 @@ pub trait Process: Send + Sync + Sized + 'static {
     /// final written processed asset is loadable using [`Process::OutputLoader`]. This load will use the returned [`AssetLoader::Settings`].
     fn process(
         &self,
-        context: &mut ProcessContext,
+        context: &mut ProcessContext<'_>,
         meta: AssetMeta<(), Self>,
         writer: &mut Writer,
     ) -> impl ConditionalSendFuture<
@@ -221,7 +221,7 @@ pub trait ErasedProcessor: Send + Sync {
     /// Type-erased variant of [`Process::process`].
     fn process<'a>(
         &'a self,
-        context: &'a mut ProcessContext,
+        context: &'a mut ProcessContext<'_>,
         meta: Box<dyn AssetMetaDyn>,
         writer: &'a mut Writer,
     ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>>;
@@ -235,7 +235,7 @@ pub trait ErasedProcessor: Send + Sync {
 impl<P: Process> ErasedProcessor for P {
     fn process<'a>(
         &'a self,
-        context: &'a mut ProcessContext,
+        context: &'a mut ProcessContext<'_>,
         meta: Box<dyn AssetMetaDyn>,
         writer: &'a mut Writer,
     ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>> {

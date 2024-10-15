@@ -16,7 +16,7 @@ fn main() {
 #[derive(Component)]
 struct Counter(i32);
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
 
     commands.spawn(Camera2d);
@@ -100,10 +100,15 @@ fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont, TextColor) {
 }
 
 fn button_system(
-    mut interaction_query: Query<(&Interaction, &Parent), (Changed<Interaction>, With<Button>)>,
-    labels_query: Query<(&Children, &Parent), With<Button>>,
-    mut text_query: Query<&mut Text>,
-    mut counter_query: Query<&mut Counter>,
+    mut interaction_query: Query<
+        '_,
+        '_,
+        (&Interaction, &Parent),
+        (Changed<Interaction>, With<Button>),
+    >,
+    labels_query: Query<'_, '_, (&Children, &Parent), With<Button>>,
+    mut text_query: Query<'_, '_, &mut Text>,
+    mut counter_query: Query<'_, '_, &mut Counter>,
 ) {
     // Update parent counter on click
     for (interaction, parent) in &mut interaction_query {

@@ -102,7 +102,7 @@ impl SystemSchedule {
 
 /// Instructs the executor to call [`System::apply_deferred`](crate::system::System::apply_deferred)
 /// on the systems that have run but not applied their [`Deferred`](crate::system::Deferred) system parameters
-/// (like [`Commands`](crate::prelude::Commands)) or other system buffers.
+/// (like [`Commands`](crate::prelude::Commands<'_, '_>)) or other system buffers.
 ///
 /// ## Scheduling
 ///
@@ -149,7 +149,7 @@ mod __rust_begin_short_backtrace {
     #[inline(never)]
     pub(super) unsafe fn run_unsafe(
         system: &mut dyn System<In = (), Out = ()>,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) {
         system.run_unsafe((), world);
         black_box(());
@@ -160,7 +160,7 @@ mod __rust_begin_short_backtrace {
     #[inline(never)]
     pub(super) unsafe fn readonly_run_unsafe<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
-        world: UnsafeWorldCell,
+        world: UnsafeWorldCell<'_>,
     ) -> O {
         black_box(system.run_unsafe((), world))
     }
@@ -216,12 +216,12 @@ mod tests {
         schedule.add_systems(
             (
                 // Combined systems get skipped together.
-                (|mut commands: Commands| {
+                (|mut commands: Commands<'_, '_>| {
                     commands.insert_resource(R1);
                 })
-                .pipe(|_: In<()>, _: Res<R1>| {}),
+                .pipe(|_: In<()>, _: Res<'_, R1>| {}),
                 // This system depends on a system that is always skipped.
-                |mut commands: Commands| {
+                |mut commands: Commands<'_, '_>| {
                     commands.insert_resource(R2);
                 },
             )
@@ -246,18 +246,18 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
         schedule.set_executor_kind(executor);
-        schedule.configure_sets(S1.run_if(|_: Res<R1>| true));
+        schedule.configure_sets(S1.run_if(|_: Res<'_, R1>| true));
         schedule.add_systems((
             // System gets skipped if system set run conditions fail validation.
-            (|mut commands: Commands| {
+            (|mut commands: Commands<'_, '_>| {
                 commands.insert_resource(R1);
             })
             .in_set(S1),
             // System gets skipped if run conditions fail validation.
-            (|mut commands: Commands| {
+            (|mut commands: Commands<'_, '_>| {
                 commands.insert_resource(R2);
             })
-            .run_if(|_: Res<R2>| true),
+            .run_if(|_: Res<'_, R2>| true),
         ));
         schedule.run(&mut world);
         assert!(world.get_resource::<R1>().is_none());

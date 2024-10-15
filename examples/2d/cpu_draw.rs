@@ -33,7 +33,7 @@ fn main() {
 #[derive(Resource)]
 struct MyProcGenImage(Handle<Image>);
 
-fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+fn setup(mut commands: Commands<'_, '_>, mut images: ResMut<'_, Assets<Image>>) {
     // spawn a camera
     commands.spawn(Camera2d);
 
@@ -84,11 +84,11 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
 /// Every fixed update tick, draw one more pixel to make a spiral pattern
 fn draw(
-    my_handle: Res<MyProcGenImage>,
-    mut images: ResMut<Assets<Image>>,
+    my_handle: Res<'_, MyProcGenImage>,
+    mut images: ResMut<'_, Assets<Image>>,
     // used to keep track of where we are
-    mut i: Local<u32>,
-    mut draw_color: Local<Color>,
+    mut i: Local<'_, u32>,
+    mut draw_color: Local<'_, Color>,
 ) {
     let mut rng = rand::thread_rng();
 

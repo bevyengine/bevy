@@ -85,7 +85,10 @@ impl PointerMap {
 }
 
 /// Update the [`PointerMap`] resource with the current frame's data.
-pub fn update_pointer_map(pointers: Query<(Entity, &PointerId)>, mut map: ResMut<PointerMap>) {
+pub fn update_pointer_map(
+    pointers: Query<'_, '_, (Entity, &PointerId)>,
+    mut map: ResMut<'_, PointerMap>,
+) {
     map.inner.clear();
     for (entity, id) in &pointers {
         map.inner.insert(*id, entity);
@@ -204,7 +207,7 @@ impl Location {
     pub fn is_in_viewport(
         &self,
         camera: &Camera,
-        primary_window: &Query<Entity, With<PrimaryWindow>>,
+        primary_window: &Query<'_, '_, Entity, With<PrimaryWindow>>,
     ) -> bool {
         if camera
             .target
@@ -273,8 +276,8 @@ impl PointerInput {
 
     /// Updates pointer entities according to the input events.
     pub fn receive(
-        mut events: EventReader<PointerInput>,
-        mut pointers: Query<(&PointerId, &mut PointerLocation, &mut PointerPress)>,
+        mut events: EventReader<'_, '_, PointerInput>,
+        mut pointers: Query<'_, '_, (&PointerId, &mut PointerLocation, &mut PointerPress)>,
     ) {
         for event in events.read() {
             match event.action {

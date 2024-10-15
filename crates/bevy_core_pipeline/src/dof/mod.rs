@@ -339,7 +339,7 @@ impl ViewNode for DepthOfFieldNode {
 
     fn run<'w>(
         &self,
-        _: &mut RenderGraphContext,
+        _: &mut RenderGraphContext<'_>,
         render_context: &mut RenderContext<'w>,
         (
             view_uniform_offset,
@@ -532,9 +532,9 @@ impl FromWorld for DepthOfFieldGlobalBindGroupLayout {
 /// Creates the bind group layouts for the depth of field effect that are
 /// specific to each view.
 pub fn prepare_depth_of_field_view_bind_group_layouts(
-    mut commands: Commands,
-    view_targets: Query<(Entity, &DepthOfField, &Msaa)>,
-    render_device: Res<RenderDevice>,
+    mut commands: Commands<'_, '_>,
+    view_targets: Query<'_, '_, (Entity, &DepthOfField, &Msaa)>,
+    render_device: Res<'_, RenderDevice>,
 ) {
     for (view, depth_of_field, msaa) in view_targets.iter() {
         // Create the bind group layout for the passes that take one input.
@@ -593,7 +593,7 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
 /// need to set the appropriate flag to tell Bevy to make samplable depth
 /// buffers.
 pub fn configure_depth_of_field_view_targets(
-    mut view_targets: Query<&mut Camera3d, With<DepthOfField>>,
+    mut view_targets: Query<'_, '_, &mut Camera3d, With<DepthOfField>>,
 ) {
     for mut camera_3d in view_targets.iter_mut() {
         let mut depth_texture_usages = TextureUsages::from(camera_3d.depth_texture_usages);
@@ -605,10 +605,10 @@ pub fn configure_depth_of_field_view_targets(
 /// Creates depth of field bind group 1, which is shared among all instances of
 /// the depth of field shader.
 pub fn prepare_depth_of_field_global_bind_group(
-    global_bind_group_layout: Res<DepthOfFieldGlobalBindGroupLayout>,
-    mut dof_bind_group: ResMut<DepthOfFieldGlobalBindGroup>,
-    depth_of_field_uniforms: Res<ComponentUniforms<DepthOfFieldUniform>>,
-    render_device: Res<RenderDevice>,
+    global_bind_group_layout: Res<'_, DepthOfFieldGlobalBindGroupLayout>,
+    mut dof_bind_group: ResMut<'_, DepthOfFieldGlobalBindGroup>,
+    depth_of_field_uniforms: Res<'_, ComponentUniforms<DepthOfFieldUniform>>,
+    render_device: Res<'_, RenderDevice>,
 ) {
     let Some(depth_of_field_uniforms) = depth_of_field_uniforms.binding() else {
         return;
@@ -627,10 +627,10 @@ pub fn prepare_depth_of_field_global_bind_group(
 /// Creates the second render target texture that the first pass of the bokeh
 /// effect needs.
 pub fn prepare_auxiliary_depth_of_field_textures(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    mut texture_cache: ResMut<TextureCache>,
-    mut view_targets: Query<(Entity, &ViewTarget, &DepthOfField)>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    mut texture_cache: ResMut<'_, TextureCache>,
+    mut view_targets: Query<'_, '_, (Entity, &ViewTarget, &DepthOfField)>,
 ) {
     for (entity, view_target, depth_of_field) in view_targets.iter_mut() {
         // An auxiliary texture is only needed for bokeh.
@@ -660,17 +660,21 @@ pub fn prepare_auxiliary_depth_of_field_textures(
 
 /// Specializes the depth of field pipelines specific to a view.
 pub fn prepare_depth_of_field_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<DepthOfFieldPipeline>>,
-    global_bind_group_layout: Res<DepthOfFieldGlobalBindGroupLayout>,
-    view_targets: Query<(
-        Entity,
-        &ExtractedView,
-        &DepthOfField,
-        &ViewDepthOfFieldBindGroupLayouts,
-        &Msaa,
-    )>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<DepthOfFieldPipeline>>,
+    global_bind_group_layout: Res<'_, DepthOfFieldGlobalBindGroupLayout>,
+    view_targets: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &ExtractedView,
+            &DepthOfField,
+            &ViewDepthOfFieldBindGroupLayouts,
+            &Msaa,
+        ),
+    >,
 ) {
     for (entity, view, depth_of_field, view_bind_group_layouts, msaa) in view_targets.iter() {
         let dof_pipeline = DepthOfFieldPipeline {
@@ -809,13 +813,11 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
 
 /// Extracts all [`DepthOfField`] components into the render world.
 fn extract_depth_of_field_settings(
-    mut commands: Commands,
-    mut query: Extract<Query<(RenderEntity, &DepthOfField, &Projection)>>,
+    mut commands: Commands<'_, '_>,
+    mut query: Extract<'_, '_, Query<'_, '_, (RenderEntity, &DepthOfField, &Projection)>>,
 ) {
     if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
-        info_once!(
-            "Disabling depth of field on this platform because depth textures aren't supported correctly"
-        );
+        info_once!("Disabling depth of field on this platform because depth textures aren't supported correctly");
         return;
     }
 

@@ -42,10 +42,10 @@ fn main() {
 
 /// Spawns all entities into the scene.
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    assets: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    assets: Res<'_, AssetServer>,
 ) {
     // Spawn camera with temporal anti-aliasing and a VolumetricFog configuration.
     commands.spawn((
@@ -123,7 +123,7 @@ fn setup(
 }
 
 /// Moves fog density texture offset every frame.
-fn scroll_fog(time: Res<Time>, mut query: Query<&mut FogVolume>) {
+fn scroll_fog(time: Res<'_, Time>, mut query: Query<'_, '_, &mut FogVolume>) {
     for mut fog_volume in query.iter_mut() {
         fog_volume.density_texture_offset += Vec3::new(0.0, 0.0, 0.04) * time.delta_seconds();
     }

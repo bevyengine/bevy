@@ -34,7 +34,7 @@
 #[cfg(feature = "bevy_app")]
 /// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with state installation methods
 pub mod app;
-/// Provides extension methods for [`Commands`](bevy_ecs::prelude::Commands).
+/// Provides extension methods for [`Commands`](bevy_ecs::prelude::Commands<'_, '_>).
 pub mod commands;
 /// Provides definitions for the runtime conditions that interact with the state system
 pub mod condition;

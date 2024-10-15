@@ -52,9 +52,9 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    camera_transform: Res<CameraTransform>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    camera_transform: Res<'_, CameraTransform>,
 ) {
     // camera
     commands.spawn((
@@ -92,7 +92,7 @@ fn setup(
     ));
 }
 
-fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_basic_scene(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // Main scene
     commands.spawn((
         SceneRoot(asset_server.load(
@@ -130,10 +130,10 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn setup_color_gradient_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorGradientMaterial>>,
-    camera_transform: Res<CameraTransform>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<ColorGradientMaterial>>,
+    camera_transform: Res<'_, CameraTransform>,
 ) {
     let mut transform = camera_transform.0;
     transform.translation += *transform.forward();
@@ -148,10 +148,10 @@ fn setup_color_gradient_scene(
 }
 
 fn setup_image_viewer_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    camera_transform: Res<CameraTransform>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    camera_transform: Res<'_, CameraTransform>,
 ) {
     let mut transform = camera_transform.0;
     transform.translation += *transform.forward();
@@ -191,12 +191,12 @@ fn setup_image_viewer_scene(
 // ----------------------------------------------------------------------------
 
 fn drag_drop_image(
-    image_mat: Query<&MeshMaterial3d<StandardMaterial>, With<HDRViewer>>,
-    text: Query<Entity, (With<Text>, With<SceneNumber>)>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut drop_events: EventReader<FileDragAndDrop>,
-    asset_server: Res<AssetServer>,
-    mut commands: Commands,
+    image_mat: Query<'_, '_, &MeshMaterial3d<StandardMaterial>, With<HDRViewer>>,
+    text: Query<'_, '_, Entity, (With<Text>, With<SceneNumber>)>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut drop_events: EventReader<'_, '_, FileDragAndDrop>,
+    asset_server: Res<'_, AssetServer>,
+    mut commands: Commands<'_, '_>,
 ) {
     let Some(new_image) = drop_events.read().find_map(|e| match e {
         FileDragAndDrop::DroppedFile { path_buf, .. } => {
@@ -220,11 +220,11 @@ fn drag_drop_image(
 }
 
 fn resize_image(
-    image_mesh: Query<(&MeshMaterial3d<StandardMaterial>, &Mesh3d), With<HDRViewer>>,
-    materials: Res<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    images: Res<Assets<Image>>,
-    mut image_events: EventReader<AssetEvent<Image>>,
+    image_mesh: Query<'_, '_, (&MeshMaterial3d<StandardMaterial>, &Mesh3d), With<HDRViewer>>,
+    materials: Res<'_, Assets<StandardMaterial>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    images: Res<'_, Assets<Image>>,
+    mut image_events: EventReader<'_, '_, AssetEvent<Image>>,
 ) {
     for event in image_events.read() {
         let (AssetEvent::Added { id } | AssetEvent::Modified { id }) = event else {
@@ -257,9 +257,9 @@ fn resize_image(
 }
 
 fn toggle_scene(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut Visibility, &SceneNumber)>,
-    mut current_scene: ResMut<CurrentScene>,
+    keys: Res<'_, ButtonInput<KeyCode>>,
+    mut query: Query<'_, '_, (&mut Visibility, &SceneNumber)>,
+    mut current_scene: ResMut<'_, CurrentScene>,
 ) {
     let mut pressed = None;
     if keys.just_pressed(KeyCode::KeyQ) {
@@ -284,10 +284,10 @@ fn toggle_scene(
 }
 
 fn toggle_tonemapping_method(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut tonemapping: Single<&mut Tonemapping>,
-    mut color_grading: Single<&mut ColorGrading>,
-    per_method_settings: Res<PerMethodSettings>,
+    keys: Res<'_, ButtonInput<KeyCode>>,
+    mut tonemapping: Single<'_, &mut Tonemapping>,
+    mut color_grading: Single<'_, &mut ColorGrading>,
+    per_method_settings: Res<'_, PerMethodSettings>,
 ) {
     if keys.just_pressed(KeyCode::Digit1) {
         **tonemapping = Tonemapping::None;
@@ -331,12 +331,12 @@ impl SelectedParameter {
 }
 
 fn update_color_grading_settings(
-    keys: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
-    mut per_method_settings: ResMut<PerMethodSettings>,
-    tonemapping: Single<&Tonemapping>,
-    current_scene: Res<CurrentScene>,
-    mut selected_parameter: ResMut<SelectedParameter>,
+    keys: Res<'_, ButtonInput<KeyCode>>,
+    time: Res<'_, Time>,
+    mut per_method_settings: ResMut<'_, PerMethodSettings>,
+    tonemapping: Single<'_, &Tonemapping>,
+    current_scene: Res<'_, CurrentScene>,
+    mut selected_parameter: ResMut<'_, SelectedParameter>,
 ) {
     let color_grading = per_method_settings.settings.get_mut(*tonemapping).unwrap();
     let mut dt = time.delta_seconds() * 0.25;
@@ -386,12 +386,12 @@ fn update_color_grading_settings(
 }
 
 fn update_ui(
-    mut text_query: Single<&mut Text, Without<SceneNumber>>,
-    settings: Single<(&Tonemapping, &ColorGrading)>,
-    current_scene: Res<CurrentScene>,
-    selected_parameter: Res<SelectedParameter>,
-    mut hide_ui: Local<bool>,
-    keys: Res<ButtonInput<KeyCode>>,
+    mut text_query: Single<'_, &mut Text, Without<SceneNumber>>,
+    settings: Single<'_, (&Tonemapping, &ColorGrading)>,
+    current_scene: Res<'_, CurrentScene>,
+    selected_parameter: Res<'_, SelectedParameter>,
+    mut hide_ui: Local<'_, bool>,
+    keys: Res<'_, ButtonInput<KeyCode>>,
 ) {
     if keys.just_pressed(KeyCode::KeyH) {
         *hide_ui = !*hide_ui;

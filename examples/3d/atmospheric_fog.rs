@@ -23,7 +23,7 @@ fn main() {
         .run();
 }
 
-fn setup_camera_fog(mut commands: Commands) {
+fn setup_camera_fog(mut commands: Commands<'_, '_>) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-1.0, 0.1, 1.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
@@ -41,10 +41,10 @@ fn setup_camera_fog(mut commands: Commands) {
 }
 
 fn setup_terrain_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    asset_server: Res<'_, AssetServer>,
 ) {
     // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
     let cascade_shadow_config = CascadeShadowConfigBuilder {
@@ -84,18 +84,11 @@ fn setup_terrain_scene(
     ));
 }
 
-fn setup_instructions(mut commands: Commands) {
-    commands.spawn((Text::new("Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence."),
-        Style {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        })
-    );
+fn setup_instructions(mut commands: Commands<'_, '_>) {
+    commands.spawn((Text::new("Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence."), Style { position_type: PositionType::Absolute, bottom: Val::Px(12.0), left: Val::Px(12.0), ..default() }));
 }
 
-fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Single<&mut DistanceFog>) {
+fn toggle_system(keycode: Res<'_, ButtonInput<KeyCode>>, mut fog: Single<'_, &mut DistanceFog>) {
     if keycode.just_pressed(KeyCode::Space) {
         let a = fog.color.alpha();
         fog.color.set_alpha(1.0 - a);

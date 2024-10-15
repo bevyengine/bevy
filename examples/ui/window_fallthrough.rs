@@ -22,7 +22,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // UI camera
     commands.spawn(Camera2d);
     // Text with one span
@@ -45,8 +45,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 // A simple system to handle some keyboard input and toggle on/off the hittest.
 fn toggle_mouse_passthrough(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut window: Single<&mut Window>,
+    keyboard_input: Res<'_, ButtonInput<KeyCode>>,
+    mut window: Single<'_, &mut Window>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyP) {
         window.cursor_options.hit_test = !window.cursor_options.hit_test;

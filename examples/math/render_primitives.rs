@@ -291,7 +291,7 @@ const CIRCULAR_SEGMENT: CircularSegment = CircularSegment {
     },
 };
 
-fn setup_cameras(mut commands: Commands) {
+fn setup_cameras(mut commands: Commands<'_, '_>) {
     let start_in_2d = true;
     let make_camera = |is_active| Camera {
         is_active,
@@ -307,11 +307,11 @@ fn setup_cameras(mut commands: Commands) {
     ));
 }
 
-fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
+fn setup_ambient_light(mut ambient_light: ResMut<'_, AmbientLight>) {
     ambient_light.brightness = 50.0;
 }
 
-fn setup_lights(mut commands: Commands) {
+fn setup_lights(mut commands: Commands<'_, '_>) {
     commands.spawn((
         PointLight {
             intensity: 5000.0,
@@ -331,10 +331,10 @@ pub struct HeaderText;
 pub struct HeaderNode;
 
 fn update_active_cameras(
-    state: Res<State<CameraActive>>,
-    camera_2d: Single<(Entity, &mut Camera), With<Camera2d>>,
-    camera_3d: Single<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
-    mut text: Query<&mut TargetCamera, With<HeaderNode>>,
+    state: Res<'_, State<CameraActive>>,
+    camera_2d: Single<'_, (Entity, &mut Camera), With<Camera2d>>,
+    camera_3d: Single<'_, (Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
+    mut text: Query<'_, '_, &mut TargetCamera, With<HeaderNode>>,
 ) {
     let (entity_2d, mut cam_2d) = camera_2d.into_inner();
     let (entity_3d, mut cam_3d) = camera_3d.into_inner();
@@ -354,7 +354,10 @@ fn update_active_cameras(
     });
 }
 
-fn switch_cameras(current: Res<State<CameraActive>>, mut next: ResMut<NextState<CameraActive>>) {
+fn switch_cameras(
+    current: Res<'_, State<CameraActive>>,
+    mut next: ResMut<'_, NextState<CameraActive>>,
+) {
     let next_state = match current.get() {
         CameraActive::Dim2 => CameraActive::Dim3,
         CameraActive::Dim3 => CameraActive::Dim2,
@@ -362,7 +365,7 @@ fn switch_cameras(current: Res<State<CameraActive>>, mut next: ResMut<NextState<
     next.set(next_state);
 }
 
-fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
+fn setup_text(mut commands: Commands<'_, '_>, cameras: Query<'_, '_, (Entity, &Camera)>) {
     let active_camera = cameras
         .iter()
         .find_map(|(entity, camera)| camera.is_active.then_some(entity))
@@ -406,8 +409,8 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
 }
 
 fn update_text(
-    primitive_state: Res<State<PrimitiveSelected>>,
-    header: Query<Entity, With<HeaderText>>,
+    primitive_state: Res<'_, State<PrimitiveSelected>>,
+    header: Query<'_, '_, Entity, With<HeaderText>>,
     mut writer: UiTextWriter,
 ) {
     let new_text = format!("{text}", text = primitive_state.get());
@@ -419,26 +422,30 @@ fn update_text(
 }
 
 fn switch_to_next_primitive(
-    current: Res<State<PrimitiveSelected>>,
-    mut next: ResMut<NextState<PrimitiveSelected>>,
+    current: Res<'_, State<PrimitiveSelected>>,
+    mut next: ResMut<'_, NextState<PrimitiveSelected>>,
 ) {
     let next_state = current.get().next();
     next.set(next_state);
 }
 
 fn switch_to_previous_primitive(
-    current: Res<State<PrimitiveSelected>>,
-    mut next: ResMut<NextState<PrimitiveSelected>>,
+    current: Res<'_, State<PrimitiveSelected>>,
+    mut next: ResMut<'_, NextState<PrimitiveSelected>>,
 ) {
     let next_state = current.get().previous();
     next.set(next_state);
 }
 
-fn in_mode(active: CameraActive) -> impl Fn(Res<State<CameraActive>>) -> bool {
+fn in_mode(active: CameraActive) -> impl Fn(Res<'_, State<CameraActive>>) -> bool {
     move |state| *state.get() == active
 }
 
-fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time: Res<Time>) {
+fn draw_gizmos_2d(
+    mut gizmos: Gizmos,
+    state: Res<'_, State<PrimitiveSelected>>,
+    time: Res<'_, Time>,
+) {
     const POSITION: Vec2 = Vec2::new(-LEFT_RIGHT_OFFSET_2D, 0.0);
     let angle = time.elapsed_seconds();
     let isometry = Isometry2d::new(POSITION, Rot2::radians(angle));
@@ -495,9 +502,9 @@ pub struct MeshDim2;
 pub struct MeshDim3;
 
 fn spawn_primitive_2d(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut commands: Commands<'_, '_>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
 ) {
     const POSITION: Vec3 = Vec3::new(LEFT_RIGHT_OFFSET_2D, 0.0, 0.0);
     let material: Handle<ColorMaterial> = materials.add(Color::WHITE);
@@ -539,9 +546,9 @@ fn spawn_primitive_2d(
 }
 
 fn spawn_primitive_3d(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut commands: Commands<'_, '_>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
 ) {
     const POSITION: Vec3 = Vec3::new(-LEFT_RIGHT_OFFSET_3D, 0.0, 0.0);
     let material: Handle<StandardMaterial> = materials.add(Color::WHITE);
@@ -583,9 +590,9 @@ fn spawn_primitive_3d(
 }
 
 fn update_primitive_meshes(
-    camera_state: Res<State<CameraActive>>,
-    primitive_state: Res<State<PrimitiveSelected>>,
-    mut primitives: Query<(&mut Visibility, &PrimitiveData)>,
+    camera_state: Res<'_, State<CameraActive>>,
+    primitive_state: Res<'_, State<PrimitiveSelected>>,
+    mut primitives: Query<'_, '_, (&mut Visibility, &PrimitiveData)>,
 ) {
     primitives.iter_mut().for_each(|(mut vis, primitive)| {
         let visible = primitive.camera_mode == *camera_state.get()
@@ -600,10 +607,12 @@ fn update_primitive_meshes(
 
 fn rotate_primitive_2d_meshes(
     mut primitives_2d: Query<
+        '_,
+        '_,
         (&mut Transform, &ViewVisibility),
         (With<PrimitiveData>, With<MeshDim2>),
     >,
-    time: Res<Time>,
+    time: Res<'_, Time>,
 ) {
     let rotation_2d = Quat::from_mat3(&Mat3::from_angle(time.elapsed_seconds()));
     primitives_2d
@@ -616,10 +625,12 @@ fn rotate_primitive_2d_meshes(
 
 fn rotate_primitive_3d_meshes(
     mut primitives_3d: Query<
+        '_,
+        '_,
         (&mut Transform, &ViewVisibility),
         (With<PrimitiveData>, With<MeshDim3>),
     >,
-    time: Res<Time>,
+    time: Res<'_, Time>,
 ) {
     let rotation_3d = Quat::from_rotation_arc(
         Vec3::Z,
@@ -639,7 +650,11 @@ fn rotate_primitive_3d_meshes(
         });
 }
 
-fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time: Res<Time>) {
+fn draw_gizmos_3d(
+    mut gizmos: Gizmos,
+    state: Res<'_, State<PrimitiveSelected>>,
+    time: Res<'_, Time>,
+) {
     const POSITION: Vec3 = Vec3::new(LEFT_RIGHT_OFFSET_3D, 0.0, 0.0);
     let rotation = Quat::from_rotation_arc(
         Vec3::Z,

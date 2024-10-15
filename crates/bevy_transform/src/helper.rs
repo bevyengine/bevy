@@ -48,7 +48,7 @@ impl<'w, 's> TransformHelper<'w, 's> {
     }
 }
 
-fn map_error(err: QueryEntityError, ancestor: bool) -> ComputeGlobalTransformError {
+fn map_error(err: QueryEntityError<'_>, ancestor: bool) -> ComputeGlobalTransformError {
     use ComputeGlobalTransformError::*;
     match err {
         QueryEntityError::QueryDoesNotMatch(entity, _) => MissingTransform(entity),
@@ -139,7 +139,7 @@ mod tests {
 
         let transform = *app.world().get::<GlobalTransform>(leaf_entity).unwrap();
 
-        let mut state = SystemState::<TransformHelper>::new(app.world_mut());
+        let mut state = SystemState::<TransformHelper<'_, '_>>::new(app.world_mut());
         let helper = state.get(app.world());
 
         let computed_transform = helper.compute_global_transform(leaf_entity).unwrap();

@@ -68,7 +68,7 @@ fn parse_scene(scene_path: String) -> (String, usize) {
     (scene_path, 0)
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     let scene_path = std::env::args()
         .nth(1)
         .unwrap_or_else(|| "assets/models/FlightHelmet/FlightHelmet.gltf".to_string());
@@ -79,11 +79,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn setup_scene_after_load(
-    mut commands: Commands,
-    mut setup: Local<bool>,
-    mut scene_handle: ResMut<SceneHandle>,
-    asset_server: Res<AssetServer>,
-    meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Mesh3d>>,
+    mut commands: Commands<'_, '_>,
+    mut setup: Local<'_, bool>,
+    mut scene_handle: ResMut<'_, SceneHandle>,
+    asset_server: Res<'_, AssetServer>,
+    meshes: Query<'_, '_, (&GlobalTransform, Option<&Aabb>), With<Mesh3d>>,
 ) {
     if scene_handle.is_loaded && !*setup {
         *setup = true;

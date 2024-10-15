@@ -2,8 +2,6 @@
 #![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
-extern crate proc_macro;
-
 mod component;
 mod query_data;
 mod query_filter;
@@ -376,7 +374,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     <(#(#param,)*) as SystemParam>::apply(state, system_meta, world);
                 }
 
-                fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+                fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld<'_>) {
                     <(#(#param,)*) as SystemParam>::queue(state, system_meta, world.reborrow());
                 }
 
@@ -569,8 +567,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
         };
         let lifetimes: Vec<_> = generics.lifetimes().collect();
-        let generic_struct = quote!{ #struct_name <#(#lifetimes,)* #punctuated_generic_idents> };
-        let builder_impl = quote!{
+        let generic_struct = quote! { #struct_name <#(#lifetimes,)* #punctuated_generic_idents> };
+        let builder_impl = quote! {
             // SAFETY: This delegates to the `SystemParamBuilder` for tuples.
             unsafe impl<
                 #(#lifetimes,)*
@@ -626,7 +624,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }
 
-                fn queue(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: #path::world::DeferredWorld) {
+                fn queue(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: #path::world::DeferredWorld<'_>) {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::queue(&mut state.state, system_meta, world);
                 }
 

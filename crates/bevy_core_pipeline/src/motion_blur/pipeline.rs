@@ -149,11 +149,11 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
 pub struct MotionBlurPipelineId(pub CachedRenderPipelineId);
 
 pub(crate) fn prepare_motion_blur_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<MotionBlurPipeline>>,
-    pipeline: Res<MotionBlurPipeline>,
-    views: Query<(Entity, &ExtractedView, &Msaa), With<MotionBlur>>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<MotionBlurPipeline>>,
+    pipeline: Res<'_, MotionBlurPipeline>,
+    views: Query<'_, '_, (Entity, &ExtractedView, &Msaa), With<MotionBlur>>,
 ) {
     for (entity, view, msaa) in &views {
         let pipeline_id = pipelines.specialize(

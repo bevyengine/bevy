@@ -142,9 +142,9 @@ impl ViewNode for PostProcessNode {
     // to identify which camera(s) should run the effect.
     fn run(
         &self,
-        _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (view_target, _post_process_settings, settings_index): QueryItem<Self::ViewQuery>,
+        _graph: &mut RenderGraphContext<'_>,
+        render_context: &mut RenderContext<'_>,
+        (view_target, _post_process_settings, settings_index): QueryItem<'_, Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         // Get the pipeline resource that contains the global data we need
@@ -308,9 +308,9 @@ struct PostProcessSettings {
 
 /// Set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     // camera
     commands.spawn((
@@ -346,7 +346,7 @@ fn setup(
 struct Rotates;
 
 /// Rotates any entity around the x and y axis
-fn rotate(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates>>) {
+fn rotate(time: Res<'_, Time>, mut query: Query<'_, '_, &mut Transform, With<Rotates>>) {
     for mut transform in &mut query {
         transform.rotate_x(0.55 * time.delta_seconds());
         transform.rotate_z(0.15 * time.delta_seconds());
@@ -354,7 +354,7 @@ fn rotate(time: Res<Time>, mut query: Query<&mut Transform, With<Rotates>>) {
 }
 
 // Change the intensity over time to show that the effect is controlled from the main world
-fn update_settings(mut settings: Query<&mut PostProcessSettings>, time: Res<Time>) {
+fn update_settings(mut settings: Query<'_, '_, &mut PostProcessSettings>, time: Res<'_, Time>) {
     for mut setting in &mut settings {
         let mut intensity = ops::sin(time.elapsed_seconds());
         // Make it loop periodically

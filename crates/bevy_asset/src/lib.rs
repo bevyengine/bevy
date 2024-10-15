@@ -382,7 +382,7 @@ impl Plugin for AssetPlugin {
             // This is virtually never a real problem: asset loading is async and so anything that interacts directly with it
             // needs to be robust to stochastic delays anyways.
             .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all())
-            .register_type::<AssetPath>();
+            .register_type::<AssetPath<'_>>();
     }
 }
 
@@ -824,8 +824,8 @@ mod tests {
     struct StoredEvents(Vec<AssetEvent<CoolText>>);
 
     fn store_asset_events(
-        mut reader: EventReader<AssetEvent<CoolText>>,
-        mut storage: ResMut<StoredEvents>,
+        mut reader: EventReader<'_, '_, AssetEvent<CoolText>>,
+        mut storage: ResMut<'_, StoredEvents>,
     ) {
         storage.0.extend(reader.read().cloned());
     }
@@ -1617,8 +1617,8 @@ mod tests {
         }
 
         fn asset_event_handler(
-            mut events: EventReader<AssetEvent<CoolText>>,
-            mut tracker: ResMut<ErrorTracker>,
+            mut events: EventReader<'_, '_, AssetEvent<CoolText>>,
+            mut tracker: ResMut<'_, ErrorTracker>,
         ) {
             for event in events.read() {
                 if let AssetEvent::LoadedWithDependencies { id } = event {
@@ -1628,9 +1628,9 @@ mod tests {
         }
 
         fn asset_load_error_event_handler(
-            server: Res<AssetServer>,
-            mut errors: EventReader<AssetLoadFailedEvent<CoolText>>,
-            mut tracker: ResMut<ErrorTracker>,
+            server: Res<'_, AssetServer>,
+            mut errors: EventReader<'_, '_, AssetLoadFailedEvent<CoolText>>,
+            mut tracker: ResMut<'_, ErrorTracker>,
         ) {
             // In the real world, this would refer to time (not ticks)
             tracker.tick += 1;
@@ -1736,7 +1736,7 @@ mod tests {
         app.add_plugins(AssetPlugin::default())
             .init_asset::<CoolText>();
 
-        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        fn uses_assets(_asset: ResMut<'_, Assets<CoolText>>) {}
         app.add_systems(Update, (uses_assets, uses_assets));
         app.edit_schedule(Update, |s| {
             s.set_build_settings(ScheduleBuildSettings {

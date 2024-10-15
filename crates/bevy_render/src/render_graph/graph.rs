@@ -58,7 +58,7 @@ pub type InternedRenderSubGraph = Interned<dyn RenderSubGraph>;
 /// # struct MyNode;
 /// #
 /// # impl Node for MyNode {
-/// #     fn run(&self, graph: &mut RenderGraphContext, render_context: &mut RenderContext, world: &World) -> Result<(), NodeRunError> {
+/// #     fn run(&self, graph: &mut RenderGraphContext<'_>, render_context: &mut RenderContext<'_>, world: &World) -> Result<(), NodeRunError> {
 /// #         unimplemented!()
 /// #     }
 /// # }
@@ -655,8 +655,8 @@ impl Node for GraphInputNode {
 
     fn run(
         &self,
-        graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
+        graph: &mut RenderGraphContext<'_>,
+        _render_context: &mut RenderContext<'_>,
         _world: &World,
     ) -> Result<(), NodeRunError> {
         for i in 0..graph.inputs().len() {
@@ -717,8 +717,8 @@ mod tests {
 
         fn run(
             &self,
-            _: &mut RenderGraphContext,
-            _: &mut RenderContext,
+            _: &mut RenderGraphContext<'_>,
+            _: &mut RenderContext<'_>,
             _: &World,
         ) -> Result<(), NodeRunError> {
             Ok(())
@@ -804,8 +804,8 @@ mod tests {
         impl Node for MyNode {
             fn run(
                 &self,
-                _: &mut RenderGraphContext,
-                _: &mut RenderContext,
+                _: &mut RenderGraphContext<'_>,
+                _: &mut RenderContext<'_>,
                 _: &World,
             ) -> Result<(), NodeRunError> {
                 Ok(())
@@ -841,7 +841,7 @@ mod tests {
             Err(RenderGraphError::NodeInputSlotAlreadyOccupied {
                 node: TestLabel::C.intern(),
                 input_slot: 0,
-                occupied_by_node: TestLabel::A.intern(),
+                occupied_by_node: TestLabel::A.intern()
             }),
             "Adding to a slot that is already occupied should return an error"
         );
@@ -861,7 +861,7 @@ mod tests {
                 output_node: TestLabel::A.intern(),
                 output_index: 0,
                 input_node: TestLabel::B.intern(),
-                input_index: 0,
+                input_index: 0
             })),
             "Adding to a duplicate edge should return an error"
         );
@@ -873,8 +873,8 @@ mod tests {
         impl Node for SimpleNode {
             fn run(
                 &self,
-                _graph: &mut RenderGraphContext,
-                _render_context: &mut RenderContext,
+                _graph: &mut RenderGraphContext<'_>,
+                _render_context: &mut RenderContext<'_>,
                 _world: &World,
             ) -> Result<(), NodeRunError> {
                 Ok(())

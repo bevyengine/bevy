@@ -218,7 +218,7 @@ mod tests {
             world.entity_mut(e1).take::<FooBundle>().unwrap(),
             FooBundle {
                 x: TableStored("xyz"),
-                y: SparseStored(123),
+                y: SparseStored(123)
             }
         );
 
@@ -269,9 +269,9 @@ mod tests {
                 a: A(1),
                 foo: FooBundle {
                     x: TableStored("ghi"),
-                    y: SparseStored(789),
+                    y: SparseStored(789)
                 },
-                b: B(2),
+                b: B(2)
             }
         );
 
@@ -310,7 +310,7 @@ mod tests {
             world.entity_mut(e4).take::<BundleWithIgnored>().unwrap(),
             BundleWithIgnored {
                 c: C,
-                ignored: Ignored,
+                ignored: Ignored
             }
         );
     }
@@ -1381,7 +1381,7 @@ mod tests {
     #[should_panic]
     fn entity_ref_and_mut_query_panic() {
         let mut world = World::new();
-        world.query::<(EntityRef, &mut A)>();
+        world.query::<(EntityRef<'_>, &mut A)>();
     }
 
     #[test]
@@ -1395,27 +1395,27 @@ mod tests {
     #[should_panic]
     fn mut_and_entity_ref_query_panic() {
         let mut world = World::new();
-        world.query::<(&mut A, EntityRef)>();
+        world.query::<(&mut A, EntityRef<'_>)>();
     }
 
     #[test]
     #[should_panic]
     fn entity_ref_and_entity_mut_query_panic() {
         let mut world = World::new();
-        world.query::<(EntityRef, EntityMut)>();
+        world.query::<(EntityRef<'_>, EntityMut<'_>)>();
     }
 
     #[test]
     #[should_panic]
     fn entity_mut_and_entity_mut_query_panic() {
         let mut world = World::new();
-        world.query::<(EntityMut, EntityMut)>();
+        world.query::<(EntityMut<'_>, EntityMut<'_>)>();
     }
 
     #[test]
     fn entity_ref_and_entity_ref_query_no_panic() {
         let mut world = World::new();
-        world.query::<(EntityRef, EntityRef)>();
+        world.query::<(EntityRef<'_>, EntityRef<'_>)>();
     }
 
     #[test]
@@ -1481,7 +1481,7 @@ mod tests {
     fn resource_scope() {
         let mut world = World::default();
         world.insert_resource(A(0));
-        world.resource_scope(|world: &mut World, mut value: Mut<A>| {
+        world.resource_scope(|world: &mut World, mut value: Mut<'_, A>| {
             value.0 += 1;
             assert!(!world.contains_resource::<A>());
         });
@@ -1606,7 +1606,7 @@ mod tests {
         assert_eq!(1, query_min_size![&B, (With<A>, With<C>)]);
         assert_eq!(1, query_min_size![(&A, &B), With<C>]);
         assert_eq!(4, query_min_size![&A, ()], "Simple Archetypal");
-        assert_eq!(4, query_min_size![Ref<A>, ()]);
+        assert_eq!(4, query_min_size![Ref<'_, A>, ()]);
         // All the following should set minimum size to 0, as it's impossible to predict
         // how many entities the filters will trim.
         assert_eq!(0, query_min_size![(), Added<A>], "Simple Added");
@@ -1744,11 +1744,7 @@ mod tests {
         let mut query = world.query::<(Option<&A>, &B, &C)>();
         let component_values = query.get_many(&world, [e0, e1, e2]).unwrap();
 
-        assert_eq!(
-            component_values,
-            [(Some(&A(0)), &B(1), &C), (Some(&A(0)), &B(2), &C), (None, &B(3), &C)],
-            "all entities should have had their B component replaced, received C component, and had their A component (or lack thereof) unchanged"
-        );
+        assert_eq!(component_values, [(Some(&A(0)), &B(1), &C), (Some(&A(0)), &B(2), &C), (None, &B(3), &C)], "all entities should have had their B component replaced, received C component, and had their A component (or lack thereof) unchanged");
     }
 
     #[test]

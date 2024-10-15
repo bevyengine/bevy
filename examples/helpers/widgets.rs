@@ -146,10 +146,12 @@ pub fn spawn_ui_text<'a>(
 /// as necessary.
 pub fn handle_ui_interactions<T>(
     mut interactions: Query<
+        '_,
+        '_,
         (&Interaction, &WidgetClickSender<T>),
         (With<Button>, With<RadioButton>),
     >,
-    mut widget_click_events: EventWriter<WidgetClickEvent<T>>,
+    mut widget_click_events: EventWriter<'_, WidgetClickEvent<T>>,
 ) where
     T: Clone + Send + Sync + 'static,
 {

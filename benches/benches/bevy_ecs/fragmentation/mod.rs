@@ -23,8 +23,8 @@ fn iter_frag_empty(c: &mut Criterion) {
     group.bench_function("foreach_table", |b| {
         let mut world = World::new();
         spawn_empty_frag_archetype::<Table>(&mut world);
-        let mut q: SystemState<Query<(Entity, &Table)>> =
-            SystemState::<Query<(Entity, &Table<0>)>>::new(&mut world);
+        let mut q: SystemState<Query<'_, '_, (Entity, &Table)>> =
+            SystemState::<Query<'_, '_, (Entity, &Table<0>)>>::new(&mut world);
         let query = q.get(&world);
         b.iter(move || {
             let mut res = 0;
@@ -37,8 +37,8 @@ fn iter_frag_empty(c: &mut Criterion) {
     group.bench_function("foreach_sparse", |b| {
         let mut world = World::new();
         spawn_empty_frag_archetype::<Sparse>(&mut world);
-        let mut q: SystemState<Query<(Entity, &Sparse)>> =
-            SystemState::<Query<(Entity, &Sparse<0>)>>::new(&mut world);
+        let mut q: SystemState<Query<'_, '_, (Entity, &Sparse)>> =
+            SystemState::<Query<'_, '_, (Entity, &Sparse<0>)>>::new(&mut world);
         let query = q.get(&world);
         b.iter(move || {
             let mut res = 0;

@@ -29,9 +29,9 @@ fn main() {
 }
 
 fn setup_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<ColorMaterial>>,
 ) {
     // World where we move the player
     commands.spawn((
@@ -48,7 +48,7 @@ fn setup_scene(
     ));
 }
 
-fn setup_instructions(mut commands: Commands) {
+fn setup_instructions(mut commands: Commands<'_, '_>) {
     commands.spawn((
         Text::new("Move the light with WASD.\nThe camera will smoothly track the light."),
         Style {
@@ -60,7 +60,7 @@ fn setup_instructions(mut commands: Commands) {
     ));
 }
 
-fn setup_camera(mut commands: Commands) {
+fn setup_camera(mut commands: Commands<'_, '_>) {
     commands.spawn((
         Camera2d,
         Camera {
@@ -73,9 +73,9 @@ fn setup_camera(mut commands: Commands) {
 
 /// Update the camera position by tracking the player.
 fn update_camera(
-    mut camera: Query<&mut Transform, (With<Camera2d>, Without<Player>)>,
-    player: Query<&Transform, (With<Player>, Without<Camera2d>)>,
-    time: Res<Time>,
+    mut camera: Query<'_, '_, &mut Transform, (With<Camera2d>, Without<Player>)>,
+    player: Query<'_, '_, &Transform, (With<Player>, Without<Camera2d>)>,
+    time: Res<'_, Time>,
 ) {
     let Ok(mut camera) = camera.get_single_mut() else {
         return;
@@ -101,9 +101,9 @@ fn update_camera(
 ///
 /// A more robust solution for player movement can be found in `examples/movement/physics_in_fixed_timestep.rs`.
 fn move_player(
-    mut player: Query<&mut Transform, With<Player>>,
-    time: Res<Time>,
-    kb_input: Res<ButtonInput<KeyCode>>,
+    mut player: Query<'_, '_, &mut Transform, With<Player>>,
+    time: Res<'_, Time>,
+    kb_input: Res<'_, ButtonInput<KeyCode>>,
 ) {
     let Ok(mut player) = player.get_single_mut() else {
         return;

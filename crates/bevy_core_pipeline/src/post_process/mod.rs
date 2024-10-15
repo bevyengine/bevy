@@ -358,7 +358,7 @@ impl ViewNode for PostProcessingNode {
 
     fn run<'w>(
         &self,
-        _: &mut RenderGraphContext,
+        _: &mut RenderGraphContext<'_>,
         render_context: &mut RenderContext<'w>,
         (view_target, pipeline_id, chromatic_aberration, post_processing_uniform_buffer_offsets): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
@@ -429,11 +429,11 @@ impl ViewNode for PostProcessingNode {
 
 /// Specializes the built-in postprocessing pipeline for each applicable view.
 pub fn prepare_post_processing_pipelines(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<PostProcessingPipeline>>,
-    post_processing_pipeline: Res<PostProcessingPipeline>,
-    views: Query<(Entity, &ExtractedView), With<ChromaticAberration>>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<PostProcessingPipeline>>,
+    post_processing_pipeline: Res<'_, PostProcessingPipeline>,
+    views: Query<'_, '_, (Entity, &ExtractedView), With<ChromaticAberration>>,
 ) {
     for (entity, view) in views.iter() {
         let pipeline_id = pipelines.specialize(
@@ -457,11 +457,11 @@ pub fn prepare_post_processing_pipelines(
 /// Gathers the built-in postprocessing settings for every view and uploads them
 /// to the GPU.
 pub fn prepare_post_processing_uniforms(
-    mut commands: Commands,
-    mut post_processing_uniform_buffers: ResMut<PostProcessingUniformBuffers>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut views: Query<(Entity, &ChromaticAberration)>,
+    mut commands: Commands<'_, '_>,
+    mut post_processing_uniform_buffers: ResMut<'_, PostProcessingUniformBuffers>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut views: Query<'_, '_, (Entity, &ChromaticAberration)>,
 ) {
     post_processing_uniform_buffers.clear();
 

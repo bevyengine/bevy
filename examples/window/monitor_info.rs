@@ -21,10 +21,10 @@ fn main() {
 struct MonitorRef(Entity);
 
 fn update(
-    mut commands: Commands,
-    monitors_added: Query<(Entity, &Monitor), Added<Monitor>>,
+    mut commands: Commands<'_, '_>,
+    monitors_added: Query<'_, '_, (Entity, &Monitor), Added<Monitor>>,
     mut monitors_removed: RemovedComponents<Monitor>,
-    monitor_refs: Query<(Entity, &MonitorRef)>,
+    monitor_refs: Query<'_, '_, (Entity, &MonitorRef)>,
 ) {
     for (entity, monitor) in monitors_added.iter() {
         // Spawn a new window on each monitor
@@ -62,9 +62,7 @@ fn update(
             ))
             .id();
 
-        let info_text = format!(
-            "Monitor: {name}\nSize: {size}\nRefresh rate: {hz}\nPosition: {position}\nScale: {scale}\n\n",
-        );
+        let info_text = format!("Monitor: {name}\nSize: {size}\nRefresh rate: {hz}\nPosition: {position}\nScale: {scale}\n\n",);
         commands.spawn((
             Text(info_text),
             Style {
@@ -89,9 +87,9 @@ fn update(
 }
 
 fn close_on_esc(
-    mut commands: Commands,
-    focused_windows: Query<(Entity, &Window)>,
-    input: Res<ButtonInput<KeyCode>>,
+    mut commands: Commands<'_, '_>,
+    focused_windows: Query<'_, '_, (Entity, &Window)>,
+    input: Res<'_, ButtonInput<KeyCode>>,
 ) {
     for (window, focus) in focused_windows.iter() {
         if !focus.focused {

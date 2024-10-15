@@ -48,11 +48,11 @@ mod tests {
         move |world| world.resource_mut::<SystemOrder>().0.push(tag)
     }
 
-    fn make_function_system(tag: u32) -> impl FnMut(ResMut<SystemOrder>) {
-        move |mut resource: ResMut<SystemOrder>| resource.0.push(tag)
+    fn make_function_system(tag: u32) -> impl FnMut(ResMut<'_, SystemOrder>) {
+        move |mut resource: ResMut<'_, SystemOrder>| resource.0.push(tag)
     }
 
-    fn named_system(mut resource: ResMut<SystemOrder>) {
+    fn named_system(mut resource: ResMut<'_, SystemOrder>) {
         resource.0.push(u32::MAX);
     }
 
@@ -60,7 +60,7 @@ mod tests {
         world.resource_mut::<SystemOrder>().0.push(u32::MAX);
     }
 
-    fn counting_system(counter: Res<Counter>) {
+    fn counting_system(counter: Res<'_, Counter>) {
         counter.0.fetch_add(1, Ordering::Relaxed);
     }
 
@@ -255,7 +255,7 @@ mod tests {
             world.init_resource::<SystemOrder>();
 
             schedule.add_systems(
-                make_function_system(0).run_if(|condition: Res<RunConditionBool>| condition.0),
+                make_function_system(0).run_if(|condition: Res<'_, RunConditionBool>| condition.0),
             );
 
             schedule.run(&mut world);
@@ -274,7 +274,7 @@ mod tests {
             world.insert_resource(RunConditionBool(true));
             world.init_resource::<SystemOrder>();
 
-            fn change_condition(mut condition: ResMut<RunConditionBool>) {
+            fn change_condition(mut condition: ResMut<'_, RunConditionBool>) {
                 condition.0 = false;
             }
 
@@ -285,7 +285,7 @@ mod tests {
                     make_function_system(1),
                 )
                     .chain()
-                    .distributive_run_if(|condition: Res<RunConditionBool>| condition.0),
+                    .distributive_run_if(|condition: Res<'_, RunConditionBool>| condition.0),
             );
 
             schedule.run(&mut world);
@@ -301,7 +301,7 @@ mod tests {
             world.init_resource::<SystemOrder>();
 
             schedule.add_systems(
-                make_exclusive_system(0).run_if(|condition: Res<RunConditionBool>| condition.0),
+                make_exclusive_system(0).run_if(|condition: Res<'_, RunConditionBool>| condition.0),
             );
 
             schedule.run(&mut world);
@@ -383,8 +383,8 @@ mod tests {
 
             schedule.add_systems(
                 counting_system
-                    .run_if(|res1: Res<RunConditionBool>| res1.is_changed())
-                    .run_if(|res2: Res<Bool2>| res2.is_changed()),
+                    .run_if(|res1: Res<'_, RunConditionBool>| res1.is_changed())
+                    .run_if(|res2: Res<'_, Bool2>| res2.is_changed()),
             );
 
             // both resource were just added.
@@ -431,8 +431,8 @@ mod tests {
 
             schedule.configure_sets(
                 TestSet::A
-                    .run_if(|res1: Res<RunConditionBool>| res1.is_changed())
-                    .run_if(|res2: Res<Bool2>| res2.is_changed()),
+                    .run_if(|res1: Res<'_, RunConditionBool>| res1.is_changed())
+                    .run_if(|res2: Res<'_, Bool2>| res2.is_changed()),
             );
 
             schedule.add_systems(counting_system.in_set(TestSet::A));
@@ -479,12 +479,13 @@ mod tests {
             world.init_resource::<Bool2>();
             let mut schedule = Schedule::default();
 
-            schedule
-                .configure_sets(TestSet::A.run_if(|res1: Res<RunConditionBool>| res1.is_changed()));
+            schedule.configure_sets(
+                TestSet::A.run_if(|res1: Res<'_, RunConditionBool>| res1.is_changed()),
+            );
 
             schedule.add_systems(
                 counting_system
-                    .run_if(|res2: Res<Bool2>| res2.is_changed())
+                    .run_if(|res2: Res<'_, Bool2>| res2.is_changed())
                     .in_set(TestSet::A),
             );
 
@@ -698,8 +699,8 @@ mod tests {
             #[derive(Resource)]
             struct X;
 
-            fn res_ref(_x: Res<X>) {}
-            fn res_mut(_x: ResMut<X>) {}
+            fn res_ref(_x: Res<'_, X>) {}
+            fn res_mut(_x: ResMut<'_, X>) {}
 
             let mut world = World::new();
             let mut schedule = Schedule::default();
@@ -740,19 +741,19 @@ mod tests {
         struct RC;
 
         fn empty_system() {}
-        fn res_system(_res: Res<R>) {}
-        fn resmut_system(_res: ResMut<R>) {}
-        fn nonsend_system(_ns: NonSend<R>) {}
-        fn nonsendmut_system(_ns: NonSendMut<R>) {}
-        fn read_component_system(_query: Query<&A>) {}
-        fn write_component_system(_query: Query<&mut A>) {}
-        fn with_filtered_component_system(_query: Query<&mut A, With<B>>) {}
-        fn without_filtered_component_system(_query: Query<&mut A, Without<B>>) {}
-        fn entity_ref_system(_query: Query<EntityRef>) {}
-        fn entity_mut_system(_query: Query<EntityMut>) {}
-        fn event_reader_system(_reader: EventReader<E>) {}
-        fn event_writer_system(_writer: EventWriter<E>) {}
-        fn event_resource_system(_events: ResMut<Events<E>>) {}
+        fn res_system(_res: Res<'_, R>) {}
+        fn resmut_system(_res: ResMut<'_, R>) {}
+        fn nonsend_system(_ns: NonSend<'_, R>) {}
+        fn nonsendmut_system(_ns: NonSendMut<'_, R>) {}
+        fn read_component_system(_query: Query<'_, '_, &A>) {}
+        fn write_component_system(_query: Query<'_, '_, &mut A>) {}
+        fn with_filtered_component_system(_query: Query<'_, '_, &mut A, With<B>>) {}
+        fn without_filtered_component_system(_query: Query<'_, '_, &mut A, Without<B>>) {}
+        fn entity_ref_system(_query: Query<'_, '_, EntityRef<'_>>) {}
+        fn entity_mut_system(_query: Query<'_, '_, EntityMut<'_>>) {}
+        fn event_reader_system(_reader: EventReader<'_, '_, E>) {}
+        fn event_writer_system(_writer: EventWriter<'_, E>) {}
+        fn event_resource_system(_events: ResMut<'_, Events<E>>) {}
         fn read_world_system(_world: &World) {}
         fn write_world_system(_world: &mut World) {}
 
@@ -907,7 +908,7 @@ mod tests {
             world.insert_resource(RC);
 
             let mut schedule = Schedule::default();
-            schedule.add_systems((|_: ResMut<RC>| {}, |_: Query<&mut RC>| {}));
+            schedule.add_systems((|_: ResMut<'_, RC>| {}, |_: Query<'_, '_, &mut RC>| {}));
 
             let _ = schedule.initialize(&mut world);
 
@@ -1061,11 +1062,11 @@ mod tests {
         // Tests that the correct ambiguities were reported in the correct order.
         #[test]
         fn correct_ambiguities() {
-            fn system_a(_res: ResMut<R>) {}
-            fn system_b(_res: ResMut<R>) {}
-            fn system_c(_res: ResMut<R>) {}
-            fn system_d(_res: ResMut<R>) {}
-            fn system_e(_res: ResMut<R>) {}
+            fn system_a(_res: ResMut<'_, R>) {}
+            fn system_b(_res: ResMut<'_, R>) {}
+            fn system_c(_res: ResMut<'_, R>) {}
+            fn system_d(_res: ResMut<'_, R>) {}
+            fn system_e(_res: ResMut<'_, R>) {}
 
             let mut world = World::new();
             world.insert_resource(R);
@@ -1196,7 +1197,7 @@ mod tests {
                 world.insert_resource(stepping);
 
                 // start a new frame by running ihe begin_frame() system
-                let mut system_state: SystemState<Option<ResMut<Stepping>>> =
+                let mut system_state: SystemState<Option<ResMut<'_, Stepping>>> =
                     SystemState::new(&mut world);
                 let res = system_state.get_mut(&mut world);
                 Stepping::begin_frame(res);

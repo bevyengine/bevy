@@ -126,10 +126,12 @@ pub struct OitResolvePipelineKey {
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_oit_resolve_pipeline(
-    mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
-    resolve_pipeline: Res<OitResolvePipeline>,
+    mut commands: Commands<'_, '_>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    resolve_pipeline: Res<'_, OitResolvePipeline>,
     views: Query<
+        '_,
+        '_,
         (
             Entity,
             &ExtractedView,
@@ -139,7 +141,10 @@ pub fn queue_oit_resolve_pipeline(
     >,
     // Store the key with the id to make the clean up logic easier.
     // This also means it will always replace the entry if the key changes so nothing to clean up.
-    mut cached_pipeline_id: Local<EntityHashMap<(OitResolvePipelineKey, CachedRenderPipelineId)>>,
+    mut cached_pipeline_id: Local<
+        '_,
+        EntityHashMap<(OitResolvePipelineKey, CachedRenderPipelineId)>,
+    >,
 ) {
     let mut current_view_entities = EntityHashSet::default();
     for (e, view, oit_settings) in &views {
@@ -212,11 +217,11 @@ fn specialize_oit_resolve_pipeline(
 }
 
 pub fn prepare_oit_resolve_bind_group(
-    mut commands: Commands,
-    resolve_pipeline: Res<OitResolvePipeline>,
-    render_device: Res<RenderDevice>,
-    view_uniforms: Res<ViewUniforms>,
-    buffers: Res<OitBuffers>,
+    mut commands: Commands<'_, '_>,
+    resolve_pipeline: Res<'_, OitResolvePipeline>,
+    render_device: Res<'_, RenderDevice>,
+    view_uniforms: Res<'_, ViewUniforms>,
+    buffers: Res<'_, OitBuffers>,
 ) {
     if let (Some(binding), Some(layers_binding), Some(layer_ids_binding)) = (
         view_uniforms.uniforms.binding(),

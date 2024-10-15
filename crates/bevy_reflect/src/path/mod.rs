@@ -402,7 +402,7 @@ impl ParsedPath {
     ///
     /// assert_eq!(parsed_path.element::<u32>(&foo).unwrap(), &123);
     /// ```
-    pub fn parse(string: &str) -> PathResult<Self> {
+    pub fn parse(string: &str) -> PathResult<'_, Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
             parts.push(OffsetAccess {
@@ -758,7 +758,7 @@ mod tests {
             ReflectPathError::InvalidAccess(AccessError {
                 kind: AccessErrorKind::MissingField(ReflectKind::Struct),
                 access: access_field("notreal"),
-                offset: Some(2),
+                offset: Some(2)
             })
         );
 
@@ -767,7 +767,7 @@ mod tests {
             ReflectPathError::InvalidAccess(AccessError {
                 kind: AccessErrorKind::IncompatibleEnumVariantTypes {
                     actual: VariantType::Unit,
-                    expected: VariantType::Tuple,
+                    expected: VariantType::Tuple
                 },
                 access: ParsedPath::parse_static("unit_variant.0").unwrap()[1]
                     .access

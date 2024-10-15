@@ -177,9 +177,9 @@ impl MorphKey {
     }
 }
 fn update_text(
-    controls: Option<ResMut<WeightsControl>>,
-    text: Single<Entity, With<Text>>,
-    morphs: Query<&MorphWeights>,
+    controls: Option<ResMut<'_, WeightsControl>>,
+    text: Single<'_, Entity, With<Text>>,
+    morphs: Query<'_, '_, &MorphWeights>,
     mut writer: UiTextWriter,
 ) {
     let Some(mut controls) = controls else {
@@ -200,10 +200,10 @@ fn update_text(
     }
 }
 fn update_morphs(
-    controls: Option<ResMut<WeightsControl>>,
-    mut morphs: Query<&mut MorphWeights>,
-    input: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
+    controls: Option<ResMut<'_, WeightsControl>>,
+    mut morphs: Query<'_, '_, &mut MorphWeights>,
+    input: Res<'_, ButtonInput<KeyCode>>,
+    time: Res<'_, Time>,
 ) {
     let Some(mut controls) = controls else {
         return;
@@ -227,11 +227,11 @@ fn update_morphs(
 }
 
 fn detect_morphs(
-    mut commands: Commands,
-    morphs: Query<(Entity, &MorphWeights, Option<&Name>)>,
-    meshes: Res<Assets<Mesh>>,
-    scene_handle: Res<SceneHandle>,
-    mut setup: Local<bool>,
+    mut commands: Commands<'_, '_>,
+    morphs: Query<'_, '_, (Entity, &MorphWeights, Option<&Name>)>,
+    meshes: Res<'_, Assets<Mesh>>,
+    scene_handle: Res<'_, SceneHandle>,
+    mut setup: Local<'_, bool>,
 ) {
     let no_morphing = morphs.iter().len() == 0;
     if no_morphing {

@@ -22,9 +22,9 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     commands.spawn((
         Camera3d::default(),
@@ -91,6 +91,7 @@ fn setup(
 
 fn update(
     camera: Single<
+        '_,
         (
             Entity,
             Option<&ScreenSpaceAmbientOcclusion>,
@@ -98,11 +99,11 @@ fn update(
         ),
         With<Camera>,
     >,
-    mut text: Single<&mut Text>,
-    mut sphere: Single<&mut Transform, With<SphereMarker>>,
-    mut commands: Commands,
-    keycode: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
+    mut text: Single<'_, &mut Text>,
+    mut sphere: Single<'_, &mut Transform, With<SphereMarker>>,
+    mut commands: Commands<'_, '_>,
+    keycode: Res<'_, ButtonInput<KeyCode>>,
+    time: Res<'_, Time>,
 ) {
     sphere.translation.y = ops::sin(time.elapsed_seconds() / 1.7) * 0.7;
 

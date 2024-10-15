@@ -187,34 +187,50 @@ impl FromWorld for ShadowSamplers {
 
 #[allow(clippy::too_many_arguments)]
 pub fn extract_lights(
-    mut commands: Commands,
-    point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
-    directional_light_shadow_map: Extract<Res<DirectionalLightShadowMap>>,
-    global_point_lights: Extract<Res<GlobalVisibleClusterableObjects>>,
+    mut commands: Commands<'_, '_>,
+    point_light_shadow_map: Extract<'_, '_, Res<'_, PointLightShadowMap>>,
+    directional_light_shadow_map: Extract<'_, '_, Res<'_, DirectionalLightShadowMap>>,
+    global_point_lights: Extract<'_, '_, Res<'_, GlobalVisibleClusterableObjects>>,
     point_lights: Extract<
-        Query<(
-            RenderEntity,
-            &PointLight,
-            &CubemapVisibleEntities,
-            &GlobalTransform,
-            &ViewVisibility,
-            &CubemapFrusta,
-            Option<&VolumetricLight>,
-        )>,
+        '_,
+        '_,
+        Query<
+            '_,
+            '_,
+            (
+                RenderEntity,
+                &PointLight,
+                &CubemapVisibleEntities,
+                &GlobalTransform,
+                &ViewVisibility,
+                &CubemapFrusta,
+                Option<&VolumetricLight>,
+            ),
+        >,
     >,
     spot_lights: Extract<
-        Query<(
-            RenderEntity,
-            &SpotLight,
-            &VisibleMeshEntities,
-            &GlobalTransform,
-            &ViewVisibility,
-            &Frustum,
-            Option<&VolumetricLight>,
-        )>,
+        '_,
+        '_,
+        Query<
+            '_,
+            '_,
+            (
+                RenderEntity,
+                &SpotLight,
+                &VisibleMeshEntities,
+                &GlobalTransform,
+                &ViewVisibility,
+                &Frustum,
+                Option<&VolumetricLight>,
+            ),
+        >,
     >,
     directional_lights: Extract<
+        '_,
+        '_,
         Query<
+            '_,
+            '_,
             (
                 RenderEntity,
                 &DirectionalLight,
@@ -230,9 +246,9 @@ pub fn extract_lights(
             Without<SpotLight>,
         >,
     >,
-    mapper: Extract<Query<RenderEntity>>,
-    mut previous_point_lights_len: Local<usize>,
-    mut previous_spot_lights_len: Local<usize>,
+    mapper: Extract<'_, '_, Query<'_, '_, RenderEntity>>,
+    mut previous_point_lights_len: Local<'_, usize>,
+    mut previous_spot_lights_len: Local<'_, usize>,
 ) {
     // NOTE: These shadow map resources are extracted here as they are used here too so this avoids
     // races between scheduling of ExtractResourceSystems and this system.
@@ -441,8 +457,8 @@ pub fn extract_lights(
 }
 
 fn create_render_visible_mesh_entities(
-    commands: &mut Commands,
-    mapper: &Extract<Query<RenderEntity>>,
+    commands: &mut Commands<'_, '_>,
+    mapper: &Extract<'_, '_, Query<'_, '_, RenderEntity>>,
     visible_entities: &VisibleMeshEntities,
 ) -> RenderVisibleMeshEntities {
     RenderVisibleMeshEntities {
@@ -463,8 +479,8 @@ pub struct LightViewEntities(Vec<Entity>);
 
 // TODO: using required component
 pub(crate) fn add_light_view_entities(
-    trigger: Trigger<OnAdd, (ExtractedDirectionalLight, ExtractedPointLight)>,
-    mut commands: Commands,
+    trigger: Trigger<'_, OnAdd, (ExtractedDirectionalLight, ExtractedPointLight)>,
+    mut commands: Commands<'_, '_>,
 ) {
     if let Some(mut v) = commands.get_entity(trigger.entity()) {
         v.insert(LightViewEntities::default());
@@ -472,9 +488,9 @@ pub(crate) fn add_light_view_entities(
 }
 
 pub(crate) fn remove_light_view_entities(
-    trigger: Trigger<OnRemove, LightViewEntities>,
-    query: Query<&LightViewEntities>,
-    mut commands: Commands,
+    trigger: Trigger<'_, OnRemove, LightViewEntities>,
+    query: Query<'_, '_, &LightViewEntities>,
+    mut commands: Commands<'_, '_>,
 ) {
     if let Ok(entities) = query.get(trigger.entity()) {
         for e in entities.0.iter().copied() {
@@ -636,13 +652,15 @@ pub(crate) fn spot_light_clip_from_view(angle: f32, near_z: f32) -> Mat4 {
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_lights(
-    mut commands: Commands,
-    mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut global_light_meta: ResMut<GlobalClusterableObjectMeta>,
-    mut light_meta: ResMut<LightMeta>,
+    mut commands: Commands<'_, '_>,
+    mut texture_cache: ResMut<'_, TextureCache>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut global_light_meta: ResMut<'_, GlobalClusterableObjectMeta>,
+    mut light_meta: ResMut<'_, LightMeta>,
     views: Query<
+        '_,
+        '_,
         (
             Entity,
             &ExtractedView,
@@ -651,22 +669,26 @@ pub fn prepare_lights(
         ),
         With<Camera3d>,
     >,
-    ambient_light: Res<AmbientLight>,
-    point_light_shadow_map: Res<PointLightShadowMap>,
-    directional_light_shadow_map: Res<DirectionalLightShadowMap>,
-    mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
+    ambient_light: Res<'_, AmbientLight>,
+    point_light_shadow_map: Res<'_, PointLightShadowMap>,
+    directional_light_shadow_map: Res<'_, DirectionalLightShadowMap>,
+    mut shadow_render_phases: ResMut<'_, ViewBinnedRenderPhases<Shadow>>,
     (mut max_directional_lights_warning_emitted, mut max_cascades_per_light_warning_emitted): (
-        Local<bool>,
-        Local<bool>,
+        Local<'_, bool>,
+        Local<'_, bool>,
     ),
-    point_lights: Query<(
-        Entity,
-        &ExtractedPointLight,
-        AnyOf<(&CubemapFrusta, &Frustum)>,
-    )>,
-    directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
-    mut light_view_entities: Query<&mut LightViewEntities>,
-    mut live_shadow_mapping_lights: Local<EntityHashSet>,
+    point_lights: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &ExtractedPointLight,
+            AnyOf<(&CubemapFrusta, &Frustum)>,
+        ),
+    >,
+    directional_lights: Query<'_, '_, (Entity, &ExtractedDirectionalLight)>,
+    mut light_view_entities: Query<'_, '_, &mut LightViewEntities>,
+    mut live_shadow_mapping_lights: Local<'_, EntityHashSet>,
 ) {
     let views_iter = views.iter();
     let views_count = views_iter.len();
@@ -721,10 +743,7 @@ pub fn prepare_lights(
             .iter()
             .any(|(_, light)| light.cascade_shadow_config.bounds.len() > MAX_CASCADES_PER_LIGHT)
     {
-        warn!(
-            "The number of cascades configured for a directional light exceeds the supported limit of {}.",
-            MAX_CASCADES_PER_LIGHT
-        );
+        warn!("The number of cascades configured for a directional light exceeds the supported limit of {}.", MAX_CASCADES_PER_LIGHT);
         *max_cascades_per_light_warning_emitted = true;
     }
 
@@ -1129,8 +1148,13 @@ pub fn prepare_lights(
                 continue;
             };
 
-            let angle = light.spot_light_angles.expect("lights should be sorted so that \
-                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
+            let angle = light
+                .spot_light_angles
+                .expect(
+                    "lights should be sorted so that \
+                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights",
+                )
+                .1;
             let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
 
             let depth_texture_view =
@@ -1368,24 +1392,26 @@ pub fn prepare_lights(
 /// appropriate.
 #[allow(clippy::too_many_arguments)]
 pub fn queue_shadows<M: Material>(
-    shadow_draw_functions: Res<DrawFunctions<Shadow>>,
-    prepass_pipeline: Res<PrepassPipeline<M>>,
-    render_meshes: Res<RenderAssets<RenderMesh>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
-    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
-    mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
-    render_lightmaps: Res<RenderLightmaps>,
-    view_lights: Query<(Entity, &ViewLightEntities)>,
-    view_light_entities: Query<&LightEntity>,
-    point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
+    shadow_draw_functions: Res<'_, DrawFunctions<Shadow>>,
+    prepass_pipeline: Res<'_, PrepassPipeline<M>>,
+    render_meshes: Res<'_, RenderAssets<RenderMesh>>,
+    render_mesh_instances: Res<'_, RenderMeshInstances>,
+    render_materials: Res<'_, RenderAssets<PreparedMaterial<M>>>,
+    render_material_instances: Res<'_, RenderMaterialInstances<M>>,
+    mut shadow_render_phases: ResMut<'_, ViewBinnedRenderPhases<Shadow>>,
+    mut pipelines: ResMut<'_, SpecializedMeshPipelines<PrepassPipeline<M>>>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    render_lightmaps: Res<'_, RenderLightmaps>,
+    view_lights: Query<'_, '_, (Entity, &ViewLightEntities)>,
+    view_light_entities: Query<'_, '_, &LightEntity>,
+    point_light_entities: Query<'_, '_, &RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<
+        '_,
+        '_,
         &RenderCascadesVisibleEntities,
         With<ExtractedDirectionalLight>,
     >,
-    spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
+    spot_light_entities: Query<'_, '_, &RenderVisibleMeshEntities, With<ExtractedPointLight>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -1610,7 +1636,7 @@ impl Node for ShadowPassNode {
 
     fn run<'w>(
         &self,
-        graph: &mut RenderGraphContext,
+        graph: &mut RenderGraphContext<'_>,
         render_context: &mut RenderContext<'w>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {

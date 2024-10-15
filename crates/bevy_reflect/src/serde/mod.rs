@@ -281,7 +281,7 @@ mod tests {
                 impl<'a, 'de> Visitor<'de> for EnemyListVisitor<'a> {
                     type Value = Vec<Arc<dyn Enemy>>;
 
-                    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
+                    fn expecting(&self, formatter: &mut Formatter<'_>) -> core::fmt::Result {
                         write!(formatter, "a list of enemies")
                     }
 

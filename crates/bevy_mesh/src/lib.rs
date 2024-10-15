@@ -3,7 +3,6 @@
 #![allow(unsafe_code)]
 
 extern crate alloc;
-extern crate core;
 
 mod conversions;
 mod index;

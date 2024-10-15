@@ -11,10 +11,10 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands<'_, '_>,
+    asset_server: Res<'_, AssetServer>,
+    mut meshes: ResMut<'_, Assets<Mesh>>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     commands.spawn((
         Camera3d::default(),
@@ -45,9 +45,9 @@ fn setup(
 }
 
 fn animate_materials(
-    material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
-    time: Res<Time>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    material_handles: Query<'_, '_, &MeshMaterial3d<StandardMaterial>>,
+    time: Res<'_, Time>,
+    mut materials: ResMut<'_, Assets<StandardMaterial>>,
 ) {
     for material_handle in material_handles.iter() {
         if let Some(material) = materials.get_mut(material_handle) {

@@ -132,7 +132,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
             specialize_pipeline: &S,
             key: S::Key,
             layout: &MeshVertexBufferLayoutRef,
-            entry: VacantEntry<(MeshVertexBufferLayoutRef, S::Key), CachedRenderPipelineId>,
+            entry: VacantEntry<'_, (MeshVertexBufferLayoutRef, S::Key), CachedRenderPipelineId>,
         ) -> Result<CachedRenderPipelineId, SpecializedMeshPipelineError>
         where
             S: SpecializedMeshPipeline,

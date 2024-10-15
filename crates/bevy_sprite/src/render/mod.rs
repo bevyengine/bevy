@@ -58,9 +58,9 @@ pub struct SpritePipeline {
 impl FromWorld for SpritePipeline {
     fn from_world(world: &mut World) -> Self {
         let mut system_state: SystemState<(
-            Res<RenderDevice>,
-            Res<DefaultImageSampler>,
-            Res<RenderQueue>,
+            Res<'_, RenderDevice>,
+            Res<'_, DefaultImageSampler>,
+            Res<'_, RenderQueue>,
         )> = SystemState::new(world);
         let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
 
@@ -356,8 +356,8 @@ pub struct SpriteAssetEvents {
 }
 
 pub fn extract_sprite_events(
-    mut events: ResMut<SpriteAssetEvents>,
-    mut image_events: Extract<EventReader<AssetEvent<Image>>>,
+    mut events: ResMut<'_, SpriteAssetEvents>,
+    mut image_events: Extract<'_, '_, EventReader<'_, '_, AssetEvent<Image>>>,
 ) {
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
@@ -368,18 +368,24 @@ pub fn extract_sprite_events(
 }
 
 pub fn extract_sprites(
-    mut commands: Commands,
-    mut extracted_sprites: ResMut<ExtractedSprites>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
+    mut commands: Commands<'_, '_>,
+    mut extracted_sprites: ResMut<'_, ExtractedSprites>,
+    texture_atlases: Extract<'_, '_, Res<'_, Assets<TextureAtlasLayout>>>,
     sprite_query: Extract<
-        Query<(
-            Entity,
-            RenderEntity,
-            &ViewVisibility,
-            &Sprite,
-            &GlobalTransform,
-            Option<&ComputedTextureSlices>,
-        )>,
+        '_,
+        '_,
+        Query<
+            '_,
+            '_,
+            (
+                Entity,
+                RenderEntity,
+                &ViewVisibility,
+                &Sprite,
+                &GlobalTransform,
+                Option<&ComputedTextureSlices>,
+            ),
+        >,
     >,
 ) {
     extracted_sprites.sprites.clear();
@@ -498,21 +504,25 @@ pub struct ImageBindGroups {
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_sprites(
-    mut view_entities: Local<FixedBitSet>,
-    draw_functions: Res<DrawFunctions<Transparent2d>>,
-    sprite_pipeline: Res<SpritePipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<SpritePipeline>>,
-    pipeline_cache: Res<PipelineCache>,
-    extracted_sprites: Res<ExtractedSprites>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut views: Query<(
-        Entity,
-        &RenderVisibleEntities,
-        &ExtractedView,
-        &Msaa,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-    )>,
+    mut view_entities: Local<'_, FixedBitSet>,
+    draw_functions: Res<'_, DrawFunctions<Transparent2d>>,
+    sprite_pipeline: Res<'_, SpritePipeline>,
+    mut pipelines: ResMut<'_, SpecializedRenderPipelines<SpritePipeline>>,
+    pipeline_cache: Res<'_, PipelineCache>,
+    extracted_sprites: Res<'_, ExtractedSprites>,
+    mut transparent_render_phases: ResMut<'_, ViewSortedRenderPhases<Transparent2d>>,
+    mut views: Query<
+        '_,
+        '_,
+        (
+            Entity,
+            &RenderVisibleEntities,
+            &ExtractedView,
+            &Msaa,
+            Option<&Tonemapping>,
+            Option<&DebandDither>,
+        ),
+    >,
 ) {
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
@@ -586,14 +596,14 @@ pub fn queue_sprites(
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_sprite_view_bind_groups(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    sprite_pipeline: Res<SpritePipeline>,
-    view_uniforms: Res<ViewUniforms>,
-    views: Query<(Entity, &Tonemapping), With<ExtractedView>>,
-    tonemapping_luts: Res<TonemappingLuts>,
-    images: Res<RenderAssets<GpuImage>>,
-    fallback_image: Res<FallbackImage>,
+    mut commands: Commands<'_, '_>,
+    render_device: Res<'_, RenderDevice>,
+    sprite_pipeline: Res<'_, SpritePipeline>,
+    view_uniforms: Res<'_, ViewUniforms>,
+    views: Query<'_, '_, (Entity, &Tonemapping), With<ExtractedView>>,
+    tonemapping_luts: Res<'_, TonemappingLuts>,
+    images: Res<'_, RenderAssets<GpuImage>>,
+    fallback_image: Res<'_, FallbackImage>,
 ) {
     let Some(view_binding) = view_uniforms.uniforms.binding() else {
         return;
@@ -620,17 +630,17 @@ pub fn prepare_sprite_view_bind_groups(
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_sprite_image_bind_groups(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut sprite_meta: ResMut<SpriteMeta>,
-    sprite_pipeline: Res<SpritePipeline>,
-    mut image_bind_groups: ResMut<ImageBindGroups>,
-    gpu_images: Res<RenderAssets<GpuImage>>,
-    extracted_sprites: Res<ExtractedSprites>,
-    mut phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    events: Res<SpriteAssetEvents>,
+    mut commands: Commands<'_, '_>,
+    mut previous_len: Local<'_, usize>,
+    render_device: Res<'_, RenderDevice>,
+    render_queue: Res<'_, RenderQueue>,
+    mut sprite_meta: ResMut<'_, SpriteMeta>,
+    sprite_pipeline: Res<'_, SpritePipeline>,
+    mut image_bind_groups: ResMut<'_, ImageBindGroups>,
+    gpu_images: Res<'_, RenderAssets<GpuImage>>,
+    extracted_sprites: Res<'_, ExtractedSprites>,
+    mut phases: ResMut<'_, ViewSortedRenderPhases<Transparent2d>>,
+    events: Res<'_, SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {

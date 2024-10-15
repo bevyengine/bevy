@@ -25,7 +25,7 @@ impl ViewNode for MainTransparentPass2dNode {
 
     fn run<'w>(
         &self,
-        graph: &mut RenderGraphContext,
+        graph: &mut RenderGraphContext<'_>,
         render_context: &mut RenderContext<'w>,
         (camera, target, depth): bevy_ecs::query::QueryItem<'w, Self::ViewQuery>,
         world: &'w World,

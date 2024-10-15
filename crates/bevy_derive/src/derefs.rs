@@ -91,10 +91,7 @@ fn get_deref_field(ast: &DeriveInput, is_mut: bool) -> syn::Result<(Member, &Typ
             if let Some(selected_field) = selected_field {
                 Ok(selected_field)
             } else {
-                Err(syn::Error::new(
-                    Span::call_site().into(),
-                    format!("deriving {deref_kind} on multi-field structs requires one field to have the {deref_attr_str} attribute"),
-                ))
+                Err(syn::Error::new(Span::call_site().into(), format!("deriving {deref_kind} on multi-field structs requires one field to have the {deref_attr_str} attribute")))
             }
         }
         _ => Err(syn::Error::new(

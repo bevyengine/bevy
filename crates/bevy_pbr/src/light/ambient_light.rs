@@ -11,7 +11,7 @@ use super::*;
 /// ```
 /// # use bevy_ecs::system::ResMut;
 /// # use bevy_pbr::AmbientLight;
-/// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
+/// fn setup_ambient_light(mut ambient_light: ResMut<'_, AmbientLight>) {
 ///    ambient_light.brightness = 100.0;
 /// }
 /// ```

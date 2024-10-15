@@ -36,7 +36,7 @@ fn main() {
 #[derive(Component)]
 struct Spin;
 
-fn spin(time: Res<Time>, mut query: Query<&mut Transform, With<Spin>>) {
+fn spin(time: Res<'_, Time>, mut query: Query<'_, '_, &mut Transform, With<Spin>>) {
     for mut transform in query.iter_mut() {
         transform.rotation *= Quat::from_rotation_z(time.delta_seconds() / 5.);
     }
@@ -53,9 +53,9 @@ enum Test {
 }
 
 fn update_test_state(
-    keycode: Res<ButtonInput<KeyCode>>,
-    cur_state: Res<State<Test>>,
-    mut state: ResMut<NextState<Test>>,
+    keycode: Res<'_, ButtonInput<KeyCode>>,
+    cur_state: Res<'_, State<Test>>,
+    mut state: ResMut<'_, NextState<Test>>,
 ) {
     if !keycode.just_pressed(KeyCode::Space) {
         return;
@@ -72,7 +72,7 @@ fn update_test_state(
     state.set(next);
 }
 
-fn update_text(mut text: Single<&mut Text>, cur_state: Res<State<Test>>) {
+fn update_text(mut text: Single<'_, &mut Text>, cur_state: Res<'_, State<Test>>) {
     if !cur_state.is_changed() {
         return;
     }
@@ -98,7 +98,7 @@ enum Shape {
     Polygon(RegularPolygon),
 }
 
-fn render_shapes(mut gizmos: Gizmos, query: Query<(&Shape, &Transform)>) {
+fn render_shapes(mut gizmos: Gizmos, query: Query<'_, '_, (&Shape, &Transform)>) {
     let color = GRAY;
     for (shape, transform) in query.iter() {
         let translation = transform.translation.xy();
@@ -140,8 +140,10 @@ enum CurrentVolume {
 }
 
 fn update_volumes(
-    mut commands: Commands,
+    mut commands: Commands<'_, '_>,
     query: Query<
+        '_,
+        '_,
         (Entity, &DesiredVolume, &Shape, &Transform),
         Or<(Changed<DesiredVolume>, Changed<Shape>, Changed<Transform>)>,
     >,
@@ -179,7 +181,7 @@ fn update_volumes(
     }
 }
 
-fn render_volumes(mut gizmos: Gizmos, query: Query<(&CurrentVolume, &Intersects)>) {
+fn render_volumes(mut gizmos: Gizmos, query: Query<'_, '_, (&CurrentVolume, &Intersects)>) {
     for (volume, intersects) in query.iter() {
         let color = if **intersects { AQUA } else { ORANGE_RED };
         match volume {
@@ -199,7 +201,7 @@ struct Intersects(bool);
 const OFFSET_X: f32 = 125.;
 const OFFSET_Y: f32 = 75.;
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
     commands.spawn((
         Transform::from_xyz(-OFFSET_X, OFFSET_Y, 0.),
@@ -297,8 +299,8 @@ fn get_and_draw_ray(gizmos: &mut Gizmos, time: &Time) -> RayCast2d {
 
 fn ray_cast_system(
     mut gizmos: Gizmos,
-    time: Res<Time>,
-    mut volumes: Query<(&CurrentVolume, &mut Intersects)>,
+    time: Res<'_, Time>,
+    mut volumes: Query<'_, '_, (&CurrentVolume, &mut Intersects)>,
 ) {
     let ray_cast = get_and_draw_ray(&mut gizmos, &time);
 
@@ -320,8 +322,8 @@ fn ray_cast_system(
 
 fn aabb_cast_system(
     mut gizmos: Gizmos,
-    time: Res<Time>,
-    mut volumes: Query<(&CurrentVolume, &mut Intersects)>,
+    time: Res<'_, Time>,
+    mut volumes: Query<'_, '_, (&CurrentVolume, &mut Intersects)>,
 ) {
     let ray_cast = get_and_draw_ray(&mut gizmos, &time);
     let aabb_cast = AabbCast2d {
@@ -348,8 +350,8 @@ fn aabb_cast_system(
 
 fn bounding_circle_cast_system(
     mut gizmos: Gizmos,
-    time: Res<Time>,
-    mut volumes: Query<(&CurrentVolume, &mut Intersects)>,
+    time: Res<'_, Time>,
+    mut volumes: Query<'_, '_, (&CurrentVolume, &mut Intersects)>,
 ) {
     let ray_cast = get_and_draw_ray(&mut gizmos, &time);
     let circle_cast = BoundingCircleCast {
@@ -382,8 +384,8 @@ fn get_intersection_position(time: &Time) -> Vec2 {
 
 fn aabb_intersection_system(
     mut gizmos: Gizmos,
-    time: Res<Time>,
-    mut volumes: Query<(&CurrentVolume, &mut Intersects)>,
+    time: Res<'_, Time>,
+    mut volumes: Query<'_, '_, (&CurrentVolume, &mut Intersects)>,
 ) {
     let center = get_intersection_position(&time);
     let aabb = Aabb2d::new(center, Vec2::splat(50.));
@@ -401,8 +403,8 @@ fn aabb_intersection_system(
 
 fn circle_intersection_system(
     mut gizmos: Gizmos,
-    time: Res<Time>,
-    mut volumes: Query<(&CurrentVolume, &mut Intersects)>,
+    time: Res<'_, Time>,
+    mut volumes: Query<'_, '_, (&CurrentVolume, &mut Intersects)>,
 ) {
     let center = get_intersection_position(&time);
     let circle = BoundingCircle::new(center, 50.);

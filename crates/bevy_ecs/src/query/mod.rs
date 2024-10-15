@@ -161,7 +161,7 @@ mod tests {
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
-            let query_type = type_name::<QueryCombinationIter<D, F, K>>();
+            let query_type = type_name::<QueryCombinationIter<'_, '_, D, F, K>>();
             let iter = query.iter_combinations::<K>(world);
             assert_all_sizes_iterator_equal(iter, expected_size, 0, query_type);
             let iter = query.iter_combinations::<K>(world);
@@ -289,9 +289,7 @@ mod tests {
         values.iter().for_each(|pair| {
             let mut sorted = *pair;
             sorted.sort();
-            assert!(expected.contains(&sorted),
-                    "the results of iter_combinations should contain this combination {:?}. Expected: {:?}, got: {:?}",
-                    &sorted, &expected, &values);
+            assert!(expected.contains(&sorted), "the results of iter_combinations should contain this combination {:?}. Expected: {:?}, got: {:?}", &sorted, &expected, &values);
         });
     }
 
@@ -694,7 +692,7 @@ mod tests {
         world.spawn(A(0));
         world.spawn(B(0));
         {
-            fn system(has_a: Query<Entity, With<A>>, has_a_and_b: Query<(&A, &B)>) {
+            fn system(has_a: Query<'_, '_, Entity, With<A>>, has_a_and_b: Query<'_, '_, (&A, &B)>) {
                 assert_eq!(has_a_and_b.iter_many(&has_a).count(), 2);
             }
             let mut system = IntoSystem::into_system(system);
@@ -702,7 +700,7 @@ mod tests {
             system.run((), &mut world);
         }
         {
-            fn system(has_a: Query<Entity, With<A>>, mut b_query: Query<&mut B>) {
+            fn system(has_a: Query<'_, '_, Entity, With<A>>, mut b_query: Query<'_, '_, &mut B>) {
                 let mut iter = b_query.iter_many_mut(&has_a);
                 while let Some(mut b) = iter.fetch_next() {
                     b.0 = 1;
@@ -713,7 +711,7 @@ mod tests {
             system.run((), &mut world);
         }
         {
-            fn system(query: Query<(Option<&A>, &B)>) {
+            fn system(query: Query<'_, '_, (Option<&A>, &B)>) {
                 for (maybe_a, b) in &query {
                     match maybe_a {
                         Some(_) => assert_eq!(b.0, 1),
@@ -750,7 +748,7 @@ mod tests {
         let _: &Foo = q.single(&world);
 
         // system param
-        let mut q = SystemState::<Query<&mut Foo>>::new(&mut world);
+        let mut q = SystemState::<Query<'_, '_, &mut Foo>>::new(&mut world);
         let q = q.get_mut(&mut world);
         let _: Option<&Foo> = q.iter().next();
         let _: Option<[&Foo; 2]> = q.iter_combinations::<2>().next();
@@ -770,13 +768,13 @@ mod tests {
         let mut world = World::new();
         world.spawn((A(1), B(1)));
 
-        fn propagate_system(mut query: Query<(&A, &mut B), Changed<A>>) {
+        fn propagate_system(mut query: Query<'_, '_, (&A, &mut B), Changed<A>>) {
             query.par_iter_mut().for_each(|(a, mut b)| {
                 b.0 = a.0;
             });
         }
 
-        fn modify_system(mut query: Query<&mut A>) {
+        fn modify_system(mut query: Query<'_, '_, &mut A>) {
             for mut a in &mut query {
                 a.0 = 2;
             }

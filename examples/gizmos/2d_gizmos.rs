@@ -17,7 +17,7 @@ fn main() {
 #[derive(Default, Reflect, GizmoConfigGroup)]
 struct MyRoundGizmos {}
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
     // text
     commands.spawn((
@@ -40,7 +40,7 @@ fn setup(mut commands: Commands) {
 fn draw_example_collection(
     mut gizmos: Gizmos,
     mut my_gizmos: Gizmos<MyRoundGizmos>,
-    time: Res<Time>,
+    time: Res<'_, Time>,
 ) {
     let sin_t_scaled = ops::sin(time.elapsed_seconds()) * 50.;
     gizmos.line_2d(Vec2::Y * -sin_t_scaled, Vec2::splat(-80.), RED);
@@ -123,9 +123,9 @@ fn draw_example_collection(
 }
 
 fn update_config(
-    mut config_store: ResMut<GizmoConfigStore>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
+    mut config_store: ResMut<'_, GizmoConfigStore>,
+    keyboard: Res<'_, ButtonInput<KeyCode>>,
+    time: Res<'_, Time>,
 ) {
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
     if keyboard.pressed(KeyCode::ArrowRight) {

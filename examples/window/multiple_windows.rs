@@ -10,7 +10,7 @@ fn main() {
         .run();
 }
 
-fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup_scene(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
     // add entities to the world
     commands.spawn(SceneRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/torus/torus.gltf")),

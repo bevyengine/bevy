@@ -88,14 +88,14 @@ impl Name {
 
 impl core::fmt::Display for Name {
     #[inline(always)]
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         core::fmt::Display::fmt(&self.name, f)
     }
 }
 
 impl core::fmt::Debug for Name {
     #[inline(always)]
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         core::fmt::Debug::fmt(&self.name, f)
     }
 }
@@ -106,7 +106,7 @@ impl core::fmt::Debug for Name {
 /// # use bevy_core::prelude::*;
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)] pub struct Score(f32);
-/// fn increment_score(mut scores: Query<(NameOrEntity, &mut Score)>) {
+/// fn increment_score(mut scores: Query<'_, '_, (NameOrEntity, &mut Score)>) {
 ///     for (name, mut score) in &mut scores {
 ///         score.0 += 1.0;
 ///         if score.0.is_nan() {
@@ -132,7 +132,7 @@ pub struct NameOrEntity {
 
 impl<'a> core::fmt::Display for NameOrEntityItem<'a> {
     #[inline(always)]
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self.name {
             Some(name) => core::fmt::Display::fmt(name, f),
             None => core::fmt::Display::fmt(&self.entity, f),

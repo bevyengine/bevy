@@ -13,7 +13,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
 
     let text_font = TextFont {
@@ -101,10 +101,10 @@ const SIZE_PER_FUNCTION: f32 = 95.0;
 
 fn display_curves(
     mut gizmos: Gizmos,
-    ease_functions: Query<(&SelectedEaseFunction, &Transform, &Children)>,
-    mut transforms: Query<&mut Transform, Without<SelectedEaseFunction>>,
-    mut ui_text: Single<&mut Text>,
-    time: Res<Time>,
+    ease_functions: Query<'_, '_, (&SelectedEaseFunction, &Transform, &Children)>,
+    mut transforms: Query<'_, '_, &mut Transform, Without<SelectedEaseFunction>>,
+    mut ui_text: Single<'_, &mut Text>,
+    time: Res<'_, Time>,
 ) {
     let samples = 100;
     let duration = 2.5;
