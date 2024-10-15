@@ -46,6 +46,7 @@ use widget::UiImageSize;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[cfg(feature = "bevy_text")]
     #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::widget::TextBundle;
@@ -178,17 +179,22 @@ impl Plugin for UiPlugin {
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
             );
 
+        let ui_layout_system_config = ui_layout_system
+            .in_set(UiSystem::Layout)
+            .before(TransformSystem::TransformPropagate);
+
+        #[cfg(feature = "bevy_text")]
+        let ui_layout_system_config = ui_layout_system_config
+            // Text and Text2D operate on disjoint sets of entities
+            .ambiguous_with(bevy_text::update_text2d_layout)
+            .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>);
+
         app.add_systems(
             PostUpdate,
             (
                 check_visibility::<WithNode>.in_set(VisibilitySystems::CheckVisibility),
                 update_target_camera_system.in_set(UiSystem::Prepare),
-                ui_layout_system
-                    .in_set(UiSystem::Layout)
-                    .before(TransformSystem::TransformPropagate)
-                    // Text and Text2D operate on disjoint sets of entities
-                    .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
-                    .ambiguous_with(bevy_text::update_text2d_layout),
+                ui_layout_system_config,
                 ui_stack_system
                     .in_set(UiSystem::Stack)
                     // the systems don't care about stack index
