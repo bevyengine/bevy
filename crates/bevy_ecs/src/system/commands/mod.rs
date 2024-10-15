@@ -463,7 +463,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// #[derive(Component)]
     /// struct Label(&'static str);
-
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new, empty entity
     ///     let entity = commands.spawn_empty().id();
@@ -565,7 +564,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///         counter.0 += 25;
     ///     });
     /// }
-
     /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```

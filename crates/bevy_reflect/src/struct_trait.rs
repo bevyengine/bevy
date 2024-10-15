@@ -44,7 +44,6 @@ use core::{
 ///
 /// [struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html
 /// [reflection]: crate
-
 /// [unit structs]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#unit-like-structs-without-any-fields
 pub trait Struct: PartialReflect {
     /// Returns a reference to the value of the field named `name` as a `&dyn
