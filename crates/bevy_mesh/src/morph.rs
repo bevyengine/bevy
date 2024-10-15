@@ -223,10 +223,6 @@ impl MorphAttributes {
     }
 }
 
-/// Integer division rounded up.
-const fn div_ceil(lhf: u32, rhs: u32) -> u32 {
-    (lhf + rhs - 1) / rhs
-}
 struct Rect(u32, u32);
 
 /// Find the smallest rectangle of maximum edge size `max_edge` that contains
@@ -249,7 +245,7 @@ struct Rect(u32, u32);
 fn lowest_2d(min_includes: u32, max_edge: u32) -> Option<(Rect, u32)> {
     (1..=max_edge)
         .filter_map(|a| {
-            let b = div_ceil(min_includes, a);
+            let b = min_includes.div_ceil(a);
             let diff = (a * b).checked_sub(min_includes)?;
             Some((Rect(a, b), diff))
         })

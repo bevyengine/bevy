@@ -1,3 +1,4 @@
+use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
     prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
@@ -18,12 +19,13 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::EntityHashMap,
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::sync_world::MainEntityHashMap;
+use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     camera::TemporalJitter,
     extract_resource::ExtractResource,
@@ -32,7 +34,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
-    view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility, VisibleEntities},
+    view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility},
     Extract,
 };
 use bevy_utils::tracing::error;
@@ -42,8 +44,6 @@ use core::{
     num::NonZero,
     sync::atomic::{AtomicU32, Ordering},
 };
-
-use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 
 /// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
@@ -479,7 +479,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();
 
-        let Some(material_asset_id) = material_instances.get(&item.entity()) else {
+        let Some(material_asset_id) = material_instances.get(&item.main_entity()) else {
             return RenderCommandResult::Skip;
         };
         let Some(material) = materials.get(*material_asset_id) else {
@@ -492,7 +492,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
 
 /// Stores all extracted instances of a [`Material`] in the render world.
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterialInstances<M: Material>(pub EntityHashMap<AssetId<M>>);
+pub struct RenderMaterialInstances<M: Material>(pub MainEntityHashMap<AssetId<M>>);
 
 impl<M: Material> Default for RenderMaterialInstances<M> {
     fn default() -> Self {
@@ -562,7 +562,7 @@ fn extract_mesh_materials<M: Material>(
 ) {
     for (entity, view_visibility, material) in &query {
         if view_visibility.get() {
-            material_instances.insert(entity, material.id());
+            material_instances.insert(entity.into(), material.id());
         }
     }
 }
@@ -574,7 +574,7 @@ pub(super) fn extract_default_materials(
 ) {
     for (entity, view_visibility) in &query {
         if view_visibility.get() {
-            material_instances.insert(entity, AssetId::default());
+            material_instances.insert(entity.into(), AssetId::default());
         }
     }
 }
@@ -610,7 +610,7 @@ pub fn queue_material_meshes<M: Material>(
     views: Query<(
         Entity,
         &ExtractedView,
-        &VisibleEntities,
+        &RenderVisibleEntities,
         &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
@@ -744,7 +744,7 @@ pub fn queue_material_meshes<M: Material>(
         }
 
         let rangefinder = view.rangefinder3d();
-        for visible_entity in visible_entities.iter::<With<Mesh3d>>() {
+        for (render_entity, visible_entity) in visible_entities.iter::<With<Mesh3d>>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
@@ -825,7 +825,7 @@ pub fn queue_material_meshes<M: Material>(
                         let distance = rangefinder.distance_translation(&mesh_instance.translation)
                             + material.properties.depth_bias;
                         transmissive_phase.add(Transmissive3d {
-                            entity: *visible_entity,
+                            entity: (*render_entity, *visible_entity),
                             draw_function: draw_transmissive_pbr,
                             pipeline: pipeline_id,
                             distance,
@@ -842,7 +842,7 @@ pub fn queue_material_meshes<M: Material>(
                         };
                         opaque_phase.add(
                             bin_key,
-                            *visible_entity,
+                            (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     }
@@ -853,7 +853,7 @@ pub fn queue_material_meshes<M: Material>(
                         let distance = rangefinder.distance_translation(&mesh_instance.translation)
                             + material.properties.depth_bias;
                         transmissive_phase.add(Transmissive3d {
-                            entity: *visible_entity,
+                            entity: (*render_entity, *visible_entity),
                             draw_function: draw_transmissive_pbr,
                             pipeline: pipeline_id,
                             distance,
@@ -869,7 +869,7 @@ pub fn queue_material_meshes<M: Material>(
                         };
                         alpha_mask_phase.add(
                             bin_key,
-                            *visible_entity,
+                            (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     }
@@ -878,7 +878,7 @@ pub fn queue_material_meshes<M: Material>(
                     let distance = rangefinder.distance_translation(&mesh_instance.translation)
                         + material.properties.depth_bias;
                     transparent_phase.add(Transparent3d {
-                        entity: *visible_entity,
+                        entity: (*render_entity, *visible_entity),
                         draw_function: draw_transparent_pbr,
                         pipeline: pipeline_id,
                         distance,

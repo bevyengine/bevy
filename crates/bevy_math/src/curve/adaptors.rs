@@ -85,7 +85,7 @@ pub struct FunctionCurve<T, F> {
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     pub(crate) f: F,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
-    pub(crate) _phantom: PhantomData<T>,
+    pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
 impl<T, F> Debug for FunctionCurve<T, F> {
@@ -186,7 +186,7 @@ pub struct MapCurve<S, T, C, F> {
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     pub(crate) f: F,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
-    pub(crate) _phantom: PhantomData<(S, T)>,
+    pub(crate) _phantom: PhantomData<(fn() -> S, fn(S) -> T)>,
 }
 
 impl<S, T, C, F> Debug for MapCurve<S, T, C, F>
@@ -283,7 +283,7 @@ pub struct ReparamCurve<T, C, F> {
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     pub(crate) f: F,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
-    pub(crate) _phantom: PhantomData<T>,
+    pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
 impl<T, C, F> Debug for ReparamCurve<T, C, F>
@@ -377,7 +377,7 @@ pub struct LinearReparamCurve<T, C> {
     /// Invariants: This interval must always be bounded.
     pub(crate) new_domain: Interval,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
-    pub(crate) _phantom: PhantomData<T>,
+    pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
 impl<T, C> Curve<T> for LinearReparamCurve<T, C>
@@ -410,7 +410,7 @@ pub struct CurveReparamCurve<T, C, D> {
     pub(crate) base: C,
     pub(crate) reparam_curve: D,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
-    pub(crate) _phantom: PhantomData<T>,
+    pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
 impl<T, C, D> Curve<T> for CurveReparamCurve<T, C, D>
@@ -442,7 +442,7 @@ where
 pub struct GraphCurve<T, C> {
     pub(crate) base: C,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
-    pub(crate) _phantom: PhantomData<T>,
+    pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
 impl<T, C> Curve<(f32, T)> for GraphCurve<T, C>
@@ -474,7 +474,7 @@ pub struct ZipCurve<S, T, C, D> {
     pub(crate) first: C,
     pub(crate) second: D,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
-    pub(crate) _phantom: PhantomData<(S, T)>,
+    pub(crate) _phantom: PhantomData<fn() -> (S, T)>,
 }
 
 impl<S, T, C, D> Curve<(S, T)> for ZipCurve<S, T, C, D>
@@ -514,7 +514,7 @@ pub struct ChainCurve<T, C, D> {
     pub(crate) first: C,
     pub(crate) second: D,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
-    pub(crate) _phantom: PhantomData<T>,
+    pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
 impl<T, C, D> Curve<T> for ChainCurve<T, C, D>
@@ -563,7 +563,7 @@ where
 pub struct ReverseCurve<T, C> {
     pub(crate) curve: C,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
-    pub(crate) _phantom: PhantomData<T>,
+    pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
 impl<T, C> Curve<T> for ReverseCurve<T, C>
@@ -605,7 +605,7 @@ pub struct RepeatCurve<T, C> {
     pub(crate) domain: Interval,
     pub(crate) curve: C,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
-    pub(crate) _phantom: PhantomData<T>,
+    pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
 impl<T, C> Curve<T> for RepeatCurve<T, C>
@@ -653,7 +653,7 @@ where
 pub struct ForeverCurve<T, C> {
     pub(crate) curve: C,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
-    pub(crate) _phantom: PhantomData<T>,
+    pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
 impl<T, C> Curve<T> for ForeverCurve<T, C>
@@ -697,7 +697,7 @@ where
 pub struct PingPongCurve<T, C> {
     pub(crate) curve: C,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
-    pub(crate) _phantom: PhantomData<T>,
+    pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
 impl<T, C> Curve<T> for PingPongCurve<T, C>
@@ -754,7 +754,7 @@ pub struct ContinuationCurve<T, C, D> {
     // cache the offset in the curve directly to prevent triple sampling for every sample we make
     pub(crate) offset: T,
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
-    pub(crate) _phantom: PhantomData<T>,
+    pub(crate) _phantom: PhantomData<fn() -> T>,
 }
 
 impl<T, C, D> Curve<T> for ContinuationCurve<T, C, D>

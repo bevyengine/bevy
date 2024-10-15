@@ -1175,7 +1175,7 @@ impl World {
     pub fn get_many_entities_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> Result<[EntityMut<'_>; N], QueryEntityError> {
+    ) -> Result<[EntityMut<'_>; N], QueryEntityError<'_>> {
         self.get_entity_mut(entities).map_err(|e| match e {
             EntityFetchError::NoSuchEntity(entity) => QueryEntityError::NoSuchEntity(entity),
             EntityFetchError::AliasedMutability(entity) => {
@@ -1212,7 +1212,7 @@ impl World {
     pub fn get_many_entities_dynamic_mut<'w>(
         &'w mut self,
         entities: &[Entity],
-    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
+    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError<'w>> {
         self.get_entity_mut(entities).map_err(|e| match e {
             EntityFetchError::NoSuchEntity(entity) => QueryEntityError::NoSuchEntity(entity),
             EntityFetchError::AliasedMutability(entity) => {
@@ -1255,7 +1255,7 @@ impl World {
     pub fn get_many_entities_from_set_mut<'w>(
         &'w mut self,
         entities: &EntityHashSet,
-    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
+    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError<'w>> {
         self.get_entity_mut(entities)
             .map(|fetched| fetched.into_values().collect())
             .map_err(|e| match e {
@@ -1331,13 +1331,13 @@ impl World {
     ///
     /// // `spawn` can accept a single component:
     /// world.spawn(Position { x: 0.0, y: 0.0 });
-
+    ///
     /// // It can also accept a tuple of components:
     /// world.spawn((
     ///     Position { x: 0.0, y: 0.0 },
     ///     Velocity { x: 1.0, y: 1.0 },
     /// ));
-
+    ///
     /// // Or it can accept a pre-defined Bundle of components:
     /// world.spawn(PhysicsBundle {
     ///     position: Position { x: 2.0, y: 2.0 },
@@ -2463,6 +2463,309 @@ impl World {
             Ok(())
         } else {
             Err(invalid_entities)
+        }
+    }
+
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
+    /// adds the `Bundle` of components to each `Entity`.
+    /// This is faster than doing equivalent operations one-by-one.
+    ///
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    ///
+    /// This will overwrite any previous values of components shared by the `Bundle`.
+    /// See [`World::insert_batch_if_new`] to keep the old values instead.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any of the associated entities do not exist.
+    ///
+    /// For the non-panicking version, see [`World::try_insert_batch`].
+    #[track_caller]
+    pub fn insert_batch<I, B>(&mut self, batch: I)
+    where
+        I: IntoIterator,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle,
+    {
+        self.insert_batch_with_caller(
+            batch,
+            InsertMode::Replace,
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        );
+    }
+
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
+    /// adds the `Bundle` of components to each `Entity` without overwriting.
+    /// This is faster than doing equivalent operations one-by-one.
+    ///
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    ///
+    /// This is the same as [`World::insert_batch`], but in case of duplicate
+    /// components it will leave the old values instead of replacing them with new ones.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if any of the associated entities do not exist.
+    ///
+    /// For the non-panicking version, see [`World::try_insert_batch_if_new`].
+    #[track_caller]
+    pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
+    where
+        I: IntoIterator,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle,
+    {
+        self.insert_batch_with_caller(
+            batch,
+            InsertMode::Keep,
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        );
+    }
+
+    /// Split into a new function so we can differentiate the calling location.
+    ///
+    /// This can be called by:
+    /// - [`World::insert_batch`]
+    /// - [`World::insert_batch_if_new`]
+    /// - [`Commands::insert_batch`]
+    /// - [`Commands::insert_batch_if_new`]
+    #[inline]
+    pub(crate) fn insert_batch_with_caller<I, B>(
+        &mut self,
+        iter: I,
+        insert_mode: InsertMode,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) where
+        I: IntoIterator,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle,
+    {
+        self.flush();
+
+        let change_tick = self.change_tick();
+
+        let bundle_id = self
+            .bundles
+            .register_info::<B>(&mut self.components, &mut self.storages);
+
+        struct InserterArchetypeCache<'w> {
+            inserter: BundleInserter<'w>,
+            archetype_id: ArchetypeId,
+        }
+
+        let mut batch = iter.into_iter();
+
+        if let Some((first_entity, first_bundle)) = batch.next() {
+            if let Some(first_location) = self.entities().get(first_entity) {
+                let mut cache = InserterArchetypeCache {
+                    // SAFETY: we initialized this bundle_id in `register_info`
+                    inserter: unsafe {
+                        BundleInserter::new_with_id(
+                            self,
+                            first_location.archetype_id,
+                            bundle_id,
+                            change_tick,
+                        )
+                    },
+                    archetype_id: first_location.archetype_id,
+                };
+                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                unsafe {
+                    cache.inserter.insert(
+                        first_entity,
+                        first_location,
+                        first_bundle,
+                        insert_mode,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    )
+                };
+
+                for (entity, bundle) in batch {
+                    if let Some(location) = cache.inserter.entities().get(entity) {
+                        if location.archetype_id != cache.archetype_id {
+                            cache = InserterArchetypeCache {
+                                // SAFETY: we initialized this bundle_id in `register_info`
+                                inserter: unsafe {
+                                    BundleInserter::new_with_id(
+                                        self,
+                                        location.archetype_id,
+                                        bundle_id,
+                                        change_tick,
+                                    )
+                                },
+                                archetype_id: location.archetype_id,
+                            }
+                        }
+                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                        unsafe {
+                            cache.inserter.insert(
+                                entity,
+                                location,
+                                bundle,
+                                insert_mode,
+                                #[cfg(feature = "track_change_detection")]
+                                caller,
+                            )
+                        };
+                    } else {
+                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), entity);
+                    }
+                }
+            } else {
+                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), first_entity);
+            }
+        }
+    }
+
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
+    /// adds the `Bundle` of components to each `Entity`.
+    /// This is faster than doing equivalent operations one-by-one.
+    ///
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    ///
+    /// This will overwrite any previous values of components shared by the `Bundle`.
+    /// See [`World::try_insert_batch_if_new`] to keep the old values instead.
+    ///
+    /// This function silently fails by ignoring any entities that do not exist.
+    ///
+    /// For the panicking version, see [`World::insert_batch`].
+    #[track_caller]
+    pub fn try_insert_batch<I, B>(&mut self, batch: I)
+    where
+        I: IntoIterator,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle,
+    {
+        self.try_insert_batch_with_caller(
+            batch,
+            InsertMode::Replace,
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        );
+    }
+    /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
+    /// adds the `Bundle` of components to each `Entity` without overwriting.
+    /// This is faster than doing equivalent operations one-by-one.
+    ///
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    ///
+    /// This is the same as [`World::try_insert_batch`], but in case of duplicate
+    /// components it will leave the old values instead of replacing them with new ones.
+    ///
+    /// This function silently fails by ignoring any entities that do not exist.
+    ///
+    /// For the panicking version, see [`World::insert_batch_if_new`].
+    #[track_caller]
+    pub fn try_insert_batch_if_new<I, B>(&mut self, batch: I)
+    where
+        I: IntoIterator,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle,
+    {
+        self.try_insert_batch_with_caller(
+            batch,
+            InsertMode::Keep,
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        );
+    }
+
+    /// Split into a new function so we can differentiate the calling location.
+    ///
+    /// This can be called by:
+    /// - [`World::try_insert_batch`]
+    /// - [`World::try_insert_batch_if_new`]
+    /// - [`Commands::try_insert_batch`]
+    /// - [`Commands::try_insert_batch_if_new`]
+    #[inline]
+    pub(crate) fn try_insert_batch_with_caller<I, B>(
+        &mut self,
+        iter: I,
+        insert_mode: InsertMode,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) where
+        I: IntoIterator,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle,
+    {
+        self.flush();
+
+        let change_tick = self.change_tick();
+
+        let bundle_id = self
+            .bundles
+            .register_info::<B>(&mut self.components, &mut self.storages);
+
+        struct InserterArchetypeCache<'w> {
+            inserter: BundleInserter<'w>,
+            archetype_id: ArchetypeId,
+        }
+
+        let mut batch = iter.into_iter();
+
+        if let Some((first_entity, first_bundle)) = batch.next() {
+            if let Some(first_location) = self.entities().get(first_entity) {
+                let mut cache = InserterArchetypeCache {
+                    // SAFETY: we initialized this bundle_id in `register_info`
+                    inserter: unsafe {
+                        BundleInserter::new_with_id(
+                            self,
+                            first_location.archetype_id,
+                            bundle_id,
+                            change_tick,
+                        )
+                    },
+                    archetype_id: first_location.archetype_id,
+                };
+                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                unsafe {
+                    cache.inserter.insert(
+                        first_entity,
+                        first_location,
+                        first_bundle,
+                        insert_mode,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    )
+                };
+
+                for (entity, bundle) in batch {
+                    if let Some(location) = cache.inserter.entities().get(entity) {
+                        if location.archetype_id != cache.archetype_id {
+                            cache = InserterArchetypeCache {
+                                // SAFETY: we initialized this bundle_id in `register_info`
+                                inserter: unsafe {
+                                    BundleInserter::new_with_id(
+                                        self,
+                                        location.archetype_id,
+                                        bundle_id,
+                                        change_tick,
+                                    )
+                                },
+                                archetype_id: location.archetype_id,
+                            }
+                        }
+                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                        unsafe {
+                            cache.inserter.insert(
+                                entity,
+                                location,
+                                bundle,
+                                insert_mode,
+                                #[cfg(feature = "track_change_detection")]
+                                caller,
+                            )
+                        };
+                    }
+                }
+            }
         }
     }
 

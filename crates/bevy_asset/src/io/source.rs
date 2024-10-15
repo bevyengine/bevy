@@ -587,7 +587,7 @@ impl AssetSources {
             AssetSourceId::Name(name) => self
                 .sources
                 .get(&name)
-                .ok_or_else(|| MissingAssetSourceError(AssetSourceId::Name(name))),
+                .ok_or(MissingAssetSourceError(AssetSourceId::Name(name))),
         }
     }
 

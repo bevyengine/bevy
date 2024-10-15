@@ -56,6 +56,11 @@ pub trait Tuple: PartialReflect {
 
     /// Clones the struct into a [`DynamicTuple`].
     fn clone_dynamic(&self) -> DynamicTuple;
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_tuple_info(&self) -> Option<&'static TupleInfo> {
+        self.get_represented_type_info()?.as_tuple().ok()
+    }
 }
 
 /// An iterator over the field values of a tuple.

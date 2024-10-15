@@ -103,8 +103,10 @@ fn name_morphs(
     let Some(names) = mesh.morph_target_names() else {
         return;
     };
+
+    info!("Target names:");
     for name in names {
-        println!("  {name}");
+        info!("  {name}");
     }
     *has_printed = true;
 }

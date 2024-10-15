@@ -137,9 +137,9 @@ fn setup(mut commands: Commands) {
 fn print_logs(
     mut events: EventReader<LogEvent>,
     mut commands: Commands,
-    log_viewer_root: Query<Entity, With<LogViewerRoot>>,
+    log_viewer_root: Single<Entity, With<LogViewerRoot>>,
 ) {
-    let root_entity = log_viewer_root.single();
+    let root_entity = *log_viewer_root;
 
     commands.entity(root_entity).with_children(|child| {
         for event in events.read() {

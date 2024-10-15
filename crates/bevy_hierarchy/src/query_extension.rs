@@ -60,9 +60,8 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// # use bevy_hierarchy::prelude::*;
     /// # #[derive(Component)]
     /// # struct Marker;
-    /// fn system(query: Query<Entity, With<Marker>>, children_query: Query<&Children>) {
-    ///     let entity = query.single();
-    ///     for descendant in children_query.iter_descendants(entity) {
+    /// fn system(entity: Single<Entity, With<Marker>>, children_query: Query<&Children>) {
+    ///     for descendant in children_query.iter_descendants(*entity) {
     ///         // Do something!
     ///     }
     /// }
@@ -95,9 +94,8 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// # use bevy_hierarchy::prelude::*;
     /// # #[derive(Component)]
     /// # struct Marker;
-    /// fn system(query: Query<Entity, With<Marker>>, parent_query: Query<&Parent>) {
-    ///     let entity = query.single();
-    ///     for ancestor in parent_query.iter_ancestors(entity) {
+    /// fn system(entity: Single<Entity, With<Marker>>, parent_query: Query<&Parent>) {
+    ///     for ancestor in parent_query.iter_ancestors(*entity) {
     ///         // Do something!
     ///     }
     /// }

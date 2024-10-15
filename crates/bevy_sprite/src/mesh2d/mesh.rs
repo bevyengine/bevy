@@ -1,6 +1,7 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 
+use crate::Material2dBindGroupId;
 use bevy_core_pipeline::{
     core_2d::{AlphaMask2d, Camera2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT},
     tonemapping::{
@@ -9,12 +10,12 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::EntityHashMap,
     prelude::*,
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Affine3, Vec4};
+use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::{
     batching::{
         gpu_preprocessing::IndirectParameters,
@@ -45,8 +46,6 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::tracing::error;
 use nonmax::NonMaxU32;
-
-use crate::Material2dBindGroupId;
 
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
@@ -202,7 +201,7 @@ pub struct RenderMesh2dInstance {
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct RenderMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
+pub struct RenderMesh2dInstances(MainEntityHashMap<RenderMesh2dInstance>);
 
 #[derive(Component)]
 pub struct Mesh2dMarker;
@@ -226,7 +225,7 @@ pub fn extract_mesh2d(
             continue;
         }
         render_mesh_instances.insert(
-            entity,
+            entity.into(),
             RenderMesh2dInstance {
                 transforms: Mesh2dTransforms {
                     world_from_local: (&transform.affine()).into(),
@@ -358,9 +357,9 @@ impl GetBatchData for Mesh2dPipeline {
 
     fn get_batch_data(
         (mesh_instances, _, _): &SystemParamItem<Self::Param>,
-        entity: Entity,
+        (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
-        let mesh_instance = mesh_instances.get(&entity)?;
+        let mesh_instance = mesh_instances.get(&main_entity)?;
         Some((
             (&mesh_instance.transforms).into(),
             mesh_instance.automatic_batching.then_some((
@@ -376,15 +375,15 @@ impl GetFullBatchData for Mesh2dPipeline {
 
     fn get_binned_batch_data(
         (mesh_instances, _, _): &SystemParamItem<Self::Param>,
-        entity: Entity,
+        (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<Self::BufferData> {
-        let mesh_instance = mesh_instances.get(&entity)?;
+        let mesh_instance = mesh_instances.get(&main_entity)?;
         Some((&mesh_instance.transforms).into())
     }
 
     fn get_index_and_compare_data(
         _: &SystemParamItem<Self::Param>,
-        _query_item: Entity,
+        _query_item: (Entity, MainEntity),
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
         error!(
             "`get_index_and_compare_data` is only intended for GPU mesh uniform building, \
@@ -395,7 +394,7 @@ impl GetFullBatchData for Mesh2dPipeline {
 
     fn get_binned_index(
         _: &SystemParamItem<Self::Param>,
-        _query_item: Entity,
+        _query_item: (Entity, MainEntity),
     ) -> Option<NonMaxU32> {
         error!(
             "`get_binned_index` is only intended for GPU mesh uniform building, \
@@ -407,10 +406,10 @@ impl GetFullBatchData for Mesh2dPipeline {
     fn get_batch_indirect_parameters_index(
         (mesh_instances, meshes, mesh_allocator): &SystemParamItem<Self::Param>,
         indirect_parameters_buffer: &mut bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer,
-        entity: Entity,
+        (_entity, main_entity): (Entity, MainEntity),
         instance_index: u32,
     ) -> Option<NonMaxU32> {
-        let mesh_instance = mesh_instances.get(&entity)?;
+        let mesh_instance = mesh_instances.get(&main_entity)?;
         let mesh = meshes.get(mesh_instance.mesh_asset_id)?;
         let vertex_buffer_slice = mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id)?;
 
@@ -817,7 +816,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
         let mesh_allocator = mesh_allocator.into_inner();
 
         let Some(RenderMesh2dInstance { mesh_asset_id, .. }) =
-            render_mesh2d_instances.get(&item.entity())
+            render_mesh2d_instances.get(&item.main_entity())
         else {
             return RenderCommandResult::Skip;
         };

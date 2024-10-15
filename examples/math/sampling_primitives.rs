@@ -424,7 +424,7 @@ fn handle_keypress(
     mut spawn_queue: ResMut<SpawnQueue>,
     mut counter: ResMut<PointCounter>,
     mut text_menus: Query<&mut Visibility, With<Text>>,
-    mut camera: Query<&mut CameraRig>,
+    mut camera_rig: Single<&mut CameraRig>,
 ) {
     // R => restart, deleting all samples
     if keyboard.just_pressed(KeyCode::KeyR) {
@@ -471,8 +471,6 @@ fn handle_keypress(
         }
     }
 
-    let mut camera_rig = camera.single_mut();
-
     // +/- => zoom camera.
     if keyboard.just_pressed(KeyCode::NumpadSubtract) || keyboard.just_pressed(KeyCode::Minus) {
         camera_rig.distance += MAX_CAMERA_DISTANCE / 15.0;
@@ -516,7 +514,7 @@ fn handle_mouse(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mut button_events: EventReader<MouseButtonInput>,
-    mut camera: Query<&mut CameraRig>,
+    mut camera_rig: Single<&mut CameraRig>,
     mut mouse_pressed: ResMut<MousePressed>,
 ) {
     // Store left-pressed state in the MousePressed resource
@@ -526,8 +524,6 @@ fn handle_mouse(
         }
         *mouse_pressed = MousePressed(button_event.state.is_pressed());
     }
-
-    let mut camera_rig = camera.single_mut();
 
     if accumulated_mouse_scroll.delta != Vec2::ZERO {
         let mouse_scroll = accumulated_mouse_scroll.delta.y;

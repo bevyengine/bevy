@@ -29,7 +29,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("Hit 'P' then scroll/click around!"),
-        TextStyle {
+        TextFont {
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 83.0, // Nice and big so you can see it!
             ..default()
@@ -46,10 +46,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 // A simple system to handle some keyboard input and toggle on/off the hittest.
 fn toggle_mouse_passthrough(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut windows: Query<&mut Window>,
+    mut window: Single<&mut Window>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyP) {
-        let mut window = windows.single_mut();
         window.cursor_options.hit_test = !window.cursor_options.hit_test;
     }
 }

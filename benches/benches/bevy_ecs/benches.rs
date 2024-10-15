@@ -5,6 +5,7 @@ mod events;
 mod fragmentation;
 mod iteration;
 mod observers;
+mod param;
 mod scheduling;
 mod world;
 
@@ -16,4 +17,5 @@ criterion_main!(
     observers::observer_benches,
     scheduling::scheduling_benches,
     world::world_benches,
+    param::param_benches,
 );

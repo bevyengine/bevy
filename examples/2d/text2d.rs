@@ -35,7 +35,7 @@ struct AnimateScale;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let text_style = TextStyle {
+    let text_font = TextFont {
         font: font.clone(),
         font_size: 50.0,
         ..default()
@@ -46,27 +46,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing translation
     commands.spawn((
         Text2d::new("translation"),
-        text_style.clone(),
+        text_font.clone(),
         TextLayout::new_with_justify(text_justification),
         AnimateTranslation,
     ));
     // Demonstrate changing rotation
     commands.spawn((
         Text2d::new("rotation"),
-        text_style.clone(),
+        text_font.clone(),
         TextLayout::new_with_justify(text_justification),
         AnimateRotation,
     ));
     // Demonstrate changing scale
     commands.spawn((
         Text2d::new("scale"),
-        text_style,
+        text_font,
         TextLayout::new_with_justify(text_justification),
         Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
         AnimateScale,
     ));
     // Demonstrate text wrapping
-    let slightly_smaller_text_style = TextStyle {
+    let slightly_smaller_text_font = TextFont {
         font,
         font_size: 35.0,
         ..default()
@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|builder| {
             builder.spawn((
                 Text2d::new("this text wraps in the box\n(Unicode linebreaks)"),
-                slightly_smaller_text_style.clone(),
+                slightly_smaller_text_font.clone(),
                 TextLayout::new(JustifyText::Left, LineBreak::WordBoundary),
                 // Wrap text in the rectangle
                 TextBounds::from(box_size),
@@ -100,7 +100,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|builder| {
             builder.spawn((
                 Text2d::new("this text wraps in the box\n(AnyCharacter linebreaks)"),
-                slightly_smaller_text_style.clone(),
+                slightly_smaller_text_font.clone(),
                 TextLayout::new(JustifyText::Left, LineBreak::AnyCharacter),
                 // Wrap text in the rectangle
                 TextBounds::from(other_box_size),
@@ -112,7 +112,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate font smoothing off
     commands.spawn((
         Text2d::new("FontSmoothing::None"),
-        slightly_smaller_text_style
+        slightly_smaller_text_font
             .clone()
             .with_font_smoothing(FontSmoothing::None),
         Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
@@ -126,10 +126,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ] {
         commands.spawn((
             Text2d::new(format!(" Anchor::{text_anchor:?} ")),
-            TextStyle {
-                color,
-                ..slightly_smaller_text_style.clone()
-            },
+            slightly_smaller_text_font.clone(),
+            TextColor(color),
             Transform::from_translation(250. * Vec3::Y),
             text_anchor,
         ));

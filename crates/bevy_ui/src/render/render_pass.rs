@@ -7,6 +7,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::FloatOrd;
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::*,
@@ -91,7 +92,7 @@ impl Node for UiPassNode {
 
 pub struct TransparentUi {
     pub sort_key: (FloatOrd, u32),
-    pub entity: Entity,
+    pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
@@ -101,7 +102,11 @@ pub struct TransparentUi {
 impl PhaseItem for TransparentUi {
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.entity.0
+    }
+
+    fn main_entity(&self) -> MainEntity {
+        self.entity.1
     }
 
     #[inline]

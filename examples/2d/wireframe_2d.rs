@@ -104,9 +104,9 @@ fn update_colors(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<Wireframe2dConfig>,
     mut wireframe_colors: Query<&mut Wireframe2dColor>,
-    mut text: Query<&mut Text>,
+    mut text: Single<&mut Text>,
 ) {
-    **text.single_mut() = format!(
+    text.0 = format!(
         "Controls
 ---------------
 Z - Toggle global

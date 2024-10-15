@@ -10,7 +10,6 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// This enum allows specifying values for various [`Style`](crate::Style) properties in different units,
 /// such as logical pixels, percentages, or automatically determined values.
-
 #[derive(Copy, Clone, Debug, Reflect)]
 #[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
@@ -204,7 +203,7 @@ impl Val {
 /// A type which is commonly used to define margins, paddings and borders.
 ///
 /// # Examples
-
+///
 /// ## Margin
 ///
 /// A margin is used to create space around UI elements, outside of any defined borders.
@@ -244,7 +243,6 @@ impl Val {
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(

@@ -259,7 +259,7 @@ fn update_bounding_shape(
 fn switch_cameras(
     current: Res<State<CameraActive>>,
     mut next: ResMut<NextState<CameraActive>>,
-    mut camera: Query<(&mut Transform, &mut Projection)>,
+    camera: Single<(&mut Transform, &mut Projection)>,
 ) {
     let next_state = match current.get() {
         CameraActive::Dim2 => CameraActive::Dim3,
@@ -267,7 +267,7 @@ fn switch_cameras(
     };
     next.set(next_state);
 
-    let (mut transform, mut projection) = camera.single_mut();
+    let (mut transform, mut projection) = camera.into_inner();
     match next_state {
         CameraActive::Dim2 => {
             *transform = TRANSFORM_2D;

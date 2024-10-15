@@ -112,15 +112,13 @@ fn instructions(mut commands: Commands) {
 }
 
 fn switch_projection(
-    mut camera: Query<&mut Projection, With<Camera>>,
+    mut camera: Single<&mut Projection, With<Camera>>,
     camera_settings: Res<CameraSettings>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
-    let mut projection = camera.single_mut();
-
     if keyboard_input.just_pressed(KeyCode::Space) {
         // Switch projection type
-        *projection = match *projection {
+        **camera = match **camera {
             Projection::Orthographic(_) => Projection::Perspective(PerspectiveProjection {
                 fov: camera_settings.perspective_zoom_range.start,
                 ..default()
@@ -136,14 +134,12 @@ fn switch_projection(
 }
 
 fn zoom(
-    mut camera: Query<&mut Projection, With<Camera>>,
+    camera: Single<&mut Projection, With<Camera>>,
     camera_settings: Res<CameraSettings>,
     mouse_wheel_input: Res<AccumulatedMouseScroll>,
 ) {
-    let projection = camera.single_mut();
-
     // Usually, you won't need to handle both types of projection. This is by way of demonstration.
-    match projection.into_inner() {
+    match *camera.into_inner() {
         Projection::Orthographic(ref mut orthographic) => {
             // Get the current scaling_mode value to allow clamping the new value to our zoom range.
             let ScalingMode::FixedVertical(current) = orthographic.scaling_mode else {

@@ -58,11 +58,11 @@ pub struct ComputedTextBlock {
     ///
     /// Includes:
     /// - [`TextLayout`] changes.
-    /// - [`TextStyle`] or `Text2d`/`Text`/`TextSpan` changes anywhere in the block's entity hierarchy.
+    /// - [`TextFont`] or `Text2d`/`Text`/`TextSpan` changes anywhere in the block's entity hierarchy.
     // TODO: This encompasses both structural changes like font size or justification and non-structural
     // changes like text color and font smoothing. This field currently causes UI to 'remeasure' text, even if
     // the actual changes are non-structural and can be handled by only rerendering and not remeasuring. A full
-    // solution would probably require splitting TextLayout and TextStyle into structural/non-structural
+    // solution would probably require splitting TextLayout and TextFont into structural/non-structural
     // components for more granular change detection. A cost/benefit analysis is needed.
     pub(crate) needs_rerender: bool,
 }
@@ -70,7 +70,7 @@ pub struct ComputedTextBlock {
 impl ComputedTextBlock {
     /// Accesses entities in this block.
     ///
-    /// Can be used to look up [`TextStyle`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
+    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
     /// stored there.
     pub fn entities(&self) -> &[TextEntity] {
         &self.entities
@@ -97,7 +97,7 @@ impl Default for ComputedTextBlock {
 
 /// Component with text format settings for a block of text.
 ///
-/// A block of text is composed of text spans, which each have a separate string value and [`TextStyle`]. Text
+/// A block of text is composed of text spans, which each have a separate string value and [`TextFont`]. Text
 /// spans associated with a text block are collected into [`ComputedTextBlock`] for layout, and then inserted
 /// to [`TextLayoutInfo`] for rendering.
 ///
@@ -159,38 +159,39 @@ impl TextLayout {
 ///
 /// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
 ///
-/*
-```
-# use bevy_asset::Handle;
-# use bevy_color::Color;
-# use bevy_color::palettes::basic::{RED, BLUE};
-# use bevy_ecs::World;
-# use bevy_text::{Font, TextLayout, TextStyle, TextSection};
-
-# let font_handle: Handle<Font> = Default::default();
-# let mut world = World::default();
-#
-world.spawn((
-    TextLayout::default(),
-    TextStyle {
-        font: font_handle.clone().into(),
-        font_size: 60.0,
-        color: BLUE.into(),
-    }
-))
-.with_child((
-    TextSpan::new("Hello!"),
-    TextStyle {
-        font: font_handle.into(),
-        font_size: 60.0,
-        color: RED.into(),
-    }
-));
-```
-*/
+/// ```
+/// # use bevy_asset::Handle;
+/// # use bevy_color::Color;
+/// # use bevy_color::palettes::basic::{RED, BLUE};
+/// # use bevy_ecs::world::World;
+/// # use bevy_text::{Font, TextLayout, TextFont, TextSpan, TextColor};
+/// # use bevy_hierarchy::BuildChildren;
+///
+/// # let font_handle: Handle<Font> = Default::default();
+/// # let mut world = World::default();
+/// #
+/// world.spawn((
+///     TextLayout::default(),
+///     TextFont {
+///         font: font_handle.clone().into(),
+///         font_size: 60.0,
+///         ..Default::default()
+///     },
+///     TextColor(BLUE.into()),
+/// ))
+/// .with_child((
+///     TextSpan::new("Hello!"),
+///     TextFont {
+///         font: font_handle.into(),
+///         font_size: 60.0,
+///         ..Default::default()
+///     },
+///     TextColor(RED.into()),
+/// ));
+/// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(TextStyle)]
+#[require(TextFont, TextColor)]
 pub struct TextSpan(pub String);
 
 impl TextSpan {
@@ -259,11 +260,11 @@ impl From<JustifyText> for cosmic_text::Align {
     }
 }
 
-/// `TextStyle` determines the style of a text span within a [`ComputedTextBlock`], specifically
+/// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
 /// the font face, the font size, and the color.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
-pub struct TextStyle {
+pub struct TextFont {
     /// The specific font face to use, as a `Handle` to a [`Font`] asset.
     ///
     /// If the `font` is not specified, then
@@ -280,29 +281,50 @@ pub struct TextStyle {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
-    /// The color of the text for this section.
-    pub color: Color,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
 }
 
-impl TextStyle {
-    /// Returns this [`TextStyle`] with the specified [`FontSmoothing`].
+impl TextFont {
+    /// Returns this [`TextFont`] with the specified [`FontSmoothing`].
     pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
         self.font_smoothing = font_smoothing;
         self
     }
 }
 
-impl Default for TextStyle {
+impl Default for TextFont {
     fn default() -> Self {
         Self {
             font: Default::default(),
             font_size: 20.0,
-            color: Color::WHITE,
             font_smoothing: Default::default(),
         }
     }
+}
+
+/// The color of the text for this section.
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct TextColor(pub Color);
+
+impl Default for TextColor {
+    fn default() -> Self {
+        Self::WHITE
+    }
+}
+
+impl<T: Into<Color>> From<T> for TextColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
+    }
+}
+
+impl TextColor {
+    /// Black colored text
+    pub const BLACK: Self = TextColor(Color::BLACK);
+    /// White colored text
+    pub const WHITE: Self = TextColor(Color::WHITE);
 }
 
 /// Determines how lines will be broken when preventing text from running out of bounds.
@@ -359,12 +381,12 @@ pub fn detect_text_needs_rerender<Root: Component>(
         (
             Or<(
                 Changed<Root>,
-                Changed<TextStyle>,
+                Changed<TextFont>,
                 Changed<TextLayout>,
                 Changed<Children>,
             )>,
             With<Root>,
-            With<TextStyle>,
+            With<TextFont>,
             With<TextLayout>,
         ),
     >,
@@ -373,13 +395,13 @@ pub fn detect_text_needs_rerender<Root: Component>(
         (
             Or<(
                 Changed<TextSpan>,
-                Changed<TextStyle>,
+                Changed<TextFont>,
                 Changed<Children>,
                 Changed<Parent>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,
             )>,
             With<TextSpan>,
-            With<TextStyle>,
+            With<TextFont>,
         ),
     >,
     mut computed: Query<(
@@ -390,7 +412,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
 ) {
     // Root entity:
     // - Root component changed.
-    // - TextStyle on root changed.
+    // - TextFont on root changed.
     // - TextLayout changed.
     // - Root children changed (can include additions and removals).
     for root in changed_roots.iter() {
@@ -404,7 +426,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
 
     // Span entity:
     // - Span component changed.
-    // - Span TextStyle changed.
+    // - Span TextFont changed.
     // - Span children changed (can include additions and removals).
     for (entity, maybe_span_parent, has_text_block) in changed_spans.iter() {
         if has_text_block {

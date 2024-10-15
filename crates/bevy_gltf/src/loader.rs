@@ -28,7 +28,6 @@ use bevy_render::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         Indices, Mesh, Mesh3d, MeshVertexAttribute, VertexAttributeValues,
     },
-    prelude::SpatialBundle,
     primitives::Aabb,
     render_asset::RenderAssetUsages,
     render_resource::{Face, PrimitiveTopology},
@@ -36,6 +35,7 @@ use bevy_render::{
         CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
         ImageSampler, ImageSamplerDescriptor, ImageType, TextureError,
     },
+    view::Visibility,
 };
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
@@ -822,7 +822,7 @@ async fn load_gltf<'a, 'b, 'c>(
         let mut scene_load_context = load_context.begin_labeled_asset();
 
         let world_root_id = world
-            .spawn(SpatialBundle::INHERITED_IDENTITY)
+            .spawn((Transform::default(), Visibility::default()))
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(
@@ -1359,7 +1359,7 @@ fn load_node(
     // of negative scale factors is odd. if so we will assign a copy of the material with face
     // culling inverted, rather than modifying the mesh data directly.
     let is_scale_inverted = world_transform.scale.is_negative_bitmask().count_ones() & 1 == 1;
-    let mut node = world_builder.spawn(SpatialBundle::from(transform));
+    let mut node = world_builder.spawn((transform, Visibility::default()));
 
     let name = node_name(gltf_node);
     node.insert(name.clone());
@@ -2516,14 +2516,14 @@ mod test {
         app.update();
         run_app_until(&mut app, |_world| {
             let load_state = asset_server.get_load_state(handle_id).unwrap();
-            if matches!(load_state, LoadState::Failed(_)) {
+            if load_state.is_failed() {
                 Some(())
             } else {
                 None
             }
         });
         let load_state = asset_server.get_load_state(handle_id).unwrap();
-        assert!(matches!(load_state, LoadState::Failed(_)));
+        assert!(load_state.is_failed());
     }
 
     #[test]
@@ -2558,14 +2558,14 @@ mod test {
         app.update();
         run_app_until(&mut app, |_world| {
             let load_state = asset_server.get_load_state(handle_id).unwrap();
-            if matches!(load_state, LoadState::Failed(_)) {
+            if load_state.is_failed() {
                 Some(())
             } else {
                 None
             }
         });
         let load_state = asset_server.get_load_state(handle_id).unwrap();
-        assert!(matches!(load_state, LoadState::Failed(_)));
+        assert!(load_state.is_failed());
     }
 
     #[test]

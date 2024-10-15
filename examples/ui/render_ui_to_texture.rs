@@ -83,11 +83,11 @@ fn setup(
         .with_children(|parent| {
             parent.spawn((
                 Text::new("This is a cube"),
-                TextStyle {
+                TextFont {
                     font_size: 40.0,
-                    color: Color::BLACK,
                     ..default()
                 },
+                TextColor::BLACK,
             ));
         });
 

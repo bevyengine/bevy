@@ -526,8 +526,8 @@ pub(crate) fn clusterable_object_order(
 /// Extracts clusters from the main world from the render world.
 pub fn extract_clusters(
     mut commands: Commands,
-    views: Extract<Query<(&RenderEntity, &Clusters, &Camera)>>,
-    mapper: Extract<Query<&RenderEntity>>,
+    views: Extract<Query<(RenderEntity, &Clusters, &Camera)>>,
+    mapper: Extract<Query<RenderEntity>>,
 ) {
     for (entity, clusters, camera) in &views {
         if !camera.is_active {
@@ -548,14 +548,14 @@ pub fn extract_clusters(
             for clusterable_entity in &cluster_objects.entities {
                 if let Ok(entity) = mapper.get(*clusterable_entity) {
                     data.push(ExtractedClusterableObjectElement::ClusterableObjectEntity(
-                        entity.id(),
+                        entity,
                     ));
                 }
             }
         }
 
         commands
-            .get_entity(entity.id())
+            .get_entity(entity)
             .expect("Clusters entity wasn't synced.")
             .insert((
                 ExtractedClusterableObjects { data },

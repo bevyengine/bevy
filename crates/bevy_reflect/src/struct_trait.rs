@@ -44,7 +44,6 @@ use core::{
 ///
 /// [struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html
 /// [reflection]: crate
-
 /// [unit structs]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#unit-like-structs-without-any-fields
 pub trait Struct: PartialReflect {
     /// Returns a reference to the value of the field named `name` as a `&dyn
@@ -74,6 +73,11 @@ pub trait Struct: PartialReflect {
 
     /// Clones the struct into a [`DynamicStruct`].
     fn clone_dynamic(&self) -> DynamicStruct;
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_struct_info(&self) -> Option<&'static StructInfo> {
+        self.get_represented_type_info()?.as_struct().ok()
+    }
 }
 
 /// A container for compile-time named struct info.

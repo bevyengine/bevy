@@ -46,6 +46,12 @@ use widget::UiImageSize;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[allow(deprecated)]
+    #[doc(hidden)]
+    pub use crate::widget::TextBundle;
+    #[cfg(feature = "bevy_text")]
+    #[doc(hidden)]
+    pub use crate::widget::{Text, TextUiReader, TextUiWriter};
     #[doc(hidden)]
     pub use {
         crate::{
@@ -53,7 +59,7 @@ pub mod prelude {
             node_bundles::*,
             ui_material::*,
             ui_node::*,
-            widget::{Button, Label, Text, UiTextReader, UiTextWriter},
+            widget::{Button, Label},
             Interaction, UiMaterialHandle, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing

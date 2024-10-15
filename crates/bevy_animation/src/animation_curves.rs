@@ -187,7 +187,10 @@ impl<T, C> AnimationCompatibleCurve<T> for C where C: Curve<T> + Debug + Clone +
 #[derive(Reflect, FromReflect)]
 #[reflect(from_reflect = false)]
 pub struct AnimatableCurve<P, C> {
-    curve: C,
+    /// The inner [curve] whose values are used to animate the property.
+    ///
+    /// [curve]: Curve
+    pub curve: C,
     #[reflect(ignore)]
     _phantom: PhantomData<P>,
 }

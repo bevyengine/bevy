@@ -19,16 +19,16 @@ fn main() {
             DefaultPlugins,
             FpsOverlayPlugin {
                 config: FpsOverlayConfig {
-                    text_config: TextStyle {
+                    text_config: TextFont {
                         // Here we define size of our overlay
                         font_size: 42.0,
-                        // We can also change color of the overlay
-                        color: OverlayColor::GREEN,
                         // If we want, we can use a custom font
                         font: default(),
                         // We could also disable font smoothing,
                         font_smoothing: FontSmoothing::default(),
                     },
+                    // We can also change color of the overlay
+                    text_color: OverlayColor::GREEN,
                     enabled: true,
                 },
             },
@@ -67,10 +67,10 @@ fn setup(mut commands: Commands) {
 fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOverlayConfig>) {
     if input.just_pressed(KeyCode::Digit1) {
         // Changing resource will affect overlay
-        if overlay.text_config.color == OverlayColor::GREEN {
-            overlay.text_config.color = OverlayColor::RED;
+        if overlay.text_color == OverlayColor::GREEN {
+            overlay.text_color = OverlayColor::RED;
         } else {
-            overlay.text_config.color = OverlayColor::GREEN;
+            overlay.text_color = OverlayColor::GREEN;
         }
     }
     if input.just_pressed(KeyCode::Digit2) {

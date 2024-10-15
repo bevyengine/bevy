@@ -227,8 +227,8 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
     info!("Setup game");
 }
 
-fn teardown_game(mut commands: Commands, player: Query<Entity, With<Sprite>>) {
-    commands.entity(player.single()).despawn();
+fn teardown_game(mut commands: Commands, player: Single<Entity, With<Sprite>>) {
+    commands.entity(*player).despawn();
     info!("Teardown game");
 }
 
@@ -272,11 +272,11 @@ fn setup_menu(mut commands: Commands) {
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Play"),
-                        TextStyle {
+                        TextFont {
                             font_size: 33.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
                             ..default()
                         },
+                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
                     ));
                 });
         })

@@ -1,6 +1,6 @@
 //! Tests how different transforms behave when clipped with `Overflow::Hidden`
 
-use bevy::{input::common_conditions::input_just_pressed, prelude::*, ui::widget::UiTextWriter};
+use bevy::{input::common_conditions::input_just_pressed, prelude::*, ui::widget::TextUiWriter};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 const CONTAINER_SIZE: f32 = 150.0;
@@ -81,14 +81,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Instructions
 
-    let text_style = TextStyle::default();
+    let text_font = TextFont::default();
 
     commands
         .spawn((
             Text::new(
                 "Next Overflow Setting (O)\nNext Container Size (S)\nToggle Animation (space)\n\n",
             ),
-            text_style.clone(),
+            text_font.clone(),
             Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
@@ -99,7 +99,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_child((
             TextSpan::new(format!("{:?}", Overflow::clip())),
-            text_style.clone(),
+            text_font.clone(),
         ));
 
     // Overflow Debug
@@ -168,7 +168,7 @@ fn spawn_text(
     spawn_container(parent, update_transform, |parent| {
         parent.spawn((
             Text::new("Bevy"),
-            TextStyle {
+            TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 100.0,
                 ..default()
@@ -258,8 +258,8 @@ fn update_transform<T: UpdateTransform + Component>(
 
 fn toggle_overflow(
     mut containers: Query<&mut Style, With<Container>>,
-    mut instructions: Query<Entity, With<Instructions>>,
-    mut writer: UiTextWriter,
+    instructions: Single<Entity, With<Instructions>>,
+    mut writer: TextUiWriter,
 ) {
     for mut style in &mut containers {
         style.overflow = match style.overflow {
@@ -278,7 +278,7 @@ fn toggle_overflow(
             _ => Overflow::visible(),
         };
 
-        let entity = instructions.single_mut();
+        let entity = *instructions;
         *writer.text(entity, 1) = format!("{:?}", style.overflow);
     }
 }

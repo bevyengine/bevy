@@ -84,7 +84,7 @@ use crate::{
 /// [UUID namespace]: https://en.wikipedia.org/wiki/Universally_unique_identifier#Versions_3_and_5_(namespace_name-based)
 pub static ANIMATION_TARGET_NAMESPACE: Uuid = Uuid::from_u128(0x3179f519d9274ff2b5966fd077023911);
 
-/// Contains an [animation curve] which is used to animate entities.
+/// Contains an [animation curve] which is used to animate a property of an entity.
 ///
 /// [animation curve]: AnimationCurve
 #[derive(Debug, TypePath)]
@@ -422,6 +422,20 @@ impl AnimationClip {
     /// If the curve extends beyond the current duration of this clip, this
     /// method lengthens this clip to include the entire time span that the
     /// curve covers.
+    ///
+    /// More specifically:
+    /// - This clip will be sampled on the interval `[0, duration]`.
+    /// - Each curve in the clip is sampled by first clamping the sample time to its [domain].
+    /// - Curves that extend forever never contribute to the duration.
+    ///
+    /// For example, a curve with domain `[2, 5]` will extend the clip to cover `[0, 5]`
+    /// when added and will produce the same output on the entire interval `[0, 2]` because
+    /// these time values all get clamped to `2`.
+    ///
+    /// By contrast, a curve with domain `[-10, ∞]` will never extend the clip duration when
+    /// added and will be sampled only on `[0, duration]`, ignoring all negative time values.
+    ///
+    /// [domain]: AnimationCurve::domain
     pub fn add_curve_to_target(
         &mut self,
         target_id: AnimationTargetId,

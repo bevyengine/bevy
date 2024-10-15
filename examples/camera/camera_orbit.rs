@@ -102,13 +102,12 @@ fn instructions(mut commands: Commands) {
 }
 
 fn orbit(
-    mut camera: Query<&mut Transform, With<Camera>>,
+    mut camera: Single<&mut Transform, With<Camera>>,
     camera_settings: Res<CameraSettings>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     mouse_motion: Res<AccumulatedMouseMotion>,
     time: Res<Time>,
 ) {
-    let mut transform = camera.single_mut();
     let delta = mouse_motion.delta;
     let mut delta_roll = 0.0;
 
@@ -129,7 +128,7 @@ fn orbit(
     delta_roll *= camera_settings.roll_speed * time.delta_seconds();
 
     // Obtain the existing pitch, yaw, and roll values from the transform.
-    let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
+    let (yaw, pitch, roll) = camera.rotation.to_euler(EulerRot::YXZ);
 
     // Establish the new yaw and pitch, preventing the pitch value from exceeding our limits.
     let pitch = (pitch + delta_pitch).clamp(
@@ -138,10 +137,10 @@ fn orbit(
     );
     let roll = roll + delta_roll;
     let yaw = yaw + delta_yaw;
-    transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
+    camera.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
 
     // Adjust the translation to maintain the correct orientation toward the orbit target.
     // In our example it's a static target, but this could easily be customised.
     let target = Vec3::ZERO;
-    transform.translation = target - transform.forward() * camera_settings.orbit_distance;
+    camera.translation = target - camera.forward() * camera_settings.orbit_distance;
 }

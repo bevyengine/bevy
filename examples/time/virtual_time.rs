@@ -93,7 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
             // real time info
             builder.spawn((
                 Text::default(),
-                TextStyle {
+                TextFont {
                     font_size,
                     ..default()
                 },
@@ -103,22 +103,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
             // keybindings
             builder.spawn((
                 Text::new("CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down"),
-                TextStyle {
+                TextFont {
                     font_size,
-                    color: Color::srgb(0.85, 0.85, 0.85),
                     ..default()
                 },
+                TextColor(Color::srgb(0.85, 0.85, 0.85)),
                 TextLayout::new_with_justify(JustifyText::Center),
             ));
 
             // virtual time info
             builder.spawn((
                 Text::default(),
-                TextStyle {
+                TextFont {
                     font_size,
-                    color: virtual_color,
                     ..default()
                 },
+                TextColor(virtual_color),
                 TextLayout::new_with_justify(JustifyText::Right),
                 VirtualTime,
             ));

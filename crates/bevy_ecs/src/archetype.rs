@@ -135,15 +135,15 @@ pub(crate) struct AddBundle {
 }
 
 impl AddBundle {
-    pub(crate) fn iter_inserted(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub(crate) fn iter_inserted(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.added.iter().chain(self.existing.iter()).copied()
     }
 
-    pub(crate) fn iter_added(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub(crate) fn iter_added(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.added.iter().copied()
     }
 
-    pub(crate) fn iter_existing(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub(crate) fn iter_existing(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.existing.iter().copied()
     }
 }
@@ -489,7 +489,7 @@ impl Archetype {
     ///
     /// All of the IDs are unique.
     #[inline]
-    pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.components.indices()
     }
 

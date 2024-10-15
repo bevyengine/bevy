@@ -3,6 +3,7 @@ use bevy::{
     audio::{AudioPlugin, SpatialScale},
     color::palettes::css::*,
     prelude::*,
+    time::Stopwatch,
 };
 
 /// Spatial audio uses the distance to attenuate the sound volume. In 2D with the default camera,
@@ -43,7 +44,11 @@ fn setup(
 
     let listener = SpatialListener::new(gap);
     commands
-        .spawn((SpatialBundle::default(), listener.clone()))
+        .spawn((
+            Transform::default(),
+            Visibility::default(),
+            listener.clone(),
+        ))
         .with_children(|parent| {
             // left ear
             parent.spawn((
@@ -75,7 +80,7 @@ fn setup(
 
 #[derive(Component, Default)]
 struct Emitter {
-    stopped: bool,
+    stopwatch: Stopwatch,
 }
 
 fn update_emitters(
@@ -85,11 +90,17 @@ fn update_emitters(
 ) {
     for (mut emitter_transform, mut emitter) in emitters.iter_mut() {
         if keyboard.just_pressed(KeyCode::Space) {
-            emitter.stopped = !emitter.stopped;
+            if emitter.stopwatch.paused() {
+                emitter.stopwatch.unpause();
+            } else {
+                emitter.stopwatch.pause();
+            }
         }
 
-        if !emitter.stopped {
-            emitter_transform.translation.x = ops::sin(time.elapsed_seconds()) * 500.0;
+        emitter.stopwatch.tick(time.delta());
+
+        if !emitter.stopwatch.paused() {
+            emitter_transform.translation.x = ops::sin(emitter.stopwatch.elapsed_secs()) * 500.0;
         }
     }
 }
@@ -97,22 +108,20 @@ fn update_emitters(
 fn update_listener(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut listeners: Query<&mut Transform, With<SpatialListener>>,
+    mut listener: Single<&mut Transform, With<SpatialListener>>,
 ) {
-    let mut transform = listeners.single_mut();
-
     let speed = 200.;
 
     if keyboard.pressed(KeyCode::ArrowRight) {
-        transform.translation.x += speed * time.delta_seconds();
+        listener.translation.x += speed * time.delta_seconds();
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        transform.translation.x -= speed * time.delta_seconds();
+        listener.translation.x -= speed * time.delta_seconds();
     }
     if keyboard.pressed(KeyCode::ArrowUp) {
-        transform.translation.y += speed * time.delta_seconds();
+        listener.translation.y += speed * time.delta_seconds();
     }
     if keyboard.pressed(KeyCode::ArrowDown) {
-        transform.translation.y -= speed * time.delta_seconds();
+        listener.translation.y -= speed * time.delta_seconds();
     }
 }

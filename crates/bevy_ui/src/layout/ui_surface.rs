@@ -7,7 +7,7 @@ use bevy_ecs::{
     prelude::Resource,
 };
 use bevy_math::UVec2;
-use bevy_utils::{default, tracing::warn};
+use bevy_utils::default;
 
 use crate::{
     layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, NodeMeasure, Style,
@@ -289,10 +289,6 @@ impl UiSurface {
                 .layout(*taffy_node)
                 .map_err(LayoutError::TaffyError)
         } else {
-            warn!(
-                "Styled child ({entity}) in a non-UI entity hierarchy. You are using an entity \
-with UI components as a child of an entity without UI components, your UI layout may be broken."
-            );
             Err(LayoutError::InvalidHierarchy)
         }
     }

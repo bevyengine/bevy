@@ -148,11 +148,9 @@ fn integrate(time: Res<Time>, mut query: Query<(&mut Acceleration, &mut Transfor
 }
 
 fn look_at_star(
-    mut camera: Query<&mut Transform, (With<Camera>, Without<Star>)>,
-    star: Query<&Transform, With<Star>>,
+    mut camera: Single<&mut Transform, (With<Camera>, Without<Star>)>,
+    star: Single<&Transform, With<Star>>,
 ) {
-    let mut camera = camera.single_mut();
-    let star = star.single();
     let new_rotation = camera
         .looking_at(star.translation, Vec3::Y)
         .rotation

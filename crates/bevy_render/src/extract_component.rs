@@ -42,9 +42,10 @@ pub trait ExtractComponent: Component {
 
     /// The output from extraction.
     ///
-    /// Returning `None` based on the queried item can allow early optimization,
-    /// for example if there is an `enabled: bool` field on `Self`, or by only accepting
-    /// values within certain thresholds.
+    /// Returning `None` based on the queried item will remove the component from the entity in
+    /// the render world. This can be used, for example, to conditionally extract camera settings
+    /// in order to disable a rendering feature on the basis of those settings, without removing
+    /// the component from the entity in the main world.
     ///
     /// The output may be different from the queried component.
     /// This can be useful for example if only a subset of the fields are useful
@@ -199,12 +200,14 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
 fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(&RenderEntity, C::QueryData), C::QueryFilter>>,
+    query: Extract<Query<(RenderEntity, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
         if let Some(component) = C::extract_component(query_item) {
-            values.push((entity.id(), component));
+            values.push((entity, component));
+        } else {
+            commands.entity(entity).remove::<C>();
         }
     }
     *previous_len = values.len();
@@ -215,13 +218,15 @@ fn extract_components<C: ExtractComponent>(
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(&RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
+    query: Extract<Query<(RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, query_item) in &query {
         if view_visibility.get() {
             if let Some(component) = C::extract_component(query_item) {
-                values.push((entity.id(), component));
+                values.push((entity, component));
+            } else {
+                commands.entity(entity).remove::<C>();
             }
         }
     }

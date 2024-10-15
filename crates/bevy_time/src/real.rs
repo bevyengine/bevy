@@ -11,12 +11,18 @@ use crate::time::Time;
 ///
 /// It is automatically inserted as a resource by
 /// [`TimePlugin`](crate::TimePlugin) and updated with time instants according
-/// to [`TimeUpdateStrategy`](crate::TimeUpdateStrategy).
+/// to [`TimeUpdateStrategy`](crate::TimeUpdateStrategy).[^disclaimer]
+///
+/// Note:
+/// Using [`TimeUpdateStrategy::ManualDuration`](crate::TimeUpdateStrategy::ManualDuration)
+/// allows for mocking the wall clock for testing purposes.
+/// Besides this use case, it is not recommended to do this, as it will no longer
+/// represent "wall clock" time as intended.
 ///
 /// The [`delta()`](Time::delta) and [`elapsed()`](Time::elapsed) values of this
 /// clock should be used for anything which deals specifically with real time
 /// (wall clock time). It will not be affected by relative game speed
-/// adjustments, pausing or other adjustments.
+/// adjustments, pausing or other adjustments.[^disclaimer]
 ///
 /// The clock does not count time from [`startup()`](Time::startup) to
 /// [`first_update()`](Time::first_update()) into elapsed, but instead will
@@ -29,6 +35,10 @@ use crate::time::Time;
 /// [`Instant`]s for [`startup()`](Time::startup),
 /// [`first_update()`](Time::first_update) and
 /// [`last_update()`](Time::last_update) are recorded and accessible.
+///
+/// [^disclaimer]: When using [`TimeUpdateStrategy::ManualDuration`](crate::TimeUpdateStrategy::ManualDuration),
+///     [`Time<Real>#impl-Time<Real>`] is only a *mock* of wall clock time.
+///
 #[derive(Debug, Copy, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct Real {

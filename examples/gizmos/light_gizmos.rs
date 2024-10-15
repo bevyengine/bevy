@@ -136,9 +136,7 @@ fn setup(
     }
 }
 
-fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>) {
-    let mut transform = query.single_mut();
-
+fn rotate_camera(mut transform: Single<&mut Transform, With<Camera>>, time: Res<Time>) {
     transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_seconds() / 2.));
 }
 
@@ -146,8 +144,8 @@ fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    color_text_query: Query<Entity, With<GizmoColorText>>,
-    mut writer: UiTextWriter,
+    color_text_query: Single<Entity, With<GizmoColorText>>,
+    mut writer: TextUiWriter,
 ) {
     if keyboard.just_pressed(KeyCode::KeyD) {
         for (_, config, _) in config_store.iter_mut() {
@@ -174,6 +172,6 @@ fn update_config(
             LightGizmoColor::MatchLightColor => LightGizmoColor::ByLightType,
             LightGizmoColor::ByLightType => LightGizmoColor::Manual(GRAY.into()),
         };
-        *writer.text(color_text_query.single(), 1) = gizmo_color_text(light_config);
+        *writer.text(*color_text_query, 1) = gizmo_color_text(light_config);
     }
 }

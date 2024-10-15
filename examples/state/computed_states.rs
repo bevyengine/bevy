@@ -370,11 +370,11 @@ mod ui {
                     .with_children(|parent| {
                         parent.spawn((
                             Text::new("Play"),
-                            TextStyle {
+                            TextFont {
                                 font_size: 33.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
 
@@ -402,11 +402,11 @@ mod ui {
                     .with_children(|parent| {
                         parent.spawn((
                             Text::new("Tutorial"),
-                            TextStyle {
+                            TextFont {
                                 font_size: 33.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
             })
@@ -500,11 +500,11 @@ mod ui {
                     .with_children(|parent| {
                         parent.spawn((
                             Text::new("Paused"),
-                            TextStyle {
+                            TextFont {
                                 font_size: 33.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
             });
@@ -532,11 +532,11 @@ mod ui {
             .with_children(|parent| {
                 parent.spawn((
                     Text::new("TURBO MODE"),
-                    TextStyle {
+                    TextFont {
                         font_size: 33.0,
-                        color: Color::srgb(0.9, 0.3, 0.1),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.9, 0.3, 0.1)),
                 ));
             });
     }
@@ -574,37 +574,37 @@ mod ui {
             .with_children(|parent| {
                 parent.spawn((
                     Text::new("Move the bevy logo with the arrow keys"),
-                    TextStyle {
+                    TextFont {
                         font_size: 33.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
                 parent.spawn((
                     Text::new("Press T to enter TURBO MODE"),
-                    TextStyle {
+                    TextFont {
                         font_size: 33.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
 
                 parent.spawn((
                     Text::new("Press SPACE to pause"),
-                    TextStyle {
+                    TextFont {
                         font_size: 33.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
 
                 parent.spawn((
                     Text::new("Press ESCAPE to return to the menu"),
-                    TextStyle {
+                    TextFont {
                         font_size: 33.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
             });
     }
@@ -631,20 +631,20 @@ mod ui {
             .with_children(|parent| {
                 parent.spawn((
                     Text::new("Press SPACE to resume"),
-                    TextStyle {
+                    TextFont {
                         font_size: 33.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
 
                 parent.spawn((
                     Text::new("Press ESCAPE to return to the menu"),
-                    TextStyle {
+                    TextFont {
                         font_size: 33.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
             });
     }

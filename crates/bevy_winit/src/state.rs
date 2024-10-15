@@ -475,6 +475,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             self.lifecycle = AppLifecycle::Suspended;
             // Trigger one last update to enter the suspended state
             should_update = true;
+            self.ran_update_since_last_redraw = false;
 
             #[cfg(target_os = "android")]
             {

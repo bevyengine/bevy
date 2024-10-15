@@ -800,8 +800,8 @@ impl App {
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Query<(&A, &B, &C)>) {
-    ///     let (a, b, c) = query.single();
+    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(0));
     /// }
@@ -863,8 +863,8 @@ impl App {
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Query<(&A, &B, &C)>) {
-    ///     let (a, b, c) = query.single();
+    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(2));
     /// }
@@ -928,8 +928,8 @@ impl App {
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Query<(&A, &B, &C)>) {
-    ///     let (a, b, c) = query.single();
+    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(0));
     /// }
@@ -993,8 +993,8 @@ impl App {
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Query<(&A, &B, &C)>) {
-    ///     let (a, b, c) = query.single();
+    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(2));
     /// }

@@ -55,16 +55,16 @@ fn setup_with_world(world: &mut World) {
 /// Tag entities that have callbacks we want to run with the `Triggered` component.
 fn trigger_system(
     mut commands: Commands,
-    query_a: Query<Entity, With<A>>,
-    query_b: Query<Entity, With<B>>,
+    query_a: Single<Entity, With<A>>,
+    query_b: Single<Entity, With<B>>,
     input: Res<ButtonInput<KeyCode>>,
 ) {
     if input.just_pressed(KeyCode::KeyA) {
-        let entity = query_a.single();
+        let entity = *query_a;
         commands.entity(entity).insert(Triggered);
     }
     if input.just_pressed(KeyCode::KeyB) {
-        let entity = query_b.single();
+        let entity = *query_b;
         commands.entity(entity).insert(Triggered);
     }
 }
@@ -79,13 +79,13 @@ fn evaluate_callbacks(query: Query<(Entity, &Callback), With<Triggered>>, mut co
     }
 }
 
-fn system_a(query: Query<Entity, With<Text>>, mut writer: UiTextWriter) {
-    *writer.text(query.single(), 3) = String::from("A");
+fn system_a(entity_a: Single<Entity, With<Text>>, mut writer: TextUiWriter) {
+    *writer.text(*entity_a, 3) = String::from("A");
     info!("A: One shot system registered with Commands was triggered");
 }
 
-fn system_b(query: Query<Entity, With<Text>>, mut writer: UiTextWriter) {
-    *writer.text(query.single(), 3) = String::from("B");
+fn system_b(entity_b: Single<Entity, With<Text>>, mut writer: TextUiWriter) {
+    *writer.text(*entity_b, 3) = String::from("B");
     info!("B: One shot system registered with World was triggered");
 }
 
@@ -106,10 +106,7 @@ fn setup_ui(mut commands: Commands) {
             p.spawn(TextSpan::new("Last Triggered: "));
             p.spawn((
                 TextSpan::new("-"),
-                TextStyle {
-                    color: bevy::color::palettes::css::ORANGE.into(),
-                    ..default()
-                },
+                TextColor(bevy::color::palettes::css::ORANGE.into()),
             ));
         });
 }

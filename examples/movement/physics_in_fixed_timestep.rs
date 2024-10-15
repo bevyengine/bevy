@@ -156,7 +156,7 @@ fn spawn_text(mut commands: Commands) {
         })
         .with_child((
             Text::new("Move the player with WASD"),
-            TextStyle {
+            TextFont {
                 font_size: 25.0,
                 ..default()
             },

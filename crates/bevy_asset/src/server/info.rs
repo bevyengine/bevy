@@ -8,7 +8,7 @@ use alloc::sync::{Arc, Weak};
 use bevy_ecs::world::World;
 use bevy_tasks::Task;
 use bevy_utils::{tracing::warn, Entry, HashMap, HashSet, TypeIdMap};
-use core::any::TypeId;
+use core::{any::TypeId, task::Waker};
 use crossbeam_channel::Sender;
 use derive_more::derive::{Display, Error, From};
 use either::Either;
@@ -36,6 +36,8 @@ pub(crate) struct AssetInfo {
     /// The number of handle drops to skip for this asset.
     /// See usage (and comments) in `get_or_create_path_handle` for context.
     handle_drops_to_skip: usize,
+    /// List of tasks waiting for this asset to complete loading
+    pub(crate) waiting_tasks: Vec<Waker>,
 }
 
 impl AssetInfo {
@@ -54,6 +56,7 @@ impl AssetInfo {
             dependants_waiting_on_load: HashSet::default(),
             dependants_waiting_on_recursive_dep_load: HashSet::default(),
             handle_drops_to_skip: 0,
+            waiting_tasks: Vec::new(),
         }
     }
 }
@@ -498,16 +501,14 @@ impl AssetInfos {
                 info.loader_dependencies = loaded_asset.loader_dependencies;
             }
 
-            let dependants_waiting_on_rec_load = if matches!(
-                rec_dep_load_state,
-                RecursiveDependencyLoadState::Loaded | RecursiveDependencyLoadState::Failed(_)
-            ) {
-                Some(core::mem::take(
-                    &mut info.dependants_waiting_on_recursive_dep_load,
-                ))
-            } else {
-                None
-            };
+            let dependants_waiting_on_rec_load =
+                if rec_dep_load_state.is_loaded() || rec_dep_load_state.is_failed() {
+                    Some(core::mem::take(
+                        &mut info.dependants_waiting_on_recursive_dep_load,
+                    ))
+                } else {
+                    None
+                };
 
             (
                 core::mem::take(&mut info.dependants_waiting_on_load),
@@ -518,9 +519,7 @@ impl AssetInfos {
         for id in dependants_waiting_on_load {
             if let Some(info) = self.get_mut(id) {
                 info.loading_dependencies.remove(&loaded_asset_id);
-                if info.loading_dependencies.is_empty()
-                    && !matches!(info.dep_load_state, DependencyLoadState::Failed(_))
-                {
+                if info.loading_dependencies.is_empty() && !info.dep_load_state.is_failed() {
                     // send dependencies loaded event
                     info.dep_load_state = DependencyLoadState::Loaded;
                 }
@@ -558,7 +557,7 @@ impl AssetInfos {
             info.loading_rec_dependencies.remove(&loaded_id);
             if info.loading_rec_dependencies.is_empty() && info.failed_rec_dependencies.is_empty() {
                 info.rec_dep_load_state = RecursiveDependencyLoadState::Loaded;
-                if info.load_state == LoadState::Loaded {
+                if info.load_state.is_loaded() {
                     sender
                         .send(InternalAssetEvent::LoadedWithDependencies { id: waiting_id })
                         .unwrap();
@@ -620,6 +619,9 @@ impl AssetInfos {
             info.load_state = LoadState::Failed(error.clone());
             info.dep_load_state = DependencyLoadState::Failed(error.clone());
             info.rec_dep_load_state = RecursiveDependencyLoadState::Failed(error.clone());
+            for waker in info.waiting_tasks.drain(..) {
+                waker.wake();
+            }
             (
                 core::mem::take(&mut info.dependants_waiting_on_load),
                 core::mem::take(&mut info.dependants_waiting_on_recursive_dep_load),
@@ -631,7 +633,7 @@ impl AssetInfos {
                 info.loading_dependencies.remove(&failed_id);
                 info.failed_dependencies.insert(failed_id);
                 // don't overwrite DependencyLoadState if already failed to preserve first error
-                if !(matches!(info.dep_load_state, DependencyLoadState::Failed(_))) {
+                if !info.dep_load_state.is_failed() {
                     info.dep_load_state = DependencyLoadState::Failed(error.clone());
                 }
             }

@@ -98,9 +98,7 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
-    let mut text = query.single_mut();
-
+fn ui_system(mut text: Single<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
     let Some(fps) = diag
         .get(&FrameTimeDiagnosticsPlugin::FPS)
         .and_then(Diagnostic::smoothed)
@@ -108,7 +106,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
         return;
     };
 
-    **text = format!(
+    text.0 = format!(
         "Line count: {}\n\
         FPS: {:.0}\n\n\
         Controls:\n\

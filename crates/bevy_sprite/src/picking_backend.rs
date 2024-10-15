@@ -40,7 +40,13 @@ pub fn sprite_picking(
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
-        .filter(|x| !x.2.affine().is_nan())
+        .filter_map(|(entity, sprite, transform, picking_behavior, vis)| {
+            if !transform.affine().is_nan() && vis.get() {
+                Some((entity, sprite, transform, picking_behavior))
+            } else {
+                None
+            }
+        })
         .collect();
     sorted_sprites.sort_by_key(|x| Reverse(FloatOrd(x.2.translation().z)));
 
@@ -74,8 +80,7 @@ pub fn sprite_picking(
         let picks: Vec<(Entity, HitData)> = sorted_sprites
             .iter()
             .copied()
-            .filter(|(.., visibility)| visibility.get())
-            .filter_map(|(entity, sprite, sprite_transform, picking_behavior, ..)| {
+            .filter_map(|(entity, sprite, sprite_transform, picking_behavior)| {
                 if blocked {
                     return None;
                 }
@@ -125,7 +130,9 @@ pub fn sprite_picking(
                 let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
 
                 blocked = is_cursor_in_sprite
-                    && picking_behavior.map(|p| p.should_block_lower) != Some(false);
+                    && picking_behavior
+                        .map(|p| p.should_block_lower)
+                        .unwrap_or(true);
 
                 is_cursor_in_sprite.then(|| {
                     let hit_pos_world =
