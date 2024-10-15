@@ -73,6 +73,11 @@ pub trait Struct: PartialReflect {
 
     /// Clones the struct into a [`DynamicStruct`].
     fn clone_dynamic(&self) -> DynamicStruct;
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_struct_info(&self) -> Option<&'static StructInfo> {
+        self.get_represented_type_info()?.as_struct().ok()
+    }
 }
 
 /// A container for compile-time named struct info.
