@@ -51,8 +51,8 @@ pub struct UiTree<'w, 's> {
         Or<(With<Node>, With<GhostNode>)>,
     >,
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
-    children_query: Query<'w, 's, &'static Children>,
     ghost_nodes_query: Query<'w, 's, Entity, With<GhostNode>>,
+    children_query: Query<'w, 's, &'static Children, Or<(With<Node>, With<GhostNode>)>>,
     parents_query: Query<'w, 's, &'static Parent, Or<(With<Node>, With<GhostNode>)>>,
 }
 
@@ -100,6 +100,27 @@ impl<'w, 's> UiTree<'w, 's> {
     pub fn iter_ancestors(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
         self.parents_query
             .iter_ancestors(entity)
+            .filter(|entity| !self.ghost_nodes_query.contains(*entity))
+    }
+
+    /// Returns an [`Iterator`] of [`Node`] entities over all of `entity`s descendants within the current UI tree.
+    ///
+    /// Traverses the hierarchy breadth-first and does not include the entity itself.
+    pub fn iter_descendants(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
+        self.children_query
+            .iter_descendants(entity)
+            .filter(|entity| !self.ghost_nodes_query.contains(*entity))
+    }
+
+    /// Returns an [`Iterator`] of [`Node`] entities over all of `entity`s descendants within the current UI tree.
+    ///
+    /// Traverses the hierarchy depth-first and does not include the entity itself.
+    pub fn iter_descendants_depth_first(
+        &'s self,
+        entity: Entity,
+    ) -> impl Iterator<Item = Entity> + 's {
+        self.children_query
+            .iter_descendants_depth_first(entity)
             .filter(|entity| !self.ghost_nodes_query.contains(*entity))
     }
 
@@ -221,6 +242,7 @@ mod tests {
         let n8 = world.spawn((A(8), NodeBundle::default())).id();
         let n9 = world.spawn((A(9), GhostNode)).id();
         let n10 = world.spawn((A(10), NodeBundle::default())).id();
+        let n11 = world.spawn((A(11), NodeBundle::default())).id();
 
         let no_ui = world.spawn_empty().id();
 
@@ -230,13 +252,21 @@ mod tests {
         world.entity_mut(n6).add_children(&[n7, no_ui, n9]);
         world.entity_mut(n7).add_children(&[n8]);
         world.entity_mut(n9).add_children(&[n10]);
+        world.entity_mut(n10).add_children(&[n11]);
 
         let mut system_state = SystemState::<(UiTree, Query<&A>)>::new(world);
         let (ui_tree, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query.iter_many(ui_tree.iter_children(n1)).collect();
-
         assert_eq!([&A(5), &A(4), &A(8), &A(10)], result.as_slice());
+
+        let result: Vec<_> = a_query.iter_many(ui_tree.iter_descendants(n1)).collect();
+        assert_eq!([&A(4), &A(5), &A(8), &A(10), &A(11)], result.as_slice());
+
+        let result: Vec<_> = a_query
+            .iter_many(ui_tree.iter_descendants_depth_first(n1))
+            .collect();
+        assert_eq!([&A(5), &A(4), &A(8), &A(10), &A(11)], result.as_slice());
     }
 
     #[test]
