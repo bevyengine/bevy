@@ -1,10 +1,10 @@
 //! A visual representation of UI node sizes.
-use std::any::{Any, TypeId};
+use core::any::{Any, TypeId};
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_color::Hsla;
 use bevy_core::Name;
-use bevy_core_pipeline::core_2d::Camera2dBundle;
+use bevy_core_pipeline::core_2d::Camera2d;
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_gizmos::{config::GizmoConfigStore, prelude::Gizmos, AppGizmoBuilder};
 use bevy_hierarchy::{Children, Parent};
@@ -88,17 +88,15 @@ fn update_debug_camera(
     } else {
         let spawn_cam = || {
             cmds.spawn((
-                Camera2dBundle {
-                    projection: OrthographicProjection {
-                        far: 1000.0,
-                        viewport_origin: Vec2::new(0.0, 0.0),
-                        ..default()
-                    },
-                    camera: Camera {
-                        order: LAYOUT_DEBUG_CAMERA_ORDER,
-                        clear_color: ClearColorConfig::None,
-                        ..default()
-                    },
+                Camera2d,
+                OrthographicProjection {
+                    far: 1000.0,
+                    viewport_origin: Vec2::new(0.0, 0.0),
+                    ..OrthographicProjection::default_3d()
+                },
+                Camera {
+                    order: LAYOUT_DEBUG_CAMERA_ORDER,
+                    clear_color: ClearColorConfig::None,
                     ..default()
                 },
                 LAYOUT_DEBUG_LAYERS.clone(),

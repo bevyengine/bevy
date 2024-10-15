@@ -83,7 +83,7 @@ fn setup_scene_after_load(
     mut setup: Local<bool>,
     mut scene_handle: ResMut<SceneHandle>,
     asset_server: Res<AssetServer>,
-    meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Handle<Mesh>>>,
+    meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Mesh3d>>,
 ) {
     if scene_handle.is_loaded && !*setup {
         *setup = true;
@@ -127,16 +127,12 @@ fn setup_scene_after_load(
         info!("{}", *scene_handle);
 
         commands.spawn((
-            Camera3dBundle {
-                projection: projection.into(),
-                transform: Transform::from_translation(
-                    Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5),
-                )
+            Camera3d::default(),
+            Projection::from(projection),
+            Transform::from_translation(Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5))
                 .looking_at(Vec3::from(aabb.center), Vec3::Y),
-                camera: Camera {
-                    is_active: false,
-                    ..default()
-                },
+            Camera {
+                is_active: false,
                 ..default()
             },
             EnvironmentMapLight {
@@ -145,6 +141,7 @@ fn setup_scene_after_load(
                 specular_map: asset_server
                     .load("assets/environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
                 intensity: 150.0,
+                ..default()
             },
             camera_controller,
         ));
@@ -152,10 +149,10 @@ fn setup_scene_after_load(
         // Spawn a default light if the scene does not have one
         if !scene_handle.has_light {
             info!("Spawning a directional light");
-            commands.spawn(DirectionalLightBundle {
-                transform: Transform::from_xyz(1.0, 1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-                ..default()
-            });
+            commands.spawn((
+                DirectionalLight::default(),
+                Transform::from_xyz(1.0, 1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ));
 
             scene_handle.has_light = true;
         }

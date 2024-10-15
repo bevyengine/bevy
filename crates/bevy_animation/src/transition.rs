@@ -5,9 +5,10 @@
 
 use bevy_ecs::{
     component::Component,
+    reflect::ReflectComponent,
     system::{Query, Res},
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
 use bevy_utils::Duration;
 
@@ -17,7 +18,7 @@ use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 /// between animations.
 ///
 /// To use this component, place it on the same entity as the
-/// [`AnimationPlayer`] and [`bevy_asset::Handle<AnimationGraph>`]. It'll take
+/// [`AnimationPlayer`] and [`AnimationGraphHandle`](crate::AnimationGraphHandle). It'll take
 /// responsibility for adjusting the weight on the [`ActiveAnimation`] in order
 /// to fade out animations smoothly.
 ///
@@ -28,6 +29,7 @@ use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 /// component to get confused about which animation is the "main" animation, and
 /// transitions will usually be incorrect as a result.
 #[derive(Component, Default, Reflect)]
+#[reflect(Component, Default)]
 pub struct AnimationTransitions {
     main_animation: Option<AnimationNodeIndex>,
     transitions: Vec<AnimationTransition>,
@@ -90,7 +92,11 @@ impl AnimationTransitions {
             }
         }
 
-        self.main_animation = Some(new_animation);
+        // If already transitioning away from this animation, cancel the transition.
+        // Otherwise the transition ending would incorrectly stop the new animation.
+        self.transitions
+            .retain(|transition| transition.animation != new_animation);
+
         player.start(new_animation)
     }
 

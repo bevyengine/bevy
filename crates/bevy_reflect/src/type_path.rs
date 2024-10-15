@@ -1,4 +1,4 @@
-use std::fmt;
+use core::fmt;
 
 /// A static accessor to type paths and names.
 ///
@@ -80,7 +80,7 @@ use std::fmt;
 /// [`module_path`]: TypePath::module_path
 /// [`type_ident`]: TypePath::type_ident
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` does not have a type path",
+    message = "`{Self}` does not implement `TypePath` so cannot provide static type path information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]` or `#[derive(TypePath)]`"
 )]
 pub trait TypePath: 'static {
@@ -88,7 +88,7 @@ pub trait TypePath: 'static {
     ///
     /// Generic parameter types are also fully expanded.
     ///
-    /// For `Option<Vec<usize>>`, this is `"core::option::Option<alloc::vec::Vec<usize>>"`.
+    /// For `Option<Vec<usize>>`, this is `"std::option::Option<std::vec::Vec<usize>>"`.
     fn type_path() -> &'static str;
 
     /// Returns a short, pretty-print enabled path to the type.
@@ -120,7 +120,7 @@ pub trait TypePath: 'static {
 
     /// Returns the path to the module the type is in, or [`None`] if it is [anonymous].
     ///
-    /// For `Option<Vec<usize>>`, this is `"core::option"`.
+    /// For `Option<Vec<usize>>`, this is `"std::option"`.
     ///
     /// [anonymous]: TypePath#anonymity
     fn module_path() -> Option<&'static str> {
@@ -134,7 +134,7 @@ pub trait TypePath: 'static {
 ///
 /// [`Reflect`]: crate::Reflect
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` can not be used as a dynamic type path",
+    message = "`{Self}` does not implement `TypePath` so cannot provide dynamic type path information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]` or `#[derive(TypePath)]`"
 )]
 pub trait DynamicTypePath {

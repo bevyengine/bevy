@@ -27,15 +27,16 @@ impl ViewNode for MotionBlurNode {
         &'static MotionBlurPipelineId,
         &'static ViewPrepassTextures,
         &'static MotionBlur,
+        &'static Msaa,
     );
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, pipeline_id, prepass_textures, settings): QueryItem<Self::ViewQuery>,
+        (view_target, pipeline_id, prepass_textures, motion_blur, msaa): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        if settings.samples == 0 || settings.shutter_angle <= 0.0 {
+        if motion_blur.samples == 0 || motion_blur.shutter_angle <= 0.0 {
             return Ok(()); // We can skip running motion blur in these cases.
         }
 
@@ -60,7 +61,6 @@ impl ViewNode for MotionBlurNode {
 
         let post_process = view_target.post_process_write();
 
-        let msaa = world.resource::<Msaa>();
         let layout = if msaa.samples() == 1 {
             &motion_blur_pipeline.layout
         } else {

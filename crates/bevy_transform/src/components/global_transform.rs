@@ -1,11 +1,15 @@
-use std::ops::Mul;
+use core::ops::Mul;
 
 use super::Transform;
+use bevy_math::{Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A};
+#[cfg(all(feature = "bevy-support", feature = "serialize"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use derive_more::derive::From;
 #[cfg(feature = "bevy-support")]
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Dir3, Mat4, Quat, Vec3, Vec3A};
-#[cfg(feature = "bevy-support")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use {
+    bevy_ecs::{component::Component, reflect::ReflectComponent},
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
+};
 
 /// [`GlobalTransform`] is an affine transformation from entity-local coordinates to worldspace coordinates.
 ///
@@ -14,7 +18,9 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 ///
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
-///   * You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.
+///   * ~You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.~
+///     [`TransformBundle`](crate::bundles::TransformBundle) is now deprecated.
+///     [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
@@ -34,12 +40,16 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// - [`transform`][transform_example]
 ///
 /// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy-support",
     derive(Component, Reflect),
-    reflect(Component, Default, PartialEq)
+    reflect(Component, Default, PartialEq, Debug)
+)]
+#[cfg_attr(
+    all(feature = "bevy-support", feature = "serialize"),
+    reflect(Serialize, Deserialize)
 )]
 pub struct GlobalTransform(Affine3A);
 
@@ -87,6 +97,12 @@ impl GlobalTransform {
         GlobalTransform(Affine3A::from_scale(scale))
     }
 
+    #[doc(hidden)]
+    #[inline]
+    pub fn from_isometry(iso: Isometry3d) -> Self {
+        Self(iso.into())
+    }
+
     /// Returns the 3d affine transformation matrix as a [`Mat4`].
     #[inline]
     pub fn compute_matrix(&self) -> Mat4 {
@@ -111,6 +127,19 @@ impl GlobalTransform {
             rotation,
             scale,
         }
+    }
+
+    /// Returns the isometric part of the transformation as an [isometry]. Any scaling done by the
+    /// transformation will be ignored.
+    ///
+    /// The transform is expected to be non-degenerate and without shearing, or the output
+    /// will be invalid.
+    ///
+    /// [isometry]: Isometry3d
+    #[inline]
+    pub fn to_isometry(&self) -> Isometry3d {
+        let (_, rotation, translation) = self.0.to_scale_rotation_translation();
+        Isometry3d::new(translation, rotation)
     }
 
     /// Returns the [`Transform`] `self` would have if it was a child of an entity
@@ -243,12 +272,6 @@ impl Default for GlobalTransform {
 impl From<Transform> for GlobalTransform {
     fn from(transform: Transform) -> Self {
         Self(transform.compute_affine())
-    }
-}
-
-impl From<Affine3A> for GlobalTransform {
-    fn from(affine: Affine3A) -> Self {
-        Self(affine)
     }
 }
 

@@ -1,9 +1,12 @@
 use crate::blit::{BlitPipeline, BlitPipelineKey};
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_render::camera::{CameraOutputMode, ExtractedCamera};
-use bevy_render::view::ViewTarget;
-use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
+use bevy_render::{
+    camera::{CameraOutputMode, ExtractedCamera},
+    render_resource::*,
+    view::ViewTarget,
+    Render, RenderApp, RenderSet,
+};
 use bevy_utils::HashSet;
 
 mod node;
@@ -17,7 +20,14 @@ impl Plugin for UpscalingPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 Render,
-                prepare_view_upscaling_pipelines.in_set(RenderSet::Prepare),
+                // This system should probably technically be run *after* all of the other systems
+                // that might modify `PipelineCache` via interior mutability, but for now,
+                // we've chosen to simply ignore the ambiguities out of a desire for a better refactor
+                // and aversion to extensive and intrusive system ordering.
+                // See https://github.com/bevyengine/bevy/issues/14770 for more context.
+                prepare_view_upscaling_pipelines
+                    .in_set(RenderSet::Prepare)
+                    .ambiguous_with_all(),
             );
         }
     }

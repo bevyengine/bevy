@@ -92,7 +92,6 @@ use super::{Sampler, TextureView};
 ///     ],
 /// );
 /// ```
-
 pub struct BindGroupEntries<'b, const N: usize = 1> {
     entries: [BindGroupEntry<'b>; N],
 }
@@ -129,7 +128,7 @@ impl<'b> BindGroupEntries<'b, 1> {
     }
 }
 
-impl<'b, const N: usize> std::ops::Deref for BindGroupEntries<'b, N> {
+impl<'b, const N: usize> core::ops::Deref for BindGroupEntries<'b, N> {
     type Target = [BindGroupEntry<'b>];
 
     fn deref(&self) -> &[BindGroupEntry<'b>] {
@@ -273,7 +272,7 @@ impl<'b> DynamicBindGroupEntries<'b> {
     }
 }
 
-impl<'b> std::ops::Deref for DynamicBindGroupEntries<'b> {
+impl<'b> core::ops::Deref for DynamicBindGroupEntries<'b> {
     type Target = [BindGroupEntry<'b>];
 
     fn deref(&self) -> &[BindGroupEntry<'b>] {
