@@ -76,7 +76,7 @@ fn toggle_ime(
     input: Res<ButtonInput<MouseButton>>,
     mut window: Single<&mut Window>,
     status_text: Single<Entity, (With<Node>, With<Text>)>,
-    mut ui_writer: UiTextWriter,
+    mut ui_writer: TextUiWriter,
 ) {
     if input.just_pressed(MouseButton::Left) {
         window.ime_position = window.cursor_position().unwrap();
@@ -108,7 +108,7 @@ fn listen_ime_events(
     mut events: EventReader<Ime>,
     status_text: Single<Entity, (With<Node>, With<Text>)>,
     mut edit_text: Single<&mut Text2d, (Without<Node>, Without<Bubble>)>,
-    mut ui_writer: UiTextWriter,
+    mut ui_writer: TextUiWriter,
 ) {
     for event in events.read() {
         match event {

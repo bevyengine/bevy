@@ -1,6 +1,5 @@
 use bevy_ecs::{
     component::Component,
-    entity::Entity,
     system::Commands,
     world::{Command, CommandQueue, World},
 };

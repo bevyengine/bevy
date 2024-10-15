@@ -85,7 +85,6 @@ fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window
 /// This feature only works on some platforms. Please check the
 /// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.window_level)
 /// for more details.
-
 fn switch_level(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window>) {
     if input.just_pressed(KeyCode::KeyT) {
         window.window_level = match window.window_level {

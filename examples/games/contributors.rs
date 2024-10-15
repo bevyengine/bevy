@@ -170,7 +170,7 @@ fn selection(
     mut contributor_selection: ResMut<ContributorSelection>,
     contributor_root: Single<Entity, (With<ContributorDisplay>, With<Text>)>,
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
     time: Res<Time>,
 ) {
     if !timer.0.tick(time.delta()).just_finished() {
@@ -213,7 +213,7 @@ fn select(
     contributor: &Contributor,
     transform: &mut Transform,
     entity: Entity,
-    writer: &mut UiTextWriter,
+    writer: &mut TextUiWriter,
 ) {
     sprite.color = SELECTED.with_hue(contributor.hue).into();
 
