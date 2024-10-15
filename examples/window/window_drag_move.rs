@@ -94,7 +94,7 @@ fn handle_input(
     mut action: ResMut<LeftClickAction>,
     mut dir: ResMut<ResizeDir>,
     example_text: Query<Entity, With<Text>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     use LeftClickAction::*;
     if input.just_pressed(KeyCode::KeyA) {
