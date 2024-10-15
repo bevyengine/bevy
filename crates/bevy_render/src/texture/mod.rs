@@ -117,7 +117,7 @@ impl Plugin for ImagePlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        if !ImageLoader::SUPPORTED.is_empty() {
+        if !ImageLoader::SUPPORTED_FORMATS.is_empty() {
             let supported_compressed_formats = match app.world().get_resource::<RenderDevice>() {
                 Some(render_device) => {
                     CompressedImageFormats::from_features(render_device.features())

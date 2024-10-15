@@ -79,7 +79,7 @@ impl ImageLoader {
     };
 
     /// Full list of supported formats.
-    pub const SUPPORTED: &'static [ImageFormat] = &[
+    pub const SUPPORTED_FORMATS: &'static [ImageFormat] = &[
         #[cfg(feature = "avif")]
         ImageFormat::Avif,
         #[cfg(feature = "basis-universal")]
@@ -117,7 +117,7 @@ impl ImageLoader {
         let mut count = 0;
         let mut idx = 0;
         while idx < Self::COUNT {
-            count += Self::SUPPORTED[idx].to_file_extensions().len();
+            count += Self::SUPPORTED_FORMATS[idx].to_file_extensions().len();
             idx += 1;
         }
         count
@@ -130,7 +130,7 @@ impl ImageLoader {
         let mut fmt_idx = 0;
         while fmt_idx < Self::COUNT {
             let mut off = 0;
-            let fmt_exts = Self::SUPPORTED[fmt_idx].to_file_extensions();
+            let fmt_exts = Self::SUPPORTED_FORMATS[fmt_idx].to_file_extensions();
             while off < fmt_exts.len() {
                 exts[ext_idx] = fmt_exts[off];
                 off += 1;
