@@ -111,13 +111,13 @@ impl Plugin for ImagePlugin {
             );
         }
 
-        if !ImageFormat::SUPPORTED_FILE_EXTENSIONS.is_empty() {
-            app.preregister_asset_loader::<ImageLoader>(ImageFormat::SUPPORTED_FILE_EXTENSIONS);
+        if !ImageLoader::SUPPORTED_FILE_EXTENSIONS.is_empty() {
+            app.preregister_asset_loader::<ImageLoader>(ImageLoader::SUPPORTED_FILE_EXTENSIONS);
         }
     }
 
     fn finish(&self, app: &mut App) {
-        if !ImageFormat::SUPPORTED.is_empty() {
+        if !ImageLoader::SUPPORTED_FORMATS.is_empty() {
             let supported_compressed_formats = match app.world().get_resource::<RenderDevice>() {
                 Some(render_device) => {
                     CompressedImageFormats::from_features(render_device.features())
