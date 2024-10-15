@@ -17,7 +17,7 @@ use bevy_render::view::Visibility;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
 use bevy_ui::Node;
 use bevy_ui::{
-    widget::{Text, UiTextWriter},
+    widget::{Text, TextUiWriter},
     GlobalZIndex, PositionType, Style,
 };
 use bevy_utils::default;
@@ -112,7 +112,7 @@ fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
 fn update_text(
     diagnostic: Res<DiagnosticsStore>,
     query: Query<Entity, With<FpsText>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     for entity in &query {
         if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS) {
@@ -126,7 +126,7 @@ fn update_text(
 fn customize_text(
     overlay_config: Res<FpsOverlayConfig>,
     query: Query<Entity, With<FpsText>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     for entity in &query {
         writer.for_each_font(entity, |mut font| {

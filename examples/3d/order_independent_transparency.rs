@@ -67,7 +67,7 @@ fn toggle_oit(
     text: Single<Entity, With<Text>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     q: Single<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
-    mut text_writer: UiTextWriter,
+    mut text_writer: TextUiWriter,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyT) {
         let (e, has_oit) = *q;

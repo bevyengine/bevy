@@ -406,7 +406,7 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
 fn update_text(
     primitive_state: Res<State<PrimitiveSelected>>,
     header: Query<Entity, With<HeaderText>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     let new_text = format!("{text}", text = primitive_state.get());
     header.iter().for_each(|header_text| {

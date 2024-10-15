@@ -1175,7 +1175,7 @@ impl World {
     pub fn get_many_entities_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> Result<[EntityMut<'_>; N], QueryEntityError> {
+    ) -> Result<[EntityMut<'_>; N], QueryEntityError<'_>> {
         self.get_entity_mut(entities).map_err(|e| match e {
             EntityFetchError::NoSuchEntity(entity) => QueryEntityError::NoSuchEntity(entity),
             EntityFetchError::AliasedMutability(entity) => {
@@ -1212,7 +1212,7 @@ impl World {
     pub fn get_many_entities_dynamic_mut<'w>(
         &'w mut self,
         entities: &[Entity],
-    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
+    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError<'w>> {
         self.get_entity_mut(entities).map_err(|e| match e {
             EntityFetchError::NoSuchEntity(entity) => QueryEntityError::NoSuchEntity(entity),
             EntityFetchError::AliasedMutability(entity) => {
@@ -1255,7 +1255,7 @@ impl World {
     pub fn get_many_entities_from_set_mut<'w>(
         &'w mut self,
         entities: &EntityHashSet,
-    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
+    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError<'w>> {
         self.get_entity_mut(entities)
             .map(|fetched| fetched.into_values().collect())
             .map_err(|e| match e {
@@ -1331,13 +1331,13 @@ impl World {
     ///
     /// // `spawn` can accept a single component:
     /// world.spawn(Position { x: 0.0, y: 0.0 });
-
+    ///
     /// // It can also accept a tuple of components:
     /// world.spawn((
     ///     Position { x: 0.0, y: 0.0 },
     ///     Velocity { x: 1.0, y: 1.0 },
     /// ));
-
+    ///
     /// // Or it can accept a pre-defined Bundle of components:
     /// world.spawn(PhysicsBundle {
     ///     position: Position { x: 2.0, y: 2.0 },
