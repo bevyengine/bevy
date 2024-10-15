@@ -277,7 +277,7 @@ impl<'a> ReflectDerive<'a> {
             return Ok(Self::Opaque(meta));
         }
 
-        return match &input.data {
+        match &input.data {
             Data::Struct(data) => {
                 let fields = Self::collect_struct_fields(&data.fields)?;
                 let reflect_struct = ReflectStruct {
@@ -302,7 +302,7 @@ impl<'a> ReflectDerive<'a> {
                 input.span(),
                 "reflection not supported for unions",
             )),
-        };
+        }
     }
 
     /// Set the remote type for this derived type.

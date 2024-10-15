@@ -461,7 +461,6 @@ impl BundleInfo {
     }
 
     /// Returns an iterator over the [ID](ComponentId) of each component explicitly defined in this bundle (ex: this excludes Required Components).
-
     /// To iterate all components contributed by this bundle (including Required Components), see [`BundleInfo::iter_contributed_components`]
     #[inline]
     pub fn iter_explicit_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
