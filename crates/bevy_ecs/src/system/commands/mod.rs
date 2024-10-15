@@ -308,6 +308,7 @@ impl<'w, 's> Commands<'w, 's> {
         EntityCommands {
             entity,
             commands: self.reborrow(),
+            failure_mode: FailureMode::Panic,
         }
     }
 
@@ -334,6 +335,7 @@ impl<'w, 's> Commands<'w, 's> {
         EntityCommands {
             entity,
             commands: self.reborrow(),
+            failure_mode: FailureMode::Panic,
         }
     }
 
@@ -485,6 +487,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.entities.contains(entity).then_some(EntityCommands {
             entity,
             commands: self.reborrow(),
+            failure_mode: FailureMode::Panic,
         })
     }
 
@@ -1018,7 +1021,7 @@ impl<'w, 's> Commands<'w, 's> {
 /// ```
 pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`].
-    fn apply(self, entity: Entity, world: &mut World);
+    fn apply(self, entity: Entity, world: &mut World, failure_mode: FailureMode);
 
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
     ///
@@ -1027,21 +1030,50 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// footprint than `(Entity, Self)`.
     /// In most cases the provided implementation is sufficient.
     #[must_use = "commands do nothing unless applied to a `World`"]
-    fn with_entity(self, entity: Entity) -> impl Command
+    fn with_entity(self, entity: Entity, failure_mode: FailureMode) -> impl Command
     where
         Self: Sized,
     {
-        move |world: &mut World| self.apply(entity, world)
+        move |world: &mut World| self.apply(entity, world, failure_mode)
     }
+}
+
+#[derive(Clone, Copy)]
+pub enum FailureMode {
+    Ignore,
+    Log,
+    Warn,
+    Panic,
 }
 
 /// A list of commands that will be run to modify an [entity](crate::entity).
 pub struct EntityCommands<'a> {
     pub(crate) entity: Entity,
     pub(crate) commands: Commands<'a, 'a>,
+    pub(crate) failure_mode: FailureMode,
 }
 
 impl<'a> EntityCommands<'a> {
+    pub fn ignore_if_missing(&mut self) -> &mut Self {
+        self.failure_mode = FailureMode::Ignore;
+        self
+    }
+
+    pub fn log_if_missing(&mut self) -> &mut Self {
+        self.failure_mode = FailureMode::Log;
+        self
+    }
+
+    pub fn warn_if_missing(&mut self) -> &mut Self {
+        self.failure_mode = FailureMode::Warn;
+        self
+    }
+
+    pub fn panic_if_missing(&mut self) -> &mut Self {
+        self.failure_mode = FailureMode::Panic;
+        self
+    }
+
     /// Returns the [`Entity`] id of the entity.
     ///
     /// # Example
@@ -1066,6 +1098,7 @@ impl<'a> EntityCommands<'a> {
         EntityCommands {
             entity: self.entity,
             commands: self.commands.reborrow(),
+            failure_mode: FailureMode::Panic,
         }
     }
 
@@ -1573,7 +1606,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(my_system);
     /// ```
     pub fn queue<M: 'static>(&mut self, command: impl EntityCommand<M>) -> &mut Self {
-        self.commands.queue(command.with_entity(self.entity));
+        self.commands.queue(command.with_entity(self.entity, self.failure_mode));
         self
     }
 
@@ -1774,7 +1807,7 @@ impl<F> EntityCommand<World> for F
 where
     F: FnOnce(EntityWorldMut) + Send + 'static,
 {
-    fn apply(self, id: Entity, world: &mut World) {
+    fn apply(self, id: Entity, world: &mut World, _failure_mode: FailureMode) {
         self(world.entity_mut(id));
     }
 }
@@ -1783,8 +1816,17 @@ impl<F> EntityCommand for F
 where
     F: FnOnce(Entity, &mut World) + Send + 'static,
 {
-    fn apply(self, id: Entity, world: &mut World) {
-        self(id, world);
+    fn apply(self, id: Entity, world: &mut World, failure_mode: FailureMode) {
+        if world.entities.contains(id) {
+            self(id, world);
+        } else {
+            match failure_mode {
+                FailureMode::Ignore => (),
+                FailureMode::Log => (),
+                FailureMode::Warn => println!("WEEWOO"),
+                FailureMode::Panic => panic!("WEEWOOWEEWOO"),
+            }
+        }
     }
 }
 
@@ -2212,6 +2254,28 @@ mod tests {
         commands.entity(entity).entry::<W<String>>().or_from_world();
         queue.apply(&mut world);
         assert_eq!("*****", &world.get::<W<String>>(entity).unwrap().0);
+    }
+
+    #[test]
+    fn entity_commands_failure() {
+        #[derive(Component)]
+        struct X;
+
+        let mut world = World::default();
+
+        let mut queue_a = CommandQueue::default();
+        let mut queue_b = CommandQueue::default();
+
+        let mut commands_a = Commands::new(&mut queue_a, &world);
+        let mut commands_b = Commands::new(&mut queue_b, &world);
+
+        let entity = commands_a.spawn_empty().id();
+        
+        commands_a.entity(entity).despawn();
+        commands_b.entity(entity).warn_if_missing().insert(X);
+
+        queue_a.apply(&mut world);
+        queue_b.apply(&mut world);
     }
 
     #[test]
