@@ -735,7 +735,8 @@ pub fn prepare_lights(
     let point_light_count = point_lights
         .iter()
         .filter(|light| light.1.spot_light_angles.is_none())
-        .count();
+        .count()
+        .min(max_texture_cubes);
 
     let point_light_volumetric_enabled_count = point_lights
         .iter()
