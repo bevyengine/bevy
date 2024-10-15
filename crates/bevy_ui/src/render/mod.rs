@@ -41,7 +41,7 @@ use bevy_render::{
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
 #[cfg(feature = "bevy_text")]
-use bevy_text::{ComputedTextBlock, PositionedGlyph, TextLayoutInfo, TextStyle};
+use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use box_shadow::BoxShadowPlugin;
@@ -235,7 +235,7 @@ pub fn extract_uinode_background_colors(
             &BackgroundColor,
         )>,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
+    mapping: Extract<Query<RenderEntity>>,
 ) {
     for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
         &uinode_query
@@ -245,7 +245,7 @@ pub fn extract_uinode_background_colors(
             continue;
         };
 
-        let Ok(&render_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -265,7 +265,7 @@ pub fn extract_uinode_background_colors(
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
-                camera_entity: render_camera_entity.id(),
+                camera_entity: render_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
                     transform: transform.compute_matrix(),
@@ -302,7 +302,7 @@ pub fn extract_uinode_images(
             Without<ImageScaleMode>,
         >,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
+    mapping: Extract<Query<RenderEntity>>,
 ) {
     for (entity, uinode, transform, view_visibility, clip, camera, image, atlas) in &uinode_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
@@ -357,7 +357,7 @@ pub fn extract_uinode_images(
                 rect,
                 clip: clip.map(|clip| clip.clip),
                 image: image.texture.id(),
-                camera_entity: render_camera_entity.id(),
+                camera_entity: render_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling,
                     transform: transform.compute_matrix(),
@@ -388,7 +388,7 @@ pub fn extract_uinode_borders(
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
+    mapping: Extract<Query<RenderEntity>>,
 ) {
     let image = AssetId::<Image>::default();
 
@@ -409,7 +409,7 @@ pub fn extract_uinode_borders(
             continue;
         };
 
-        let Ok(&render_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -435,7 +435,7 @@ pub fn extract_uinode_borders(
                         },
                         image,
                         clip: maybe_clip.map(|clip| clip.clip),
-                        camera_entity: render_camera_entity.id(),
+                        camera_entity: render_camera_entity,
                         item: ExtractedUiItem::Node {
                             atlas_scaling: None,
                             transform: global_transform.compute_matrix(),
@@ -464,7 +464,7 @@ pub fn extract_uinode_borders(
                     },
                     image,
                     clip: maybe_clip.map(|clip| clip.clip),
-                    camera_entity: render_camera_entity.id(),
+                    camera_entity: render_camera_entity,
                     item: ExtractedUiItem::Node {
                         transform: global_transform.compute_matrix(),
                         atlas_scaling: None,
@@ -503,7 +503,7 @@ pub fn extract_default_ui_camera_view(
     query: Extract<
         Query<
             (
-                &RenderEntity,
+                RenderEntity,
                 &Camera,
                 Option<&UiAntiAlias>,
                 Option<&UiBoxShadowSamples>,
@@ -534,7 +534,6 @@ pub fn extract_default_ui_camera_view(
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
         ) {
-            let entity = entity.id();
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
                 0.0,
@@ -606,7 +605,7 @@ pub fn extract_text_sections(
             &TextLayoutInfo,
         )>,
     >,
-    text_styles: Extract<Query<&TextStyle>>,
+    text_styles: Extract<Query<&TextColor>>,
     mapping: Extract<Query<&RenderEntity>>,
 ) {
     let mut start = 0;
@@ -681,7 +680,7 @@ pub fn extract_text_sections(
                             .map(|t| t.entity)
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
-                    .map(|style| LinearRgba::from(style.color))
+                    .map(|text_color| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
                 current_span = *span_index;
             }

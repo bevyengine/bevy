@@ -16,7 +16,7 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-    let text_style = TextStyle {
+    let text_font = TextFont {
         font_size: 10.0,
         ..default()
     };
@@ -64,10 +64,8 @@ fn setup(mut commands: Commands) {
             commands
                 .spawn((
                     Text2d(format!("{:?}", function)),
-                    TextStyle {
-                        color,
-                        ..text_style.clone()
-                    },
+                    text_font.clone(),
+                    TextColor(color),
                     Transform::from_xyz(
                         i as f32 * 113.0 - 1280.0 / 2.0 + 25.0,
                         -100.0 - ((j as f32 * 250.0) - 300.0),

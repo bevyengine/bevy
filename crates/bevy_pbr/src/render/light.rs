@@ -193,7 +193,7 @@ pub fn extract_lights(
     global_point_lights: Extract<Res<GlobalVisibleClusterableObjects>>,
     point_lights: Extract<
         Query<(
-            &RenderEntity,
+            RenderEntity,
             &PointLight,
             &CubemapVisibleEntities,
             &GlobalTransform,
@@ -204,7 +204,7 @@ pub fn extract_lights(
     >,
     spot_lights: Extract<
         Query<(
-            &RenderEntity,
+            RenderEntity,
             &SpotLight,
             &VisibleMeshEntities,
             &GlobalTransform,
@@ -216,7 +216,7 @@ pub fn extract_lights(
     directional_lights: Extract<
         Query<
             (
-                &RenderEntity,
+                RenderEntity,
                 &DirectionalLight,
                 &CascadesVisibleEntities,
                 &Cascades,
@@ -230,7 +230,7 @@ pub fn extract_lights(
             Without<SpotLight>,
         >,
     >,
-    mapper: Extract<Query<&RenderEntity>>,
+    mapper: Extract<Query<RenderEntity>>,
     mut previous_point_lights_len: Local<usize>,
     mut previous_spot_lights_len: Local<usize>,
 ) {
@@ -298,7 +298,7 @@ pub fn extract_lights(
             volumetric: volumetric_light.is_some(),
         };
         point_lights_values.push((
-            render_entity.id(),
+            render_entity,
             (
                 extracted_point_light,
                 render_cubemap_visible_entities,
@@ -331,7 +331,7 @@ pub fn extract_lights(
                 2.0 * ops::tan(spot_light.outer_angle) / directional_light_shadow_map.size as f32;
 
             spot_lights_values.push((
-                render_entity.id(),
+                render_entity,
                 (
                     ExtractedPointLight {
                         color: spot_light.color.into(),
@@ -388,14 +388,14 @@ pub fn extract_lights(
         let mut cascade_visible_entities = EntityHashMap::default();
         for (e, v) in cascades.cascades.iter() {
             if let Ok(entity) = mapper.get(*e) {
-                extracted_cascades.insert(entity.id(), v.clone());
+                extracted_cascades.insert(entity, v.clone());
             } else {
                 break;
             }
         }
         for (e, v) in frusta.frusta.iter() {
             if let Ok(entity) = mapper.get(*e) {
-                extracted_frusta.insert(entity.id(), v.clone());
+                extracted_frusta.insert(entity, v.clone());
             } else {
                 break;
             }
@@ -403,7 +403,7 @@ pub fn extract_lights(
         for (e, v) in visible_entities.entities.iter() {
             if let Ok(entity) = mapper.get(*e) {
                 cascade_visible_entities.insert(
-                    entity.id(),
+                    entity,
                     v.iter()
                         .map(|v| create_render_visible_mesh_entities(&mut commands, &mapper, v))
                         .collect(),
@@ -414,7 +414,7 @@ pub fn extract_lights(
         }
 
         commands
-            .get_entity(entity.id())
+            .get_entity(entity)
             .expect("Light entity wasn't synced.")
             .insert((
                 ExtractedDirectionalLight {
@@ -442,7 +442,7 @@ pub fn extract_lights(
 
 fn create_render_visible_mesh_entities(
     commands: &mut Commands,
-    mapper: &Extract<Query<&RenderEntity>>,
+    mapper: &Extract<Query<RenderEntity>>,
     visible_entities: &VisibleMeshEntities,
 ) -> RenderVisibleMeshEntities {
     RenderVisibleMeshEntities {
@@ -451,7 +451,6 @@ fn create_render_visible_mesh_entities(
             .map(|e| {
                 let render_entity = mapper
                     .get(*e)
-                    .map(RenderEntity::id)
                     .unwrap_or_else(|_| commands.spawn(TemporaryRenderEntity).id());
                 (render_entity, MainEntity::from(*e))
             })

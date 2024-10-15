@@ -1100,18 +1100,17 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// // Sound the alarm if there are any criminals who pose a threat.
 /// fn alert_criminal(
-///     settlements: Query<&Settlement>,
+///     settlement: Single<&Settlement>,
 ///     criminals: Query<&Criminal>,
 ///     mut alarm: Deferred<AlarmFlag>
 /// ) {
-///     let settlement = settlements.single();
 ///     for criminal in &criminals {
 ///         // Only sound the alarm if the criminal is a threat.
 ///         // For this example, assume that this check is expensive to run.
 ///         // Since the majority of this system's run-time is dominated
 ///         // by calling `is_threat()`, we defer sounding the alarm to
 ///         // allow this system to run in parallel with other alarm systems.
-///         if criminal.is_threat(settlement) {
+///         if criminal.is_threat(*settlement) {
 ///             alarm.flag();
 ///         }
 ///     }

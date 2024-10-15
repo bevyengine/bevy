@@ -95,9 +95,7 @@ fn setup_instructions(mut commands: Commands) {
     );
 }
 
-fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Query<&mut DistanceFog>) {
-    let mut fog = fog.single_mut();
-
+fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Single<&mut DistanceFog>) {
     if keycode.just_pressed(KeyCode::Space) {
         let a = fog.color.alpha();
         fog.color.set_alpha(1.0 - a);

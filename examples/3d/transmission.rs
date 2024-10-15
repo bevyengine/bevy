@@ -385,7 +385,7 @@ fn example_control_system(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
-    mut camera: Query<
+    camera: Single<
         (
             Entity,
             &mut Camera,
@@ -396,7 +396,7 @@ fn example_control_system(
         ),
         With<Camera3d>,
     >,
-    mut display: Query<&mut Text, With<ExampleDisplay>>,
+    mut display: Single<&mut Text, With<ExampleDisplay>>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
@@ -466,7 +466,7 @@ fn example_control_system(
         mut camera_transform,
         depth_prepass,
         temporal_jitter,
-    ) = camera.single_mut();
+    ) = camera.into_inner();
 
     if input.just_pressed(KeyCode::KeyH) {
         camera.hdr = !camera.hdr;
@@ -548,7 +548,7 @@ fn example_control_system(
         Quat::from_euler(EulerRot::XYZ, 0.0, rotation, 0.0),
     );
 
-    **display.single_mut() = format!(
+    display.0 = format!(
         concat!(
             " J / K / L / ;  Screen Space Specular Transmissive Quality: {:?}\n",
             "         O / P  Screen Space Specular Transmissive Steps: {}\n",
@@ -599,20 +599,19 @@ fn example_control_system(
 }
 
 fn flicker_system(
-    mut flame: Query<&mut Transform, (With<Flicker>, With<Mesh3d>)>,
-    mut light: Query<(&mut PointLight, &mut Transform), (With<Flicker>, Without<Mesh3d>)>,
+    mut flame: Single<&mut Transform, (With<Flicker>, With<Mesh3d>)>,
+    light: Single<(&mut PointLight, &mut Transform), (With<Flicker>, Without<Mesh3d>)>,
     time: Res<Time>,
 ) {
     let s = time.elapsed_seconds();
     let a = ops::cos(s * 6.0) * 0.0125 + ops::cos(s * 4.0) * 0.025;
     let b = ops::cos(s * 5.0) * 0.0125 + ops::cos(s * 3.0) * 0.025;
     let c = ops::cos(s * 7.0) * 0.0125 + ops::cos(s * 2.0) * 0.025;
-    let (mut light, mut light_transform) = light.single_mut();
-    let mut flame_transform = flame.single_mut();
+    let (mut light, mut light_transform) = light.into_inner();
     light.intensity = 4_000.0 + 3000.0 * (a + b + c);
-    flame_transform.translation = Vec3::new(-1.0, 1.23, 0.0);
-    flame_transform.look_at(Vec3::new(-1.0 - c, 1.7 - b, 0.0 - a), Vec3::X);
-    flame_transform.rotate(Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, PI / 2.0));
+    flame.translation = Vec3::new(-1.0, 1.23, 0.0);
+    flame.look_at(Vec3::new(-1.0 - c, 1.7 - b, 0.0 - a), Vec3::X);
+    flame.rotate(Quat::from_euler(EulerRot::XYZ, 0.0, 0.0, PI / 2.0));
     light_transform.translation = Vec3::new(-1.0 - c, 1.7, 0.0 - a);
-    flame_transform.translation = Vec3::new(-1.0 - c, 1.23, 0.0 - a);
+    flame.translation = Vec3::new(-1.0 - c, 1.23, 0.0 - a);
 }

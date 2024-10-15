@@ -15,7 +15,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
-    let text_style = TextStyle::default();
+    let text_style = TextFont::default();
 
     let image = asset_server.load("branding/icon.png");
 
@@ -73,9 +73,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         top: Val::Px(25.),
                                         ..Default::default()
                                     },
+                                    border: UiRect::all(Val::Px(5.)),
                                     overflow,
                                     ..Default::default()
                                 },
+                                border_color: Color::BLACK.into(),
                                 background_color: GRAY.into(),
                                 ..Default::default()
                             })

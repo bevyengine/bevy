@@ -30,9 +30,13 @@ use bevy_utils::hashbrown;
 /// between the main world and the render world.
 /// It does so by spawning and despawning entities in the render world, to match spawned and despawned entities in the main world.
 /// The link between synced entities is maintained by the [`RenderEntity`] and [`MainEntity`] components.
+///
 /// The [`RenderEntity`] contains the corresponding render world entity of a main world entity, while [`MainEntity`] contains
 /// the corresponding main world entity of a render world entity.
-/// The entities can be accessed by calling `.id()` on either component.
+/// For convenience, [`QueryData`](bevy_ecs::query::QueryData) implementations are provided for both components:
+/// adding [`MainEntity`] to a query (without a `&`) will return the corresponding main world [`Entity`],
+/// and adding [`RenderEntity`] will return the corresponding render world [`Entity`].
+/// If you have access to the component itself, the underlying entities can be accessed by calling `.id()`.
 ///
 /// Synchronization is necessary preparation for extraction ([`ExtractSchedule`](crate::ExtractSchedule)), which copies over component data from the main
 /// to the render world for these entities.
@@ -241,6 +245,220 @@ pub(crate) fn despawn_temporary_render_entities(
     for e in local.drain(..).rev() {
         world.despawn(e);
     }
+}
+
+/// This module exists to keep the complex unsafe code out of the main module.
+///
+/// The implementations for both [`MainEntity`] and [`RenderEntity`] should stay in sync,
+/// and are based off of the `&T` implementation in `bevy_ecs`.
+mod render_entities_world_query_impls {
+    use super::{MainEntity, RenderEntity};
+
+    use bevy_ecs::{
+        archetype::Archetype,
+        component::{ComponentId, Components, Tick},
+        entity::Entity,
+        query::{FilteredAccess, QueryData, ReadOnlyQueryData, WorldQuery},
+        storage::{Table, TableRow},
+        world::{unsafe_world_cell::UnsafeWorldCell, World},
+    };
+
+    /// SAFETY: defers completely to `&RenderEntity` implementation,
+    /// and then only modifies the output safely.
+    unsafe impl WorldQuery for RenderEntity {
+        type Item<'w> = Entity;
+        type Fetch<'w> = <&'static RenderEntity as WorldQuery>::Fetch<'w>;
+        type State = <&'static RenderEntity as WorldQuery>::State;
+
+        fn shrink<'wlong: 'wshort, 'wshort>(item: Entity) -> Entity {
+            item
+        }
+
+        fn shrink_fetch<'wlong: 'wshort, 'wshort>(
+            fetch: Self::Fetch<'wlong>,
+        ) -> Self::Fetch<'wshort> {
+            fetch
+        }
+
+        #[inline]
+        unsafe fn init_fetch<'w>(
+            world: UnsafeWorldCell<'w>,
+            component_id: &ComponentId,
+            last_run: Tick,
+            this_run: Tick,
+        ) -> Self::Fetch<'w> {
+            // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
+            unsafe {
+                <&RenderEntity as WorldQuery>::init_fetch(world, component_id, last_run, this_run)
+            }
+        }
+
+        const IS_DENSE: bool = <&'static RenderEntity as WorldQuery>::IS_DENSE;
+
+        #[inline]
+        unsafe fn set_archetype<'w>(
+            fetch: &mut Self::Fetch<'w>,
+            component_id: &ComponentId,
+            archetype: &'w Archetype,
+            table: &'w Table,
+        ) {
+            // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
+            unsafe {
+                <&RenderEntity as WorldQuery>::set_archetype(fetch, component_id, archetype, table);
+            }
+        }
+
+        #[inline]
+        unsafe fn set_table<'w>(
+            fetch: &mut Self::Fetch<'w>,
+            &component_id: &ComponentId,
+            table: &'w Table,
+        ) {
+            // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
+            unsafe { <&RenderEntity as WorldQuery>::set_table(fetch, &component_id, table) }
+        }
+
+        #[inline(always)]
+        unsafe fn fetch<'w>(
+            fetch: &mut Self::Fetch<'w>,
+            entity: Entity,
+            table_row: TableRow,
+        ) -> Self::Item<'w> {
+            // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
+            let component =
+                unsafe { <&RenderEntity as WorldQuery>::fetch(fetch, entity, table_row) };
+            component.id()
+        }
+
+        fn update_component_access(
+            &component_id: &ComponentId,
+            access: &mut FilteredAccess<ComponentId>,
+        ) {
+            <&RenderEntity as WorldQuery>::update_component_access(&component_id, access);
+        }
+
+        fn init_state(world: &mut World) -> ComponentId {
+            <&RenderEntity as WorldQuery>::init_state(world)
+        }
+
+        fn get_state(components: &Components) -> Option<Self::State> {
+            <&RenderEntity as WorldQuery>::get_state(components)
+        }
+
+        fn matches_component_set(
+            &state: &ComponentId,
+            set_contains_id: &impl Fn(ComponentId) -> bool,
+        ) -> bool {
+            <&RenderEntity as WorldQuery>::matches_component_set(&state, set_contains_id)
+        }
+    }
+
+    // SAFETY: Component access of Self::ReadOnly is a subset of Self.
+    // Self::ReadOnly matches exactly the same archetypes/tables as Self.
+    unsafe impl QueryData for RenderEntity {
+        type ReadOnly = RenderEntity;
+    }
+
+    // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
+    unsafe impl ReadOnlyQueryData for RenderEntity {}
+
+    /// SAFETY: defers completely to `&RenderEntity` implementation,
+    /// and then only modifies the output safely.
+    unsafe impl WorldQuery for MainEntity {
+        type Item<'w> = Entity;
+        type Fetch<'w> = <&'static MainEntity as WorldQuery>::Fetch<'w>;
+        type State = <&'static MainEntity as WorldQuery>::State;
+
+        fn shrink<'wlong: 'wshort, 'wshort>(item: Entity) -> Entity {
+            item
+        }
+
+        fn shrink_fetch<'wlong: 'wshort, 'wshort>(
+            fetch: Self::Fetch<'wlong>,
+        ) -> Self::Fetch<'wshort> {
+            fetch
+        }
+
+        #[inline]
+        unsafe fn init_fetch<'w>(
+            world: UnsafeWorldCell<'w>,
+            component_id: &ComponentId,
+            last_run: Tick,
+            this_run: Tick,
+        ) -> Self::Fetch<'w> {
+            // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
+            unsafe {
+                <&MainEntity as WorldQuery>::init_fetch(world, component_id, last_run, this_run)
+            }
+        }
+
+        const IS_DENSE: bool = <&'static MainEntity as WorldQuery>::IS_DENSE;
+
+        #[inline]
+        unsafe fn set_archetype<'w>(
+            fetch: &mut Self::Fetch<'w>,
+            component_id: &ComponentId,
+            archetype: &'w Archetype,
+            table: &'w Table,
+        ) {
+            // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
+            unsafe {
+                <&MainEntity as WorldQuery>::set_archetype(fetch, component_id, archetype, table);
+            }
+        }
+
+        #[inline]
+        unsafe fn set_table<'w>(
+            fetch: &mut Self::Fetch<'w>,
+            &component_id: &ComponentId,
+            table: &'w Table,
+        ) {
+            // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
+            unsafe { <&MainEntity as WorldQuery>::set_table(fetch, &component_id, table) }
+        }
+
+        #[inline(always)]
+        unsafe fn fetch<'w>(
+            fetch: &mut Self::Fetch<'w>,
+            entity: Entity,
+            table_row: TableRow,
+        ) -> Self::Item<'w> {
+            // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
+            let component = unsafe { <&MainEntity as WorldQuery>::fetch(fetch, entity, table_row) };
+            component.id()
+        }
+
+        fn update_component_access(
+            &component_id: &ComponentId,
+            access: &mut FilteredAccess<ComponentId>,
+        ) {
+            <&MainEntity as WorldQuery>::update_component_access(&component_id, access);
+        }
+
+        fn init_state(world: &mut World) -> ComponentId {
+            <&MainEntity as WorldQuery>::init_state(world)
+        }
+
+        fn get_state(components: &Components) -> Option<Self::State> {
+            <&MainEntity as WorldQuery>::get_state(components)
+        }
+
+        fn matches_component_set(
+            &state: &ComponentId,
+            set_contains_id: &impl Fn(ComponentId) -> bool,
+        ) -> bool {
+            <&MainEntity as WorldQuery>::matches_component_set(&state, set_contains_id)
+        }
+    }
+
+    // SAFETY: Component access of Self::ReadOnly is a subset of Self.
+    // Self::ReadOnly matches exactly the same archetypes/tables as Self.
+    unsafe impl QueryData for MainEntity {
+        type ReadOnly = MainEntity;
+    }
+
+    // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
+    unsafe impl ReadOnlyQueryData for MainEntity {}
 }
 
 #[cfg(test)]

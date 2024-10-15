@@ -1206,7 +1206,7 @@ mod tests {
             Mut, NonSendMut, Ref, ResMut, TicksMut, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
         },
         component::{Component, ComponentTicks, Tick},
-        system::{IntoSystem, Query, System},
+        system::{IntoSystem, Single, System},
         world::World,
     };
 
@@ -1236,12 +1236,12 @@ mod tests {
 
     #[test]
     fn change_expiration() {
-        fn change_detected(query: Query<Ref<C>>) -> bool {
-            query.single().is_changed()
+        fn change_detected(query: Option<Single<Ref<C>>>) -> bool {
+            query.unwrap().is_changed()
         }
 
-        fn change_expired(query: Query<Ref<C>>) -> bool {
-            query.single().is_changed()
+        fn change_expired(query: Option<Single<Ref<C>>>) -> bool {
+            query.unwrap().is_changed()
         }
 
         let mut world = World::new();

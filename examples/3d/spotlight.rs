@@ -189,11 +189,10 @@ fn movement(
 }
 
 fn rotation(
-    mut query: Query<&mut Transform, With<Camera>>,
+    mut transform: Single<&mut Transform, With<Camera>>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let mut transform = query.single_mut();
     let delta = time.delta_seconds();
 
     if input.pressed(KeyCode::ArrowLeft) {

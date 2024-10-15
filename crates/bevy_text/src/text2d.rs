@@ -1,8 +1,8 @@
 use crate::pipeline::CosmicFontSystem;
 use crate::{
     ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBounds,
-    TextError, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
-    TextStyle, TextWriter, YAxisOrientation,
+    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
+    TextSpanAccess, TextWriter, YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
@@ -32,6 +32,18 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 
+/// [`Text2dBundle`] was removed in favor of required components.
+/// The core component is now [`Text2d`] which can contain a single text segment.
+/// Indexed access to segments can be done with the new [`Text2dReader`] and [`Text2dWriter`] system params.
+/// Additional segments can be added through children with [`TextSpan`](crate::text::TextSpan).
+/// Text configuration can be done with [`TextLayout`], [`TextFont`] and [`TextColor`],
+/// while sprite-related configuration uses [`TextBounds`] and [`Anchor`] components.
+#[deprecated(
+    since = "0.15.0",
+    note = "Text2dBundle has been migrated to required components. Follow the documentation for more information."
+)]
+pub struct Text2dBundle {}
+
 /// The top-level 2D text component.
 ///
 /// Adding `Text2d` to an entity will pull in required components for setting up 2d text.
@@ -44,42 +56,43 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 /// relative position, which is controlled by the [`Anchor`] component.
 /// This means that for a block of text consisting of only one line that doesn't wrap, the `justify` field will have no effect.
 ///
-/*
-```
-# use bevy_asset::Handle;
-# use bevy_color::Color;
-# use bevy_color::palettes::basic::BLUE;
-# use bevy_ecs::World;
-# use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextStyle};
-#
-# let font_handle: Handle<Font> = Default::default();
-# let mut world = World::default();
-#
-// Basic usage.
-world.spawn(Text2d::new("hello world!"));
-
-// With non-default style.
-world.spawn((
-    Text2d::new("hello world!"),
-    TextStyle {
-        font: font_handle.clone().into(),
-        font_size: 60.0,
-        color: BLUE.into(),
-    }
-));
-
-// With text justification.
-world.spawn((
-    Text2d::new("hello world\nand bevy!"),
-    TextLayout::new_with_justify(JustifyText::Center)
-));
-```
-*/
+///
+/// ```
+/// # use bevy_asset::Handle;
+/// # use bevy_color::Color;
+/// # use bevy_color::palettes::basic::BLUE;
+/// # use bevy_ecs::world::World;
+/// # use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor};
+/// #
+/// # let font_handle: Handle<Font> = Default::default();
+/// # let mut world = World::default();
+/// #
+/// // Basic usage.
+/// world.spawn(Text2d::new("hello world!"));
+///
+/// // With non-default style.
+/// world.spawn((
+///     Text2d::new("hello world!"),
+///     TextFont {
+///         font: font_handle.clone().into(),
+///         font_size: 60.0,
+///         ..Default::default()
+///     },
+///     TextColor(BLUE.into()),
+/// ));
+///
+/// // With text justification.
+/// world.spawn((
+///     Text2d::new("hello world\nand bevy!"),
+///     TextLayout::new_with_justify(JustifyText::Center)
+/// ));
+/// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(
     TextLayout,
-    TextStyle,
+    TextFont,
+    TextColor,
     TextBounds,
     Anchor,
     SpriteSource,
@@ -119,10 +132,10 @@ impl From<String> for Text2d {
 }
 
 /// 2d alias for [`TextReader`].
-pub type TextReader2d<'w, 's> = TextReader<'w, 's, Text2d>;
+pub type Text2dReader<'w, 's> = TextReader<'w, 's, Text2d>;
 
 /// 2d alias for [`TextWriter`].
-pub type TextWriter2d<'w, 's> = TextWriter<'w, 's, Text2d>;
+pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
 
 /// This system extracts the sprites from the 2D text components and adds them to the
 /// "render world".
@@ -141,7 +154,7 @@ pub fn extract_text2d_sprite(
             &GlobalTransform,
         )>,
     >,
-    text_styles: Extract<Query<&TextStyle>>,
+    text_styles: Extract<Query<(&TextFont, &TextColor)>>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
@@ -186,7 +199,7 @@ pub fn extract_text2d_sprite(
                             .map(|t| t.entity)
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
-                    .map(|style| LinearRgba::from(style.color))
+                    .map(|(_, text_color)| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
                 current_span = *span_index;
             }
@@ -238,7 +251,7 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
     )>,
-    mut text_reader: TextReader2d,
+    mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {

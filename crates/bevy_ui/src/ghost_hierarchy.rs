@@ -44,7 +44,12 @@ impl<'w, 's> UiRootNodes<'w, 's> {
 /// System param that gives access to UI children utilities, skipping over [`GhostNode`].
 #[derive(SystemParam)]
 pub struct UiChildren<'w, 's> {
-    ui_children_query: Query<'w, 's, (Option<&'static Children>, Option<&'static GhostNode>)>,
+    ui_children_query: Query<
+        'w,
+        's,
+        (Option<&'static Children>, Has<GhostNode>),
+        Or<(With<Node>, With<GhostNode>)>,
+    >,
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
     children_query: Query<'w, 's, &'static Children>,
     ghost_nodes_query: Query<'w, 's, Entity, With<GhostNode>>,
@@ -101,11 +106,21 @@ impl<'w, 's> UiChildren<'w, 's> {
                 .iter_ghost_nodes(entity)
                 .any(|entity| self.changed_children_query.contains(entity))
     }
+
+    /// Returns `true` if the given entity is either a [`Node`] or a [`GhostNode`].
+    pub fn is_ui_node(&'s self, entity: Entity) -> bool {
+        self.ui_children_query.contains(entity)
+    }
 }
 
 pub struct UiChildrenIter<'w, 's> {
     stack: SmallVec<[Entity; 8]>,
-    query: &'s Query<'w, 's, (Option<&'static Children>, Option<&'static GhostNode>)>,
+    query: &'s Query<
+        'w,
+        's,
+        (Option<&'static Children>, Has<GhostNode>),
+        Or<(With<Node>, With<GhostNode>)>,
+    >,
 }
 
 impl<'w, 's> Iterator for UiChildrenIter<'w, 's> {
@@ -113,12 +128,13 @@ impl<'w, 's> Iterator for UiChildrenIter<'w, 's> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let entity = self.stack.pop()?;
-            let (children, ghost_node) = self.query.get(entity).ok()?;
-            if ghost_node.is_none() {
-                return Some(entity);
-            }
-            if let Some(children) = children {
-                self.stack.extend(children.iter().rev().copied());
+            if let Ok((children, has_ghost_node)) = self.query.get(entity) {
+                if !has_ghost_node {
+                    return Some(entity);
+                }
+                if let Some(children) = children {
+                    self.stack.extend(children.iter().rev().copied());
+                }
             }
         }
     }
@@ -186,10 +202,12 @@ mod tests {
         let n9 = world.spawn((A(9), GhostNode)).id();
         let n10 = world.spawn((A(10), NodeBundle::default())).id();
 
+        let no_ui = world.spawn_empty().id();
+
         world.entity_mut(n1).add_children(&[n2, n3, n4, n6]);
         world.entity_mut(n2).add_children(&[n5]);
 
-        world.entity_mut(n6).add_children(&[n7, n9]);
+        world.entity_mut(n6).add_children(&[n7, no_ui, n9]);
         world.entity_mut(n7).add_children(&[n8]);
         world.entity_mut(n9).add_children(&[n10]);
 
