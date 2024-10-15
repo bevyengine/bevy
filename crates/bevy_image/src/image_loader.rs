@@ -12,72 +12,6 @@ pub struct ImageLoader {
 }
 
 impl ImageLoader {
-    /// Number of image formats, used for computing other constants.
-    const COUNT: usize = {
-        let mut count = 0;
-        #[cfg(feature = "avif")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "basis-universal")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "bmp")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "dds")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "ff")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "gif")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "ico")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "jpeg")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "ktx2")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "pnm")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "png")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "qoi")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "tga")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "tiff")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "webp")]
-        {
-            count += 1;
-        }
-        count
-    };
-
     /// Full list of supported formats.
     pub const SUPPORTED_FORMATS: &'static [ImageFormat] = &[
         #[cfg(feature = "avif")]
@@ -116,7 +50,7 @@ impl ImageLoader {
     const COUNT_FILE_EXTENSIONS: usize = {
         let mut count = 0;
         let mut idx = 0;
-        while idx < Self::COUNT {
+        while idx < Self::SUPPORTED_FORMATS.len() {
             count += Self::SUPPORTED_FORMATS[idx].to_file_extensions().len();
             idx += 1;
         }
@@ -128,7 +62,7 @@ impl ImageLoader {
         let mut exts = [""; Self::COUNT_FILE_EXTENSIONS];
         let mut ext_idx = 0;
         let mut fmt_idx = 0;
-        while fmt_idx < Self::COUNT {
+        while fmt_idx < Self::SUPPORTED_FORMATS.len() {
             let mut off = 0;
             let fmt_exts = Self::SUPPORTED_FORMATS[fmt_idx].to_file_extensions();
             while off < fmt_exts.len() {
