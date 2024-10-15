@@ -94,6 +94,15 @@ impl<'w, 's> UiTree<'w, 's> {
         }
     }
 
+    /// Returns an [`Iterator`] of [`Node`] entities over all `entity`s ancestors within the current UI tree.
+    ///
+    /// Does not include the entity itself.
+    pub fn iter_ancestors(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
+        self.parents_query
+            .iter_ancestors(entity)
+            .filter(|entity| !self.ghost_nodes_query.contains(*entity))
+    }
+
     /// Iterates the [`GhostNode`]s between this entity and its UI children.
     pub fn iter_ghost_nodes(&'s self, entity: Entity) -> Box<dyn Iterator<Item = Entity> + 's> {
         Box::new(
@@ -231,13 +240,14 @@ mod tests {
     }
 
     #[test]
-    fn root_ancestor() {
+    fn ancestors() {
         let world = &mut World::new();
 
         let n1 = world.spawn((A(1), NodeBundle::default())).id();
         let n2 = world.spawn((A(2), GhostNode)).id();
         let n3 = world.spawn((A(3), GhostNode)).id();
         let n4 = world.spawn((A(4), NodeBundle::default())).id();
+        let n5 = world.spawn((A(5), NodeBundle::default())).id();
 
         let n6 = world.spawn((A(6), GhostNode)).id();
         let n7 = world.spawn((A(7), GhostNode)).id();
@@ -245,6 +255,7 @@ mod tests {
 
         world.entity_mut(n1).add_children(&[n2, n3]);
         world.entity_mut(n3).add_children(&[n4]);
+        world.entity_mut(n4).add_children(&[n5]);
 
         world.entity_mut(n6).add_children(&[n7]);
         world.entity_mut(n7).add_children(&[n8]);
@@ -255,6 +266,25 @@ mod tests {
         assert_eq!(&A(1), a_query.get(ui_tree.root_ancestor(n1)).unwrap());
         assert_eq!(&A(1), a_query.get(ui_tree.root_ancestor(n2)).unwrap());
         assert_eq!(&A(1), a_query.get(ui_tree.root_ancestor(n4)).unwrap());
+        assert_eq!(&A(1), a_query.get(ui_tree.root_ancestor(n5)).unwrap());
         assert_eq!(&A(8), a_query.get(ui_tree.root_ancestor(n8)).unwrap());
+
+        assert_eq!(
+            [&A(1)],
+            a_query
+                .iter_many(ui_tree.iter_ancestors(n4))
+                .collect::<Vec<_>>()
+                .as_slice()
+        );
+
+        assert_eq!(
+            [&A(4), &A(1)],
+            a_query
+                .iter_many(ui_tree.iter_ancestors(n5))
+                .collect::<Vec<_>>()
+                .as_slice()
+        );
+
+        assert!(ui_tree.iter_ancestors(n8).next().is_none());
     }
 }
