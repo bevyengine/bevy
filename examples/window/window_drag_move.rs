@@ -1,10 +1,15 @@
 //! This example illustrates drag move and drag resize without window
 //! decorations.
 //!
-//! When window decorations are not present, the user cannot drag the window.
-//! The `start_drag_move()` function will permit the application to make the
-//! window draggable. It does require that the left mouse button was pressed
-//! when it is called.
+//! When window decorations are not present, the user cannot drag a window by
+//! its titlebar to change its position. The `start_drag_move()` function
+//! permits a users to drag a window by left clicking anywhere in the window;
+//! left click must be pressed and other constraints can be imposed. For
+//! instance an application could require a user to hold down alt and left click
+//! to drag a window.
+//!
+//! The `start_drag_resize()` function behaves similarly but permits a window to
+//! be resized.
 use bevy::{math::CompassOctant, prelude::*};
 
 /// Determine what do on left click.
@@ -12,8 +17,8 @@ use bevy::{math::CompassOctant, prelude::*};
 enum LeftClickAction {
     /// Do nothing.
     Nothing,
-    /// Drag the window on left click.
-    Drag,
+    /// Move the window on left click.
+    Move,
     /// Resize the window on left click.
     Resize,
 }
@@ -44,9 +49,9 @@ fn main() {
             ..default()
         }))
         .insert_resource(ResizeDir(7))
-        .insert_resource(LeftClickAction::Drag)
+        .insert_resource(LeftClickAction::Move)
         .add_systems(Startup, setup)
-        .add_systems(Update, (handle_input, move_windows))
+        .add_systems(Update, (handle_input, move_or_resize_windows))
         .run();
 }
 
@@ -75,7 +80,7 @@ fn setup(mut commands: Commands) {
                 ));
                 p.spawn(TextSpan::new("Controls:\n"));
                 p.spawn(TextSpan::new("A - change left click action ["));
-                p.spawn(TextSpan::new("Drag"));
+                p.spawn(TextSpan::new("Move"));
                 p.spawn(TextSpan::new("]\n"));
                 p.spawn(TextSpan::new("S / D - change resize direction ["));
                 p.spawn(TextSpan::new("NorthWest"));
@@ -94,9 +99,9 @@ fn handle_input(
     use LeftClickAction::*;
     if input.just_pressed(KeyCode::KeyA) {
         *action = match *action {
-            Drag => Resize,
+            Move => Resize,
             Resize => Nothing,
-            Nothing => Drag,
+            Nothing => Move,
         };
         *writer.text(example_text.single(), 4) = format!("{:?}", *action);
     }
@@ -115,7 +120,7 @@ fn handle_input(
     }
 }
 
-fn move_windows(
+fn move_or_resize_windows(
     mut windows: Query<&mut Window>,
     action: Res<LeftClickAction>,
     input: Res<ButtonInput<MouseButton>>,
@@ -129,7 +134,7 @@ fn move_windows(
         for mut window in windows.iter_mut() {
             match *action {
                 LeftClickAction::Nothing => (),
-                LeftClickAction::Drag => window.start_drag_move(),
+                LeftClickAction::Move => window.start_drag_move(),
                 LeftClickAction::Resize => {
                     let d = DIRECTIONS[dir.0];
                     window.start_drag_resize(d);
