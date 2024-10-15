@@ -64,9 +64,12 @@ pub use text_access::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
+    #[allow(deprecated)]
+    pub use crate::Text2dBundle;
+    #[doc(hidden)]
     pub use crate::{
-        Font, JustifyText, LineBreak, Text2d, TextColor, TextError, TextFont, TextLayout,
-        TextReader2d, TextSpan, TextWriter2d,
+        Font, JustifyText, LineBreak, Text2d, Text2dReader, Text2dWriter, TextColor, TextError,
+        TextFont, TextLayout, TextSpan,
     };
 }
 

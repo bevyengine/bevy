@@ -474,7 +474,7 @@ fn handle_button_toggles(
 fn update_ui(
     mut animation_controls: Query<(&AnimationControl, &mut BackgroundColor, &Children)>,
     texts: Query<Entity, With<Text>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
     app_state: Res<AppState>,
 ) {
     for (animation_control, mut background_color, kids) in animation_controls.iter_mut() {

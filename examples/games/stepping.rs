@@ -240,7 +240,7 @@ fn update_ui(
     state: Res<State>,
     stepping: Res<Stepping>,
     ui: Single<(Entity, &Visibility), With<SteppingUi>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     // ensure the UI is only visible when stepping is enabled
     let (ui, vis) = *ui;

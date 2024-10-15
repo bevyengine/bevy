@@ -48,6 +48,18 @@ impl Default for TextNodeFlags {
     }
 }
 
+/// [`TextBundle`] was removed in favor of required components.
+/// The core component is now [`Text`] which can contain a single text segment.
+/// Indexed access to segments can be done with the new [`TextUiReader`] and [`TextUiWriter`] system params.
+/// Additional segments can be added through children with [`TextSpan`](bevy_text::TextSpan).
+/// Text configuration can be done with [`TextLayout`], [`TextFont`] and [`TextColor`],
+/// while node-related configuration uses [`TextNodeFlags`] component.
+#[deprecated(
+    since = "0.15.0",
+    note = "TextBundle has been migrated to required components. Follow the documentation for more information."
+)]
+pub struct TextBundle {}
+
 /// The top-level UI text component.
 ///
 /// Adding [`Text`] to an entity will pull in required components for setting up a UI text node.
@@ -137,10 +149,10 @@ impl From<String> for Text {
 }
 
 /// UI alias for [`TextReader`].
-pub type UiTextReader<'w, 's> = TextReader<'w, 's, Text>;
+pub type TextUiReader<'w, 's> = TextReader<'w, 's, Text>;
 
 /// UI alias for [`TextWriter`].
-pub type UiTextWriter<'w, 's> = TextWriter<'w, 's, Text>;
+pub type TextUiWriter<'w, 's> = TextWriter<'w, 's, Text>;
 
 /// Text measurement for UI layout. See [`NodeMeasure`].
 pub struct TextMeasure {
@@ -273,7 +285,7 @@ pub fn measure_text_system(
         ),
         With<Node>,
     >,
-    mut text_reader: UiTextReader,
+    mut text_reader: TextUiReader,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
@@ -336,7 +348,7 @@ fn queue_text(
     mut text_flags: Mut<TextNodeFlags>,
     text_layout_info: Mut<TextLayoutInfo>,
     computed: &mut ComputedTextBlock,
-    text_reader: &mut UiTextReader,
+    text_reader: &mut TextUiReader,
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
 ) {
@@ -416,7 +428,7 @@ pub fn text_system(
         &mut ComputedTextBlock,
         Option<&TargetCamera>,
     )>,
-    mut text_reader: UiTextReader,
+    mut text_reader: TextUiReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {

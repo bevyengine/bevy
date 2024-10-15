@@ -254,7 +254,7 @@ fn keyboard_inputs(
     mut motion_blur: Single<&mut MotionBlur>,
     presses: Res<ButtonInput<KeyCode>>,
     text: Single<Entity, With<Text>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
     mut camera: ResMut<CameraMode>,
 ) {
     if presses.just_pressed(KeyCode::Digit1) {

@@ -561,7 +561,7 @@ fn update_ui_state(
     )>,
     button_text: Query<(Entity, &ColorGradingOptionWidget), (With<Text>, Without<HelpText>)>,
     help_text: Single<Entity, With<HelpText>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
     cameras: Single<Ref<ColorGrading>>,
     currently_selected_option: Res<SelectedColorGradingOption>,
 ) {
