@@ -321,7 +321,7 @@ macro_rules! impl_stable_interpolate_tuple {
             #[cfg_attr(any(docsrs, docsrs_dep), doc(fake_variadic))]
             #[cfg_attr(
                 any(docsrs, docsrs_dep),
-                doc = "This trait is implemented for tuples up to 10 items long."
+                doc = "This trait is implemented for tuples up to 11 items long."
             )]
             ($T, $n)
         }
