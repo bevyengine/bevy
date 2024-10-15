@@ -1262,7 +1262,9 @@ mod tests {
         fn test_system(
             params: In<TestSystemParam>,
             mut ui_surface: ResMut<UiSurface>,
-            #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut bevy_text::CosmicBuffer>,
+            #[cfg(feature = "bevy_text")] mut computed_text_block_query: Query<
+                &mut bevy_text::ComputedTextBlock,
+            >,
             #[cfg(feature = "bevy_text")] mut font_system: ResMut<bevy_text::CosmicFontSystem>,
         ) {
             ui_surface.upsert_node(
@@ -1276,7 +1278,7 @@ mod tests {
                 params.camera_entity,
                 UVec2::new(800, 600),
                 #[cfg(feature = "bevy_text")]
-                &mut buffer_query,
+                &mut computed_text_block_query,
                 #[cfg(feature = "bevy_text")]
                 &mut font_system.0,
             );
