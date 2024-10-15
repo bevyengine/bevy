@@ -26,7 +26,7 @@ encase = { version = "0.10", default-features = false }
 
 [features]
 default = ["bevy_reflect"]
-serialize = ["serde"]
+serialize = ["serde", "bevy_math/serialize"]
 
 [lints]
 workspace = true
