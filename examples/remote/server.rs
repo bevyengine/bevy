@@ -62,8 +62,8 @@ fn move_cube(mut query: Query<&mut Transform, With<Cube>>, time: Res<Time>) {
     }
 }
 
-fn remove(mut commands: Commands, query: Query<Entity, With<Cube>>) {
-    commands.entity(query.single()).remove::<Cube>();
+fn remove(mut commands: Commands, cube_entity: Single<Entity, With<Cube>>) {
+    commands.entity(*cube_entity).remove::<Cube>();
 }
 
 #[derive(Component, Reflect, Serialize, Deserialize)]

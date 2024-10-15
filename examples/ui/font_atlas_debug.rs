@@ -98,12 +98,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
         .with_children(|parent| {
             parent.spawn((
                 Text::new("a"),
-                TextStyle {
+                TextFont {
                     font: font_handle,
                     font_size: 50.0,
-                    color: YELLOW.into(),
                     ..default()
                 },
+                TextColor(YELLOW.into()),
             ));
         });
     // We're seeding the PRNG here to make this example deterministic for testing purposes.

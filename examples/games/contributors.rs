@@ -128,7 +128,7 @@ fn setup_contributor_selection(mut commands: Commands, asset_server: Res<AssetSe
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
-    let text_style = TextStyle {
+    let text_style = TextFont {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 60.0,
         ..default()
@@ -148,7 +148,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_child((
             TextSpan::default(),
-            TextStyle {
+            TextFont {
                 font_size: 30.,
                 ..text_style
             },
@@ -159,9 +159,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn selection(
     mut timer: ResMut<SelectionTimer>,
     mut contributor_selection: ResMut<ContributorSelection>,
-    text_query: Query<Entity, (With<ContributorDisplay>, With<Text>)>,
+    contributor_root: Single<Entity, (With<ContributorDisplay>, With<Text>)>,
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
     time: Res<Time>,
 ) {
     if !timer.0.tick(time.delta()).just_finished() {
@@ -186,7 +186,7 @@ fn selection(
     let entity = contributor_selection.order[contributor_selection.idx];
 
     if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(entity) {
-        let entity = text_query.single();
+        let entity = *contributor_root;
         select(
             &mut sprite,
             contributor,
@@ -204,7 +204,7 @@ fn select(
     contributor: &Contributor,
     transform: &mut Transform,
     entity: Entity,
-    writer: &mut UiTextWriter,
+    writer: &mut TextUiWriter,
 ) {
     sprite.color = SELECTED.with_hue(contributor.hue).into();
 
@@ -216,7 +216,7 @@ fn select(
         contributor.num_commits,
         if contributor.num_commits > 1 { "s" } else { "" }
     );
-    writer.style(entity, 0).color = sprite.color;
+    writer.color(entity, 0).0 = sprite.color;
 }
 
 /// Change the tint color to the "deselected" color and push
@@ -242,10 +242,9 @@ fn gravity(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
 /// velocity. On collision with the ground it applies an upwards
 /// force.
 fn collisions(
-    windows: Query<&Window>,
+    window: Single<&Window>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
-    let window = windows.single();
     let window_size = window.size();
 
     let collision_area = Aabb2d::new(Vec2::ZERO, (window_size - SPRITE_SIZE) / 2.);

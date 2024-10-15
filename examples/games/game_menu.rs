@@ -176,11 +176,11 @@ mod game {
                     .with_children(|p| {
                         p.spawn((
                             Text::new("Will be back to the menu shortly..."),
-                            TextStyle {
+                            TextFont {
                                 font_size: 67.0,
-                                color: TEXT_COLOR,
                                 ..default()
                             },
+                            TextColor(TEXT_COLOR),
                             Style {
                                 margin: UiRect::all(Val::Px(50.0)),
                                 ..default()
@@ -196,27 +196,27 @@ mod game {
                         .with_children(|p| {
                             p.spawn((
                                 TextSpan(format!("quality: {:?}", *display_quality)),
-                                TextStyle {
+                                TextFont {
                                     font_size: 50.0,
-                                    color: BLUE.into(),
                                     ..default()
                                 },
+                                TextColor(BLUE.into()),
                             ));
                             p.spawn((
                                 TextSpan::new(" - "),
-                                TextStyle {
+                                TextFont {
                                     font_size: 50.0,
-                                    color: TEXT_COLOR,
                                     ..default()
                                 },
+                                TextColor(TEXT_COLOR),
                             ));
                             p.spawn((
                                 TextSpan(format!("volume: {:?}", *volume)),
-                                TextStyle {
+                                TextFont {
                                     font_size: 50.0,
-                                    color: LIME.into(),
                                     ..default()
                                 },
+                                TextColor(LIME.into()),
                             ));
                         });
                     });
@@ -361,13 +361,13 @@ mod menu {
     // the button as the one currently selected
     fn setting_button<T: Resource + Component + PartialEq + Copy>(
         interaction_query: Query<(&Interaction, &T, Entity), (Changed<Interaction>, With<Button>)>,
-        mut selected_query: Query<(Entity, &mut BackgroundColor), With<SelectedOption>>,
+        selected_query: Single<(Entity, &mut BackgroundColor), With<SelectedOption>>,
         mut commands: Commands,
         mut setting: ResMut<T>,
     ) {
+        let (previous_button, mut previous_button_color) = selected_query.into_inner();
         for (interaction, button_setting, entity) in &interaction_query {
             if *interaction == Interaction::Pressed && *setting != *button_setting {
-                let (previous_button, mut previous_button_color) = selected_query.single_mut();
                 *previous_button_color = NORMAL_BUTTON.into();
                 commands.entity(previous_button).remove::<SelectedOption>();
                 commands.entity(entity).insert(SelectedOption);
@@ -398,9 +398,8 @@ mod menu {
             left: Val::Px(10.0),
             ..default()
         };
-        let button_text_style = TextStyle {
+        let button_text_font = TextFont {
             font_size: 33.0,
-            color: TEXT_COLOR,
             ..default()
         };
 
@@ -433,11 +432,11 @@ mod menu {
                         // Display the game name
                         parent.spawn((
                             Text::new("Bevy Game Menu UI"),
-                            TextStyle {
+                            TextFont {
                                 font_size: 67.0,
-                                color: TEXT_COLOR,
                                 ..default()
                             },
+                            TextColor(TEXT_COLOR),
                             Style {
                                 margin: UiRect::all(Val::Px(50.0)),
                                 ..default()
@@ -464,7 +463,11 @@ mod menu {
                                     image: UiImage::new(icon),
                                     ..default()
                                 });
-                                parent.spawn((Text::new("New Game"), button_text_style.clone()));
+                                parent.spawn((
+                                    Text::new("New Game"),
+                                    button_text_font.clone(),
+                                    TextColor(TEXT_COLOR),
+                                ));
                             });
                         parent
                             .spawn((
@@ -482,7 +485,11 @@ mod menu {
                                     image: UiImage::new(icon),
                                     ..default()
                                 });
-                                parent.spawn((Text::new("Settings"), button_text_style.clone()));
+                                parent.spawn((
+                                    Text::new("Settings"),
+                                    button_text_font.clone(),
+                                    TextColor(TEXT_COLOR),
+                                ));
                             });
                         parent
                             .spawn((
@@ -500,7 +507,11 @@ mod menu {
                                     image: UiImage::new(icon),
                                     ..default()
                                 });
-                                parent.spawn((Text::new("Quit"), button_text_style));
+                                parent.spawn((
+                                    Text::new("Quit"),
+                                    button_text_font,
+                                    TextColor(TEXT_COLOR),
+                                ));
                             });
                     });
             });
@@ -516,11 +527,13 @@ mod menu {
             ..default()
         };
 
-        let button_text_style = TextStyle {
-            font_size: 33.0,
-            color: TEXT_COLOR,
-            ..default()
-        };
+        let button_text_style = (
+            TextFont {
+                font_size: 33.0,
+                ..default()
+            },
+            TextColor(TEXT_COLOR),
+        );
 
         commands
             .spawn((
@@ -579,11 +592,13 @@ mod menu {
             align_items: AlignItems::Center,
             ..default()
         };
-        let button_text_style = TextStyle {
-            font_size: 33.0,
-            color: TEXT_COLOR,
-            ..default()
-        };
+        let button_text_style = (
+            TextFont {
+                font_size: 33.0,
+                ..default()
+            },
+            TextColor(TEXT_COLOR),
+        );
 
         commands
             .spawn((
@@ -683,11 +698,13 @@ mod menu {
             align_items: AlignItems::Center,
             ..default()
         };
-        let button_text_style = TextStyle {
-            font_size: 33.0,
-            color: TEXT_COLOR,
-            ..default()
-        };
+        let button_text_style = (
+            TextFont {
+                font_size: 33.0,
+                ..default()
+            },
+            TextColor(TEXT_COLOR),
+        );
 
         commands
             .spawn((
