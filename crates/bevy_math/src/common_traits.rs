@@ -1,6 +1,7 @@
 //! This module contains abstract mathematical traits shared by types used in `bevy_math`.
 
 use crate::{ops, Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
+use bevy_utils::all_tuples_enumerated;
 use core::{
     fmt::Debug,
     ops::{Add, Div, Mul, Neg, Sub},
@@ -311,7 +312,8 @@ impl StableInterpolate for Dir3A {
 }
 
 macro_rules! impl_stable_interpolate_tuple {
-    ($(($T:ident, $n:tt)),*) => {
+    ($(#[$meta:meta])* $(($n:tt, $T:ident)),*) => {
+        $(#[$meta])*
         impl<$($T: StableInterpolate),*> StableInterpolate for ($($T,)*) {
             fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
                 (
@@ -324,66 +326,10 @@ macro_rules! impl_stable_interpolate_tuple {
     };
 }
 
-// (See `macro_metavar_expr`, which might make this better.)
-// This currently implements `StableInterpolate` for tuples of up to 11 elements.
-impl_stable_interpolate_tuple!((T, 0));
-impl_stable_interpolate_tuple!((T0, 0), (T1, 1));
-impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2));
-impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2), (T3, 3));
-impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2), (T3, 3), (T4, 4));
-impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2), (T3, 3), (T4, 4), (T5, 5));
-impl_stable_interpolate_tuple!(
-    (T0, 0),
-    (T1, 1),
-    (T2, 2),
-    (T3, 3),
-    (T4, 4),
-    (T5, 5),
-    (T6, 6)
-);
-impl_stable_interpolate_tuple!(
-    (T0, 0),
-    (T1, 1),
-    (T2, 2),
-    (T3, 3),
-    (T4, 4),
-    (T5, 5),
-    (T6, 6),
-    (T7, 7)
-);
-impl_stable_interpolate_tuple!(
-    (T0, 0),
-    (T1, 1),
-    (T2, 2),
-    (T3, 3),
-    (T4, 4),
-    (T5, 5),
-    (T6, 6),
-    (T7, 7),
-    (T8, 8)
-);
-impl_stable_interpolate_tuple!(
-    (T0, 0),
-    (T1, 1),
-    (T2, 2),
-    (T3, 3),
-    (T4, 4),
-    (T5, 5),
-    (T6, 6),
-    (T7, 7),
-    (T8, 8),
-    (T9, 9)
-);
-impl_stable_interpolate_tuple!(
-    (T0, 0),
-    (T1, 1),
-    (T2, 2),
-    (T3, 3),
-    (T4, 4),
-    (T5, 5),
-    (T6, 6),
-    (T7, 7),
-    (T8, 8),
-    (T9, 9),
-    (T10, 10)
+all_tuples_enumerated!(
+    #[doc(fake_variadic)]
+    impl_stable_interpolate_tuple,
+    1,
+    11,
+    T
 );

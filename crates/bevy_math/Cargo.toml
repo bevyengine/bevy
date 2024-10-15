@@ -29,6 +29,7 @@ smallvec = { version = "1.11" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "glam",
 ], optional = true }
+bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 
 [dev-dependencies]
 approx = "0.5"

@@ -3,7 +3,7 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use proc_macro::TokenStream;
-use proc_macro2::{Span as Span2, TokenStream as TokenStream2};
+use proc_macro2::{Literal, Span as Span2, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
 use syn::{
     parse::{Parse, ParseStream},
@@ -175,6 +175,81 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
     let macro_ident = &input.macro_ident;
     let invocations = (input.start..=input.end).map(|i| {
         let ident_tuples = choose_ident_tuples(&input, &ident_tuples, i);
+        let attrs = if input.fake_variadic {
+            fake_variadic_attrs(len, i)
+        } else {
+            TokenStream2::default()
+        };
+        quote! {
+            #macro_ident!(#attrs #ident_tuples);
+        }
+    });
+    TokenStream::from(quote! {
+        #(
+            #invocations
+        )*
+    })
+}
+
+/// A variant of [`all_tuples!`] that enumerates its output.
+///
+/// In particular, the tuples used by the inner macro will themselves be composed
+/// of tuples which contain the index.
+///
+/// For example, with a single parameter:
+/// ```
+/// # use bevy_utils_proc_macros::all_tuples_enumerated;
+///
+/// trait Squawk {
+///     fn squawk(&self);
+/// }
+///
+/// // If every type in a tuple is `Squawk`, the tuple can squawk by having its
+/// // constituents squawk sequentially:
+/// macro_rules! impl_squawk {
+///     ($(($n:tt, $T:ident)),*) => {
+///         impl<$($T: Squawk),*> Squawk for ($($T,)*) {
+///             fn squawk(&self) {
+///                 $(
+///                     self.$n.squawk();
+///                 )*
+///             }
+///         }
+///     };
+/// }
+///
+/// all_tuples_enumerated!(impl_squawk, 1, 15, T);
+/// // impl_squawk!((0, T0));
+/// // impl_squawk!((0, T0), (1, T1));
+/// // ..
+/// // impl_squawk!((0, T0) .. (14, T14));
+/// ```
+///
+/// With multiple parameters, the result is similar, but with the additional parameters
+/// included in each tuple; e.g.:
+/// ```ignore
+/// all_tuples_enumerated!(impl_squawk, 1, 15, P, p);
+/// // impl_squawk!((0, P0, p0));
+/// // impl_squawk!((0, P0, p0), (1, P1, p1));
+/// // ..
+/// // impl_squawk!((0, P0, p0) .. (14, P14, p14));
+/// ```
+#[proc_macro]
+pub fn all_tuples_enumerated(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as AllTuples);
+    let len = 1 + input.end - input.start;
+    let mut ident_tuples = Vec::with_capacity(len);
+    for i in 0..=len {
+        let idents = input
+            .idents
+            .iter()
+            .map(|ident| format_ident!("{}{}", ident, i));
+        ident_tuples.push(to_ident_tuple_enumerated(idents, i));
+    }
+
+    let macro_ident = &input.macro_ident;
+    let invocations = (input.start..=input.end).map(|i| {
+        let ident_tuples = choose_ident_tuples_enumerated(&input, &ident_tuples, i);
         let attrs = if input.fake_variadic {
             fake_variadic_attrs(len, i)
         } else {
@@ -367,12 +442,32 @@ fn choose_ident_tuples(input: &AllTuples, ident_tuples: &[TokenStream2], i: usiz
     }
 }
 
+fn choose_ident_tuples_enumerated(
+    input: &AllTuples,
+    ident_tuples: &[TokenStream2],
+    i: usize,
+) -> TokenStream2 {
+    if input.fake_variadic && i == 1 {
+        let ident_tuple = to_ident_tuple_enumerated(input.idents.iter().cloned(), 0);
+        quote! { #ident_tuple }
+    } else {
+        let ident_tuples = &ident_tuples[..i];
+        quote! { #(#ident_tuples),* }
+    }
+}
+
 fn to_ident_tuple(idents: impl Iterator<Item = Ident>, len: usize) -> TokenStream2 {
     if len < 2 {
         quote! { #(#idents)* }
     } else {
         quote! { (#(#idents),*) }
     }
+}
+
+/// Like `to_ident_tuple`, but it enumerates the identifiers
+fn to_ident_tuple_enumerated(idents: impl Iterator<Item = Ident>, idx: usize) -> TokenStream2 {
+    let idx = Literal::usize_unsuffixed(idx);
+    quote! { (#idx, #(#idents),*) }
 }
 
 fn fake_variadic_attrs(len: usize, i: usize) -> TokenStream2 {
