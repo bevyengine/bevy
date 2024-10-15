@@ -421,7 +421,7 @@ fn update_axes(
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
     text_query: Query<(Entity, &TextWithAxes)>,
-    mut writer: TextWriter2d,
+    mut writer: Text2dWriter,
 ) {
     for axis_event in axis_events.read() {
         let axis_type = axis_event.axis;
@@ -449,7 +449,7 @@ fn update_connected(
     mut connected: EventReader<GamepadConnectionEvent>,
     gamepads: Query<(Entity, &Gamepad)>,
     text: Single<Entity, With<ConnectedGamepadsText>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     if connected.is_empty() {
         return;

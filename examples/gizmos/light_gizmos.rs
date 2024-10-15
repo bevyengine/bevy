@@ -145,7 +145,7 @@ fn update_config(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     color_text_query: Single<Entity, With<GizmoColorText>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     if keyboard.just_pressed(KeyCode::KeyD) {
         for (_, config, _) in config_store.iter_mut() {

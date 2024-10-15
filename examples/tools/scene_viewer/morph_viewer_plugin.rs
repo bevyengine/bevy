@@ -180,7 +180,7 @@ fn update_text(
     controls: Option<ResMut<WeightsControl>>,
     text: Single<Entity, With<Text>>,
     morphs: Query<&MorphWeights>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     let Some(mut controls) = controls else {
         return;

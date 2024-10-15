@@ -79,12 +79,12 @@ fn evaluate_callbacks(query: Query<(Entity, &Callback), With<Triggered>>, mut co
     }
 }
 
-fn system_a(entity_a: Single<Entity, With<Text>>, mut writer: UiTextWriter) {
+fn system_a(entity_a: Single<Entity, With<Text>>, mut writer: TextUiWriter) {
     *writer.text(*entity_a, 3) = String::from("A");
     info!("A: One shot system registered with Commands was triggered");
 }
 
-fn system_b(entity_b: Single<Entity, With<Text>>, mut writer: UiTextWriter) {
+fn system_b(entity_b: Single<Entity, With<Text>>, mut writer: TextUiWriter) {
     *writer.text(*entity_b, 3) = String::from("B");
     info!("B: One shot system registered with World was triggered");
 }
