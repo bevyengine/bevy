@@ -137,10 +137,10 @@ fn setup(
 
     // Spawn a camera.
     commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(0.7, 0.7, 1.0).looking_at(CAMERA_FOCAL_POINT, Vec3::Y),
-            ..default()
-        })
+        .spawn((
+            Camera3d::default(),
+            Transform::from_xyz(0.7, 0.7, 1.0).looking_at(CAMERA_FOCAL_POINT, Vec3::Y),
+        ))
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -149,18 +149,15 @@ fn setup(
         });
 
     // Create the text.
-    commands.spawn(
-        TextBundle {
-            text: app_status.create_text(),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        app_status.create_text(),
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // We need to add the `VisibilityRange` components manually, as glTF currently
@@ -297,31 +294,29 @@ fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>
 impl AppStatus {
     // Creates and returns help text reflecting the app status.
     fn create_text(&self) -> Text {
-        Text::from_section(
-            format!(
-                "\
+        format!(
+            "\
 {} (1) Switch from high-poly to low-poly based on camera distance
 {} (2) Show only the high-poly model
 {} (3) Show only the low-poly model
 Press 1, 2, or 3 to switch which model is shown
 Press WASD or use the mouse wheel to move the camera",
-                if self.show_one_model_only.is_none() {
-                    '>'
-                } else {
-                    ' '
-                },
-                if self.show_one_model_only == Some(MainModel::HighPoly) {
-                    '>'
-                } else {
-                    ' '
-                },
-                if self.show_one_model_only == Some(MainModel::LowPoly) {
-                    '>'
-                } else {
-                    ' '
-                },
-            ),
-            TextStyle::default(),
+            if self.show_one_model_only.is_none() {
+                '>'
+            } else {
+                ' '
+            },
+            if self.show_one_model_only == Some(MainModel::HighPoly) {
+                '>'
+            } else {
+                ' '
+            },
+            if self.show_one_model_only == Some(MainModel::LowPoly) {
+                '>'
+            } else {
+                ' '
+            },
         )
+        .into()
     }
 }

@@ -6,6 +6,7 @@ use bevy::{
     color::palettes::css::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    ui::widget::UiTextWriter,
     window::PresentMode,
 };
 
@@ -31,7 +32,9 @@ struct TextChanges;
 
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn(Camera2dBundle::default());
+    let background_color = MAROON.into();
+    commands.spawn(Camera2d);
+
     let root_uinode = commands
         .spawn(NodeBundle {
             style: Style {
@@ -55,42 +58,46 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         ..default()
     }).with_children(|builder| {
-        builder.spawn(
-            TextBundle::from_section(
-                "This is\ntext with\nline breaks\nin the top left.",
-                TextStyle {
-                    font: font.clone(),
-                    font_size: 25.0,
-                    ..default()
-                },
-            )
-        );
-        builder.spawn(TextBundle::from_section(
-                "This text is right-justified. The `JustifyText` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",                TextStyle {
-                    font: font.clone(),
-                    font_size: 25.0,
-                    color: YELLOW.into(),
-                },
-            )
-            .with_text_justify(JustifyText::Right)
-            .with_style(Style {
+        builder.spawn((
+            Text::new("This is\ntext with\nline breaks\nin the top left."),
+            TextFont {
+                font: font.clone(),
+                font_size: 25.0,
+                ..default()
+            },
+            BackgroundColor(background_color)
+        ));
+        builder.spawn((
+            Text::new(
+                "This text is right-justified. The `JustifyText` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",
+            ),
+            TextFont {
+                font: font.clone(),
+                font_size: 25.0,
+                ..default()
+            },
+            TextColor(YELLOW.into()),
+            TextLayout::new_with_justify(JustifyText::Right),
+            Style {
                 max_width: Val::Px(300.),
                 ..default()
-            })
-        );
-        builder.spawn(
-            TextBundle::from_section(
-                "This\ntext has\nline breaks and also a set width in the bottom left.",
-                TextStyle {
-                    font: font.clone(),
-                    font_size: 25.0,
-                    ..default()
-                },
-            )
-            .with_style(Style {
+            },
+            BackgroundColor(background_color)
+        ));
+        builder.spawn((
+            Text::new(
+                "This\ntext has\nline breaks and also a set width in the bottom left."),
+            TextFont {
+                font: font.clone(),
+                font_size: 25.0,
+                ..default()
+            },
+            Style {
                 max_width: Val::Px(300.),
                 ..default()
-            })
+            },
+            BackgroundColor(background_color)
+        )
         );
     }).id();
 
@@ -106,127 +113,139 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     }).with_children(|builder| {
 
-        builder.spawn(TextBundle::from_section(
-                "This text is very long, has a limited width, is center-justified, is positioned in the top right and is also colored pink.",
-                TextStyle {
-                    font: font.clone(),
-                    font_size: 33.0,
-                    color: Color::srgb(0.8, 0.2, 0.7),
-                },
-            )
-            .with_text_justify(JustifyText::Center)
-            .with_style(Style {
+        builder.spawn((Text::new(
+            "This text is very long, has a limited width, is center-justified, is positioned in the top right and is also colored pink."),
+            TextFont {
+                font: font.clone(),
+                font_size: 33.0,
+                ..default()
+            },
+            TextColor(Color::srgb(0.8, 0.2, 0.7)),
+            TextLayout::new_with_justify(JustifyText::Center),
+            Style {
                 max_width: Val::Px(400.),
                 ..default()
-            })
+            },BackgroundColor(background_color))
         );
 
-        builder.spawn(
-            TextBundle::from_section(
-                "This text is left-justified and is vertically positioned to distribute the empty space equally above and below it.",
-                TextStyle {
-                    font: font.clone(),
-                    font_size: 29.0,
-                    color: YELLOW.into(),
-                },
-            )
-            .with_text_justify(JustifyText::Left)
-            .with_style(Style {
+        builder.spawn((Text::new(
+            "This text is left-justified and is vertically positioned to distribute the empty space equally above and below it."),
+            TextFont {
+                font: font.clone(),
+                font_size: 29.0,
+                ..default()
+            },
+            TextColor(YELLOW.into()),
+            TextLayout::new_with_justify(JustifyText::Left),
+            Style {
                 max_width: Val::Px(300.),
                 ..default()
-            }),
-        );
+            },
+            BackgroundColor(background_color)
+        ));
 
-        builder.spawn(
-            TextBundle::from_section(
-                "This text is fully justified and is positioned in the same way.",
-                TextStyle {
-                    font: font.clone(),
-                    font_size: 29.0,
-                    color: GREEN_YELLOW.into(),
-                },
-            )
-            .with_text_justify(JustifyText::Justified)
-            .with_style(Style {
+        builder.spawn((
+            Text::new("This text is fully justified and is positioned in the same way."),
+            TextFont {
+                font: font.clone(),
+                font_size: 29.0,
+                ..default()
+            },
+            TextLayout::new_with_justify(JustifyText::Justified),
+            TextColor(GREEN_YELLOW.into()),
+            Style {
                 max_width: Val::Px(300.),
                 ..default()
-            }),
+            },
+            BackgroundColor(background_color)
+        )
         );
 
         builder.spawn((
-            TextBundle::from_sections([
-                TextSection::new(
-                    "",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 21.0,
-                        ..default()
-                    },
-                ),
-                TextSection::new(
-                    "\nThis text changes in the bottom right",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 21.0,
-                        ..default()
-                    },
-                ),
-                TextSection::new(
-                    " this text has zero fontsize",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 0.0,
-                        color: BLUE.into(),
-                    },
-                ),
-                TextSection::new(
-                    "\nThis text changes in the bottom right - ",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 21.0,
-                        color: RED.into(),
-                    },
-                ),
-                TextSection::from_style(TextStyle {
-                    font: font.clone(),
-                    font_size: 21.0,
-                    color: ORANGE_RED.into(),
-                }),
-                TextSection::new(
-                    " fps, ",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 10.0,
-                        color: YELLOW.into(),
-                    },
-                ),
-                TextSection::from_style(TextStyle {
-                    font: font.clone(),
-                    font_size: 21.0,
-                    color: LIME.into(),
-                }),
-                TextSection::new(
-                    " ms/frame",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 42.0,
-                        color: BLUE.into(),
-                    },
-                ),
-                TextSection::new(
-                    " this text has negative fontsize",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: -42.0,
-                        color: BLUE.into(),
-                    },
-                ),
-            ]),
+            Text::default(),
+            TextFont {
+                font: font.clone(),
+                font_size: 21.0,
+                ..default()
+            },
             TextChanges,
-        ));
+            BackgroundColor(background_color)
+        ))
+        .with_children(|p| {
+            p.spawn((
+                TextSpan::new("\nThis text changes in the bottom right"),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 21.0,
+                    ..default()
+                },
+            ));
+            p.spawn((
+                TextSpan::new(" this text has zero fontsize"),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 0.0,
+                    ..default()
+                },
+                TextColor(BLUE.into()),
+            ));
+            p.spawn((
+                TextSpan::new("\nThis text changes in the bottom right - "),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 21.0,
+                    ..default()
+                },
+                TextColor(RED.into()),
+            ));
+            p.spawn((
+                TextSpan::default(),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 21.0,
+                    ..default()
+                },
+                TextColor(ORANGE_RED.into()),
+            ));
+            p.spawn((
+                TextSpan::new(" fps, "),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 10.0,
+                    ..default()
+                },
+                TextColor(YELLOW.into()),
+            ));
+            p.spawn((
+                TextSpan::default(),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 21.0,
+                    ..default()
+                },
+                TextColor(LIME.into()),
+            ));
+            p.spawn((
+                TextSpan::new(" ms/frame"),
+                TextFont {
+                    font: font.clone(),
+                    font_size: 42.0,
+                    ..default()
+                },
+                TextColor(BLUE.into()),
+            ));
+            p.spawn((
+                TextSpan::new(" this text has negative fontsize"),
+                TextFont {
+                    font: font.clone(),
+                    font_size: -42.0,
+                    ..default()
+                },
+                TextColor(BLUE.into()),
+            ));
+        });
     })
     .id();
-
     commands
         .entity(root_uinode)
         .add_children(&[left_column, right_column]);
@@ -237,7 +256,8 @@ fn change_text_system(
     mut time_history: Local<VecDeque<Duration>>,
     time: Res<Time>,
     diagnostics: Res<DiagnosticsStore>,
-    mut query: Query<&mut Text, With<TextChanges>>,
+    query: Query<Entity, With<TextChanges>>,
+    mut writer: UiTextWriter,
 ) {
     time_history.push_front(time.elapsed());
     time_history.truncate(120);
@@ -250,7 +270,7 @@ fn change_text_system(
     fps_history.truncate(120);
     let fps_variance = std_deviation(fps_history.make_contiguous()).unwrap_or_default();
 
-    for mut text in &mut query {
+    for entity in &query {
         let mut fps = 0.0;
         if let Some(fps_diagnostic) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(fps_smoothed) = fps_diagnostic.smoothed() {
@@ -267,16 +287,16 @@ fn change_text_system(
             }
         }
 
-        text.sections[0].value =
+        *writer.text(entity, 0) =
             format!("{avg_fps:.1} avg fps, {fps_variance:.1} frametime variance",);
 
-        text.sections[1].value = format!(
+        *writer.text(entity, 1) = format!(
             "\nThis text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
         );
 
-        text.sections[4].value = format!("{fps:.1}");
+        *writer.text(entity, 4) = format!("{fps:.1}");
 
-        text.sections[6].value = format!("{frame_time:.3}");
+        *writer.text(entity, 6) = format!("{frame_time:.3}");
     }
 }
 

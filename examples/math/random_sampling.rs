@@ -89,10 +89,10 @@ fn setup(
     ));
 
     // A camera:
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // Store the mesh and material for sample points in resources:
     commands.insert_resource(PointMesh(
@@ -109,23 +109,22 @@ fn setup(
     })));
 
     // Instructions for the example:
-    commands.spawn(
-        TextBundle::from_section(
+    commands.spawn((
+        Text::new(
             "Controls:\n\
             M: Toggle between sampling boundary and interior.\n\
             R: Restart (erase all samples).\n\
             S: Add one random sample.\n\
             D: Add 100 random samples.\n\
             Rotate camera by holding left mouse and panning left/right.",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+        ),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
     // The mode starts with interior points.
     commands.insert_resource(Mode::Interior);
@@ -223,7 +222,7 @@ fn handle_keypress(
 fn handle_mouse(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut button_events: EventReader<MouseButtonInput>,
-    mut camera: Query<&mut Transform, With<Camera>>,
+    mut camera_transform: Single<&mut Transform, With<Camera>>,
     mut mouse_pressed: ResMut<MousePressed>,
 ) {
     // Store left-pressed state in the MousePressed resource
@@ -240,7 +239,6 @@ fn handle_mouse(
     }
     if accumulated_mouse_motion.delta != Vec2::ZERO {
         let displacement = accumulated_mouse_motion.delta.x;
-        let mut camera_transform = camera.single_mut();
         camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(-displacement / 150.));
     }
 }

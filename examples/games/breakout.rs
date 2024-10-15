@@ -106,7 +106,8 @@ struct CollisionSound(Handle<AudioSource>);
 struct WallBundle {
     // You can nest bundles inside of other bundles like this
     // Allowing you to compose their functionality
-    sprite_bundle: SpriteBundle,
+    sprite: Sprite,
+    transform: Transform,
     collider: Collider,
 }
 
@@ -153,21 +154,15 @@ impl WallBundle {
     // making our code easier to read and less prone to bugs when we change the logic
     fn new(location: WallLocation) -> WallBundle {
         WallBundle {
-            sprite_bundle: SpriteBundle {
-                transform: Transform {
-                    // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
-                    // This is used to determine the order of our sprites
-                    translation: location.position().extend(0.0),
-                    // The z-scale of 2D objects must always be 1.0,
-                    // or their ordering will be affected in surprising ways.
-                    // See https://github.com/bevyengine/bevy/issues/4149
-                    scale: location.size().extend(1.0),
-                    ..default()
-                },
-                sprite: Sprite {
-                    color: WALL_COLOR,
-                    ..default()
-                },
+            sprite: Sprite::from_color(WALL_COLOR, Vec2::ONE),
+            transform: Transform {
+                // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
+                // This is used to determine the order of our sprites
+                translation: location.position().extend(0.0),
+                // The z-scale of 2D objects must always be 1.0,
+                // or their ordering will be affected in surprising ways.
+                // See https://github.com/bevyengine/bevy/issues/4149
+                scale: location.size().extend(1.0),
                 ..default()
             },
             collider: Collider,
@@ -190,7 +185,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // Camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Sound
     let ball_collision_sound = asset_server.load("sounds/breakout_collision.ogg");
@@ -200,16 +195,10 @@ fn setup(
     let paddle_y = BOTTOM_WALL + GAP_BETWEEN_PADDLE_AND_FLOOR;
 
     commands.spawn((
-        SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(0.0, paddle_y, 0.0),
-                scale: PADDLE_SIZE.extend(1.0),
-                ..default()
-            },
-            sprite: Sprite {
-                color: PADDLE_COLOR,
-                ..default()
-            },
+        Sprite::from_color(PADDLE_COLOR, Vec2::ONE),
+        Transform {
+            translation: Vec3::new(0.0, paddle_y, 0.0),
+            scale: PADDLE_SIZE.extend(1.0),
             ..default()
         },
         Paddle,
@@ -227,30 +216,30 @@ fn setup(
     ));
 
     // Scoreboard
-    commands.spawn((
-        ScoreboardUi,
-        TextBundle::from_sections([
-            TextSection::new(
-                "Score: ",
-                TextStyle {
-                    font_size: SCOREBOARD_FONT_SIZE,
-                    color: TEXT_COLOR,
-                    ..default()
-                },
-            ),
-            TextSection::from_style(TextStyle {
+    commands
+        .spawn((
+            Text::new("Score: "),
+            TextFont {
                 font_size: SCOREBOARD_FONT_SIZE,
-                color: SCORE_COLOR,
                 ..default()
-            }),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: SCOREBOARD_TEXT_PADDING,
-            left: SCOREBOARD_TEXT_PADDING,
-            ..default()
-        }),
-    ));
+            },
+            TextColor(TEXT_COLOR),
+            ScoreboardUi,
+            Style {
+                position_type: PositionType::Absolute,
+                top: SCOREBOARD_TEXT_PADDING,
+                left: SCOREBOARD_TEXT_PADDING,
+                ..default()
+            },
+        ))
+        .with_child((
+            TextSpan::default(),
+            TextFont {
+                font_size: SCOREBOARD_FONT_SIZE,
+                ..default()
+            },
+            TextColor(SCORE_COLOR),
+        ));
 
     // Walls
     commands.spawn(WallBundle::new(WallLocation::Left));
@@ -294,16 +283,13 @@ fn setup(
 
             // brick
             commands.spawn((
-                SpriteBundle {
-                    sprite: Sprite {
-                        color: BRICK_COLOR,
-                        ..default()
-                    },
-                    transform: Transform {
-                        translation: brick_position.extend(0.0),
-                        scale: Vec3::new(BRICK_SIZE.x, BRICK_SIZE.y, 1.0),
-                        ..default()
-                    },
+                Sprite {
+                    color: BRICK_COLOR,
+                    ..default()
+                },
+                Transform {
+                    translation: brick_position.extend(0.0),
+                    scale: Vec3::new(BRICK_SIZE.x, BRICK_SIZE.y, 1.0),
                     ..default()
                 },
                 Brick,
@@ -315,10 +301,9 @@ fn setup(
 
 fn move_paddle(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut Transform, With<Paddle>>,
+    mut paddle_transform: Single<&mut Transform, With<Paddle>>,
     time: Res<Time>,
 ) {
-    let mut paddle_transform = query.single_mut();
     let mut direction = 0.0;
 
     if keyboard_input.pressed(KeyCode::ArrowLeft) {
@@ -348,19 +333,22 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>
     }
 }
 
-fn update_scoreboard(score: Res<Score>, mut query: Query<&mut Text, With<ScoreboardUi>>) {
-    let mut text = query.single_mut();
-    text.sections[1].value = score.to_string();
+fn update_scoreboard(
+    score: Res<Score>,
+    score_root: Single<Entity, (With<ScoreboardUi>, With<Text>)>,
+    mut writer: UiTextWriter,
+) {
+    *writer.text(*score_root, 1) = score.to_string();
 }
 
 fn check_for_collisions(
     mut commands: Commands,
     mut score: ResMut<Score>,
-    mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
+    ball_query: Single<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
     mut collision_events: EventWriter<CollisionEvent>,
 ) {
-    let (mut ball_velocity, ball_transform) = ball_query.single_mut();
+    let (mut ball_velocity, ball_transform) = ball_query.into_inner();
 
     for (collider_entity, collider_transform, maybe_brick) in &collider_query {
         let collision = ball_collision(

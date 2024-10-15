@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
     // of the other sprite which moves based on `Real` (unscaled) time
     time.set_relative_speed(2.);
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let virtual_color = GOLD.into();
     let sprite_scale = Vec2::splat(0.5).extend(1.);
@@ -53,27 +53,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
 
     // the sprite moving based on real time
     commands.spawn((
-        SpriteBundle {
-            texture: texture_handle.clone(),
-            transform: Transform::from_scale(sprite_scale),
-            ..default()
-        },
+        Sprite::from_image(texture_handle.clone()),
+        Transform::from_scale(sprite_scale),
         RealTime,
     ));
 
     // the sprite moving based on virtual time
     commands.spawn((
-        SpriteBundle {
-            texture: texture_handle,
-            sprite: Sprite {
-                color: virtual_color,
-                ..default()
-            },
-            transform: Transform {
-                scale: sprite_scale,
-                translation: Vec3::new(0., -160., 0.),
-                ..default()
-            },
+        Sprite {
+            image: texture_handle,
+            color: virtual_color,
+            ..Default::default()
+        },
+        Transform {
+            scale: sprite_scale,
+            translation: Vec3::new(0., -160., 0.),
             ..default()
         },
         VirtualTime,
@@ -98,40 +92,34 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
         .with_children(|builder| {
             // real time info
             builder.spawn((
-                TextBundle::from_section(
-                    "",
-                    TextStyle {
-                        font_size,
-                        ..default()
-                    },
-                ),
+                Text::default(),
+                TextFont {
+                    font_size,
+                    ..default()
+                },
                 RealTime,
             ));
 
             // keybindings
-            builder.spawn(
-                TextBundle::from_section(
-                    "CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down",
-                    TextStyle {
-                        font_size,
-                        color: Color::srgb(0.85, 0.85, 0.85),
-                        ..default()
-                    },
-                )
-                .with_text_justify(JustifyText::Center),
-            );
+            builder.spawn((
+                Text::new("CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down"),
+                TextFont {
+                    font_size,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.85, 0.85, 0.85)),
+                TextLayout::new_with_justify(JustifyText::Center),
+            ));
 
             // virtual time info
             builder.spawn((
-                TextBundle::from_section(
-                    "",
-                    TextStyle {
-                        font_size,
-                        color: virtual_color,
-                        ..default()
-                    },
-                )
-                .with_text_justify(JustifyText::Right),
+                Text::default(),
+                TextFont {
+                    font_size,
+                    ..default()
+                },
+                TextColor(virtual_color),
+                TextLayout::new_with_justify(JustifyText::Right),
                 VirtualTime,
             ));
         });
@@ -194,7 +182,7 @@ fn toggle_pause(mut time: ResMut<Time<Virtual>>) {
 /// Update the `Real` time info text
 fn update_real_time_info_text(time: Res<Time<Real>>, mut query: Query<&mut Text, With<RealTime>>) {
     for mut text in &mut query {
-        text.sections[0].value = format!(
+        **text = format!(
             "REAL TIME\nElapsed: {:.1}\nDelta: {:.5}\n",
             time.elapsed_seconds(),
             time.delta_seconds(),
@@ -208,7 +196,7 @@ fn update_virtual_time_info_text(
     mut query: Query<&mut Text, With<VirtualTime>>,
 ) {
     for mut text in &mut query {
-        text.sections[0].value = format!(
+        **text = format!(
             "VIRTUAL TIME\nElapsed: {:.1}\nDelta: {:.5}\nSpeed: {:.2}",
             time.elapsed_seconds(),
             time.delta_seconds(),

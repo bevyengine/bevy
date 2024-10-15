@@ -1,3 +1,6 @@
+use super::{ClearColorConfig, Projection};
+use crate::sync_world::TemporaryRenderEntity;
+use crate::view::RenderVisibleEntities;
 use crate::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
@@ -6,38 +9,39 @@ use crate::{
     render_asset::RenderAssets,
     render_graph::{InternedRenderSubGraph, RenderSubGraph},
     render_resource::TextureView,
+    sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
+        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers, Visibility,
+        VisibleEntities,
     },
-    world_sync::RenderEntity,
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::Component,
+    component::{Component, ComponentId},
     entity::Entity,
     event::EventReader,
     prelude::With,
     query::Has,
     reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
+    world::DeferredWorld,
 };
 use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{tracing::warn, warn_once, HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
 };
 use core::ops::Range;
+use derive_more::derive::From;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
-
-use super::{ClearColorConfig, Projection};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -274,10 +278,25 @@ pub enum ViewportConversionError {
 /// to transform the 3D objects into a 2D image, as well as the render target into which that image
 /// is produced.
 ///
-/// Adding a camera is typically done by adding a bundle, either the `Camera2dBundle` or the
-/// `Camera3dBundle`.
+/// Note that a [`Camera`] needs a [`CameraRenderGraph`] to render anything.
+/// This is typically provided by adding a [`Camera2d`] or [`Camera3d`] component,
+/// but custom render graphs can also be defined. Inserting a [`Camera`] with no render
+/// graph will emit an error at runtime.
+///
+/// [`Camera2d`]: https://docs.rs/crate/bevy_core_pipeline/latest/core_2d/struct.Camera2d.html
+/// [`Camera3d`]: https://docs.rs/crate/bevy_core_pipeline/latest/core_3d/struct.Camera3d.html
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component, Default, Debug)]
+#[component(on_add = warn_on_no_render_graph)]
+#[require(
+    Frustum,
+    CameraMainTextureUsages,
+    VisibleEntities,
+    Transform,
+    Visibility,
+    Msaa,
+    SyncToRenderWorld
+)]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,
@@ -307,6 +326,12 @@ pub struct Camera {
     pub clear_color: ClearColorConfig,
     /// If set, this camera will be a sub camera of a large view, defined by a [`SubCameraView`].
     pub sub_camera_view: Option<SubCameraView>,
+}
+
+fn warn_on_no_render_graph(world: DeferredWorld, entity: Entity, _: ComponentId) {
+    if !world.entity(entity).contains::<CameraRenderGraph>() {
+        warn!("Entity {entity} has a `Camera` component, but it doesn't have a render graph configured. Consider adding a `Camera2d` or `Camera3d` component, or manually adding a `CameraRenderGraph` component if you need a custom render graph.");
+    }
 }
 
 impl Default for Camera {
@@ -687,7 +712,7 @@ impl CameraRenderGraph {
 
 /// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`]
 /// swapchain or an [`Image`].
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, From)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowRef),
@@ -704,16 +729,10 @@ impl Default for RenderTarget {
     }
 }
 
-impl From<Handle<Image>> for RenderTarget {
-    fn from(handle: Handle<Image>) -> Self {
-        Self::Image(handle)
-    }
-}
-
 /// Normalized version of the render target.
 ///
 /// Once we have this we shouldn't need to resolve it down anymore.
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord, From)]
 pub enum NormalizedRenderTarget {
     /// Window to which the camera's view is rendered.
     Window(NormalizedWindowRef),
@@ -942,10 +961,14 @@ pub fn camera_system<T: CameraProjection + Component>(
                 }
                 camera.computed.target_info = new_computed_target_info;
                 if let Some(size) = camera.logical_viewport_size() {
-                    camera_projection.update(size.x, size.y);
-                    camera.computed.clip_from_view = match &camera.sub_camera_view {
-                        Some(sub_view) => camera_projection.get_clip_from_view_for_sub(sub_view),
-                        None => camera_projection.get_clip_from_view(),
+                    if size.x != 0.0 && size.y != 0.0 {
+                        camera_projection.update(size.x, size.y);
+                        camera.computed.clip_from_view = match &camera.sub_camera_view {
+                            Some(sub_view) => {
+                                camera_projection.get_clip_from_view_for_sub(sub_view)
+                            }
+                            None => camera_projection.get_clip_from_view(),
+                        }
                     }
                 }
             }
@@ -996,7 +1019,7 @@ pub fn extract_cameras(
     mut commands: Commands,
     query: Extract<
         Query<(
-            &RenderEntity,
+            RenderEntity,
             &Camera,
             &CameraRenderGraph,
             &GlobalTransform,
@@ -1012,6 +1035,7 @@ pub fn extract_cameras(
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    mapper: Extract<Query<&RenderEntity>>,
 ) {
     let primary_window = primary_window.iter().next();
     for (
@@ -1050,7 +1074,29 @@ pub fn extract_cameras(
                 continue;
             }
 
-            let mut commands = commands.entity(render_entity.id());
+            let render_visible_entities = RenderVisibleEntities {
+                entities: visible_entities
+                    .entities
+                    .iter()
+                    .map(|(type_id, entities)| {
+                        let entities = entities
+                            .iter()
+                            .map(|entity| {
+                                let render_entity = mapper
+                                    .get(*entity)
+                                    .cloned()
+                                    .map(|entity| entity.id())
+                                    .unwrap_or_else(|_e| {
+                                        commands.spawn(TemporaryRenderEntity).id()
+                                    });
+                                (render_entity, (*entity).into())
+                            })
+                            .collect();
+                        (*type_id, entities)
+                    })
+                    .collect(),
+            };
+            let mut commands = commands.entity(render_entity);
             commands.insert((
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),
@@ -1082,7 +1128,7 @@ pub fn extract_cameras(
                     ),
                     color_grading,
                 },
-                visible_entities.clone(),
+                render_visible_entities,
                 *frustum,
             ));
 

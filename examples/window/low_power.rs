@@ -147,7 +147,8 @@ pub(crate) mod test_setup {
     pub(crate) fn update_text(
         mut frame: Local<usize>,
         mode: Res<ExampleMode>,
-        mut query: Query<&mut Text, With<ModeText>>,
+        text: Single<Entity, With<ModeText>>,
+        mut writer: UiTextWriter,
     ) {
         *frame += 1;
         let mode = match *mode {
@@ -158,9 +159,8 @@ pub(crate) mod test_setup {
             }
             ExampleMode::ApplicationWithWakeUp => "desktop_app(), reactive, WakeUp sent",
         };
-        let mut text = query.single_mut();
-        text.sections[1].value = mode.to_string();
-        text.sections[3].value = frame.to_string();
+        *writer.text(*text, 2) = mode.to_string();
+        *writer.text(*text, 4) = frame.to_string();
     }
 
     /// Set up a scene with a cube and some text
@@ -180,41 +180,28 @@ pub(crate) mod test_setup {
             DirectionalLight::default(),
             Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
         ));
-        commands.spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        });
-        event.send(RequestRedraw);
         commands.spawn((
-            TextBundle::from_sections([
-                TextSection::new(
-                    "Press space bar to cycle modes\n",
-                    TextStyle { ..default() },
-                ),
-                TextSection::from_style(TextStyle {
-                    color: LIME.into(),
-                    ..default()
-                }),
-                TextSection::new(
-                    "\nFrame: ",
-                    TextStyle {
-                        color: YELLOW.into(),
-                        ..default()
-                    },
-                ),
-                TextSection::from_style(TextStyle {
-                    color: YELLOW.into(),
-                    ..default()
-                }),
-            ])
-            .with_style(Style {
-                align_self: AlignSelf::FlexStart,
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            }),
-            ModeText,
+            Camera3d::default(),
+            Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         ));
+        event.send(RequestRedraw);
+        commands
+            .spawn((
+                Text::default(),
+                Style {
+                    align_self: AlignSelf::FlexStart,
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(12.0),
+                    left: Val::Px(12.0),
+                    ..default()
+                },
+                ModeText,
+            ))
+            .with_children(|p| {
+                p.spawn(TextSpan::new("Press space bar to cycle modes\n"));
+                p.spawn((TextSpan::default(), TextColor(LIME.into())));
+                p.spawn((TextSpan::new("\nFrame: "), TextColor(YELLOW.into())));
+                p.spawn((TextSpan::new(""), TextColor(YELLOW.into())));
+            });
     }
 }

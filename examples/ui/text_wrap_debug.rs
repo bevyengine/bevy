@@ -43,9 +43,9 @@ fn main() {
 }
 
 fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
-    let text_style = TextStyle {
+    let text_font = TextFont {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 12.0,
         ..default()
@@ -119,23 +119,12 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             ];
 
             for (j, message) in messages.into_iter().enumerate() {
-                let text = Text {
-                    sections: vec![TextSection {
-                        value: message.clone(),
-                        style: text_style.clone(),
-                    }],
-                    justify: JustifyText::Left,
-                    linebreak,
-                    ..default()
-                };
-                let text_id = commands
-                    .spawn(TextBundle {
-                        text,
-                        background_color: Color::srgb(0.8 - j as f32 * 0.2, 0., 0.).into(),
-                        ..Default::default()
-                    })
-                    .id();
-                commands.entity(column_id).add_child(text_id);
+                commands.entity(column_id).with_child((
+                    Text(message.clone()),
+                    text_font.clone(),
+                    TextLayout::new(JustifyText::Left, linebreak),
+                    BackgroundColor(Color::srgb(0.8 - j as f32 * 0.2, 0., 0.)),
+                ));
             }
             commands.entity(row_id).add_child(column_id);
         }

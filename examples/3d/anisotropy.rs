@@ -64,11 +64,10 @@ fn main() {
 
 /// Creates the initial scene.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res<AppStatus>) {
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_translation(CAMERA_INITIAL_POSITION)
-            .looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_translation(CAMERA_INITIAL_POSITION).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     spawn_directional_light(&mut commands);
 
@@ -82,18 +81,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
 
 /// Spawns the help text.
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
-    commands.spawn(
-        TextBundle {
-            text: app_status.create_help_text(),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        app_status.create_help_text(),
+        Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 /// For each material, creates a version with the anisotropy removed.
@@ -288,10 +284,10 @@ impl AppStatus {
         };
 
         // Build the `Text` object.
-        Text::from_section(
-            format!("{}\n{}", material_variant_help_text, light_help_text),
-            TextStyle::default(),
-        )
+        Text(format!(
+            "{}\n{}",
+            material_variant_help_text, light_help_text
+        ))
     }
 }
 

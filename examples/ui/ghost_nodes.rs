@@ -19,7 +19,7 @@ struct Counter(i32);
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Ghost UI root
     commands.spawn(GhostNode).with_children(|ghost_root| {
@@ -87,14 +87,15 @@ fn create_button() -> ButtonBundle {
     }
 }
 
-fn create_label(text: &str, font: Handle<Font>) -> TextBundle {
-    TextBundle::from_section(
-        text,
-        TextStyle {
+fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont, TextColor) {
+    (
+        Text::new(text),
+        TextFont {
             font,
             font_size: 33.0,
-            color: Color::srgb(0.9, 0.9, 0.9),
+            ..default()
         },
+        TextColor(Color::srgb(0.9, 0.9, 0.9)),
     )
 }
 
@@ -117,6 +118,6 @@ fn button_system(
         let counter = counter_query.get(parent.get()).unwrap();
         let mut text = text_query.get_mut(children[0]).unwrap();
 
-        text.sections[0].value = counter.0.to_string();
+        **text = counter.0.to_string();
     }
 }

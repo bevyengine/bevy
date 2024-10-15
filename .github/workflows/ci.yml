@@ -127,6 +127,31 @@ jobs:
       - name: Check Compile
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- compile
+  
+  check-compiles-no-std:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+            crates/bevy_ecs_compile_fail_tests/target/
+            crates/bevy_reflect_compile_fail_tests/target/
+          key: ${{ runner.os }}-cargo-check-compiles-no-std-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-none
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Check Compile
+        run: cargo run -p ci -- compile-check-no-std
 
   build-wasm:
     runs-on: ubuntu-latest
@@ -218,7 +243,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.24.6
+        uses: crate-ci/typos@v1.26.0
       - name: Typos info
         if: failure()
         run: |
@@ -227,7 +252,6 @@ jobs:
           echo 'You can find typos here: https://crates.io/crates/typos'
           echo 'if you use VSCode, you can also install `Typos Spell Checker'
           echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tekumara.typos-vscode'
-
 
   run-examples-macos-metal:
     # Explicity use macOS 14 to take advantage of M1 chip.
@@ -263,6 +287,10 @@ jobs:
         with:
           name: example-traces-macos
           path: traces
+      - name: Save PR number
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          echo ${{ github.event.number }} > ./screenshots/PR
       - name: save screenshots
         uses: actions/upload-artifact@v4
         with:
@@ -273,7 +301,7 @@ jobs:
         with:
           name: example-run-macos
           path: example-run/
-
+        
   check-doc:
     runs-on: ubuntu-latest
     timeout-minutes: 30

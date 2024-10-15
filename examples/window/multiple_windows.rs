@@ -22,10 +22,10 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     let first_window_camera = commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        })
+        .spawn((
+            Camera3d::default(),
+            Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ))
         .id();
 
     // Spawn a second window
@@ -37,31 +37,21 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         .id();
 
     let second_window_camera = commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-            camera: Camera {
+        .spawn((
+            Camera3d::default(),
+            Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Camera {
                 target: RenderTarget::Window(WindowRef::Entity(second_window)),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .id();
 
     // Since we are using multiple cameras, we need to specify which camera UI should be rendered to
     commands
         .spawn((NodeBundle::default(), TargetCamera(first_window_camera)))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "First window",
-                TextStyle::default(),
-            ));
-        });
+        .with_child(Text::new("First window"));
     commands
         .spawn((NodeBundle::default(), TargetCamera(second_window_camera)))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Second window",
-                TextStyle::default(),
-            ));
-        });
+        .with_child(Text::new("Second window"));
 }

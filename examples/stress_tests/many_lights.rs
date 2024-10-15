@@ -90,15 +90,14 @@ fn setup(
 
     // camera
     match std::env::args().nth(1).as_deref() {
-        Some("orthographic") => commands.spawn(Camera3dBundle {
-            projection: OrthographicProjection {
+        Some("orthographic") => commands.spawn((
+            Camera3d::default(),
+            Projection::from(OrthographicProjection {
                 scaling_mode: ScalingMode::FixedHorizontal(20.0),
                 ..OrthographicProjection::default_3d()
-            }
-            .into(),
-            ..default()
-        }),
-        _ => commands.spawn(Camera3dBundle::default()),
+            }),
+        )),
+        _ => commands.spawn(Camera3d::default()),
     };
 
     // add one cube, the only one with strong handles
@@ -134,8 +133,7 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 }
 
 // System for rotating the camera
-fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
-    let mut camera_transform = camera_query.single_mut();
+fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<Camera>>) {
     let delta = time.delta_seconds() * 0.15;
     camera_transform.rotate_z(delta);
     camera_transform.rotate_x(delta);

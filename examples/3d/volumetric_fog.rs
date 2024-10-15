@@ -63,17 +63,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 
     // Spawn the camera.
     commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-1.7, 1.5, 4.5)
-                .looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
-            camera: Camera {
+        .spawn((
+            Camera3d::default(),
+            Camera {
                 hdr: true,
                 ..default()
             },
-            ..default()
-        })
-        .insert(Tonemapping::TonyMcMapface)
-        .insert(Bloom::default())
+            Transform::from_xyz(-1.7, 1.5, 4.5).looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
+            Tonemapping::TonyMcMapface,
+            Bloom::default(),
+        ))
         .insert(Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 1000.0,
@@ -124,38 +123,33 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     ));
 
     // Add the help text.
-    commands.spawn(
-        TextBundle {
-            text: create_text(&app_settings),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        create_text(&app_settings),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn create_text(app_settings: &AppSettings) -> Text {
-    Text::from_section(
-        format!(
-            "{}\n{}\n{}",
-            "Press WASD or the arrow keys to change the direction of the directional light",
-            if app_settings.volumetric_pointlight {
-                "Press P to turn volumetric point light off"
-            } else {
-                "Press P to turn volumetric point light on"
-            },
-            if app_settings.volumetric_spotlight {
-                "Press L to turn volumetric spot light off"
-            } else {
-                "Press L to turn volumetric spot light on"
-            }
-        ),
-        TextStyle::default(),
+    format!(
+        "{}\n{}\n{}",
+        "Press WASD or the arrow keys to change the direction of the directional light",
+        if app_settings.volumetric_pointlight {
+            "Press P to turn volumetric point light off"
+        } else {
+            "Press P to turn volumetric point light on"
+        },
+        if app_settings.volumetric_spotlight {
+            "Press L to turn volumetric spot light off"
+        } else {
+            "Press L to turn volumetric spot light on"
+        }
     )
+    .into()
 }
 
 /// A system that makes directional lights in the glTF scene into volumetric

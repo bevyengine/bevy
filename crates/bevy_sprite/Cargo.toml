@@ -37,7 +37,11 @@ bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
 bytemuck = { version = "1", features = ["derive", "must_cast"] }
 fixedbitset = "0.5"
 guillotiere = "0.6.0"
-thiserror = "1.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+] }
 rectangle-pack = "0.4"
 bitflags = "2.3"
 radsort = "0.1"

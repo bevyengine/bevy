@@ -10,8 +10,8 @@ use bevy_tasks::Task;
 use bevy_utils::{tracing::warn, Entry, HashMap, HashSet, TypeIdMap};
 use core::any::TypeId;
 use crossbeam_channel::Sender;
+use derive_more::derive::{Display, Error, From};
 use either::Either;
-use thiserror::Error;
 
 #[derive(Debug)]
 pub(crate) struct AssetInfo {
@@ -498,16 +498,14 @@ impl AssetInfos {
                 info.loader_dependencies = loaded_asset.loader_dependencies;
             }
 
-            let dependants_waiting_on_rec_load = if matches!(
-                rec_dep_load_state,
-                RecursiveDependencyLoadState::Loaded | RecursiveDependencyLoadState::Failed(_)
-            ) {
-                Some(core::mem::take(
-                    &mut info.dependants_waiting_on_recursive_dep_load,
-                ))
-            } else {
-                None
-            };
+            let dependants_waiting_on_rec_load =
+                if rec_dep_load_state.is_loaded() || rec_dep_load_state.is_failed() {
+                    Some(core::mem::take(
+                        &mut info.dependants_waiting_on_recursive_dep_load,
+                    ))
+                } else {
+                    None
+                };
 
             (
                 core::mem::take(&mut info.dependants_waiting_on_load),
@@ -518,9 +516,7 @@ impl AssetInfos {
         for id in dependants_waiting_on_load {
             if let Some(info) = self.get_mut(id) {
                 info.loading_dependencies.remove(&loaded_asset_id);
-                if info.loading_dependencies.is_empty()
-                    && !matches!(info.dep_load_state, DependencyLoadState::Failed(_))
-                {
+                if info.loading_dependencies.is_empty() && !info.dep_load_state.is_failed() {
                     // send dependencies loaded event
                     info.dep_load_state = DependencyLoadState::Loaded;
                 }
@@ -558,7 +554,7 @@ impl AssetInfos {
             info.loading_rec_dependencies.remove(&loaded_id);
             if info.loading_rec_dependencies.is_empty() && info.failed_rec_dependencies.is_empty() {
                 info.rec_dep_load_state = RecursiveDependencyLoadState::Loaded;
-                if info.load_state == LoadState::Loaded {
+                if info.load_state.is_loaded() {
                     sender
                         .send(InternalAssetEvent::LoadedWithDependencies { id: waiting_id })
                         .unwrap();
@@ -631,7 +627,7 @@ impl AssetInfos {
                 info.loading_dependencies.remove(&failed_id);
                 info.failed_dependencies.insert(failed_id);
                 // don't overwrite DependencyLoadState if already failed to preserve first error
-                if !(matches!(info.dep_load_state, DependencyLoadState::Failed(_))) {
+                if !info.dep_load_state.is_failed() {
                     info.dep_load_state = DependencyLoadState::Failed(error.clone());
                 }
             }
@@ -755,16 +751,16 @@ pub(crate) enum HandleLoadingMode {
     Force,
 }
 
-#[derive(Error, Debug)]
-#[error("Cannot allocate a handle because no handle provider exists for asset type {0:?}")]
+#[derive(Error, Display, Debug)]
+#[display("Cannot allocate a handle because no handle provider exists for asset type {_0:?}")]
+#[error(ignore)]
 pub struct MissingHandleProviderError(TypeId);
 
 /// An error encountered during [`AssetInfos::get_or_create_path_handle_internal`].
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub(crate) enum GetOrCreateHandleInternalError {
-    #[error(transparent)]
-    MissingHandleProviderError(#[from] MissingHandleProviderError),
-    #[error("Handle does not exist but TypeId was not specified.")]
+    MissingHandleProviderError(MissingHandleProviderError),
+    #[display("Handle does not exist but TypeId was not specified.")]
     HandleMissingButTypeIdNotSpecified,
 }
 

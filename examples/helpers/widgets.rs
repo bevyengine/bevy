@@ -132,13 +132,13 @@ pub fn spawn_ui_text<'a>(
     label: &str,
     color: Color,
 ) -> EntityCommands<'a> {
-    parent.spawn(TextBundle::from_section(
-        label,
-        TextStyle {
+    parent.spawn((
+        Text::new(label),
+        TextFont {
             font_size: 18.0,
-            color,
             ..default()
         },
+        TextColor(color),
     ))
 }
 
@@ -166,12 +166,12 @@ pub fn update_ui_radio_button(background_color: &mut BackgroundColor, selected: 
     background_color.0 = if selected { Color::WHITE } else { Color::BLACK };
 }
 
-/// Updates the style of the label of a radio button to reflect its selected
+/// Updates the color of the label of a radio button to reflect its selected
 /// status.
-pub fn update_ui_radio_button_text(text: &mut Text, selected: bool) {
+pub fn update_ui_radio_button_text(entity: Entity, writer: &mut UiTextWriter, selected: bool) {
     let text_color = if selected { Color::BLACK } else { Color::WHITE };
 
-    for section in &mut text.sections {
-        section.style.color = text_color;
-    }
+    writer.for_each_color(entity, |mut color| {
+        color.0 = text_color;
+    });
 }

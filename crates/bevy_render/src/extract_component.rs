@@ -1,18 +1,16 @@
 use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
+    sync_component::SyncComponentPlugin,
+    sync_world::RenderEntity,
     view::ViewVisibility,
-    world_sync::{RenderEntity, SyncToRenderWorld},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
     prelude::*,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
-    system::lifetimeless::Read,
-    world::OnAdd,
 };
 use core::{marker::PhantomData, ops::Deref};
 
@@ -160,15 +158,6 @@ fn prepare_uniform_components<C>(
 /// This plugin extracts the components into the render world for synced entities.
 ///
 /// To do so, it sets up the [`ExtractSchedule`] step for the specified [`ExtractComponent`].
-///
-/// # Warning
-///
-/// Be careful when removing the [`ExtractComponent`] from an entity. When an [`ExtractComponent`]
-/// is added to an entity, that entity is automatically synced with the render world (see also
-/// [`WorldSyncPlugin`](crate::world_sync::WorldSyncPlugin)). When removing the entity in the main
-/// world, the synced entity also gets removed. However, if only the [`ExtractComponent`] is removed
-/// this *doesn't* happen, and the synced entity stays around with the old extracted data.
-/// We recommend despawning the entire entity, instead of only removing [`ExtractComponent`].
 pub struct ExtractComponentPlugin<C, F = ()> {
     only_extract_visible: bool,
     marker: PhantomData<fn() -> (C, F)>,
@@ -194,10 +183,8 @@ impl<C, F> ExtractComponentPlugin<C, F> {
 
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
-        // TODO: use required components
-        app.observe(|trigger: Trigger<OnAdd, C>, mut commands: Commands| {
-            commands.entity(trigger.entity()).insert(SyncToRenderWorld);
-        });
+        app.add_plugins(SyncComponentPlugin::<C>::default());
+
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             if self.only_extract_visible {
                 render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);
@@ -208,44 +195,33 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     }
 }
 
-impl<T: Asset> ExtractComponent for Handle<T> {
-    type QueryData = Read<Handle<T>>;
-    type QueryFilter = ();
-    type Out = Handle<T>;
-
-    #[inline]
-    fn extract_component(handle: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
-        Some(handle.clone_weak())
-    }
-}
-
-/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`SyncToRenderWorld`].
+/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are synced via [`crate::sync_world::SyncToRenderWorld`].
 fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(&RenderEntity, C::QueryData), C::QueryFilter>>,
+    query: Extract<Query<(RenderEntity, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
         if let Some(component) = C::extract_component(query_item) {
-            values.push((entity.id(), component));
+            values.push((entity, component));
         }
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
 }
 
-/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`SyncToRenderWorld`].
+/// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(&RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
+    query: Extract<Query<(RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, query_item) in &query {
         if view_visibility.get() {
             if let Some(component) = C::extract_component(query_item) {
-                values.push((entity.id(), component));
+                values.push((entity, component));
             }
         }
     }

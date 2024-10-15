@@ -4,7 +4,6 @@
 mod camera_controller;
 
 use bevy::{
-    asset::LoadState,
     core_pipeline::Skybox,
     prelude::*,
     render::{
@@ -71,10 +70,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let skybox_handle = asset_server.load(CUBEMAPS[0].0);
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         CameraController::default(),
         Skybox {
             image: skybox_handle.clone(),
@@ -148,7 +145,7 @@ fn asset_loaded(
     mut cubemap: ResMut<Cubemap>,
     mut skyboxes: Query<&mut Skybox>,
 ) {
-    if !cubemap.is_loaded && asset_server.load_state(&cubemap.image_handle) == LoadState::Loaded {
+    if !cubemap.is_loaded && asset_server.load_state(&cubemap.image_handle).is_loaded() {
         info!("Swapping to {}...", CUBEMAPS[cubemap.index].0);
         let image = images.get_mut(&cubemap.image_handle).unwrap();
         // NOTE: PNGs do not have any metadata that could indicate they contain a cubemap texture,

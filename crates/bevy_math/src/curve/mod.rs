@@ -4,12 +4,14 @@
 
 pub mod adaptors;
 pub mod cores;
+pub mod easing;
 pub mod interval;
 pub mod iterable;
 pub mod sample_curves;
 
 // bevy_math::curve re-exports all commonly-needed curve-related items.
 pub use adaptors::*;
+pub use easing::*;
 pub use interval::{interval, Interval};
 pub use sample_curves::*;
 
@@ -17,9 +19,9 @@ use cores::{EvenCore, UnevenCore};
 
 use crate::{StableInterpolate, VectorSpace};
 use core::{marker::PhantomData, ops::Deref};
+use derive_more::derive::{Display, Error};
 use interval::InvalidIntervalError;
 use itertools::Itertools;
-use thiserror::Error;
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 ///
@@ -622,73 +624,74 @@ where
 
 /// An error indicating that a linear reparametrization couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error)]
-#[error("Could not build a linear function to reparametrize this curve")]
+#[derive(Debug, Error, Display)]
+#[display("Could not build a linear function to reparametrize this curve")]
 pub enum LinearReparamError {
     /// The source curve that was to be reparametrized had unbounded domain.
-    #[error("This curve has unbounded domain")]
+    #[display("This curve has unbounded domain")]
     SourceCurveUnbounded,
 
     /// The target interval for reparametrization was unbounded.
-    #[error("The target interval for reparametrization is unbounded")]
+    #[display("The target interval for reparametrization is unbounded")]
     TargetIntervalUnbounded,
 }
 
 /// An error indicating that a reversion of a curve couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error)]
-#[error("Could not reverse this curve")]
+#[derive(Debug, Error, Display)]
+#[display("Could not reverse this curve")]
 pub enum ReverseError {
     /// The source curve that was to be reversed had unbounded domain end.
-    #[error("This curve has an unbounded domain end")]
+    #[display("This curve has an unbounded domain end")]
     SourceDomainEndInfinite,
 }
 
 /// An error indicating that a repetition of a curve couldn't be performed because of malformed
 /// inputs.
-#[derive(Debug, Error)]
-#[error("Could not repeat this curve")]
+#[derive(Debug, Error, Display)]
+#[display("Could not repeat this curve")]
 pub enum RepeatError {
     /// The source curve that was to be repeated had unbounded domain.
-    #[error("This curve has an unbounded domain")]
+    #[display("This curve has an unbounded domain")]
     SourceDomainUnbounded,
 }
 
 /// An error indicating that a ping ponging of a curve couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error)]
-#[error("Could not ping pong this curve")]
+#[derive(Debug, Error, Display)]
+#[display("Could not ping pong this curve")]
 pub enum PingPongError {
     /// The source curve that was to be ping ponged had unbounded domain end.
-    #[error("This curve has an unbounded domain end")]
+    #[display("This curve has an unbounded domain end")]
     SourceDomainEndInfinite,
 }
 
 /// An error indicating that an end-to-end composition couldn't be performed because of
 /// malformed inputs.
-#[derive(Debug, Error)]
-#[error("Could not compose these curves together")]
+#[derive(Debug, Error, Display)]
+#[display("Could not compose these curves together")]
 pub enum ChainError {
     /// The right endpoint of the first curve was infinite.
-    #[error("The first curve's domain has an infinite end")]
+    #[display("The first curve's domain has an infinite end")]
     FirstEndInfinite,
 
     /// The left endpoint of the second curve was infinite.
-    #[error("The second curve's domain has an infinite start")]
+    #[display("The second curve's domain has an infinite start")]
     SecondStartInfinite,
 }
 
 /// An error indicating that a resampling operation could not be performed because of
 /// malformed inputs.
-#[derive(Debug, Error)]
-#[error("Could not resample from this curve because of bad inputs")]
+#[derive(Debug, Error, Display)]
+#[display("Could not resample from this curve because of bad inputs")]
 pub enum ResamplingError {
     /// This resampling operation was not provided with enough samples to have well-formed output.
-    #[error("Not enough unique samples to construct resampled curve")]
+    #[display("Not enough unique samples to construct resampled curve")]
+    #[error(ignore)]
     NotEnoughSamples(usize),
 
     /// This resampling operation failed because of an unbounded interval.
-    #[error("Could not resample because this curve has unbounded domain")]
+    #[display("Could not resample because this curve has unbounded domain")]
     UnboundedDomain,
 }
 
@@ -712,10 +715,12 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::easing::*;
     use super::*;
     use crate::{ops, Quat};
     use approx::{assert_abs_diff_eq, AbsDiffEq};
     use core::f32::consts::TAU;
+    use glam::*;
 
     #[test]
     fn curve_can_be_made_into_an_object() {
@@ -746,6 +751,63 @@ mod tests {
         assert_eq!(curve.sample_unchecked(3.5), ops::log2(3.5));
         assert!(curve.sample_unchecked(-1.0).is_nan());
         assert!(curve.sample(-1.0).is_none());
+    }
+
+    #[test]
+    fn linear_curve() {
+        let start = Vec2::ZERO;
+        let end = Vec2::new(1.0, 2.0);
+        let curve = easing_curve(start, end, EaseFunction::Linear);
+
+        let mid = (start + end) / 2.0;
+
+        [(0.0, start), (0.5, mid), (1.0, end)]
+            .into_iter()
+            .for_each(|(t, x)| {
+                assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON));
+            });
+    }
+
+    #[test]
+    fn easing_curves_step() {
+        let start = Vec2::ZERO;
+        let end = Vec2::new(1.0, 2.0);
+
+        let curve = easing_curve(start, end, EaseFunction::Steps(4));
+        [
+            (0.0, start),
+            (0.124, start),
+            (0.125, Vec2::new(0.25, 0.5)),
+            (0.374, Vec2::new(0.25, 0.5)),
+            (0.375, Vec2::new(0.5, 1.0)),
+            (0.624, Vec2::new(0.5, 1.0)),
+            (0.625, Vec2::new(0.75, 1.5)),
+            (0.874, Vec2::new(0.75, 1.5)),
+            (0.875, end),
+            (1.0, end),
+        ]
+        .into_iter()
+        .for_each(|(t, x)| {
+            assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON));
+        });
+    }
+
+    #[test]
+    fn easing_curves_quadratic() {
+        let start = Vec2::ZERO;
+        let end = Vec2::new(1.0, 2.0);
+
+        let curve = easing_curve(start, end, EaseFunction::QuadraticIn);
+        [
+            (0.0, start),
+            (0.25, Vec2::new(0.0625, 0.125)),
+            (0.5, Vec2::new(0.25, 0.5)),
+            (1.0, end),
+        ]
+        .into_iter()
+        .for_each(|(t, x)| {
+            assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON),);
+        });
     }
 
     #[test]

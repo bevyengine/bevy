@@ -15,11 +15,11 @@ use bevy_ecs::{
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
+use derive_more::derive::{Display, Error};
 use std::{
     panic::{catch_unwind, resume_unwind},
     process::{ExitCode, Termination},
 };
-use thiserror::Error;
 
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
@@ -32,9 +32,9 @@ pub use bevy_ecs::label::DynEq;
 /// A shorthand for `Interned<dyn AppLabel>`.
 pub type InternedAppLabel = Interned<dyn AppLabel>;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub(crate) enum AppError {
-    #[error("duplicate plugin {plugin_name:?}")]
+    #[display("duplicate plugin {plugin_name:?}")]
     DuplicatePlugin { plugin_name: String },
 }
 
@@ -800,8 +800,8 @@ impl App {
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Query<(&A, &B, &C)>) {
-    ///     let (a, b, c) = query.single();
+    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(0));
     /// }
@@ -863,8 +863,8 @@ impl App {
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Query<(&A, &B, &C)>) {
-    ///     let (a, b, c) = query.single();
+    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(2));
     /// }
@@ -928,8 +928,8 @@ impl App {
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Query<(&A, &B, &C)>) {
-    ///     let (a, b, c) = query.single();
+    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(0));
     /// }
@@ -993,8 +993,8 @@ impl App {
     ///     commands.spawn(A);
     /// }
     ///
-    /// fn validate(query: Query<(&A, &B, &C)>) {
-    ///     let (a, b, c) = query.single();
+    /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
+    ///     let (a, b, c) = query.unwrap().into_inner();
     ///     assert_eq!(b, &B(0));
     ///     assert_eq!(c, &C(2));
     /// }
@@ -1267,7 +1267,7 @@ impl App {
     /// # struct Friend;
     /// #
     /// // An observer system can be any system where the first parameter is a trigger
-    /// app.observe(|trigger: Trigger<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
+    /// app.add_observer(|trigger: Trigger<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
     ///     if trigger.event().friends_allowed {
     ///         for friend in friends.iter() {
     ///             commands.trigger_targets(Invite, friend);
@@ -1275,11 +1275,11 @@ impl App {
     ///     }
     /// });
     /// ```
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
-        self.world_mut().observe(observer);
+        self.world_mut().add_observer(observer);
         self
     }
 }

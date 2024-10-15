@@ -117,23 +117,24 @@ fn setup(
     }
 
     // camera
-    commands.spawn(Camera3dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
             hdr: true,
             ..default()
         },
-        transform: Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+        Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
-    commands.spawn(
-        TextBundle::from_section(INSTRUCTIONS, TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::new(INSTRUCTIONS),
+        Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)>) {
@@ -188,11 +189,10 @@ fn movement(
 }
 
 fn rotation(
-    mut query: Query<&mut Transform, With<Camera>>,
+    mut transform: Single<&mut Transform, With<Camera>>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let mut transform = query.single_mut();
     let delta = time.delta_seconds();
 
     if input.pressed(KeyCode::ArrowLeft) {

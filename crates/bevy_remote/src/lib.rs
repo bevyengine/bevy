@@ -212,6 +212,51 @@
 //!
 //! `result`: An array of fully-qualified type names of components.
 //!
+//! ### bevy/get+watch
+//!
+//! Watch the values of one or more components from an entity.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity whose components will be fetched.
+//! - `components`: An array of [fully-qualified type names] of components to fetch.
+//! - `strict` (optional): A flag to enable strict mode which will fail if any one of the
+//!   components is not present or can not be reflected. Defaults to false.
+//!
+//! If `strict` is false:
+//!
+//! `result`:
+//! - `components`: A map of components added or changed in the last tick associating each type
+//!   name to its value on the requested entity.
+//! - `removed`: An array of fully-qualified type names of components removed from the entity
+//!   in the last tick.
+//! - `errors`: A map associating each type name with an error if it was not on the entity
+//!   or could not be reflected.
+//!
+//! If `strict` is true:
+//!
+//! `result`:
+//! - `components`: A map of components added or changed in the last tick associating each type
+//!   name to its value on the requested entity.
+//! - `removed`: An array of fully-qualified type names of components removed from the entity
+//!   in the last tick.
+//!
+//! ### bevy/list+watch
+//!
+//! Watch all components present on an entity.
+//!
+//! When `params` is not provided, this lists all registered components. If `params` is provided,
+//! this lists only those components present on the provided entity.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity whose components will be listed.
+//!
+//! `result`:
+//! - `added`: An array of fully-qualified type names of components added to the entity in the
+//!   last tick.
+//! - `removed`: An array of fully-qualified type names of components removed from the entity
+//!   in the last tick.
+//!
+//!
 //! ## Custom methods
 //!
 //! In addition to the provided methods, the Bevy Remote Protocol can be extended to include custom
@@ -260,7 +305,8 @@ use bevy_app::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
-    system::{Commands, In, IntoSystem, Resource, System, SystemId},
+    schedule::IntoSystemConfigs,
+    system::{Commands, In, IntoSystem, ResMut, Resource, System, SystemId},
     world::World,
 };
 use bevy_utils::{prelude::default, HashMap};
@@ -281,12 +327,7 @@ const CHANNEL_SIZE: usize = 16;
 /// [crate-level documentation]: crate
 pub struct RemotePlugin {
     /// The verbs that the server will recognize and respond to.
-    methods: RwLock<
-        Vec<(
-            String,
-            Box<dyn System<In = In<Option<Value>>, Out = BrpResult>>,
-        )>,
-    >,
+    methods: RwLock<Vec<(String, RemoteMethodHandler)>>,
 }
 
 impl RemotePlugin {
@@ -305,10 +346,24 @@ impl RemotePlugin {
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
     ) -> Self {
-        self.methods
-            .get_mut()
-            .unwrap()
-            .push((name.into(), Box::new(IntoSystem::into_system(handler))));
+        self.methods.get_mut().unwrap().push((
+            name.into(),
+            RemoteMethodHandler::Instant(Box::new(IntoSystem::into_system(handler))),
+        ));
+        self
+    }
+
+    /// Add a remote method with a watching handler to the plugin using the given `name`.
+    #[must_use]
+    pub fn with_watching_method<M>(
+        mut self,
+        name: impl Into<String>,
+        handler: impl IntoSystem<In<Option<Value>>, BrpResult<Option<Value>>, M>,
+    ) -> Self {
+        self.methods.get_mut().unwrap().push((
+            name.into(),
+            RemoteMethodHandler::Watching(Box::new(IntoSystem::into_system(handler))),
+        ));
         self
     }
 }
@@ -348,40 +403,93 @@ impl Default for RemotePlugin {
                 builtin_methods::BRP_LIST_METHOD,
                 builtin_methods::process_remote_list_request,
             )
+            .with_watching_method(
+                builtin_methods::BRP_GET_AND_WATCH_METHOD,
+                builtin_methods::process_remote_get_watching_request,
+            )
+            .with_watching_method(
+                builtin_methods::BRP_LIST_AND_WATCH_METHOD,
+                builtin_methods::process_remote_list_watching_request,
+            )
     }
 }
 
 impl Plugin for RemotePlugin {
     fn build(&self, app: &mut App) {
         let mut remote_methods = RemoteMethods::new();
+
         let plugin_methods = &mut *self.methods.write().unwrap();
-        for (name, system) in plugin_methods.drain(..) {
+        for (name, handler) in plugin_methods.drain(..) {
             remote_methods.insert(
                 name,
-                app.main_mut().world_mut().register_boxed_system(system),
+                match handler {
+                    RemoteMethodHandler::Instant(system) => RemoteMethodSystemId::Instant(
+                        app.main_mut().world_mut().register_boxed_system(system),
+                    ),
+                    RemoteMethodHandler::Watching(system) => RemoteMethodSystemId::Watching(
+                        app.main_mut().world_mut().register_boxed_system(system),
+                    ),
+                },
             );
         }
 
         app.insert_resource(remote_methods)
+            .init_resource::<RemoteWatchingRequests>()
             .add_systems(PreStartup, setup_mailbox_channel)
-            .add_systems(Update, process_remote_requests);
+            .add_systems(
+                Update,
+                (
+                    process_remote_requests,
+                    process_ongoing_watching_requests,
+                    remove_closed_watching_requests,
+                )
+                    .chain(),
+            );
     }
 }
 
-/// The type of a function that implements a remote method (`bevy/get`, `bevy/query`, etc.)
+/// A type to hold the allowed types of systems to be used as method handlers.
+#[derive(Debug)]
+pub enum RemoteMethodHandler {
+    /// A handler that only runs once and returns one response.
+    Instant(Box<dyn System<In = In<Option<Value>>, Out = BrpResult>>),
+    /// A handler that watches for changes and response when a change is detected.
+    Watching(Box<dyn System<In = In<Option<Value>>, Out = BrpResult<Option<Value>>>>),
+}
+
+/// The [`SystemId`] of a function that implements a remote instant method (`bevy/get`, `bevy/query`, etc.)
 ///
 /// The first parameter is the JSON value of the `params`. Typically, an
 /// implementation will deserialize these as the first thing they do.
 ///
 /// The returned JSON value will be returned as the response. Bevy will
 /// automatically populate the `id` field before sending.
-pub type RemoteMethod = SystemId<In<Option<Value>>, BrpResult>;
+pub type RemoteInstantMethodSystemId = SystemId<In<Option<Value>>, BrpResult>;
+
+/// The [`SystemId`] of a function that implements a remote watching method (`bevy/get+watch`, `bevy/list+watch`, etc.)
+///
+/// The first parameter is the JSON value of the `params`. Typically, an
+/// implementation will deserialize these as the first thing they do.
+///
+/// The optional returned JSON value will be sent as a response. If no
+/// changes were detected this should be [`None`]. Re-running of this
+/// handler is done in the [`RemotePlugin`].
+pub type RemoteWatchingMethodSystemId = SystemId<In<Option<Value>>, BrpResult<Option<Value>>>;
+
+/// The [`SystemId`] of a function that can be used as a remote method.
+#[derive(Debug, Clone, Copy)]
+pub enum RemoteMethodSystemId {
+    /// A handler that only runs once and returns one response.
+    Instant(RemoteInstantMethodSystemId),
+    /// A handler that watches for changes and response when a change is detected.
+    Watching(RemoteWatchingMethodSystemId),
+}
 
 /// Holds all implementations of methods known to the server.
 ///
 /// Custom methods can be added to this list using [`RemoteMethods::insert`].
 #[derive(Debug, Resource, Default)]
-pub struct RemoteMethods(HashMap<String, RemoteMethod>);
+pub struct RemoteMethods(HashMap<String, RemoteMethodSystemId>);
 
 impl RemoteMethods {
     /// Creates a new [`RemoteMethods`] resource with no methods registered in it.
@@ -395,11 +503,20 @@ impl RemoteMethods {
     pub fn insert(
         &mut self,
         method_name: impl Into<String>,
-        handler: RemoteMethod,
-    ) -> Option<RemoteMethod> {
+        handler: RemoteMethodSystemId,
+    ) -> Option<RemoteMethodSystemId> {
         self.0.insert(method_name.into(), handler)
     }
+
+    /// Get a [`RemoteMethodSystemId`] with its method name.
+    pub fn get(&self, method: &str) -> Option<&RemoteMethodSystemId> {
+        self.0.get(method)
+    }
 }
+
+/// Holds the [`BrpMessage`]'s of all ongoing watching requests along with their handlers.
+#[derive(Debug, Resource, Default)]
+pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)>);
 
 /// A single request from a Bevy Remote Protocol client to the server,
 /// serialized in JSON.
@@ -585,7 +702,7 @@ pub mod error_codes {
 }
 
 /// The result of a request.
-pub type BrpResult = Result<Value, BrpError>;
+pub type BrpResult<T = Value> = Result<T, BrpError>;
 
 /// The requests may occur on their own or in batches.
 /// Actual parsing is deferred for the sake of proper
@@ -647,30 +764,83 @@ fn process_remote_requests(world: &mut World) {
     while let Ok(message) = world.resource_mut::<BrpReceiver>().try_recv() {
         // Fetch the handler for the method. If there's no such handler
         // registered, return an error.
-        let methods = world.resource::<RemoteMethods>();
-
-        let Some(handler) = methods.0.get(&message.method) else {
+        let Some(&handler) = world.resource::<RemoteMethods>().get(&message.method) else {
             let _ = message.sender.force_send(Err(BrpError {
                 code: error_codes::METHOD_NOT_FOUND,
                 message: format!("Method `{}` not found", message.method),
                 data: None,
             }));
-            continue;
+            return;
         };
 
-        // Execute the handler, and send the result back to the client.
-        let result = match world.run_system_with_input(*handler, message.params) {
-            Ok(result) => result,
-            Err(error) => {
-                let _ = message.sender.force_send(Err(BrpError {
-                    code: error_codes::INTERNAL_ERROR,
-                    message: format!("Failed to run method handler: {error}"),
-                    data: None,
-                }));
-                continue;
+        match handler {
+            RemoteMethodSystemId::Instant(id) => {
+                let result = match world.run_system_with_input(id, message.params) {
+                    Ok(result) => result,
+                    Err(error) => {
+                        let _ = message.sender.force_send(Err(BrpError {
+                            code: error_codes::INTERNAL_ERROR,
+                            message: format!("Failed to run method handler: {error}"),
+                            data: None,
+                        }));
+                        continue;
+                    }
+                };
+
+                let _ = message.sender.force_send(result);
             }
+            RemoteMethodSystemId::Watching(id) => {
+                world
+                    .resource_mut::<RemoteWatchingRequests>()
+                    .0
+                    .push((message, id));
+            }
+        }
+    }
+}
+
+/// A system that checks all ongoing watching requests for changes that should be sent
+/// and handles it if so.
+fn process_ongoing_watching_requests(world: &mut World) {
+    world.resource_scope::<RemoteWatchingRequests, ()>(|world, requests| {
+        for (message, system_id) in requests.0.iter() {
+            let handler_result = process_single_ongoing_watching_request(world, message, system_id);
+            let sender_result = match handler_result {
+                Ok(Some(value)) => message.sender.try_send(Ok(value)),
+                Err(err) => message.sender.try_send(Err(err)),
+                Ok(None) => continue,
+            };
+
+            if sender_result.is_err() {
+                // The [`remove_closed_watching_requests`] system will clean this up.
+                message.sender.close();
+            }
+        }
+    });
+}
+
+fn process_single_ongoing_watching_request(
+    world: &mut World,
+    message: &BrpMessage,
+    system_id: &RemoteWatchingMethodSystemId,
+) -> BrpResult<Option<Value>> {
+    world
+        .run_system_with_input(*system_id, message.params.clone())
+        .map_err(|error| BrpError {
+            code: error_codes::INTERNAL_ERROR,
+            message: format!("Failed to run method handler: {error}"),
+            data: None,
+        })?
+}
+
+fn remove_closed_watching_requests(mut requests: ResMut<RemoteWatchingRequests>) {
+    for i in (0..requests.0.len()).rev() {
+        let Some((message, _)) = requests.0.get(i) else {
+            unreachable!()
         };
 
-        let _ = message.sender.force_send(result);
+        if message.sender.is_closed() {
+            requests.0.swap_remove(i);
+        }
     }
 }

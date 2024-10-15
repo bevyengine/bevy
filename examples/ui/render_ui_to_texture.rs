@@ -54,13 +54,13 @@ fn setup(
     commands.spawn(DirectionalLight::default());
 
     let texture_camera = commands
-        .spawn(Camera2dBundle {
-            camera: Camera {
+        .spawn((
+            Camera2d,
+            Camera {
                 target: RenderTarget::Image(image_handle.clone()),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .id();
 
     commands
@@ -81,13 +81,13 @@ fn setup(
             TargetCamera(texture_camera),
         ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "This is a cube",
-                TextStyle {
+            parent.spawn((
+                Text::new("This is a cube"),
+                TextFont {
                     font_size: 40.0,
-                    color: Color::BLACK,
                     ..default()
                 },
+                TextColor::BLACK,
             ));
         });
 
@@ -112,10 +112,10 @@ fn setup(
     ));
 
     // The main pass camera.
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 const ROTATION_SPEED: f32 = 0.5;

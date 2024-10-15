@@ -1,6 +1,8 @@
 //! A Bevy app that you can connect to with the BRP and edit.
 
+use bevy::math::ops::cos;
 use bevy::{
+    input::common_conditions::input_just_pressed,
     prelude::*,
     remote::{http::RemoteHttpPlugin, RemotePlugin},
 };
@@ -12,6 +14,8 @@ fn main() {
         .add_plugins(RemotePlugin::default())
         .add_plugins(RemoteHttpPlugin::default())
         .add_systems(Startup, setup)
+        .add_systems(Update, remove.run_if(input_just_pressed(KeyCode::Space)))
+        .add_systems(Update, move_cube)
         .register_type::<Cube>()
         .run();
 }
@@ -46,10 +50,20 @@ fn setup(
     ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+}
+
+fn move_cube(mut query: Query<&mut Transform, With<Cube>>, time: Res<Time>) {
+    for mut transform in &mut query {
+        transform.translation.y = -cos(time.elapsed_seconds()) + 1.5;
+    }
+}
+
+fn remove(mut commands: Commands, cube_entity: Single<Entity, With<Cube>>) {
+    commands.entity(*cube_entity).remove::<Cube>();
 }
 
 #[derive(Component, Reflect, Serialize, Deserialize)]

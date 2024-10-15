@@ -113,10 +113,10 @@ fn generate_bodies(
             radius: star_radius,
             ..default()
         });
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)>) {
@@ -148,11 +148,9 @@ fn integrate(time: Res<Time>, mut query: Query<(&mut Acceleration, &mut Transfor
 }
 
 fn look_at_star(
-    mut camera: Query<&mut Transform, (With<Camera>, Without<Star>)>,
-    star: Query<&Transform, With<Star>>,
+    mut camera: Single<&mut Transform, (With<Camera>, Without<Star>)>,
+    star: Single<&Transform, With<Star>>,
 ) {
-    let mut camera = camera.single_mut();
-    let star = star.single();
     let new_rotation = camera
         .looking_at(star.translation, Vec3::Y)
         .rotation

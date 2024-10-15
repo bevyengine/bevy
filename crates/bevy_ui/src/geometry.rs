@@ -1,7 +1,7 @@
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -10,7 +10,6 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// This enum allows specifying values for various [`Style`](crate::Style) properties in different units,
 /// such as logical pixels, percentages, or automatically determined values.
-
 #[derive(Copy, Clone, Debug, Reflect)]
 #[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
@@ -175,11 +174,11 @@ impl Neg for Val {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Error, Display)]
 pub enum ValArithmeticError {
-    #[error("the variants of the Vals don't match")]
+    #[display("the variants of the Vals don't match")]
     NonIdenticalVariants,
-    #[error("the given variant of Val is not evaluateable (non-numeric)")]
+    #[display("the given variant of Val is not evaluateable (non-numeric)")]
     NonEvaluateable,
 }
 
@@ -204,7 +203,7 @@ impl Val {
 /// A type which is commonly used to define margins, paddings and borders.
 ///
 /// # Examples
-
+///
 /// ## Margin
 ///
 /// A margin is used to create space around UI elements, outside of any defined borders.
@@ -244,7 +243,6 @@ impl Val {
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(

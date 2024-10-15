@@ -31,7 +31,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
-    commands.spawn((Camera2dBundle::default(), IsDefaultUiCamera));
+    commands.spawn((Camera2d, IsDefaultUiCamera));
 
     // root node
     commands
@@ -44,7 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-        .insert(Pickable::IGNORE)
+        .insert(PickingBehavior::IGNORE)
         .with_children(|parent| {
             // left vertical fill (border)
             parent
@@ -74,14 +74,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .with_children(|parent| {
                             // text
                             parent.spawn((
-                                TextBundle::from_section(
-                                    "Text Example",
-                                    TextStyle {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 25.0,
-                                        ..default()
-                                    },
-                                ),
+                                Text::new("Text Example"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: 25.0,
+                                    ..default()
+                                },
                                 // Because this is a distinct label widget and
                                 // not button/list item text, this is necessary
                                 // for accessibility to treat the text accordingly.
@@ -91,25 +89,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             #[cfg(feature = "bevy_dev_tools")]
                             // Debug overlay text
                             parent.spawn((
-                                TextBundle::from_section(
-                                    "Press Space to enable debug outlines.",
-                                    TextStyle {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        ..default()
-                                    },
-                                ),
+                                Text::new("Press Space to enable debug outlines."),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    ..default()
+                                },
                                 Label,
                             ));
 
                             #[cfg(not(feature = "bevy_dev_tools"))]
                             parent.spawn((
-                                TextBundle::from_section(
-                                    "Try enabling feature \"bevy_dev_tools\".",
-                                    TextStyle {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        ..default()
-                                    },
-                                ),
+                                Text::new("Try enabling feature \"bevy_dev_tools\"."),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    ..default()
+                                },
                                 Label,
                             ));
                         });
@@ -129,14 +123,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     // Title
                     parent.spawn((
-                        TextBundle::from_section(
-                            "Scrolling list",
-                            TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 21.,
-                                ..default()
-                            },
-                        ),
+                        Text::new("Scrolling list"),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 21.,
+                            ..default()
+                        },
                         Label,
                     ));
                     // Scrolling list
@@ -157,17 +149,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             for i in 0..25 {
                                 parent
                                     .spawn((
-                                        TextBundle::from_section(
-                                            format!("Item {i}"),
-                                            TextStyle {
-                                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                                ..default()
-                                            },
-                                        ),
+                                        Text(format!("Item {i}")),
+                                        TextFont {
+                                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                            ..default()
+                                        },
                                         Label,
                                         AccessibilityNode(NodeBuilder::new(Role::ListItem)),
                                     ))
-                                    .insert(Pickable {
+                                    .insert(PickingBehavior {
                                         should_block_lower: false,
                                         ..default()
                                     });
@@ -214,7 +204,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     ..default()
                 })
-                .insert(Pickable::IGNORE)
+                .insert(PickingBehavior::IGNORE)
                 .with_children(|parent| {
                     parent
                         .spawn(NodeBundle {
@@ -320,7 +310,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     ..Default::default()
                                 },
-                                Text::from_section("Bevy logo", TextStyle::default()),
+                                Text::new("Bevy logo"),
                             ));
                         });
                 });

@@ -126,10 +126,8 @@ fn setup(
 
     commands.spawn((
         Name::new("Camera"),
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 3.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 3.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
@@ -149,13 +147,9 @@ fn spawn_text(mut commands: Commands) {
             },
         ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Space: swap meshes by mutating a Handle<Mesh>",
-                TextStyle::default(),
-            ));
-            parent.spawn(TextBundle::from_section(
+            parent.spawn(Text::new("Space: swap meshes by mutating a Handle<Mesh>"));
+            parent.spawn(Text::new(
                 "Return: mutate the mesh itself, changing all copies of it",
-                TextStyle::default(),
             ));
         });
 }

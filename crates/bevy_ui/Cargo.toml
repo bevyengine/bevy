@@ -24,6 +24,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "bevy",
 ] }
 bevy_render = { path = "../bevy_render", version = "0.15.0-dev" }
+bevy_animation = { path = "../bevy_animation", version = "0.15.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", version = "0.15.0-dev" }
 bevy_text = { path = "../bevy_text", version = "0.15.0-dev", optional = true }
 bevy_picking = { path = "../bevy_picking", version = "0.15.0-dev", optional = true }
@@ -35,7 +36,11 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 taffy = { version = "0.5" }
 serde = { version = "1", features = ["derive"], optional = true }
 bytemuck = { version = "1.5", features = ["derive"] }
-thiserror = "1.0.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+] }
 nonmax = "0.5"
 smallvec = "1.11"
 

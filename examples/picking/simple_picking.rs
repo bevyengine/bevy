@@ -1,6 +1,6 @@
 //! A simple scene to demonstrate picking events
 
-use bevy::{color::palettes::css::*, prelude::*};
+use bevy::{color::palettes::tailwind::CYAN_400, prelude::*};
 
 fn main() {
     let mut app = App::new();
@@ -19,17 +19,13 @@ fn setup(
 ) {
     commands
         .spawn((
-            TextBundle {
-                text: Text::from_section("Click Me to get a box", TextStyle::default()),
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    top: Val::Percent(12.0),
-                    left: Val::Percent(12.0),
-                    ..default()
-                },
-                ..Default::default()
+            Text::new("Click Me to get a box"),
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Percent(12.0),
+                left: Val::Percent(12.0),
+                ..default()
             },
-            Pickable::default(),
         ))
         .observe(
             |_click: Trigger<Pointer<Click>>,
@@ -45,28 +41,24 @@ fn setup(
                 *num += 1;
             },
         )
-        .observe(|evt: Trigger<Pointer<Out>>, mut texts: Query<&mut Text>| {
-            let mut text = texts.get_mut(evt.entity()).unwrap();
-            let first = text.sections.first_mut().unwrap();
-            first.style.color = WHITE.into();
-        })
-        .observe(|evt: Trigger<Pointer<Over>>, mut texts: Query<&mut Text>| {
-            let mut text = texts.get_mut(evt.entity()).unwrap();
-            let first = text.sections.first_mut().unwrap();
-            first.style.color = BLUE.into();
-        });
+        .observe(
+            |evt: Trigger<Pointer<Out>>, mut texts: Query<&mut TextColor>| {
+                let mut color = texts.get_mut(evt.entity()).unwrap();
+                color.0 = Color::WHITE;
+            },
+        )
+        .observe(
+            |evt: Trigger<Pointer<Over>>, mut texts: Query<&mut TextColor>| {
+                let mut color = texts.get_mut(evt.entity()).unwrap();
+                color.0 = CYAN_400.into();
+            },
+        );
     // circular base
-    commands
-        .spawn((
-            Mesh3d(meshes.add(Circle::new(4.0))),
-            MeshMaterial3d(materials.add(Color::WHITE)),
-            Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-            Pickable::default(),
-        ))
-        .observe(|click: Trigger<Pointer<Click>>| {
-            let click = click.event();
-            println!("{click:?}");
-        });
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(4.0))),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
     // light
     commands.spawn((
         PointLight {
@@ -76,8 +68,8 @@ fn setup(
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }

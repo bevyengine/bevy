@@ -315,7 +315,7 @@ struct MyEvent {
 
 let mut world = World::new();
 
-world.observe(|trigger: Trigger<MyEvent>| {
+world.add_observer(|trigger: Trigger<MyEvent>| {
     println!("{}", trigger.event().message);
 });
 
@@ -339,7 +339,7 @@ struct Explode;
 let mut world = World::new();
 let entity = world.spawn_empty().id();
 
-world.observe(|trigger: Trigger<Explode>, mut commands: Commands| {
+world.add_observer(|trigger: Trigger<Explode>, mut commands: Commands| {
     println!("Entity {:?} goes BOOM!", trigger.entity());
     commands.entity(trigger.entity()).despawn();
 });

@@ -32,9 +32,9 @@ use bevy_render::{
         TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
+    sync_world::RenderEntity,
     texture::{BevyDefault, CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
-    world_sync::RenderEntity,
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 use bevy_utils::tracing::warn;
@@ -358,7 +358,7 @@ impl SpecializedRenderPipeline for TaaPipeline {
 
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
     let mut cameras_3d = main_world.query_filtered::<(
-        &RenderEntity,
+        RenderEntity,
         &Camera,
         &Projection,
         &mut TemporalAntiAliasing,
@@ -375,7 +375,8 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         if camera.is_active && has_perspective_projection {
             commands
-                .get_or_spawn(entity.id())
+                .get_entity(entity)
+                .expect("Camera entity wasn't synced.")
                 .insert(taa_settings.clone());
             taa_settings.reset = false;
         }

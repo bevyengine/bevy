@@ -7,15 +7,14 @@
 use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::EntityHashMap,
     prelude::Entity,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
-    system::{lifetimeless::Read, Query, ResMut, Resource},
+    system::{Query, ResMut, Resource},
 };
 
+use crate::sync_world::MainEntityHashMap;
 use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
 
 /// Describes how to extract data needed for rendering from a component or
@@ -53,7 +52,7 @@ where
 
 /// Stores all extract instances of a type in the render world.
 #[derive(Resource, Deref, DerefMut)]
-pub struct ExtractedInstances<EI>(EntityHashMap<EI>)
+pub struct ExtractedInstances<EI>(MainEntityHashMap<EI>)
 where
     EI: ExtractInstance;
 
@@ -114,7 +113,7 @@ fn extract_all<EI>(
     extracted_instances.clear();
     for (entity, other) in &query {
         if let Some(extract_instance) = EI::extract(other) {
-            extracted_instances.insert(entity, extract_instance);
+            extracted_instances.insert(entity.into(), extract_instance);
         }
     }
 }
@@ -129,20 +128,8 @@ fn extract_visible<EI>(
     for (entity, view_visibility, other) in &query {
         if view_visibility.get() {
             if let Some(extract_instance) = EI::extract(other) {
-                extracted_instances.insert(entity, extract_instance);
+                extracted_instances.insert(entity.into(), extract_instance);
             }
         }
-    }
-}
-
-impl<A> ExtractInstance for AssetId<A>
-where
-    A: Asset,
-{
-    type QueryData = Read<Handle<A>>;
-    type QueryFilter = ();
-
-    fn extract(item: QueryItem<'_, Self::QueryData>) -> Option<Self> {
-        Some(item.id())
     }
 }

@@ -26,7 +26,7 @@ const LINE_HEIGHT: f32 = 21.;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
-    commands.spawn((Camera2dBundle::default(), IsDefaultUiCamera));
+    commands.spawn((Camera2d, IsDefaultUiCamera));
 
     // root node
     commands
@@ -40,7 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-        .insert(Pickable::IGNORE)
+        .insert(PickingBehavior::IGNORE)
         .with_children(|parent| {
             // horizontal scroll example
             parent
@@ -55,14 +55,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     // header
                     parent.spawn((
-                        TextBundle::from_section(
-                            "Horizontally Scrolling list (Ctrl + Mousewheel)",
-                            TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: FONT_SIZE,
-                                ..default()
-                            },
-                        ),
+                        Text::new("Horizontally Scrolling list (Ctrl + Mousewheel)"),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: FONT_SIZE,
+                            ..default()
+                        },
                         Label,
                     ));
 
@@ -81,15 +79,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         })
                         .with_children(|parent| {
                             for i in 0..100 {
-                                parent.spawn((
-                                    TextBundle::from_section(
-                                        format!("Item {i}"),
-                                        TextStyle {
+                                parent.spawn((Text(format!("Item {i}")),
+                                        TextFont {
                                             font: asset_server
                                                 .load("fonts/FiraSans-Bold.ttf"),
                                             ..default()
                                         },
-                                    ),
                                     Label,
                                     AccessibilityNode(NodeBuilder::new(Role::ListItem)),
                                 ))
@@ -98,7 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     align_content: AlignContent::Center,
                                     ..default()
                                 })
-                                .insert(Pickable {
+                                .insert(PickingBehavior {
                                     should_block_lower: false,
                                     ..default()
                                 })
@@ -142,14 +137,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .with_children(|parent| {
                             // Title
                             parent.spawn((
-                                TextBundle::from_section(
-                                    "Vertically Scrolling List",
-                                    TextStyle {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: FONT_SIZE,
-                                        ..default()
-                                    },
-                                ),
+                                Text::new("Vertically Scrolling List"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: FONT_SIZE,
+                                    ..default()
+                                },
                                 Label,
                             ));
                             // Scrolling list
@@ -177,28 +170,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 },
                                                 ..default()
                                             })
-                                            .insert(Pickable {
+                                            .insert(PickingBehavior {
                                                 should_block_lower: false,
                                                 ..default()
                                             })
                                             .with_children(|parent| {
                                                 parent
                                                     .spawn((
-                                                        TextBundle::from_section(
-                                                            format!("Item {i}"),
-                                                            TextStyle {
-                                                                font: asset_server.load(
-                                                                    "fonts/FiraSans-Bold.ttf",
-                                                                ),
-                                                                ..default()
-                                                            },
-                                                        ),
+                                                        Text(format!("Item {i}")),
+                                                        TextFont {
+                                                            font: asset_server
+                                                                .load("fonts/FiraSans-Bold.ttf"),
+                                                            ..default()
+                                                        },
                                                         Label,
                                                         AccessibilityNode(NodeBuilder::new(
                                                             Role::ListItem,
                                                         )),
                                                     ))
-                                                    .insert(Pickable {
+                                                    .insert(PickingBehavior {
                                                         should_block_lower: false,
                                                         ..default()
                                                     });
@@ -222,14 +212,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .with_children(|parent| {
                             // Title
                             parent.spawn((
-                                TextBundle::from_section(
-                                    "Bidirectionally Scrolling List",
-                                    TextStyle {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: FONT_SIZE,
-                                        ..default()
-                                    },
-                                ),
+                                Text::new("Bidirectionally Scrolling List"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: FONT_SIZE,
+                                    ..default()
+                                },
                                 Label,
                             ));
                             // Scrolling list
@@ -256,27 +244,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 },
                                                 ..default()
                                             })
-                                            .insert(Pickable::IGNORE)
+                                            .insert(PickingBehavior::IGNORE)
                                             .with_children(|parent| {
                                                 // Elements in each row
                                                 for i in 0..25 {
                                                     parent
                                                         .spawn((
-                                                            TextBundle::from_section(
-                                                                format!("Item {}", (oi * 25) + i),
-                                                                TextStyle {
-                                                                    font: asset_server.load(
-                                                                        "fonts/FiraSans-Bold.ttf",
-                                                                    ),
-                                                                    ..default()
-                                                                },
-                                                            ),
+                                                            Text(format!("Item {}", (oi * 25) + i)),
+                                                            TextFont {
+                                                                font: asset_server.load(
+                                                                    "fonts/FiraSans-Bold.ttf",
+                                                                ),
+                                                                ..default()
+                                                            },
                                                             Label,
                                                             AccessibilityNode(NodeBuilder::new(
                                                                 Role::ListItem,
                                                             )),
                                                         ))
-                                                        .insert(Pickable {
+                                                        .insert(PickingBehavior {
                                                             should_block_lower: false,
                                                             ..default()
                                                         });
@@ -301,14 +287,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .with_children(|parent| {
                             // Title
                             parent.spawn((
-                                TextBundle::from_section(
-                                    "Nested Scrolling Lists",
-                                    TextStyle {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: FONT_SIZE,
-                                        ..default()
-                                    },
-                                ),
+                                Text::new("Nested Scrolling Lists"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: FONT_SIZE,
+                                    ..default()
+                                },
                                 Label,
                             ));
                             // Outer, horizontal scrolling container
@@ -340,7 +324,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                     .into(),
                                                 ..default()
                                             })
-                                            .insert(Pickable {
+                                            .insert(PickingBehavior {
                                                 should_block_lower: false,
                                                 ..default()
                                             })
@@ -348,21 +332,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 for i in 0..25 {
                                                     parent
                                                         .spawn((
-                                                            TextBundle::from_section(
-                                                                format!("Item {}", (oi * 25) + i),
-                                                                TextStyle {
-                                                                    font: asset_server.load(
-                                                                        "fonts/FiraSans-Bold.ttf",
-                                                                    ),
-                                                                    ..default()
-                                                                },
-                                                            ),
+                                                            Text(format!("Item {}", (oi * 25) + i)),
+                                                            TextFont {
+                                                                font: asset_server.load(
+                                                                    "fonts/FiraSans-Bold.ttf",
+                                                                ),
+                                                                ..default()
+                                                            },
                                                             Label,
                                                             AccessibilityNode(NodeBuilder::new(
                                                                 Role::ListItem,
                                                             )),
                                                         ))
-                                                        .insert(Pickable {
+                                                        .insert(PickingBehavior {
                                                             should_block_lower: false,
                                                             ..default()
                                                         });

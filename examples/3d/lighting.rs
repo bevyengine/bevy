@@ -207,58 +207,58 @@ fn setup(
     ));
 
     // example instructions
-    let style = TextStyle::default();
 
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new(
-                format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops),
-                style.clone(),
-            ),
-            TextSection::new(
-                format!(
-                    "Shutter speed: 1/{:.0}s\n",
-                    1.0 / parameters.shutter_speed_s
-                ),
-                style.clone(),
-            ),
-            TextSection::new(
-                format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso),
-                style.clone(),
-            ),
-            TextSection::new("\n\n", style.clone()),
-            TextSection::new("Controls\n", style.clone()),
-            TextSection::new("---------------\n", style.clone()),
-            TextSection::new("Arrow keys - Move objects\n", style.clone()),
-            TextSection::new("1/2 - Decrease/Increase aperture\n", style.clone()),
-            TextSection::new("3/4 - Decrease/Increase shutter speed\n", style.clone()),
-            TextSection::new("5/6 - Decrease/Increase sensitivity\n", style.clone()),
-            TextSection::new("R - Reset exposure", style),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-    );
+    commands
+        .spawn((
+            Text::default(),
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+        ))
+        .with_children(|p| {
+            p.spawn(TextSpan(format!(
+                "Aperture: f/{:.0}\n",
+                parameters.aperture_f_stops,
+            )));
+            p.spawn(TextSpan(format!(
+                "Shutter speed: 1/{:.0}s\n",
+                1.0 / parameters.shutter_speed_s
+            )));
+            p.spawn(TextSpan(format!(
+                "Sensitivity: ISO {:.0}\n",
+                parameters.sensitivity_iso
+            )));
+            p.spawn(TextSpan::new("\n\n"));
+            p.spawn(TextSpan::new("Controls\n"));
+            p.spawn(TextSpan::new("---------------\n"));
+            p.spawn(TextSpan::new("Arrow keys - Move objects\n"));
+            p.spawn(TextSpan::new("1/2 - Decrease/Increase aperture\n"));
+            p.spawn(TextSpan::new("Arrow keys - Move objects\n"));
+            p.spawn(TextSpan::new("3/4 - Decrease/Increase shutter speed\n"));
+            p.spawn(TextSpan::new("5/6 - Decrease/Increase sensitivity\n"));
+            p.spawn(TextSpan::new("R - Reset exposure"));
+        });
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        exposure: Exposure::from_physical_camera(**parameters),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Exposure::from_physical_camera(**parameters),
+    ));
 }
 
 fn update_exposure(
     key_input: Res<ButtonInput<KeyCode>>,
     mut parameters: ResMut<Parameters>,
-    mut exposure: Query<&mut Exposure>,
-    mut text: Query<&mut Text>,
+    mut exposure: Single<&mut Exposure>,
+    text: Single<Entity, With<Text>>,
+    mut writer: UiTextWriter,
 ) {
     // TODO: Clamp values to a reasonable range
-    let mut text = text.single_mut();
+    let entity = *text;
     if key_input.just_pressed(KeyCode::Digit2) {
         parameters.aperture_f_stops *= 2.0;
     } else if key_input.just_pressed(KeyCode::Digit1) {
@@ -278,14 +278,14 @@ fn update_exposure(
         *parameters = Parameters::default();
     }
 
-    text.sections[0].value = format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops);
-    text.sections[1].value = format!(
+    *writer.text(entity, 1) = format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops);
+    *writer.text(entity, 2) = format!(
         "Shutter speed: 1/{:.0}s\n",
         1.0 / parameters.shutter_speed_s
     );
-    text.sections[2].value = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
+    *writer.text(entity, 3) = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
 
-    *exposure.single_mut() = Exposure::from_physical_camera(**parameters);
+    **exposure = Exposure::from_physical_camera(**parameters);
 }
 
 fn animate_light_direction(

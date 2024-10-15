@@ -68,14 +68,11 @@ fn setup(
     {
         let camera = commands
             .spawn((
-                Camera3dBundle {
-                    transform: Transform::from_translation(*camera_pos)
-                        .looking_at(Vec3::ZERO, Vec3::Y),
-                    camera: Camera {
-                        // Renders cameras with different priorities to prevent ambiguities
-                        order: index as isize,
-                        ..default()
-                    },
+                Camera3d::default(),
+                Transform::from_translation(*camera_pos).looking_at(Vec3::ZERO, Vec3::Y),
+                Camera {
+                    // Renders cameras with different priorities to prevent ambiguities
+                    order: index as isize,
                     ..default()
                 },
                 CameraPosition {
@@ -98,16 +95,15 @@ fn setup(
                 },
             ))
             .with_children(|parent| {
-                parent.spawn(
-                    TextBundle::from_section(*camera_name, TextStyle::default()).with_style(
-                        Style {
-                            position_type: PositionType::Absolute,
-                            top: Val::Px(12.),
-                            left: Val::Px(12.),
-                            ..default()
-                        },
-                    ),
-                );
+                parent.spawn((
+                    Text::new(*camera_name),
+                    Style {
+                        position_type: PositionType::Absolute,
+                        top: Val::Px(12.),
+                        left: Val::Px(12.),
+                        ..default()
+                    },
+                ));
                 buttons_panel(parent);
             });
     }
@@ -153,7 +149,7 @@ fn setup(
                 },
             ))
             .with_children(|parent| {
-                parent.spawn(TextBundle::from_section(caption, TextStyle::default()));
+                parent.spawn(Text::new(caption));
             });
     }
 }
