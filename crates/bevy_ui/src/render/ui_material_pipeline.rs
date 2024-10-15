@@ -644,7 +644,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         );
         if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {
             transparent_phase.items.reserve_exact(
-                transparent_phase.items.capacity() - extracted_uinodes.uinodes.len(),
+                extracted_uinodes.uinodes.len() - transparent_phase.items.capacity(),
             );
         }
         transparent_phase.add(TransparentUi {
