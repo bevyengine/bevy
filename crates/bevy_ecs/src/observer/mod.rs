@@ -288,6 +288,11 @@ impl Observers {
             world.increment_trigger_id();
             let observers = world.observers();
             let Some(observers) = observers.try_get_observers(event_type) else {
+                bevy_utils::tracing::debug!(
+                    "No observers found for event type {:?} in invoke",
+                    event_type
+                );
+
                 return;
             };
             // SAFETY: The only outstanding reference to world is `observers`
