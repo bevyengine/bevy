@@ -310,8 +310,31 @@ impl StableInterpolate for Dir3A {
     }
 }
 
+// If you're confused about how #[doc(fake_variadic)] works,
+// then the `all_tuples` macro is nicely documented (it can be found in the `bevy_utils` crate).
+// tl;dr: `#[doc(fake_variadic)]` goes on the impl of tuple length one.
+// the others have to be hidden using `#[doc(hidden)]`.
 macro_rules! impl_stable_interpolate_tuple {
+    (($T:ident, $n:tt)) => {
+        impl_stable_interpolate_tuple! {
+            @impl
+            #[cfg_attr(any(docsrs, docsrs_dep), doc(fake_variadic))]
+            #[cfg_attr(
+                any(docsrs, docsrs_dep),
+                doc = "This trait is implemented for tuples up to 11 items long."
+            )]
+            ($T, $n)
+        }
+    };
     ($(($T:ident, $n:tt)),*) => {
+        impl_stable_interpolate_tuple! {
+            @impl
+            #[cfg_attr(any(docsrs, docsrs_dep), doc(hidden))]
+            $(($T, $n)),*
+        }
+    };
+    (@impl $(#[$($meta:meta)*])* $(($T:ident, $n:tt)),*) => {
+        $(#[$($meta)*])*
         impl<$($T: StableInterpolate),*> StableInterpolate for ($($T,)*) {
             fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
                 (
