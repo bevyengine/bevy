@@ -148,7 +148,7 @@ pub(crate) mod test_setup {
         mut frame: Local<usize>,
         mode: Res<ExampleMode>,
         text: Single<Entity, With<ModeText>>,
-        mut writer: UiTextWriter,
+        mut writer: TextUiWriter,
     ) {
         *frame += 1;
         let mode = match *mode {

@@ -255,7 +255,7 @@ fn update_exposure(
     mut parameters: ResMut<Parameters>,
     mut exposure: Single<&mut Exposure>,
     text: Single<Entity, With<Text>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     // TODO: Clamp values to a reasonable range
     let entity = *text;

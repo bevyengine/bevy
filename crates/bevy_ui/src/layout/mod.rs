@@ -373,12 +373,15 @@ with UI components as a child of an entity without UI components, your UI layout
                 node.unrounded_size = layout_size;
             }
 
-            node.bypass_change_detection().border = BorderRect {
-                left: layout.border.left * inverse_target_scale_factor,
-                right: layout.border.right * inverse_target_scale_factor,
-                top: layout.border.top * inverse_target_scale_factor,
-                bottom: layout.border.bottom * inverse_target_scale_factor,
+            let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
+                left: rect.left * inverse_target_scale_factor,
+                right: rect.right * inverse_target_scale_factor,
+                top: rect.top * inverse_target_scale_factor,
+                bottom: rect.bottom * inverse_target_scale_factor,
             };
+
+            node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
+            node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
 
             let viewport_size = root_size.unwrap_or(node.calculated_size);
 

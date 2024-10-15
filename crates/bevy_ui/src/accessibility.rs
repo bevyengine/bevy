@@ -1,6 +1,6 @@
 use crate::{
     prelude::{Button, Label},
-    widget::UiTextReader,
+    widget::TextUiReader,
     Node, UiChildren, UiImage,
 };
 use bevy_a11y::{
@@ -19,7 +19,7 @@ use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
 use bevy_transform::prelude::GlobalTransform;
 
 fn calc_name(
-    text_reader: &mut UiTextReader,
+    text_reader: &mut TextUiReader,
     children: impl Iterator<Item = Entity>,
 ) -> Option<Box<str>> {
     let mut name = None;
@@ -62,7 +62,7 @@ fn button_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Button>>,
     ui_children: UiChildren,
-    mut text_reader: UiTextReader,
+    mut text_reader: TextUiReader,
 ) {
     for (entity, accessible) in &mut query {
         let name = calc_name(&mut text_reader, ui_children.iter_ui_children(entity));
@@ -89,7 +89,7 @@ fn image_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), (Changed<UiImage>, Without<Button>)>,
     ui_children: UiChildren,
-    mut text_reader: UiTextReader,
+    mut text_reader: TextUiReader,
 ) {
     for (entity, accessible) in &mut query {
         let name = calc_name(&mut text_reader, ui_children.iter_ui_children(entity));
@@ -115,7 +115,7 @@ fn image_changed(
 fn label_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Label>>,
-    mut text_reader: UiTextReader,
+    mut text_reader: TextUiReader,
 ) {
     for (entity, accessible) in &mut query {
         let values = text_reader

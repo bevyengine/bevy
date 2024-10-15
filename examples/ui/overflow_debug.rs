@@ -1,6 +1,6 @@
 //! Tests how different transforms behave when clipped with `Overflow::Hidden`
 
-use bevy::{input::common_conditions::input_just_pressed, prelude::*, ui::widget::UiTextWriter};
+use bevy::{input::common_conditions::input_just_pressed, prelude::*, ui::widget::TextUiWriter};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 const CONTAINER_SIZE: f32 = 150.0;
@@ -259,7 +259,7 @@ fn update_transform<T: UpdateTransform + Component>(
 fn toggle_overflow(
     mut containers: Query<&mut Style, With<Container>>,
     instructions: Single<Entity, With<Instructions>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     for mut style in &mut containers {
         style.overflow = match style.overflow {
