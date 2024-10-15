@@ -46,6 +46,7 @@ use widget::UiImageSize;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[cfg(feature = "bevy_text")]
     #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::widget::TextBundle;
