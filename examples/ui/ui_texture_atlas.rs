@@ -47,16 +47,13 @@ fn setup(
         ))
         .with_children(|parent| {
             parent.spawn((
-                ImageBundle {
-                    style: Style {
-                        width: Val::Px(256.),
-                        height: Val::Px(256.),
-                        ..default()
-                    },
-                    image: UiImage::new(texture_handle),
-                    background_color: BackgroundColor(ANTIQUE_WHITE.into()),
+                UiImage::new(texture_handle),
+                Style {
+                    width: Val::Px(256.),
+                    height: Val::Px(256.),
                     ..default()
                 },
+                BackgroundColor(ANTIQUE_WHITE.into()),
                 TextureAtlas::from(texture_atlas_handle),
                 Outline::new(Val::Px(8.0), Val::ZERO, CRIMSON.into()),
             ));

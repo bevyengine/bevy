@@ -309,13 +309,14 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                     .enumerate()
                     {
                         builder
-                            .spawn(ButtonBundle {
-                                background_color: if index > 0 {
-                                    Color::BLACK.into()
+                            .spawn((
+                                Button,
+                                BackgroundColor(if index > 0 {
+                                    Color::BLACK
                                 } else {
-                                    Color::WHITE.into()
-                                },
-                                style: Style {
+                                    Color::WHITE
+                                }),
+                                Style {
                                     flex_grow: 1.0,
                                     border: if index > 0 {
                                         UiRect::left(Val::Px(1.0))
@@ -324,9 +325,8 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                                     },
                                     ..default()
                                 },
-                                border_color: BorderColor(Color::WHITE),
-                                ..default()
-                            })
+                                BorderColor(Color::WHITE),
+                            ))
                             .with_child((
                                 Text(format!("{:?}", label)),
                                 if index > 0 {

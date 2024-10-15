@@ -1,14 +1,13 @@
-use crate::{ContentSize, FocusPolicy};
-use crate::{UiRect, Val};
+use crate::{widget::UiImageSize, ContentSize, FocusPolicy, UiRect, Val};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
-use bevy_render::view::Visibility;
 use bevy_render::{
     camera::{Camera, RenderTarget},
     texture::{Image, TRANSPARENT_IMAGE_HANDLE},
+    view::Visibility,
 };
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
@@ -28,7 +27,18 @@ use smallvec::SmallVec;
 /// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(Style, Transform, ContentSize, FocusPolicy, ZIndex, Visibility)]
+#[require(
+    Style,
+    BackgroundColor,
+    BorderColor,
+    BorderRadius,
+    ContentSize,
+    FocusPolicy,
+    ScrollPosition,
+    Transform,
+    Visibility,
+    ZIndex
+)]
 pub struct Node {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
@@ -1933,6 +1943,7 @@ impl Outline {
 /// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
+#[require(Node, UiImageSize)]
 pub struct UiImage {
     /// The tint color used to draw the image.
     ///

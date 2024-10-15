@@ -18,7 +18,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 #[derive(Bundle, Clone, Debug, Default)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use the `Node` component instead. Inserting `Node` will also insert the other components required by nodes automatically."
+    note = "Use the `Node` component instead. Inserting `Node` will also insert the other components required automatically."
 )]
 pub struct NodeBundle {
     /// Describes the logical size of the node
@@ -64,6 +64,10 @@ pub struct NodeBundle {
 /// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
 /// - [`TextureAtlas`](bevy_sprite::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Debug, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `UiImage` component instead. Inserting `UiImage` will also insert the other components required automatically."
+)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -113,6 +117,10 @@ pub struct ImageBundle {
 /// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
 /// - [`TextureAtlas`](bevy_sprite::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Clone, Debug)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Button` component instead. Inserting `Button` will also insert the other components required automatically."
+)]
 pub struct ButtonBundle {
     /// Describes the logical size of the node
     pub node: Node,
