@@ -1353,7 +1353,7 @@ impl AssetServer {
         // which ensures the handle won't be dropped while waiting for the asset.
         handle: &Handle<A>,
     ) -> Result<(), WaitForAssetError> {
-        self.wait_for_asset_id(handle.id()).await
+        self.wait_for_asset_id(handle.id().untyped()).await
     }
 
     /// Returns a future that will suspend until the specified asset and its dependencies finish
@@ -1396,52 +1396,74 @@ impl AssetServer {
         id: impl Into<UntypedAssetId>,
     ) -> Result<(), WaitForAssetError> {
         let id = id.into();
-        core::future::poll_fn(move |cx| {
-            let infos = self.data.infos.read();
-            let info = infos.get(id).ok_or(WaitForAssetError::NotLoaded)?;
-            match (&info.load_state, &info.rec_dep_load_state) {
-                (LoadState::Loaded, RecursiveDependencyLoadState::Loaded) => Poll::Ready(Ok(())),
-                // Return an error immediately if the asset is not in the process of loading
-                (LoadState::NotLoaded, _) => Poll::Ready(Err(WaitForAssetError::NotLoaded)),
-                // If the asset is loading, leave our waker behind
-                (LoadState::Loading, _)
-                | (_, RecursiveDependencyLoadState::Loading)
-                | (LoadState::Loaded, RecursiveDependencyLoadState::NotLoaded) => {
-                    // Check if our waker is already there
-                    let has_waker = info
-                        .waiting_tasks
-                        .iter()
-                        .any(|waker| waker.will_wake(cx.waker()));
-                    if !has_waker {
-                        drop(infos);
-                        let mut infos = self.data.infos.write();
-                        let info = infos.get_mut(id).ok_or(WaitForAssetError::NotLoaded)?;
-                        // If the load state changed while reacquiring the lock, immediately
-                        // reawaken the task
-                        let is_loading = matches!(
-                            (&info.load_state, &info.rec_dep_load_state),
-                            (LoadState::Loading, _)
-                                | (_, RecursiveDependencyLoadState::Loading)
-                                | (LoadState::Loaded, RecursiveDependencyLoadState::NotLoaded)
-                        );
-                        if !is_loading {
-                            cx.waker().wake_by_ref();
-                        } else {
-                            // Leave our waker behind
-                            info.waiting_tasks.push(cx.waker().clone());
-                        }
-                    }
-                    Poll::Pending
+        core::future::poll_fn(move |cx| self.wait_for_asset_id_poll_fn(cx, id)).await
+    }
+
+    /// Used by [`wait_for_asset_id`](AssetServer::wait_for_asset_id) in [`poll_fn`](core::future::poll_fn).
+    fn wait_for_asset_id_poll_fn(
+        &self,
+        cx: &mut core::task::Context<'_>,
+        id: UntypedAssetId,
+    ) -> Poll<Result<(), WaitForAssetError>> {
+        let infos = self.data.infos.read();
+
+        let Some(info) = infos.get(id) else {
+            return Poll::Ready(Err(WaitForAssetError::NotLoaded));
+        };
+
+        match (&info.load_state, &info.rec_dep_load_state) {
+            (LoadState::Loaded, RecursiveDependencyLoadState::Loaded) => Poll::Ready(Ok(())),
+            // Return an error immediately if the asset is not in the process of loading
+            (LoadState::NotLoaded, _) => Poll::Ready(Err(WaitForAssetError::NotLoaded)),
+            // If the asset is loading, leave our waker behind
+            (LoadState::Loading, _)
+            | (_, RecursiveDependencyLoadState::Loading)
+            | (LoadState::Loaded, RecursiveDependencyLoadState::NotLoaded) => {
+                // Check if our waker is already there
+                let has_waker = info
+                    .waiting_tasks
+                    .iter()
+                    .any(|waker| waker.will_wake(cx.waker()));
+
+                if has_waker {
+                    return Poll::Pending;
                 }
-                (LoadState::Failed(error), _) => {
-                    Poll::Ready(Err(WaitForAssetError::Failed(error.clone())))
+
+                let mut infos = {
+                    // Must drop read-only guard to acquire write guard
+                    drop(infos);
+                    self.data.infos.write()
+                };
+
+                let Some(info) = infos.get_mut(id) else {
+                    return Poll::Ready(Err(WaitForAssetError::NotLoaded));
+                };
+
+                // If the load state changed while reacquiring the lock, immediately
+                // reawaken the task
+                let is_loading = matches!(
+                    (&info.load_state, &info.rec_dep_load_state),
+                    (LoadState::Loading, _)
+                        | (_, RecursiveDependencyLoadState::Loading)
+                        | (LoadState::Loaded, RecursiveDependencyLoadState::NotLoaded)
+                );
+
+                if !is_loading {
+                    cx.waker().wake_by_ref();
+                } else {
+                    // Leave our waker behind
+                    info.waiting_tasks.push(cx.waker().clone());
                 }
-                (_, RecursiveDependencyLoadState::Failed(error)) => {
-                    Poll::Ready(Err(WaitForAssetError::DependencyFailed(error.clone())))
-                }
+
+                Poll::Pending
             }
-        })
-        .await
+            (LoadState::Failed(error), _) => {
+                Poll::Ready(Err(WaitForAssetError::Failed(error.clone())))
+            }
+            (_, RecursiveDependencyLoadState::Failed(error)) => {
+                Poll::Ready(Err(WaitForAssetError::DependencyFailed(error.clone())))
+            }
+        }
     }
 }
 
