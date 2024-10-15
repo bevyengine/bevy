@@ -1412,7 +1412,7 @@ mod tests {
         let b_id = world.register_component::<B>();
 
         world.add_observer(
-            |trigger: Trigger<EventA, (A, B)>, mut counter: ResMut<Counter>| {
+            |trigger: Trigger<'_, EventA, (A, B)>, mut counter: ResMut<'_, Counter>| {
                 for &component in trigger.components() {
                     *counter.0.entry(component).or_default() += 1;
                 }

@@ -7,9 +7,6 @@
 
 //! Animation for the game engine Bevy
 
-#[allow(unused_extern_crates)]
-extern crate alloc;
-
 pub mod animatable;
 pub mod animation_curves;
 pub mod animation_event;
