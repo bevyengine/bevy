@@ -58,6 +58,11 @@ pub struct Node {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) border_radius: ResolvedBorderRadius,
+    /// Resolved padding values in logical pixels
+    /// Padding updates bypass change detection.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub(crate) padding: BorderRect,
 }
 
 impl Node {
@@ -175,6 +180,25 @@ impl Node {
             bottom_right: clamp_corner(self.border_radius.bottom_left, s, b.xw()),
         }
     }
+
+    /// Returns the thickness of the node's padding on each edge in logical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
+    pub fn padding(&self) -> BorderRect {
+        self.padding
+    }
+
+    /// Returns the combined inset on each edge including both padding and border thickness in logical pixels.
+    #[inline]
+    pub fn content_inset(&self) -> BorderRect {
+        BorderRect {
+            left: self.border.left + self.padding.left,
+            right: self.border.right + self.padding.right,
+            top: self.border.top + self.padding.top,
+            bottom: self.border.bottom + self.padding.bottom,
+        }
+    }
 }
 
 impl Node {
@@ -186,6 +210,7 @@ impl Node {
         unrounded_size: Vec2::ZERO,
         border_radius: ResolvedBorderRadius::ZERO,
         border: BorderRect::ZERO,
+        padding: BorderRect::ZERO,
     };
 }
 

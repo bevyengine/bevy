@@ -498,7 +498,7 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         event: ComponentId,
         entity: Entity,
-        components: impl Iterator<Item = ComponentId>,
+        components: impl Iterator<Item = ComponentId> + Clone,
     ) {
         Observers::invoke::<_>(
             self.reborrow(),

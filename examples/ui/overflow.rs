@@ -73,9 +73,11 @@ fn setup(mut commands: Commands<'_, '_>, asset_server: Res<'_, AssetServer>) {
                                         top: Val::Px(25.),
                                         ..Default::default()
                                     },
+                                    border: UiRect::all(Val::Px(5.)),
                                     overflow,
                                     ..Default::default()
                                 },
+                                border_color: Color::BLACK.into(),
                                 background_color: GRAY.into(),
                                 ..Default::default()
                             })
