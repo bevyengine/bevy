@@ -309,3 +309,81 @@ impl StableInterpolate for Dir3A {
         self.slerp(*other, t)
     }
 }
+
+macro_rules! impl_stable_interpolate_tuple {
+    ($(($T:ident, $n:tt)),*) => {
+        impl<$($T: StableInterpolate),*> StableInterpolate for ($($T,)*) {
+            fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
+                (
+                    $(
+                        <$T as StableInterpolate>::interpolate_stable(&self.$n, &other.$n, t),
+                    )*
+                )
+            }
+        }
+    };
+}
+
+// (See `macro_metavar_expr`, which might make this better.)
+// This currently implements `StableInterpolate` for tuples of up to 11 elements.
+impl_stable_interpolate_tuple!((T, 0));
+impl_stable_interpolate_tuple!((T0, 0), (T1, 1));
+impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2));
+impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2), (T3, 3));
+impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2), (T3, 3), (T4, 4));
+impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2), (T3, 3), (T4, 4), (T5, 5));
+impl_stable_interpolate_tuple!(
+    (T0, 0),
+    (T1, 1),
+    (T2, 2),
+    (T3, 3),
+    (T4, 4),
+    (T5, 5),
+    (T6, 6)
+);
+impl_stable_interpolate_tuple!(
+    (T0, 0),
+    (T1, 1),
+    (T2, 2),
+    (T3, 3),
+    (T4, 4),
+    (T5, 5),
+    (T6, 6),
+    (T7, 7)
+);
+impl_stable_interpolate_tuple!(
+    (T0, 0),
+    (T1, 1),
+    (T2, 2),
+    (T3, 3),
+    (T4, 4),
+    (T5, 5),
+    (T6, 6),
+    (T7, 7),
+    (T8, 8)
+);
+impl_stable_interpolate_tuple!(
+    (T0, 0),
+    (T1, 1),
+    (T2, 2),
+    (T3, 3),
+    (T4, 4),
+    (T5, 5),
+    (T6, 6),
+    (T7, 7),
+    (T8, 8),
+    (T9, 9)
+);
+impl_stable_interpolate_tuple!(
+    (T0, 0),
+    (T1, 1),
+    (T2, 2),
+    (T3, 3),
+    (T4, 4),
+    (T5, 5),
+    (T6, 6),
+    (T7, 7),
+    (T8, 8),
+    (T9, 9),
+    (T10, 10)
+);
