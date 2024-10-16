@@ -382,10 +382,13 @@ pub fn extract_lights(
             commands
                 .get_entity(entity)
                 .expect("Light entity wasn't synced.")
-                .remove::<(ExtractedDirectionalLight, RenderCascadesVisibleEntities)>();
+                .remove::<(
+                    ExtractedDirectionalLight,
+                    RenderCascadesVisibleEntities,
+                    LightViewEntities,
+                )>();
             continue;
         }
-
         // TODO: update in place instead of reinserting.
         let mut extracted_cascades = EntityHashMap::default();
         let mut extracted_frusta = EntityHashMap::default();
