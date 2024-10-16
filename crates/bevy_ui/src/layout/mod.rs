@@ -11,7 +11,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut, SystemParam},
     world::Ref,
 };
-use bevy_hierarchy::Children;
+use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_sprite::BorderRect;
@@ -53,6 +53,16 @@ impl LayoutContext {
             max_size: physical_size.x.max(physical_size.y),
         }
     }
+}
+
+#[cfg(test)]
+impl LayoutContext {
+    pub const TEST_CONTEXT: Self = Self {
+        scale_factor: 1.0,
+        physical_size: Vec2::new(1000.0, 1000.0),
+        min_size: 0.0,
+        max_size: 1000.0,
+    };
 }
 
 impl Default for LayoutContext {
@@ -114,7 +124,7 @@ pub fn ui_layout_system(
         ),
         With<Node>,
     >,
-    node_query: Query<Entity, With<Node>>,
+    node_query: Query<(Entity, Option<Ref<Parent>>), With<Node>>,
     ui_children: UiChildren,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(
@@ -249,7 +259,19 @@ pub fn ui_layout_system(
         ui_surface.try_remove_children(entity);
     }
 
-    node_query.iter().for_each(|entity| {
+    node_query.iter().for_each(|(entity, maybe_parent)| {
+        if let Some(parent) = maybe_parent {
+            // Note: This does not cover the case where a parent's Node component was removed.
+            // Users are responsible for fixing hierarchies if they do that (it is not recommended).
+            // Detecting it here would be a permanent perf burden on the hot path.
+            if parent.is_changed() && !ui_children.is_ui_node(parent.get()) {
+                warn!(
+                    "Styled child ({entity}) in a non-UI entity hierarchy. You are using an entity \
+with UI components as a child of an entity without UI components, your UI layout may be broken."
+                );
+            }
+        }
+
         if ui_children.is_changed(entity) {
             ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
         }
@@ -261,7 +283,7 @@ pub fn ui_layout_system(
     ui_surface.remove_entities(removed_components.removed_nodes.read());
 
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
-    node_query.iter().for_each(|entity| {
+    node_query.iter().for_each(|(entity, _)| {
         if ui_children.is_changed(entity) {
             ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
         }
@@ -351,12 +373,15 @@ pub fn ui_layout_system(
                 node.unrounded_size = layout_size;
             }
 
-            node.bypass_change_detection().border = BorderRect {
-                left: layout.border.left * inverse_target_scale_factor,
-                right: layout.border.right * inverse_target_scale_factor,
-                top: layout.border.top * inverse_target_scale_factor,
-                bottom: layout.border.bottom * inverse_target_scale_factor,
+            let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
+                left: rect.left * inverse_target_scale_factor,
+                right: rect.right * inverse_target_scale_factor,
+                top: rect.top * inverse_target_scale_factor,
+                bottom: rect.bottom * inverse_target_scale_factor,
             };
+
+            node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
+            node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
 
             let viewport_size = root_size.unwrap_or(node.calculated_size);
 
@@ -498,7 +523,7 @@ mod tests {
         prelude::*,
         ui_layout_system,
         update::update_target_camera_system,
-        ContentSize,
+        ContentSize, LayoutContext,
     };
 
     #[test]
@@ -1218,5 +1243,58 @@ mod tests {
         world.entity_mut(ui_root).add_child(ui_child);
 
         ui_schedule.run(&mut world);
+    }
+
+    #[test]
+    fn test_ui_surface_compute_camera_layout() {
+        use bevy_ecs::prelude::ResMut;
+
+        let (mut world, ..) = setup_ui_test_world();
+
+        let camera_entity = Entity::from_raw(0);
+        let root_node_entity = Entity::from_raw(1);
+
+        struct TestSystemParam {
+            camera_entity: Entity,
+            root_node_entity: Entity,
+        }
+
+        fn test_system(
+            params: In<TestSystemParam>,
+            mut ui_surface: ResMut<UiSurface>,
+            #[cfg(feature = "bevy_text")] mut computed_text_block_query: Query<
+                &mut bevy_text::ComputedTextBlock,
+            >,
+            #[cfg(feature = "bevy_text")] mut font_system: ResMut<bevy_text::CosmicFontSystem>,
+        ) {
+            ui_surface.upsert_node(
+                &LayoutContext::TEST_CONTEXT,
+                params.root_node_entity,
+                &Style::default(),
+                None,
+            );
+
+            ui_surface.compute_camera_layout(
+                params.camera_entity,
+                UVec2::new(800, 600),
+                #[cfg(feature = "bevy_text")]
+                &mut computed_text_block_query,
+                #[cfg(feature = "bevy_text")]
+                &mut font_system.0,
+            );
+        }
+
+        let _ = world.run_system_once_with(
+            TestSystemParam {
+                camera_entity,
+                root_node_entity,
+            },
+            test_system,
+        );
+
+        let ui_surface = world.resource::<UiSurface>();
+
+        let taffy_node = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
+        assert!(ui_surface.taffy.layout(*taffy_node).is_ok());
     }
 }

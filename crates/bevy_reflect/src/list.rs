@@ -109,6 +109,11 @@ pub trait List: PartialReflect {
             values: self.iter().map(PartialReflect::clone_value).collect(),
         }
     }
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_list_info(&self) -> Option<&'static ListInfo> {
+        self.get_represented_type_info()?.as_list().ok()
+    }
 }
 
 /// A container for compile-time list info.

@@ -241,7 +241,7 @@ fn setup_parallax(
         perceptual_roughness: 0.4,
         base_color_texture: Some(asset_server.load("textures/parallax_example/cube_color.png")),
         normal_map_texture: Some(normal_handle),
-        // The depth map is a greyscale texture where black is the highest level and
+        // The depth map is a grayscale texture where black is the highest level and
         // white the lowest.
         depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.png")),
         parallax_depth_scale: 0.09,
@@ -282,7 +282,7 @@ enum DefaultRenderMode {
 
 #[allow(clippy::too_many_arguments)]
 fn switch_mode(
-    mut text: Query<&mut Text>,
+    mut text: Single<&mut Text>,
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
@@ -292,8 +292,6 @@ fn switch_mode(
     mut hide_ui: Local<bool>,
     mut mode: Local<DefaultRenderMode>,
 ) {
-    let mut text = text.single_mut();
-
     text.clear();
 
     if keys.just_pressed(KeyCode::Space) {

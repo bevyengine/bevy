@@ -1,6 +1,6 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
-use bevy::{asset::LoadState, prelude::*, render::camera::ScalingMode};
+use bevy::{prelude::*, render::camera::ScalingMode};
 
 fn main() {
     App::new()
@@ -60,7 +60,7 @@ fn setup(
     // labels
     commands.spawn((
         Text::new("Perceptual Roughness"),
-        TextStyle {
+        TextFont {
             font_size: 30.0,
             ..default()
         },
@@ -74,7 +74,7 @@ fn setup(
 
     commands.spawn((
         Text::new("Metallic"),
-        TextStyle {
+        TextFont {
             font_size: 30.0,
             ..default()
         },
@@ -92,7 +92,7 @@ fn setup(
 
     commands.spawn((
         Text::new("Loading Environment Map..."),
-        TextStyle {
+        TextFont {
             font_size: 30.0,
             ..default()
         },
@@ -129,8 +129,12 @@ fn environment_map_load_finish(
     label_query: Query<Entity, With<EnvironmentMapLabel>>,
 ) {
     if let Ok(environment_map) = environment_maps.get_single() {
-        if asset_server.load_state(&environment_map.diffuse_map) == LoadState::Loaded
-            && asset_server.load_state(&environment_map.specular_map) == LoadState::Loaded
+        if asset_server
+            .load_state(&environment_map.diffuse_map)
+            .is_loaded()
+            && asset_server
+                .load_state(&environment_map.specular_map)
+                .is_loaded()
         {
             if let Ok(label_entity) = label_query.get_single() {
                 commands.entity(label_entity).despawn();

@@ -34,9 +34,9 @@ use core::ops::{Deref, DerefMut};
 /// # #[derive(Component)]
 /// // Do make sure to sync the cloud entities before extracting them.
 /// # struct Cloud;
-/// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<&RenderEntity, With<Cloud>>>) {
+/// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<RenderEntity, With<Cloud>>>) {
 ///     for cloud in &clouds {
-///         commands.entity(cloud.id()).insert(Cloud);
+///         commands.entity(cloud).insert(Cloud);
 ///     }
 /// }
 /// ```

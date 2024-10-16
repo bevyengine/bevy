@@ -58,6 +58,11 @@ pub struct Node {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) border_radius: ResolvedBorderRadius,
+    /// Resolved padding values in logical pixels
+    /// Padding updates bypass change detection.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub(crate) padding: BorderRect,
 }
 
 impl Node {
@@ -175,6 +180,25 @@ impl Node {
             bottom_right: clamp_corner(self.border_radius.bottom_left, s, b.xw()),
         }
     }
+
+    /// Returns the thickness of the node's padding on each edge in logical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
+    pub fn padding(&self) -> BorderRect {
+        self.padding
+    }
+
+    /// Returns the combined inset on each edge including both padding and border thickness in logical pixels.
+    #[inline]
+    pub fn content_inset(&self) -> BorderRect {
+        BorderRect {
+            left: self.border.left + self.padding.left,
+            right: self.border.right + self.padding.right,
+            top: self.border.top + self.padding.top,
+            bottom: self.border.bottom + self.padding.bottom,
+        }
+    }
 }
 
 impl Node {
@@ -186,6 +210,7 @@ impl Node {
         unrounded_size: Vec2::ZERO,
         border_radius: ResolvedBorderRadius::ZERO,
         border: BorderRect::ZERO,
+        padding: BorderRect::ZERO,
     };
 }
 
@@ -282,6 +307,11 @@ pub struct Style {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow>
     pub overflow: Overflow,
+
+    /// How the bounds of clipped content should be determined
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-clip-margin>
+    pub overflow_clip_margin: OverflowClipMargin,
 
     /// The horizontal position of the left edge of the node.
     ///  - For relatively positioned nodes, this is relative to the node's position as computed during regular layout.
@@ -560,6 +590,7 @@ impl Style {
         max_height: Val::Auto,
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
+        overflow_clip_margin: OverflowClipMargin::DEFAULT,
         row_gap: Val::ZERO,
         column_gap: Val::ZERO,
         grid_auto_flow: GridAutoFlow::DEFAULT,
@@ -1015,6 +1046,78 @@ impl Default for OverflowAxis {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+/// The bounds of the visible area when a UI node is clipped.
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct OverflowClipMargin {
+    /// Visible unclipped area
+    pub visual_box: OverflowClipBox,
+    /// Width of the margin on each edge of the visual box in logical pixels.
+    /// The width of the margin will be zero if a negative value is set.
+    pub margin: f32,
+}
+
+impl OverflowClipMargin {
+    pub const DEFAULT: Self = Self {
+        visual_box: OverflowClipBox::ContentBox,
+        margin: 0.,
+    };
+
+    /// Clip any content that overflows outside the content box
+    pub const fn content_box() -> Self {
+        Self {
+            visual_box: OverflowClipBox::ContentBox,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// Clip any content that overflows outside the padding box
+    pub const fn padding_box() -> Self {
+        Self {
+            visual_box: OverflowClipBox::PaddingBox,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// Clip any content that overflows outside the border box
+    pub const fn border_box() -> Self {
+        Self {
+            visual_box: OverflowClipBox::BorderBox,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// Add a margin on each edge of the visual box in logical pixels.
+    /// The width of the margin will be zero if a negative value is set.
+    pub const fn with_margin(mut self, margin: f32) -> Self {
+        self.margin = margin;
+        self
+    }
+}
+
+/// Used to determine the bounds of the visible area when a UI node is clipped.
+#[derive(Default, Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum OverflowClipBox {
+    /// Clip any content that overflows outside the content box
+    #[default]
+    ContentBox,
+    /// Clip any content that overflows outside the padding box
+    PaddingBox,
+    /// Clip any content that overflows outside the border box
+    BorderBox,
 }
 
 /// The strategy used to position this node
@@ -2046,7 +2149,6 @@ pub struct CalculatedClip {
 /// appear in the UI hierarchy. In such a case, the last node to be added to its parent
 /// will appear in front of its siblings.
 ///
-
 /// Nodes without this component will be treated as if they had a value of [`ZIndex(0)`].
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq)]
@@ -2520,7 +2622,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 /// Marker for controlling whether Ui is rendered with or without anti-aliasing
 /// in a camera. By default, Ui is always anti-aliased.
 ///
-/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextStyle`](bevy_text::TextStyle) component.
+/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextFont`](bevy_text::TextFont) component.
 ///
 /// ```
 /// use bevy_core_pipeline::prelude::*;

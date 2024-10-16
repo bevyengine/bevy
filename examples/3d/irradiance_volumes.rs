@@ -243,16 +243,14 @@ fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
 }
 
 fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
-    commands
-        .spawn(SpatialBundle {
-            transform: Transform::from_matrix(VOXEL_FROM_WORLD),
-            ..SpatialBundle::default()
-        })
-        .insert(IrradianceVolume {
+    commands.spawn((
+        Transform::from_matrix(VOXEL_FROM_WORLD),
+        IrradianceVolume {
             voxels: assets.irradiance_volume.clone(),
             intensity: IRRADIANCE_VOLUME_INTENSITY,
-        })
-        .insert(LightProbe);
+        },
+        LightProbe,
+    ));
 }
 
 fn spawn_light(commands: &mut Commands) {
@@ -277,12 +275,7 @@ fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {
 }
 
 fn spawn_voxel_cube_parent(commands: &mut Commands) {
-    commands
-        .spawn(SpatialBundle {
-            visibility: Visibility::Hidden,
-            ..default()
-        })
-        .insert(VoxelCubeParent);
+    commands.spawn((Visibility::Hidden, Transform::default(), VoxelCubeParent));
 }
 
 fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
@@ -341,11 +334,11 @@ impl AppStatus {
         };
 
         format!(
-            "{CLICK_TO_MOVE_HELP_TEXT}
-        {voxels_help_text}
-        {irradiance_volume_help_text}
-        {rotation_help_text}
-        {switch_mesh_help_text}"
+            "{CLICK_TO_MOVE_HELP_TEXT}\n\
+            {voxels_help_text}\n\
+            {irradiance_volume_help_text}\n\
+            {rotation_help_text}\n\
+            {switch_mesh_help_text}"
         )
         .into()
     }

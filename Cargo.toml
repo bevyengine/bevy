@@ -111,6 +111,7 @@ default = [
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
+  "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
   "bevy_remote",
@@ -135,6 +136,9 @@ default = [
   "webgl2",
   "x11",
 ]
+
+# Provides an implementation for picking meshes
+bevy_mesh_picking_backend = ["bevy_picking"]
 
 # Provides an implementation for picking sprites
 bevy_sprite_picking_backend = ["bevy_picking"]
@@ -458,7 +462,7 @@ bytemuck = "1.7"
 bevy_render = { path = "crates/bevy_render", version = "0.15.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
-async-std = "1.12"
+async-std = "1.13"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "1.0"
@@ -1212,6 +1216,17 @@ setup = [
     "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/8443bbdee0bf517e6c297dede7f6a46ab712ee4c/bunny.meshlet_mesh",
   ],
 ]
+
+[[example]]
+name = "mesh_ray_cast"
+path = "examples/3d/mesh_ray_cast.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh_ray_cast]
+name = "Mesh Ray Cast"
+description = "Demonstrates ray casting with the `MeshRayCast` system parameter"
+category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "lightmaps"
@@ -2963,6 +2978,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "overflow_clip_margin"
+path = "examples/ui/overflow_clip_margin.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.overflow_clip_margin]
+name = "Overflow Clip Margin"
+description = "Simple example demonstrating the OverflowClipMargin style property"
+category = "UI (User Interface)"
+wasm = true
+
+
+[[example]]
 name = "overflow_debug"
 path = "examples/ui/overflow_debug.rs"
 doc-scrape-examples = true
@@ -3270,6 +3297,17 @@ name = "Window Settings"
 description = "Demonstrates customizing default window settings"
 category = "Window"
 wasm = true
+
+[[example]]
+name = "window_drag_move"
+path = "examples/window/window_drag_move.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.window_drag_move]
+name = "Window Drag Move"
+description = "Demonstrates drag move and drag resize without window decoration"
+category = "Window"
+wasm = false
 
 [[example]]
 name = "ambiguity_detection"
@@ -3694,6 +3732,18 @@ name = "Rotate Environment Map"
 description = "Demonstrates how to rotate the skybox and the environment map simultaneously"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "mesh_picking"
+path = "examples/picking/mesh_picking.rs"
+doc-scrape-examples = true
+required-features = ["bevy_mesh_picking_backend"]
+
+[package.metadata.example.mesh_picking]
+name = "Mesh Picking"
+description = "Demonstrates picking meshes"
+category = "Picking"
+wasm = true
 
 [[example]]
 name = "simple_picking"
