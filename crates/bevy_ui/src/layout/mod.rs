@@ -21,9 +21,8 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use derive_more::derive::{Display, Error, From};
 use ui_surface::UiSurface;
 
-#[cfg(feature = "bevy_text")]
 use bevy_text::ComputedTextBlock;
-#[cfg(feature = "bevy_text")]
+
 use bevy_text::CosmicFontSystem;
 
 mod convert;
@@ -135,8 +134,8 @@ pub fn ui_layout_system(
         Option<&Outline>,
         Option<&ScrollPosition>,
     )>,
-    #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut ComputedTextBlock>,
-    #[cfg(feature = "bevy_text")] mut font_system: ResMut<CosmicFontSystem>,
+    mut buffer_query: Query<&mut ComputedTextBlock>,
+    mut font_system: ResMut<CosmicFontSystem>,
 ) {
     let UiLayoutSystemBuffers {
         interned_root_nodes,
@@ -277,7 +276,6 @@ with UI components as a child of an entity without UI components, your UI layout
         }
     });
 
-    #[cfg(feature = "bevy_text")]
     let text_buffers = &mut buffer_query;
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(removed_components.removed_nodes.read());
@@ -292,14 +290,7 @@ with UI components as a child of an entity without UI components, your UI layout
     for (camera_id, mut camera) in camera_layout_info.drain() {
         let inverse_target_scale_factor = camera.scale_factor.recip();
 
-        ui_surface.compute_camera_layout(
-            camera_id,
-            camera.size,
-            #[cfg(feature = "bevy_text")]
-            text_buffers,
-            #[cfg(feature = "bevy_text")]
-            &mut font_system.0,
-        );
+        ui_surface.compute_camera_layout(camera_id, camera.size, text_buffers, &mut font_system.0);
 
         for root in &camera.root_nodes {
             update_uinode_geometry_recursive(
@@ -549,11 +540,11 @@ mod tests {
         world.init_resource::<Events<AssetEvent<Image>>>();
         world.init_resource::<Assets<Image>>();
         world.init_resource::<ManualTextureViews>();
-        #[cfg(feature = "bevy_text")]
+
         world.init_resource::<bevy_text::TextPipeline>();
-        #[cfg(feature = "bevy_text")]
+
         world.init_resource::<bevy_text::CosmicFontSystem>();
-        #[cfg(feature = "bevy_text")]
+
         world.init_resource::<bevy_text::SwashCache>();
 
         // spawn a dummy primary window and camera
@@ -1190,11 +1181,11 @@ mod tests {
         world.init_resource::<Events<AssetEvent<Image>>>();
         world.init_resource::<Assets<Image>>();
         world.init_resource::<ManualTextureViews>();
-        #[cfg(feature = "bevy_text")]
+
         world.init_resource::<bevy_text::TextPipeline>();
-        #[cfg(feature = "bevy_text")]
+
         world.init_resource::<bevy_text::CosmicFontSystem>();
-        #[cfg(feature = "bevy_text")]
+
         world.init_resource::<bevy_text::SwashCache>();
 
         // spawn a dummy primary window and camera
@@ -1262,10 +1253,8 @@ mod tests {
         fn test_system(
             params: In<TestSystemParam>,
             mut ui_surface: ResMut<UiSurface>,
-            #[cfg(feature = "bevy_text")] mut computed_text_block_query: Query<
-                &mut bevy_text::ComputedTextBlock,
-            >,
-            #[cfg(feature = "bevy_text")] mut font_system: ResMut<bevy_text::CosmicFontSystem>,
+            mut computed_text_block_query: Query<&mut bevy_text::ComputedTextBlock>,
+            mut font_system: ResMut<bevy_text::CosmicFontSystem>,
         ) {
             ui_surface.upsert_node(
                 &LayoutContext::TEST_CONTEXT,
@@ -1277,9 +1266,7 @@ mod tests {
             ui_surface.compute_camera_layout(
                 params.camera_entity,
                 UVec2::new(800, 600),
-                #[cfg(feature = "bevy_text")]
                 &mut computed_text_block_query,
-                #[cfg(feature = "bevy_text")]
                 &mut font_system.0,
             );
         }
