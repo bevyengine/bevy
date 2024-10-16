@@ -1158,9 +1158,9 @@ pub fn prepare_uinodes(
                                 let transformed_rect_size =
                                     glyph.transform.transform_vector3(rect_size);
                                 if positions_diff[0].x - positions_diff[1].x
-                                    >= transformed_rect_size.x
+                                    >= transformed_rect_size.x.abs()
                                     || positions_diff[1].y - positions_diff[2].y
-                                        >= transformed_rect_size.y
+                                        >= transformed_rect_size.y.abs()
                                 {
                                     continue;
                                 }
