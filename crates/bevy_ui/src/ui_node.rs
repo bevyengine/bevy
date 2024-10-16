@@ -891,7 +891,7 @@ pub enum Display {
     /// Use no layout, don't render this node and its children.
     ///
     /// If you want to hide a node and its children,
-    /// but keep its layout in place, set its [`Visibility`](bevy_render::view::Visibility) component instead.
+    /// but keep its layout in place, set its [`Visibility`] component instead.
     None,
 }
 
