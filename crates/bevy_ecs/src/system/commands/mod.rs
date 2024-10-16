@@ -308,7 +308,7 @@ impl<'w, 's> Commands<'w, 's> {
         EntityCommands {
             entity,
             commands: self.reborrow(),
-            failure_mode: FailureMode::Panic,
+            failure_mode: FailureMode::default(),
         }
     }
 
@@ -335,7 +335,7 @@ impl<'w, 's> Commands<'w, 's> {
         EntityCommands {
             entity,
             commands: self.reborrow(),
-            failure_mode: FailureMode::Panic,
+            failure_mode: FailureMode::default(),
         }
     }
 
@@ -487,7 +487,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.entities.contains(entity).then_some(EntityCommands {
             entity,
             commands: self.reborrow(),
-            failure_mode: FailureMode::Panic,
+            failure_mode: FailureMode::default(),
         })
     }
 
@@ -1038,11 +1038,12 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub enum FailureMode {
     Ignore,
     Log,
     Warn,
+    #[default]
     Panic,
 }
 
@@ -1699,6 +1700,26 @@ pub struct EntityEntryCommands<'a, T> {
 }
 
 impl<'a, T: Component> EntityEntryCommands<'a, T> {
+    pub fn ignore_if_missing(&mut self) -> &mut Self {
+        self.entity_commands.ignore_if_missing();
+        self
+    }
+
+    pub fn log_if_missing(&mut self) -> &mut Self {
+        self.entity_commands.log_if_missing();
+        self
+    }
+
+    pub fn warn_if_missing(&mut self) -> &mut Self {
+        self.entity_commands.warn_if_missing();
+        self
+    }
+
+    pub fn panic_if_missing(&mut self) -> &mut Self {
+        self.entity_commands.panic_if_missing();
+        self
+    }
+
     /// Modify the component `T` if it exists, using the the function `modify`.
     pub fn and_modify(&mut self, modify: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> &mut Self {
         self.entity_commands
