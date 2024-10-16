@@ -149,7 +149,7 @@ impl Plugin for MeshletPlugin {
         #[cfg(target_endian = "big")]
         compile_error!("MeshletPlugin is only supported on little-endian processors.");
 
-        if self.cluster_buffer_slots > 2.pow(25) {
+        if self.cluster_buffer_slots > 2_u32.pow(25) {
             error!("MeshletPlugin::cluster_buffer_slots must not be greater than 2^25.");
             std::process::exit(1);
         }
