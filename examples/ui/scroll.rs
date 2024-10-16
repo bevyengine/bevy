@@ -30,16 +30,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // root node
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .insert(PickingBehavior::IGNORE)
         .with_children(|parent| {
             // horizontal scroll example

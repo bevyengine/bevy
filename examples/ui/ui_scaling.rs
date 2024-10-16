@@ -29,8 +29,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(50.0),
                 height: Val::Percent(50.0),
                 position_type: PositionType::Absolute,
@@ -40,32 +41,31 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            background_color: ANTIQUE_WHITE.into(),
-            ..default()
-        })
+            BackgroundColor(ANTIQUE_WHITE.into()),
+        ))
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node::default(),
+                    Style {
                         width: Val::Px(40.0),
                         height: Val::Px(40.0),
                         ..default()
                     },
-                    background_color: RED.into(),
-                    ..default()
-                })
+                    BackgroundColor(RED.into()),
+                ))
                 .with_children(|parent| {
                     parent.spawn((Text::new("Size!"), text_font, TextColor::BLACK));
                 });
-            parent.spawn(NodeBundle {
-                style: Style {
+            parent.spawn((
+                Node::default(),
+                Style {
                     width: Val::Percent(15.0),
                     height: Val::Percent(15.0),
                     ..default()
                 },
-                background_color: BLUE.into(),
-                ..default()
-            });
+                BackgroundColor(BLUE.into()),
+            ));
             parent.spawn(ImageBundle {
                 style: Style {
                     width: Val::Px(30.0),

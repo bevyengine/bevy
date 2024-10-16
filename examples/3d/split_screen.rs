@@ -85,12 +85,10 @@ fn setup(
         commands
             .spawn((
                 TargetCamera(camera),
-                NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
-                        ..default()
-                    },
+                Node::default(),
+                Style {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
                     ..default()
                 },
             ))
@@ -110,8 +108,9 @@ fn setup(
 
     fn buttons_panel(parent: &mut ChildBuilder) {
         parent
-            .spawn(NodeBundle {
-                style: Style {
+            .spawn((
+                Node::default(),
+                Style {
                     position_type: PositionType::Absolute,
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
@@ -122,8 +121,7 @@ fn setup(
                     padding: UiRect::all(Val::Px(20.)),
                     ..default()
                 },
-                ..default()
-            })
+            ))
             .with_children(|parent| {
                 rotate_button(parent, "<", Direction::Left);
                 rotate_button(parent, ">", Direction::Right);

@@ -82,8 +82,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
 
     commands.spawn(Camera2d);
-    commands.spawn(NodeBundle {
-        style: Style {
+    commands.spawn((Node::default(),
+        Style {
             width: Val::Percent(100.),
             height: Val::Percent(100.),
             flex_direction: FlexDirection::Column,
@@ -91,9 +91,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             justify_content: JustifyContent::SpaceEvenly,
             ..Default::default()
         },
-        background_color: BackgroundColor(Color::BLACK),
-        ..Default::default()
-    }).with_children(|parent| {
+        BackgroundColor(Color::BLACK),
+    )).with_children(|parent| {
         parent.spawn((Text::new("Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left"),
             text_font.clone(),
             TextLayout::new_with_justify(JustifyText::Center),
@@ -104,13 +103,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ));
 
         parent
-            .spawn(NodeBundle {
-                style: Style {
+            .spawn((
+                Node::default(),
+                Style {
                     width: Val::Percent(100.),
-                    ..Default::default()
+                    ..default()
                 },
-                ..Default::default()
-            })
+            ))
             .with_children(|parent| {
                 let mut target_ids = vec![];
                 parent.spawn(NodeBundle {

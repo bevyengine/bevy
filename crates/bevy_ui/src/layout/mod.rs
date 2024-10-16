@@ -589,25 +589,25 @@ mod tests {
 
         // spawn a root entity with width and height set to fill 100% of its parent
         let ui_root = world
-            .spawn(NodeBundle {
-                style: Style {
+            .spawn((
+                Node::default(),
+                Style {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
                     ..default()
                 },
-                ..default()
-            })
+            ))
             .id();
 
         let ui_child = world
-            .spawn(NodeBundle {
-                style: Style {
+            .spawn((
+                Node::default(),
+                Style {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
                     ..default()
                 },
-                ..default()
-            })
+            ))
             .id();
 
         world.entity_mut(ui_root).add_child(ui_child);
@@ -632,7 +632,7 @@ mod tests {
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.entity_to_taffy.is_empty());
 
-        let ui_entity = world.spawn(NodeBundle::default()).id();
+        let ui_entity = world.spawn(Node::default()).id();
 
         // `ui_layout_system` should map `ui_entity` to a ui node in `UiSurface::entity_to_taffy`
         ui_schedule.run(&mut world);
@@ -674,7 +674,7 @@ mod tests {
         let camera_entity = world.spawn(Camera2d).id();
 
         let ui_entity = world
-            .spawn((NodeBundle::default(), TargetCamera(camera_entity)))
+            .spawn((Node::default(), TargetCamera(camera_entity)))
             .id();
 
         // `ui_layout_system` should map `camera_entity` to a ui node in `UiSurface::camera_entity_to_taffy`
@@ -704,7 +704,7 @@ mod tests {
     fn despawning_a_ui_entity_should_remove_its_corresponding_ui_node() {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
 
-        let ui_entity = world.spawn(NodeBundle::default()).id();
+        let ui_entity = world.spawn(Node::default()).id();
 
         // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to `ui_entity`
         ui_schedule.run(&mut world);
@@ -729,7 +729,7 @@ mod tests {
     fn changes_to_children_of_a_ui_entity_change_its_corresponding_ui_nodes_children() {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
 
-        let ui_parent_entity = world.spawn(NodeBundle::default()).id();
+        let ui_parent_entity = world.spawn(Node::default()).id();
 
         // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to `ui_entity`
         ui_schedule.run(&mut world);
@@ -742,7 +742,7 @@ mod tests {
 
         let mut ui_child_entities = (0..10)
             .map(|_| {
-                let child = world.spawn(NodeBundle::default()).id();
+                let child = world.spawn(Node::default()).id();
                 world.entity_mut(ui_parent_entity).add_child(child);
                 child
             })
@@ -836,40 +836,40 @@ mod tests {
 
         let mut size = 150.;
 
-        world.spawn(NodeBundle {
-            style: Style {
+        world.spawn((
+            Node::default(),
+            Style {
                 // test should pass without explicitly requiring position_type to be set to Absolute
                 // position_type: PositionType::Absolute,
                 width: Val::Px(size),
                 height: Val::Px(size),
                 ..default()
             },
-            ..default()
-        });
+        ));
 
         size -= 50.;
 
-        world.spawn(NodeBundle {
-            style: Style {
+        world.spawn((
+            Node::default(),
+            Style {
                 // position_type: PositionType::Absolute,
                 width: Val::Px(size),
                 height: Val::Px(size),
                 ..default()
             },
-            ..default()
-        });
+        ));
 
         size -= 50.;
 
-        world.spawn(NodeBundle {
-            style: Style {
+        world.spawn((
+            Node::default(),
+            Style {
                 // position_type: PositionType::Absolute,
                 width: Val::Px(size),
                 height: Val::Px(size),
                 ..default()
             },
-            ..default()
-        });
+        ));
 
         ui_schedule.run(&mut world);
 
@@ -1004,13 +1004,11 @@ mod tests {
         ));
 
         world.spawn((
-            NodeBundle {
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    top: Val::Px(0.),
-                    left: Val::Px(0.),
-                    ..default()
-                },
+            Node::default(),
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(0.),
+                left: Val::Px(0.),
                 ..default()
             },
             MovingUiNode,
@@ -1060,12 +1058,10 @@ mod tests {
 
         let ui_entity = world
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        align_self: AlignSelf::Start,
-                        ..Default::default()
-                    },
-                    ..Default::default()
+                Node::default(),
+                Style {
+                    align_self: AlignSelf::Start,
+                    ..default()
                 },
                 ContentSize::fixed_size(content_size),
             ))
@@ -1088,11 +1084,9 @@ mod tests {
         let content_size = Vec2::new(50., 25.);
         let ui_entity = world
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        align_self: AlignSelf::Start,
-                        ..Default::default()
-                    },
+                Node::default(),
+                Style {
+                    align_self: AlignSelf::Start,
                     ..Default::default()
                 },
                 ContentSize::fixed_size(content_size),
@@ -1129,26 +1123,26 @@ mod tests {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
 
         let parent = world
-            .spawn(NodeBundle {
-                style: Style {
+            .spawn((
+                Node::default(),
+                Style {
                     display: Display::Grid,
                     grid_template_columns: RepeatedGridTrack::min_content(2),
                     margin: UiRect::all(Val::Px(4.0)),
-                    ..Default::default()
+                    ..default()
                 },
-                ..Default::default()
-            })
+            ))
             .with_children(|commands| {
                 for _ in 0..2 {
-                    commands.spawn(NodeBundle {
-                        style: Style {
+                    commands.spawn((
+                        Node::default(),
+                        Style {
                             display: Display::Grid,
                             width: Val::Px(160.),
                             height: Val::Px(160.),
-                            ..Default::default()
+                            ..default()
                         },
-                        ..Default::default()
-                    });
+                    ));
                 }
             })
             .id();
@@ -1219,25 +1213,25 @@ mod tests {
         );
 
         let ui_root = world
-            .spawn(NodeBundle {
-                style: Style {
+            .spawn((
+                Node::default(),
+                Style {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
                     ..default()
                 },
-                ..default()
-            })
+            ))
             .id();
 
         let ui_child = world
-            .spawn(NodeBundle {
-                style: Style {
+            .spawn((
+                Node::default(),
+                Style {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
                     ..default()
                 },
-                ..default()
-            })
+            ))
             .id();
 
         world.entity_mut(ui_root).add_child(ui_child);

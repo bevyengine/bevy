@@ -23,29 +23,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Ghost UI root
     commands.spawn(GhostNode).with_children(|ghost_root| {
-        ghost_root
-            .spawn(NodeBundle::default())
-            .with_child(create_label(
-                "This text node is rendered under a ghost root",
-                font_handle.clone(),
-            ));
+        ghost_root.spawn(Node::default()).with_child(create_label(
+            "This text node is rendered under a ghost root",
+            font_handle.clone(),
+        ));
     });
 
     // Normal UI root
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             parent
-                .spawn((NodeBundle::default(), Counter(0)))
+                .spawn((Node::default(), Counter(0)))
                 .with_children(|layout_parent| {
                     layout_parent
                         .spawn((GhostNode, Counter(0)))

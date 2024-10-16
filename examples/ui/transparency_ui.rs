@@ -17,16 +17,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceAround,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             parent
                 .spawn(ButtonBundle {

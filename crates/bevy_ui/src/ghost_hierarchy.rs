@@ -149,8 +149,7 @@ mod tests {
     };
     use bevy_hierarchy::{BuildChildren, ChildBuild};
 
-    use super::{GhostNode, UiChildren, UiRootNodes};
-    use crate::prelude::NodeBundle;
+    use super::{GhostNode, Node, UiChildren, UiRootNodes};
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);
@@ -161,20 +160,20 @@ mod tests {
 
         // Normal root
         world
-            .spawn((A(1), NodeBundle::default()))
+            .spawn((A(1), Node::default()))
             .with_children(|parent| {
-                parent.spawn((A(2), NodeBundle::default()));
+                parent.spawn((A(2), Node::default()));
                 parent
                     .spawn((A(3), GhostNode))
-                    .with_child((A(4), NodeBundle::default()));
+                    .with_child((A(4), Node::default()));
             });
 
         // Ghost root
         world.spawn((A(5), GhostNode)).with_children(|parent| {
-            parent.spawn((A(6), NodeBundle::default()));
+            parent.spawn((A(6), Node::default()));
             parent
                 .spawn((A(7), GhostNode))
-                .with_child((A(8), NodeBundle::default()))
+                .with_child((A(8), Node::default()))
                 .with_child(A(9));
         });
 
@@ -190,17 +189,17 @@ mod tests {
     fn iterate_ui_children() {
         let world = &mut World::new();
 
-        let n1 = world.spawn((A(1), NodeBundle::default())).id();
+        let n1 = world.spawn((A(1), Node::default())).id();
         let n2 = world.spawn((A(2), GhostNode)).id();
         let n3 = world.spawn((A(3), GhostNode)).id();
-        let n4 = world.spawn((A(4), NodeBundle::default())).id();
-        let n5 = world.spawn((A(5), NodeBundle::default())).id();
+        let n4 = world.spawn((A(4), Node::default())).id();
+        let n5 = world.spawn((A(5), Node::default())).id();
 
         let n6 = world.spawn((A(6), GhostNode)).id();
         let n7 = world.spawn((A(7), GhostNode)).id();
-        let n8 = world.spawn((A(8), NodeBundle::default())).id();
+        let n8 = world.spawn((A(8), Node::default())).id();
         let n9 = world.spawn((A(9), GhostNode)).id();
-        let n10 = world.spawn((A(10), NodeBundle::default())).id();
+        let n10 = world.spawn((A(10), Node::default())).id();
 
         let no_ui = world.spawn_empty().id();
 
