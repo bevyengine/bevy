@@ -279,7 +279,7 @@ impl<'w, 's> Commands<'w, 's> {
                 }
             },
             entities: self.entities,
-            failure_mode: FailureMode::default(),
+            failure_mode: self.failure_mode,
         }
     }
 
