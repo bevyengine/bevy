@@ -1902,7 +1902,7 @@ impl Default for BorderColor {
 ///         Style {
 ///             width: Val::Px(100.),
 ///             height: Val::Px(100.),
-///             ..default()
+///             ..Default::default()
 ///         },
 ///         BackgroundColor(BLUE.into()),
 ///         Outline::new(Val::Px(10.), Val::ZERO, RED.into())
@@ -2119,7 +2119,7 @@ pub struct GlobalZIndex(pub i32);
 ///             width: Val::Px(100.),
 ///             height: Val::Px(100.),
 ///             border: UiRect::all(Val::Px(2.)),
-///             ..default()
+///             ..Default::default()
 ///         },
 ///         BackgroundColor(BLUE.into()),
 ///         BorderRadius::new(

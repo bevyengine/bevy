@@ -348,7 +348,6 @@ mod ui {
                     row_gap: Val::Px(10.),
                     ..default()
                 },
-                ..default(),
             ))
             .with_children(|parent| {
                 parent
