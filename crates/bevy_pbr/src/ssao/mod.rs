@@ -531,11 +531,13 @@ fn extract_ssao_settings(
             );
             return;
         }
+        let mut entity_commands = commands
+            .get_entity(entity)
+            .expect("SSAO entity wasn't synced.");
         if camera.is_active {
-            commands
-                .get_entity(entity)
-                .expect("SSAO entity wasn't synced.")
-                .insert(ssao_settings.clone());
+            entity_commands.insert(ssao_settings.clone());
+        } else {
+            entity_commands.remove::<ScreenSpaceAmbientOcclusion>();
         }
     }
 }
