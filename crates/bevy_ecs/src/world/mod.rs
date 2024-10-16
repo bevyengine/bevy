@@ -2491,6 +2491,7 @@ impl World {
         self.insert_batch_with_caller(
             batch,
             InsertMode::Replace,
+            FailureMode::Panic,
             #[cfg(feature = "track_change_detection")]
             Location::caller(),
         );
@@ -2521,6 +2522,7 @@ impl World {
         self.insert_batch_with_caller(
             batch,
             InsertMode::Keep,
+            FailureMode::Panic,
             #[cfg(feature = "track_change_detection")]
             Location::caller(),
         );
@@ -2538,6 +2540,7 @@ impl World {
         &mut self,
         iter: I,
         insert_mode: InsertMode,
+        failure_mode: FailureMode,
         #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) where
         I: IntoIterator,
@@ -3784,6 +3787,15 @@ impl<T: Default> FromWorld for T {
     fn from_world(_world: &mut World) -> Self {
         T::default()
     }
+}
+
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+pub enum FailureMode {
+    Ignore,
+    #[default]
+    Log,
+    Warn,
+    Panic,
 }
 
 #[cfg(test)]

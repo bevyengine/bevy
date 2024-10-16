@@ -16,7 +16,7 @@ use crate::{
     system::{input::SystemInput, RunSystemWithInput, SystemId},
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, Command, CommandQueue,
-        EntityWorldMut, FromWorld, SpawnBatchIter, World,
+        EntityWorldMut, FailureMode, FromWorld, SpawnBatchIter, World,
     },
 };
 use bevy_ptr::OwningPtr;
@@ -77,6 +77,7 @@ pub use parallel_scope::*;
 pub struct Commands<'w, 's> {
     queue: InternalQueue<'s>,
     entities: &'w Entities,
+    pub(crate) failure_mode: FailureMode,
 }
 
 // SAFETY: All commands [`Command`] implement [`Send`]
@@ -172,6 +173,7 @@ const _: () = {
             Commands {
                 queue: InternalQueue::CommandQueue(f0),
                 entities: f1,
+                failure_mode: FailureMode::default(),
             }
         }
     }
@@ -190,6 +192,26 @@ enum InternalQueue<'s> {
 }
 
 impl<'w, 's> Commands<'w, 's> {
+    pub fn ignore_on_error(&mut self) -> &mut Self {
+        self.failure_mode = FailureMode::Ignore;
+        self
+    }
+
+    pub fn log_on_error(&mut self) -> &mut Self {
+        self.failure_mode = FailureMode::Log;
+        self
+    }
+
+    pub fn warn_on_error(&mut self) -> &mut Self {
+        self.failure_mode = FailureMode::Warn;
+        self
+    }
+
+    pub fn panic_on_error(&mut self) -> &mut Self {
+        self.failure_mode = FailureMode::Panic;
+        self
+    }
+
     /// Returns a new `Commands` instance from a [`CommandQueue`] and a [`World`].
     ///
     /// It is not required to call this constructor when using `Commands` as a [system parameter].
@@ -208,6 +230,7 @@ impl<'w, 's> Commands<'w, 's> {
         Self {
             queue: InternalQueue::CommandQueue(Deferred(queue)),
             entities,
+            failure_mode: FailureMode::default(),
         }
     }
 
@@ -225,6 +248,7 @@ impl<'w, 's> Commands<'w, 's> {
         Self {
             queue: InternalQueue::RawCommandQueue(queue),
             entities,
+            failure_mode: FailureMode::default(),
         }
     }
 
@@ -255,6 +279,7 @@ impl<'w, 's> Commands<'w, 's> {
                 }
             },
             entities: self.entities,
+            failure_mode: FailureMode::default(),
         }
     }
 
@@ -308,7 +333,6 @@ impl<'w, 's> Commands<'w, 's> {
         EntityCommands {
             entity,
             commands: self.reborrow(),
-            failure_mode: FailureMode::default(),
         }
     }
 
@@ -335,7 +359,6 @@ impl<'w, 's> Commands<'w, 's> {
         EntityCommands {
             entity,
             commands: self.reborrow(),
-            failure_mode: FailureMode::default(),
         }
     }
 
@@ -441,7 +464,7 @@ impl<'w, 's> Commands<'w, 's> {
         #[track_caller]
         fn panic_no_entity(entity: Entity) -> ! {
             panic!(
-                "Attempting to create an EntityCommands for entity {entity:?}, which doesn't exist.",
+                "Attempted to create an EntityCommands for entity {entity:?}, which doesn't exist.",
             );
         }
 
@@ -484,11 +507,22 @@ impl<'w, 's> Commands<'w, 's> {
     #[inline]
     #[track_caller]
     pub fn get_entity(&mut self, entity: Entity) -> Option<EntityCommands> {
-        self.entities.contains(entity).then_some(EntityCommands {
-            entity,
-            commands: self.reborrow(),
-            failure_mode: FailureMode::default(),
-        })
+        if self.entities.contains(entity) {
+            Some(EntityCommands {
+                entity,
+                commands: self.reborrow(),
+            })
+        } else {
+            let message =
+                format!("Attempted to create an EntityCommands for entity {entity:?}, which doesn't exist.");
+            match self.failure_mode {
+                FailureMode::Ignore => (),
+                FailureMode::Log => info!("{}", message),
+                FailureMode::Warn => warn!("{}", message),
+                FailureMode::Panic => panic!("{}", message),
+            };
+            None
+        }
     }
 
     /// Pushes a [`Command`] to the queue for creating entities with a particular [`Bundle`] type.
@@ -639,7 +673,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        self.queue(insert_batch(batch));
+        self.queue(insert_batch(batch, self.failure_mode));
     }
 
     /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
@@ -666,7 +700,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        self.queue(insert_batch_if_new(batch));
+        self.queue(insert_batch_if_new(batch, self.failure_mode));
     }
 
     /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
@@ -1038,40 +1072,30 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
     }
 }
 
-#[derive(Clone, Copy, Default)]
-pub enum FailureMode {
-    Ignore,
-    Log,
-    Warn,
-    #[default]
-    Panic,
-}
-
 /// A list of commands that will be run to modify an [entity](crate::entity).
 pub struct EntityCommands<'a> {
     pub(crate) entity: Entity,
     pub(crate) commands: Commands<'a, 'a>,
-    pub(crate) failure_mode: FailureMode,
 }
 
 impl<'a> EntityCommands<'a> {
     pub fn ignore_if_missing(&mut self) -> &mut Self {
-        self.failure_mode = FailureMode::Ignore;
+        self.commands.ignore_on_error();
         self
     }
 
     pub fn log_if_missing(&mut self) -> &mut Self {
-        self.failure_mode = FailureMode::Log;
+        self.commands.log_on_error();
         self
     }
 
     pub fn warn_if_missing(&mut self) -> &mut Self {
-        self.failure_mode = FailureMode::Warn;
+        self.commands.warn_on_error();
         self
     }
 
     pub fn panic_if_missing(&mut self) -> &mut Self {
-        self.failure_mode = FailureMode::Panic;
+        self.commands.panic_on_error();
         self
     }
 
@@ -1099,7 +1123,6 @@ impl<'a> EntityCommands<'a> {
         EntityCommands {
             entity: self.entity,
             commands: self.commands.reborrow(),
-            failure_mode: FailureMode::Panic,
         }
     }
 
@@ -1608,7 +1631,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     pub fn queue<M: 'static>(&mut self, command: impl EntityCommand<M>) -> &mut Self {
         self.commands
-            .queue(command.with_entity(self.entity, self.failure_mode));
+            .queue(command.with_entity(self.entity, self.commands.failure_mode));
         self
     }
 
@@ -1918,7 +1941,7 @@ where
 ///
 /// This is more efficient than inserting the bundles individually.
 #[track_caller]
-fn insert_batch<I, B>(batch: I) -> impl Command
+fn insert_batch<I, B>(batch: I, failure_mode: FailureMode) -> impl Command
 where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
@@ -1929,6 +1952,7 @@ where
         world.insert_batch_with_caller(
             batch,
             InsertMode::Replace,
+            failure_mode,
             #[cfg(feature = "track_change_detection")]
             caller,
         );
@@ -1940,7 +1964,7 @@ where
 ///
 /// This is more efficient than inserting the bundles individually.
 #[track_caller]
-fn insert_batch_if_new<I, B>(batch: I) -> impl Command
+fn insert_batch_if_new<I, B>(batch: I, failure_mode: FailureMode) -> impl Command
 where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
@@ -1951,6 +1975,7 @@ where
         world.insert_batch_with_caller(
             batch,
             InsertMode::Keep,
+            failure_mode,
             #[cfg(feature = "track_change_detection")]
             caller,
         );
