@@ -2,7 +2,7 @@
 //!
 //! UI layout will ignore ghost nodes, and treat their children as if they were direct descendants of the first non-ghost ancestor.
 
-use bevy::{prelude::*, ui::GhostNode, winit::WinitSettings};
+use bevy::{prelude::*, ui::experimental::GhostNode, winit::WinitSettings};
 
 fn main() {
     App::new()
