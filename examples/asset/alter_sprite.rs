@@ -93,14 +93,12 @@ fn spawn_text(mut commands: Commands) {
     commands
         .spawn((
             Name::new("Instructions"),
-            NodeBundle {
-                style: Style {
-                    align_items: AlignItems::Start,
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Start,
-                    width: Val::Percent(100.),
-                    ..default()
-                },
+            Node::default(),
+            Style {
+                align_items: AlignItems::Start,
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Start,
+                width: Val::Percent(100.),
                 ..default()
             },
         ))

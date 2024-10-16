@@ -105,20 +105,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Overflow Debug
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node::default(),
+                    Style {
                         display: Display::Grid,
                         grid_template_columns: RepeatedGridTrack::px(3, CONTAINER_SIZE),
                         grid_template_rows: RepeatedGridTrack::px(2, CONTAINER_SIZE),
@@ -126,8 +127,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         column_gap: Val::Px(80.),
                         ..default()
                     },
-                    ..default()
-                })
+                ))
                 .with_children(|parent| {
                     spawn_image(parent, &asset_server, Move);
                     spawn_image(parent, &asset_server, Scale);
@@ -188,34 +188,30 @@ fn spawn_container(
 
     parent
         .spawn((
-            NodeBundle {
-                style: Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    overflow: Overflow::clip(),
-                    ..default()
-                },
-                background_color: Color::srgb(0.25, 0.25, 0.25).into(),
+            Node::default(),
+            Style {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                overflow: Overflow::clip(),
                 ..default()
             },
+            BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
             Container(0),
         ))
         .with_children(|parent| {
             parent
                 .spawn((
-                    NodeBundle {
-                        style: Style {
-                            align_items: AlignItems::Center,
-                            justify_content: JustifyContent::Center,
-                            top: Val::Px(transform.translation.x),
-                            left: Val::Px(transform.translation.y),
-                            ..default()
-                        },
-                        transform,
+                    Node::default(),
+                    Style {
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        top: Val::Px(transform.translation.x),
+                        left: Val::Px(transform.translation.y),
                         ..default()
                     },
+                    transform,
                     update_transform,
                 ))
                 .with_children(spawn_children);

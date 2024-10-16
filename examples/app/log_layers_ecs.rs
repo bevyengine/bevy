@@ -119,13 +119,11 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     commands.spawn((
-        NodeBundle {
-            style: Style {
-                width: Val::Vw(100.0),
-                height: Val::Vh(100.0),
-                flex_direction: FlexDirection::Column,
-                ..default()
-            },
+        Node::default(),
+        Style {
+            width: Val::Vw(100.0),
+            height: Val::Vh(100.0),
+            flex_direction: FlexDirection::Column,
             ..default()
         },
         LogViewerRoot,

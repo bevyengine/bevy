@@ -36,19 +36,21 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     let root_uinode = commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .id();
 
-    let left_column = commands.spawn(NodeBundle {
-        style: Style {
+    let left_column = commands
+        .spawn((
+            Node::default(),
+            Style {
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::SpaceBetween,
             align_items: AlignItems::Start,
@@ -56,8 +58,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             margin: UiRect::axes(Val::Px(15.), Val::Px(5.)),
             ..default()
         },
-        ..default()
-    }).with_children(|builder| {
+    )).with_children(|builder| {
         builder.spawn((
             Text::new("This is\ntext with\nline breaks\nin the top left."),
             TextFont {
@@ -101,17 +102,17 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         );
     }).id();
 
-    let right_column = commands.spawn(NodeBundle {
-        style: Style {
-            flex_direction: FlexDirection::Column,
-            justify_content: JustifyContent::SpaceBetween,
-            align_items: AlignItems::End,
-            flex_grow: 1.,
-            margin: UiRect::axes(Val::Px(15.), Val::Px(5.)),
-            ..default()
-        },
-        ..default()
-    }).with_children(|builder| {
+    let right_column = commands.spawn((
+            Node::default(),
+            Style {
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::End,
+                flex_grow: 1.,
+                margin: UiRect::axes(Val::Px(15.), Val::Px(5.)),
+                ..default()
+            },
+    )).with_children(|builder| {
 
         builder.spawn((Text::new(
             "This text is very long, has a limited width, is center-justified, is positioned in the top right and is also colored pink."),

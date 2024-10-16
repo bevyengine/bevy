@@ -150,9 +150,10 @@ fn setup(
     // contains the `AnimationPlayer`, as well as a child node that contains the
     // text to be animated.
     commands
-        .spawn(NodeBundle {
+        .spawn((
+            Node::default(),
             // Cover the whole screen, and center contents.
-            style: Style {
+            Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(0.0),
                 left: Val::Px(0.0),
@@ -162,8 +163,7 @@ fn setup(
                 align_items: AlignItems::Center,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .insert(animation_player)
         .insert(AnimationGraphHandle(animation_graph))
         .with_children(|builder| {
