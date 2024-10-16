@@ -460,8 +460,9 @@ impl<'w, 's> Commands<'w, 's> {
     #[track_caller]
     pub fn entity(&mut self, entity: Entity) -> EntityCommands {
         if !self.entities.contains(entity) {
-            let message =
-                format!("Attempted to create an EntityCommands for entity {entity:?}, which doesn't exist");
+            let message = format!(
+                "Attempted to create an EntityCommands for entity {entity:?}, which doesn't exist"
+            );
             match self.failure_mode {
                 FailureMode::Ignore => (),
                 FailureMode::Log => info!("{}; returned invalid EntityCommands", message),
@@ -514,14 +515,10 @@ impl<'w, 's> Commands<'w, 's> {
                 commands: self.reborrow(),
             })
         } else {
-            let message =
-                format!("Attempted to create an EntityCommands for entity {entity:?}, which doesn't exist");
-            match self.failure_mode {
-                FailureMode::Ignore => (),
-                FailureMode::Log => info!("{}", message),
-                FailureMode::Warn => warn!("{}", message),
-                FailureMode::Panic => panic!("{}", message),
-            };
+            let message = format!(
+                "Attempted to create an EntityCommands for entity {entity:?}, which doesn't exist"
+            );
+            self.failure_mode.fail(message);
             None
         }
     }
@@ -1857,14 +1854,10 @@ where
         if world.entities.contains(id) {
             self(world.entity_mut(id));
         } else {
-            let message =
-                format!("Could not execute EntityCommand because its entity {id:?} was missing");
-            match failure_mode {
-                FailureMode::Ignore => (),
-                FailureMode::Log => info!("{}", message),
-                FailureMode::Warn => warn!("{}", message),
-                FailureMode::Panic => panic!("{}", message),
-            }
+            let message = format!(
+                "Could not execute EntityCommand because its entity {id:?} was missing"
+            );
+            failure_mode.fail(message);
         }
     }
 }
@@ -1877,14 +1870,10 @@ where
         if world.entities.contains(id) {
             self(id, world);
         } else {
-            let message =
-                format!("Could not execute EntityCommand because its entity {id:?} was missing");
-            match failure_mode {
-                FailureMode::Ignore => (),
-                FailureMode::Log => info!("{}", message),
-                FailureMode::Warn => warn!("{}", message),
-                FailureMode::Panic => panic!("{}", message),
-            }
+            let message = format!(
+                "Could not execute EntityCommand because its entity {id:?} was missing"
+            );
+            failure_mode.fail(message);
         }
     }
 }
