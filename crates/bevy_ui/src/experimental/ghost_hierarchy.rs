@@ -33,7 +33,7 @@ impl GhostNode {
     ///
     /// This method is only available when the `ghost_node` feature is enabled,
     /// and will eventually be deprecated then removed in favor of simply using `GhostNode` as no meaningful data is stored.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         GhostNode {
             unconstructable: PhantomData,
         }
