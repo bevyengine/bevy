@@ -62,7 +62,7 @@ impl SystemInput for () {
 /// let mut square_system = IntoSystem::into_system(square);
 /// square_system.initialize(&mut world);
 ///
-/// assert_eq!(square_system.run(12, &mut world), 144);
+/// assert_eq!(square_system.run(12, &mut world).unwrap(), 144);
 /// ```
 ///
 /// [`SystemParam`]: crate::system::SystemParam

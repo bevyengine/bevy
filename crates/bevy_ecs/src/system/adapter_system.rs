@@ -33,15 +33,16 @@ use crate::{
 ///     fn adapt(
 ///         &mut self,
 ///         input: <Self::In as SystemInput>::Inner<'_>,
-///         run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-///     ) -> Self::Out {
-///         !run_system(input)
+///         run_system: impl FnOnce(SystemIn<'_, S>) -> Option<S::Out>,
+///     ) -> Option<Self::Out> {
+///         let out = run_system(input)?;
+///         Some(!out)
 ///     }
 /// }
 /// # let mut world = World::new();
 /// # let mut system = NotSystem::new(NotMarker, IntoSystem::into_system(|| false), "".into());
 /// # system.initialize(&mut world);
-/// # assert!(system.run((), &mut world));
+/// # assert!(system.run((), &mut world).unwrap());
 /// ```
 #[diagnostic::on_unimplemented(
     message = "`{Self}` can not adapt a system of type `{S}`",
@@ -58,8 +59,8 @@ pub trait Adapt<S: System>: Send + Sync + 'static {
     fn adapt(
         &mut self,
         input: <Self::In as SystemInput>::Inner<'_>,
-        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-    ) -> Self::Out;
+        run_system: impl FnOnce(SystemIn<'_, S>) -> Option<S::Out>,
+    ) -> Option<Self::Out>;
 }
 
 /// An [`IntoSystem`] creating an instance of [`AdapterSystem`].
@@ -155,7 +156,7 @@ where
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Option<Self::Out> {
         // SAFETY: `system.run_unsafe` has the same invariants as `self.run_unsafe`.
         self.func.adapt(input, |input| unsafe {
             self.system.run_unsafe(input, world)
@@ -163,7 +164,17 @@ where
     }
 
     #[inline]
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut crate::prelude::World) -> Self::Out {
+    unsafe fn can_run_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+        // SAFETY: Delegate to existing `System` implementations.
+        self.system.can_run_unsafe(world)
+    }
+
+    #[inline]
+    fn run(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: &mut crate::prelude::World,
+    ) -> Option<Self::Out> {
         self.func
             .adapt(input, |input| self.system.run(input, world))
     }
@@ -176,12 +187,6 @@ where
     #[inline]
     fn queue_deferred(&mut self, world: crate::world::DeferredWorld) {
         self.system.queue_deferred(world);
-    }
-
-    #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
-        // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.system.validate_param_unsafe(world) }
     }
 
     fn initialize(&mut self, world: &mut crate::prelude::World) {
@@ -229,8 +234,8 @@ where
     fn adapt(
         &mut self,
         input: <Self::In as SystemInput>::Inner<'_>,
-        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-    ) -> Out {
-        self(run_system(input))
+        run_system: impl FnOnce(SystemIn<'_, S>) -> Option<S::Out>,
+    ) -> Option<Out> {
+        Some(self(run_system(input)?))
     }
 }

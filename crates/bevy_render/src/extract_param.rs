@@ -77,35 +77,12 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param(
-        state: &Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> bool {
-        // SAFETY: Read-only access to world data registered in `init_state`.
-        let result = unsafe { world.get_resource_by_id(state.main_world_state) };
-        let Some(main_world) = result else {
-            system_meta.try_warn_param::<&World>();
-            return false;
-        };
-        // SAFETY: Type is guaranteed by `SystemState`.
-        let main_world: &World = unsafe { main_world.deref() };
-        // SAFETY: We provide the main world on which this system state was initialized on.
-        unsafe {
-            SystemState::<P>::validate_param(
-                &state.state,
-                main_world.as_unsafe_world_cell_readonly(),
-            )
-        }
-    }
-
-    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Option<Self::Item<'w, 's>> {
         // SAFETY:
         // - The caller ensures that `world` is the same one that `init_state` was called with.
         // - The caller ensures that no other `SystemParam`s will conflict with the accesses we have registered.
@@ -116,9 +93,9 @@ where
                 world,
                 change_tick,
             )
-        };
-        let item = state.state.get(main_world.into_inner());
-        Extract { item }
+        }?;
+        let item = state.state.get(main_world.into_inner())?;
+        Some(Extract { item })
     }
 }
 
