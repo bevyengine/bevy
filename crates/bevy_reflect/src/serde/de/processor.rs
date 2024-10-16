@@ -28,6 +28,10 @@ use crate::{PartialReflect, TypeRegistration, TypeRegistry};
 /// the `load` function. This is where a processor is useful, as the processor
 /// can capture local variables.
 ///
+/// A [`ReflectDeserializerProcessor`] always takes priority over a
+/// [`DeserializeWithRegistry`] implementation, so this is also useful for
+/// overriding deserialization behavior if you need to do something custom.
+///
 /// # Examples
 ///
 /// Deserializing a reflected value in an asset loader, and replacing asset
