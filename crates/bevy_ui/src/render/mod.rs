@@ -519,6 +519,10 @@ pub fn extract_default_ui_camera_view(
     for (entity, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
+            commands
+                .get_entity(entity)
+                .expect("Camera entity wasn't synced.")
+                .remove::<(DefaultCameraView, UiAntiAlias, UiBoxShadowSamples)>();
             continue;
         }
 

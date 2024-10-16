@@ -379,6 +379,10 @@ pub fn extract_lights(
     ) in &directional_lights
     {
         if !view_visibility.get() {
+            commands
+                .get_entity(entity)
+                .expect("Light entity wasn't synced.")
+                .remove::<(ExtractedDirectionalLight, RenderCascadesVisibleEntities)>();
             continue;
         }
 
