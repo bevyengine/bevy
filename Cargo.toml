@@ -3834,3 +3834,12 @@ name = "Monitor info"
 description = "Displays information about available monitors (displays)."
 category = "Window"
 wasm = false
+
+# Testbed
+[[example]]
+name = "testbed_2d"
+path = "examples/testbed/2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_2d]
+hidden = true

@@ -19,7 +19,7 @@ on:
 jobs:
   send-to-pixel-eagle:
     name: Send screenshots to Pixel Eagle
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       
       - name: Download artifact
