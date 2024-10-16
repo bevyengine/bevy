@@ -356,7 +356,7 @@ pub fn queue_shadows(
             &ui_slicer_pipeline,
             UiTextureSlicePipelineKey {
                 hdr: view.hdr,
-                samples: shadow_samples.map(|samples| samples.0).unwrap_or_default(),
+                samples: shadow_samples.copied().unwrap_or_default().0,
             },
         );
 
