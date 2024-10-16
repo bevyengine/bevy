@@ -591,8 +591,8 @@ mod tests {
         let ui_root = world
             .spawn(NodeBundle {
                 style: Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: Percent(100.),
+                    height: Percent(100.),
                     ..default()
                 },
                 ..default()
@@ -602,8 +602,8 @@ mod tests {
         let ui_child = world
             .spawn(NodeBundle {
                 style: Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: Percent(100.),
+                    height: Percent(100.),
                     ..default()
                 },
                 ..default()
@@ -840,8 +840,8 @@ mod tests {
             style: Style {
                 // test should pass without explicitly requiring position_type to be set to Absolute
                 // position_type: PositionType::Absolute,
-                width: Val::Px(size),
-                height: Val::Px(size),
+                width: Px(size),
+                height: Px(size),
                 ..default()
             },
             ..default()
@@ -852,8 +852,8 @@ mod tests {
         world.spawn(NodeBundle {
             style: Style {
                 // position_type: PositionType::Absolute,
-                width: Val::Px(size),
-                height: Val::Px(size),
+                width: Px(size),
+                height: Px(size),
                 ..default()
             },
             ..default()
@@ -864,8 +864,8 @@ mod tests {
         world.spawn(NodeBundle {
             style: Style {
                 // position_type: PositionType::Absolute,
-                width: Val::Px(size),
-                height: Val::Px(size),
+                width: Px(size),
+                height: Px(size),
                 ..default()
             },
             ..default()
@@ -959,8 +959,8 @@ mod tests {
                     .insert(TargetCamera(target_camera_entity))
                     .insert(Style {
                         position_type: PositionType::Absolute,
-                        top: Val::Px(pos.y),
-                        left: Val::Px(pos.x),
+                        top: Px(pos.y),
+                        left: Px(pos.x),
                         ..default()
                     });
             }
@@ -1007,8 +1007,8 @@ mod tests {
             NodeBundle {
                 style: Style {
                     position_type: PositionType::Absolute,
-                    top: Val::Px(0.),
-                    left: Val::Px(0.),
+                    top: Px(0.),
+                    left: Px(0.),
                     ..default()
                 },
                 ..default()
@@ -1133,7 +1133,7 @@ mod tests {
                 style: Style {
                     display: Display::Grid,
                     grid_template_columns: RepeatedGridTrack::min_content(2),
-                    margin: UiRect::all(Val::Px(4.0)),
+                    margin: UiRect::all(Px(4.0)),
                     ..Default::default()
                 },
                 ..Default::default()
@@ -1143,8 +1143,8 @@ mod tests {
                     commands.spawn(NodeBundle {
                         style: Style {
                             display: Display::Grid,
-                            width: Val::Px(160.),
-                            height: Val::Px(160.),
+                            width: Px(160.),
+                            height: Px(160.),
                             ..Default::default()
                         },
                         ..Default::default()
@@ -1221,8 +1221,8 @@ mod tests {
         let ui_root = world
             .spawn(NodeBundle {
                 style: Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: Percent(100.),
+                    height: Percent(100.),
                     ..default()
                 },
                 ..default()
@@ -1232,8 +1232,8 @@ mod tests {
         let ui_child = world
             .spawn(NodeBundle {
                 style: Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: Percent(100.),
+                    height: Percent(100.),
                     ..default()
                 },
                 ..default()
