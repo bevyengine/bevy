@@ -15,7 +15,10 @@ use crate::Node;
 /// The UI systems will traverse past these and treat their first non-ghost descendants as direct children of their first non-ghost ancestor.
 ///
 /// Any components necessary for transform and visibility propagation will be added automatically.
-#[derive(Component, Default, Debug, Copy, Clone, Reflect)]
+///
+/// Instances of this type cannot be constructed unless the `ghost_nodes` feature is enabled.
+#[derive(Component, Debug, Copy, Clone, Reflect)]
+#[cfg_attr(feature = "ghost_nodes", derive(Default))]
 #[reflect(Component, Debug)]
 #[require(Visibility, Transform)]
 pub struct GhostNode {
@@ -24,6 +27,7 @@ pub struct GhostNode {
     unconstructable: PhantomData<()>, // Spooky!
 }
 
+#[cfg(feature = "ghost_nodes")]
 impl GhostNode {
     /// Creates a new ghost node.
     ///
@@ -157,7 +161,7 @@ impl<'w, 's> Iterator for UiChildrenIter<'w, 's> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "ghost_nodes"))]
 mod tests {
     use bevy_ecs::{
         prelude::Component,

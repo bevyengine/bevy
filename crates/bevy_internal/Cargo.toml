@@ -241,6 +241,9 @@ reflect_functions = [
 # Enable winit custom cursor support
 custom_cursor = ["bevy_winit/custom_cursor"]
 
+# Experimental support for nodes that are ignored for UI layouting
+ghost_nodes = ["bevy_ui/ghost_nodes"]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.15.0-dev" }
