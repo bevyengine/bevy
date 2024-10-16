@@ -1014,7 +1014,7 @@ impl Image {
     /// If you are working with a 32-bit integer [`TextureFormat`], the value will be
     /// inaccurate (as `f32` does not have enough bits to represent it exactly).
     ///
-    /// Single channel (R) formats are assumed to represent greyscale, so the value
+    /// Single channel (R) formats are assumed to represent grayscale, so the value
     /// will be copied to all three RGB channels in the resulting [`Color`].
     ///
     /// Other [`TextureFormat`]s are unsupported, such as:
