@@ -389,6 +389,7 @@ pub fn extract_lights(
                 )>();
             continue;
         }
+
         // TODO: update in place instead of reinserting.
         let mut extracted_cascades = EntityHashMap::default();
         let mut extracted_frusta = EntityHashMap::default();
