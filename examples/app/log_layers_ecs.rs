@@ -30,7 +30,6 @@ fn main() {
             level: Level::TRACE,
             filter: "warn,log_layers_ecs=trace".to_string(),
             custom_layer,
-            ..default()
         }))
         .add_systems(Startup, (log_system, setup))
         .add_systems(Update, print_logs)
