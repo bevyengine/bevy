@@ -1054,8 +1054,14 @@ pub fn extract_cameras(
     ) in query.iter()
     {
         if !camera.is_active {
+            commands
+                .entity(render_entity)
+                .remove::<RenderVisibleEntities>()
+                .remove::<ExtractedCamera>()
+                .remove::<ExtractedView>();
             continue;
         }
+
         let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
         if let (
