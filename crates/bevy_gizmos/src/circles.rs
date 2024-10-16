@@ -1,9 +1,9 @@
-//! Additional [`Gizmos`] Functions -- Circles
+//! Additional [`GizmoBuffer`] Functions -- Circles
 //!
-//! Includes the implementation of [`Gizmos::circle`] and [`Gizmos::circle_2d`],
+//! Includes the implementation of [`GizmoBuffer::circle`] and [`GizmoBuffer::circle_2d`],
 //! and assorted support items.
 
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::Color;
 use bevy_math::{ops, Isometry2d, Isometry3d, Quat, Vec2, Vec3};
 use core::f32::consts::TAU;
@@ -18,7 +18,7 @@ fn ellipse_inner(half_size: Vec2, resolution: u32) -> impl Iterator<Item = Vec2>
     })
 }
 
-impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -54,7 +54,7 @@ where
         isometry: impl Into<Isometry3d>,
         half_size: Vec2,
         color: impl Into<Color>,
-    ) -> EllipseBuilder<'_, 'w, 's, Config, Clear> {
+    ) -> EllipseBuilder<'_, Config, Clear> {
         EllipseBuilder {
             gizmos: self,
             isometry: isometry.into(),
@@ -95,7 +95,7 @@ where
         isometry: impl Into<Isometry2d>,
         half_size: Vec2,
         color: impl Into<Color>,
-    ) -> Ellipse2dBuilder<'_, 'w, 's, Config, Clear> {
+    ) -> Ellipse2dBuilder<'_, Config, Clear> {
         Ellipse2dBuilder {
             gizmos: self,
             isometry: isometry.into(),
@@ -134,7 +134,7 @@ where
         isometry: impl Into<Isometry3d>,
         radius: f32,
         color: impl Into<Color>,
-    ) -> EllipseBuilder<'_, 'w, 's, Config, Clear> {
+    ) -> EllipseBuilder<'_, Config, Clear> {
         EllipseBuilder {
             gizmos: self,
             isometry: isometry.into(),
@@ -175,7 +175,7 @@ where
         isometry: impl Into<Isometry2d>,
         radius: f32,
         color: impl Into<Color>,
-    ) -> Ellipse2dBuilder<'_, 'w, 's, Config, Clear> {
+    ) -> Ellipse2dBuilder<'_, Config, Clear> {
         Ellipse2dBuilder {
             gizmos: self,
             isometry: isometry.into(),
@@ -217,7 +217,7 @@ where
         isometry: impl Into<Isometry3d>,
         radius: f32,
         color: impl Into<Color>,
-    ) -> SphereBuilder<'_, 'w, 's, Config, Clear> {
+    ) -> SphereBuilder<'_, Config, Clear> {
         SphereBuilder {
             gizmos: self,
             radius,
@@ -228,20 +228,20 @@ where
     }
 }
 
-/// A builder returned by [`Gizmos::ellipse`].
-pub struct EllipseBuilder<'a, 'w, 's, Config, Clear>
+/// A builder returned by [`GizmoBuffer::ellipse`].
+pub struct EllipseBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
     isometry: Isometry3d,
     half_size: Vec2,
     color: Color,
     resolution: u32,
 }
 
-impl<Config, Clear> EllipseBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> EllipseBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -253,7 +253,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for EllipseBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for EllipseBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -269,20 +269,20 @@ where
     }
 }
 
-/// A builder returned by [`Gizmos::ellipse_2d`].
-pub struct Ellipse2dBuilder<'a, 'w, 's, Config, Clear>
+/// A builder returned by [`GizmoBuffer::ellipse_2d`].
+pub struct Ellipse2dBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
     isometry: Isometry2d,
     half_size: Vec2,
     color: Color,
     resolution: u32,
 }
 
-impl<Config, Clear> Ellipse2dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Ellipse2dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -294,7 +294,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Ellipse2dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for Ellipse2dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -311,13 +311,13 @@ where
     }
 }
 
-/// A builder returned by [`Gizmos::sphere`].
-pub struct SphereBuilder<'a, 'w, 's, Config, Clear>
+/// A builder returned by [`GizmoBuffer::sphere`].
+pub struct SphereBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
 
     // Radius of the sphere
     radius: f32,
@@ -330,7 +330,7 @@ where
     resolution: u32,
 }
 
-impl<Config, Clear> SphereBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> SphereBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -342,7 +342,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for SphereBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for SphereBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
