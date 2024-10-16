@@ -20,7 +20,7 @@ use crate::{
     },
 };
 use bevy_ptr::OwningPtr;
-use bevy_utils::tracing::{error, info};
+use bevy_utils::tracing::{error, info, warn};
 pub use parallel_scope::*;
 
 /// A [`Command`] queue to perform structural changes to the [`World`].
@@ -1820,11 +1820,12 @@ where
         if world.entities.contains(id) {
             self(id, world);
         } else {
+            let message = format!("Could not execute EntityCommand because its entity {id:?} was missing");
             match failure_mode {
                 FailureMode::Ignore => (),
-                FailureMode::Log => (),
-                FailureMode::Warn => println!("WEEWOO"),
-                FailureMode::Panic => panic!("WEEWOOWEEWOO"),
+                FailureMode::Log    => info!("{}", message),
+                FailureMode::Warn   => warn!("{}", message),
+                FailureMode::Panic  => panic!("{}", message),
             }
         }
     }
