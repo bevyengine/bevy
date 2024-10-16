@@ -270,8 +270,8 @@ fn detect_morphs(
             Text::default(),
             Style {
                 position_type: PositionType::Absolute,
-                top: Val::Px(10.0),
-                left: Val::Px(10.0),
+                top: Px(10.0),
+                left: Px(10.0),
                 ..default()
             },
         ))

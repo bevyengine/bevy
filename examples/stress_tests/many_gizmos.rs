@@ -91,8 +91,8 @@ fn setup(mut commands: Commands) {
         Text::default(),
         Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: Px(12.0),
+            left: Px(12.0),
             ..default()
         },
     ));

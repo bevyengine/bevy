@@ -37,8 +37,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Set the style of the TextBundle itself.
         Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(5.),
-            right: Val::Px(10.),
+            bottom: Px(5.),
+            right: Px(10.),
             ..default()
         },
     ));

@@ -171,8 +171,8 @@ fn setup(
             text_style.clone(),
         Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: Px(12.0),
+            left: Px(12.0),
             ..default()
         })
     );
@@ -182,8 +182,8 @@ fn setup(
         text_style,
         Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            right: Val::Px(12.0),
+            top: Px(12.0),
+            right: Px(12.0),
             ..default()
         },
         ExampleDisplay,
@@ -317,8 +317,8 @@ fn example_control_system(
             .world_to_viewport(camera_global_transform, world_position)
             .unwrap();
 
-        style.top = Val::Px(viewport_position.y);
-        style.left = Val::Px(viewport_position.x);
+        style.top = Px(viewport_position.y);
+        style.left = Px(viewport_position.x);
     }
 
     display.0 = format!(

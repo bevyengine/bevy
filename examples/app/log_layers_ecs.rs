@@ -121,8 +121,8 @@ fn setup(mut commands: Commands) {
     commands.spawn((
         NodeBundle {
             style: Style {
-                width: Val::Vw(100.0),
-                height: Val::Vh(100.0),
+                width: Vw(100.0),
+                height: Vh(100.0),
                 flex_direction: FlexDirection::Column,
                 ..default()
             },

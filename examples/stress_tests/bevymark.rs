@@ -264,7 +264,7 @@ fn setup(
             NodeBundle {
                 style: Style {
                     position_type: PositionType::Absolute,
-                    padding: UiRect::all(Val::Px(5.0)),
+                    padding: UiRect::all(Px(5.0)),
                     ..default()
                 },
                 background_color: Color::BLACK.with_alpha(0.75).into(),

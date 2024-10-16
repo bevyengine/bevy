@@ -46,6 +46,8 @@ use widget::UiImageSize;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::geometry::Val::{Auto, Percent, Px, VMax, VMin, Vh, Vw};
     #[cfg(feature = "bevy_text")]
     #[allow(deprecated)]
     #[doc(hidden)]

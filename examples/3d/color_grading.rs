@@ -142,9 +142,9 @@ fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &Col
             style: Style {
                 flex_direction: FlexDirection::Column,
                 position_type: PositionType::Absolute,
-                row_gap: Val::Px(6.0),
-                left: Val::Px(12.0),
-                bottom: Val::Px(12.0),
+                row_gap: Px(6.0),
+                left: Px(12.0),
+                bottom: Px(12.0),
                 ..default()
             },
             ..default()
@@ -181,7 +181,7 @@ fn add_buttons_for_global_controls(
             // Add some placeholder text to fill this column.
             parent.spawn(NodeBundle {
                 style: Style {
-                    width: Val::Px(125.0),
+                    width: Px(125.0),
                     ..default()
                 },
                 ..default()
@@ -224,7 +224,7 @@ fn add_buttons_for_section(
         .with_children(|parent| {
             // Spawn the label ("Highlights", etc.)
             add_text(parent, &section.to_string(), font, Color::WHITE).insert(Style {
-                width: Val::Px(125.0),
+                width: Px(125.0),
                 ..default()
             });
 
@@ -257,12 +257,12 @@ fn add_button_for_value(
     parent
         .spawn(ButtonBundle {
             style: Style {
-                border: UiRect::all(Val::Px(1.0)),
-                width: Val::Px(200.0),
+                border: UiRect::all(Px(1.0)),
+                width: Px(200.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-                margin: UiRect::right(Val::Px(12.0)),
+                padding: UiRect::axes(Px(12.0), Px(6.0)),
+                margin: UiRect::right(Px(12.0)),
                 ..default()
             },
             border_color: BorderColor(Color::WHITE),
@@ -322,8 +322,8 @@ fn add_help_text(
         },
         Style {
             position_type: PositionType::Absolute,
-            left: Val::Px(12.0),
-            top: Val::Px(12.0),
+            left: Px(12.0),
+            top: Px(12.0),
             ..default()
         },
         HelpText,

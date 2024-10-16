@@ -53,7 +53,7 @@ fn atlas_render_system(
                 style: Style {
                     position_type: PositionType::Absolute,
                     top: Val::ZERO,
-                    left: Val::Px(512.0 * x_offset),
+                    left: Px(512.0 * x_offset),
                     ..default()
                 },
                 ..default()

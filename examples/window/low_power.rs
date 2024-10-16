@@ -191,8 +191,8 @@ pub(crate) mod test_setup {
                 Style {
                     align_self: AlignSelf::FlexStart,
                     position_type: PositionType::Absolute,
-                    top: Val::Px(12.0),
-                    left: Val::Px(12.0),
+                    top: Px(12.0),
+                    left: Px(12.0),
                     ..default()
                 },
                 ModeText,

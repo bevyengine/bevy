@@ -69,8 +69,8 @@ fn update(
             Text(info_text),
             Style {
                 position_type: PositionType::Relative,
-                height: Val::Percent(100.0),
-                width: Val::Percent(100.0),
+                height: Percent(100.0),
+                width: Percent(100.0),
                 ..default()
             },
             TargetCamera(camera),

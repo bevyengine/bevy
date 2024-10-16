@@ -169,7 +169,7 @@ fn build_ui(
                 position_type: PositionType::Absolute,
                 top: state.ui_top,
                 left: state.ui_left,
-                padding: UiRect::all(Val::Px(10.0)),
+                padding: UiRect::all(Px(10.0)),
                 ..default()
             },
             BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.33)),
@@ -199,8 +199,8 @@ fn build_stepping_hint(mut commands: Commands) {
         TextColor(FONT_COLOR),
         Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            left: Val::Px(5.0),
+            bottom: Px(5.0),
+            left: Px(5.0),
             ..default()
         },
     ));

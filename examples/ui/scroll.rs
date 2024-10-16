@@ -32,8 +32,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: Percent(100.0),
+                height: Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 flex_direction: FlexDirection::Column,
                 ..default()
@@ -46,7 +46,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Val::Percent(100.),
+                        width: Percent(100.),
                         flex_direction: FlexDirection::Column,
                         ..default()
                     },
@@ -68,8 +68,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn(NodeBundle {
                             style: Style {
-                                width: Val::Percent(80.),
-                                margin: UiRect::all(Val::Px(10.)),
+                                width: Percent(80.),
+                                margin: UiRect::all(Px(10.)),
                                 flex_direction: FlexDirection::Row,
                                 overflow: Overflow::scroll_x(), // n.b.
                                 ..default()
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     AccessibilityNode(NodeBuilder::new(Role::ListItem)),
                                 ))
                                 .insert(Style {
-                                    min_width: Val::Px(200.),
+                                    min_width: Px(200.),
                                     align_content: AlignContent::Center,
                                     ..default()
                                 })
@@ -113,8 +113,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
+                        width: Percent(100.),
+                        height: Percent(100.),
                         flex_direction: FlexDirection::Row,
                         justify_content: JustifyContent::SpaceBetween,
                         ..default()
@@ -129,7 +129,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 flex_direction: FlexDirection::Column,
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
-                                width: Val::Px(200.),
+                                width: Px(200.),
                                 ..default()
                             },
                             ..default()
@@ -151,7 +151,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     style: Style {
                                         flex_direction: FlexDirection::Column,
                                         align_self: AlignSelf::Stretch,
-                                        height: Val::Percent(50.),
+                                        height: Percent(50.),
                                         overflow: Overflow::scroll_y(), // n.b.
                                         ..default()
                                     },
@@ -164,8 +164,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         parent
                                             .spawn(NodeBundle {
                                                 style: Style {
-                                                    min_height: Val::Px(LINE_HEIGHT),
-                                                    max_height: Val::Px(LINE_HEIGHT),
+                                                    min_height: Px(LINE_HEIGHT),
+                                                    max_height: Px(LINE_HEIGHT),
                                                     ..default()
                                                 },
                                                 ..default()
@@ -204,7 +204,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 flex_direction: FlexDirection::Column,
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
-                                width: Val::Px(200.),
+                                width: Px(200.),
                                 ..default()
                             },
                             ..default()
@@ -226,7 +226,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     style: Style {
                                         flex_direction: FlexDirection::Column,
                                         align_self: AlignSelf::Stretch,
-                                        height: Val::Percent(50.),
+                                        height: Percent(50.),
                                         overflow: Overflow::scroll(), // n.b.
                                         ..default()
                                     },
@@ -279,7 +279,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 flex_direction: FlexDirection::Column,
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
-                                width: Val::Px(200.),
+                                width: Px(200.),
                                 ..default()
                             },
                             ..default()
@@ -299,10 +299,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent
                                 .spawn(NodeBundle {
                                     style: Style {
-                                        column_gap: Val::Px(20.),
+                                        column_gap: Px(20.),
                                         flex_direction: FlexDirection::Row,
                                         align_self: AlignSelf::Stretch,
-                                        height: Val::Percent(50.),
+                                        height: Percent(50.),
                                         overflow: Overflow::scroll_x(), // n.b.
                                         ..default()
                                     },

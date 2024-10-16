@@ -22,8 +22,8 @@ fn setup(
             Text::new("Click Me to get a box"),
             Style {
                 position_type: PositionType::Absolute,
-                top: Val::Percent(12.0),
-                left: Val::Percent(12.0),
+                top: Percent(12.0),
+                left: Percent(12.0),
                 ..default()
             },
         ))

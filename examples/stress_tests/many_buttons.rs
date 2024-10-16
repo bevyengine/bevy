@@ -132,7 +132,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     let border = if args.no_borders {
         UiRect::ZERO
     } else {
-        UiRect::all(Val::VMin(0.05 * 90. / buttons_f))
+        UiRect::all(VMin(0.05 * 90. / buttons_f))
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
@@ -143,8 +143,8 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: Percent(100.),
+                height: Percent(100.),
                 ..default()
             },
             ..default()
@@ -189,7 +189,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     let border = if args.no_borders {
         UiRect::ZERO
     } else {
-        UiRect::all(Val::VMin(0.05 * 90. / buttons_f))
+        UiRect::all(VMin(0.05 * 90. / buttons_f))
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
@@ -198,8 +198,8 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
         .spawn(NodeBundle {
             style: Style {
                 display: Display::Grid,
-                width: Val::Percent(100.),
-                height: Val::Percent(100.0),
+                width: Percent(100.),
+                height: Percent(100.0),
                 grid_template_columns: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
                 grid_template_rows: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
                 ..default()
@@ -242,8 +242,8 @@ fn spawn_button(
     border_color: BorderColor,
     image: Option<Handle<Image>>,
 ) {
-    let width = Val::Vw(90.0 / buttons);
-    let height = Val::Vh(90.0 / buttons);
+    let width = Vw(90.0 / buttons);
+    let height = Vh(90.0 / buttons);
     let margin = UiRect::axes(width * 0.05, height * 0.05);
     let mut builder = commands.spawn((
         ButtonBundle {

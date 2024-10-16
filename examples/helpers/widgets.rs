@@ -29,9 +29,9 @@ pub fn main_ui_style() -> Style {
     Style {
         flex_direction: FlexDirection::Column,
         position_type: PositionType::Absolute,
-        row_gap: Val::Px(6.0),
-        left: Val::Px(10.0),
-        bottom: Val::Px(10.0),
+        row_gap: Px(6.0),
+        left: Px(10.0),
+        bottom: Px(10.0),
         ..default()
     }
 }
@@ -60,20 +60,16 @@ pub fn spawn_option_button<T>(
     parent
         .spawn(ButtonBundle {
             style: Style {
-                border: UiRect::all(Val::Px(1.0)).with_left(if is_first {
-                    Val::Px(1.0)
-                } else {
-                    Val::Px(0.0)
-                }),
+                border: UiRect::all(Px(1.0)).with_left(if is_first { Px(1.0) } else { Px(0.0) }),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
+                padding: UiRect::axes(Px(12.0), Px(6.0)),
                 ..default()
             },
             border_color: BorderColor(Color::WHITE),
             border_radius: BorderRadius::ZERO
-                .with_left(if is_first { Val::Px(6.0) } else { Val::Px(0.0) })
-                .with_right(if is_last { Val::Px(6.0) } else { Val::Px(0.0) }),
+                .with_left(if is_first { Px(6.0) } else { Px(0.0) })
+                .with_right(if is_last { Px(6.0) } else { Px(0.0) }),
             background_color: BackgroundColor(bg_color),
             ..default()
         })
@@ -106,7 +102,7 @@ where
         })
         .with_children(|parent| {
             spawn_ui_text(parent, title, Color::BLACK).insert(Style {
-                width: Val::Px(125.0),
+                width: Px(125.0),
                 ..default()
             });
 

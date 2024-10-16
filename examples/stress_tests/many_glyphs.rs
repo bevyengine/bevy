@@ -58,7 +58,7 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(100.),
+                width: Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -69,7 +69,7 @@ fn setup(mut commands: Commands) {
             commands
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Val::Px(1000.),
+                        width: Px(1000.),
                         ..Default::default()
                     },
                     ..Default::default()

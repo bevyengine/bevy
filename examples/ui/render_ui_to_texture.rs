@@ -68,8 +68,8 @@ fn setup(
             NodeBundle {
                 style: Style {
                     // Cover the whole image
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: Percent(100.),
+                    height: Percent(100.),
                     flex_direction: FlexDirection::Column,
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,

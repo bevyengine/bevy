@@ -25,8 +25,8 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: Percent(100.),
+                height: Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -38,8 +38,8 @@ fn setup(mut commands: Commands) {
                 .spawn(NodeBundle {
                     background_color: GRAY.into(),
                     style: Style {
-                        width: Val::Px(180.0),
-                        height: Val::Px(100.0),
+                        width: Px(180.0),
+                        height: Px(100.0),
                         ..default()
                     },
                     ..default()
@@ -50,10 +50,10 @@ fn setup(mut commands: Commands) {
                         background_color: RED.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(10.0),
-                            bottom: Val::Px(40.0),
-                            width: Val::Px(100.0),
-                            height: Val::Px(50.0),
+                            left: Px(10.0),
+                            bottom: Px(40.0),
+                            width: Px(100.0),
+                            height: Px(50.0),
                             ..default()
                         },
                         ..default()
@@ -66,10 +66,10 @@ fn setup(mut commands: Commands) {
                         background_color: BLUE.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(45.0),
-                            bottom: Val::Px(30.0),
-                            width: Val::Px(100.),
-                            height: Val::Px(50.),
+                            left: Px(45.0),
+                            bottom: Px(30.0),
+                            width: Px(100.),
+                            height: Px(50.),
                             ..default()
                         },
                         ..default()
@@ -82,10 +82,10 @@ fn setup(mut commands: Commands) {
                         background_color: LIME.into(),
                         style: Style {
                             position_type: PositionType::Absolute,
-                            left: Val::Px(70.0),
-                            bottom: Val::Px(20.0),
-                            width: Val::Px(100.),
-                            height: Val::Px(75.),
+                            left: Px(70.0),
+                            bottom: Px(20.0),
+                            width: Px(100.),
+                            height: Px(75.),
                             ..default()
                         },
                         ..default()
@@ -99,10 +99,10 @@ fn setup(mut commands: Commands) {
                             background_color: PURPLE.into(),
                             style: Style {
                                 position_type: PositionType::Absolute,
-                                left: Val::Px(15.0),
-                                bottom: Val::Px(10.0),
-                                width: Val::Px(100.),
-                                height: Val::Px(60.),
+                                left: Px(15.0),
+                                bottom: Px(10.0),
+                                width: Px(100.),
+                                height: Px(60.),
                                 ..default()
                             },
                             ..Default::default()
@@ -118,10 +118,10 @@ fn setup(mut commands: Commands) {
                             background_color: YELLOW.into(),
                             style: Style {
                                 position_type: PositionType::Absolute,
-                                left: Val::Px(-15.0),
-                                bottom: Val::Px(-15.0),
-                                width: Val::Px(100.),
-                                height: Val::Px(125.),
+                                left: Px(-15.0),
+                                bottom: Px(-15.0),
+                                width: Px(100.),
+                                height: Px(125.),
                                 ..default()
                             },
                             ..Default::default()

@@ -81,10 +81,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
             style: Style {
                 display: Display::Flex,
                 justify_content: JustifyContent::SpaceBetween,
-                width: Val::Percent(100.),
+                width: Percent(100.),
                 position_type: PositionType::Absolute,
-                top: Val::Px(0.),
-                padding: UiRect::all(Val::Px(20.0)),
+                top: Px(0.),
+                padding: UiRect::all(Px(20.0)),
                 ..default()
             },
             ..default()

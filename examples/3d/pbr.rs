@@ -66,8 +66,8 @@ fn setup(
         },
         Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(20.0),
-            left: Val::Px(100.0),
+            top: Px(20.0),
+            left: Px(100.0),
             ..default()
         },
     ));
@@ -80,7 +80,7 @@ fn setup(
         },
         Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(130.0),
+            top: Px(130.0),
             right: Val::ZERO,
             ..default()
         },
@@ -98,8 +98,8 @@ fn setup(
         },
         Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(20.0),
-            right: Val::Px(20.0),
+            bottom: Px(20.0),
+            right: Px(20.0),
             ..default()
         },
         EnvironmentMapLabel,

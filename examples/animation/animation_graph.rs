@@ -254,8 +254,8 @@ fn setup_help_text(commands: &mut Commands) {
         Text::new(HELP_TEXT),
         Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: Px(12.0),
+            left: Px(12.0),
             ..default()
         },
     ));
@@ -286,10 +286,10 @@ fn setup_node_rects(commands: &mut Commands) {
                 NodeBundle {
                     style: Style {
                         position_type: PositionType::Absolute,
-                        bottom: Val::Px(node_rect.bottom),
-                        left: Val::Px(node_rect.left),
-                        height: Val::Px(node_rect.height),
-                        width: Val::Px(node_rect.width),
+                        bottom: Px(node_rect.bottom),
+                        left: Px(node_rect.left),
+                        height: Px(node_rect.height),
+                        width: Px(node_rect.width),
                         align_items: AlignItems::Center,
                         justify_items: JustifyItems::Center,
                         align_content: AlignContent::Center,
@@ -299,7 +299,7 @@ fn setup_node_rects(commands: &mut Commands) {
                     border_color: WHITE.into(),
                     ..default()
                 },
-                Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
+                Outline::new(Px(1.), Val::ZERO, Color::WHITE),
             ));
 
             if let NodeType::Clip(ref clip) = node_type {
@@ -319,10 +319,10 @@ fn setup_node_rects(commands: &mut Commands) {
                 .spawn(NodeBundle {
                     style: Style {
                         position_type: PositionType::Absolute,
-                        top: Val::Px(0.),
-                        left: Val::Px(0.),
-                        height: Val::Px(node_rect.height),
-                        width: Val::Px(node_rect.width),
+                        top: Px(0.),
+                        left: Px(0.),
+                        height: Px(node_rect.height),
+                        width: Px(node_rect.width),
                         ..default()
                     },
                     background_color: DARK_GREEN.into(),
@@ -346,11 +346,11 @@ fn setup_node_lines(commands: &mut Commands) {
         commands.spawn(NodeBundle {
             style: Style {
                 position_type: PositionType::Absolute,
-                bottom: Val::Px(line.bottom),
-                left: Val::Px(line.left),
-                height: Val::Px(0.0),
-                width: Val::Px(line.length),
-                border: UiRect::bottom(Val::Px(1.0)),
+                bottom: Px(line.bottom),
+                left: Px(line.left),
+                height: Px(0.0),
+                width: Px(line.length),
+                border: UiRect::bottom(Px(1.0)),
                 ..default()
             },
             border_color: WHITE.into(),
@@ -362,11 +362,11 @@ fn setup_node_lines(commands: &mut Commands) {
         commands.spawn(NodeBundle {
             style: Style {
                 position_type: PositionType::Absolute,
-                bottom: Val::Px(line.bottom),
-                left: Val::Px(line.left),
-                height: Val::Px(line.length),
-                width: Val::Px(0.0),
-                border: UiRect::left(Val::Px(1.0)),
+                bottom: Px(line.bottom),
+                left: Px(line.left),
+                height: Px(line.length),
+                width: Px(0.0),
+                border: UiRect::left(Px(1.0)),
                 ..default()
             },
             border_color: WHITE.into(),
@@ -433,8 +433,7 @@ fn update_ui(
             let mut bg_iter = background_query.iter_many_mut(children);
             if let Some(mut style) = bg_iter.fetch_next() {
                 // All nodes are the same width, so `NODE_RECTS[0]` is as good as any other.
-                style.width =
-                    Val::Px(NODE_RECTS[0].width * animation_weights.weights[clip_node.index]);
+                style.width = Px(NODE_RECTS[0].width * animation_weights.weights[clip_node.index]);
             }
 
             // Update the node labels with the current weights.

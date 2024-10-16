@@ -96,8 +96,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
         create_text(&app_settings),
         Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: Px(12.0),
+            left: Px(12.0),
             ..default()
         },
     ));

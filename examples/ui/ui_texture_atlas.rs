@@ -35,12 +35,12 @@ fn setup(
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: Percent(100.0),
+                height: Percent(100.0),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                row_gap: Val::Px(text_font.font_size * 2.),
+                row_gap: Px(text_font.font_size * 2.),
                 ..default()
             },
             ..default()
@@ -49,8 +49,8 @@ fn setup(
             parent.spawn((
                 ImageBundle {
                     style: Style {
-                        width: Val::Px(256.),
-                        height: Val::Px(256.),
+                        width: Px(256.),
+                        height: Px(256.),
                         ..default()
                     },
                     image: UiImage::new(texture_handle),
@@ -58,7 +58,7 @@ fn setup(
                     ..default()
                 },
                 TextureAtlas::from(texture_atlas_handle),
-                Outline::new(Val::Px(8.0), Val::ZERO, CRIMSON.into()),
+                Outline::new(Px(8.0), Val::ZERO, CRIMSON.into()),
             ));
             parent
                 .spawn((Text::new("press "), text_font.clone()))

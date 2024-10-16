@@ -159,8 +159,8 @@ mod ui {
             .spawn(NodeBundle {
                 style: Style {
                     // center button
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: Percent(100.),
+                    height: Percent(100.),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     ..default()
@@ -171,8 +171,8 @@ mod ui {
                 parent
                     .spawn(ButtonBundle {
                         style: Style {
-                            width: Val::Px(150.),
-                            height: Val::Px(65.),
+                            width: Px(150.),
+                            height: Px(65.),
                             // horizontally center child text
                             justify_content: JustifyContent::Center,
                             // vertically center child text
@@ -208,12 +208,12 @@ mod ui {
                 NodeBundle {
                     style: Style {
                         // center button
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
+                        width: Percent(100.),
+                        height: Percent(100.),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(10.),
+                        row_gap: Px(10.),
                         ..default()
                     },
                     ..default()
@@ -223,8 +223,8 @@ mod ui {
                 parent
                     .spawn(NodeBundle {
                         style: Style {
-                            width: Val::Px(400.),
-                            height: Val::Px(400.),
+                            width: Px(400.),
+                            height: Px(400.),
                             // horizontally center child text
                             justify_content: JustifyContent::Center,
                             // vertically center child text

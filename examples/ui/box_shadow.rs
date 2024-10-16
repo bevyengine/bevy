@@ -36,10 +36,10 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                padding: UiRect::all(Val::Px(30.)),
-                column_gap: Val::Px(30.),
+                width: Percent(100.0),
+                height: Percent(100.0),
+                padding: UiRect::all(Px(30.)),
+                column_gap: Px(30.),
                 flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
@@ -53,7 +53,7 @@ fn setup(mut commands: Commands) {
                     Vec2::ZERO,
                     10.,
                     0.,
-                    BorderRadius::bottom_right(Val::Px(10.)),
+                    BorderRadius::bottom_right(Px(10.)),
                 ),
                 (Vec2::new(50., 25.), Vec2::ZERO, 10., 0., BorderRadius::ZERO),
                 (Vec2::splat(50.), Vec2::ZERO, 10., 0., BorderRadius::MAX),
@@ -63,7 +63,7 @@ fn setup(mut commands: Commands) {
                     Vec2::ZERO,
                     10.,
                     0.,
-                    BorderRadius::bottom_right(Val::Px(10.)),
+                    BorderRadius::bottom_right(Px(10.)),
                 ),
                 (Vec2::new(50., 25.), Vec2::ZERO, 0., 10., BorderRadius::ZERO),
                 (
@@ -71,7 +71,7 @@ fn setup(mut commands: Commands) {
                     Vec2::ZERO,
                     0.,
                     10.,
-                    BorderRadius::bottom_right(Val::Px(10.)),
+                    BorderRadius::bottom_right(Px(10.)),
                 ),
                 (Vec2::new(100., 25.), Vec2::ZERO, 0., 10., BorderRadius::MAX),
                 (
@@ -93,7 +93,7 @@ fn setup(mut commands: Commands) {
                     Vec2::splat(10.),
                     0.,
                     0.,
-                    BorderRadius::bottom_right(Val::Px(10.)),
+                    BorderRadius::bottom_right(Px(10.)),
                 ),
                 (
                     Vec2::splat(50.),
@@ -114,7 +114,7 @@ fn setup(mut commands: Commands) {
                     Vec2::splat(10.),
                     0.,
                     10.,
-                    BorderRadius::bottom_right(Val::Px(10.)),
+                    BorderRadius::bottom_right(Px(10.)),
                 ),
                 (
                     Vec2::splat(50.),
@@ -135,21 +135,21 @@ fn setup(mut commands: Commands) {
                     Vec2::splat(10.),
                     0.,
                     3.,
-                    BorderRadius::bottom_right(Val::Px(10.)),
+                    BorderRadius::bottom_right(Px(10.)),
                 ),
                 (
                     Vec2::splat(50.),
                     Vec2::splat(10.),
                     0.,
                     3.,
-                    BorderRadius::all(Val::Px(20.)),
+                    BorderRadius::all(Px(20.)),
                 ),
                 (
                     Vec2::new(50., 25.),
                     Vec2::splat(10.),
                     0.,
                     3.,
-                    BorderRadius::all(Val::Px(20.)),
+                    BorderRadius::all(Px(20.)),
                 ),
                 (
                     Vec2::new(25., 50.),
@@ -163,14 +163,14 @@ fn setup(mut commands: Commands) {
                     Vec2::splat(10.),
                     0.,
                     10.,
-                    BorderRadius::all(Val::Px(20.)),
+                    BorderRadius::all(Px(20.)),
                 ),
                 (
                     Vec2::new(50., 25.),
                     Vec2::splat(10.),
                     0.,
                     10.,
-                    BorderRadius::all(Val::Px(20.)),
+                    BorderRadius::all(Px(20.)),
                 ),
                 (
                     Vec2::new(25., 50.),
@@ -203,9 +203,9 @@ fn box_shadow_node_bundle(
     (
         NodeBundle {
             style: Style {
-                width: Val::Px(size.x),
-                height: Val::Px(size.y),
-                border: UiRect::all(Val::Px(4.)),
+                width: Px(size.x),
+                height: Px(size.y),
+                border: UiRect::all(Px(4.)),
                 ..default()
             },
             border_color: BorderColor(LIGHT_SKY_BLUE.into()),
@@ -215,10 +215,10 @@ fn box_shadow_node_bundle(
         },
         BoxShadow {
             color: Color::BLACK.with_alpha(0.8),
-            x_offset: Val::Percent(offset.x),
-            y_offset: Val::Percent(offset.y),
-            spread_radius: Val::Percent(spread),
-            blur_radius: Val::Px(blur),
+            x_offset: Percent(offset.x),
+            y_offset: Percent(offset.y),
+            spread_radius: Percent(spread),
+            blur_radius: Px(blur),
         },
     )
 }

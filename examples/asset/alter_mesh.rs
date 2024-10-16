@@ -140,7 +140,7 @@ fn spawn_text(mut commands: Commands) {
                     align_items: AlignItems::Start,
                     flex_direction: FlexDirection::Column,
                     justify_content: JustifyContent::Start,
-                    width: Val::Percent(100.),
+                    width: Percent(100.),
                     ..default()
                 },
                 ..default()

@@ -57,8 +57,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: Percent(100.0),
+                height: Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -71,13 +71,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     .spawn((
                         ButtonBundle {
                             style: Style {
-                                width: Val::Px(w),
-                                height: Val::Px(h),
+                                width: Px(w),
+                                height: Px(h),
                                 // horizontally center child text
                                 justify_content: JustifyContent::Center,
                                 // vertically center child text
                                 align_items: AlignItems::Center,
-                                margin: UiRect::all(Val::Px(20.0)),
+                                margin: UiRect::all(Px(20.0)),
                                 ..default()
                             },
                             image: image.clone().into(),

@@ -87,8 +87,8 @@ fn setup(
                 TargetCamera(camera),
                 NodeBundle {
                     style: Style {
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
+                        width: Percent(100.),
+                        height: Percent(100.),
                         ..default()
                     },
                     ..default()
@@ -99,8 +99,8 @@ fn setup(
                     Text::new(*camera_name),
                     Style {
                         position_type: PositionType::Absolute,
-                        top: Val::Px(12.),
-                        left: Val::Px(12.),
+                        top: Px(12.),
+                        left: Px(12.),
                         ..default()
                     },
                 ));
@@ -113,13 +113,13 @@ fn setup(
             .spawn(NodeBundle {
                 style: Style {
                     position_type: PositionType::Absolute,
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: Percent(100.),
+                    height: Percent(100.),
                     display: Display::Flex,
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceBetween,
                     align_items: AlignItems::Center,
-                    padding: UiRect::all(Val::Px(20.)),
+                    padding: UiRect::all(Px(20.)),
                     ..default()
                 },
                 ..default()
@@ -136,9 +136,9 @@ fn setup(
                 RotateCamera(direction),
                 ButtonBundle {
                     style: Style {
-                        width: Val::Px(40.),
-                        height: Val::Px(40.),
-                        border: UiRect::all(Val::Px(2.)),
+                        width: Px(40.),
+                        height: Px(40.),
+                        border: UiRect::all(Px(2.)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()

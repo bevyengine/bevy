@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 const ALIGN_ITEMS_COLOR: Color = Color::srgb(1., 0.066, 0.349);
 const JUSTIFY_CONTENT_COLOR: Color = Color::srgb(0.102, 0.522, 1.);
-const MARGIN: Val = Val::Px(12.);
+const MARGIN: Val = Px(12.);
 
 fn main() {
     App::new()
@@ -25,8 +25,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(NodeBundle {
             style: Style {
                 // fill the entire window
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: Percent(100.),
+                height: Percent(100.),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 padding: UiRect::all(MARGIN),
@@ -66,8 +66,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
+                        width: Percent(100.),
+                        height: Percent(100.),
                         flex_direction: FlexDirection::Column,
                         row_gap: MARGIN,
                         ..Default::default()
@@ -95,8 +95,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         builder
                             .spawn(NodeBundle {
                                 style: Style {
-                                    width: Val::Percent(100.),
-                                    height: Val::Percent(100.),
+                                    width: Percent(100.),
+                                    height: Percent(100.),
                                     flex_direction: FlexDirection::Row,
                                     column_gap: MARGIN,
                                     ..Default::default()
@@ -130,8 +130,8 @@ fn spawn_child_node(
                 flex_direction: FlexDirection::Column,
                 align_items,
                 justify_content,
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: Percent(100.),
+                height: Percent(100.),
                 ..Default::default()
             },
             background_color: BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
@@ -148,7 +148,7 @@ fn spawn_child_node(
                     builder,
                     font.clone(),
                     color,
-                    UiRect::top(Val::Px(top_margin)),
+                    UiRect::top(Px(top_margin)),
                     &text,
                 );
             }
@@ -166,7 +166,7 @@ fn spawn_nested_text_bundle(
         .spawn(NodeBundle {
             style: Style {
                 margin,
-                padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
+                padding: UiRect::axes(Px(5.), Px(1.)),
                 ..Default::default()
             },
             background_color: BackgroundColor(background_color),

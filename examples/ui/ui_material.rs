@@ -25,8 +25,8 @@ fn setup(
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: Percent(100.0),
+                height: Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -38,9 +38,9 @@ fn setup(
             parent.spawn(MaterialNodeBundle {
                 style: Style {
                     position_type: PositionType::Absolute,
-                    width: Val::Px(905.0 * banner_scale_factor),
-                    height: Val::Px(363.0 * banner_scale_factor),
-                    border: UiRect::all(Val::Px(10.)),
+                    width: Px(905.0 * banner_scale_factor),
+                    height: Px(363.0 * banner_scale_factor),
+                    border: UiRect::all(Px(10.)),
                     ..default()
                 },
                 material: UiMaterialHandle(ui_materials.add(CustomUiMaterial {

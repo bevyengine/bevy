@@ -373,7 +373,7 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
             NodeBundle {
                 style: Style {
                     justify_self: JustifySelf::Center,
-                    top: Val::Px(5.0),
+                    top: Px(5.0),
                     ..Default::default()
                 },
                 ..Default::default()

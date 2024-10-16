@@ -171,8 +171,8 @@ fn setup_ui(mut commands: Commands) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: Percent(100.),
+                height: Percent(100.),
                 justify_content: JustifyContent::End,
 
                 ..default()

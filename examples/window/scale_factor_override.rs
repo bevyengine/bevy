@@ -30,8 +30,8 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: Percent(100.0),
+                height: Percent(100.0),
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
@@ -42,9 +42,9 @@ fn setup(mut commands: Commands) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Val::Px(300.0),
-                        height: Val::Percent(100.0),
-                        border: UiRect::all(Val::Px(2.0)),
+                        width: Px(300.0),
+                        height: Percent(100.0),
+                        border: UiRect::all(Px(2.0)),
                         ..default()
                     },
                     background_color: Color::srgb(0.65, 0.65, 0.65).into(),

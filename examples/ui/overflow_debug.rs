@@ -91,8 +91,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             text_font.clone(),
             Style {
                 position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
+                top: Px(12.0),
+                left: Px(12.0),
                 ..default()
             },
             Instructions,
@@ -107,8 +107,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: Percent(100.),
+                height: Percent(100.),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
@@ -122,8 +122,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         display: Display::Grid,
                         grid_template_columns: RepeatedGridTrack::px(3, CONTAINER_SIZE),
                         grid_template_rows: RepeatedGridTrack::px(2, CONTAINER_SIZE),
-                        row_gap: Val::Px(80.),
-                        column_gap: Val::Px(80.),
+                        row_gap: Px(80.),
+                        column_gap: Px(80.),
                         ..default()
                     },
                     ..default()
@@ -149,10 +149,10 @@ fn spawn_image(
         parent.spawn(ImageBundle {
             image: UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
             style: Style {
-                height: Val::Px(100.),
+                height: Px(100.),
                 position_type: PositionType::Absolute,
-                top: Val::Px(-50.),
-                left: Val::Px(-200.),
+                top: Px(-50.),
+                left: Px(-200.),
                 ..default()
             },
             ..default()
@@ -190,8 +190,8 @@ fn spawn_container(
         .spawn((
             NodeBundle {
                 style: Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: Percent(100.),
+                    height: Percent(100.),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     overflow: Overflow::clip(),
@@ -209,8 +209,8 @@ fn spawn_container(
                         style: Style {
                             align_items: AlignItems::Center,
                             justify_content: JustifyContent::Center,
-                            top: Val::Px(transform.translation.x),
-                            left: Val::Px(transform.translation.y),
+                            top: Px(transform.translation.x),
+                            left: Px(transform.translation.y),
                             ..default()
                         },
                         transform,
@@ -251,8 +251,8 @@ fn update_transform<T: UpdateTransform + Component>(
     for (mut transform, mut style, update_transform) in &mut containers {
         update_transform.update(animation.t, &mut transform);
 
-        style.left = Val::Px(transform.translation.x);
-        style.top = Val::Px(transform.translation.y);
+        style.left = Px(transform.translation.x);
+        style.top = Px(transform.translation.y);
     }
 }
 
@@ -288,12 +288,12 @@ fn next_container_size(mut containers: Query<(&mut Style, &mut Container)>) {
         container.0 = (container.0 + 1) % 3;
 
         style.width = match container.0 {
-            2 => Val::Percent(30.),
-            _ => Val::Percent(100.),
+            2 => Percent(30.),
+            _ => Percent(100.),
         };
         style.height = match container.0 {
-            1 => Val::Percent(30.),
-            _ => Val::Percent(100.),
+            1 => Percent(30.),
+            _ => Percent(100.),
         };
     }
 }

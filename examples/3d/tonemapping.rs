@@ -85,8 +85,8 @@ fn setup(
         Text::default(),
         Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: Px(12.0),
+            left: Px(12.0),
             ..default()
         },
     ));
@@ -180,7 +180,7 @@ fn setup_image_viewer_scene(
         TextLayout::new_with_justify(JustifyText::Center),
         Style {
             align_self: AlignSelf::Center,
-            margin: UiRect::all(Val::Auto),
+            margin: UiRect::all(Auto),
             ..default()
         },
         SceneNumber(3),

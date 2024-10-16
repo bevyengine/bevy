@@ -31,11 +31,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(50.0),
-                height: Val::Percent(50.0),
+                width: Percent(50.0),
+                height: Percent(50.0),
                 position_type: PositionType::Absolute,
-                left: Val::Percent(25.),
-                top: Val::Percent(25.),
+                left: Percent(25.),
+                top: Percent(25.),
                 justify_content: JustifyContent::SpaceAround,
                 align_items: AlignItems::Center,
                 ..default()
@@ -47,8 +47,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Val::Px(40.0),
-                        height: Val::Px(40.0),
+                        width: Px(40.0),
+                        height: Px(40.0),
                         ..default()
                     },
                     background_color: RED.into(),
@@ -59,8 +59,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
             parent.spawn(NodeBundle {
                 style: Style {
-                    width: Val::Percent(15.0),
-                    height: Val::Percent(15.0),
+                    width: Percent(15.0),
+                    height: Percent(15.0),
                     ..default()
                 },
                 background_color: BLUE.into(),
@@ -68,8 +68,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             });
             parent.spawn(ImageBundle {
                 style: Style {
-                    width: Val::Px(30.0),
-                    height: Val::Px(30.0),
+                    width: Px(30.0),
+                    height: Px(30.0),
                     ..default()
                 },
                 image: asset_server.load("branding/icon.png").into(),

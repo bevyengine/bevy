@@ -81,10 +81,10 @@ fn setup(mut commands: Commands) {
         .spawn(NodeBundle {
             style: Style {
                 position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
+                top: Px(12.0),
+                left: Px(12.0),
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(20.0),
+                row_gap: Px(20.0),
                 ..default()
             },
             ..default()

@@ -30,8 +30,8 @@ fn setup(mut commands: Commands) {
         ),
         Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.),
-            left: Val::Px(12.),
+            top: Px(12.),
+            left: Px(12.),
             ..default()
         },
     ));

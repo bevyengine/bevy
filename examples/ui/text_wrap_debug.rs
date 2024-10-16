@@ -54,8 +54,8 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     let root = commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: Percent(100.),
+                height: Percent(100.),
                 flex_direction: FlexDirection::Column,
                 ..Default::default()
             },
@@ -76,8 +76,8 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceAround,
                     align_items: AlignItems::Center,
-                    width: Val::Percent(100.),
-                    height: Val::Percent(50.),
+                    width: Percent(100.),
+                    height: Percent(50.),
                     ..Default::default()
                 },
                 ..Default::default()
@@ -100,8 +100,8 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         justify_content: justification,
                         flex_direction: FlexDirection::Column,
-                        width: Val::Percent(16.),
-                        height: Val::Percent(95.),
+                        width: Percent(16.),
+                        height: Percent(95.),
                         overflow: Overflow::clip_x(),
                         ..Default::default()
                     },

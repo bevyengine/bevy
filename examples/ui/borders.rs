@@ -14,7 +14,7 @@ fn setup(mut commands: Commands) {
     let root = commands
         .spawn(NodeBundle {
             style: Style {
-                margin: UiRect::all(Val::Px(25.0)),
+                margin: UiRect::all(Px(25.0)),
                 align_self: AlignSelf::Stretch,
                 justify_self: JustifySelf::Stretch,
                 flex_wrap: FlexWrap::Wrap,
@@ -31,7 +31,7 @@ fn setup(mut commands: Commands) {
     let root_rounded = commands
         .spawn(NodeBundle {
             style: Style {
-                margin: UiRect::all(Val::Px(25.0)),
+                margin: UiRect::all(Px(25.0)),
                 align_self: AlignSelf::Stretch,
                 justify_self: JustifySelf::Stretch,
                 flex_wrap: FlexWrap::Wrap,
@@ -69,55 +69,55 @@ fn setup(mut commands: Commands) {
     // these correspond to the labels above
     let borders = [
         UiRect::default(),
-        UiRect::all(Val::Px(10.)),
-        UiRect::left(Val::Px(10.)),
-        UiRect::right(Val::Px(10.)),
-        UiRect::top(Val::Px(10.)),
-        UiRect::bottom(Val::Px(10.)),
-        UiRect::horizontal(Val::Px(10.)),
-        UiRect::vertical(Val::Px(10.)),
+        UiRect::all(Px(10.)),
+        UiRect::left(Px(10.)),
+        UiRect::right(Px(10.)),
+        UiRect::top(Px(10.)),
+        UiRect::bottom(Px(10.)),
+        UiRect::horizontal(Px(10.)),
+        UiRect::vertical(Px(10.)),
         UiRect {
-            left: Val::Px(20.),
-            top: Val::Px(10.),
+            left: Px(20.),
+            top: Px(10.),
             ..Default::default()
         },
         UiRect {
-            left: Val::Px(10.),
-            bottom: Val::Px(20.),
+            left: Px(10.),
+            bottom: Px(20.),
             ..Default::default()
         },
         UiRect {
-            right: Val::Px(20.),
-            top: Val::Px(10.),
+            right: Px(20.),
+            top: Px(10.),
             ..Default::default()
         },
         UiRect {
-            right: Val::Px(10.),
-            bottom: Val::Px(10.),
+            right: Px(10.),
+            bottom: Px(10.),
             ..Default::default()
         },
         UiRect {
-            right: Val::Px(10.),
-            top: Val::Px(20.),
-            bottom: Val::Px(10.),
+            right: Px(10.),
+            top: Px(20.),
+            bottom: Px(10.),
             ..Default::default()
         },
         UiRect {
-            left: Val::Px(10.),
-            top: Val::Px(10.),
-            bottom: Val::Px(10.),
+            left: Px(10.),
+            top: Px(10.),
+            bottom: Px(10.),
             ..Default::default()
         },
         UiRect {
-            left: Val::Px(20.),
-            right: Val::Px(10.),
-            top: Val::Px(10.),
+            left: Px(20.),
+            right: Px(10.),
+            top: Px(10.),
             ..Default::default()
         },
         UiRect {
-            left: Val::Px(10.),
-            right: Val::Px(10.),
-            bottom: Val::Px(20.),
+            left: Px(10.),
+            right: Px(10.),
+            bottom: Px(20.),
             ..Default::default()
         },
     ];
@@ -126,8 +126,8 @@ fn setup(mut commands: Commands) {
         let inner_spot = commands
             .spawn(NodeBundle {
                 style: Style {
-                    width: Val::Px(10.),
-                    height: Val::Px(10.),
+                    width: Px(10.),
+                    height: Px(10.),
                     ..Default::default()
                 },
                 background_color: YELLOW.into(),
@@ -138,10 +138,10 @@ fn setup(mut commands: Commands) {
             .spawn((
                 NodeBundle {
                     style: Style {
-                        width: Val::Px(50.),
-                        height: Val::Px(50.),
+                        width: Px(50.),
+                        height: Px(50.),
                         border,
-                        margin: UiRect::all(Val::Px(20.)),
+                        margin: UiRect::all(Px(20.)),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..Default::default()
@@ -151,8 +151,8 @@ fn setup(mut commands: Commands) {
                     ..Default::default()
                 },
                 Outline {
-                    width: Val::Px(6.),
-                    offset: Val::Px(6.),
+                    width: Px(6.),
+                    offset: Px(6.),
                     color: Color::WHITE,
                 },
             ))
@@ -185,8 +185,8 @@ fn setup(mut commands: Commands) {
         let inner_spot = commands
             .spawn(NodeBundle {
                 style: Style {
-                    width: Val::Px(10.),
-                    height: Val::Px(10.),
+                    width: Px(10.),
+                    height: Px(10.),
                     ..Default::default()
                 },
                 border_radius: BorderRadius::MAX,
@@ -194,7 +194,7 @@ fn setup(mut commands: Commands) {
                 ..Default::default()
             })
             .id();
-        let non_zero = |x, y| x != Val::Px(0.) && y != Val::Px(0.);
+        let non_zero = |x, y| x != Px(0.) && y != Px(0.);
         let border_size = |x, y| if non_zero(x, y) { f32::MAX } else { 0. };
         let border_radius = BorderRadius::px(
             border_size(border.left, border.top),
@@ -206,10 +206,10 @@ fn setup(mut commands: Commands) {
             .spawn((
                 NodeBundle {
                     style: Style {
-                        width: Val::Px(50.),
-                        height: Val::Px(50.),
+                        width: Px(50.),
+                        height: Px(50.),
                         border,
-                        margin: UiRect::all(Val::Px(20.)),
+                        margin: UiRect::all(Px(20.)),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..Default::default()
@@ -220,8 +220,8 @@ fn setup(mut commands: Commands) {
                     ..Default::default()
                 },
                 Outline {
-                    width: Val::Px(6.),
-                    offset: Val::Px(6.),
+                    width: Px(6.),
+                    offset: Px(6.),
                     color: Color::WHITE,
                 },
             ))
@@ -254,10 +254,10 @@ fn setup(mut commands: Commands) {
         .spawn(NodeBundle {
             style: Style {
                 margin: UiRect {
-                    left: Val::Px(25.0),
-                    right: Val::Px(25.0),
-                    top: Val::Px(25.0),
-                    bottom: Val::Px(0.0),
+                    left: Px(25.0),
+                    right: Px(25.0),
+                    top: Px(25.0),
+                    bottom: Px(0.0),
                 },
                 ..Default::default()
             },
@@ -279,10 +279,10 @@ fn setup(mut commands: Commands) {
         .spawn(NodeBundle {
             style: Style {
                 margin: UiRect {
-                    left: Val::Px(25.0),
-                    right: Val::Px(25.0),
-                    top: Val::Px(25.0),
-                    bottom: Val::Px(0.0),
+                    left: Px(25.0),
+                    right: Px(25.0),
+                    top: Px(25.0),
+                    bottom: Px(0.0),
                 },
                 ..Default::default()
             },
@@ -303,7 +303,7 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                margin: UiRect::all(Val::Px(25.0)),
+                margin: UiRect::all(Px(25.0)),
                 flex_direction: FlexDirection::Column,
                 align_self: AlignSelf::Stretch,
                 justify_self: JustifySelf::Stretch,

@@ -154,10 +154,10 @@ fn setup(
             // Cover the whole screen, and center contents.
             style: Style {
                 position_type: PositionType::Absolute,
-                top: Val::Px(0.0),
-                left: Val::Px(0.0),
-                right: Val::Px(0.0),
-                bottom: Val::Px(0.0),
+                top: Px(0.0),
+                left: Px(0.0),
+                right: Px(0.0),
+                bottom: Px(0.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()

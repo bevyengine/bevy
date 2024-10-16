@@ -79,8 +79,8 @@ mod splash {
                     style: Style {
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
+                        width: Percent(100.0),
+                        height: Percent(100.0),
                         ..default()
                     },
                     ..default()
@@ -91,7 +91,7 @@ mod splash {
                 parent.spawn(ImageBundle {
                     style: Style {
                         // This will set the logo to be 200px wide, and auto adjust its height
-                        width: Val::Px(200.0),
+                        width: Px(200.0),
                         ..default()
                     },
                     image: UiImage::new(icon),
@@ -146,8 +146,8 @@ mod game {
             .spawn((
                 NodeBundle {
                     style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
+                        width: Percent(100.0),
+                        height: Percent(100.0),
                         // center children
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
@@ -182,14 +182,14 @@ mod game {
                             },
                             TextColor(TEXT_COLOR),
                             Style {
-                                margin: UiRect::all(Val::Px(50.0)),
+                                margin: UiRect::all(Px(50.0)),
                                 ..default()
                             },
                         ));
                         p.spawn((
                             Text::default(),
                             Style {
-                                margin: UiRect::all(Val::Px(50.0)),
+                                margin: UiRect::all(Px(50.0)),
                                 ..default()
                             },
                         ))
@@ -383,19 +383,19 @@ mod menu {
     fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Common style for all buttons on the screen
         let button_style = Style {
-            width: Val::Px(300.0),
-            height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(20.0)),
+            width: Px(300.0),
+            height: Px(65.0),
+            margin: UiRect::all(Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
         };
         let button_icon_style = Style {
-            width: Val::Px(30.0),
+            width: Px(30.0),
             // This takes the icons out of the flexbox flow, to be positioned exactly
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
-            left: Val::Px(10.0),
+            left: Px(10.0),
             ..default()
         };
         let button_text_font = TextFont {
@@ -407,8 +407,8 @@ mod menu {
             .spawn((
                 NodeBundle {
                     style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
+                        width: Percent(100.0),
+                        height: Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -438,7 +438,7 @@ mod menu {
                             },
                             TextColor(TEXT_COLOR),
                             Style {
-                                margin: UiRect::all(Val::Px(50.0)),
+                                margin: UiRect::all(Px(50.0)),
                                 ..default()
                             },
                         ));
@@ -519,9 +519,9 @@ mod menu {
 
     fn settings_menu_setup(mut commands: Commands) {
         let button_style = Style {
-            width: Val::Px(200.0),
-            height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(20.0)),
+            width: Px(200.0),
+            height: Px(65.0),
+            margin: UiRect::all(Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -539,8 +539,8 @@ mod menu {
             .spawn((
                 NodeBundle {
                     style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
+                        width: Percent(100.0),
+                        height: Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -585,9 +585,9 @@ mod menu {
 
     fn display_settings_menu_setup(mut commands: Commands, display_quality: Res<DisplayQuality>) {
         let button_style = Style {
-            width: Val::Px(200.0),
-            height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(20.0)),
+            width: Px(200.0),
+            height: Px(65.0),
+            margin: UiRect::all(Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -604,8 +604,8 @@ mod menu {
             .spawn((
                 NodeBundle {
                     style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
+                        width: Percent(100.0),
+                        height: Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -652,8 +652,8 @@ mod menu {
                                     let mut entity = parent.spawn((
                                         ButtonBundle {
                                             style: Style {
-                                                width: Val::Px(150.0),
-                                                height: Val::Px(65.0),
+                                                width: Px(150.0),
+                                                height: Px(65.0),
                                                 ..button_style.clone()
                                             },
                                             background_color: NORMAL_BUTTON.into(),
@@ -691,9 +691,9 @@ mod menu {
 
     fn sound_settings_menu_setup(mut commands: Commands, volume: Res<Volume>) {
         let button_style = Style {
-            width: Val::Px(200.0),
-            height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(20.0)),
+            width: Px(200.0),
+            height: Px(65.0),
+            margin: UiRect::all(Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -710,8 +710,8 @@ mod menu {
             .spawn((
                 NodeBundle {
                     style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
+                        width: Percent(100.0),
+                        height: Percent(100.0),
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -747,8 +747,8 @@ mod menu {
                                     let mut entity = parent.spawn((
                                         ButtonBundle {
                                             style: Style {
-                                                width: Val::Px(30.0),
-                                                height: Val::Px(65.0),
+                                                width: Px(30.0),
+                                                height: Px(65.0),
                                                 ..button_style.clone()
                                             },
                                             background_color: NORMAL_BUTTON.into(),

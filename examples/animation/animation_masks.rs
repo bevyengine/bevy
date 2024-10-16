@@ -160,8 +160,8 @@ fn setup_ui(mut commands: Commands) {
         Text::new("Click on a button to toggle animations for its associated bones"),
         Style {
             position_type: PositionType::Absolute,
-            left: Val::Px(12.0),
-            top: Val::Px(12.0),
+            left: Px(12.0),
+            top: Px(12.0),
             ..default()
         },
     ));
@@ -172,9 +172,9 @@ fn setup_ui(mut commands: Commands) {
             style: Style {
                 flex_direction: FlexDirection::Column,
                 position_type: PositionType::Absolute,
-                row_gap: Val::Px(6.0),
-                left: Val::Px(12.0),
-                bottom: Val::Px(12.0),
+                row_gap: Px(6.0),
+                left: Px(12.0),
+                bottom: Px(12.0),
                 ..default()
             },
             ..default()
@@ -182,11 +182,11 @@ fn setup_ui(mut commands: Commands) {
         .with_children(|parent| {
             let row_style = Style {
                 flex_direction: FlexDirection::Row,
-                column_gap: Val::Px(6.0),
+                column_gap: Px(6.0),
                 ..default()
             };
 
-            add_mask_group_control(parent, "Head", Val::Auto, MASK_GROUP_HEAD);
+            add_mask_group_control(parent, "Head", Auto, MASK_GROUP_HEAD);
 
             parent
                 .spawn(NodeBundle {
@@ -197,13 +197,13 @@ fn setup_ui(mut commands: Commands) {
                     add_mask_group_control(
                         parent,
                         "Left Front Leg",
-                        Val::Px(MASK_GROUP_BUTTON_WIDTH),
+                        Px(MASK_GROUP_BUTTON_WIDTH),
                         MASK_GROUP_LEFT_FRONT_LEG,
                     );
                     add_mask_group_control(
                         parent,
                         "Right Front Leg",
-                        Val::Px(MASK_GROUP_BUTTON_WIDTH),
+                        Px(MASK_GROUP_BUTTON_WIDTH),
                         MASK_GROUP_RIGHT_FRONT_LEG,
                     );
                 });
@@ -217,18 +217,18 @@ fn setup_ui(mut commands: Commands) {
                     add_mask_group_control(
                         parent,
                         "Left Hind Leg",
-                        Val::Px(MASK_GROUP_BUTTON_WIDTH),
+                        Px(MASK_GROUP_BUTTON_WIDTH),
                         MASK_GROUP_LEFT_HIND_LEG,
                     );
                     add_mask_group_control(
                         parent,
                         "Right Hind Leg",
-                        Val::Px(MASK_GROUP_BUTTON_WIDTH),
+                        Px(MASK_GROUP_BUTTON_WIDTH),
                         MASK_GROUP_RIGHT_HIND_LEG,
                     );
                 });
 
-            add_mask_group_control(parent, "Tail", Val::Auto, MASK_GROUP_TAIL);
+            add_mask_group_control(parent, "Tail", Auto, MASK_GROUP_TAIL);
         });
 }
 
@@ -253,7 +253,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
     parent
         .spawn(NodeBundle {
             style: Style {
-                border: UiRect::all(Val::Px(1.0)),
+                border: UiRect::all(Px(1.0)),
                 width,
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
@@ -263,7 +263,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                 ..default()
             },
             border_color: BorderColor(Color::WHITE),
-            border_radius: BorderRadius::all(Val::Px(3.0)),
+            border_radius: BorderRadius::all(Px(3.0)),
             background_color: Color::BLACK.into(),
             ..default()
         })
@@ -272,7 +272,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                 .spawn(NodeBundle {
                     style: Style {
                         border: UiRect::ZERO,
-                        width: Val::Percent(100.0),
+                        width: Percent(100.0),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         padding: UiRect::ZERO,
@@ -286,7 +286,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                     Text::new(label),
                     label_text_style.clone(),
                     Style {
-                        margin: UiRect::vertical(Val::Px(3.0)),
+                        margin: UiRect::vertical(Px(3.0)),
                         ..default()
                     },
                 ));
@@ -294,11 +294,11 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
             builder
                 .spawn(NodeBundle {
                     style: Style {
-                        width: Val::Percent(100.0),
+                        width: Percent(100.0),
                         flex_direction: FlexDirection::Row,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        border: UiRect::top(Val::Px(1.0)),
+                        border: UiRect::top(Px(1.0)),
                         ..default()
                     },
                     border_color: BorderColor(Color::WHITE),
@@ -324,7 +324,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                                 style: Style {
                                     flex_grow: 1.0,
                                     border: if index > 0 {
-                                        UiRect::left(Val::Px(1.0))
+                                        UiRect::left(Px(1.0))
                                     } else {
                                         UiRect::ZERO
                                     },
@@ -343,7 +343,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                                 TextLayout::new_with_justify(JustifyText::Center),
                                 Style {
                                     flex_grow: 1.0,
-                                    margin: UiRect::vertical(Val::Px(3.0)),
+                                    margin: UiRect::vertical(Px(3.0)),
                                     ..default()
                                 },
                                 AnimationControl {
