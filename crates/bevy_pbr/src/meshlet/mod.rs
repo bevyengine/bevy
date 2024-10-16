@@ -129,6 +129,8 @@ pub struct MeshletPlugin {
     /// If this number is too low, you'll see rendering artifacts like missing or blinking meshes.
     ///
     /// Each cluster slot costs 4 bytes of VRAM.
+    ///
+    /// Must not be greater than 2^25.
     pub cluster_buffer_slots: u32,
 }
 
@@ -146,6 +148,11 @@ impl Plugin for MeshletPlugin {
     fn build(&self, app: &mut App) {
         #[cfg(target_endian = "big")]
         compile_error!("MeshletPlugin is only supported on little-endian processors.");
+
+        if self.cluster_buffer_slots > 2.pow(25) {
+            error!("MeshletPlugin::cluster_buffer_slots must not be greater than 2^25.");
+            std::process::exit(1);
+        }
 
         load_internal_asset!(
             app,
