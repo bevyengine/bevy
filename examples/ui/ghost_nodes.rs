@@ -22,14 +22,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     // Ghost UI root
-    commands.spawn(GhostNode).with_children(|ghost_root| {
-        ghost_root
-            .spawn(NodeBundle::default())
-            .with_child(create_label(
-                "This text node is rendered under a ghost root",
-                font_handle.clone(),
-            ));
-    });
+    commands
+        .spawn(GhostNode::new())
+        .with_children(|ghost_root| {
+            ghost_root
+                .spawn(NodeBundle::default())
+                .with_child(create_label(
+                    "This text node is rendered under a ghost root",
+                    font_handle.clone(),
+                ));
+        });
 
     // Normal UI root
     commands
@@ -48,7 +50,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn((NodeBundle::default(), Counter(0)))
                 .with_children(|layout_parent| {
                     layout_parent
-                        .spawn((GhostNode, Counter(0)))
+                        .spawn((GhostNode::new(), Counter(0)))
                         .with_children(|ghost_parent| {
                             // Ghost children using a separate counter state
                             // These buttons are being treated as children of layout_parent in the context of UI

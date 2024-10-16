@@ -5,6 +5,7 @@ use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
 use bevy_reflect::prelude::*;
 use bevy_render::view::Visibility;
 use bevy_transform::prelude::Transform;
+use core::marker::PhantomData;
 use smallvec::SmallVec;
 
 use crate::Node;
@@ -17,7 +18,23 @@ use crate::Node;
 #[derive(Component, Default, Debug, Copy, Clone, Reflect)]
 #[reflect(Component, Debug)]
 #[require(Visibility, Transform)]
-pub struct GhostNode;
+pub struct GhostNode {
+    // This is a workaround to ensure that GhostNode is only constructable when the appropriate feature flag is enabled
+    #[reflect(ignore)]
+    unconstructable: PhantomData<()>, // Spooky!
+}
+
+impl GhostNode {
+    /// Creates a new ghost node.
+    ///
+    /// This method is only available when the `ghost_node` feature is enabled,
+    /// and will eventually be deprecated then removed in favor of simply using `GhostNode` as no meaningful data is stored.
+    pub fn new() -> Self {
+        GhostNode {
+            unconstructable: PhantomData,
+        }
+    }
+}
 
 /// System param that allows iteration of all UI root nodes.
 ///
@@ -165,18 +182,20 @@ mod tests {
             .with_children(|parent| {
                 parent.spawn((A(2), NodeBundle::default()));
                 parent
-                    .spawn((A(3), GhostNode))
+                    .spawn((A(3), GhostNode::new()))
                     .with_child((A(4), NodeBundle::default()));
             });
 
         // Ghost root
-        world.spawn((A(5), GhostNode)).with_children(|parent| {
-            parent.spawn((A(6), NodeBundle::default()));
-            parent
-                .spawn((A(7), GhostNode))
-                .with_child((A(8), NodeBundle::default()))
-                .with_child(A(9));
-        });
+        world
+            .spawn((A(5), GhostNode::new()))
+            .with_children(|parent| {
+                parent.spawn((A(6), NodeBundle::default()));
+                parent
+                    .spawn((A(7), GhostNode::new()))
+                    .with_child((A(8), NodeBundle::default()))
+                    .with_child(A(9));
+            });
 
         let mut system_state = SystemState::<(UiRootNodes, Query<&A>)>::new(world);
         let (ui_root_nodes, a_query) = system_state.get(world);
@@ -191,15 +210,15 @@ mod tests {
         let world = &mut World::new();
 
         let n1 = world.spawn((A(1), NodeBundle::default())).id();
-        let n2 = world.spawn((A(2), GhostNode)).id();
-        let n3 = world.spawn((A(3), GhostNode)).id();
+        let n2 = world.spawn((A(2), GhostNode::new())).id();
+        let n3 = world.spawn((A(3), GhostNode::new())).id();
         let n4 = world.spawn((A(4), NodeBundle::default())).id();
         let n5 = world.spawn((A(5), NodeBundle::default())).id();
 
-        let n6 = world.spawn((A(6), GhostNode)).id();
-        let n7 = world.spawn((A(7), GhostNode)).id();
+        let n6 = world.spawn((A(6), GhostNode::new())).id();
+        let n7 = world.spawn((A(7), GhostNode::new())).id();
         let n8 = world.spawn((A(8), NodeBundle::default())).id();
-        let n9 = world.spawn((A(9), GhostNode)).id();
+        let n9 = world.spawn((A(9), GhostNode::new())).id();
         let n10 = world.spawn((A(10), NodeBundle::default())).id();
 
         let no_ui = world.spawn_empty().id();
