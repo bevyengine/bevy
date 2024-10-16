@@ -30,7 +30,7 @@ enum Scene {
 
 fn switch_scene(
     keyboard: Res<ButtonInput<KeyCode>>,
-    #[cfg(feature = "bevy_ci_testing")] mut ci_events: ResMut<Events<CiTestingCustomEvent>>,
+    #[cfg(feature = "bevy_ci_testing")] mut ci_events: EventReader<CiTestingCustomEvent>,
     scene: Res<State<Scene>>,
     mut next_scene: ResMut<NextState<Scene>>,
 ) {
@@ -38,12 +38,12 @@ fn switch_scene(
     should_switch |= keyboard.just_pressed(KeyCode::Space);
     #[cfg(feature = "bevy_ci_testing")]
     {
-        should_switch |= !ci_events.is_empty();
+        should_switch |= ci_events.read().any(|event| match event {
+            CiTestingCustomEvent(event) => event == "switch_scene",
+        });
     }
     if should_switch {
         info!("Switching scene");
-        #[cfg(feature = "bevy_ci_testing")]
-        ci_events.clear();
         next_scene.set(match scene.get() {
             Scene::Shapes => Scene::Bloom,
             Scene::Bloom => Scene::Text,
