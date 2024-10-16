@@ -60,17 +60,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ([160., 160.], true, true),
             ] {
                 parent.spawn((
-                    Node::default(),
-                    Style {
-                        width: Val::Px(width),
-                        height: Val::Px(height),
-                        ..default()
-                    },
                     UiImage {
                         texture: image.clone(),
                         flip_x,
                         flip_y,
-                        ..Default::default()
+                        ..default()
+                    },
+                    Style {
+                        width: Val::Px(width),
+                        height: Val::Px(height),
+                        ..default()
                     },
                     ImageScaleMode::Sliced(slicer.clone()),
                 ));
