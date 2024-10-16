@@ -127,7 +127,7 @@ fn trigger_shake_on_space(
         screen_shake.start_shake(
             MAX_ANGLE,
             MAX_OFFSET,
-            screen_shake_clone.trauma + TRAUMA_INCREMENT * time.delta_seconds(),
+            screen_shake_clone.trauma + TRAUMA_INCREMENT * time.delta_secs(),
             Vec2 { x: 0.0, y: 0.0 },
         ); // final_position should be your current player position
     }
@@ -155,7 +155,7 @@ fn screen_shake(
                 };
             sub_view
                 .offset
-                .smooth_nudge(&target, CAMERA_DECAY_RATE, time.delta_seconds());
+                .smooth_nudge(&target, CAMERA_DECAY_RATE, time.delta_secs());
 
             // Rotation
             let rotation = Quat::from_rotation_z(angle);
@@ -170,11 +170,11 @@ fn screen_shake(
             let target = screen_shake.latest_position.unwrap();
             sub_view
                 .offset
-                .smooth_nudge(&target, 1.0, time.delta_seconds());
+                .smooth_nudge(&target, 1.0, time.delta_secs());
             transform.rotation = transform.rotation.interpolate_stable(&Quat::IDENTITY, 0.1);
         }
     }
     // Decay the trauma over time
-    screen_shake.trauma -= TRAUMA_DECAY_SPEED * time.delta_seconds();
+    screen_shake.trauma -= TRAUMA_DECAY_SPEED * time.delta_secs();
     screen_shake.trauma = screen_shake.trauma.clamp(0.0, 1.0);
 }

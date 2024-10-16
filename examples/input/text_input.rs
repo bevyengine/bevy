@@ -100,7 +100,7 @@ fn bubbling_text(
         if bubble.timer.tick(time.delta()).just_finished() {
             commands.entity(entity).despawn();
         }
-        transform.translation.y += time.delta_seconds() * 100.0;
+        transform.translation.y += time.delta_secs() * 100.0;
     }
 }
 

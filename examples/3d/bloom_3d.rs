@@ -139,7 +139,7 @@ fn update_bloom_settings(
                 commands.entity(entity).remove::<Bloom>();
             }
 
-            let dt = time.delta_seconds();
+            let dt = time.delta_secs();
 
             if keycode.pressed(KeyCode::KeyA) {
                 bloom.intensity -= dt / 10.0;
@@ -214,6 +214,6 @@ struct Bouncing;
 fn bounce_spheres(time: Res<Time>, mut query: Query<&mut Transform, With<Bouncing>>) {
     for mut transform in query.iter_mut() {
         transform.translation.y =
-            ops::sin(transform.translation.x + transform.translation.z + time.elapsed_seconds());
+            ops::sin(transform.translation.x + transform.translation.z + time.elapsed_secs());
     }
 }

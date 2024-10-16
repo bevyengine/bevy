@@ -101,9 +101,9 @@ fn setup(
 
 // System for rotating and translating the camera
 fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<Camera>>) {
-    camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.5));
+    camera_transform.rotate(Quat::from_rotation_z(time.delta_secs() * 0.5));
     **camera_transform = **camera_transform
-        * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
+        * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_secs());
 }
 
 #[derive(Component, Deref, DerefMut)]

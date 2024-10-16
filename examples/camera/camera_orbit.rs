@@ -125,7 +125,7 @@ fn orbit(
     let delta_yaw = delta.x * camera_settings.yaw_speed;
 
     // Conversely, we DO need to factor in delta time for mouse button inputs.
-    delta_roll *= camera_settings.roll_speed * time.delta_seconds();
+    delta_roll *= camera_settings.roll_speed * time.delta_secs();
 
     // Obtain the existing pitch, yaw, and roll values from the transform.
     let (yaw, pitch, roll) = camera.rotation.to_euler(EulerRot::YXZ);
