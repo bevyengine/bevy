@@ -30,6 +30,7 @@ use bevy_render::{
         *,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
+    sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -72,6 +73,8 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         );
 
         app.register_type::<ScreenSpaceAmbientOcclusion>();
+
+        app.add_plugins(SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default());
     }
 
     fn finish(&self, app: &mut App) {
