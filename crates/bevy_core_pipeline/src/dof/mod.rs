@@ -328,6 +328,7 @@ pub struct DepthOfFieldPipeline {
 
 impl ViewNode for DepthOfFieldNode {
     type ViewQuery = (
+        Read<DepthOfField>,
         Read<ViewUniformOffset>,
         Read<ViewTarget>,
         Read<ViewDepthTexture>,
@@ -342,6 +343,7 @@ impl ViewNode for DepthOfFieldNode {
         _: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         (
+            _depth_of_field,
             view_uniform_offset,
             view_target,
             view_depth_texture,
