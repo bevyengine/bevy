@@ -47,6 +47,9 @@ pub use time::*;
 pub use tracing;
 
 #[cfg(not(feature = "tracing"))]
+// In cases where the tracing crate cannot be used, we can instead rely on log to
+// provide most of the required functionality.
+// Exporting log as tracing allows this decision to have minimal impact on consumers.
 pub use log as tracing;
 
 #[cfg(feature = "alloc")]
