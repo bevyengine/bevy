@@ -9,6 +9,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_math::Rect;
+use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
 
@@ -80,29 +81,35 @@ fn update_clipping(
         // of nested `Overflow::Hidden` nodes. If parent `clip` is not
         // defined, use the current node's clip.
 
-        let mut node_rect =
+        let mut clip_rect =
             Rect::from_center_size(global_transform.translation().truncate(), node.size());
 
-        // Content isn't clipped at the edges of the node but at the edges of its content box.
-        // The content box is innermost part of the node excluding the padding and border.
+        // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Style::overflow_clip_margin`].
         //
-        // The `content_inset` should always fit inside the `node_rect`.
-        // Even if it were to overflow, this won't result in a degenerate clipping rect as `Rect::intersect` clamps the intersection to an empty rect.
-        let content_inset = node.content_inset();
-        node_rect.min.x += content_inset.left;
-        node_rect.min.y += content_inset.top;
-        node_rect.max.x -= content_inset.right;
-        node_rect.max.y -= content_inset.bottom;
+        // `clip_inset` should always fit inside `node_rect`.
+        // Even if `clip_inset` were to overflow, we won't return a degenerate result as `Rect::intersect` will clamp the intersection, leaving it empty.
+        let clip_inset = match style.overflow_clip_margin.visual_box {
+            crate::OverflowClipBox::BorderBox => BorderRect::ZERO,
+            crate::OverflowClipBox::ContentBox => node.content_inset(),
+            crate::OverflowClipBox::PaddingBox => node.border(),
+        };
+
+        clip_rect.min.x += clip_inset.left;
+        clip_rect.min.y += clip_inset.top;
+        clip_rect.max.x -= clip_inset.right;
+        clip_rect.max.y -= clip_inset.bottom;
+
+        clip_rect = clip_rect.inflate(style.overflow_clip_margin.margin.max(0.));
 
         if style.overflow.x == OverflowAxis::Visible {
-            node_rect.min.x = -f32::INFINITY;
-            node_rect.max.x = f32::INFINITY;
+            clip_rect.min.x = -f32::INFINITY;
+            clip_rect.max.x = f32::INFINITY;
         }
         if style.overflow.y == OverflowAxis::Visible {
-            node_rect.min.y = -f32::INFINITY;
-            node_rect.max.y = f32::INFINITY;
+            clip_rect.min.y = -f32::INFINITY;
+            clip_rect.max.y = f32::INFINITY;
         }
-        Some(maybe_inherited_clip.map_or(node_rect, |c| c.intersect(node_rect)))
+        Some(maybe_inherited_clip.map_or(clip_rect, |c| c.intersect(clip_rect)))
     };
 
     for child in ui_children.iter_ui_children(entity) {

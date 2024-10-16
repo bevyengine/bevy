@@ -2978,6 +2978,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "overflow_clip_margin"
+path = "examples/ui/overflow_clip_margin.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.overflow_clip_margin]
+name = "Overflow Clip Margin"
+description = "Simple example demonstrating the OverflowClipMargin style property"
+category = "UI (User Interface)"
+wasm = true
+
+
+[[example]]
 name = "overflow_debug"
 path = "examples/ui/overflow_debug.rs"
 doc-scrape-examples = true
