@@ -287,8 +287,7 @@ mod tests {
             .unwrap();
 
         let output =
-            <Foo as FromReflect>::from_reflect(dynamic_output.as_ref().as_partial_reflect())
-                .unwrap();
+            <Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -570,8 +569,7 @@ mod tests {
             .unwrap();
 
         let output =
-            <Foo as FromReflect>::from_reflect(dynamic_output.as_ref().as_partial_reflect())
-                .unwrap();
+            <Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -626,8 +624,7 @@ mod tests {
             .unwrap();
 
         let output =
-            <Foo as FromReflect>::from_reflect(dynamic_output.as_ref().as_partial_reflect())
-                .unwrap();
+            <Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).unwrap();
         assert_eq!(expected, output);
     }
 
@@ -758,10 +755,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        assert!(
-            <Foo as FromReflect>::from_reflect(dynamic_output.as_ref().as_partial_reflect())
-                .is_none()
-        );
+        assert!(<Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).is_none());
     }
 
     #[cfg(feature = "functions")]
