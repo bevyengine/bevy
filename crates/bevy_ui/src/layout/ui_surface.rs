@@ -203,10 +203,8 @@ impl UiSurface {
         &mut self,
         camera: Entity,
         render_target_resolution: UVec2,
-        #[cfg(feature = "bevy_text")] buffer_query: &'a mut bevy_ecs::prelude::Query<
-            &mut bevy_text::ComputedTextBlock,
-        >,
-        #[cfg(feature = "bevy_text")] font_system: &'a mut bevy_text::cosmic_text::FontSystem,
+        buffer_query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
+        font_system: &'a mut bevy_text::cosmic_text::FontSystem,
     ) {
         let Some(camera_root_nodes) = self.camera_roots.get(&camera) else {
             return;
@@ -229,7 +227,6 @@ impl UiSurface {
                      -> taffy::Size<f32> {
                         context
                             .map(|ctx| {
-                                #[cfg(feature = "bevy_text")]
                                 let buffer = get_text_buffer(
                                     crate::widget::TextMeasure::needs_buffer(
                                         known_dimensions.height,
@@ -244,12 +241,8 @@ impl UiSurface {
                                         height: known_dimensions.height,
                                         available_width: available_space.width,
                                         available_height: available_space.height,
-                                        #[cfg(feature = "bevy_text")]
                                         font_system,
-                                        #[cfg(feature = "bevy_text")]
                                         buffer,
-                                        #[cfg(not(feature = "bevy_text"))]
-                                        font_system: core::marker::PhantomData,
                                     },
                                     style,
                                 );
@@ -298,7 +291,6 @@ impl UiSurface {
     }
 }
 
-#[cfg(feature = "bevy_text")]
 fn get_text_buffer<'a>(
     needs_buffer: bool,
     ctx: &mut NodeMeasure,
@@ -704,21 +696,5 @@ mod tests {
             1,
             "expected root node child count to be 1"
         );
-    }
-
-    #[test]
-    #[cfg(not(feature = "bevy_text"))]
-    fn test_compute_camera_layout() {
-        let mut ui_surface = UiSurface::default();
-        let camera_entity = Entity::from_raw(0);
-        let root_node_entity = Entity::from_raw(1);
-        let style = Style::default();
-
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &style, None);
-
-        ui_surface.compute_camera_layout(camera_entity, UVec2::new(800, 600));
-
-        let taffy_node = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
-        assert!(ui_surface.taffy.layout(*taffy_node).is_ok());
     }
 }
