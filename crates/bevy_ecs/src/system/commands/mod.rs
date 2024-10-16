@@ -1808,8 +1808,19 @@ impl<F> EntityCommand<World> for F
 where
     F: FnOnce(EntityWorldMut) + Send + 'static,
 {
-    fn apply(self, id: Entity, world: &mut World, _failure_mode: FailureMode) {
-        self(world.entity_mut(id));
+    fn apply(self, id: Entity, world: &mut World, failure_mode: FailureMode) {
+        if world.entities.contains(id) {
+            self(world.entity_mut(id));
+        } else {
+            let message =
+                format!("Could not execute EntityCommand because its entity {id:?} was missing");
+            match failure_mode {
+                FailureMode::Ignore => (),
+                FailureMode::Log => info!("{}", message),
+                FailureMode::Warn => warn!("{}", message),
+                FailureMode::Panic => panic!("{}", message),
+            }
+        }
     }
 }
 
