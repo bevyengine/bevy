@@ -642,9 +642,11 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 bind_group_data: material.key.clone(),
             },
         );
-        transparent_phase
-            .items
-            .reserve(extracted_uinodes.uinodes.len());
+        if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {
+            transparent_phase.items.reserve_exact(
+                extracted_uinodes.uinodes.len() - transparent_phase.items.capacity(),
+            );
+        }
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
