@@ -1056,9 +1056,11 @@ pub fn extract_cameras(
         if !camera.is_active {
             commands
                 .entity(render_entity)
-                .remove::<RenderVisibleEntities>()
-                .remove::<ExtractedCamera>()
-                .remove::<ExtractedView>();
+                .remove::<(
+                    ExtractedCamera,
+                    ExtractedView,
+                    RenderVisibleEntities,
+                )>();
             continue;
         }
 
