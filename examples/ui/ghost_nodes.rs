@@ -7,7 +7,7 @@
 //! This is an experimental feature, and should be used with caution,
 //! especially in concert with 3rd party plugins or systems that may not be aware of ghost nodes.
 //!
-//! To add [`GhostNode`]` components to entities, you must enable the `ghost_nodes` feature flag,
+//! To add [`GhostNode`] components to entities, you must enable the `ghost_nodes` feature flag,
 //! as they are otherwise unconstructable even though the type is defined.
 
 use bevy::{prelude::*, ui::experimental::GhostNode, winit::WinitSettings};
