@@ -21,12 +21,11 @@ use crate::Node;
 #[cfg_attr(feature = "ghost_nodes", derive(Default))]
 #[reflect(Component, Debug)]
 #[require(Visibility, Transform)]
-pub struct GhostNode(
+pub struct GhostNode {
     // This is a workaround to ensure that GhostNode is only constructable when the appropriate feature flag is enabled
-    #[cfg(not(feature = "ghost_nodes"))]
     #[reflect(ignore)]
     unconstructable: PhantomData<()>, // Spooky!
-);
+}
 
 #[cfg(feature = "ghost_nodes")]
 impl GhostNode {
