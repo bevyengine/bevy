@@ -27,7 +27,12 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let counter = atomicLoad(&layer_ids[screen_index]);
     if counter == 0 {
         reset_indices(screen_index);
-        discard;
+
+        // https://github.com/gfx-rs/wgpu/issues/4416
+        if true {
+            discard;
+        }
+        return vec4(0.0);
     } else {
         let result = sort(screen_index, buffer_size);
         reset_indices(screen_index);

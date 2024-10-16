@@ -46,13 +46,7 @@ fn setup(
 
     let light_transform = Transform::from_xyz(5.0, 5.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
     commands
-        .spawn((
-            SpatialBundle {
-                transform: light_transform,
-                ..default()
-            },
-            Lights,
-        ))
+        .spawn((light_transform, Visibility::default(), Lights))
         .with_children(|builder| {
             builder.spawn(PointLight {
                 intensity: 0.0,
@@ -158,13 +152,13 @@ fn toggle_light(
     input: Res<ButtonInput<KeyCode>>,
     mut point_lights: Query<&mut PointLight>,
     mut directional_lights: Query<&mut DirectionalLight>,
-    example_text: Query<Entity, With<Text>>,
-    mut writer: UiTextWriter,
+    example_text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
 ) {
     if input.just_pressed(KeyCode::KeyL) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
-                *writer.text(example_text.single(), 4) = "PointLight".to_string();
+                *writer.text(*example_text, 4) = "PointLight".to_string();
                 100000000.0
             } else {
                 0.0
@@ -172,7 +166,7 @@ fn toggle_light(
         }
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
-                *writer.text(example_text.single(), 4) = "DirectionalLight".to_string();
+                *writer.text(*example_text, 4) = "DirectionalLight".to_string();
                 100000.0
             } else {
                 0.0
@@ -184,8 +178,8 @@ fn toggle_light(
 fn adjust_light_position(
     input: Res<ButtonInput<KeyCode>>,
     mut lights: Query<&mut Transform, With<Lights>>,
-    example_text: Query<Entity, With<Text>>,
-    mut writer: UiTextWriter,
+    example_text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
 ) {
     let mut offset = Vec3::ZERO;
     if input.just_pressed(KeyCode::ArrowLeft) {
@@ -207,7 +201,7 @@ fn adjust_light_position(
         offset.y += 1.0;
     }
     if offset != Vec3::ZERO {
-        let example_text = example_text.single();
+        let example_text = *example_text;
         for mut light in &mut lights {
             light.translation += offset;
             light.look_at(Vec3::ZERO, Vec3::Y);
@@ -221,8 +215,8 @@ fn adjust_light_position(
 fn cycle_filter_methods(
     input: Res<ButtonInput<KeyCode>>,
     mut filter_methods: Query<&mut ShadowFilteringMethod>,
-    example_text: Query<Entity, With<Text>>,
-    mut writer: UiTextWriter,
+    example_text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
 ) {
     if input.just_pressed(KeyCode::KeyF) {
         for mut filter_method in &mut filter_methods {
@@ -241,7 +235,7 @@ fn cycle_filter_methods(
                     ShadowFilteringMethod::Hardware2x2
                 }
             };
-            *writer.text(example_text.single(), 7) = filter_method_string;
+            *writer.text(*example_text, 7) = filter_method_string;
         }
     }
 }
@@ -249,8 +243,8 @@ fn cycle_filter_methods(
 fn adjust_point_light_biases(
     input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut PointLight>,
-    example_text: Query<Entity, With<Text>>,
-    mut writer: UiTextWriter,
+    example_text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
 ) {
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
@@ -276,16 +270,16 @@ fn adjust_point_light_biases(
             light.shadow_normal_bias = 0.0;
         }
 
-        *writer.text(example_text.single(), 10) = format!("{:.2}", light.shadow_depth_bias);
-        *writer.text(example_text.single(), 13) = format!("{:.1}", light.shadow_normal_bias);
+        *writer.text(*example_text, 10) = format!("{:.2}", light.shadow_depth_bias);
+        *writer.text(*example_text, 13) = format!("{:.1}", light.shadow_normal_bias);
     }
 }
 
 fn adjust_directional_light_biases(
     input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut DirectionalLight>,
-    example_text: Query<Entity, With<Text>>,
-    mut writer: UiTextWriter,
+    example_text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
 ) {
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
@@ -311,7 +305,7 @@ fn adjust_directional_light_biases(
             light.shadow_normal_bias = 0.0;
         }
 
-        *writer.text(example_text.single(), 16) = format!("{:.2}", light.shadow_depth_bias);
-        *writer.text(example_text.single(), 19) = format!("{:.1}", light.shadow_normal_bias);
+        *writer.text(*example_text, 16) = format!("{:.2}", light.shadow_depth_bias);
+        *writer.text(*example_text, 19) = format!("{:.1}", light.shadow_normal_bias);
     }
 }

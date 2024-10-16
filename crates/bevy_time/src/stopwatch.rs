@@ -129,7 +129,7 @@ impl Stopwatch {
     /// ```
     pub fn tick(&mut self, delta: Duration) -> &Self {
         if !self.paused() {
-            self.elapsed += delta;
+            self.elapsed = self.elapsed.saturating_add(delta);
         }
         self
     }

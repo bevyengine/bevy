@@ -1,5 +1,7 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
+#![allow(internal_features)]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"

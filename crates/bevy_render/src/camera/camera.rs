@@ -1,3 +1,6 @@
+use super::{ClearColorConfig, Projection};
+use crate::sync_world::TemporaryRenderEntity;
+use crate::view::RenderVisibleEntities;
 use crate::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
@@ -39,8 +42,6 @@ use bevy_window::{
 use core::ops::Range;
 use derive_more::derive::From;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
-
-use super::{ClearColorConfig, Projection};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -1018,7 +1019,7 @@ pub fn extract_cameras(
     mut commands: Commands,
     query: Extract<
         Query<(
-            &RenderEntity,
+            RenderEntity,
             &Camera,
             &CameraRenderGraph,
             &GlobalTransform,
@@ -1034,6 +1035,7 @@ pub fn extract_cameras(
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    mapper: Extract<Query<&RenderEntity>>,
 ) {
     let primary_window = primary_window.iter().next();
     for (
@@ -1072,7 +1074,29 @@ pub fn extract_cameras(
                 continue;
             }
 
-            let mut commands = commands.entity(render_entity.id());
+            let render_visible_entities = RenderVisibleEntities {
+                entities: visible_entities
+                    .entities
+                    .iter()
+                    .map(|(type_id, entities)| {
+                        let entities = entities
+                            .iter()
+                            .map(|entity| {
+                                let render_entity = mapper
+                                    .get(*entity)
+                                    .cloned()
+                                    .map(|entity| entity.id())
+                                    .unwrap_or_else(|_e| {
+                                        commands.spawn(TemporaryRenderEntity).id()
+                                    });
+                                (render_entity, (*entity).into())
+                            })
+                            .collect();
+                        (*type_id, entities)
+                    })
+                    .collect(),
+            };
+            let mut commands = commands.entity(render_entity);
             commands.insert((
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),
@@ -1104,7 +1128,7 @@ pub fn extract_cameras(
                     ),
                     color_grading,
                 },
-                visible_entities.clone(),
+                render_visible_entities,
                 *frustum,
             ));
 

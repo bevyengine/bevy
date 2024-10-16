@@ -1,3 +1,4 @@
+use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
     prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
@@ -18,12 +19,13 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::EntityHashMap,
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::sync_world::MainEntityHashMap;
+use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     camera::TemporalJitter,
     extract_resource::ExtractResource,
@@ -32,7 +34,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
-    view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility, VisibleEntities},
+    view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility},
     Extract,
 };
 use bevy_utils::tracing::error;
@@ -42,8 +44,6 @@ use core::{
     num::NonZero,
     sync::atomic::{AtomicU32, Ordering},
 };
-
-use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 
 /// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
@@ -270,7 +270,6 @@ where
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
             .register_type::<MeshMaterial3d<M>>()
-            .register_type::<HasMaterial3d>()
             .add_plugins(RenderAssetPlugin::<PreparedMaterial<M>>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -283,10 +282,7 @@ where
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_systems(
-                    ExtractSchedule,
-                    (clear_material_instances::<M>, extract_mesh_materials::<M>).chain(),
-                )
+                .add_systems(ExtractSchedule, extract_mesh_materials::<M>)
                 .add_systems(
                     Render,
                     queue_material_meshes::<M>
@@ -479,7 +475,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();
 
-        let Some(material_asset_id) = material_instances.get(&item.entity()) else {
+        let Some(material_asset_id) = material_instances.get(&item.main_entity()) else {
             return RenderCommandResult::Skip;
         };
         let Some(material) = materials.get(*material_asset_id) else {
@@ -492,7 +488,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
 
 /// Stores all extracted instances of a [`Material`] in the render world.
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterialInstances<M: Material>(pub EntityHashMap<AssetId<M>>);
+pub struct RenderMaterialInstances<M: Material>(pub MainEntityHashMap<AssetId<M>>);
 
 impl<M: Material> Default for RenderMaterialInstances<M> {
     fn default() -> Self {
@@ -550,31 +546,15 @@ pub const fn screen_space_specular_transmission_pipeline_key(
     }
 }
 
-pub(super) fn clear_material_instances<M: Material>(
-    mut material_instances: ResMut<RenderMaterialInstances<M>>,
-) {
-    material_instances.clear();
-}
-
 fn extract_mesh_materials<M: Material>(
     mut material_instances: ResMut<RenderMaterialInstances<M>>,
     query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial3d<M>)>>,
 ) {
+    material_instances.clear();
+
     for (entity, view_visibility, material) in &query {
         if view_visibility.get() {
-            material_instances.insert(entity, material.id());
-        }
-    }
-}
-
-/// Extracts default materials for 3D meshes with no [`MeshMaterial3d`].
-pub(super) fn extract_default_materials(
-    mut material_instances: ResMut<RenderMaterialInstances<StandardMaterial>>,
-    query: Extract<Query<(Entity, &ViewVisibility), (With<Mesh3d>, Without<HasMaterial3d>)>>,
-) {
-    for (entity, view_visibility) in &query {
-        if view_visibility.get() {
-            material_instances.insert(entity, AssetId::default());
+            material_instances.insert(entity.into(), material.id());
         }
     }
 }
@@ -610,7 +590,7 @@ pub fn queue_material_meshes<M: Material>(
     views: Query<(
         Entity,
         &ExtractedView,
-        &VisibleEntities,
+        &RenderVisibleEntities,
         &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
@@ -744,7 +724,7 @@ pub fn queue_material_meshes<M: Material>(
         }
 
         let rangefinder = view.rangefinder3d();
-        for visible_entity in visible_entities.iter::<With<Mesh3d>>() {
+        for (render_entity, visible_entity) in visible_entities.iter::<With<Mesh3d>>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
@@ -825,7 +805,7 @@ pub fn queue_material_meshes<M: Material>(
                         let distance = rangefinder.distance_translation(&mesh_instance.translation)
                             + material.properties.depth_bias;
                         transmissive_phase.add(Transmissive3d {
-                            entity: *visible_entity,
+                            entity: (*render_entity, *visible_entity),
                             draw_function: draw_transmissive_pbr,
                             pipeline: pipeline_id,
                             distance,
@@ -842,7 +822,7 @@ pub fn queue_material_meshes<M: Material>(
                         };
                         opaque_phase.add(
                             bin_key,
-                            *visible_entity,
+                            (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     }
@@ -853,7 +833,7 @@ pub fn queue_material_meshes<M: Material>(
                         let distance = rangefinder.distance_translation(&mesh_instance.translation)
                             + material.properties.depth_bias;
                         transmissive_phase.add(Transmissive3d {
-                            entity: *visible_entity,
+                            entity: (*render_entity, *visible_entity),
                             draw_function: draw_transmissive_pbr,
                             pipeline: pipeline_id,
                             distance,
@@ -869,7 +849,7 @@ pub fn queue_material_meshes<M: Material>(
                         };
                         alpha_mask_phase.add(
                             bin_key,
-                            *visible_entity,
+                            (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     }
@@ -878,7 +858,7 @@ pub fn queue_material_meshes<M: Material>(
                     let distance = rangefinder.distance_translation(&mesh_instance.translation)
                         + material.properties.depth_bias;
                     transparent_phase.add(Transparent3d {
-                        entity: *visible_entity,
+                        entity: (*render_entity, *visible_entity),
                         draw_function: draw_transparent_pbr,
                         pipeline: pipeline_id,
                         distance,

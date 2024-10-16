@@ -27,7 +27,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 bevy_ecs_macros = { path = "macros", version = "0.15.0-dev" }
 
 bitflags = "2.3"
-concurrent-queue = "2.4.0"
+concurrent-queue = "2.5.0"
 disqualified = "1.0"
 fixedbitset = "0.5"
 serde = { version = "1", optional = true, default-features = false }
@@ -40,7 +40,7 @@ derive_more = { version = "1", default-features = false, features = [
 ] }
 nonmax = "0.5"
 arrayvec = { version = "0.7.4", optional = true }
-smallvec = "1"
+smallvec = { version = "1", features = ["union"] }
 indexmap = { version = "2.5.0", default-features = false, features = ["std"] }
 
 [dev-dependencies]

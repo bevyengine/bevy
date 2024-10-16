@@ -214,9 +214,10 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote"]
 
-# Provides a picking functionality
+# Provides picking functionality
 bevy_picking = [
   "dep:bevy_picking",
+  "bevy_picking/bevy_mesh",
   "bevy_ui?/bevy_picking",
   "bevy_sprite?/bevy_picking",
 ]
