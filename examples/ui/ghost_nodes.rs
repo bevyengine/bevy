@@ -1,8 +1,16 @@
 //! This example demonstrates the use of Ghost Nodes.
 //!
 //! UI layout will ignore ghost nodes, and treat their children as if they were direct descendants of the first non-ghost ancestor.
+//!
+//! # Warning
+//!
+//! This is an experimental feature, and should be used with caution,
+//! especially in concert with 3rd party plugins or systems that may not be aware of ghost nodes.
+//!
+//! To add [`GhostNode`] components to entities, you must enable the `ghost_nodes` feature flag,
+//! as they are otherwise unconstructable even though the type is defined.
 
-use bevy::{prelude::*, ui::GhostNode, winit::WinitSettings};
+use bevy::{prelude::*, ui::experimental::GhostNode, winit::WinitSettings};
 
 fn main() {
     App::new()
@@ -22,14 +30,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     // Ghost UI root
-    commands.spawn(GhostNode).with_children(|ghost_root| {
-        ghost_root
-            .spawn(NodeBundle::default())
-            .with_child(create_label(
-                "This text node is rendered under a ghost root",
-                font_handle.clone(),
-            ));
-    });
+    commands
+        .spawn(GhostNode::new())
+        .with_children(|ghost_root| {
+            ghost_root
+                .spawn(NodeBundle::default())
+                .with_child(create_label(
+                    "This text node is rendered under a ghost root",
+                    font_handle.clone(),
+                ));
+        });
 
     // Normal UI root
     commands
@@ -48,7 +58,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn((NodeBundle::default(), Counter(0)))
                 .with_children(|layout_parent| {
                     layout_parent
-                        .spawn((GhostNode, Counter(0)))
+                        .spawn((GhostNode::new(), Counter(0)))
                         .with_children(|ghost_parent| {
                             // Ghost children using a separate counter state
                             // These buttons are being treated as children of layout_parent in the context of UI
