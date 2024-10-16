@@ -459,18 +459,19 @@ impl<'w, 's> Commands<'w, 's> {
     #[inline]
     #[track_caller]
     pub fn entity(&mut self, entity: Entity) -> EntityCommands {
-        #[inline(never)]
-        #[cold]
-        #[track_caller]
-        fn panic_no_entity(entity: Entity) -> ! {
-            panic!(
-                "Attempted to create an EntityCommands for entity {entity:?}, which doesn't exist.",
-            );
+        if !self.entities.contains(entity) {
+            let message =
+                format!("Attempted to create an EntityCommands for entity {entity:?}, which doesn't exist");
+            match self.failure_mode {
+                FailureMode::Ignore => (),
+                FailureMode::Log => info!("{}; returned invalid EntityCommands", message),
+                FailureMode::Warn => warn!("{}; returned invalid EntityCommands", message),
+                FailureMode::Panic => panic!("{}", message),
+            };
         }
-
-        match self.get_entity(entity) {
-            Some(entity) => entity,
-            None => panic_no_entity(entity),
+        EntityCommands {
+            entity,
+            commands: self.reborrow(),
         }
     }
 
@@ -514,7 +515,7 @@ impl<'w, 's> Commands<'w, 's> {
             })
         } else {
             let message =
-                format!("Attempted to create an EntityCommands for entity {entity:?}, which doesn't exist.");
+                format!("Attempted to create an EntityCommands for entity {entity:?}, which doesn't exist");
             match self.failure_mode {
                 FailureMode::Ignore => (),
                 FailureMode::Log => info!("{}", message),
