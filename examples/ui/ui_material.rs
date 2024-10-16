@@ -23,16 +23,16 @@ fn setup(
     commands.spawn(Camera2d);
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             let banner_scale_factor = 0.5;
             parent.spawn(MaterialNodeBundle {

@@ -34,8 +34,9 @@ fn setup(mut commands: Commands) {
     commands.spawn((Camera2d, UiBoxShadowSamples(args.samples)));
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 padding: UiRect::all(Val::Px(30.)),
@@ -43,9 +44,8 @@ fn setup(mut commands: Commands) {
                 flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
-            background_color: BackgroundColor(DEEP_SKY_BLUE.into()),
-            ..Default::default()
-        })
+            BackgroundColor(DEEP_SKY_BLUE.into()),
+        ))
         .with_children(|commands| {
             let example_nodes = [
                 (
@@ -201,18 +201,16 @@ fn box_shadow_node_bundle(
     border_radius: BorderRadius,
 ) -> impl Bundle {
     (
-        NodeBundle {
-            style: Style {
-                width: Val::Px(size.x),
-                height: Val::Px(size.y),
-                border: UiRect::all(Val::Px(4.)),
-                ..default()
-            },
-            border_color: BorderColor(LIGHT_SKY_BLUE.into()),
-            border_radius,
-            background_color: BackgroundColor(DEEP_SKY_BLUE.into()),
-            ..Default::default()
+        Node::default(),
+        Style {
+            width: Val::Px(size.x),
+            height: Val::Px(size.y),
+            border: UiRect::all(Val::Px(4.)),
+            ..default()
         },
+        BorderColor(LIGHT_SKY_BLUE.into()),
+        border_radius,
+        BackgroundColor(DEEP_SKY_BLUE.into()),
         BoxShadow {
             color: Color::BLACK.with_alpha(0.8),
             x_offset: Val::Percent(offset.x),

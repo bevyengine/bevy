@@ -353,19 +353,17 @@ mod ui {
             .with_children(|parent| {
                 parent
                     .spawn((
-                        ButtonBundle {
-                            style: Style {
-                                width: Val::Px(200.),
-                                height: Val::Px(65.),
-                                // horizontally center child text
-                                justify_content: JustifyContent::Center,
-                                // vertically center child text
-                                align_items: AlignItems::Center,
-                                ..default()
-                            },
-                            background_color: NORMAL_BUTTON.into(),
+                        Button,
+                        Style {
+                            width: Val::Px(200.),
+                            height: Val::Px(65.),
+                            // horizontally center child text
+                            justify_content: JustifyContent::Center,
+                            // vertically center child text
+                            align_items: AlignItems::Center,
                             ..default()
                         },
+                        BackgroundColor(NORMAL_BUTTON),
                         MenuButton::Play,
                     ))
                     .with_children(|parent| {
@@ -381,23 +379,20 @@ mod ui {
 
                 parent
                     .spawn((
-                        ButtonBundle {
-                            style: Style {
-                                width: Val::Px(200.),
-                                height: Val::Px(65.),
-                                // horizontally center child text
-                                justify_content: JustifyContent::Center,
-                                // vertically center child text
-                                align_items: AlignItems::Center,
-                                ..default()
-                            },
-                            background_color: match tutorial_state.get() {
-                                TutorialState::Active => ACTIVE_BUTTON,
-                                TutorialState::Inactive => NORMAL_BUTTON,
-                            }
-                            .into(),
+                        Button,
+                        Style {
+                            width: Val::Px(200.),
+                            height: Val::Px(65.),
+                            // horizontally center child text
+                            justify_content: JustifyContent::Center,
+                            // vertically center child text
+                            align_items: AlignItems::Center,
                             ..default()
                         },
+                        BackgroundColor(match tutorial_state.get() {
+                            TutorialState::Active => ACTIVE_BUTTON,
+                            TutorialState::Inactive => NORMAL_BUTTON,
+                        }),
                         MenuButton::Tutorial,
                     ))
                     .with_children(|parent| {

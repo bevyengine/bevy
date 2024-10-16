@@ -153,86 +153,84 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 fn spawn_with_pixel_coords(commands: &mut Commands) {
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    width: Val::Px(640.),
-                    height: Val::Px(360.),
-                    border: UiRect::axes(Val::Px(32.), Val::Px(18.)),
-                    flex_wrap: FlexWrap::Wrap,
-                    ..default()
-                },
-                border_color: PALETTE[1].into(),
+            Node::default(),
+            Style {
+                width: Val::Px(640.),
+                height: Val::Px(360.),
+                border: UiRect::axes(Val::Px(32.), Val::Px(18.)),
+                flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
+            BorderColor(PALETTE[1].into()),
             Coords::Pixel,
         ))
         .with_children(|builder| {
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node::default(),
+                Style {
                     width: Val::Px(192.),
                     height: Val::Px(108.),
                     border: UiRect::axes(Val::Px(18.), Val::Px(18.)),
                     ..default()
                 },
-                background_color: PALETTE[2].into(),
-                border_color: PALETTE[9].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[2].into()),
+                BorderColor(PALETTE[9].into()),
+            ));
 
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node::default(),
+                Style {
                     width: Val::Px(384.),
                     height: Val::Px(108.),
                     ..default()
                 },
-                background_color: PALETTE[3].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[3].into()),
+            ));
 
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node::default(),
+                Style {
                     width: Val::Px(288.),
                     height: Val::Px(108.),
                     border: UiRect::left(Val::Px(144.)),
                     ..default()
                 },
-                background_color: PALETTE[4].into(),
-                border_color: PALETTE[8].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[4].into()),
+                BorderColor(PALETTE[8].into()),
+            ));
 
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node::default(),
+                Style {
                     width: Val::Px(288.),
                     height: Val::Px(108.),
                     border: UiRect::right(Val::Px(144.)),
                     ..default()
                 },
-                background_color: PALETTE[5].into(),
-                border_color: PALETTE[8].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[5].into()),
+                BorderColor(PALETTE[8].into()),
+            ));
 
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node::default(),
+                Style {
                     width: Val::Px(384.),
                     height: Val::Px(108.),
                     ..default()
                 },
-                background_color: PALETTE[6].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[6].into()),
+            ));
 
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node::default(),
+                Style {
                     width: Val::Px(192.),
                     height: Val::Px(108.),
                     border: UiRect::axes(Val::Px(18.), Val::Px(18.)),
                     ..default()
                 },
-                background_color: PALETTE[7].into(),
-                border_color: PALETTE[9].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[7].into()),
+                BorderColor(PALETTE[9].into()),
+            ));
         });
 }

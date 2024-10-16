@@ -112,39 +112,40 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ))
             .with_children(|parent| {
                 let mut target_ids = vec![];
-                parent.spawn(NodeBundle {
-                    style: Style {
+                parent.spawn((
+                    Node::default(),
+                    Style {
                         width: Val::Percent(50.),
                         height: Val::Px(520.),
                         justify_content: JustifyContent::Center,
-                        ..Default::default()
+                        ..default()
                     },
-                    ..Default::default()
-                }).with_children(|parent| {
+                )).with_children(|parent| {
                     target_ids = spawn_left_panel(parent, &palette);
                 });
 
-                parent.spawn(NodeBundle {
-                    style: Style {
+                parent.spawn((
+                    Node::default(),
+                    Style {
                         width: Val::Percent(50.),
                         justify_content: JustifyContent::Center,
-                        ..Default::default()
+                        ..default()
                     },
-                    ..Default::default()
-                }).with_children(|parent| {
+                )).with_children(|parent| {
                     spawn_right_panel(parent, text_font, &palette, target_ids);
                 });
             });
 
-            parent.spawn(NodeBundle {
-                style: Style {
+            parent.spawn((
+                Node::default(),
+                Style {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Start,
                     justify_content: JustifyContent::Start,
                     column_gap: Val::Px(10.),
-                    ..Default::default()
+                    ..default()
                 },
-                ..default() })
+            ))
             .with_children(|builder| {
                 let text_font = TextFont {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -171,93 +172,90 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Entity> {
     let mut target_ids = vec![];
     builder
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 padding: UiRect::all(Val::Px(10.)),
-                ..Default::default()
+                ..default()
             },
-            background_color: BackgroundColor(Color::WHITE),
-            ..Default::default()
-        })
+            BackgroundColor(Color::WHITE),
+        ))
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    background_color: BackgroundColor(Color::BLACK),
-                    ..Default::default()
-                })
+                .spawn((Node::default(), BackgroundColor(Color::BLACK)))
                 .with_children(|parent| {
                     let id = parent
-                        .spawn(NodeBundle {
-                            style: Style {
+                        .spawn((
+                            Node::default(),
+                            Style {
                                 align_items: AlignItems::FlexEnd,
                                 justify_content: JustifyContent::FlexEnd,
-                                ..Default::default()
+                                ..default()
                             },
-                            background_color: BackgroundColor(palette[0]),
-                            ..Default::default()
-                        })
+                            BackgroundColor(palette[0]),
+                        ))
                         .with_children(|parent| {
-                            parent.spawn(NodeBundle {
-                                style: Style {
+                            parent.spawn((
+                                Node::default(),
+                                Style {
                                     width: Val::Px(100.),
                                     height: Val::Px(500.),
-                                    ..Default::default()
+                                    ..default()
                                 },
-                                ..Default::default()
-                            });
+                            ));
 
                             let id = parent
-                                .spawn(NodeBundle {
-                                    style: Style {
+                                .spawn((
+                                    Node::default(),
+                                    Style {
                                         height: Val::Px(400.),
                                         align_items: AlignItems::FlexEnd,
                                         justify_content: JustifyContent::FlexEnd,
-                                        ..Default::default()
+                                        ..default()
                                     },
-                                    background_color: BackgroundColor(palette[1]),
-                                    ..Default::default()
-                                })
+                                    BackgroundColor(palette[1]),
+                                ))
                                 .with_children(|parent| {
-                                    parent.spawn(NodeBundle {
-                                        style: Style {
+                                    parent.spawn((
+                                        Node::default(),
+                                        Style {
                                             width: Val::Px(100.),
                                             height: Val::Px(400.),
-                                            ..Default::default()
+                                            ..default()
                                         },
-                                        ..Default::default()
-                                    });
+                                    ));
 
                                     let id = parent
-                                        .spawn(NodeBundle {
-                                            style: Style {
+                                        .spawn((
+                                            Node::default(),
+                                            Style {
                                                 height: Val::Px(300.),
                                                 align_items: AlignItems::FlexEnd,
                                                 justify_content: JustifyContent::FlexEnd,
-                                                ..Default::default()
+                                                ..default()
                                             },
-                                            background_color: BackgroundColor(palette[2]),
-                                            ..Default::default()
-                                        })
+                                            BackgroundColor(palette[2]),
+                                        ))
                                         .with_children(|parent| {
-                                            parent.spawn(NodeBundle {
-                                                style: Style {
+                                            parent.spawn((
+                                                Node::default(),
+                                                Style {
                                                     width: Val::Px(100.),
                                                     height: Val::Px(300.),
-                                                    ..Default::default()
+                                                    ..default()
                                                 },
-                                                ..Default::default()
-                                            });
+                                            ));
 
                                             let id = parent
-                                                .spawn(NodeBundle {
-                                                    style: Style {
+                                                .spawn((
+                                                    Node::default(),
+                                                    Style {
                                                         width: Val::Px(200.),
                                                         height: Val::Px(200.),
-                                                        ..Default::default()
+                                                        ..default()
                                                     },
-                                                    background_color: BackgroundColor(palette[3]),
-                                                    ..Default::default()
-                                                })
+                                                    BackgroundColor(palette[3]),
+                                                ))
                                                 .id();
                                             target_ids.push(id);
                                         })
@@ -285,18 +283,19 @@ fn spawn_right_panel(
         spawn_button::<Visibility>(parent, text_font.clone(), target_id);
     };
     parent
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 padding: UiRect::all(Val::Px(10.)),
-                ..Default::default()
+                ..default()
             },
-            background_color: BackgroundColor(Color::WHITE),
-            ..Default::default()
-        })
+            BackgroundColor(Color::WHITE),
+        ))
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node::default(),
+                    Style {
                         width: Val::Px(500.),
                         height: Val::Px(500.),
                         flex_direction: FlexDirection::Column,
@@ -305,19 +304,19 @@ fn spawn_right_panel(
                         padding: UiRect {
                             left: Val::Px(5.),
                             top: Val::Px(5.),
-                            ..Default::default()
+                            ..default()
                         },
-                        ..Default::default()
+                        ..default()
                     },
-                    background_color: BackgroundColor(palette[0]),
-                    ..Default::default()
-                })
+                    BackgroundColor(palette[0]),
+                ))
                 .with_children(|parent| {
                     spawn_buttons(parent, target_ids.pop().unwrap());
 
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
+                        .spawn((
+                            Node::default(),
+                            Style {
                                 width: Val::Px(400.),
                                 height: Val::Px(400.),
                                 flex_direction: FlexDirection::Column,
@@ -326,19 +325,19 @@ fn spawn_right_panel(
                                 padding: UiRect {
                                     left: Val::Px(5.),
                                     top: Val::Px(5.),
-                                    ..Default::default()
+                                    ..default()
                                 },
-                                ..Default::default()
+                                ..default()
                             },
-                            background_color: BackgroundColor(palette[1]),
-                            ..Default::default()
-                        })
+                            BackgroundColor(palette[1]),
+                        ))
                         .with_children(|parent| {
                             spawn_buttons(parent, target_ids.pop().unwrap());
 
                             parent
-                                .spawn(NodeBundle {
-                                    style: Style {
+                                .spawn((
+                                    Node::default(),
+                                    Style {
                                         width: Val::Px(300.),
                                         height: Val::Px(300.),
                                         flex_direction: FlexDirection::Column,
@@ -347,19 +346,19 @@ fn spawn_right_panel(
                                         padding: UiRect {
                                             left: Val::Px(5.),
                                             top: Val::Px(5.),
-                                            ..Default::default()
+                                            ..default()
                                         },
-                                        ..Default::default()
+                                        ..default()
                                     },
-                                    background_color: BackgroundColor(palette[2]),
-                                    ..Default::default()
-                                })
+                                    BackgroundColor(palette[2]),
+                                ))
                                 .with_children(|parent| {
                                     spawn_buttons(parent, target_ids.pop().unwrap());
 
                                     parent
-                                        .spawn(NodeBundle {
-                                            style: Style {
+                                        .spawn((
+                                            Node::default(),
+                                            Style {
                                                 width: Val::Px(200.),
                                                 height: Val::Px(200.),
                                                 align_items: AlignItems::FlexStart,
@@ -368,24 +367,23 @@ fn spawn_right_panel(
                                                 padding: UiRect {
                                                     left: Val::Px(5.),
                                                     top: Val::Px(5.),
-                                                    ..Default::default()
+                                                    ..default()
                                                 },
-                                                ..Default::default()
+                                                ..default()
                                             },
-                                            background_color: BackgroundColor(palette[3]),
-                                            ..Default::default()
-                                        })
+                                            BackgroundColor(palette[3]),
+                                        ))
                                         .with_children(|parent| {
                                             spawn_buttons(parent, target_ids.pop().unwrap());
 
-                                            parent.spawn(NodeBundle {
-                                                style: Style {
+                                            parent.spawn((
+                                                Node::default(),
+                                                Style {
                                                     width: Val::Px(100.),
                                                     height: Val::Px(100.),
-                                                    ..Default::default()
+                                                    ..default()
                                                 },
-                                                ..Default::default()
-                                            });
+                                            ));
                                         });
                                 });
                         });

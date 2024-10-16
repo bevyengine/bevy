@@ -64,8 +64,9 @@ fn setup_menu(mut commands: Commands) {
         ))
         .with_children(|parent| {
             parent
-                .spawn(ButtonBundle {
-                    style: Style {
+                .spawn((
+                    Button,
+                    Style {
                         width: Val::Px(150.),
                         height: Val::Px(65.),
                         // horizontally center child text
@@ -74,9 +75,8 @@ fn setup_menu(mut commands: Commands) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: NORMAL_BUTTON.into(),
-                    ..default()
-                })
+                    BackgroundColor(NORMAL_BUTTON),
+                ))
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Play"),
