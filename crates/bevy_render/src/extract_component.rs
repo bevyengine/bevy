@@ -42,9 +42,10 @@ pub trait ExtractComponent: Component {
 
     /// The output from extraction.
     ///
-    /// Returning `None` based on the queried item can allow early optimization,
-    /// for example if there is an `enabled: bool` field on `Self`, or by only accepting
-    /// values within certain thresholds.
+    /// Returning `None` based on the queried item will remove the component from the entity in
+    /// the render world. This can be used, for example, to conditionally extract camera settings
+    /// in order to disable a rendering feature on the basis of those settings, without removing
+    /// the component from the entity in the main world.
     ///
     /// The output may be different from the queried component.
     /// This can be useful for example if only a subset of the fields are useful
@@ -205,6 +206,8 @@ fn extract_components<C: ExtractComponent>(
     for (entity, query_item) in &query {
         if let Some(component) = C::extract_component(query_item) {
             values.push((entity, component));
+        } else {
+            commands.entity(entity).remove::<C::Out>();
         }
     }
     *previous_len = values.len();
@@ -222,6 +225,8 @@ fn extract_visible_components<C: ExtractComponent>(
         if view_visibility.get() {
             if let Some(component) = C::extract_component(query_item) {
                 values.push((entity, component));
+            } else {
+                commands.entity(entity).remove::<C::Out>();
             }
         }
     }

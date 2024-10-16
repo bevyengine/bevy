@@ -55,6 +55,16 @@ impl LayoutContext {
     }
 }
 
+#[cfg(test)]
+impl LayoutContext {
+    pub const TEST_CONTEXT: Self = Self {
+        scale_factor: 1.0,
+        physical_size: Vec2::new(1000.0, 1000.0),
+        min_size: 0.0,
+        max_size: 1000.0,
+    };
+}
+
 impl Default for LayoutContext {
     fn default() -> Self {
         Self::DEFAULT
@@ -513,7 +523,7 @@ mod tests {
         prelude::*,
         ui_layout_system,
         update::update_target_camera_system,
-        ContentSize,
+        ContentSize, LayoutContext,
     };
 
     #[test]
@@ -1233,5 +1243,58 @@ mod tests {
         world.entity_mut(ui_root).add_child(ui_child);
 
         ui_schedule.run(&mut world);
+    }
+
+    #[test]
+    fn test_ui_surface_compute_camera_layout() {
+        use bevy_ecs::prelude::ResMut;
+
+        let (mut world, ..) = setup_ui_test_world();
+
+        let camera_entity = Entity::from_raw(0);
+        let root_node_entity = Entity::from_raw(1);
+
+        struct TestSystemParam {
+            camera_entity: Entity,
+            root_node_entity: Entity,
+        }
+
+        fn test_system(
+            params: In<TestSystemParam>,
+            mut ui_surface: ResMut<UiSurface>,
+            #[cfg(feature = "bevy_text")] mut computed_text_block_query: Query<
+                &mut bevy_text::ComputedTextBlock,
+            >,
+            #[cfg(feature = "bevy_text")] mut font_system: ResMut<bevy_text::CosmicFontSystem>,
+        ) {
+            ui_surface.upsert_node(
+                &LayoutContext::TEST_CONTEXT,
+                params.root_node_entity,
+                &Style::default(),
+                None,
+            );
+
+            ui_surface.compute_camera_layout(
+                params.camera_entity,
+                UVec2::new(800, 600),
+                #[cfg(feature = "bevy_text")]
+                &mut computed_text_block_query,
+                #[cfg(feature = "bevy_text")]
+                &mut font_system.0,
+            );
+        }
+
+        let _ = world.run_system_once_with(
+            TestSystemParam {
+                camera_entity,
+                root_node_entity,
+            },
+            test_system,
+        );
+
+        let ui_surface = world.resource::<UiSurface>();
+
+        let taffy_node = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
+        assert!(ui_surface.taffy.layout(*taffy_node).is_ok());
     }
 }

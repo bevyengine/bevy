@@ -23,6 +23,7 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use smallvec::SmallVec;
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
@@ -68,6 +69,13 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     /// Returns the [`Entity`] that triggered the observer, could be [`Entity::PLACEHOLDER`].
     pub fn entity(&self) -> Entity {
         self.trigger.entity
+    }
+
+    /// Returns the components that triggered the observer, out of the
+    /// components defined in `B`. Does not necessarily include all of them as
+    /// `B` acts like an `OR` filter rather than an `AND` filter.
+    pub fn components(&self) -> &[ComponentId] {
+        &self.trigger.components
     }
 
     /// Returns the [`Entity`] that observed the triggered event.
@@ -193,12 +201,19 @@ impl ObserverDescriptor {
 pub struct ObserverTrigger {
     /// The [`Entity`] of the observer handling the trigger.
     pub observer: Entity,
-
-    /// The [`ComponentId`] the trigger targeted.
+    /// The [`Event`] the trigger targeted.
     pub event_type: ComponentId,
-
+    /// The [`ComponentId`]s the trigger targeted.
+    components: SmallVec<[ComponentId; 2]>,
     /// The entity the trigger targeted.
     pub entity: Entity,
+}
+
+impl ObserverTrigger {
+    /// Returns the components that the trigger targeted.
+    pub fn components(&self) -> &[ComponentId] {
+        &self.components
+    }
 }
 
 // Map between an observer entity and its runner
@@ -262,7 +277,7 @@ impl Observers {
         mut world: DeferredWorld,
         event_type: ComponentId,
         entity: Entity,
-        components: impl Iterator<Item = ComponentId>,
+        components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
     ) {
@@ -279,12 +294,15 @@ impl Observers {
             (world.into_deferred(), observers)
         };
 
+        let trigger_for_components = components.clone();
+
         let mut trigger_observer = |(&observer, runner): (&Entity, &ObserverRunner)| {
             (runner)(
                 world.reborrow(),
                 ObserverTrigger {
                     observer,
                     event_type,
+                    components: components.clone().collect(),
                     entity,
                 },
                 data.into(),
@@ -302,7 +320,7 @@ impl Observers {
         }
 
         // Trigger observers listening to this trigger targeting a specific component
-        components.for_each(|id| {
+        trigger_for_components.for_each(|id| {
             if let Some(component_observers) = observers.component_observers.get(&id) {
                 component_observers
                     .map
@@ -552,8 +570,10 @@ mod tests {
     use alloc::vec;
 
     use bevy_ptr::OwningPtr;
+    use bevy_utils::HashMap;
 
     use crate as bevy_ecs;
+    use crate::component::ComponentId;
     use crate::{
         observer::{EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace},
         prelude::*,
@@ -1268,9 +1288,6 @@ mod tests {
 
     #[test]
     fn observer_invalid_params() {
-        #[derive(Event)]
-        struct EventA;
-
         #[derive(Resource)]
         struct ResA;
 
@@ -1289,9 +1306,6 @@ mod tests {
 
     #[test]
     fn observer_apply_deferred_from_param_set() {
-        #[derive(Event)]
-        struct EventA;
-
         #[derive(Resource)]
         struct ResA;
 
@@ -1308,5 +1322,36 @@ mod tests {
         world.flush();
 
         assert!(world.get_resource::<ResA>().is_some());
+    }
+
+    #[test]
+    fn observer_triggered_components() {
+        #[derive(Resource, Default)]
+        struct Counter(HashMap<ComponentId, usize>);
+
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        let a_id = world.register_component::<A>();
+        let b_id = world.register_component::<B>();
+
+        world.add_observer(
+            |trigger: Trigger<EventA, (A, B)>, mut counter: ResMut<Counter>| {
+                for &component in trigger.components() {
+                    *counter.0.entry(component).or_default() += 1;
+                }
+            },
+        );
+        world.flush();
+
+        world.trigger_targets(EventA, [a_id, b_id]);
+        world.trigger_targets(EventA, a_id);
+        world.trigger_targets(EventA, b_id);
+        world.trigger_targets(EventA, [a_id, b_id]);
+        world.trigger_targets(EventA, a_id);
+        world.flush();
+
+        let counter = world.resource::<Counter>();
+        assert_eq!(4, *counter.0.get(&a_id).unwrap());
+        assert_eq!(3, *counter.0.get(&b_id).unwrap());
     }
 }

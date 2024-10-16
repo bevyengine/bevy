@@ -547,7 +547,7 @@ fn counter_system(
     diagnostics: Res<DiagnosticsStore>,
     counter: Res<BevyCounter>,
     query: Single<Entity, With<StatsText>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     let text = *query;
 
