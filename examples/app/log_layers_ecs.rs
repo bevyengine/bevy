@@ -28,7 +28,7 @@ fn main() {
             // Show logs all the way up to the trace level, but only for logs
             // produced by this example.
             level: Level::TRACE,
-            filter: "warn,log_layers_ecs=trace".to_string(),
+            filter: "warn,bevy=info,log_layers_ecs=trace".to_string(),
             custom_layer,
             ..default()
         }))
