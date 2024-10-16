@@ -29,9 +29,12 @@ use bevy_ecs::{
 use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::{PhysicalCameraParameters, Projection}, extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin}, render_graph::{
+    camera::{PhysicalCameraParameters, Projection},
+    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
+    render_graph::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
-    }, render_resource::{
+    },
+    render_resource::{
         binding_types::{
             sampler, texture_2d, texture_depth_2d, texture_depth_2d_multisampled, uniform_buffer,
         },
@@ -41,10 +44,16 @@ use bevy_render::{
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
         ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp,
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-    }, renderer::{RenderContext, RenderDevice}, sync_component::SyncComponentPlugin, sync_world::RenderEntity, texture::{BevyDefault, CachedTexture, TextureCache}, view::{
+    },
+    renderer::{RenderContext, RenderDevice},
+    sync_component::SyncComponentPlugin,
+    sync_world::RenderEntity,
+    texture::{BevyDefault, CachedTexture, TextureCache},
+    view::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
-    }, Extract, ExtractSchedule, Render, RenderApp, RenderSet
+    },
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{info_once, prelude::default, warn_once};
 use smallvec::SmallVec;
