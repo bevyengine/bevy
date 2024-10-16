@@ -136,7 +136,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 /// Rotates entities to demonstrate grid snapping.
 fn rotate(time: Res<Time>, mut transforms: Query<&mut Transform, With<Rotate>>) {
     for mut transform in &mut transforms {
-        let dt = time.delta_seconds();
+        let dt = time.delta_secs();
         transform.rotate_z(dt);
     }
 }

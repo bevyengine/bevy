@@ -38,7 +38,7 @@ struct Spin;
 
 fn spin(time: Res<Time>, mut query: Query<&mut Transform, With<Spin>>) {
     for mut transform in query.iter_mut() {
-        transform.rotation *= Quat::from_rotation_z(time.delta_seconds() / 5.);
+        transform.rotation *= Quat::from_rotation_z(time.delta_secs() / 5.);
     }
 }
 
@@ -279,11 +279,8 @@ fn draw_ray(gizmos: &mut Gizmos, ray: &RayCast2d) {
 }
 
 fn get_and_draw_ray(gizmos: &mut Gizmos, time: &Time) -> RayCast2d {
-    let ray = Vec2::new(
-        ops::cos(time.elapsed_seconds()),
-        ops::sin(time.elapsed_seconds()),
-    );
-    let dist = 150. + ops::sin(0.5 * time.elapsed_seconds()).abs() * 500.;
+    let ray = Vec2::new(ops::cos(time.elapsed_secs()), ops::sin(time.elapsed_secs()));
+    let dist = 150. + ops::sin(0.5 * time.elapsed_secs()).abs() * 500.;
 
     let aabb_ray = Ray2d {
         origin: ray * 250.,
@@ -375,8 +372,8 @@ fn bounding_circle_cast_system(
 }
 
 fn get_intersection_position(time: &Time) -> Vec2 {
-    let x = ops::cos(0.8 * time.elapsed_seconds()) * 250.;
-    let y = ops::sin(0.4 * time.elapsed_seconds()) * 100.;
+    let x = ops::cos(0.8 * time.elapsed_secs()) * 250.;
+    let y = ops::sin(0.4 * time.elapsed_secs()) * 100.;
     Vec2::new(x, y)
 }
 

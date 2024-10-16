@@ -109,7 +109,7 @@ fn movement(
         }
 
         if direction != Vec3::ZERO {
-            transform.translation += direction.normalize() * SPEED * time.delta_seconds();
+            transform.translation += direction.normalize() * SPEED * time.delta_secs();
         }
     }
 }
@@ -117,7 +117,7 @@ fn movement(
 fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     for mut sprite in &mut query {
         let new_color = LinearRgba {
-            blue: ops::sin(time.elapsed_seconds() * 0.5) + 2.0,
+            blue: ops::sin(time.elapsed_secs() * 0.5) + 2.0,
             ..LinearRgba::from(sprite.color)
         };
 

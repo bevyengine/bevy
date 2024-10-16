@@ -111,7 +111,7 @@ fn run_camera_controller(
     mut mouse_cursor_grab: Local<bool>,
     mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
 ) {
-    let dt = time.delta_seconds();
+    let dt = time.delta_secs();
 
     if let Ok((mut transform, mut controller)) = query.get_single_mut() {
         if !controller.initialized {

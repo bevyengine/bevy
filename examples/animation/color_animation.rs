@@ -88,7 +88,7 @@ fn animate_curve<T: CurveColor>(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &mut Sprite, &Curve<T>)>,
 ) {
-    let t = (ops::sin(time.elapsed_seconds()) + 1.) / 2.;
+    let t = (ops::sin(time.elapsed_secs()) + 1.) / 2.;
 
     for (mut transform, mut sprite, cubic_curve) in &mut query {
         // position takes a point from the curve where 0 is the initial point
@@ -102,7 +102,7 @@ fn animate_mixed<T: MixedColor>(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &mut Sprite, &Mixed<T>)>,
 ) {
-    let t = (ops::sin(time.elapsed_seconds()) + 1.) / 2.;
+    let t = (ops::sin(time.elapsed_secs()) + 1.) / 2.;
 
     for (mut transform, mut sprite, mixed) in &mut query {
         sprite.color = {

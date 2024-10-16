@@ -202,7 +202,7 @@ fn move_point_light(
     for (mut transform, mut move_data) in objects.iter_mut() {
         let mut translation = transform.translation;
         let mut need_toggle = false;
-        translation.x += move_data.speed * timer.delta_seconds();
+        translation.x += move_data.speed * timer.delta_secs();
         if translation.x > move_data.max_x {
             translation.x = move_data.max_x;
             need_toggle = true;

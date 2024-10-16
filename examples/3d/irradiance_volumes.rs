@@ -355,7 +355,7 @@ fn rotate_camera(
     }
 
     for mut transform in camera_query.iter_mut() {
-        transform.translation = Vec2::from_angle(ROTATION_SPEED * time.delta_seconds())
+        transform.translation = Vec2::from_angle(ROTATION_SPEED * time.delta_secs())
             .rotate(transform.translation.xz())
             .extend(transform.translation.y)
             .xzy();

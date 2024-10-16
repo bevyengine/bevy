@@ -233,7 +233,7 @@ fn animate_light(
     mut lights: Query<&mut Transform, Or<(With<PointLight>, With<DirectionalLight>)>>,
     time: Res<Time>,
 ) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_secs();
     for mut transform in lights.iter_mut() {
         transform.translation = vec3(
             ops::sin(now * 1.4),
@@ -246,7 +246,7 @@ fn animate_light(
 
 /// Rotates the spheres.
 fn animate_spheres(mut spheres: Query<&mut Transform, With<ExampleSphere>>, time: Res<Time>) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_secs();
     for mut transform in spheres.iter_mut() {
         transform.rotation = Quat::from_rotation_y(SPHERE_ROTATION_SPEED * now);
     }

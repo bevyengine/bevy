@@ -92,7 +92,7 @@ fn update_positions(
 ) {
     for (mut emitter_transform, mut emitter) in emitters.iter_mut() {
         if keyboard.just_pressed(KeyCode::Space) {
-            if emitter.stopwatch.paused() {
+            if emitter.stopwatch.is_paused() {
                 emitter.stopwatch.unpause();
             } else {
                 emitter.stopwatch.pause();
@@ -101,7 +101,7 @@ fn update_positions(
 
         emitter.stopwatch.tick(time.delta());
 
-        if !emitter.stopwatch.paused() {
+        if !emitter.stopwatch.is_paused() {
             emitter_transform.translation.x = ops::sin(emitter.stopwatch.elapsed_secs()) * 3.0;
             emitter_transform.translation.z = ops::cos(emitter.stopwatch.elapsed_secs()) * 3.0;
         }
@@ -116,15 +116,15 @@ fn update_listener(
     let speed = 2.;
 
     if keyboard.pressed(KeyCode::ArrowRight) {
-        listeners.translation.x += speed * time.delta_seconds();
+        listeners.translation.x += speed * time.delta_secs();
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        listeners.translation.x -= speed * time.delta_seconds();
+        listeners.translation.x -= speed * time.delta_secs();
     }
     if keyboard.pressed(KeyCode::ArrowDown) {
-        listeners.translation.z += speed * time.delta_seconds();
+        listeners.translation.z += speed * time.delta_secs();
     }
     if keyboard.pressed(KeyCode::ArrowUp) {
-        listeners.translation.z -= speed * time.delta_seconds();
+        listeners.translation.z -= speed * time.delta_secs();
     }
 }
