@@ -27,7 +27,7 @@ pub struct UiRootNodes<'w, 's> {
     root_node_query: Query<'w, 's, Entity, (With<Node>, Without<Parent>)>,
     root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<Parent>)>,
     all_nodes_query: Query<'w, 's, Entity, With<Node>>,
-    ui_children: UiChildren<'w, 's>,
+    ui_tree: UiTree<'w, 's>,
 }
 
 impl<'w, 's> UiRootNodes<'w, 's> {
@@ -36,14 +36,14 @@ impl<'w, 's> UiRootNodes<'w, 's> {
             .iter()
             .chain(self.root_ghost_node_query.iter().flat_map(|root_ghost| {
                 self.all_nodes_query
-                    .iter_many(self.ui_children.iter_ui_children(root_ghost))
+                    .iter_many(self.ui_tree.iter_children(root_ghost))
             }))
     }
 }
 
-/// System param that gives access to UI children utilities, skipping over [`GhostNode`].
+/// System param that gives access to UI tree utilities, skipping over [`GhostNode`] and stopping traversal at non-UI entities.
 #[derive(SystemParam)]
-pub struct UiChildren<'w, 's> {
+pub struct UiTree<'w, 's> {
     ui_children_query: Query<
         'w,
         's,
@@ -51,20 +51,20 @@ pub struct UiChildren<'w, 's> {
         Or<(With<Node>, With<GhostNode>)>,
     >,
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
-    children_query: Query<'w, 's, &'static Children>,
     ghost_nodes_query: Query<'w, 's, Entity, With<GhostNode>>,
-    parents_query: Query<'w, 's, &'static Parent>,
+    children_query: Query<'w, 's, &'static Children, Or<(With<Node>, With<GhostNode>)>>,
+    parents_query: Query<'w, 's, &'static Parent, Or<(With<Node>, With<GhostNode>)>>,
 }
 
-impl<'w, 's> UiChildren<'w, 's> {
-    /// Iterates the children of `entity`, skipping over [`GhostNode`].
+impl<'w, 's> UiTree<'w, 's> {
+    /// Iterates the [`Node`] children of `entity`, skipping over [`GhostNode`].
     ///
     /// Traverses the hierarchy depth-first to ensure child order.
     ///
     /// # Performance
     ///
     /// This iterator allocates if the `entity` node has more than 8 children (including ghost nodes).
-    pub fn iter_ui_children(&'s self, entity: Entity) -> UiChildrenIter<'w, 's> {
+    pub fn iter_children(&'s self, entity: Entity) -> UiChildrenIter<'w, 's> {
         UiChildrenIter {
             stack: self
                 .ui_children_query
@@ -76,11 +76,52 @@ impl<'w, 's> UiChildren<'w, 's> {
         }
     }
 
-    /// Returns the UI parent of the provided entity, skipping over [`GhostNode`].
-    pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
+    /// Returns the [`Node`] parent of the provided entity, skipping over [`GhostNode`].
+    pub fn parent(&'s self, entity: Entity) -> Option<Entity> {
         self.parents_query
             .iter_ancestors(entity)
             .find(|entity| !self.ghost_nodes_query.contains(*entity))
+    }
+
+    /// Returns the topmost [`Node`] ancestor of the given `entity`.
+    ///
+    /// This may be the entity itself if it has no parent or if it isn't part of a UI tree.
+    pub fn root_ancestor(&'s self, entity: Entity) -> Entity {
+        // Recursively search up the tree until we're out of parents
+        match self.parent(entity) {
+            Some(parent) => self.root_ancestor(parent),
+            None => entity,
+        }
+    }
+
+    /// Returns an [`Iterator`] of [`Node`] entities over all `entity`s ancestors within the current UI tree.
+    ///
+    /// Does not include the entity itself.
+    pub fn iter_ancestors(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
+        self.parents_query
+            .iter_ancestors(entity)
+            .filter(|entity| !self.ghost_nodes_query.contains(*entity))
+    }
+
+    /// Returns an [`Iterator`] of [`Node`] entities over all of `entity`s descendants within the current UI tree.
+    ///
+    /// Traverses the hierarchy breadth-first and does not include the entity itself.
+    pub fn iter_descendants(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
+        self.children_query
+            .iter_descendants(entity)
+            .filter(|entity| !self.ghost_nodes_query.contains(*entity))
+    }
+
+    /// Returns an [`Iterator`] of [`Node`] entities over all of `entity`s descendants within the current UI tree.
+    ///
+    /// Traverses the hierarchy depth-first and does not include the entity itself.
+    pub fn iter_descendants_depth_first(
+        &'s self,
+        entity: Entity,
+    ) -> impl Iterator<Item = Entity> + 's {
+        self.children_query
+            .iter_descendants_depth_first(entity)
+            .filter(|entity| !self.ghost_nodes_query.contains(*entity))
     }
 
     /// Iterates the [`GhostNode`]s between this entity and its UI children.
@@ -100,7 +141,7 @@ impl<'w, 's> UiChildren<'w, 's> {
     }
 
     /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if children has been added/removed or if the order has changed.
-    pub fn is_changed(&'s self, entity: Entity) -> bool {
+    pub fn children_is_changed(&'s self, entity: Entity) -> bool {
         self.changed_children_query.contains(entity)
             || self
                 .iter_ghost_nodes(entity)
@@ -108,7 +149,7 @@ impl<'w, 's> UiChildren<'w, 's> {
     }
 
     /// Returns `true` if the given entity is either a [`Node`] or a [`GhostNode`].
-    pub fn is_ui_node(&'s self, entity: Entity) -> bool {
+    pub fn is_ui_entity(&'s self, entity: Entity) -> bool {
         self.ui_children_query.contains(entity)
     }
 }
@@ -149,7 +190,7 @@ mod tests {
     };
     use bevy_hierarchy::{BuildChildren, ChildBuild};
 
-    use super::{GhostNode, UiChildren, UiRootNodes};
+    use super::{GhostNode, UiRootNodes, UiTree};
     use crate::prelude::NodeBundle;
 
     #[derive(Component, PartialEq, Debug)]
@@ -201,6 +242,7 @@ mod tests {
         let n8 = world.spawn((A(8), NodeBundle::default())).id();
         let n9 = world.spawn((A(9), GhostNode)).id();
         let n10 = world.spawn((A(10), NodeBundle::default())).id();
+        let n11 = world.spawn((A(11), NodeBundle::default())).id();
 
         let no_ui = world.spawn_empty().id();
 
@@ -210,14 +252,69 @@ mod tests {
         world.entity_mut(n6).add_children(&[n7, no_ui, n9]);
         world.entity_mut(n7).add_children(&[n8]);
         world.entity_mut(n9).add_children(&[n10]);
+        world.entity_mut(n10).add_children(&[n11]);
 
-        let mut system_state = SystemState::<(UiChildren, Query<&A>)>::new(world);
-        let (ui_children, a_query) = system_state.get(world);
+        let mut system_state = SystemState::<(UiTree, Query<&A>)>::new(world);
+        let (ui_tree, a_query) = system_state.get(world);
+
+        let result: Vec<_> = a_query.iter_many(ui_tree.iter_children(n1)).collect();
+        assert_eq!([&A(5), &A(4), &A(8), &A(10)], result.as_slice());
+
+        let result: Vec<_> = a_query.iter_many(ui_tree.iter_descendants(n1)).collect();
+        assert_eq!([&A(4), &A(5), &A(8), &A(10), &A(11)], result.as_slice());
 
         let result: Vec<_> = a_query
-            .iter_many(ui_children.iter_ui_children(n1))
+            .iter_many(ui_tree.iter_descendants_depth_first(n1))
             .collect();
+        assert_eq!([&A(5), &A(4), &A(8), &A(10), &A(11)], result.as_slice());
+    }
 
-        assert_eq!([&A(5), &A(4), &A(8), &A(10)], result.as_slice());
+    #[test]
+    fn ancestors() {
+        let world = &mut World::new();
+
+        let n1 = world.spawn((A(1), NodeBundle::default())).id();
+        let n2 = world.spawn((A(2), GhostNode)).id();
+        let n3 = world.spawn((A(3), GhostNode)).id();
+        let n4 = world.spawn((A(4), NodeBundle::default())).id();
+        let n5 = world.spawn((A(5), NodeBundle::default())).id();
+
+        let n6 = world.spawn((A(6), GhostNode)).id();
+        let n7 = world.spawn((A(7), GhostNode)).id();
+        let n8 = world.spawn((A(8), NodeBundle::default())).id();
+
+        world.entity_mut(n1).add_children(&[n2, n3]);
+        world.entity_mut(n3).add_children(&[n4]);
+        world.entity_mut(n4).add_children(&[n5]);
+
+        world.entity_mut(n6).add_children(&[n7]);
+        world.entity_mut(n7).add_children(&[n8]);
+
+        let mut system_state = SystemState::<(UiTree, Query<&A>)>::new(world);
+        let (ui_tree, a_query) = system_state.get(world);
+
+        assert_eq!(&A(1), a_query.get(ui_tree.root_ancestor(n1)).unwrap());
+        assert_eq!(&A(1), a_query.get(ui_tree.root_ancestor(n2)).unwrap());
+        assert_eq!(&A(1), a_query.get(ui_tree.root_ancestor(n4)).unwrap());
+        assert_eq!(&A(1), a_query.get(ui_tree.root_ancestor(n5)).unwrap());
+        assert_eq!(&A(8), a_query.get(ui_tree.root_ancestor(n8)).unwrap());
+
+        assert_eq!(
+            [&A(1)],
+            a_query
+                .iter_many(ui_tree.iter_ancestors(n4))
+                .collect::<Vec<_>>()
+                .as_slice()
+        );
+
+        assert_eq!(
+            [&A(4), &A(1)],
+            a_query
+                .iter_many(ui_tree.iter_ancestors(n5))
+                .collect::<Vec<_>>()
+                .as_slice()
+        );
+
+        assert!(ui_tree.iter_ancestors(n8).next().is_none());
     }
 }
