@@ -114,8 +114,9 @@ fn setup_scene(
 
     // Test ui
     commands
-        .spawn(ButtonBundle {
-            style: Style {
+        .spawn((
+            Button,
+            Style {
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 position_type: PositionType::Absolute,
@@ -124,8 +125,7 @@ fn setup_scene(
                 bottom: Val::Px(50.0),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_child((
             Text::new("Test Button"),
             TextFont {

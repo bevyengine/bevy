@@ -227,22 +227,19 @@ fn spawn_button(
 ) {
     parent
         .spawn((
-            ButtonBundle {
-                style: Style {
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    border: UiRect::all(Val::Px(2.)),
-                    margin: UiRect::horizontal(Val::Px(2.)),
-                    ..Default::default()
-                },
-                border_color: if active {
-                    ACTIVE_BORDER_COLOR
-                } else {
-                    INACTIVE_BORDER_COLOR
-                }
-                .into(),
+            Button,
+            Style {
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border: UiRect::all(Val::Px(2.)),
+                margin: UiRect::horizontal(Val::Px(2.)),
                 ..Default::default()
             },
+            BorderColor(if active {
+                ACTIVE_BORDER_COLOR
+            } else {
+                INACTIVE_BORDER_COLOR
+            }),
             constraint,
             action,
         ))

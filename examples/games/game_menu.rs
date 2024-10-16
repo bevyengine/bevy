@@ -86,15 +86,14 @@ mod splash {
                 OnSplashScreen,
             ))
             .with_children(|parent| {
-                parent.spawn(ImageBundle {
-                    style: Style {
+                parent.spawn((
+                    UiImage::new(icon),
+                    Style {
                         // This will set the logo to be 200px wide, and auto adjust its height
                         width: Val::Px(200.0),
                         ..default()
                     },
-                    image: UiImage::new(icon),
-                    ..default()
-                });
+                ));
             });
         // Insert the timer as a resource
         commands.insert_resource(SplashTimer(Timer::from_seconds(1.0, TimerMode::Once)));
@@ -443,20 +442,14 @@ mod menu {
                         // - quit
                         parent
                             .spawn((
-                                ButtonBundle {
-                                    style: button_style.clone(),
-                                    background_color: NORMAL_BUTTON.into(),
-                                    ..default()
-                                },
+                                Button,
+                                button_style.clone(),
+                                BackgroundColor(NORMAL_BUTTON),
                                 MenuButtonAction::Play,
                             ))
                             .with_children(|parent| {
                                 let icon = asset_server.load("textures/Game Icons/right.png");
-                                parent.spawn(ImageBundle {
-                                    style: button_icon_style.clone(),
-                                    image: UiImage::new(icon),
-                                    ..default()
-                                });
+                                parent.spawn((UiImage::new(icon), button_icon_style.clone()));
                                 parent.spawn((
                                     Text::new("New Game"),
                                     button_text_font.clone(),
@@ -465,20 +458,14 @@ mod menu {
                             });
                         parent
                             .spawn((
-                                ButtonBundle {
-                                    style: button_style.clone(),
-                                    background_color: NORMAL_BUTTON.into(),
-                                    ..default()
-                                },
+                                Button,
+                                button_style.clone(),
+                                BackgroundColor(NORMAL_BUTTON),
                                 MenuButtonAction::Settings,
                             ))
                             .with_children(|parent| {
                                 let icon = asset_server.load("textures/Game Icons/wrench.png");
-                                parent.spawn(ImageBundle {
-                                    style: button_icon_style.clone(),
-                                    image: UiImage::new(icon),
-                                    ..default()
-                                });
+                                parent.spawn((UiImage::new(icon), button_icon_style.clone()));
                                 parent.spawn((
                                     Text::new("Settings"),
                                     button_text_font.clone(),
@@ -487,20 +474,14 @@ mod menu {
                             });
                         parent
                             .spawn((
-                                ButtonBundle {
-                                    style: button_style,
-                                    background_color: NORMAL_BUTTON.into(),
-                                    ..default()
-                                },
+                                Button,
+                                button_style,
+                                BackgroundColor(NORMAL_BUTTON),
                                 MenuButtonAction::Quit,
                             ))
                             .with_children(|parent| {
                                 let icon = asset_server.load("textures/Game Icons/exitRight.png");
-                                parent.spawn(ImageBundle {
-                                    style: button_icon_style,
-                                    image: UiImage::new(icon),
-                                    ..default()
-                                });
+                                parent.spawn((UiImage::new(icon), button_icon_style));
                                 parent.spawn((
                                     Text::new("Quit"),
                                     button_text_font,
@@ -560,11 +541,9 @@ mod menu {
                         ] {
                             parent
                                 .spawn((
-                                    ButtonBundle {
-                                        style: button_style.clone(),
-                                        background_color: NORMAL_BUTTON.into(),
-                                        ..default()
-                                    },
+                                    Button,
+                                    button_style.clone(),
+                                    BackgroundColor(NORMAL_BUTTON),
                                     action,
                                 ))
                                 .with_children(|parent| {
@@ -640,15 +619,13 @@ mod menu {
                                     DisplayQuality::High,
                                 ] {
                                     let mut entity = parent.spawn((
-                                        ButtonBundle {
-                                            style: Style {
-                                                width: Val::Px(150.0),
-                                                height: Val::Px(65.0),
-                                                ..button_style.clone()
-                                            },
-                                            background_color: NORMAL_BUTTON.into(),
-                                            ..default()
+                                        Button,
+                                        Style {
+                                            width: Val::Px(150.0),
+                                            height: Val::Px(65.0),
+                                            ..button_style.clone()
                                         },
+                                        BackgroundColor(NORMAL_BUTTON),
                                         quality_setting,
                                     ));
                                     entity.with_children(|parent| {
@@ -665,11 +642,9 @@ mod menu {
                         // Display the back button to return to the settings screen
                         parent
                             .spawn((
-                                ButtonBundle {
-                                    style: button_style,
-                                    background_color: NORMAL_BUTTON.into(),
-                                    ..default()
-                                },
+                                Button,
+                                button_style,
+                                BackgroundColor(NORMAL_BUTTON),
                                 MenuButtonAction::BackToSettings,
                             ))
                             .with_children(|parent| {
@@ -733,15 +708,13 @@ mod menu {
                                 parent.spawn((Text::new("Volume"), button_text_style.clone()));
                                 for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
                                     let mut entity = parent.spawn((
-                                        ButtonBundle {
-                                            style: Style {
-                                                width: Val::Px(30.0),
-                                                height: Val::Px(65.0),
-                                                ..button_style.clone()
-                                            },
-                                            background_color: NORMAL_BUTTON.into(),
-                                            ..default()
+                                        Button,
+                                        Style {
+                                            width: Val::Px(30.0),
+                                            height: Val::Px(65.0),
+                                            ..button_style.clone()
                                         },
+                                        BackgroundColor(NORMAL_BUTTON),
                                         Volume(volume_setting),
                                     ));
                                     if *volume == Volume(volume_setting) {
@@ -751,11 +724,9 @@ mod menu {
                             });
                         parent
                             .spawn((
-                                ButtonBundle {
-                                    style: button_style,
-                                    background_color: NORMAL_BUTTON.into(),
-                                    ..default()
-                                },
+                                Button,
+                                button_style,
+                                BackgroundColor(NORMAL_BUTTON),
                                 MenuButtonAction::BackToSettings,
                             ))
                             .with_child((Text::new("Back"), button_text_style));

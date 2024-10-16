@@ -398,15 +398,13 @@ where
 {
     parent
         .spawn((
-            ButtonBundle {
-                style: Style {
-                    align_self: AlignSelf::FlexStart,
-                    padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
-                    ..Default::default()
-                },
-                background_color: Color::BLACK.with_alpha(0.5).into(),
-                ..Default::default()
+            Button,
+            Style {
+                align_self: AlignSelf::FlexStart,
+                padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
+                ..default()
             },
+            BackgroundColor(Color::BLACK.with_alpha(0.5)),
             Target::<T>::new(target),
         ))
         .with_children(|builder| {

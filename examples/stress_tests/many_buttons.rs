@@ -244,20 +244,18 @@ fn spawn_button(
     let height = Val::Vh(90.0 / buttons);
     let margin = UiRect::axes(width * 0.05, height * 0.05);
     let mut builder = commands.spawn((
-        ButtonBundle {
-            style: Style {
-                width,
-                height,
-                margin,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border,
-                ..default()
-            },
-            background_color: background_color.into(),
-            border_color,
+        Button,
+        Style {
+            width,
+            height,
+            margin,
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            border,
             ..default()
         },
+        BackgroundColor(background_color),
+        border_color,
         IdleColor(background_color),
     ));
 

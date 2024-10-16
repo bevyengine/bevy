@@ -66,15 +66,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 BackgroundColor(BLUE.into()),
             ));
-            parent.spawn(ImageBundle {
-                style: Style {
+            parent.spawn((
+                UiImage::new(asset_server.load("branding/icon.png")),
+                Style {
                     width: Val::Px(30.0),
                     height: Val::Px(30.0),
                     ..default()
                 },
-                image: asset_server.load("branding/icon.png").into(),
-                ..default()
-            });
+            ));
         });
 }
 

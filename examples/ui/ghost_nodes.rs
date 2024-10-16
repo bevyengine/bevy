@@ -66,9 +66,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn create_button() -> ButtonBundle {
-    ButtonBundle {
-        style: Style {
+fn create_button() -> impl Bundle {
+    (
+        Button,
+        Style {
             width: Val::Px(150.0),
             height: Val::Px(65.0),
             border: UiRect::all(Val::Px(5.0)),
@@ -78,11 +79,10 @@ fn create_button() -> ButtonBundle {
             align_items: AlignItems::Center,
             ..default()
         },
-        border_color: BorderColor(Color::BLACK),
-        border_radius: BorderRadius::MAX,
-        background_color: Color::srgb(0.15, 0.15, 0.15).into(),
-        ..default()
-    }
+        BorderColor(Color::BLACK),
+        BorderRadius::MAX,
+        BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+    )
 }
 
 fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont, TextColor) {

@@ -146,17 +146,16 @@ fn spawn_image(
     update_transform: impl UpdateTransform + Component,
 ) {
     spawn_container(parent, update_transform, |parent| {
-        parent.spawn(ImageBundle {
-            image: UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
-            style: Style {
+        parent.spawn((
+            UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
+            Style {
                 height: Val::Px(100.),
                 position_type: PositionType::Absolute,
                 top: Val::Px(-50.),
                 left: Val::Px(-200.),
                 ..default()
             },
-            ..default()
-        });
+        ));
     });
 }
 

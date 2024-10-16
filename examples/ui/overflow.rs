@@ -83,14 +83,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ))
                             .with_children(|parent| {
                                 parent.spawn((
-                                    ImageBundle {
-                                        image: UiImage::new(image.clone()),
-                                        style: Style {
-                                            min_width: Val::Px(100.),
-                                            min_height: Val::Px(100.),
-                                            ..Default::default()
-                                        },
-                                        ..Default::default()
+                                    UiImage::new(image.clone()),
+                                    Style {
+                                        min_width: Val::Px(100.),
+                                        min_height: Val::Px(100.),
+                                        ..default()
                                     },
                                     Interaction::default(),
                                     Outline {

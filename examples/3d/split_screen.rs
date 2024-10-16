@@ -132,19 +132,17 @@ fn setup(
         parent
             .spawn((
                 RotateCamera(direction),
-                ButtonBundle {
-                    style: Style {
-                        width: Val::Px(40.),
-                        height: Val::Px(40.),
-                        border: UiRect::all(Val::Px(2.)),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    border_color: Color::WHITE.into(),
-                    background_color: Color::srgb(0.25, 0.25, 0.25).into(),
+                Button,
+                Style {
+                    width: Val::Px(40.),
+                    height: Val::Px(40.),
+                    border: UiRect::all(Val::Px(2.)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
                     ..default()
                 },
+                BorderColor(Color::WHITE),
+                BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
             ))
             .with_children(|parent| {
                 parent.spawn(Text::new(caption));

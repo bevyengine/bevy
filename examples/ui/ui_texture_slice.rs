@@ -80,7 +80,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             margin: UiRect::all(Val::Px(20.0)),
                             ..default()
                         },
-                        UiImage::from(image.clone()),
+                        UiImage::new(image.clone()),
                         ImageScaleMode::Sliced(slicer.clone()),
                     ))
                     .with_children(|parent| {

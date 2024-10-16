@@ -250,8 +250,9 @@ fn add_button_for_value(
 ) {
     // Add the button node.
     parent
-        .spawn(ButtonBundle {
-            style: Style {
+        .spawn((
+            Button,
+            Style {
                 border: UiRect::all(Val::Px(1.0)),
                 width: Val::Px(200.0),
                 justify_content: JustifyContent::Center,
@@ -260,11 +261,10 @@ fn add_button_for_value(
                 margin: UiRect::right(Val::Px(12.0)),
                 ..default()
             },
-            border_color: BorderColor(Color::WHITE),
-            border_radius: BorderRadius::MAX,
-            background_color: Color::BLACK.into(),
-            ..default()
-        })
+            BorderColor(Color::WHITE),
+            BorderRadius::MAX,
+            BackgroundColor(Color::BLACK),
+        ))
         .insert(ColorGradingOptionWidget {
             widget_type: ColorGradingOptionWidgetType::Button,
             option,

@@ -81,18 +81,16 @@ fn setup(
             ] {
                 parent
                     .spawn((
-                        ButtonBundle {
-                            style: Style {
-                                width: Val::Px(w),
-                                height: Val::Px(h),
-                                // horizontally center child text
-                                justify_content: JustifyContent::Center,
-                                // vertically center child text
-                                align_items: AlignItems::Center,
-                                margin: UiRect::all(Val::Px(20.0)),
-                                ..default()
-                            },
-                            image: texture_handle.clone().into(),
+                        Button,
+                        UiImage::new(texture_handle.clone()),
+                        Style {
+                            width: Val::Px(w),
+                            height: Val::Px(h),
+                            // horizontally center child text
+                            justify_content: JustifyContent::Center,
+                            // vertically center child text
+                            align_items: AlignItems::Center,
+                            margin: UiRect::all(Val::Px(20.0)),
                             ..default()
                         },
                         ImageScaleMode::Sliced(slicer.clone()),
