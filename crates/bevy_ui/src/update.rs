@@ -84,6 +84,10 @@ fn update_clipping(
         let mut clip_rect =
             Rect::from_center_size(global_transform.translation().truncate(), node.size());
 
+        // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Style::overflow_clip_margin`].
+        //
+        // `clip_inset` should always fit inside `node_rect`.
+        // Even if `clip_inset` were to overflow, we won't return a degenerate result as `Rect::intersect` will clamp the intersection, leaving it empty.
         let clip_inset = match style.overflow_clip_margin.visual_box {
             crate::OverflowClipBox::BorderBox => BorderRect::ZERO,
             crate::OverflowClipBox::ContentBox => node.content_inset(),
