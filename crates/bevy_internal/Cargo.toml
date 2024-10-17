@@ -45,7 +45,6 @@ zlib = ["bevy_image/zlib"]
 zstd = ["bevy_image/zstd"]
 
 # Image format support (PNG enabled by default)
-avif = ["bevy_image/avif"]
 bmp = ["bevy_image/bmp"]
 ff = ["bevy_image/ff"]
 gif = ["bevy_image/gif"]

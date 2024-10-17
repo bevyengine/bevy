@@ -57,7 +57,6 @@ The default feature set enables most of the expected features of a game engine, 
 |android-native-activity|Android NativeActivity support. Legacy, should be avoided for most new Android games.|
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
-|avif|AVIF image format support|
 |basis-universal|Basis Universal compressed texture support|
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
