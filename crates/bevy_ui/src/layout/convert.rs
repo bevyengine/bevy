@@ -1,7 +1,7 @@
 use taffy::style_helpers;
 
 use crate::{
-    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, GridAutoFlow,
+    AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTrack, GridTrackRepetition, JustifyContent, JustifyItems, JustifySelf,
     MaxTrackSizingFunction, MinTrackSizingFunction, OverflowAxis, PositionType, RepeatedGridTrack,
     Style, UiRect, Val,
@@ -70,6 +70,9 @@ pub fn from_style(
 ) -> taffy::style::Style {
     taffy::style::Style {
         display: style.display.into(),
+        box_sizing: style.box_sizing.into(),
+        item_is_table: false,
+        text_align: taffy::TextAlign::Auto,
         overflow: taffy::Point {
             x: style.overflow.x.into(),
             y: style.overflow.y.into(),
@@ -248,6 +251,15 @@ impl From<Display> for taffy::style::Display {
             Display::Grid => taffy::style::Display::Grid,
             Display::Block => taffy::style::Display::Block,
             Display::None => taffy::style::Display::None,
+        }
+    }
+}
+
+impl From<BoxSizing> for taffy::style::BoxSizing {
+    fn from(value: BoxSizing) -> Self {
+        match value {
+            BoxSizing::BorderBox => taffy::style::BoxSizing::BorderBox,
+            BoxSizing::ContentBox => taffy::style::BoxSizing::ContentBox,
         }
     }
 }
@@ -450,6 +462,7 @@ mod tests {
 
         let bevy_style = Style {
             display: Display::Flex,
+            box_sizing: BoxSizing::ContentBox,
             position_type: PositionType::Absolute,
             left: Val::ZERO,
             right: Val::Percent(50.),
@@ -518,6 +531,7 @@ mod tests {
         let viewport_values = LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.));
         let taffy_style = from_style(&viewport_values, &bevy_style, false);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
+        assert_eq!(taffy_style.box_sizing, taffy::style::BoxSizing::ContentBox);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
         assert_eq!(
             taffy_style.inset.left,
