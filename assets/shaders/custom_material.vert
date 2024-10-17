@@ -7,14 +7,19 @@ layout(location = 2) in vec2 Vertex_Uv;
 layout(location = 0) out vec2 v_Uv;
 
 layout(set = 0, binding = 0) uniform CameraViewProj {
-    mat4 ViewProj;
-    mat4 View;
-    mat4 InverseView;
-    mat4 Projection;
-    vec3 WorldPosition;
-    float width;
-    float height;
-};
+    mat4 clip_from_world;
+    mat4 unjittered_clip_from_world;
+    mat4 world_from_clip;
+    mat4 world_from_view;
+    mat4 view_from_world;
+    mat4 clip_from_view;
+    mat4 view_from_clip;
+    vec3 world_position; // Camera's world position
+    float exposure;
+    vec4 viewport; // viewport(x_origin, y_origin, width, height)
+    vec4 frustum[6];
+    // See full definition in: crates/bevy_render/src/view/view.wgsl
+} camera_view;
 
 struct Mesh {
     mat3x4 Model;
@@ -41,7 +46,7 @@ mat4 affine_to_square(mat3x4 affine) {
 
 void main() {
     v_Uv = Vertex_Uv;
-    gl_Position = ViewProj
+    gl_Position = camera_view.clip_from_world
         * affine_to_square(Meshes[gl_InstanceIndex].Model)
         * vec4(Vertex_Position, 1.0);
 }
