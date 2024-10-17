@@ -295,10 +295,10 @@ pub enum ScalingMode {
     /// Arguments are in world units when the scale is 1.
     Fixed { width: f32, height: f32 },
     /// Keeping the aspect ratio while the axes can't be smaller than given minimum.
-    /// Arguments are in world units.
+    /// Arguments are in world units and are affected by scale.
     AutoMin { min_width: f32, min_height: f32 },
     /// Keeping the aspect ratio while the axes can't be bigger than given maximum.
-    /// Arguments are in world units.
+    /// Arguments are in world units and are affected by scale.
     AutoMax { max_width: f32, max_height: f32 },
     /// Keep the projection's height constant; width will be adjusted to match aspect ratio.
     /// The argument is the desired height of the projection in world units when the scale is 1.
