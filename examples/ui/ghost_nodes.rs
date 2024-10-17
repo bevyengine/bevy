@@ -33,12 +33,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(GhostNode::new())
         .with_children(|ghost_root| {
-            ghost_root
-                .spawn(NodeBundle::default())
-                .with_child(create_label(
-                    "This text node is rendered under a ghost root",
-                    font_handle.clone(),
-                ));
+            ghost_root.spawn(Node::default()).with_child(create_label(
+                "This text node is rendered under a ghost root",
+                font_handle.clone(),
+            ));
         });
 
     // Normal UI root
