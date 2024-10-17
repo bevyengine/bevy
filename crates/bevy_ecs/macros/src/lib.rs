@@ -454,7 +454,7 @@ pub fn impl_data_set(_input: TokenStream) -> TokenStream {
             // SAFETY: each item in set is read only
             unsafe impl<'__w, #(#data: ReadOnlyQueryData,)*> ReadOnlyQueryData for DataSet<'__w, (#(#data,)*)> {}
 
-            // SAFETY: deferes to soundness of `#data: WorldQuery` impl
+            // SAFETY: defers to soundness of `#data: WorldQuery` impl
             unsafe impl<'__w, #(#data: QueryData,)*> QueryData for DataSet<'__w, (#(#data,)*)> {
                 type ReadOnly = DataSet<'__w, (#(#data::ReadOnly,)*)>;
             }
@@ -533,11 +533,10 @@ pub fn impl_data_set(_input: TokenStream) -> TokenStream {
                         // Panics if one of the members conflicts with previous access.
                         #data::update_component_access(#data, &mut access.clone());
                     )*
-                    let mut current_access;
                     #(
                         // Updating empty [`FilteredAccess`] and then extending passed access.
                         // This is done to avoid conflicts with other members of the set.
-                        current_access = FilteredAccess::default();
+                        let mut current_access = FilteredAccess::default();
                         #data::update_component_access(#data, &mut current_access);
                         access.extend(&current_access);
                     )*
