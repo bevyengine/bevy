@@ -22,11 +22,12 @@ pub mod picking_backend;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-#[cfg(feature = "bevy_text")]
 mod accessibility;
+// This module is not re-exported, but is instead made public.
+// This is intended to discourage accidental use of the experimental API.
+pub mod experimental;
 mod focus;
 mod geometry;
-mod ghost_hierarchy;
 mod layout;
 mod render;
 mod stack;
@@ -34,7 +35,6 @@ mod ui_node;
 
 pub use focus::*;
 pub use geometry::*;
-pub use ghost_hierarchy::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
@@ -46,11 +46,9 @@ use widget::UiImageSize;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[cfg(feature = "bevy_text")]
     #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::widget::TextBundle;
-    #[cfg(feature = "bevy_text")]
     #[doc(hidden)]
     pub use crate::widget::{Text, TextUiReader, TextUiWriter};
     #[doc(hidden)]
@@ -183,7 +181,6 @@ impl Plugin for UiPlugin {
             .in_set(UiSystem::Layout)
             .before(TransformSystem::TransformPropagate);
 
-        #[cfg(feature = "bevy_text")]
         let ui_layout_system_config = ui_layout_system_config
             // Text and Text2D operate on disjoint sets of entities
             .ambiguous_with(bevy_text::update_text2d_layout)
@@ -213,7 +210,6 @@ impl Plugin for UiPlugin {
             ),
         );
 
-        #[cfg(feature = "bevy_text")]
         build_text_interop(app);
 
         build_ui_render(app);
@@ -231,8 +227,6 @@ impl Plugin for UiPlugin {
     }
 }
 
-/// A function that should be called from [`UiPlugin::build`] when [`bevy_text`] is enabled.
-#[cfg(feature = "bevy_text")]
 fn build_text_interop(app: &mut App) {
     use crate::widget::TextNodeFlags;
     use bevy_text::TextLayoutInfo;

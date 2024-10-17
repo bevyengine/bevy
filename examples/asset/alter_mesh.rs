@@ -132,24 +132,19 @@ fn setup(
 }
 
 fn spawn_text(mut commands: Commands) {
-    commands
-        .spawn((
-            Name::new("Instructions"),
-            Node::default(),
-            Style {
-                align_items: AlignItems::Start,
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Start,
-                width: Val::Percent(100.),
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(Text::new("Space: swap meshes by mutating a Handle<Mesh>"));
-            parent.spawn(Text::new(
-                "Return: mutate the mesh itself, changing all copies of it",
-            ));
-        });
+    commands.spawn((
+        Name::new("Instructions"),
+        Text::new(
+            "Space: swap meshes by mutating a Handle<Mesh>\n\
+            Return: mutate the mesh itself, changing all copies of it",
+        ),
+        Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.),
+            left: Val::Px(12.),
+            ..default()
+        },
+    ));
 }
 
 fn alter_handle(

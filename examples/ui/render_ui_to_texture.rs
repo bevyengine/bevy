@@ -120,7 +120,7 @@ const ROTATION_SPEED: f32 = 0.5;
 
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Cube>>) {
     for mut transform in &mut query {
-        transform.rotate_x(1.0 * time.delta_seconds() * ROTATION_SPEED);
-        transform.rotate_y(0.7 * time.delta_seconds() * ROTATION_SPEED);
+        transform.rotate_x(1.0 * time.delta_secs() * ROTATION_SPEED);
+        transform.rotate_y(0.7 * time.delta_secs() * ROTATION_SPEED);
     }
 }

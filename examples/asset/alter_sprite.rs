@@ -90,24 +90,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn spawn_text(mut commands: Commands) {
-    commands
-        .spawn((
-            Name::new("Instructions"),
-            Node::default(),
-            Style {
-                align_items: AlignItems::Start,
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Start,
-                width: Val::Percent(100.),
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(Text::new("Space: swap the right sprite's image handle"));
-            parent.spawn(Text::new(
-                "Return: modify the image Asset of the left sprite, affecting all uses of it",
-            ));
-        });
+    commands.spawn((
+        Name::new("Instructions"),
+        Text::new(
+            "Space: swap the right sprite's image handle\n\
+            Return: modify the image Asset of the left sprite, affecting all uses of it",
+        ),
+        Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.),
+            left: Val::Px(12.),
+            ..default()
+        },
+    ));
 }
 
 fn alter_handle(

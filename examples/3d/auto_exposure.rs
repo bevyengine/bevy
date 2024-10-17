@@ -170,9 +170,9 @@ fn example_control_system(
     let (mut camera_transform, mut auto_exposure) = camera.into_inner();
 
     let rotation = if input.pressed(KeyCode::ArrowLeft) {
-        time.delta_seconds()
+        time.delta_secs()
     } else if input.pressed(KeyCode::ArrowRight) {
-        -time.delta_seconds()
+        -time.delta_secs()
     } else {
         0.0
     };

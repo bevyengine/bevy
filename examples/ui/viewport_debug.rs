@@ -42,7 +42,7 @@ fn update(
     time: Res<Time>,
     mut coords_style_query: Query<(&Coords, &mut Style)>,
 ) {
-    *timer -= time.delta_seconds();
+    *timer -= time.delta_secs();
     if *timer <= 0. {
         *timer = 1.;
         *visible_tree = match *visible_tree {

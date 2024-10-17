@@ -449,7 +449,7 @@ mod ui {
             if direction != Vec3::ZERO {
                 transform.translation += direction.normalize()
                     * if turbo.is_some() { TURBO_SPEED } else { SPEED }
-                    * time.delta_seconds();
+                    * time.delta_secs();
             }
         }
     }
@@ -533,7 +533,7 @@ mod ui {
     pub fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
         for mut sprite in &mut query {
             let new_color = LinearRgba {
-                blue: ops::sin(time.elapsed_seconds() * 0.5) + 2.0,
+                blue: ops::sin(time.elapsed_secs() * 0.5) + 2.0,
                 ..LinearRgba::from(sprite.color)
             };
 

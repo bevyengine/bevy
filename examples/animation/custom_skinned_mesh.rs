@@ -194,36 +194,36 @@ fn joint_animation(
         match animated_joint.0 {
             -5 => {
                 transform.rotation =
-                    Quat::from_rotation_x(FRAC_PI_2 * ops::sin(time.elapsed_seconds()));
+                    Quat::from_rotation_x(FRAC_PI_2 * ops::sin(time.elapsed_secs()));
             }
             -4 => {
                 transform.rotation =
-                    Quat::from_rotation_y(FRAC_PI_2 * ops::sin(time.elapsed_seconds()));
+                    Quat::from_rotation_y(FRAC_PI_2 * ops::sin(time.elapsed_secs()));
             }
             -3 => {
                 transform.rotation =
-                    Quat::from_rotation_z(FRAC_PI_2 * ops::sin(time.elapsed_seconds()));
+                    Quat::from_rotation_z(FRAC_PI_2 * ops::sin(time.elapsed_secs()));
             }
             -2 => {
-                transform.scale.x = ops::sin(time.elapsed_seconds()) + 1.0;
+                transform.scale.x = ops::sin(time.elapsed_secs()) + 1.0;
             }
             -1 => {
-                transform.scale.y = ops::sin(time.elapsed_seconds()) + 1.0;
+                transform.scale.y = ops::sin(time.elapsed_secs()) + 1.0;
             }
             0 => {
-                transform.translation.x = 0.5 * ops::sin(time.elapsed_seconds());
-                transform.translation.y = ops::cos(time.elapsed_seconds());
+                transform.translation.x = 0.5 * ops::sin(time.elapsed_secs());
+                transform.translation.y = ops::cos(time.elapsed_secs());
             }
             1 => {
-                transform.translation.y = ops::sin(time.elapsed_seconds());
-                transform.translation.z = ops::cos(time.elapsed_seconds());
+                transform.translation.y = ops::sin(time.elapsed_secs());
+                transform.translation.z = ops::cos(time.elapsed_secs());
             }
             2 => {
-                transform.translation.x = ops::sin(time.elapsed_seconds());
+                transform.translation.x = ops::sin(time.elapsed_secs());
             }
             3 => {
-                transform.translation.y = ops::sin(time.elapsed_seconds());
-                transform.scale.x = ops::sin(time.elapsed_seconds()) + 1.0;
+                transform.translation.y = ops::sin(time.elapsed_secs());
+                transform.scale.x = ops::sin(time.elapsed_secs()) + 1.0;
             }
             _ => (),
         }

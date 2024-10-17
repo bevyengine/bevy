@@ -31,7 +31,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
-    commands.spawn((Camera2d, IsDefaultUiCamera));
+    commands.spawn((Camera2d, IsDefaultUiCamera, UiBoxShadowSamples(6)));
 
     // root node
     commands
@@ -191,6 +191,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
                     ));
                 });
+
+            let shadow = BoxShadow {
+                color: Color::BLACK.with_alpha(0.5),
+                blur_radius: Val::Px(2.),
+                x_offset: Val::Px(10.),
+                y_offset: Val::Px(10.),
+                ..Default::default()
+            };
+
             // render order test: reddest in the back, whitest in the front (flex center)
             parent
                 .spawn((
@@ -208,64 +217,82 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     parent
                         .spawn((
-                            Node::default(),
-                            Style {
-                                width: Val::Px(100.0),
-                                height: Val::Px(100.0),
+                            NodeBundle {
+                                style: Style {
+                                    width: Val::Px(100.0),
+                                    height: Val::Px(100.0),
+                                    ..default()
+                                },
+                                background_color: Color::srgb(1.0, 0.0, 0.).into(),
                                 ..default()
                             },
-                            BackgroundColor(Color::srgb(1.0, 0.0, 0.)),
+                            shadow,
                         ))
                         .with_children(|parent| {
                             parent.spawn((
-                                Node::default(),
-                                Style {
-                                    // Take the size of the parent node.
-                                    width: Val::Percent(100.0),
-                                    height: Val::Percent(100.0),
-                                    position_type: PositionType::Absolute,
-                                    left: Val::Px(20.),
-                                    bottom: Val::Px(20.),
+                                NodeBundle {
+                                    style: Style {
+                                        // Take the size of the parent node.
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+                                        position_type: PositionType::Absolute,
+                                        left: Val::Px(20.),
+                                        bottom: Val::Px(20.),
+                                        ..default()
+                                    },
+                                    background_color: Color::srgb(1.0, 0.3, 0.3).into(),
                                     ..default()
                                 },
-                                BackgroundColor(Color::srgb(1.0, 0.3, 0.3)),
+                                shadow,
                             ));
                             parent.spawn((
-                                Node::default(),
-                                Style {
-                                    width: Val::Percent(100.0),
-                                    height: Val::Percent(100.0),
-                                    position_type: PositionType::Absolute,
-                                    left: Val::Px(40.),
-                                    bottom: Val::Px(40.),
+                                NodeBundle {
+                                    style: Style {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+                                        position_type: PositionType::Absolute,
+                                        left: Val::Px(40.),
+                                        bottom: Val::Px(40.),
+                                        ..default()
+                                    },
+                                    background_color: Color::srgb(1.0, 0.5, 0.5).into(),
                                     ..default()
                                 },
-                                BackgroundColor(Color::srgb(1.0, 0.5, 0.5)),
+                                shadow,
                             ));
                             parent.spawn((
-                                Node::default(),
-                                Style {
-                                    width: Val::Percent(100.0),
-                                    height: Val::Percent(100.0),
-                                    position_type: PositionType::Absolute,
-                                    left: Val::Px(60.),
-                                    bottom: Val::Px(60.),
+                                NodeBundle {
+                                    style: Style {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+                                        position_type: PositionType::Absolute,
+                                        left: Val::Px(60.),
+                                        bottom: Val::Px(60.),
+                                        ..default()
+                                    },
+                                    background_color: Color::srgb(0.0, 0.7, 0.7).into(),
                                     ..default()
                                 },
-                                BackgroundColor(Color::srgb(1.0, 0.7, 0.7)),
+                                shadow,
                             ));
                             // alpha test
                             parent.spawn((
-                                Node::default(),
-                                Style {
-                                    width: Val::Percent(100.0),
-                                    height: Val::Percent(100.0),
-                                    position_type: PositionType::Absolute,
-                                    left: Val::Px(80.),
-                                    bottom: Val::Px(80.),
+                                NodeBundle {
+                                    style: Style {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+                                        position_type: PositionType::Absolute,
+                                        left: Val::Px(80.),
+                                        bottom: Val::Px(80.),
+                                        ..default()
+                                    },
+                                    background_color: Color::srgba(1.0, 0.9, 0.9, 0.4).into(),
                                     ..default()
                                 },
-                                BackgroundColor(Color::srgba(1.0, 0.9, 0.9, 0.4)),
+                                BoxShadow {
+                                    color: Color::BLACK.with_alpha(0.3),
+                                    ..shadow
+                                },
                             ));
                         });
                 });

@@ -116,7 +116,7 @@ fn user_input(
 // Only runs if there are enemies.
 fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<Time>) {
     for (mut transform, mut target) in &mut *enemies {
-        target.rotation += target.rotation_speed * time.delta_seconds();
+        target.rotation += target.rotation_speed * time.delta_secs();
         transform.rotation = Quat::from_rotation_z(target.rotation);
         let offset = transform.right() * target.radius;
         transform.translation = target.origin.extend(0.0) + offset;
@@ -145,12 +145,12 @@ fn move_pointer(
         player_transform.rotation = Quat::from_mat3(&Mat3::from_cols(side, front, up));
         let max_step = distance - player.min_follow_radius;
         if 0.0 < max_step {
-            let velocity = (player.speed * time.delta_seconds()).min(max_step);
+            let velocity = (player.speed * time.delta_secs()).min(max_step);
             player_transform.translation += front * velocity;
         }
     } else {
         // No enemy found, keep searching.
-        player_transform.rotate_axis(Dir3::Z, player.rotation_speed * time.delta_seconds());
+        player_transform.rotate_axis(Dir3::Z, player.rotation_speed * time.delta_secs());
     }
 }
 

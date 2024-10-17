@@ -222,7 +222,7 @@ fn update_animation(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    let delta = time.elapsed_seconds();
+    let delta = time.elapsed_secs();
 
     if keys.just_pressed(KeyCode::Space) {
         animation.playing = !animation.playing;

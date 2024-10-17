@@ -36,7 +36,7 @@ fn rotate_skybox_and_environment_map(
     mut environments: Query<(&mut Skybox, &mut EnvironmentMapLight)>,
     time: Res<Time>,
 ) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_secs();
     let rotation = Quat::from_rotation_y(0.2 * now);
     for (mut skybox, mut environment_map) in environments.iter_mut() {
         skybox.rotation = rotation;

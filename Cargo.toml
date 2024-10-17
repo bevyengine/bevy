@@ -444,6 +444,9 @@ reflect_functions = ["bevy_internal/reflect_functions"]
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
 
+# Experimental support for nodes that are ignored for UI layouting
+ghost_nodes = ["bevy_internal/ghost_nodes"]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
 
@@ -2978,6 +2981,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "overflow_clip_margin"
+path = "examples/ui/overflow_clip_margin.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.overflow_clip_margin]
+name = "Overflow Clip Margin"
+description = "Simple example demonstrating the OverflowClipMargin style property"
+category = "UI (User Interface)"
+wasm = true
+
+
+[[example]]
 name = "overflow_debug"
 path = "examples/ui/overflow_debug.rs"
 doc-scrape-examples = true
@@ -3069,6 +3084,7 @@ wasm = true
 name = "ghost_nodes"
 path = "examples/ui/ghost_nodes.rs"
 doc-scrape-examples = true
+required-features = ["ghost_nodes"]
 
 [package.metadata.example.ghost_nodes]
 name = "Ghost Nodes"
@@ -3822,3 +3838,12 @@ name = "Monitor info"
 description = "Displays information about available monitors (displays)."
 category = "Window"
 wasm = false
+
+# Testbed
+[[example]]
+name = "testbed_2d"
+path = "examples/testbed/2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_2d]
+hidden = true
