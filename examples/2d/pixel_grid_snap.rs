@@ -3,7 +3,7 @@
 use bevy::{
     prelude::*,
     render::{
-        camera::{RenderTarget, ScalingMode},
+        camera::RenderTarget,
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
@@ -149,6 +149,6 @@ fn fit_canvas(
     for event in resize_events.read() {
         let h_scale = event.width / RES_WIDTH as f32;
         let v_scale = event.height / RES_HEIGHT as f32;
-        projection.scaling_mode = ScalingMode::WindowSize(h_scale.min(v_scale).round());
+        projection.scale = 1. / h_scale.min(v_scale).round();
     }
 }
