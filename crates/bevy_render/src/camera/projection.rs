@@ -268,7 +268,7 @@ impl Default for PerspectiveProjection {
 ///
 /// The effect of these scaling modes are combined with the [`OrthographicProjection::scale`] property.
 ///
-/// For example, if the scaling mode is `ScalingMode::Fixed{ width: 100.0, height: 300 }` and the scale is `2.0`,
+/// For example, if the scaling mode is `ScalingMode::Fixed { width: 100.0, height: 300 }` and the scale is `2.0`,
 /// the projection will be 200 world units wide and 600 world units tall.
 ///
 /// # Examples
@@ -287,24 +287,34 @@ impl Default for PerspectiveProjection {
 pub enum ScalingMode {
     /// Match the viewport size.
     ///
-    /// With a scale of 1, one world unit will be equal to the number of pixels in the window.
+    /// With a scale of 1, lengths in world units will map 1:1 with the number of pixels used to render it.
+    /// For example, if we have a 64x64 sprite with a [`Transform::scale`](bevy_transform::prelude::Transform) of 1.0,
+    /// no custom size and no inherited scale, the sprite will be 64 world units wide and 64 world units tall.
+    /// When rendered with [`OrthographicProjection::scaling_mode`] set to `WindowSize` when the window scale factor is 1
+    /// the sprite will be rendered at 64 pixels wide and 64 pixels tall.
+    ///
+    /// Changing any of these properties will multiplicatively affect the final size.
     #[default]
     WindowSize,
     /// Manually specify the projection's size, ignoring window resizing. The image will stretch.
     ///
-    /// Arguments are in world units when the scale is 1.
+    /// Arguments describe the area of the world that is shown (in world units).
     Fixed { width: f32, height: f32 },
     /// Keeping the aspect ratio while the axes can't be smaller than given minimum.
-    /// Arguments are in world units and are affected by scale.
+    ///
+    /// Arguments are in world units.
     AutoMin { min_width: f32, min_height: f32 },
     /// Keeping the aspect ratio while the axes can't be bigger than given maximum.
-    /// Arguments are in world units and are affected by scale.
+    ///
+    /// Arguments are in world units.
     AutoMax { max_width: f32, max_height: f32 },
     /// Keep the projection's height constant; width will be adjusted to match aspect ratio.
-    /// The argument is the desired height of the projection in world units when the scale is 1.
+    ///
+    /// The argument is the desired height of the projection in world units.
     FixedVertical { viewport_height: f32 },
     /// Keep the projection's width constant; height will be adjusted to match aspect ratio.
-    /// The argument is the desired width of the projection in world units when the scale is 1.
+    ///
+    /// The argument is the desired width of the projection in world units.
     FixedHorizontal { viewport_width: f32 },
 }
 
@@ -373,7 +383,8 @@ pub struct OrthographicProjection {
     ///
     /// This property is particularly useful in implementing zoom functionality.
     ///
-    /// Defaults to `1.0`.
+    /// Defaults to `1.0`, which under standard settings corresponds to a 1:1 mapping of world units to rendered pixels.
+    /// See [`ScalingMode::WindowSize`] for more information.
     pub scale: f32,
     /// The area that the projection covers relative to `viewport_origin`.
     ///
