@@ -1979,7 +1979,7 @@ where
 }
 
 /// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of entities.
-/// If any entities do not exist in the world, this command will panic.
+/// If any entities do not exist in the world, this command will fail according to `failure_mode`.
 ///
 /// This is more efficient than inserting the bundles individually.
 #[track_caller]
@@ -2002,7 +2002,7 @@ where
 }
 
 /// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of entities.
-/// If any entities do not exist in the world, this command will panic.
+/// If any entities do not exist in the world, this command will fail according to `failure_mode`.
 ///
 /// This is more efficient than inserting the bundles individually.
 #[track_caller]
@@ -2069,7 +2069,6 @@ where
 }
 
 /// A [`Command`] that despawns a specific entity.
-/// This will emit a warning if the entity does not exist.
 ///
 /// # Note
 ///
@@ -2084,7 +2083,6 @@ fn despawn() -> impl EntityCommand {
 }
 
 /// A [`Command`] that despawns a specific entity.
-/// This will not emit a warning if the entity does not exist.
 ///
 /// # Note
 ///
