@@ -82,7 +82,7 @@ pub struct IsAdapterSystemMarker;
 impl<Func, S, I, O, M> IntoSystem<Func::In, Func::Out, (IsAdapterSystemMarker, I, O, M)>
     for IntoAdapterSystem<Func, S>
 where
-    Func: Adapt<S::System>,
+    Func: Adapt<S::System, In = I>,
     I: SystemInput,
     S: IntoSystem<I, O, M>,
 {
@@ -118,7 +118,7 @@ where
 impl<Func, S> System for AdapterSystem<Func, S>
 where
     Func: Adapt<S>,
-    S: System,
+    S: System<In = Func::In>,
 {
     type In = Func::In;
     type Out = Func::Out;
@@ -179,9 +179,13 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        input: &SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> bool {
         // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.system.validate_param_unsafe(world) }
+        unsafe { self.system.validate_param_unsafe(input, world) }
     }
 
     fn initialize(&mut self, world: &mut crate::prelude::World) {
@@ -214,7 +218,7 @@ where
 unsafe impl<Func, S> ReadOnlySystem for AdapterSystem<Func, S>
 where
     Func: Adapt<S>,
-    S: ReadOnlySystem,
+    S: ReadOnlySystem<In = Func::In>,
 {
 }
 

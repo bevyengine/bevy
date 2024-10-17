@@ -13,6 +13,7 @@ use crate::{
     entity::EntityHashMap,
     observer::entity_observer::ObservedBy,
     prelude::*,
+    query::QueryData,
     system::IntoObserverSystem,
     world::{DeferredWorld, *},
 };
@@ -28,24 +29,42 @@ use smallvec::SmallVec;
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
 /// contains event propagation information. See [`Trigger::propagate`] for more information.
-pub struct Trigger<'w, E, B: Bundle = ()> {
-    event: &'w mut E,
-    propagate: &'w mut bool,
+pub struct Trigger<'world, 'input, E, B: Bundle = (), D: QueryData + 'static = ()> {
+    event: &'input mut E,
+    propagate: &'input mut bool,
     trigger: ObserverTrigger,
+    data: Option<D::Item<'world>>,
     _marker: PhantomData<B>,
 }
 
-impl<'w, E, B: Bundle> Trigger<'w, E, B> {
+impl<'i, E, B: Bundle> Trigger<'static, 'i, E, B, ()> {
     /// Creates a new trigger for the given event and observer information.
-    pub fn new(event: &'w mut E, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
+    pub fn new(event: &'i mut E, propagate: &'i mut bool, trigger: ObserverTrigger) -> Self {
         Self {
             event,
             propagate,
             trigger,
+            data: None,
             _marker: PhantomData,
         }
     }
 
+    /// Creates a new trigger with the given event and observer information, and target query data.
+    pub fn with_data<'w, D: QueryData>(
+        self,
+        data: Option<D::Item<'w>>,
+    ) -> Trigger<'w, 'i, E, B, D> {
+        Trigger {
+            event: self.event,
+            propagate: self.propagate,
+            trigger: self.trigger,
+            data,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<'w, E, B: Bundle, D: QueryData> Trigger<'w, '_, E, B, D> {
     /// Returns the event type of this trigger.
     pub fn event_type(&self) -> ComponentId {
         self.trigger.event_type
@@ -64,6 +83,11 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     /// Returns a pointer to the triggered event.
     pub fn event_ptr(&self) -> Ptr {
         Ptr::from(&self.event)
+    }
+
+    /// Returns a reference to the query data associated with the trigger.
+    pub fn data(&mut self) -> Option<&mut D::Item<'w>> {
+        self.data.as_mut()
     }
 
     /// Returns the [`Entity`] that triggered the observer, could be [`Entity::PLACEHOLDER`].
@@ -128,7 +152,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     }
 }
 
-impl<'w, E: Debug, B: Bundle> Debug for Trigger<'w, E, B> {
+impl<'w, 'i, E: Debug, B: Bundle> Debug for Trigger<'w, 'i, E, B> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Trigger")
             .field("event", &self.event)
@@ -139,7 +163,7 @@ impl<'w, E: Debug, B: Bundle> Debug for Trigger<'w, E, B> {
     }
 }
 
-impl<'w, E, B: Bundle> Deref for Trigger<'w, E, B> {
+impl<'w, 'i, E, B: Bundle> Deref for Trigger<'w, 'i, E, B> {
     type Target = E;
 
     fn deref(&self) -> &Self::Target {
@@ -147,7 +171,7 @@ impl<'w, E, B: Bundle> Deref for Trigger<'w, E, B> {
     }
 }
 
-impl<'w, E, B: Bundle> DerefMut for Trigger<'w, E, B> {
+impl<'w, 'i, E, B: Bundle> DerefMut for Trigger<'w, 'i, E, B> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.event
     }
