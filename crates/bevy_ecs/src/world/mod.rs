@@ -3799,16 +3799,24 @@ impl<T: Default> FromWorld for T {
     }
 }
 
+/// How to respond if a function fails
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
 pub enum FailureMode {
+    /// Do nothing
     Ignore,
+    /// Send a benign message to the log
     #[default]
     Log,
+    /// Send a more serious message to the log
     Warn,
+    /// Stop the application
     Panic,
 }
 
 impl FailureMode {
+    /// Convenience method to send a message upon failure.
+    /// If you want to send different messages for different modes,
+    /// match the enum manually.
     pub fn fail(&self, message: String) {
         match self {
             Self::Ignore => (),

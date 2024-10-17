@@ -192,26 +192,6 @@ enum InternalQueue<'s> {
 }
 
 impl<'w, 's> Commands<'w, 's> {
-    pub fn ignore_on_error(&mut self) -> &mut Self {
-        self.failure_mode = FailureMode::Ignore;
-        self
-    }
-
-    pub fn log_on_error(&mut self) -> &mut Self {
-        self.failure_mode = FailureMode::Log;
-        self
-    }
-
-    pub fn warn_on_error(&mut self) -> &mut Self {
-        self.failure_mode = FailureMode::Warn;
-        self
-    }
-
-    pub fn panic_on_error(&mut self) -> &mut Self {
-        self.failure_mode = FailureMode::Panic;
-        self
-    }
-
     /// Returns a new `Commands` instance from a [`CommandQueue`] and a [`World`].
     ///
     /// It is not required to call this constructor when using `Commands` as a [system parameter].
@@ -292,6 +272,58 @@ impl<'w, 's> Commands<'w, 's> {
                 unsafe { queue.bytes.as_mut() }.append(&mut other.bytes);
             }
         }
+    }
+
+    /// Sets the [`Commands`] instance to ignore errors.
+    ///
+    /// Any subsequent commands that can fail will do so silently.
+    ///
+    /// # See also:
+    /// - [`log_on_error`](Self::log_on_error) to log errors.
+    /// - [`warn_on_error`](Self::warn_on_error) to send warnings for errors.
+    /// - [`panic_on_error`](Self::panic_on_error) to panic upon failure.
+    pub fn ignore_on_error(&mut self) -> &mut Self {
+        self.failure_mode = FailureMode::Ignore;
+        self
+    }
+
+    /// Sets the [`Commands`] instance to log errors.
+    ///
+    /// Any subsequent commands that can fail will log each failure.
+    ///
+    /// # See also:
+    /// - [`ignore_on_error`](Self::ignore_on_error) to ignore errors.
+    /// - [`warn_on_error`](Self::warn_on_error) to send warnings for errors.
+    /// - [`panic_on_error`](Self::panic_on_error) to panic upon failure.
+    pub fn log_on_error(&mut self) -> &mut Self {
+        self.failure_mode = FailureMode::Log;
+        self
+    }
+
+    /// Sets the [`Commands`] instance to send warnings upon encountering errors.
+    ///
+    /// Any subsequent commands that can fail will warn for each failure.
+    ///
+    /// # See also:
+    /// - [`ignore_on_error`](Self::ignore_on_error) to ignore errors.
+    /// - [`log_on_error`](Self::log_on_error) to log errors.
+    /// - [`panic_on_error`](Self::panic_on_error) to panic upon failure.
+    pub fn warn_on_error(&mut self) -> &mut Self {
+        self.failure_mode = FailureMode::Warn;
+        self
+    }
+
+    /// Sets the [`Commands`] instance to panic upon encountering an error.
+    ///
+    /// Any subsequent commands that can fail will panic if they do.
+    ///
+    /// # See also:
+    /// - [`ignore_on_error`](Self::ignore_on_error) to ignore errors.
+    /// - [`log_on_error`](Self::log_on_error) to log errors.
+    /// - [`warn_on_error`](Self::warn_on_error) to send warnings for errors.
+    pub fn panic_on_error(&mut self) -> &mut Self {
+        self.failure_mode = FailureMode::Panic;
+        self
     }
 
     /// Reserves a new empty [`Entity`] to be spawned, and returns its corresponding [`EntityCommands`].
@@ -424,9 +456,8 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Returns the [`EntityCommands`] for the requested [`Entity`].
     ///
-    /// # Panics
-    ///
-    /// This method panics if the requested entity does not exist.
+    /// This method does not guarantee that `EntityCommands` will be successfully applied,
+    /// since another command in the queue may delete the entity before them.
     ///
     /// # Example
     ///
@@ -505,7 +536,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # See also
     ///
-    /// - [`entity`](Self::entity) for the panicking version.
+    /// - [`entity`](Self::entity) for the unwrapped version.
     #[inline]
     #[track_caller]
     pub fn get_entity(&mut self, entity: Entity) -> Option<EntityCommands> {
@@ -659,12 +690,6 @@ impl<'w, 's> Commands<'w, 's> {
     /// calling [`entity`](Self::entity) for each pair,
     /// and passing the bundle to [`insert`](EntityCommands::insert),
     /// but it is faster due to memory pre-allocation.
-    ///
-    /// # Panics
-    ///
-    /// This command panics if any of the given entities do not exist.
-    ///
-    /// For the non-panicking version, see [`try_insert_batch`](Self::try_insert_batch).
     #[track_caller]
     pub fn insert_batch<I, B>(&mut self, batch: I)
     where
@@ -686,12 +711,6 @@ impl<'w, 's> Commands<'w, 's> {
     /// calling [`entity`](Self::entity) for each pair,
     /// and passing the bundle to [`insert_if_new`](EntityCommands::insert_if_new),
     /// but it is faster due to memory pre-allocation.
-    ///
-    /// # Panics
-    ///
-    /// This command panics if any of the given entities do not exist.
-    ///
-    /// For the non-panicking version, see [`try_insert_batch_if_new`](Self::try_insert_batch_if_new).
     #[track_caller]
     pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
     where
@@ -716,7 +735,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// This command silently fails by ignoring any entities that do not exist.
     ///
-    /// For the panicking version, see [`insert_batch`](Self::insert_batch).
+    /// For the customizable version, see [`insert_batch`](Self::insert_batch).
     #[track_caller]
     pub fn try_insert_batch<I, B>(&mut self, batch: I)
     where
@@ -741,7 +760,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// This command silently fails by ignoring any entities that do not exist.
     ///
-    /// For the panicking version, see [`insert_batch_if_new`](Self::insert_batch_if_new).
+    /// For the customizable version, see [`insert_batch_if_new`](Self::insert_batch_if_new).
     #[track_caller]
     pub fn try_insert_batch_if_new<I, B>(&mut self, batch: I)
     where
@@ -1070,33 +1089,27 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
     }
 }
 
-/// A list of commands that will be run to modify an [entity](crate::entity).
+/// A list of commands that will be run to modify an [`Entity`].
+///
+/// Most [`Commands`] (and thereby [`EntityCommands`]) are deferred: when you call the command,
+/// if it requires mutable access to the [`World`] (that is, if it removes, adds, or changes something),
+/// it's not executed immediately. Instead, the command is added to a "command queue."
+/// The command queue is applied between [`Schedules`](bevy_ecs::schedule::Schedule), one by one,
+/// so that each command can have exclusive access to the World.
+///
+/// Due to their deferred nature, an entity you're trying change with an `EntityCommand` can be
+/// despawned by the time the command is executed. Use the following commands to set how you
+/// would like the command to response if the entity is missing:
+/// - [`ignore_if_missing`](Self::ignore_if_missing)
+/// - [`log_if_missing`](Self::log_if_missing) (default)
+/// - [`warn_if_missing`](Self::warn_if_missing)
+/// - [`panic_if_missing`](Self::panic_if_missing)
 pub struct EntityCommands<'a> {
     pub(crate) entity: Entity,
     pub(crate) commands: Commands<'a, 'a>,
 }
 
 impl<'a> EntityCommands<'a> {
-    pub fn ignore_if_missing(&mut self) -> &mut Self {
-        self.commands.ignore_on_error();
-        self
-    }
-
-    pub fn log_if_missing(&mut self) -> &mut Self {
-        self.commands.log_on_error();
-        self
-    }
-
-    pub fn warn_if_missing(&mut self) -> &mut Self {
-        self.commands.warn_on_error();
-        self
-    }
-
-    pub fn panic_if_missing(&mut self) -> &mut Self {
-        self.commands.panic_on_error();
-        self
-    }
-
     /// Returns the [`Entity`] id of the entity.
     ///
     /// # Example
@@ -1122,6 +1135,52 @@ impl<'a> EntityCommands<'a> {
             entity: self.entity,
             commands: self.commands.reborrow(),
         }
+    }
+
+    /// Sets the [`EntityCommands`] instance to ignore commands if the entity doesn't exist.
+    ///
+    /// # See also:
+    /// - [`log_if_missing`](Self::log_if_missing)
+    /// - [`warn_if_missing`](Self::warn_if_missing)
+    /// - [`panic_if_missing`](Self::panic_if_missing)
+    pub fn ignore_if_missing(&mut self) -> &mut Self {
+        self.commands.ignore_on_error();
+        self
+    }
+
+    /// Sets the [`EntityCommands`] instance to log if the entity doesn't exist when a command is executed.
+    ///
+    /// This is the default setting.
+    ///
+    /// # See also:
+    /// - [`ignore_if_missing`](Self::ignore_if_missing)
+    /// - [`warn_if_missing`](Self::warn_if_missing)
+    /// - [`panic_if_missing`](Self::panic_if_missing)
+    pub fn log_if_missing(&mut self) -> &mut Self {
+        self.commands.log_on_error();
+        self
+    }
+
+    /// Sets the [`EntityCommands`] instance to warn if the entity doesn't exist when a command is executed.
+    ///
+    /// # See also:
+    /// - [`ignore_if_missing`](Self::ignore_if_missing)
+    /// - [`warn_if_missing`](Self::warn_if_missing)
+    /// - [`panic_if_missing`](Self::panic_if_missing)
+    pub fn warn_if_missing(&mut self) -> &mut Self {
+        self.commands.warn_on_error();
+        self
+    }
+
+    /// Sets the [`EntityCommands`] instance to panic if the entity doesn't exist when a command is executed.
+    ///
+    /// # See also:
+    /// - [`ignore_if_missing`](Self::ignore_if_missing)
+    /// - [`warn_if_missing`](Self::warn_if_missing)
+    /// - [`panic_if_missing`](Self::panic_if_missing)
+    pub fn panic_if_missing(&mut self) -> &mut Self {
+        self.commands.panic_on_error();
+        self
     }
 
     /// Get an [`EntityEntryCommands`] for the [`Component`] `T`,
@@ -1160,12 +1219,6 @@ impl<'a> EntityCommands<'a> {
     ///
     /// This will overwrite any previous value(s) of the same component type.
     /// See [`EntityCommands::insert_if_new`] to keep the old value instead.
-    ///
-    /// # Panics
-    ///
-    /// The command will panic when applied if the associated entity does not exist.
-    ///
-    /// To avoid a panic in this case, use the command [`Self::try_insert`] instead.
     ///
     /// # Example
     ///
@@ -1216,12 +1269,6 @@ impl<'a> EntityCommands<'a> {
     /// Similar to [`Self::insert`] but will only insert if the predicate returns true.
     /// This is useful for chaining method calls.
     ///
-    /// # Panics
-    ///
-    /// The command will panic when applied if the associated entity does not exist.
-    ///
-    /// To avoid a panic in this case, use the command [`Self::try_insert_if`] instead.
-    ///
     /// # Example
     ///
     /// ```
@@ -1262,12 +1309,6 @@ impl<'a> EntityCommands<'a> {
     ///
     /// See also [`entry`](Self::entry), which lets you modify a [`Component`] if it's present,
     /// as well as initialize it with a default value.
-    ///
-    /// # Panics
-    ///
-    /// The command will panic when applied if the associated entity does not exist.
-    ///
-    /// To avoid a panic in this case, use the command [`Self::try_insert_if_new`] instead.
     pub fn insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
         self.queue(insert(bundle, InsertMode::Keep))
     }
@@ -1278,14 +1319,6 @@ impl<'a> EntityCommands<'a> {
     /// This is the same as [`EntityCommands::insert_if`], but in case of duplicate
     /// components will leave the old values instead of replacing them with new
     /// ones.
-    ///
-    /// # Panics
-    ///
-    /// The command will panic when applied if the associated entity does not
-    /// exist.
-    ///
-    /// To avoid a panic in this case, use the command [`Self::try_insert_if_new`]
-    /// instead.
     pub fn insert_if_new_and<F>(&mut self, bundle: impl Bundle, condition: F) -> &mut Self
     where
         F: FnOnce() -> bool,
@@ -1301,12 +1334,6 @@ impl<'a> EntityCommands<'a> {
     ///
     /// See [`EntityWorldMut::insert_by_id`] for more information.
     ///
-    /// # Panics
-    ///
-    /// The command will panic when applied if the associated entity does not exist.
-    ///
-    /// To avoid a panic in this case, use the command [`Self::try_insert_by_id`] instead.
-    ///
     /// # Safety
     ///
     /// - [`ComponentId`] must be from the same world as `self`.
@@ -1317,11 +1344,8 @@ impl<'a> EntityCommands<'a> {
         component_id: ComponentId,
         value: T,
     ) -> &mut Self {
-        let caller = Location::caller();
         // SAFETY: same invariants as parent call
-        self.queue(unsafe {insert_by_id(component_id, value, move |entity| {
-            panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>());
-        })})
+        self.queue(unsafe { insert_by_id(component_id, value) })
     }
 
     /// Attempts to add a dynamic component to an entity.
@@ -1338,7 +1362,7 @@ impl<'a> EntityCommands<'a> {
         value: T,
     ) -> &mut Self {
         // SAFETY: same invariants as parent call
-        self.queue(unsafe { insert_by_id(component_id, value, |_| {}) })
+        self.queue(unsafe { insert_by_id(component_id, value) })
     }
 
     /// Tries to add a [`Bundle`] of components to the entity.
@@ -1347,7 +1371,8 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Note
     ///
-    /// Unlike [`Self::insert`], this will not panic if the associated entity does not exist.
+    /// [`Self::insert`] used to panic if the entity was missing, and this was the non-panicking version.
+    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`insert`]
     ///
     /// # Example
     ///
@@ -1441,8 +1466,8 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Note
     ///
-    /// Unlike [`Self::insert_if_new_and`], this will not panic if the associated entity does
-    /// not exist.
+    /// [`Self::insert_if_new_and`] used to panic if the entity was missing, and this was the non-panicking version.
+    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::insert_if_new_and`]
     ///
     /// # Example
     ///
@@ -1486,7 +1511,8 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Note
     ///
-    /// Unlike [`Self::insert_if_new`], this will not panic if the associated entity does not exist.
+    /// [`Self::insert_if_new`] used to panic if the entity was missing, and this was the non-panicking version.
+    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::insert_if_new`]
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
         self.queue(try_insert(bundle, InsertMode::Keep))
     }
@@ -1572,7 +1598,6 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Despawns the entity.
-    /// This will emit a warning if the entity does not exist.
     ///
     /// See [`World::despawn`] for more details.
     ///
@@ -1604,8 +1629,9 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Despawns the entity.
-    /// This will not emit a warning if the entity does not exist, essentially performing
-    /// the same function as [`Self::despawn`] without emitting warnings.
+    ///
+    /// [`Self::despawn`] used to warn if the entity was missing, and this was the silent version.
+    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::despawn`]
     #[track_caller]
     pub fn try_despawn(&mut self) {
         self.queue(try_despawn());
@@ -1678,10 +1704,6 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Logs the components of the entity at the info level.
-    ///
-    /// # Panics
-    ///
-    /// The command will panic when applied if the associated entity does not exist.
     pub fn log_components(&mut self) -> &mut Self {
         self.queue(log_components)
     }
@@ -1721,21 +1743,45 @@ pub struct EntityEntryCommands<'a, T> {
 }
 
 impl<'a, T: Component> EntityEntryCommands<'a, T> {
+    /// Sets the [`EntityEntryCommands`] instance to ignore commands if the entity doesn't exist.
+    ///
+    /// # See also:
+    /// - [`log_if_missing`](Self::log_if_missing)
+    /// - [`warn_if_missing`](Self::warn_if_missing)
+    /// - [`panic_if_missing`](Self::panic_if_missing)
     pub fn ignore_if_missing(&mut self) -> &mut Self {
         self.entity_commands.ignore_if_missing();
         self
     }
 
+    /// Sets the [`EntityEntryCommands`] instance to log if the entity doesn't exist when a command is executed.
+    ///
+    /// # See also:
+    /// - [`ignore_if_missing`](Self::ignore_if_missing)
+    /// - [`warn_if_missing`](Self::warn_if_missing)
+    /// - [`panic_if_missing`](Self::panic_if_missing)
     pub fn log_if_missing(&mut self) -> &mut Self {
         self.entity_commands.log_if_missing();
         self
     }
 
+    /// Sets the [`EntityEntryCommands`] instance to warn if the entity doesn't exist when a command is executed.
+    ///
+    /// # See also:
+    /// - [`ignore_if_missing`](Self::ignore_if_missing)
+    /// - [`warn_if_missing`](Self::warn_if_missing)
+    /// - [`panic_if_missing`](Self::panic_if_missing)
     pub fn warn_if_missing(&mut self) -> &mut Self {
         self.entity_commands.warn_if_missing();
         self
     }
 
+    /// Sets the [`EntityEntryCommands`] instance to panic if the entity doesn't exist when a command is executed.
+    ///
+    /// # See also:
+    /// - [`ignore_if_missing`](Self::ignore_if_missing)
+    /// - [`warn_if_missing`](Self::warn_if_missing)
+    /// - [`panic_if_missing`](Self::panic_if_missing)
     pub fn panic_if_missing(&mut self) -> &mut Self {
         self.entity_commands.panic_if_missing();
         self
@@ -1755,11 +1801,6 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// [Insert](EntityCommands::insert) `default` into this entity, if `T` is not already present.
     ///
     /// See also [`or_insert_with`](Self::or_insert_with).
-    ///
-    /// # Panics
-    ///
-    /// Panics if the entity does not exist.
-    /// See [`or_try_insert`](Self::or_try_insert) for a non-panicking version.
     #[track_caller]
     pub fn or_insert(&mut self, default: T) -> &mut Self {
         self.entity_commands
@@ -1769,7 +1810,8 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 
     /// [Insert](EntityCommands::insert) `default` into this entity, if `T` is not already present.
     ///
-    /// Unlike [`or_insert`](Self::or_insert), this will not panic if the entity does not exist.
+    /// [`Self::or_insert`] used to panic if the entity was missing, and this was the non-panicking version.
+    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::or_insert`]
     ///
     /// See also [`or_insert_with`](Self::or_insert_with).
     #[track_caller]
@@ -1782,11 +1824,6 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// [Insert](EntityCommands::insert) the value returned from `default` into this entity, if `T` is not already present.
     ///
     /// See also [`or_insert`](Self::or_insert) and [`or_try_insert`](Self::or_try_insert).
-    ///
-    /// # Panics
-    ///
-    /// Panics if the entity does not exist.
-    /// See [`or_try_insert_with`](Self::or_try_insert_with) for a non-panicking version.
     #[track_caller]
     pub fn or_insert_with(&mut self, default: impl Fn() -> T) -> &mut Self {
         self.or_insert(default())
@@ -1794,7 +1831,8 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 
     /// [Insert](EntityCommands::insert) the value returned from `default` into this entity, if `T` is not already present.
     ///
-    /// Unlike [`or_insert_with`](Self::or_insert_with), this will not panic if the entity does not exist.
+    /// [`Self::or_insert_with`] used to panic if the entity was missing, and this was the non-panicking version.
+    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::or_insert_with`]
     ///
     /// See also [`or_insert`](Self::or_insert) and [`or_try_insert`](Self::or_try_insert).
     #[track_caller]
@@ -1805,10 +1843,6 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// [Insert](EntityCommands::insert) `T::default` into this entity, if `T` is not already present.
     ///
     /// See also [`or_insert`](Self::or_insert) and [`or_from_world`](Self::or_from_world).
-    ///
-    /// # Panics
-    ///
-    /// Panics if the entity does not exist.
     #[track_caller]
     pub fn or_default(&mut self) -> &mut Self
     where
@@ -1822,10 +1856,6 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// [Insert](EntityCommands::insert) `T::from_world` into this entity, if `T` is not already present.
     ///
     /// See also [`or_insert`](Self::or_insert) and [`or_default`](Self::or_default).
-    ///
-    /// # Panics
-    ///
-    /// Panics if the entity does not exist.
     #[track_caller]
     pub fn or_from_world(&mut self) -> &mut Self
     where
@@ -1854,9 +1884,8 @@ where
         if world.entities.contains(id) {
             self(world.entity_mut(id));
         } else {
-            let message = format!(
-                "Could not execute EntityCommand because its entity {id:?} was missing"
-            );
+            let message =
+                format!("Could not execute EntityCommand because its entity {id:?} was missing");
             failure_mode.fail(message);
         }
     }
@@ -1870,9 +1899,8 @@ where
         if world.entities.contains(id) {
             self(id, world);
         } else {
-            let message = format!(
-                "Could not execute EntityCommand because its entity {id:?} was missing"
-            );
+            let message =
+                format!("Could not execute EntityCommand because its entity {id:?} was missing");
             failure_mode.fail(message);
         }
     }
@@ -2105,19 +2133,15 @@ fn try_insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
 unsafe fn insert_by_id<T: Send + 'static>(
     component_id: ComponentId,
     value: T,
-    on_none_entity: impl FnOnce(Entity) + Send + 'static,
 ) -> impl EntityCommand {
     move |entity: Entity, world: &mut World| {
-        if let Ok(mut entity) = world.get_entity_mut(entity) {
-            // SAFETY:
-            // - `component_id` safety is ensured by the caller
-            // - `ptr` is valid within the `make` block;
-            OwningPtr::make(value, |ptr| unsafe {
-                entity.insert_by_id(component_id, ptr);
-            });
-        } else {
-            on_none_entity(entity);
-        }
+        let mut entity = world.entity_mut(entity);
+        // SAFETY:
+        // - `component_id` safety is ensured by the caller
+        // - `ptr` is valid within the `make` block;
+        OwningPtr::make(value, |ptr| unsafe {
+            entity.insert_by_id(component_id, ptr);
+        });
     }
 }
 
