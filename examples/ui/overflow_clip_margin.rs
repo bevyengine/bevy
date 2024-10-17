@@ -28,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
-            BackgroundColor(ANTIQUE_WHITE),
+            BackgroundColor(ANTIQUE_WHITE.into()),
         ))
         .with_children(|parent| {
             for overflow_clip_margin in [
