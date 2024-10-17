@@ -1121,7 +1121,7 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
 ///
 /// Due to their deferred nature, an entity you're trying change with an `EntityCommand` can be
 /// despawned by the time the command is executed. Use the following commands to set how you
-/// would like subsequent commands to response if the entity is missing:
+/// would like subsequent commands to respond if the entity is missing:
 /// - [`ignore_if_missing`](Self::ignore_if_missing)
 /// - [`log_if_missing`](Self::log_if_missing) (default)
 /// - [`warn_if_missing`](Self::warn_if_missing)
