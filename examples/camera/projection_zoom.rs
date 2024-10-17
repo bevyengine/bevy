@@ -54,7 +54,9 @@ fn setup(
         Name::new("Camera"),
         Camera3d::default(),
         Projection::from(OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical(camera_settings.orthographic_zoom_range.start),
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: camera_settings.orthographic_zoom_range.start,
+            },
             ..OrthographicProjection::default_3d()
         }),
         Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -117,9 +119,9 @@ fn switch_projection(
                 ..default()
             }),
             Projection::Perspective(_) => Projection::Orthographic(OrthographicProjection {
-                scaling_mode: ScalingMode::FixedVertical(
-                    camera_settings.orthographic_zoom_range.start,
-                ),
+                scaling_mode: ScalingMode::FixedVertical {
+                    viewport_height: camera_settings.orthographic_zoom_range.start,
+                },
                 ..OrthographicProjection::default_3d()
             }),
         }
@@ -135,17 +137,19 @@ fn zoom(
     match *camera.into_inner() {
         Projection::Orthographic(ref mut orthographic) => {
             // Get the current scaling_mode value to allow clamping the new value to our zoom range.
-            let ScalingMode::FixedVertical(current) = orthographic.scaling_mode else {
+            let ScalingMode::FixedVertical { viewport_height } = orthographic.scaling_mode else {
                 return;
             };
             // Set a new ScalingMode, clamped to a limited range.
-            let zoom_level = (current
+            let zoom_level = (viewport_height
                 + camera_settings.orthographic_zoom_speed * mouse_wheel_input.delta.y)
                 .clamp(
                     camera_settings.orthographic_zoom_range.start,
                     camera_settings.orthographic_zoom_range.end,
                 );
-            orthographic.scaling_mode = ScalingMode::FixedVertical(zoom_level);
+            orthographic.scaling_mode = ScalingMode::FixedVertical {
+                viewport_height: zoom_level,
+            };
         }
         Projection::Perspective(ref mut perspective) => {
             // Adjust the field of view, but keep it within our stated range.

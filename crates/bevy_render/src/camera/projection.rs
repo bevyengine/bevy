@@ -1,7 +1,4 @@
-use core::{
-    marker::PhantomData,
-    ops::{Div, DivAssign, Mul, MulAssign},
-};
+use core::marker::PhantomData;
 
 use crate::{primitives::Frustum, view::VisibilitySystems};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
@@ -269,6 +266,11 @@ impl Default for PerspectiveProjection {
 
 /// Scaling mode for [`OrthographicProjection`].
 ///
+/// The effect of these scaling modes are combined with the [`OrthographicProjection::scale`] property.
+///
+/// For example, if the scaling mode is `ScalingMode::Fixed{ width: 100.0, height: 300 }` and the scale is `2.0`,
+/// the projection will be 200 world units wide and 600 world units tall.
+///
 /// # Examples
 ///
 /// Configure the orthographic projection to two world units per window height:
@@ -280,15 +282,18 @@ impl Default for PerspectiveProjection {
 ///    ..OrthographicProjection::default_2d()
 /// });
 /// ```
-#[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
 pub enum ScalingMode {
-    /// Manually specify the projection's size, ignoring window resizing. The image will stretch.
-    /// Arguments are in world units.
-    Fixed { width: f32, height: f32 },
     /// Match the viewport size.
-    /// The argument is the number of pixels that equals one world unit.
-    WindowSize(f32),
+    ///
+    /// With a scale of 1, one world unit will be equal to the number of pixels in the window.
+    #[default]
+    WindowSize,
+    /// Manually specify the projection's size, ignoring window resizing. The image will stretch.
+    ///
+    /// Arguments are in world units when the scale is 1.
+    Fixed { width: f32, height: f32 },
     /// Keeping the aspect ratio while the axes can't be smaller than given minimum.
     /// Arguments are in world units.
     AutoMin { min_width: f32, min_height: f32 },
@@ -296,65 +301,11 @@ pub enum ScalingMode {
     /// Arguments are in world units.
     AutoMax { max_width: f32, max_height: f32 },
     /// Keep the projection's height constant; width will be adjusted to match aspect ratio.
-    /// The argument is the desired height of the projection in world units.
-    FixedVertical(f32),
+    /// The argument is the desired height of the projection in world units when the scale is 1.
+    FixedVertical { viewport_height: f32 },
     /// Keep the projection's width constant; height will be adjusted to match aspect ratio.
-    /// The argument is the desired width of the projection in world units.
-    FixedHorizontal(f32),
-}
-
-impl Mul<f32> for ScalingMode {
-    type Output = ScalingMode;
-
-    /// Scale the `ScalingMode`. For example, multiplying by 2 makes the viewport twice as large.
-    fn mul(self, rhs: f32) -> ScalingMode {
-        match self {
-            ScalingMode::Fixed { width, height } => ScalingMode::Fixed {
-                width: width * rhs,
-                height: height * rhs,
-            },
-            ScalingMode::WindowSize(pixels_per_world_unit) => {
-                ScalingMode::WindowSize(pixels_per_world_unit / rhs)
-            }
-            ScalingMode::AutoMin {
-                min_width,
-                min_height,
-            } => ScalingMode::AutoMin {
-                min_width: min_width * rhs,
-                min_height: min_height * rhs,
-            },
-            ScalingMode::AutoMax {
-                max_width,
-                max_height,
-            } => ScalingMode::AutoMax {
-                max_width: max_width * rhs,
-                max_height: max_height * rhs,
-            },
-            ScalingMode::FixedVertical(size) => ScalingMode::FixedVertical(size * rhs),
-            ScalingMode::FixedHorizontal(size) => ScalingMode::FixedHorizontal(size * rhs),
-        }
-    }
-}
-
-impl MulAssign<f32> for ScalingMode {
-    fn mul_assign(&mut self, rhs: f32) {
-        *self = *self * rhs;
-    }
-}
-
-impl Div<f32> for ScalingMode {
-    type Output = ScalingMode;
-
-    /// Scale the `ScalingMode`. For example, dividing by 2 makes the viewport half as large.
-    fn div(self, rhs: f32) -> ScalingMode {
-        self * (1.0 / rhs)
-    }
-}
-
-impl DivAssign<f32> for ScalingMode {
-    fn div_assign(&mut self, rhs: f32) {
-        *self = *self / rhs;
-    }
+    /// The argument is the desired width of the projection in world units when the scale is 1.
+    FixedHorizontal { viewport_width: f32 },
 }
 
 /// Project a 3D space onto a 2D surface using parallel lines, i.e., unlike [`PerspectiveProjection`],
@@ -407,7 +358,11 @@ pub struct OrthographicProjection {
     pub viewport_origin: Vec2,
     /// How the projection will scale to the viewport.
     ///
-    /// Defaults to `ScalingMode::WindowSize(1.0)`
+    /// Defaults to [`ScalingMode::WindowSize`],
+    /// and works in concert with [`OrthographicProjection::scale`] to determine the final effect.
+    ///
+    /// For simplicity, zooming should be done by changing [`OrthographicProjection::scale`],
+    /// rather than changing the parameters of the scaling mode.
     pub scaling_mode: ScalingMode,
     /// Scales the projection.
     ///
@@ -489,7 +444,7 @@ impl CameraProjection for OrthographicProjection {
 
     fn update(&mut self, width: f32, height: f32) {
         let (projection_width, projection_height) = match self.scaling_mode {
-            ScalingMode::WindowSize(pixel_scale) => (width / pixel_scale, height / pixel_scale),
+            ScalingMode::WindowSize => (width, height),
             ScalingMode::AutoMin {
                 min_width,
                 min_height,
@@ -514,25 +469,17 @@ impl CameraProjection for OrthographicProjection {
                     (max_width, height * max_width / width)
                 }
             }
-            ScalingMode::FixedVertical(viewport_height) => {
+            ScalingMode::FixedVertical { viewport_height } => {
                 (width * viewport_height / height, viewport_height)
             }
-            ScalingMode::FixedHorizontal(viewport_width) => {
+            ScalingMode::FixedHorizontal { viewport_width } => {
                 (viewport_width, height * viewport_width / width)
             }
             ScalingMode::Fixed { width, height } => (width, height),
         };
 
-        let mut origin_x = projection_width * self.viewport_origin.x;
-        let mut origin_y = projection_height * self.viewport_origin.y;
-
-        // If projection is based on window pixels,
-        // ensure we don't end up with fractional pixels!
-        if let ScalingMode::WindowSize(pixel_scale) = self.scaling_mode {
-            // round to nearest multiple of `pixel_scale`
-            origin_x = (origin_x * pixel_scale).round() / pixel_scale;
-            origin_y = (origin_y * pixel_scale).round() / pixel_scale;
-        }
+        let origin_x = projection_width * self.viewport_origin.x;
+        let origin_y = projection_height * self.viewport_origin.y;
 
         self.area = Rect::new(
             self.scale * -origin_x,
@@ -590,7 +537,7 @@ impl OrthographicProjection {
             near: 0.0,
             far: 1000.0,
             viewport_origin: Vec2::new(0.5, 0.5),
-            scaling_mode: ScalingMode::WindowSize(1.0),
+            scaling_mode: ScalingMode::WindowSize,
             area: Rect::new(-1.0, -1.0, 1.0, 1.0),
         }
     }

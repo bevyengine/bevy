@@ -141,7 +141,9 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Projection::from(OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical(6.0),
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 6.0,
+            },
             ..OrthographicProjection::default_3d()
         }),
         Camera {
@@ -161,7 +163,9 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Projection::from(OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical(6.0),
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 6.0,
+            },
             ..OrthographicProjection::default_3d()
         }),
         Camera {
@@ -187,7 +191,9 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Projection::from(OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical(6.0),
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 6.0,
+            },
             ..OrthographicProjection::default_3d()
         }),
         Camera {
@@ -214,7 +220,9 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Projection::from(OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical(6.0),
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 6.0,
+            },
             ..OrthographicProjection::default_3d()
         }),
         Camera {

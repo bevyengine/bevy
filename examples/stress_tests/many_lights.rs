@@ -93,7 +93,9 @@ fn setup(
         Some("orthographic") => commands.spawn((
             Camera3d::default(),
             Projection::from(OrthographicProjection {
-                scaling_mode: ScalingMode::FixedHorizontal(20.0),
+                scaling_mode: ScalingMode::FixedHorizontal {
+                    viewport_width: 20.0,
+                },
                 ..OrthographicProjection::default_3d()
             }),
         )),
