@@ -515,6 +515,8 @@ pub enum UntypedAssetConversionError {
 #[cfg(test)]
 mod tests {
     use bevy_reflect::PartialReflect;
+    use bevy_utils::FixedHasher;
+    use core::hash::BuildHasher;
 
     use super::*;
 
@@ -525,9 +527,7 @@ mod tests {
 
     /// Simple utility to directly hash a value using a fixed hasher
     fn hash<T: Hash>(data: &T) -> u64 {
-        let mut hasher = bevy_utils::AHasher::default();
-        data.hash(&mut hasher);
-        hasher.finish()
+        FixedHasher.hash_one(data)
     }
 
     /// Typed and Untyped `Handles` should be equivalent to each other and themselves

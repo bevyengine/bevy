@@ -953,7 +953,7 @@ pub fn extract_meshes_for_cpu_building(
     render_mesh_instances.clear();
     for queue in render_mesh_instance_queues.iter_mut() {
         for (entity, render_mesh_instance) in queue.drain(..) {
-            render_mesh_instances.insert_unique_unchecked(entity.into(), render_mesh_instance);
+            render_mesh_instances.insert(entity.into(), render_mesh_instance);
         }
     }
 }

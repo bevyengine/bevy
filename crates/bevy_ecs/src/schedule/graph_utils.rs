@@ -116,7 +116,7 @@ impl<V: NodeTrait + Debug> Default for CheckGraphResults<V> {
     fn default() -> Self {
         Self {
             reachable: FixedBitSet::new(),
-            connected: HashSet::new(),
+            connected: HashSet::default(),
             disconnected: Vec::new(),
             transitive_edges: Vec::new(),
             transitive_reduction: DiGraphMap::new(),
@@ -150,7 +150,7 @@ where
     let n = graph.node_count();
 
     // build a copy of the graph where the nodes and edges appear in topsorted order
-    let mut map = HashMap::with_capacity(n);
+    let mut map: HashMap<_, _> = HashMap::with_capacity_and_hasher(n, Default::default());
     let mut topsorted = DiGraphMap::<V, ()>::new();
     // iterate nodes in topological order
     for (i, &node) in topological_order.iter().enumerate() {
@@ -163,7 +163,7 @@ where
     }
 
     let mut reachable = FixedBitSet::with_capacity(n * n);
-    let mut connected = HashSet::new();
+    let mut connected: HashSet<_> = HashSet::default();
     let mut disconnected = Vec::new();
 
     let mut transitive_edges = Vec::new();
@@ -272,15 +272,17 @@ where
         // path of nodes that may form a cycle
         let mut path = Vec::with_capacity(subgraph.node_count());
         // we mark nodes as "blocked" to avoid finding permutations of the same cycles
-        let mut blocked = HashSet::with_capacity(subgraph.node_count());
+        let mut blocked: HashSet<_> =
+            HashSet::with_capacity_and_hasher(subgraph.node_count(), Default::default());
         // connects nodes along path segments that can't be part of a cycle (given current root)
         // those nodes can be unblocked at the same time
         let mut unblock_together: HashMap<N, HashSet<N>> =
-            HashMap::with_capacity(subgraph.node_count());
+            HashMap::with_capacity_and_hasher(subgraph.node_count(), Default::default());
         // stack for unblocking nodes
         let mut unblock_stack = Vec::with_capacity(subgraph.node_count());
         // nodes can be involved in multiple cycles
-        let mut maybe_in_more_cycles: HashSet<N> = HashSet::with_capacity(subgraph.node_count());
+        let mut maybe_in_more_cycles: HashSet<N> =
+            HashSet::with_capacity_and_hasher(subgraph.node_count(), Default::default());
         // stack for DFS
         let mut stack = Vec::with_capacity(subgraph.node_count());
 

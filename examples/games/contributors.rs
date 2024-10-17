@@ -334,7 +334,7 @@ fn contributors() -> Result<Contributors, LoadContributorsError> {
     // Take the list of commit author names and collect them into a HashMap,
     // keeping a count of how many commits they authored.
     let contributors = BufReader::new(stdout).lines().map_while(Result::ok).fold(
-        HashMap::new(),
+        HashMap::default(),
         |mut acc, word| {
             *acc.entry(word).or_insert(0) += 1;
             acc
