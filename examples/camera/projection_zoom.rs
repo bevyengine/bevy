@@ -89,26 +89,19 @@ fn setup(
 }
 
 fn instructions(mut commands: Commands) {
-    commands
-        .spawn((
-            Name::new("Instructions"),
-            NodeBundle {
-                style: Style {
-                    align_items: AlignItems::Start,
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Start,
-                    width: Val::Percent(100.),
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(Text::new("Scroll mouse wheel to zoom in/out"));
-            parent.spawn(Text::new(
-                "Space: switch between orthographic and perspective projections",
-            ));
-        });
+    commands.spawn((
+        Name::new("Instructions"),
+        Text::new(
+            "Scroll mouse wheel to zoom in/out\n\
+            Space: switch between orthographic and perspective projections",
+        ),
+        Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.),
+            left: Val::Px(12.),
+            ..default()
+        },
+    ));
 }
 
 fn switch_projection(

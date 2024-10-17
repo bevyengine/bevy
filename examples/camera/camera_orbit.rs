@@ -80,25 +80,20 @@ fn setup(
 }
 
 fn instructions(mut commands: Commands) {
-    commands
-        .spawn((
-            Name::new("Instructions"),
-            NodeBundle {
-                style: Style {
-                    align_items: AlignItems::Start,
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Start,
-                    width: Val::Percent(100.),
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(Text::new("Mouse up or down: pitch"));
-            parent.spawn(Text::new("Mouse left or right: yaw"));
-            parent.spawn(Text::new("Mouse buttons: roll"));
-        });
+    commands.spawn((
+        Name::new("Instructions"),
+        Text::new(
+            "Mouse up or down: pitch\n\
+            Mouse left or right: yaw\n\
+            Mouse buttons: roll",
+        ),
+        Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.),
+            left: Val::Px(12.),
+            ..default()
+        },
+    ));
 }
 
 fn orbit(

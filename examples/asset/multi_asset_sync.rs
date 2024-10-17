@@ -168,29 +168,17 @@ fn setup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn setup_ui(mut commands: Commands) {
     // Display the result of async loading.
-    commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::End,
 
-                ..default()
-            },
+    commands.spawn((
+        LoadingText,
+        Text::new("Loading...".to_owned()),
+        Style {
+            position_type: PositionType::Absolute,
+            left: Val::Px(12.0),
+            top: Val::Px(12.0),
             ..default()
-        })
-        .with_children(|b| {
-            b.spawn((
-                Text::new("Loading...".to_owned()),
-                TextFont {
-                    font_size: 53.0,
-                    ..Default::default()
-                },
-                TextColor(Color::BLACK),
-                TextLayout::new_with_justify(JustifyText::Right),
-                LoadingText,
-            ));
-        });
+        },
+    ));
 }
 
 fn setup_scene(
