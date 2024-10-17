@@ -1,6 +1,6 @@
 use crate::{
-    ContentSize, DefaultUiCamera, FixedMeasure, FocusPolicy, Measure, MeasureArgs, Node,
-    NodeMeasure, Style, TargetCamera, UiScale, ZIndex,
+    ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure,
+    TargetCamera, UiScale,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
@@ -16,14 +16,13 @@ use bevy_ecs::{
 };
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{camera::Camera, texture::Image, view::Visibility};
+use bevy_render::{camera::Camera, texture::Image};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
     TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
     TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
 };
-use bevy_transform::components::Transform;
 use bevy_utils::{tracing::error, Entry};
 use taffy::style::AvailableSpace;
 
@@ -67,7 +66,7 @@ pub struct TextBundle {}
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
 /// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
 ///
-/// Note that [`Transform`] on this entity is managed automatically by the UI layout system.
+/// Note that [`Transform`](bevy_transform::components::Transform) on this entity is managed automatically by the UI layout system.
 ///
 ///
 /// ```
@@ -103,19 +102,7 @@ pub struct TextBundle {}
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(
-    TextLayout,
-    TextFont,
-    TextColor,
-    TextNodeFlags,
-    Node,
-    Style, // TODO: Remove when Node uses required components.
-    ContentSize, // TODO: Remove when Node uses required components.
-    FocusPolicy, // TODO: Remove when Node uses required components.
-    ZIndex, // TODO: Remove when Node uses required components.
-    Visibility, // TODO: Remove when Node uses required components.
-    Transform // TODO: Remove when Node uses required components.
-)]
+#[require(TextLayout, TextFont, TextColor, TextNodeFlags, Node)]
 pub struct Text(pub String);
 
 impl Text {

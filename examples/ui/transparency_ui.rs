@@ -17,29 +17,29 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceAround,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             parent
-                .spawn(ButtonBundle {
-                    style: Style {
+                .spawn((
+                    Button,
+                    Style {
                         width: Val::Px(150.0),
                         height: Val::Px(65.0),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Color::srgb(0.1, 0.5, 0.1).into(),
-                    ..default()
-                })
+                    BackgroundColor(Color::srgb(0.1, 0.5, 0.1)),
+                ))
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Button 1"),
@@ -56,17 +56,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // Button with a different color,
             // to demonstrate the text looks different due to its transparency.
             parent
-                .spawn(ButtonBundle {
-                    style: Style {
+                .spawn((
+                    Button,
+                    Style {
                         width: Val::Px(150.0),
                         height: Val::Px(65.0),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Color::srgb(0.5, 0.1, 0.5).into(),
-                    ..default()
-                })
+                    BackgroundColor(Color::srgb(0.5, 0.1, 0.5)),
+                ))
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Button 2"),

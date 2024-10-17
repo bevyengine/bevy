@@ -138,8 +138,9 @@ fn setup(
 fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &ColorGrading) {
     // Spawn the parent node that contains all the buttons.
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 flex_direction: FlexDirection::Column,
                 position_type: PositionType::Absolute,
                 row_gap: Val::Px(6.0),
@@ -147,8 +148,7 @@ fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &Col
                 bottom: Val::Px(12.0),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             // Create the first row, which contains the global controls.
             add_buttons_for_global_controls(parent, color_grading, font);
@@ -172,36 +172,31 @@ fn add_buttons_for_global_controls(
     font: &Handle<Font>,
 ) {
     // Add the parent node for the row.
-    parent
-        .spawn(NodeBundle {
-            style: Style::default(),
-            ..default()
-        })
-        .with_children(|parent| {
-            // Add some placeholder text to fill this column.
-            parent.spawn(NodeBundle {
-                style: Style {
-                    width: Val::Px(125.0),
-                    ..default()
-                },
+    parent.spawn(Node::default()).with_children(|parent| {
+        // Add some placeholder text to fill this column.
+        parent.spawn((
+            Node::default(),
+            Style {
+                width: Val::Px(125.0),
                 ..default()
-            });
+            },
+        ));
 
-            // Add each global color grading option button.
-            for option in [
-                SelectedGlobalColorGradingOption::Exposure,
-                SelectedGlobalColorGradingOption::Temperature,
-                SelectedGlobalColorGradingOption::Tint,
-                SelectedGlobalColorGradingOption::Hue,
-            ] {
-                add_button_for_value(
-                    parent,
-                    SelectedColorGradingOption::Global(option),
-                    color_grading,
-                    font,
-                );
-            }
-        });
+        // Add each global color grading option button.
+        for option in [
+            SelectedGlobalColorGradingOption::Exposure,
+            SelectedGlobalColorGradingOption::Temperature,
+            SelectedGlobalColorGradingOption::Tint,
+            SelectedGlobalColorGradingOption::Hue,
+        ] {
+            add_button_for_value(
+                parent,
+                SelectedColorGradingOption::Global(option),
+                color_grading,
+                font,
+            );
+        }
+    });
 }
 
 /// Adds the buttons that control color grading for individual sections
@@ -214,13 +209,13 @@ fn add_buttons_for_section(
 ) {
     // Spawn the row container.
     parent
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             // Spawn the label ("Highlights", etc.)
             add_text(parent, &section.to_string(), font, Color::WHITE).insert(Style {
@@ -255,8 +250,9 @@ fn add_button_for_value(
 ) {
     // Add the button node.
     parent
-        .spawn(ButtonBundle {
-            style: Style {
+        .spawn((
+            Button,
+            Style {
                 border: UiRect::all(Val::Px(1.0)),
                 width: Val::Px(200.0),
                 justify_content: JustifyContent::Center,
@@ -265,11 +261,10 @@ fn add_button_for_value(
                 margin: UiRect::right(Val::Px(12.0)),
                 ..default()
             },
-            border_color: BorderColor(Color::WHITE),
-            border_radius: BorderRadius::MAX,
-            background_color: Color::BLACK.into(),
-            ..default()
-        })
+            BorderColor(Color::WHITE),
+            BorderRadius::MAX,
+            BackgroundColor(Color::BLACK),
+        ))
         .insert(ColorGradingOptionWidget {
             widget_type: ColorGradingOptionWidgetType::Button,
             option,
@@ -286,13 +281,13 @@ fn add_button_for_value(
             });
 
             // Add a spacer.
-            parent.spawn(NodeBundle {
-                style: Style {
+            parent.spawn((
+                Node::default(),
+                Style {
                     flex_grow: 1.0,
                     ..default()
                 },
-                ..default()
-            });
+            ));
 
             // Add the value text.
             add_text(

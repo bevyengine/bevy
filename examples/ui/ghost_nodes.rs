@@ -33,29 +33,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(GhostNode::new())
         .with_children(|ghost_root| {
-            ghost_root
-                .spawn(NodeBundle::default())
-                .with_child(create_label(
-                    "This text node is rendered under a ghost root",
-                    font_handle.clone(),
-                ));
+            ghost_root.spawn(Node::default()).with_child(create_label(
+                "This text node is rendered under a ghost root",
+                font_handle.clone(),
+            ));
         });
 
     // Normal UI root
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             parent
-                .spawn((NodeBundle::default(), Counter(0)))
+                .spawn((Node::default(), Counter(0)))
                 .with_children(|layout_parent| {
                     layout_parent
                         .spawn((GhostNode::new(), Counter(0)))
@@ -78,9 +76,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn create_button() -> ButtonBundle {
-    ButtonBundle {
-        style: Style {
+fn create_button() -> impl Bundle {
+    (
+        Button,
+        Style {
             width: Val::Px(150.0),
             height: Val::Px(65.0),
             border: UiRect::all(Val::Px(5.0)),
@@ -90,11 +89,10 @@ fn create_button() -> ButtonBundle {
             align_items: AlignItems::Center,
             ..default()
         },
-        border_color: BorderColor(Color::BLACK),
-        border_radius: BorderRadius::MAX,
-        background_color: Color::srgb(0.15, 0.15, 0.15).into(),
-        ..default()
-    }
+        BorderColor(Color::BLACK),
+        BorderRadius::MAX,
+        BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+    )
 }
 
 fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont, TextColor) {

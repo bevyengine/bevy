@@ -393,15 +393,15 @@ fn gameover_keyboard(
 // display the number of cake eaten before losing
 fn display_score(mut commands: Commands, game: Res<Game>) {
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_child((
             Text::new(format!("Cake eaten: {}", game.cake_eaten)),
             TextFont {

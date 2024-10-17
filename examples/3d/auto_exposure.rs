@@ -114,18 +114,17 @@ fn setup(
         Transform::from_xyz(0.0, 0.0, 0.0),
     ));
 
-    commands.spawn(ImageBundle {
-        image: UiImage {
+    commands.spawn((
+        UiImage {
             texture: metering_mask,
             ..default()
         },
-        style: Style {
+        Style {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 
     let text_style = TextFont::default();
 

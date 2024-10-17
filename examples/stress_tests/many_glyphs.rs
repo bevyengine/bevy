@@ -56,24 +56,24 @@ fn setup(mut commands: Commands) {
     };
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|commands| {
             commands
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node::default(),
+                    Style {
                         width: Val::Px(1000.),
                         ..Default::default()
                     },
-                    ..Default::default()
-                })
+                ))
                 .with_child((Text(text_string.clone()), text_font.clone(), text_block));
         });
 

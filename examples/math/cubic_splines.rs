@@ -78,8 +78,9 @@ fn setup(mut commands: Commands) {
     let style = TextFont::default();
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
@@ -87,8 +88,7 @@ fn setup(mut commands: Commands) {
                 row_gap: Val::Px(20.0),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             parent.spawn((Text::new(instructions_text), style.clone()));
             parent.spawn((SplineModeText, Text(spline_mode_text), style.clone()));

@@ -82,15 +82,15 @@ fn setup(mut commands: Commands) {
         ..default()
     };
     commands
-        .spawn(NodeBundle {
-            background_color: BackgroundColor(Color::NONE),
-            style: Style {
+        .spawn((
+            Node::default(),
+            BackgroundColor(Color::NONE),
+            Style {
                 justify_self: JustifySelf::Center,
                 align_self: AlignSelf::FlexEnd,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_child((Text::new("Press 1 or 2 to load a new scene."), text_style));
 }
 
@@ -257,15 +257,13 @@ fn load_loading_screen(mut commands: Commands) {
     // Spawn the UI that will make up the loading screen.
     commands
         .spawn((
-            NodeBundle {
-                background_color: BackgroundColor(Color::BLACK),
-                style: Style {
-                    height: Val::Percent(100.0),
-                    width: Val::Percent(100.0),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
+            Node::default(),
+            BackgroundColor(Color::BLACK),
+            Style {
+                height: Val::Percent(100.0),
+                width: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
             },
             LoadingScreen,

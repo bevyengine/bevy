@@ -48,16 +48,15 @@ fn atlas_render_system(
             }
             let font_atlas = &font_atlas[state.atlas_count as usize];
             state.atlas_count += 1;
-            commands.spawn(ImageBundle {
-                image: font_atlas.texture.clone().into(),
-                style: Style {
+            commands.spawn((
+                UiImage::new(font_atlas.texture.clone()),
+                Style {
                     position_type: PositionType::Absolute,
                     top: Val::ZERO,
                     left: Val::Px(512.0 * x_offset),
                     ..default()
                 },
-                ..default()
-            });
+            ));
         }
     }
 }
@@ -86,15 +85,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
     state.handle = font_handle.clone();
     commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            background_color: Color::NONE.into(),
-            style: Style {
+        .spawn((
+            Node::default(),
+            BackgroundColor(Color::NONE),
+            Style {
                 position_type: PositionType::Absolute,
                 bottom: Val::ZERO,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             parent.spawn((
                 Text::new("a"),

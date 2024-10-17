@@ -192,11 +192,9 @@ fn setup(
     let mut label = |entity: Entity, label: &str| {
         commands
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        position_type: PositionType::Absolute,
-                        ..default()
-                    },
+                Node::default(),
+                Style {
+                    position_type: PositionType::Absolute,
                     ..default()
                 },
                 ExampleLabel { entity },

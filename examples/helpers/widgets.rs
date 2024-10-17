@@ -58,8 +58,9 @@ pub fn spawn_option_button<T>(
 
     // Add the button node.
     parent
-        .spawn(ButtonBundle {
-            style: Style {
+        .spawn((
+            Button,
+            Style {
                 border: UiRect::all(Val::Px(1.0)).with_left(if is_first {
                     Val::Px(1.0)
                 } else {
@@ -70,13 +71,12 @@ pub fn spawn_option_button<T>(
                 padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
                 ..default()
             },
-            border_color: BorderColor(Color::WHITE),
-            border_radius: BorderRadius::ZERO
+            BorderColor(Color::WHITE),
+            BorderRadius::ZERO
                 .with_left(if is_first { Val::Px(6.0) } else { Val::Px(0.0) })
                 .with_right(if is_last { Val::Px(6.0) } else { Val::Px(0.0) }),
-            background_color: BackgroundColor(bg_color),
-            ..default()
-        })
+            BackgroundColor(bg_color),
+        ))
         .insert(RadioButton)
         .insert(WidgetClickSender(option_value.clone()))
         .with_children(|parent| {
@@ -97,13 +97,13 @@ where
 {
     // Add the parent node for the row.
     parent
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             spawn_ui_text(parent, title, Color::BLACK).insert(Style {
                 width: Val::Px(125.0),

@@ -29,8 +29,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.0),
                 align_items: AlignItems::Center,
@@ -38,20 +39,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node::default(),
+                    Style {
                         width: Val::Px(250.),
                         height: Val::Px(250.),
                         margin: UiRect::bottom(Val::Px(15.)),
                         ..default()
                     },
-                    background_color: Color::srgb(235., 35., 12.).into(),
-                    ..default()
-                })
+                    BackgroundColor(Color::srgb(235., 35., 12.)),
+                ))
                 .insert(RelativeCursorPosition::default());
 
             parent.spawn((
