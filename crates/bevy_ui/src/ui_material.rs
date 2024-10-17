@@ -1,5 +1,6 @@
 use core::hash::Hash;
 
+use crate::Node;
 use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
@@ -10,7 +11,7 @@ use bevy_render::{
 };
 use derive_more::derive::From;
 
-/// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
+/// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNode`](crate::prelude::MaterialNode)
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
 /// way to render `Node` entities with custom shader logic.
 ///
@@ -58,17 +59,16 @@ use derive_more::derive::From;
 ///
 /// // Spawn an entity using `CustomMaterial`.
 /// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
-///     commands.spawn(MaterialNodeBundle {
-///         style: Style {
-///             width: Val::Percent(100.0),
-///             ..Default::default()
-///         },
-///         material: UiMaterialHandle(materials.add(CustomMaterial {
+///     commands.spawn((
+///         MaterialNode(materials.add(CustomMaterial {
 ///             color: LinearRgba::RED,
 ///             color_texture: asset_server.load("some_image.png"),
 ///         })),
-///         ..Default::default()
-///     });
+///         Style {
+///             width: Val::Percent(100.0),
+///             ..Default::default()
+///         },
+///     ));
 /// }
 /// ```
 /// In WGSL shaders, the material's binding would look like this:
@@ -157,22 +157,23 @@ where
     Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, ExtractComponent, From,
 )]
 #[reflect(Component, Default)]
-pub struct UiMaterialHandle<M: UiMaterial>(pub Handle<M>);
+#[require(Node)]
+pub struct MaterialNode<M: UiMaterial>(pub Handle<M>);
 
-impl<M: UiMaterial> Default for UiMaterialHandle<M> {
+impl<M: UiMaterial> Default for MaterialNode<M> {
     fn default() -> Self {
         Self(Handle::default())
     }
 }
 
-impl<M: UiMaterial> From<UiMaterialHandle<M>> for AssetId<M> {
-    fn from(material: UiMaterialHandle<M>) -> Self {
+impl<M: UiMaterial> From<MaterialNode<M>> for AssetId<M> {
+    fn from(material: MaterialNode<M>) -> Self {
         material.id()
     }
 }
 
-impl<M: UiMaterial> From<&UiMaterialHandle<M>> for AssetId<M> {
-    fn from(material: &UiMaterialHandle<M>) -> Self {
+impl<M: UiMaterial> From<&MaterialNode<M>> for AssetId<M> {
+    fn from(material: &MaterialNode<M>) -> Self {
         material.id()
     }
 }

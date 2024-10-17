@@ -1,6 +1,6 @@
 //! Demonstrates the use of [`UiMaterials`](UiMaterial) and how to change material values
 
-use bevy::{prelude::*, reflect::TypePath, render::render_resource::*};
+use bevy::{color::palettes::css::RED, prelude::*, reflect::TypePath, render::render_resource::*};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/custom_ui_material.wgsl";
@@ -35,22 +35,22 @@ fn setup(
         ))
         .with_children(|parent| {
             let banner_scale_factor = 0.5;
-            parent.spawn(MaterialNodeBundle {
-                style: Style {
+            parent.spawn((
+                MaterialNode(ui_materials.add(CustomUiMaterial {
+                    color: LinearRgba::WHITE.to_f32_array().into(),
+                    slider: 0.5,
+                    color_texture: asset_server.load("branding/banner.png"),
+                    border_color: LinearRgba::WHITE.to_f32_array().into(),
+                })),
+                Style {
                     position_type: PositionType::Absolute,
                     width: Val::Px(905.0 * banner_scale_factor),
                     height: Val::Px(363.0 * banner_scale_factor),
                     border: UiRect::all(Val::Px(10.)),
                     ..default()
                 },
-                material: UiMaterialHandle(ui_materials.add(CustomUiMaterial {
-                    color: LinearRgba::WHITE.to_f32_array().into(),
-                    slider: 0.5,
-                    color_texture: asset_server.load("branding/banner.png"),
-                    border_color: LinearRgba::WHITE.to_f32_array().into(),
-                })),
-                ..default()
-            });
+                BackgroundColor(RED.into()),
+            ));
         });
 }
 
@@ -82,7 +82,7 @@ impl UiMaterial for CustomUiMaterial {
 // Also updates the color of the image to a rainbow color
 fn animate(
     mut materials: ResMut<Assets<CustomUiMaterial>>,
-    q: Query<&UiMaterialHandle<CustomUiMaterial>>,
+    q: Query<&MaterialNode<CustomUiMaterial>>,
     time: Res<Time>,
 ) {
     let duration = 2.0;

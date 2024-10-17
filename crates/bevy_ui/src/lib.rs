@@ -59,7 +59,7 @@ pub mod prelude {
             ui_material::*,
             ui_node::*,
             widget::{Button, Label},
-            Interaction, UiMaterialHandle, UiMaterialPlugin, UiScale,
+            Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer},
