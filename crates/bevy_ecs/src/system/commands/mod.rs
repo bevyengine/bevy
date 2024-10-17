@@ -461,6 +461,11 @@ impl<'w, 's> Commands<'w, 's> {
     /// This method does not guarantee that `EntityCommands` will be successfully applied,
     /// since another command in the queue may delete the entity before them.
     ///
+    /// # Fallible
+    /// This command can fail if the entity does not exist. If the [`Commands`] instance
+    /// is not set to [`panic`] on failure, this command will return an invalid `EntityCommands`,
+    /// which will do nothing except [`warn`]/[`log`]/[`ignore`] according to the `Commands` current setting.
+    ///
     /// # Example
     ///
     /// ```
@@ -488,7 +493,12 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # See also
     ///
-    /// - [`get_entity`](Self::get_entity) for the fallible version.
+    /// - [`get_entity`](Self::get_entity) for the [`Option`] version.
+    ///
+    /// [`panic`]: Self::panic_on_error
+    /// [`warn`]: Self::warn_on_error
+    /// [`log`]: Self::log_on_error
+    /// [`ignore`]: Self::ignore_on_error
     #[inline]
     #[track_caller]
     pub fn entity(&mut self, entity: Entity) -> EntityCommands {
@@ -542,18 +552,10 @@ impl<'w, 's> Commands<'w, 's> {
     #[inline]
     #[track_caller]
     pub fn get_entity(&mut self, entity: Entity) -> Option<EntityCommands> {
-        if self.entities.contains(entity) {
-            Some(EntityCommands {
-                entity,
-                commands: self.reborrow(),
-            })
-        } else {
-            let message = format!(
-                "Attempted to create an EntityCommands for entity {entity:?}, which doesn't exist"
-            );
-            self.failure_mode.fail(message);
-            None
-        }
+        self.entities.contains(entity).then_some(EntityCommands {
+            entity,
+            commands: self.reborrow(),
+        })
     }
 
     /// Pushes a [`Command`] to the queue for creating entities with a particular [`Bundle`] type.
@@ -692,6 +694,15 @@ impl<'w, 's> Commands<'w, 's> {
     /// calling [`entity`](Self::entity) for each pair,
     /// and passing the bundle to [`insert`](EntityCommands::insert),
     /// but it is faster due to memory pre-allocation.
+    ///
+    /// # Fallible
+    /// This command can fail if any of the entities do not exist. It will [`panic`]/[`warn`]/[`log`]/[`ignore`]
+    /// according the `Commands` instance's current setting.
+    ///
+    /// [`panic`]: Self::panic_on_error
+    /// [`warn`]: Self::warn_on_error
+    /// [`log`]: Self::log_on_error
+    /// [`ignore`]: Self::ignore_on_error
     #[track_caller]
     pub fn insert_batch<I, B>(&mut self, batch: I)
     where
@@ -713,6 +724,15 @@ impl<'w, 's> Commands<'w, 's> {
     /// calling [`entity`](Self::entity) for each pair,
     /// and passing the bundle to [`insert_if_new`](EntityCommands::insert_if_new),
     /// but it is faster due to memory pre-allocation.
+    ///
+    /// # Fallible
+    /// This command can fail if any of the entities do not exist. It will [`panic`]/[`warn`]/[`log`]/[`ignore`]
+    /// according the `Commands` instance's current setting.
+    ///
+    /// [`panic`]: Self::panic_on_error
+    /// [`warn`]: Self::warn_on_error
+    /// [`log`]: Self::log_on_error
+    /// [`ignore`]: Self::ignore_on_error
     #[track_caller]
     pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
     where
