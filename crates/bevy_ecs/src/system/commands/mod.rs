@@ -291,6 +291,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// Any subsequent commands that can fail will log each failure.
     ///
+    /// This is the default setting.
+    ///
     /// # See also:
     /// - [`ignore_on_error`](Self::ignore_on_error) to ignore errors.
     /// - [`warn_on_error`](Self::warn_on_error) to send warnings for errors.
@@ -1099,7 +1101,7 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
 ///
 /// Due to their deferred nature, an entity you're trying change with an `EntityCommand` can be
 /// despawned by the time the command is executed. Use the following commands to set how you
-/// would like the command to response if the entity is missing:
+/// would like subsequent commands to response if the entity is missing:
 /// - [`ignore_if_missing`](Self::ignore_if_missing)
 /// - [`log_if_missing`](Self::log_if_missing) (default)
 /// - [`warn_if_missing`](Self::warn_if_missing)
@@ -1165,7 +1167,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # See also:
     /// - [`ignore_if_missing`](Self::ignore_if_missing)
-    /// - [`warn_if_missing`](Self::warn_if_missing)
+    /// - [`log_if_missing`](Self::log_if_missing)
     /// - [`panic_if_missing`](Self::panic_if_missing)
     pub fn warn_if_missing(&mut self) -> &mut Self {
         self.commands.warn_on_error();
@@ -1176,8 +1178,8 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # See also:
     /// - [`ignore_if_missing`](Self::ignore_if_missing)
+    /// - [`log_if_missing`](Self::log_if_missing)
     /// - [`warn_if_missing`](Self::warn_if_missing)
-    /// - [`panic_if_missing`](Self::panic_if_missing)
     pub fn panic_if_missing(&mut self) -> &mut Self {
         self.commands.panic_on_error();
         self
@@ -1372,7 +1374,7 @@ impl<'a> EntityCommands<'a> {
     /// # Note
     ///
     /// [`Self::insert`] used to panic if the entity was missing, and this was the non-panicking version.
-    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`insert`]
+    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::insert`]
     ///
     /// # Example
     ///
@@ -1756,6 +1758,8 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 
     /// Sets the [`EntityEntryCommands`] instance to log if the entity doesn't exist when a command is executed.
     ///
+    /// This is the default setting.
+    ///
     /// # See also:
     /// - [`ignore_if_missing`](Self::ignore_if_missing)
     /// - [`warn_if_missing`](Self::warn_if_missing)
@@ -1769,7 +1773,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     ///
     /// # See also:
     /// - [`ignore_if_missing`](Self::ignore_if_missing)
-    /// - [`warn_if_missing`](Self::warn_if_missing)
+    /// - [`log_if_missing`](Self::log_if_missing)
     /// - [`panic_if_missing`](Self::panic_if_missing)
     pub fn warn_if_missing(&mut self) -> &mut Self {
         self.entity_commands.warn_if_missing();
@@ -1780,8 +1784,8 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     ///
     /// # See also:
     /// - [`ignore_if_missing`](Self::ignore_if_missing)
+    /// - [`log_if_missing`](Self::log_if_missing)
     /// - [`warn_if_missing`](Self::warn_if_missing)
-    /// - [`panic_if_missing`](Self::panic_if_missing)
     pub fn panic_if_missing(&mut self) -> &mut Self {
         self.entity_commands.panic_if_missing();
         self
