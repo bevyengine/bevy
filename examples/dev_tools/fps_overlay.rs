@@ -43,25 +43,21 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     // Instruction text
-    commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
+
+    commands.spawn((
+        Text::new(concat!(
+            "Press 1 to toggle the overlay color.\n",
+            "Press 2 to decrease the overlay size.\n",
+            "Press 3 to increase the overlay size.\n",
+            "Press 4 to toggle the overlay visibility."
+        )),
+        Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(12.),
+            left: Val::Px(12.),
             ..default()
-        })
-        .with_children(|c| {
-            c.spawn(Text::new(concat!(
-                "Press 1 to toggle the overlay color.\n",
-                "Press 2 to decrease the overlay size.\n",
-                "Press 3 to increase the overlay size.\n",
-                "Press 4 to toggle the overlay visibility."
-            )));
-        });
+        },
+    ));
 }
 
 fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOverlayConfig>) {
