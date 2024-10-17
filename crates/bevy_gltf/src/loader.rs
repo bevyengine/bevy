@@ -1399,9 +1399,8 @@ fn load_node(
                         near: orthographic.znear(),
                         far: orthographic.zfar(),
                         scaling_mode: ScalingMode::FixedHorizontal {
-                            viewport_width: 1.0,
+                            viewport_width: xmag,
                         },
-                        scale: xmag,
                         ..OrthographicProjection::default_3d()
                     };
 
