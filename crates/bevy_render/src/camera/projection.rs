@@ -278,7 +278,7 @@ impl Default for PerspectiveProjection {
 /// ```
 /// # use bevy_render::camera::{OrthographicProjection, Projection, ScalingMode};
 /// let projection = Projection::Orthographic(OrthographicProjection {
-///    scaling_mode: ScalingMode::FixedVertical(2.0),
+///    scaling_mode: ScalingMode::FixedVertical { viewport_height: 2.0 },
 ///    ..OrthographicProjection::default_2d()
 /// });
 /// ```
@@ -334,7 +334,8 @@ pub enum ScalingMode {
 /// ```
 /// # use bevy_render::camera::{OrthographicProjection, Projection, ScalingMode};
 /// let projection = Projection::Orthographic(OrthographicProjection {
-///     scaling_mode: ScalingMode::WindowSize(100.0),
+///     scaling_mode: ScalingMode::WindowSize,
+///     scale: 0.01,
 ///     ..OrthographicProjection::default_2d()
 /// });
 /// ```
