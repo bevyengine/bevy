@@ -12,7 +12,7 @@ use bevy_ecs::{
 use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 use smallvec::SmallVec;
 
-use super::{OneToManyEvent, OneToManyOne};
+use super::{ManyToOne, OneToManyEvent};
 
 /// Represents one half of a one-to-many relationship between an [`Entity`] and some number of other [entities](Entity).
 ///
@@ -36,13 +36,13 @@ use super::{OneToManyEvent, OneToManyOne};
         FromWorld
     )
 )]
-pub struct OneToManyMany<R> {
+pub struct OneToMany<R> {
     entities: SmallVec<[Entity; 8]>,
     #[cfg_attr(feature = "reflect", reflect(ignore))]
     _phantom: PhantomData<fn(&R)>,
 }
 
-impl<R: 'static> OneToManyMany<R> {
+impl<R: 'static> OneToMany<R> {
     fn associate(mut world: DeferredWorld<'_>, a_id: Entity, _component: ComponentId) {
         world.commands().queue(move |world: &mut World| {
             let b_ids_len = world
@@ -66,11 +66,11 @@ impl<R: 'static> OneToManyMany<R> {
                 let b_id = b.id();
 
                 let b_points_to_a = b
-                    .get::<OneToManyOne<R>>()
+                    .get::<ManyToOne<R>>()
                     .is_some_and(|b_relationship| b_relationship.get() == a_id);
 
                 if !b_points_to_a {
-                    b.insert(OneToManyOne::<R>::new(a_id));
+                    b.insert(ManyToOne::<R>::new(a_id));
 
                     if let Some(mut moved) = world.get_resource_mut::<Events<OneToManyEvent<R>>>() {
                         moved.send(OneToManyEvent::<R>::added(a_id, b_id));
@@ -99,12 +99,12 @@ impl<R: 'static> OneToManyMany<R> {
                 let b_points_to_a = world
                     .get_entity(b_id)
                     .ok()
-                    .and_then(|b| b.get::<OneToManyOne<R>>())
+                    .and_then(|b| b.get::<ManyToOne<R>>())
                     .is_some_and(|b_relationship| b_relationship.get() == a_id);
 
                 if b_points_to_a && !a_points_to_b {
                     if let Ok(mut b) = world.get_entity_mut(b_id) {
-                        b.remove::<OneToManyOne<R>>();
+                        b.remove::<ManyToOne<R>>();
                     }
 
                     if let Some(mut moved) = world.get_resource_mut::<Events<OneToManyEvent<R>>>() {
@@ -116,24 +116,24 @@ impl<R: 'static> OneToManyMany<R> {
     }
 }
 
-impl<R> PartialEq for OneToManyMany<R> {
+impl<R> PartialEq for OneToMany<R> {
     fn eq(&self, other: &Self) -> bool {
         self.entities == other.entities
     }
 }
 
-impl<R> Eq for OneToManyMany<R> {}
+impl<R> Eq for OneToMany<R> {}
 
-impl<R> Debug for OneToManyMany<R> {
+impl<R> Debug for OneToMany<R> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("OneToManyMany")
+        f.debug_tuple("OneToMany")
             .field(&self.entities)
             .field(&core::any::type_name::<R>())
             .finish()
     }
 }
 
-impl<R> VisitEntitiesMut for OneToManyMany<R> {
+impl<R> VisitEntitiesMut for OneToMany<R> {
     fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, mut f: F) {
         for entity in &mut self.entities {
             f(entity);
@@ -141,7 +141,7 @@ impl<R> VisitEntitiesMut for OneToManyMany<R> {
     }
 }
 
-impl<R> Deref for OneToManyMany<R> {
+impl<R> Deref for OneToMany<R> {
     type Target = [Entity];
 
     #[inline(always)]
@@ -150,7 +150,7 @@ impl<R> Deref for OneToManyMany<R> {
     }
 }
 
-impl<'a, R> IntoIterator for &'a OneToManyMany<R> {
+impl<'a, R> IntoIterator for &'a OneToMany<R> {
     type Item = <Self::IntoIter as Iterator>::Item;
 
     type IntoIter = core::slice::Iter<'a, Entity>;
@@ -161,19 +161,19 @@ impl<'a, R> IntoIterator for &'a OneToManyMany<R> {
     }
 }
 
-impl<R> FromIterator<Entity> for OneToManyMany<R> {
+impl<R> FromIterator<Entity> for OneToMany<R> {
     fn from_iter<T: IntoIterator<Item = Entity>>(iter: T) -> Self {
         Self::from_smallvec(iter.into_iter().collect())
     }
 }
 
-impl<R> Default for OneToManyMany<R> {
+impl<R> Default for OneToMany<R> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<R> OneToManyMany<R> {
+impl<R> OneToMany<R> {
     /// Gets the other [`Entity`] as a slice of length 1.
     #[inline(always)]
     pub fn as_slice(&self) -> &[Entity] {
@@ -229,9 +229,9 @@ impl<R> OneToManyMany<R> {
     ///
     /// For the underlying implementation, see [`slice::sort_by`].
     ///
-    /// For the unstable version, see [`sort_unstable_by`](OneToManyMany::sort_unstable_by).
+    /// For the unstable version, see [`sort_unstable_by`](OneToMany::sort_unstable_by).
     ///
-    /// See also [`sort_by_key`](OneToManyMany::sort_by_key), [`sort_by_cached_key`](OneToManyMany::sort_by_cached_key).
+    /// See also [`sort_by_key`](OneToMany::sort_by_key), [`sort_by_cached_key`](OneToMany::sort_by_cached_key).
     #[inline]
     pub fn sort_by<F>(&mut self, compare: F)
     where
@@ -245,9 +245,9 @@ impl<R> OneToManyMany<R> {
     ///
     /// For the underlying implementation, see [`slice::sort_by_key`].
     ///
-    /// For the unstable version, see [`sort_unstable_by_key`](OneToManyMany::sort_unstable_by_key).
+    /// For the unstable version, see [`sort_unstable_by_key`](OneToMany::sort_unstable_by_key).
     ///
-    /// See also [`sort_by`](OneToManyMany::sort_by), [`sort_by_cached_key`](OneToManyMany::sort_by_cached_key).
+    /// See also [`sort_by`](OneToMany::sort_by), [`sort_by_cached_key`](OneToMany::sort_by_cached_key).
     #[inline]
     pub fn sort_by_key<K, F>(&mut self, compare: F)
     where
@@ -263,7 +263,7 @@ impl<R> OneToManyMany<R> {
     ///
     /// For the underlying implementation, see [`slice::sort_by_cached_key`].
     ///
-    /// See also [`sort_by`](OneToManyMany::sort_by), [`sort_by_key`](OneToManyMany::sort_by_key).
+    /// See also [`sort_by`](OneToMany::sort_by), [`sort_by_key`](OneToMany::sort_by_key).
     #[inline]
     pub fn sort_by_cached_key<K, F>(&mut self, compare: F)
     where
@@ -278,9 +278,9 @@ impl<R> OneToManyMany<R> {
     ///
     /// For the underlying implementation, see [`slice::sort_unstable_by`].
     ///
-    /// For the stable version, see [`sort_by`](OneToManyMany::sort_by).
+    /// For the stable version, see [`sort_by`](OneToMany::sort_by).
     ///
-    /// See also [`sort_unstable_by_key`](OneToManyMany::sort_unstable_by_key).
+    /// See also [`sort_unstable_by_key`](OneToMany::sort_unstable_by_key).
     #[inline]
     pub fn sort_unstable_by<F>(&mut self, compare: F)
     where
@@ -294,9 +294,9 @@ impl<R> OneToManyMany<R> {
     ///
     /// For the underlying implementation, see [`slice::sort_unstable_by_key`].
     ///
-    /// For the stable version, see [`sort_by_key`](OneToManyMany::sort_by_key).
+    /// For the stable version, see [`sort_by_key`](OneToMany::sort_by_key).
     ///
-    /// See also [`sort_unstable_by`](OneToManyMany::sort_unstable_by).
+    /// See also [`sort_unstable_by`](OneToMany::sort_unstable_by).
     #[inline]
     pub fn sort_unstable_by_key<K, F>(&mut self, compare: F)
     where

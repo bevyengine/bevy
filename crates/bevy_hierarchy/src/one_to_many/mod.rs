@@ -2,10 +2,10 @@ mod event;
 pub use event::OneToManyEvent;
 
 mod one;
-pub use one::OneToManyOne;
+pub use one::ManyToOne;
 
 mod many;
-pub use many::OneToManyMany;
+pub use many::OneToMany;
 
 #[cfg(test)]
 mod tests {
@@ -17,10 +17,10 @@ mod tests {
     struct Family;
 
     /// Shorthand for a Parent in a Family relationship
-    type Parent = OneToManyOne<Family>;
+    type Parent = ManyToOne<Family>;
 
     /// Shorthand for a Parent in a Family relationship
-    type Children = OneToManyMany<Family>;
+    type Children = OneToMany<Family>;
 
     #[test]
     fn simple_add_then_remove() {

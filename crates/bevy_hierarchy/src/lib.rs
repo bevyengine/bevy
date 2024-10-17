@@ -57,7 +57,7 @@ mod one_to_one;
 pub use one_to_one::{OneToOne, OneToOneEvent};
 
 mod one_to_many;
-pub use one_to_many::{OneToManyEvent, OneToManyMany, OneToManyOne};
+pub use one_to_many::{ManyToOne, OneToMany, OneToManyEvent};
 
 mod family;
 pub use family::*;

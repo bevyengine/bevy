@@ -2,12 +2,12 @@ use core::marker::PhantomData;
 
 use bevy_ecs::{entity::Entity, event::Event};
 
-/// A One-to-Many [relationship](crate::OneToManyOne) [`Event`].
+/// A One-to-Many [relationship](crate::ManyToOne) [`Event`].
 #[derive(Event)]
 pub enum OneToManyEvent<R> {
-    /// A [relationship](crate::OneToManyOne) was added between two [entities](Entity).
+    /// A [relationship](crate::ManyToOne) was added between two [entities](Entity).
     Added(OneToManyEventDetails<R>),
-    /// A [relationship](crate::OneToManyOne) was removed from two [entities](Entity).
+    /// A [relationship](crate::ManyToOne) was removed from two [entities](Entity).
     Removed(OneToManyEventDetails<R>),
 }
 
@@ -22,14 +22,14 @@ impl<R> OneToManyEvent<R> {
         Self::Removed(OneToManyEventDetails::new(many, one))
     }
 
-    /// Get the [`Entity`] that has the [`OneToManyMany`](crate::OneToManyMany) component.
+    /// Get the [`Entity`] that has the [`OneToMany`](crate::OneToMany) component.
     pub const fn many(&self) -> Entity {
         match self {
             Self::Added(details) | Self::Removed(details) => details.many(),
         }
     }
 
-    /// Get the [`Entity`] that has the [`OneToManyOne`](crate::OneToManyOne) component.
+    /// Get the [`Entity`] that has the [`ManyToOne`](crate::ManyToOne) component.
     pub const fn one(&self) -> Entity {
         match self {
             Self::Added(details) | Self::Removed(details) => details.one(),
@@ -74,8 +74,8 @@ pub struct OneToManyEventDetails<R> {
 
 impl<R> OneToManyEventDetails<R> {
     /// Create a new [`OneToManyEventDetails`] for a `many` and a `one` [`Entity`].
-    /// The `many` [`Entity`] has the [`OneToManyMany`](crate::OneToManyMany) component,
-    /// while the `one` [`Entity`] has the [`OneToManyOne`](crate::OneToManyOne) component.
+    /// The `many` [`Entity`] has the [`OneToMany`](crate::OneToMany) component,
+    /// while the `one` [`Entity`] has the [`ManyToOne`](crate::ManyToOne) component.
     pub const fn new(many: Entity, one: Entity) -> Self {
         Self {
             many,
@@ -84,12 +84,12 @@ impl<R> OneToManyEventDetails<R> {
         }
     }
 
-    /// Get the [`Entity`] that has the [`OneToManyMany`](crate::OneToManyMany) component.
+    /// Get the [`Entity`] that has the [`OneToMany`](crate::OneToMany) component.
     pub const fn many(&self) -> Entity {
         self.many
     }
 
-    /// Get the [`Entity`] that has the [`OneToManyOne`](crate::OneToManyOne) component.
+    /// Get the [`Entity`] that has the [`ManyToOne`](crate::ManyToOne) component.
     pub const fn one(&self) -> Entity {
         self.one
     }

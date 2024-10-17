@@ -1,4 +1,4 @@
-use crate::{OneToManyEvent, OneToManyMany, OneToManyOne};
+use crate::{ManyToOne, OneToMany, OneToManyEvent};
 
 /// A familial relationship
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
@@ -16,7 +16,7 @@ pub struct Family;
 /// [`HierarchyQueryExt`]: crate::query_extension::HierarchyQueryExt
 /// [`Query`]: bevy_ecs::system::Query
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
-pub type Parent = OneToManyOne<Family>;
+pub type Parent = ManyToOne<Family>;
 
 /// Contains references to the child entities of this entity.
 ///
@@ -30,7 +30,7 @@ pub type Parent = OneToManyOne<Family>;
 /// [`HierarchyQueryExt`]: crate::query_extension::HierarchyQueryExt
 /// [`Query`]: bevy_ecs::system::Query
 /// [`BuildChildren::with_children`]: crate::child_builder::BuildChildren::with_children
-pub type Children = OneToManyMany<Family>;
+pub type Children = OneToMany<Family>;
 
 /// An [`Event`] that is fired whenever there is a change in the world's hierarchy.
 ///
