@@ -11,7 +11,7 @@ use bevy_render::{
 };
 use derive_more::derive::From;
 
-/// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNode`](crate::prelude::MaterialNode)
+/// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNode`]
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
 /// way to render `Node` entities with custom shader logic.
 ///
