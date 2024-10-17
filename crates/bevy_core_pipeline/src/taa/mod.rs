@@ -32,6 +32,7 @@ use bevy_render::{
         TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
+    sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{BevyDefault, CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
@@ -51,6 +52,8 @@ impl Plugin for TemporalAntiAliasPlugin {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
 
         app.register_type::<TemporalAntiAliasing>();
+
+        app.add_plugins(SyncComponentPlugin::<TemporalAntiAliasing>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -170,6 +173,7 @@ pub struct TemporalAntiAliasNode;
 
 impl ViewNode for TemporalAntiAliasNode {
     type ViewQuery = (
+        &'static TemporalAntiAliasing,
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static TemporalAntiAliasHistoryTextures,
@@ -182,7 +186,7 @@ impl ViewNode for TemporalAntiAliasNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
+        (_, camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
@@ -373,12 +377,14 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
         cameras_3d.iter_mut(&mut main_world)
     {
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
+        let mut entity_commands = commands
+            .get_entity(entity)
+            .expect("Camera entity wasn't synced.");
         if camera.is_active && has_perspective_projection {
-            commands
-                .get_entity(entity)
-                .expect("Camera entity wasn't synced.")
-                .insert(taa_settings.clone());
+            entity_commands.insert(taa_settings.clone());
             taa_settings.reset = false;
+        } else {
+            entity_commands.remove::<TemporalAntiAliasing>();
         }
     }
 }
