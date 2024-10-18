@@ -1,8 +1,0 @@
-(
-    setup: (
-        frame_time: Some(0.03),
-    ),
-    events: [
-        (300, AppExit),
-    ]
-)
