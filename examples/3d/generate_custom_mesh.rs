@@ -59,7 +59,7 @@ fn setup(
     // Text to describe the controls.
     commands.spawn((
         Text::new("Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation"),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),

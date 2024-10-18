@@ -22,11 +22,11 @@ pub struct RadioButton;
 #[derive(Clone, Copy, Component)]
 pub struct RadioButtonText;
 
-/// Returns a [`Style`] appropriate for the outer main UI node.
+/// Returns a [`Node`] appropriate for the outer main UI node.
 ///
 /// This UI is in the bottom left corner and has flex column support
-pub fn main_ui_style() -> Style {
-    Style {
+pub fn main_ui_node() -> Node {
+    Node {
         flex_direction: FlexDirection::Column,
         position_type: PositionType::Absolute,
         row_gap: Val::Px(6.0),
@@ -60,7 +60,7 @@ pub fn spawn_option_button<T>(
     parent
         .spawn((
             Button,
-            Style {
+            Node {
                 border: UiRect::all(Val::Px(1.0)).with_left(if is_first {
                     Val::Px(1.0)
                 } else {
@@ -97,15 +97,12 @@ where
 {
     // Add the parent node for the row.
     parent
-        .spawn((
-            Node::default(),
-            Style {
-                align_items: AlignItems::Center,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            align_items: AlignItems::Center,
+            ..default()
+        })
         .with_children(|parent| {
-            spawn_ui_text(parent, title, Color::BLACK).insert(Style {
+            spawn_ui_text(parent, title, Color::BLACK).insert(Node {
                 width: Val::Px(125.0),
                 ..default()
             });

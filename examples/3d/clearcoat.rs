@@ -219,7 +219,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 fn spawn_text(commands: &mut Commands, light_mode: &LightMode) {
     commands.spawn((
         light_mode.create_help_text(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),

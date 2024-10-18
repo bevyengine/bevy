@@ -53,8 +53,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let root = commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
                 flex_direction: FlexDirection::Column,
@@ -71,17 +70,14 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         LineBreak::NoWrap,
     ] {
         let row_id = commands
-            .spawn((
-                Node::default(),
-                Style {
-                    flex_direction: FlexDirection::Row,
-                    justify_content: JustifyContent::SpaceAround,
-                    align_items: AlignItems::Center,
-                    width: Val::Percent(100.),
-                    height: Val::Percent(50.),
-                    ..default()
-                },
-            ))
+            .spawn(Node {
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::SpaceAround,
+                align_items: AlignItems::Center,
+                width: Val::Percent(100.),
+                height: Val::Percent(50.),
+                ..default()
+            })
             .id();
 
         let justifications = vec![
@@ -97,8 +93,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             let c = 0.3 + i as f32 * 0.1;
             let column_id = commands
                 .spawn((
-                    Node::default(),
-                    Style {
+                    Node {
                         justify_content: justification,
                         flex_direction: FlexDirection::Column,
                         width: Val::Percent(16.),

@@ -209,7 +209,7 @@ fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
 /// Spawns all the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
     commands
-        .spawn((Node::default(), widgets::main_ui_style()))
+        .spawn(widgets::main_ui_node())
         .with_children(|parent| {
             widgets::spawn_option_buttons(
                 parent,

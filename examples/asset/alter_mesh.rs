@@ -138,7 +138,7 @@ fn spawn_text(mut commands: Commands) {
             "Space: swap meshes by mutating a Handle<Mesh>\n\
             Return: mutate the mesh itself, changing all copies of it",
         ),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),

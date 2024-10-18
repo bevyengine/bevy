@@ -129,10 +129,6 @@ struct AmbiguousWithTextSystem;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 struct AmbiguousWithUpdateText2DLayout;
 
-/// A convenient alias for `With<Node>`, for use with
-/// [`bevy_render::view::VisibleEntities`].
-pub type WithNode = With<Node>;
-
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiSurface>()
@@ -140,13 +136,13 @@ impl Plugin for UiPlugin {
             .init_resource::<UiStack>()
             .register_type::<BackgroundColor>()
             .register_type::<CalculatedClip>()
+            .register_type::<ComputedNode>()
             .register_type::<ContentSize>()
             .register_type::<FocusPolicy>()
             .register_type::<Interaction>()
             .register_type::<Node>()
             .register_type::<RelativeCursorPosition>()
             .register_type::<ScrollPosition>()
-            .register_type::<Style>()
             .register_type::<TargetCamera>()
             .register_type::<UiImage>()
             .register_type::<UiImageSize>()
@@ -189,7 +185,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                check_visibility::<WithNode>.in_set(VisibilitySystems::CheckVisibility),
+                check_visibility::<With<Node>>.in_set(VisibilitySystems::CheckVisibility),
                 update_target_camera_system.in_set(UiSystem::Prepare),
                 ui_layout_system_config,
                 ui_stack_system

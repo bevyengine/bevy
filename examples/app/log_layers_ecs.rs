@@ -126,8 +126,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     commands.spawn((
-        Node::default(),
-        Style {
+        Node {
             width: Val::Vw(100.0),
             height: Val::Vh(100.0),
             flex_direction: FlexDirection::Column,

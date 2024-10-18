@@ -41,16 +41,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Normal UI root
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        })
         .with_children(|parent| {
             parent
                 .spawn((Node::default(), Counter(0)))
@@ -79,7 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn create_button() -> impl Bundle {
     (
         Button,
-        Style {
+        Node {
             width: Val::Px(150.0),
             height: Val::Px(65.0),
             border: UiRect::all(Val::Px(5.0)),

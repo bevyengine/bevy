@@ -65,7 +65,7 @@ fn setup(
             font_size: 30.0,
             ..default()
         },
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(20.0),
             left: Val::Px(100.0),
@@ -79,7 +79,7 @@ fn setup(
             font_size: 30.0,
             ..default()
         },
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(130.0),
             right: Val::ZERO,
@@ -97,7 +97,7 @@ fn setup(
             font_size: 30.0,
             ..default()
         },
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(20.0),
             right: Val::Px(20.0),

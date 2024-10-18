@@ -79,10 +79,8 @@ fn main() {
     }
 
     if args.relayout {
-        app.add_systems(Update, |mut style_query: Query<&mut Style>| {
-            style_query
-                .iter_mut()
-                .for_each(|mut style| style.set_changed());
+        app.add_systems(Update, |mut nodes: Query<&mut Node>| {
+            nodes.iter_mut().for_each(|mut node| node.set_changed());
         });
     }
 
@@ -138,17 +136,14 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
     commands.spawn(Camera2d);
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            ..default()
+        })
         .with_children(|commands| {
             for column in 0..args.buttons {
                 commands.spawn(Node::default()).with_children(|commands| {
@@ -193,17 +188,14 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
     commands.spawn(Camera2d);
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                display: Display::Grid,
-                width: Val::Percent(100.),
-                height: Val::Percent(100.0),
-                grid_template_columns: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
-                grid_template_rows: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            display: Display::Grid,
+            width: Val::Percent(100.),
+            height: Val::Percent(100.0),
+            grid_template_columns: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
+            grid_template_rows: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
+            ..default()
+        })
         .with_children(|commands| {
             for column in 0..args.buttons {
                 for row in 0..args.buttons {
@@ -245,7 +237,7 @@ fn spawn_button(
     let margin = UiRect::axes(width * 0.05, height * 0.05);
     let mut builder = commands.spawn((
         Button,
-        Style {
+        Node {
             width,
             height,
             margin,
