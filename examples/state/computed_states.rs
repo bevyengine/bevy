@@ -141,7 +141,7 @@ impl ComputedStates for Tutorial {
     // effective to rely on the already derived states to avoid the logic drifting apart.
     //
     // Notice that you can wrap any of the [`States`] here in [`Option`]s. If you do so,
-    // the the computation will get called even if the state does not exist.
+    // the computation will get called even if the state does not exist.
     type SourceStates = (TutorialState, InGame, Option<IsPaused>);
 
     // Notice that we aren't using InGame - we're just using it as a source state to
@@ -224,20 +224,19 @@ fn menu(
     tutorial_state: Res<State<TutorialState>>,
     mut next_tutorial: ResMut<NextState<TutorialState>>,
     mut interaction_query: Query<
-        (&Interaction, &mut UiImage, &MenuButton),
+        (&Interaction, &mut BackgroundColor, &MenuButton),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut image, menu_button) in &mut interaction_query {
-        let color = &mut image.color;
+    for (interaction, mut color, menu_button) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 *color = if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
-                    PRESSED_ACTIVE_BUTTON
+                    PRESSED_ACTIVE_BUTTON.into()
                 } else {
-                    PRESSED_BUTTON
+                    PRESSED_BUTTON.into()
                 };
 
                 match menu_button {
@@ -255,18 +254,18 @@ fn menu(
                 if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
-                    *color = HOVERED_ACTIVE_BUTTON;
+                    *color = HOVERED_ACTIVE_BUTTON.into();
                 } else {
-                    *color = HOVERED_BUTTON;
+                    *color = HOVERED_BUTTON.into();
                 }
             }
             Interaction::None => {
                 if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
-                    *color = ACTIVE_BUTTON;
+                    *color = ACTIVE_BUTTON.into();
                 } else {
-                    *color = NORMAL_BUTTON;
+                    *color = NORMAL_BUTTON.into();
                 }
             }
         }
@@ -332,7 +331,7 @@ mod ui {
     pub const PRESSED_ACTIVE_BUTTON: Color = Color::srgb(0.35, 0.95, 0.35);
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn(Camera2dBundle::default());
+        commands.spawn(Camera2d);
     }
 
     pub fn setup_menu(mut commands: Commands, tutorial_state: Res<State<TutorialState>>) {
@@ -363,19 +362,19 @@ mod ui {
                                 align_items: AlignItems::Center,
                                 ..default()
                             },
-                            image: UiImage::default().with_color(NORMAL_BUTTON),
+                            background_color: NORMAL_BUTTON.into(),
                             ..default()
                         },
                         MenuButton::Play,
                     ))
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Play",
-                            TextStyle {
-                                font_size: 40.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
+                        parent.spawn((
+                            Text::new("Play"),
+                            TextFont {
+                                font_size: 33.0,
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
 
@@ -391,22 +390,23 @@ mod ui {
                                 align_items: AlignItems::Center,
                                 ..default()
                             },
-                            image: UiImage::default().with_color(match tutorial_state.get() {
+                            background_color: match tutorial_state.get() {
                                 TutorialState::Active => ACTIVE_BUTTON,
                                 TutorialState::Inactive => NORMAL_BUTTON,
-                            }),
+                            }
+                            .into(),
                             ..default()
                         },
                         MenuButton::Tutorial,
                     ))
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Tutorial",
-                            TextStyle {
-                                font_size: 40.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
+                        parent.spawn((
+                            Text::new("Tutorial"),
+                            TextFont {
+                                font_size: 33.0,
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
             })
@@ -423,10 +423,7 @@ mod ui {
     pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((
             StateScoped(InGame),
-            SpriteBundle {
-                texture: asset_server.load("branding/icon.png"),
-                ..default()
-            },
+            Sprite::from_image(asset_server.load("branding/icon.png")),
         ));
     }
 
@@ -501,13 +498,13 @@ mod ui {
                         MenuButton::Play,
                     ))
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Paused",
-                            TextStyle {
-                                font_size: 40.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
+                        parent.spawn((
+                            Text::new("Paused"),
+                            TextFont {
+                                font_size: 33.0,
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
             });
@@ -533,13 +530,13 @@ mod ui {
                 },
             ))
             .with_children(|parent| {
-                parent.spawn(TextBundle::from_section(
-                    "TURBO MODE",
-                    TextStyle {
-                        font_size: 40.0,
-                        color: Color::srgb(0.9, 0.3, 0.1),
+                parent.spawn((
+                    Text::new("TURBO MODE"),
+                    TextFont {
+                        font_size: 33.0,
                         ..default()
                     },
+                    TextColor(Color::srgb(0.9, 0.3, 0.1)),
                 ));
             });
     }
@@ -547,7 +544,7 @@ mod ui {
     pub fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
         for mut sprite in &mut query {
             let new_color = LinearRgba {
-                blue: (time.elapsed_seconds() * 0.5).sin() + 2.0,
+                blue: ops::sin(time.elapsed_seconds() * 0.5) + 2.0,
                 ..LinearRgba::from(sprite.color)
             };
 
@@ -575,39 +572,39 @@ mod ui {
                 },
             ))
             .with_children(|parent| {
-                parent.spawn(TextBundle::from_section(
-                    "Move the bevy logo with the arrow keys",
-                    TextStyle {
-                        font_size: 40.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
+                parent.spawn((
+                    Text::new("Move the bevy logo with the arrow keys"),
+                    TextFont {
+                        font_size: 33.0,
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
-                parent.spawn(TextBundle::from_section(
-                    "Press T to enter TURBO MODE",
-                    TextStyle {
-                        font_size: 40.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
+                parent.spawn((
+                    Text::new("Press T to enter TURBO MODE"),
+                    TextFont {
+                        font_size: 33.0,
                         ..default()
                     },
-                ));
-
-                parent.spawn(TextBundle::from_section(
-                    "Press SPACE to pause",
-                    TextStyle {
-                        font_size: 40.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
-                        ..default()
-                    },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
 
-                parent.spawn(TextBundle::from_section(
-                    "Press ESCAPE to return to the menu",
-                    TextStyle {
-                        font_size: 40.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
+                parent.spawn((
+                    Text::new("Press SPACE to pause"),
+                    TextFont {
+                        font_size: 33.0,
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
+                ));
+
+                parent.spawn((
+                    Text::new("Press ESCAPE to return to the menu"),
+                    TextFont {
+                        font_size: 33.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
             });
     }
@@ -632,22 +629,22 @@ mod ui {
                 },
             ))
             .with_children(|parent| {
-                parent.spawn(TextBundle::from_section(
-                    "Press SPACE to resume",
-                    TextStyle {
-                        font_size: 40.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
+                parent.spawn((
+                    Text::new("Press SPACE to resume"),
+                    TextFont {
+                        font_size: 33.0,
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
 
-                parent.spawn(TextBundle::from_section(
-                    "Press ESCAPE to return to the menu",
-                    TextStyle {
-                        font_size: 40.0,
-                        color: Color::srgb(0.3, 0.3, 0.7),
+                parent.spawn((
+                    Text::new("Press ESCAPE to return to the menu"),
+                    TextFont {
+                        font_size: 33.0,
                         ..default()
                     },
+                    TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
             });
     }

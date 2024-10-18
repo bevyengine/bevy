@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
@@ -19,6 +19,8 @@ pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod motion_blur;
 pub mod msaa_writeback;
+pub mod oit;
+pub mod post_process;
 pub mod prepass;
 mod skybox;
 pub mod smaa;
@@ -32,14 +34,19 @@ pub use skybox::Skybox;
 ///
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 pub mod experimental {
+    #[expect(deprecated)]
     pub mod taa {
         pub use crate::taa::{
             TemporalAntiAliasBundle, TemporalAntiAliasNode, TemporalAntiAliasPlugin,
-            TemporalAntiAliasSettings,
+            TemporalAntiAliasSettings, TemporalAntiAliasing,
         };
     }
 }
 
+/// The core pipeline prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -51,7 +58,7 @@ pub mod prelude {
 use crate::{
     blit::BlitPlugin,
     bloom::BloomPlugin,
-    contrast_adaptive_sharpening::CASPlugin,
+    contrast_adaptive_sharpening::CasPlugin,
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
@@ -60,6 +67,7 @@ use crate::{
     fxaa::FxaaPlugin,
     motion_blur::MotionBlurPlugin,
     msaa_writeback::MsaaWritebackPlugin,
+    post_process::PostProcessingPlugin,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     smaa::SmaaPlugin,
     tonemapping::TonemappingPlugin,
@@ -68,6 +76,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;
 use bevy_render::prelude::Shader;
+use oit::OrderIndependentTransparencyPlugin;
 
 #[derive(Default)]
 pub struct CorePipelinePlugin;
@@ -95,10 +104,12 @@ impl Plugin for CorePipelinePlugin {
                 UpscalingPlugin,
                 BloomPlugin,
                 FxaaPlugin,
-                CASPlugin,
+                CasPlugin,
                 MotionBlurPlugin,
                 DepthOfFieldPlugin,
                 SmaaPlugin,
+                PostProcessingPlugin,
+                OrderIndependentTransparencyPlugin,
             ));
     }
 }

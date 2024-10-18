@@ -12,7 +12,7 @@ pub fn log_transitions<S: States>(mut transitions: EventReader<StateTransitionEv
     let Some(transition) = transitions.read().last() else {
         return;
     };
-    let name = std::any::type_name::<S>();
+    let name = core::any::type_name::<S>();
     let StateTransitionEvent { exited, entered } = transition;
     info!("{} transition: {:?} => {:?}", name, exited, entered);
 }

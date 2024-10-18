@@ -12,14 +12,14 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
+use bevy_utils::tracing::error;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
 use super::AlphaMask3d;
 
-/// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`]
-/// [`BinnedRenderPhase`] and [`AlphaMask3d`]
-/// [`bevy_render::render_phase::SortedRenderPhase`]s.
+/// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`] and [`AlphaMask3d`]
+/// [`ViewBinnedRenderPhases`]s.
 #[derive(Default)]
 pub struct MainOpaquePass3dNode;
 impl ViewNode for MainOpaquePass3dNode {
@@ -96,14 +96,18 @@ impl ViewNode for MainOpaquePass3dNode {
             if !opaque_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _opaque_main_pass_3d_span = info_span!("opaque_main_pass_3d").entered();
-                opaque_phase.render(&mut render_pass, world, view_entity);
+                if let Err(err) = opaque_phase.render(&mut render_pass, world, view_entity) {
+                    error!("Error encountered while rendering the opaque phase {err:?}");
+                }
             }
 
             // Alpha draws
             if !alpha_mask_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_main_pass_3d_span = info_span!("alpha_mask_main_pass_3d").entered();
-                alpha_mask_phase.render(&mut render_pass, world, view_entity);
+                if let Err(err) = alpha_mask_phase.render(&mut render_pass, world, view_entity) {
+                    error!("Error encountered while rendering the alpha mask phase {err:?}");
+                }
             }
 
             // Skybox draw using a fullscreen triangle

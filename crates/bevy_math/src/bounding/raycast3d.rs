@@ -1,5 +1,5 @@
 use super::{Aabb3d, BoundingSphere, IntersectsVolume};
-use crate::{Dir3A, Ray3d, Vec3A};
+use crate::{ops::FloatPow, Dir3A, Ray3d, Vec3A};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -19,7 +19,9 @@ pub struct RayCast3d {
 }
 
 impl RayCast3d {
-    /// Construct a [`RayCast3d`] from an origin, [`Dir3`], and max distance.
+    /// Construct a [`RayCast3d`] from an origin, [direction], and max distance.
+    ///
+    /// [direction]: crate::direction::Dir3
     pub fn new(origin: impl Into<Vec3A>, direction: impl Into<Dir3A>, max: f32) -> Self {
         let direction = direction.into();
         Self {
@@ -71,8 +73,8 @@ impl RayCast3d {
         let offset = self.origin - sphere.center;
         let projected = offset.dot(*self.direction);
         let closest_point = offset - projected * *self.direction;
-        let distance_squared = sphere.radius().powi(2) - closest_point.length_squared();
-        if distance_squared < 0. || projected.powi(2).copysign(-projected) < -distance_squared {
+        let distance_squared = sphere.radius().squared() - closest_point.length_squared();
+        if distance_squared < 0. || projected.squared().copysign(-projected) < -distance_squared {
             None
         } else {
             let toi = -projected - distance_squared.sqrt();
@@ -108,7 +110,9 @@ pub struct AabbCast3d {
 }
 
 impl AabbCast3d {
-    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], origin, [`Dir3`], and max distance.
+    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], origin, [direction], and max distance.
+    ///
+    /// [direction]: crate::direction::Dir3
     pub fn new(
         aabb: Aabb3d,
         origin: impl Into<Vec3A>,
@@ -151,7 +155,9 @@ pub struct BoundingSphereCast {
 }
 
 impl BoundingSphereCast {
-    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], origin, [`Dir3`], and max distance.
+    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], origin, [direction], and max distance.
+    ///
+    /// [direction]: crate::direction::Dir3
     pub fn new(
         sphere: BoundingSphere,
         origin: impl Into<Vec3A>,

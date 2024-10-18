@@ -1,5 +1,6 @@
 #import bevy_pbr::{
     prepass_bindings,
+    mesh_bindings::mesh,
     mesh_functions,
     prepass_io::{Vertex, VertexOutput, FragmentOutput},
     skinning,
@@ -15,18 +16,21 @@
 #ifdef MORPH_TARGETS
 fn morph_vertex(vertex_in: Vertex) -> Vertex {
     var vertex = vertex_in;
+    let first_vertex = mesh[vertex.instance_index].first_vertex_index;
+    let vertex_index = vertex.index - first_vertex;
+
     let weight_count = morph::layer_count();
     for (var i: u32 = 0u; i < weight_count; i ++) {
         let weight = morph::weight_at(i);
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * morph::morph(vertex.index, morph::position_offset, i);
+        vertex.position += weight * morph::morph(vertex_index, morph::position_offset, i);
 #ifdef VERTEX_NORMALS
-        vertex.normal += weight * morph::morph(vertex.index, morph::normal_offset, i);
+        vertex.normal += weight * morph::morph(vertex_index, morph::normal_offset, i);
 #endif
 #ifdef VERTEX_TANGENTS
-        vertex.tangent += vec4(weight * morph::morph(vertex.index, morph::tangent_offset, i), 0.0);
+        vertex.tangent += vec4(weight * morph::morph(vertex_index, morph::tangent_offset, i), 0.0);
 #endif
     }
     return vertex;

@@ -5,6 +5,7 @@ use bevy::{
     color::palettes::css::ORANGE_RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
+    text::TextColor,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -69,7 +70,7 @@ fn main() {
         focused_mode: UpdateMode::Continuous,
         unfocused_mode: UpdateMode::Continuous,
     })
-    .add_systems(Update, button_system);
+    .add_systems(Update, (button_system, set_text_colors_changed));
 
     if args.grid {
         app.add_systems(Startup, setup_grid);
@@ -96,16 +97,25 @@ fn main() {
     app.insert_resource(args).run();
 }
 
+fn set_text_colors_changed(mut colors: Query<&mut TextColor>) {
+    for mut text_color in colors.iter_mut() {
+        text_color.set_changed();
+    }
+}
+
 #[derive(Component)]
 struct IdleColor(Color);
 
 fn button_system(
-    mut interaction_query: Query<(&Interaction, &mut UiImage, &IdleColor), Changed<Interaction>>,
+    mut interaction_query: Query<
+        (&Interaction, &mut BackgroundColor, &IdleColor),
+        Changed<Interaction>,
+    >,
 ) {
-    for (interaction, mut image, &IdleColor(idle_color)) in interaction_query.iter_mut() {
-        image.color = match interaction {
+    for (interaction, mut color, &IdleColor(idle_color)) in interaction_query.iter_mut() {
+        *color = match interaction {
             Interaction::Hovered => ORANGE_RED.into(),
-            _ => idle_color,
+            _ => idle_color.into(),
         };
     }
 }
@@ -126,7 +136,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -183,7 +193,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -246,7 +256,7 @@ fn spawn_button(
                 border,
                 ..default()
             },
-            image: UiImage::default().with_color(background_color),
+            background_color: background_color.into(),
             border_color,
             ..default()
         },
@@ -259,13 +269,13 @@ fn spawn_button(
 
     if spawn_text {
         builder.with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                format!("{column}, {row}"),
-                TextStyle {
+            parent.spawn((
+                Text(format!("{column}, {row}")),
+                TextFont {
                     font_size: FONT_SIZE,
-                    color: Color::srgb(0.2, 0.2, 0.2),
                     ..default()
                 },
+                TextColor(Color::srgb(0.2, 0.2, 0.2)),
             ));
         });
     }

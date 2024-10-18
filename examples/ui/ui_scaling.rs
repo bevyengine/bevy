@@ -1,16 +1,12 @@
 //! This example illustrates the [`UiScale`] resource from `bevy_ui`.
 
-use bevy::{color::palettes::css::*, prelude::*, text::TextSettings, utils::Duration};
+use bevy::{color::palettes::css::*, prelude::*, utils::Duration};
 
 const SCALE_TIME: u64 = 400;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(TextSettings {
-            allow_dynamic_font_size: true,
-            ..default()
-        })
         .insert_resource(TargetScale {
             start_scale: 1.0,
             target_scale: 1.0,
@@ -25,11 +21,10 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
-    let text_style = TextStyle {
-        font_size: 16.,
-        color: Color::BLACK,
+    let text_font = TextFont {
+        font_size: 13.,
         ..default()
     };
 
@@ -60,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section("Size!", text_style));
+                    parent.spawn((Text::new("Size!"), text_font, TextColor::BLACK));
                 });
             parent.spawn(NodeBundle {
                 style: Style {
@@ -143,6 +138,6 @@ fn ease_in_expo(x: f32) -> f32 {
     if x == 0. {
         0.
     } else {
-        2.0f32.powf(5. * x - 5.)
+        ops::powf(2.0f32, 5. * x - 5.)
     }
 }

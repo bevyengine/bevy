@@ -123,7 +123,8 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 // get alpha for antialiasing for sdf
 fn antialias(distance: f32) -> f32 {
     // Using the fwidth(distance) was causing artifacts, so just use the distance.
-    return clamp(0.0, 1.0, 0.5 - distance);
+    // This antialiases between the distance values of 0.25 and -0.25
+    return clamp(0.0, 1.0, 0.5 - 2.0 * distance);
 }
 
 fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
@@ -141,7 +142,7 @@ fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
 
     // Signed distance from the border's internal edge (the signed distance is negative if the point 
     // is inside the rect but not on the border).
-    // If the border size is set to zero, this is the same as as the external distance.
+    // If the border size is set to zero, this is the same as the external distance.
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
 
     // Signed distance from the border (the intersection of the rect with its border).
@@ -149,11 +150,15 @@ fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     // outside the outside edge, or inside the inner edge have positive signed distance.
     let border_distance = max(external_distance, -internal_distance);
 
+#ifdef ANTI_ALIAS
     // At external edges with no border, `border_distance` is equal to zero. 
     // This select statement ensures we only perform anti-aliasing where a non-zero width border 
     // is present, otherwise an outline about the external boundary would be drawn even without 
     // a border.
     let t = select(1.0 - step(0.0, border_distance), antialias(border_distance), external_distance < internal_distance);
+#else
+    let t = 1.0 - step(0.0, border_distance);
+#endif
 
     // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
     return vec4(color.rgb, saturate(color.a * t));
@@ -164,7 +169,13 @@ fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
 
     // When drawing the background only draw the internal area and not the border.
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
+
+#ifdef ANTI_ALIAS
     let t = antialias(internal_distance);
+#else
+    let t = 1.0 - step(0.0, internal_distance);
+#endif
+
     return vec4(color.rgb, saturate(color.a * t));
 }
 
@@ -173,7 +184,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
 
     if enabled(in.flags, BORDER) {
-        return draw(in, texture_color);    
+        return draw(in, texture_color);
     } else {
         return draw_background(in, texture_color);
     }

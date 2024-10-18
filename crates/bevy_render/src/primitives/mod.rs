@@ -1,4 +1,4 @@
-use std::borrow::Borrow;
+use core::borrow::Borrow;
 
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
@@ -7,7 +7,7 @@ use bevy_reflect::prelude::*;
 /// An axis-aligned bounding box, defined by:
 /// - a center,
 /// - the distances from the center to each faces along the axis,
-/// the faces are orthogonal to the axis.
+///     the faces are orthogonal to the axis.
 ///
 /// It is typically used as a component on an entity to represent the local space
 /// occupied by this entity, with faces orthogonal to its local axis.
@@ -17,21 +17,19 @@ use bevy_reflect::prelude::*;
 /// with the camera's [`Frustum`].
 ///
 /// It will be added automatically by the systems in [`CalculateBounds`] to entities that:
-/// - could be subject to frustum culling, for example with a [`Handle<Mesh>`]
-/// or `Sprite` component,
+/// - could be subject to frustum culling, for example with a [`Mesh3d`]
+///     or `Sprite` component,
 /// - don't have the [`NoFrustumCulling`] component.
 ///
 /// It won't be updated automatically if the space occupied by the entity changes,
-/// for example if the vertex positions of a [`Mesh`] inside a `Handle<Mesh>` are
-/// updated.
+/// for example if the vertex positions of a [`Mesh3d`] are updated.
 ///
 /// [`Camera`]: crate::camera::Camera
 /// [`NoFrustumCulling`]: crate::view::visibility::NoFrustumCulling
 /// [`CalculateBounds`]: crate::view::visibility::VisibilitySystems::CalculateBounds
-/// [`Mesh`]: crate::mesh::Mesh
-/// [`Handle<Mesh>`]: crate::mesh::Mesh
+/// [`Mesh3d`]: crate::mesh::Mesh
 #[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct Aabb {
     pub center: Vec3A,
     pub half_extents: Vec3A,
@@ -127,6 +125,7 @@ impl Sphere {
 }
 
 /// A region of 3D space, specifically an open set whose border is a bisecting 2D plane.
+///
 /// This bisecting plane partitions 3D space into two infinite regions,
 /// the half-space is one of those regions and excludes the bisecting plane.
 ///
@@ -168,7 +167,7 @@ impl HalfSpace {
     /// Returns the unit normal vector of the bisecting plane that characterizes the `HalfSpace`.
     #[inline]
     pub fn normal(&self) -> Vec3A {
-        Vec3A::from(self.normal_d)
+        Vec3A::from_vec4(self.normal_d)
     }
 
     /// Returns the signed distance from the bisecting plane to the origin along
@@ -201,8 +200,7 @@ impl HalfSpace {
 /// This process is called frustum culling, and entities can opt out of it using
 /// the [`NoFrustumCulling`] component.
 ///
-/// The frustum component is typically added from a bundle, either the `Camera2dBundle`
-/// or the `Camera3dBundle`.
+/// The frustum component is typically added automatically for cameras, either `Camera2d` or `Camera3d`.
 /// It is usually updated automatically by [`update_frusta`] from the
 /// [`CameraProjection`] component and [`GlobalTransform`] of the camera entity.
 ///
@@ -212,7 +210,7 @@ impl HalfSpace {
 /// [`CameraProjection`]: crate::camera::CameraProjection
 /// [`GlobalTransform`]: bevy_transform::components::GlobalTransform
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct Frustum {
     #[reflect(ignore)]
     pub half_spaces: [HalfSpace; 6],
@@ -303,7 +301,7 @@ impl Frustum {
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct CubemapFrusta {
     #[reflect(ignore)]
     pub frusta: [Frustum; 6],
@@ -319,7 +317,7 @@ impl CubemapFrusta {
 }
 
 #[derive(Component, Debug, Default, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct CascadesFrusta {
     #[reflect(ignore)]
     pub frusta: EntityHashMap<Vec<Frustum>>,

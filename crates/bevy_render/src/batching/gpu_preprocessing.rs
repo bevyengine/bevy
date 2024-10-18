@@ -3,14 +3,13 @@
 use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::Entity,
+    entity::{Entity, EntityHashMap},
     query::{Has, With},
     schedule::IntoSystemConfigs as _,
     system::{Query, Res, ResMut, Resource, StaticSystemParam},
     world::{FromWorld, World},
 };
 use bevy_encase_derive::ShaderType;
-use bevy_utils::EntityHashMap;
 use bytemuck::{Pod, Zeroable};
 use nonmax::NonMaxU32;
 use smallvec::smallvec;
@@ -24,7 +23,7 @@ use crate::{
     },
     render_resource::{BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    view::{GpuCulling, ViewTarget},
+    view::{ExtractedView, GpuCulling, ViewTarget},
     Render, RenderApp, RenderSet,
 };
 
@@ -38,10 +37,12 @@ impl Plugin for BatchingPlugin {
             return;
         };
 
-        render_app.add_systems(
-            Render,
-            write_indirect_parameters_buffer.in_set(RenderSet::PrepareResourcesFlush),
-        );
+        render_app
+            .insert_resource(IndirectParametersBuffer::new())
+            .add_systems(
+                Render,
+                write_indirect_parameters_buffer.in_set(RenderSet::PrepareResourcesFlush),
+            );
     }
 
     fn finish(&self, app: &mut App) {
@@ -97,7 +98,7 @@ where
     /// corresponds to each instance.
     ///
     /// This is keyed off each view. Each view has a separate buffer.
-    pub work_item_buffers: EntityHashMap<Entity, PreprocessWorkItemBuffer>,
+    pub work_item_buffers: EntityHashMap<PreprocessWorkItemBuffer>,
 
     /// The uniform data inputs for the current frame.
     ///
@@ -163,14 +164,14 @@ pub struct PreprocessWorkItem {
 /// that, we make the following two observations:
 ///
 /// 1. `instance_count` is in the same place in both structures. So we can
-/// access it regardless of the structure we're looking at.
+///     access it regardless of the structure we're looking at.
 ///
 /// 2. The second structure is one word larger than the first. Thus we need to
-/// pad out the first structure by one word in order to place both structures in
-/// an array. If we pad out `ArrayIndirectParameters` by copying the
-/// `first_instance` field into the padding, then the resulting union structure
-/// will always have a read-only copy of `first_instance` in the final word. We
-/// take advantage of this in the shader to reduce branching.
+///     pad out the first structure by one word in order to place both structures in
+///     an array. If we pad out `ArrayIndirectParameters` by copying the
+///     `first_instance` field into the padding, then the resulting union structure
+///     will always have a read-only copy of `first_instance` in the final word. We
+///     take advantage of this in the shader to reduce branching.
 #[derive(Clone, Copy, Pod, Zeroable, ShaderType)]
 #[repr(C)]
 pub struct IndirectParameters {
@@ -183,8 +184,9 @@ pub struct IndirectParameters {
     /// This field is in the same place in both structures.
     pub instance_count: u32,
 
-    /// The index of the first vertex we're to draw.
-    pub first_vertex: u32,
+    /// For `ArrayIndirectParameters`, `first_vertex`; for
+    /// `ElementIndirectParameters`, `first_index`.
+    pub first_vertex_or_first_index: u32,
 
     /// For `ArrayIndirectParameters`, `first_instance`; for
     /// `ElementIndirectParameters`, `base_vertex`.
@@ -223,9 +225,31 @@ impl FromWorld for GpuPreprocessingSupport {
         let adapter = world.resource::<RenderAdapter>();
         let device = world.resource::<RenderDevice>();
 
-        if device.limits().max_compute_workgroup_size_x == 0 ||
-            // filter lower end / older devices on Android as they crash when using GPU preprocessing
-            (cfg!(target_os = "android") && adapter.get_info().name.starts_with("Adreno (TM) 6"))
+        // filter some Qualcomm devices on Android as they crash when using GPU preprocessing.
+        fn is_non_supported_android_device(adapter: &RenderAdapter) -> bool {
+            if cfg!(target_os = "android") {
+                let adapter_name = adapter.get_info().name;
+
+                // Filter out Adreno 730 and earlier GPUs (except 720, as it's newer than 730)
+                // while also taking suffixes into account like Adreno 642L.
+                let non_supported_adreno_model = |model: &str| -> bool {
+                    let model = model
+                        .chars()
+                        .map_while(|c| c.to_digit(10))
+                        .fold(0, |acc, digit| acc * 10 + digit);
+
+                    model != 720 && model <= 730
+                };
+
+                adapter_name
+                    .strip_prefix("Adreno (TM) ")
+                    .is_some_and(non_supported_adreno_model)
+            } else {
+                false
+            }
+        }
+
+        if device.limits().max_compute_workgroup_size_x == 0 || is_non_supported_android_device(adapter)
         {
             GpuPreprocessingSupport::None
         } else if !device
@@ -377,7 +401,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
     mut sorted_render_phases: ResMut<ViewSortedRenderPhases<I>>,
-    mut views: Query<(Entity, Has<GpuCulling>)>,
+    mut views: Query<(Entity, Has<GpuCulling>), With<ExtractedView>>,
     system_param_item: StaticSystemParam<GFBD::Param>,
 ) where
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
@@ -409,20 +433,25 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
         for current_index in 0..phase.items.len() {
             // Get the index of the input data, and comparison metadata, for
             // this entity.
-            let current_batch_input_index = GFBD::get_index_and_compare_data(
-                &system_param_item,
-                phase.items[current_index].entity(),
-            );
+            let item = &phase.items[current_index];
+            let entity = (item.entity(), item.main_entity());
+            let current_batch_input_index =
+                GFBD::get_index_and_compare_data(&system_param_item, entity);
 
             // Unpack that index and metadata. Note that it's possible for index
             // and/or metadata to not be present, which signifies that this
             // entity is unbatchable. In that case, we break the batch here.
-            let (mut current_input_index, mut current_meta) = (None, None);
-            if let Some((input_index, maybe_meta)) = current_batch_input_index {
-                current_input_index = Some(input_index);
-                current_meta =
-                    maybe_meta.map(|meta| BatchMeta::new(&phase.items[current_index], meta));
-            }
+            // If the index isn't present the item is not part of this pipeline and so will be skipped.
+            let Some((current_input_index, current_meta)) = current_batch_input_index else {
+                // Break a batch if we need to.
+                if let Some(batch) = batch.take() {
+                    batch.flush(data_buffer.len() as u32, phase);
+                }
+
+                continue;
+            };
+            let current_meta =
+                current_meta.map(|meta| BatchMeta::new(&phase.items[current_index], meta));
 
             // Determine if this entity can be included in the batch we're
             // building up.
@@ -435,7 +464,8 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             });
 
             // Make space in the data buffer for this instance.
-            let current_entity = phase.items[current_index].entity();
+            let item = &phase.items[current_index];
+            let entity = (item.entity(), item.main_entity());
             let output_index = data_buffer.add() as u32;
 
             // If we can't batch, break the existing batch and make a new one.
@@ -450,7 +480,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                     GFBD::get_batch_indirect_parameters_index(
                         &system_param_item,
                         &mut indirect_parameters_buffer,
-                        current_entity,
+                        entity,
                         output_index,
                     )
                 } else {
@@ -466,10 +496,9 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 
             // Add a new preprocessing work item so that the preprocessing
             // shader will copy the per-instance data over.
-            if let (Some(batch), Some(input_index)) = (batch.as_ref(), current_input_index.as_ref())
-            {
+            if let Some(batch) = batch.as_ref() {
                 work_item_buffer.buffer.push(PreprocessWorkItem {
-                    input_index: (*input_index).into(),
+                    input_index: current_input_index.into(),
                     output_index: match batch.indirect_parameters_index {
                         Some(indirect_parameters_index) => indirect_parameters_index.into(),
                         None => output_index,
@@ -490,7 +519,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
     mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
     mut binned_render_phases: ResMut<ViewBinnedRenderPhases<BPI>>,
-    mut views: Query<(Entity, Has<GpuCulling>)>,
+    mut views: Query<(Entity, Has<GpuCulling>), With<ExtractedView>>,
     param: StaticSystemParam<GFBD::Param>,
 ) where
     BPI: BinnedPhaseItem,
@@ -521,10 +550,12 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 
         // Prepare batchables.
 
-        for key in &phase.batchable_keys {
+        for key in &phase.batchable_mesh_keys {
             let mut batch: Option<BinnedRenderPhaseBatch> = None;
-            for &entity in &phase.batchable_values[key] {
-                let Some(input_index) = GFBD::get_binned_index(&system_param_item, entity) else {
+            for &(entity, main_entity) in &phase.batchable_mesh_values[key] {
+                let Some(input_index) =
+                    GFBD::get_binned_index(&system_param_item, (entity, main_entity))
+                else {
                     continue;
                 };
                 let output_index = data_buffer.add() as u32;
@@ -545,7 +576,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         let indirect_parameters_index = GFBD::get_batch_indirect_parameters_index(
                             &system_param_item,
                             &mut indirect_parameters_buffer,
-                            entity,
+                            (entity, main_entity),
                             output_index,
                         );
                         work_item_buffer.buffer.push(PreprocessWorkItem {
@@ -553,7 +584,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                             output_index: indirect_parameters_index.unwrap_or_default().into(),
                         });
                         batch = Some(BinnedRenderPhaseBatch {
-                            representative_entity: entity,
+                            representative_entity: (entity, main_entity),
                             instance_range: output_index..output_index + 1,
                             extra_index: PhaseItemExtraIndex::maybe_indirect_parameters_index(
                                 indirect_parameters_index,
@@ -567,7 +598,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                             output_index,
                         });
                         batch = Some(BinnedRenderPhaseBatch {
-                            representative_entity: entity,
+                            representative_entity: (entity, main_entity),
                             instance_range: output_index..output_index + 1,
                             extra_index: PhaseItemExtraIndex::NONE,
                         });
@@ -581,10 +612,12 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         }
 
         // Prepare unbatchables.
-        for key in &phase.unbatchable_keys {
-            let unbatchables = phase.unbatchable_values.get_mut(key).unwrap();
-            for &entity in &unbatchables.entities {
-                let Some(input_index) = GFBD::get_binned_index(&system_param_item, entity) else {
+        for key in &phase.unbatchable_mesh_keys {
+            let unbatchables = phase.unbatchable_mesh_values.get_mut(key).unwrap();
+            for &(entity, main_entity) in &unbatchables.entities {
+                let Some(input_index) =
+                    GFBD::get_binned_index(&system_param_item, (entity, main_entity))
+                else {
                     continue;
                 };
                 let output_index = data_buffer.add() as u32;
@@ -593,7 +626,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                     let indirect_parameters_index = GFBD::get_batch_indirect_parameters_index(
                         &system_param_item,
                         &mut indirect_parameters_buffer,
-                        entity,
+                        (entity, main_entity),
                         output_index,
                     )
                     .unwrap_or_default();

@@ -1,10 +1,12 @@
 //! Shows how to create a custom [`Decodable`] type by implementing a Sine wave.
-use bevy::audio::AddAudioSource;
-use bevy::audio::AudioPlugin;
-use bevy::audio::Source;
-use bevy::prelude::*;
-use bevy::reflect::TypePath;
-use bevy::utils::Duration;
+
+use bevy::{
+    audio::{AddAudioSource, AudioPlugin, Source},
+    math::ops,
+    prelude::*,
+    reflect::TypePath,
+    utils::Duration,
+};
 
 // This struct usually contains the data for the audio being played.
 // This is where data read from an audio file would be stored, for example.
@@ -46,7 +48,7 @@ impl Iterator for SineDecoder {
         self.current_progress += self.progress_per_frame;
         // we loop back round to 0 to avoid floating point inaccuracies
         self.current_progress %= 1.;
-        Some(f32::sin(self.period * self.current_progress))
+        Some(ops::sin(self.period * self.current_progress))
     }
 }
 // `Source` is what allows the audio source to be played by bevy.
@@ -95,10 +97,7 @@ fn main() {
 fn setup(mut assets: ResMut<Assets<SineAudio>>, mut commands: Commands) {
     // add a `SineAudio` to the asset server so that it can be played
     let audio_handle = assets.add(SineAudio {
-        frequency: 440., //this is the frequency of A4
+        frequency: 440., // this is the frequency of A4
     });
-    commands.spawn(AudioSourceBundle {
-        source: audio_handle,
-        ..default()
-    });
+    commands.spawn(AudioPlayer(audio_handle));
 }

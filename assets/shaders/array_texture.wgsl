@@ -49,7 +49,6 @@ fn fragment(
         double_sided,
         is_front,
         Nt,
-        view.mip_bias,
     );
 #endif
 

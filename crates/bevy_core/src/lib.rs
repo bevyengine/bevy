@@ -7,6 +7,8 @@
 
 //! This crate provides core functionality for Bevy Engine.
 
+extern crate alloc;
+
 mod name;
 #[cfg(feature = "serialize")]
 mod serde;
@@ -16,17 +18,20 @@ use bevy_ecs::system::Resource;
 pub use name::*;
 pub use task_pool_options::*;
 
+/// The core prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    //! The Bevy Core Prelude.
     #[doc(hidden)]
     pub use crate::{
-        DebugName, FrameCountPlugin, Name, TaskPoolOptions, TaskPoolPlugin, TypeRegistrationPlugin,
+        FrameCountPlugin, Name, NameOrEntity, TaskPoolOptions, TaskPoolPlugin,
+        TypeRegistrationPlugin,
     };
 }
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
@@ -36,7 +41,9 @@ use bevy_tasks::tick_global_task_pools_on_main_thread;
 pub struct TypeRegistrationPlugin;
 
 impl Plugin for TypeRegistrationPlugin {
+    #[cfg_attr(not(feature = "bevy_reflect"), allow(unused_variables))]
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "bevy_reflect")]
         app.register_type::<Name>();
     }
 }

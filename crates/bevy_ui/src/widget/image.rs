@@ -1,6 +1,4 @@
-use crate::{
-    measurement::AvailableSpace, ContentSize, Measure, Node, NodeMeasure, UiImage, UiScale,
-};
+use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiImage, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
@@ -14,7 +12,7 @@ use taffy::{MaybeMath, MaybeResolve};
 ///
 /// This component is updated automatically by [`update_image_content_size_system`]
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct UiImageSize {
     /// The size of the image's texture
     ///
@@ -37,14 +35,15 @@ pub struct ImageMeasure {
 }
 
 impl Measure for ImageMeasure {
-    fn measure(
-        &self,
-        width: Option<f32>,
-        height: Option<f32>,
-        available_width: AvailableSpace,
-        available_height: AvailableSpace,
-        style: &taffy::Style,
-    ) -> Vec2 {
+    fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
+        let MeasureArgs {
+            width,
+            height,
+            available_width,
+            available_height,
+            ..
+        } = measure_args;
+
         // Convert available width/height into an option
         let parent_width = available_width.into_option();
         let parent_height = available_height.into_option();
@@ -89,7 +88,7 @@ impl Measure for ImageMeasure {
 }
 
 #[cfg(feature = "bevy_text")]
-type UpdateImageFilter = (With<Node>, Without<bevy_text::Text>);
+type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
 #[cfg(not(feature = "bevy_text"))]
 type UpdateImageFilter = With<Node>;
 
@@ -120,7 +119,7 @@ pub fn update_image_content_size_system(
     for (mut content_size, image, mut image_size, atlas_image) in &mut query {
         if let Some(size) = match atlas_image {
             Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
-            None => textures.get(&image.texture).map(|t| t.size()),
+            None => textures.get(&image.texture).map(Image::size),
         } {
             // Update only if size or scale factor has changed to avoid needless layout calculations
             if size != image_size.size

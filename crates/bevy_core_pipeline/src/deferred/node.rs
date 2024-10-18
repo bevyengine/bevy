@@ -1,16 +1,15 @@
-use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryItem;
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::render_graph::ViewNode;
 
-use bevy_render::render_phase::{TrackedRenderPass, ViewBinnedRenderPhases};
-use bevy_render::render_resource::{CommandEncoderDescriptor, StoreOp};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext},
-    render_resource::RenderPassDescriptor,
+    render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
+    render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::ViewDepthTexture,
 };
+use bevy_utils::tracing::error;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
@@ -122,17 +121,17 @@ impl ViewNode for DeferredGBufferPrepassNode {
         let view_entity = graph.view_entity();
         render_context.add_command_buffer_generation_task(move |render_device| {
             #[cfg(feature = "trace")]
-            let _deferred_span = info_span!("deferred").entered();
+            let _deferred_span = info_span!("deferred_prepass").entered();
 
             // Command encoder setup
             let mut command_encoder =
                 render_device.create_command_encoder(&CommandEncoderDescriptor {
-                    label: Some("deferred_command_encoder"),
+                    label: Some("deferred_prepass_command_encoder"),
                 });
 
             // Render pass setup
             let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("deferred"),
+                label: Some("deferred_prepass"),
                 color_attachments: &color_attachments,
                 depth_stencil_attachment,
                 timestamp_writes: None,
@@ -144,24 +143,33 @@ impl ViewNode for DeferredGBufferPrepassNode {
             }
 
             // Opaque draws
-            if !opaque_deferred_phase.batchable_keys.is_empty()
-                || !opaque_deferred_phase.unbatchable_keys.is_empty()
+            if !opaque_deferred_phase.batchable_mesh_keys.is_empty()
+                || !opaque_deferred_phase.unbatchable_mesh_keys.is_empty()
             {
                 #[cfg(feature = "trace")]
-                let _opaque_prepass_span = info_span!("opaque_deferred").entered();
-                opaque_deferred_phase.render(&mut render_pass, world, view_entity);
+                let _opaque_prepass_span = info_span!("opaque_deferred_prepass").entered();
+                if let Err(err) = opaque_deferred_phase.render(&mut render_pass, world, view_entity)
+                {
+                    error!("Error encountered while rendering the opaque deferred phase {err:?}");
+                }
             }
 
             // Alpha masked draws
             if !alpha_mask_deferred_phase.is_empty() {
                 #[cfg(feature = "trace")]
-                let _alpha_mask_deferred_span = info_span!("alpha_mask_deferred").entered();
-                alpha_mask_deferred_phase.render(&mut render_pass, world, view_entity);
+                let _alpha_mask_deferred_span = info_span!("alpha_mask_deferred_prepass").entered();
+                if let Err(err) =
+                    alpha_mask_deferred_phase.render(&mut render_pass, world, view_entity)
+                {
+                    error!(
+                        "Error encountered while rendering the alpha mask deferred phase {err:?}"
+                    );
+                }
             }
 
             drop(render_pass);
 
-            // Copy prepass depth to the main depth texture
+            // After rendering to the view depth texture, copy it to the prepass depth texture
             if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
                 command_encoder.copy_texture_to_texture(
                     view_depth_texture.texture.as_image_copy(),

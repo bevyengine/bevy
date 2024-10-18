@@ -30,7 +30,7 @@ pub mod states;
 /// To enable developer tools, you can either:
 ///
 /// - Create a custom crate feature (e.g "`dev_mode`"), which enables the `bevy_dev_tools` feature
-/// along with any other development tools you might be using:
+///     along with any other development tools you might be using:
 ///
 /// ```toml
 /// [feature]
@@ -47,6 +47,7 @@ pub mod states;
 ///
 ///  Note: The third method is not recommended, as it requires you to remove the feature before
 ///  creating a build for release to the public.
+#[derive(Default)]
 pub struct DevToolsPlugin;
 
 impl Plugin for DevToolsPlugin {

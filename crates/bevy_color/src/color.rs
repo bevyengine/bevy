@@ -2,7 +2,9 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba,
     Luminance, Mix, Oklaba, Oklcha, Srgba, StandardColor, Xyza,
 };
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
+use derive_more::derive::From;
 
 /// An enumerated type that can represent any of the color types in this crate.
 ///
@@ -16,7 +18,7 @@ use bevy_reflect::prelude::*;
 /// # Operations
 ///
 /// [`Color`] supports all the standard color operations, such as [mixing](Mix),
-/// [luminance](Luminance) and [hue](Hue) adjustment, [clamping](ClampColor),
+/// [luminance](Luminance) and [hue](Hue) adjustment,
 /// and [diffing](EuclideanDistance). These operations delegate to the concrete color space contained
 /// by [`Color`], but will convert to [`Oklch`](Oklcha) for operations which aren't supported in the
 /// current space. After performing the operation, if a conversion was required, the result will be
@@ -39,11 +41,11 @@ use bevy_reflect::prelude::*;
 /// due to its perceptual uniformity and broad support for Bevy's color operations.
 /// To avoid the cost of repeated conversion, and ensure consistent results where that is desired,
 /// first convert this [`Color`] into your desired color space.
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, From)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum Color {
@@ -73,7 +75,12 @@ impl StandardColor for Color {}
 
 impl Color {
     /// Return the color as a linear RGBA color.
-    pub fn linear(&self) -> LinearRgba {
+    pub fn to_linear(&self) -> LinearRgba {
+        (*self).into()
+    }
+
+    /// Return the color as an SRGBA color.
+    pub fn to_srgba(&self) -> Srgba {
         (*self).into()
     }
 
@@ -417,66 +424,6 @@ impl Alpha for Color {
             Color::Oklcha(x) => x.set_alpha(alpha),
             Color::Xyza(x) => x.set_alpha(alpha),
         }
-    }
-}
-
-impl From<Srgba> for Color {
-    fn from(value: Srgba) -> Self {
-        Self::Srgba(value)
-    }
-}
-
-impl From<LinearRgba> for Color {
-    fn from(value: LinearRgba) -> Self {
-        Self::LinearRgba(value)
-    }
-}
-
-impl From<Hsla> for Color {
-    fn from(value: Hsla) -> Self {
-        Self::Hsla(value)
-    }
-}
-
-impl From<Hsva> for Color {
-    fn from(value: Hsva) -> Self {
-        Self::Hsva(value)
-    }
-}
-
-impl From<Hwba> for Color {
-    fn from(value: Hwba) -> Self {
-        Self::Hwba(value)
-    }
-}
-
-impl From<Oklaba> for Color {
-    fn from(value: Oklaba) -> Self {
-        Self::Oklaba(value)
-    }
-}
-
-impl From<Oklcha> for Color {
-    fn from(value: Oklcha) -> Self {
-        Self::Oklcha(value)
-    }
-}
-
-impl From<Lcha> for Color {
-    fn from(value: Lcha) -> Self {
-        Self::Lcha(value)
-    }
-}
-
-impl From<Laba> for Color {
-    fn from(value: Laba) -> Self {
-        Self::Laba(value)
-    }
-}
-
-impl From<Xyza> for Color {
-    fn from(value: Xyza) -> Self {
-        Self::Xyza(value)
     }
 }
 

@@ -2,15 +2,18 @@
     unsafe_op_in_unsafe_fn,
     clippy::all,
     clippy::undocumented_unsafe_blocks,
-    clippy::ptr_cast_constness
+    clippy::ptr_cast_constness,
+    // FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+    missing_docs
 )]
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
 
 use glam::{Vec2, Vec3};
 

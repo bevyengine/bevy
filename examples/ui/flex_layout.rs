@@ -20,7 +20,7 @@ fn main() {
 
 fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -173,13 +173,10 @@ fn spawn_nested_text_bundle(
             ..Default::default()
         })
         .with_children(|builder| {
-            builder.spawn(TextBundle::from_section(
-                text,
-                TextStyle {
-                    font,
-                    font_size: 24.0,
-                    color: Color::BLACK,
-                },
+            builder.spawn((
+                Text::new(text),
+                TextFont { font, ..default() },
+                TextColor::BLACK,
             ));
         });
 }

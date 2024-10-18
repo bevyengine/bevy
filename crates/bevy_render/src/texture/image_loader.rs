@@ -1,6 +1,6 @@
-use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use bevy_ecs::prelude::{FromWorld, World};
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
 
 use crate::{
     render_asset::RenderAssetUsages,
@@ -16,35 +16,6 @@ use serde::{Deserialize, Serialize};
 pub struct ImageLoader {
     supported_compressed_formats: CompressedImageFormats,
 }
-
-pub(crate) const IMG_FILE_EXTENSIONS: &[&str] = &[
-    #[cfg(feature = "basis-universal")]
-    "basis",
-    #[cfg(feature = "bmp")]
-    "bmp",
-    #[cfg(feature = "png")]
-    "png",
-    #[cfg(feature = "dds")]
-    "dds",
-    #[cfg(feature = "tga")]
-    "tga",
-    #[cfg(feature = "jpeg")]
-    "jpg",
-    #[cfg(feature = "jpeg")]
-    "jpeg",
-    #[cfg(feature = "ktx2")]
-    "ktx2",
-    #[cfg(feature = "webp")]
-    "webp",
-    #[cfg(feature = "pnm")]
-    "pam",
-    #[cfg(feature = "pnm")]
-    "pbm",
-    #[cfg(feature = "pnm")]
-    "pgm",
-    #[cfg(feature = "pnm")]
-    "ppm",
-];
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub enum ImageFormatSetting {
@@ -74,23 +45,23 @@ impl Default for ImageLoaderSettings {
 }
 
 #[non_exhaustive]
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display, From)]
 pub enum ImageLoaderError {
-    #[error("Could load shader: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("Could not load texture file: {0}")]
-    FileTexture(#[from] FileTextureError),
+    #[display("Could load shader: {_0}")]
+    Io(std::io::Error),
+    #[display("Could not load texture file: {_0}")]
+    FileTexture(FileTextureError),
 }
 
 impl AssetLoader for ImageLoader {
     type Asset = Image;
     type Settings = ImageLoaderSettings;
     type Error = ImageLoaderError;
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        settings: &'a ImageLoaderSettings,
-        load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        settings: &ImageLoaderSettings,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -131,7 +102,7 @@ impl AssetLoader for ImageLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        IMG_FILE_EXTENSIONS
+        ImageFormat::SUPPORTED_FILE_EXTENSIONS
     }
 }
 
@@ -149,17 +120,9 @@ impl FromWorld for ImageLoader {
 }
 
 /// An error that occurs when loading a texture from a file.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
+#[display("Error reading image file {path}: {error}, this is an error in `bevy_render`.")]
 pub struct FileTextureError {
     error: TextureError,
     path: String,
-}
-impl std::fmt::Display for FileTextureError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(
-            f,
-            "Error reading image file {}: {}, this is an error in `bevy_render`.",
-            self.path, self.error
-        )
-    }
 }

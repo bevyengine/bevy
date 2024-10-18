@@ -15,8 +15,10 @@
 @group(2) @binding(10) var normal_map_sampler: sampler;
 @group(2) @binding(11) var depth_map_texture: texture_2d<f32>;
 @group(2) @binding(12) var depth_map_sampler: sampler;
+#ifdef PBR_ANISOTROPY_TEXTURE_SUPPORTED
 @group(2) @binding(13) var anisotropy_texture: texture_2d<f32>;
 @group(2) @binding(14) var anisotropy_sampler: sampler;
+#endif
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
 @group(2) @binding(15) var specular_transmission_texture: texture_2d<f32>;
 @group(2) @binding(16) var specular_transmission_sampler: sampler;
