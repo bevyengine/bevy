@@ -37,7 +37,7 @@ impl Schedules {
     /// Constructs an empty `Schedules` with zero initial capacity.
     pub fn new() -> Self {
         Self {
-            inner: HashMap::new(),
+            inner: HashMap::default(),
             ignored_scheduling_ambiguities: BTreeSet::new(),
         }
     }
@@ -625,18 +625,18 @@ impl ScheduleGraph {
             system_conditions: Vec::new(),
             system_sets: Vec::new(),
             system_set_conditions: Vec::new(),
-            system_set_ids: HashMap::new(),
+            system_set_ids: HashMap::default(),
             uninit: Vec::new(),
             hierarchy: Dag::new(),
             dependency: Dag::new(),
             ambiguous_with: UnGraphMap::new(),
-            ambiguous_with_all: HashSet::new(),
+            ambiguous_with_all: HashSet::default(),
             conflicting_systems: Vec::new(),
             anonymous_sets: 0,
             changed: false,
             settings: default(),
             no_sync_edges: BTreeSet::new(),
-            auto_sync_node_ids: HashMap::new(),
+            auto_sync_node_ids: HashMap::default(),
         }
     }
 
@@ -1148,7 +1148,8 @@ impl ScheduleGraph {
 
         // calculate the number of sync points each sync point is from the beginning of the graph
         // use the same sync point if the distance is the same
-        let mut distances: HashMap<usize, Option<u32>> = HashMap::with_capacity(topo.len());
+        let mut distances: HashMap<usize, Option<u32>> =
+            HashMap::with_capacity_and_hasher(topo.len(), Default::default());
         for node in &topo {
             let add_sync_after = self.systems[node.index()].get().unwrap().has_deferred();
 
@@ -1225,8 +1226,9 @@ impl ScheduleGraph {
         hierarchy_graph: &GraphMap<NodeId, (), Directed>,
     ) -> (HashMap<NodeId, Vec<NodeId>>, HashMap<NodeId, FixedBitSet>) {
         let mut set_systems: HashMap<NodeId, Vec<NodeId>> =
-            HashMap::with_capacity(self.system_sets.len());
-        let mut set_system_bitsets = HashMap::with_capacity(self.system_sets.len());
+            HashMap::with_capacity_and_hasher(self.system_sets.len(), Default::default());
+        let mut set_system_bitsets =
+            HashMap::with_capacity_and_hasher(self.system_sets.len(), Default::default());
         for &id in hierarchy_topsort.iter().rev() {
             if id.is_system() {
                 continue;
@@ -1920,7 +1922,7 @@ impl ScheduleGraph {
     }
 
     fn names_of_sets_containing_node(&self, id: &NodeId) -> Vec<String> {
-        let mut sets = HashSet::new();
+        let mut sets: HashSet<_> = HashSet::default();
         self.traverse_sets_containing_node(*id, &mut |set_id| {
             !self.system_sets[set_id.index()].is_system_type() && sets.insert(set_id)
         });

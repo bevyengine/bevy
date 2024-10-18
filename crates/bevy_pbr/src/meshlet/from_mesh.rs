@@ -212,7 +212,7 @@ fn find_connected_meshlets(
     meshlets: &Meshlets,
 ) -> Vec<Vec<(usize, usize)>> {
     // For each edge, gather all meshlets that use it
-    let mut edges_to_meshlets = HashMap::new();
+    let mut edges_to_meshlets: HashMap<_, _> = HashMap::default();
 
     for meshlet_id in simplification_queue.clone() {
         let meshlet = meshlets.get(meshlet_id);
@@ -235,7 +235,7 @@ fn find_connected_meshlets(
     }
 
     // For each meshlet pair, count how many edges they share
-    let mut shared_edge_count = HashMap::new();
+    let mut shared_edge_count: HashMap<_, _> = HashMap::default();
 
     for (_, meshlet_ids) in edges_to_meshlets {
         for (meshlet_id1, meshlet_id2) in meshlet_ids.into_iter().tuple_combinations() {

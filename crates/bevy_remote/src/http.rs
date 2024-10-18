@@ -57,7 +57,7 @@ impl Headers {
     /// Create a new instance of `Headers`.
     pub fn new() -> Self {
         Self {
-            headers: HashMap::new(),
+            headers: HashMap::default(),
         }
     }
 

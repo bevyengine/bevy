@@ -3,7 +3,7 @@
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.
 
-use std::{alloc::Layout, io::Write, ptr::NonNull};
+use std::{alloc::Layout, collections::HashMap, io::Write, ptr::NonNull};
 
 use bevy::{
     ecs::{
@@ -13,7 +13,6 @@ use bevy::{
     },
     prelude::*,
     ptr::{Aligned, OwningPtr},
-    utils::HashMap,
 };
 
 const PROMPT: &str = "

@@ -21,7 +21,7 @@ impl SerializationDataDef {
     /// Returns `Ok(Some(data))` if there are any fields needing to be skipped during serialization.
     /// Otherwise, returns `Ok(None)`.
     pub fn new(fields: &[StructField<'_>]) -> Result<Option<Self>, syn::Error> {
-        let mut skipped = HashMap::default();
+        let mut skipped: HashMap<_, _> = HashMap::default();
 
         for field in fields {
             match field.attrs.ignore {
