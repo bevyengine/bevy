@@ -254,7 +254,7 @@ pub struct DragEntry {
 pub struct PointerState {
     /// Stores the press location and start time for each button currently being pressed by the pointer.
     pub pressing: HashMap<Entity, (Location, Instant, HitData)>,
-    /// Stores the the starting and current locations for each entity currently being dragged by the pointer.
+    /// Stores the starting and current locations for each entity currently being dragged by the pointer.
     pub dragging: HashMap<Entity, DragEntry>,
     /// Stores  the hit data for each entity currently being dragged over by the pointer.
     pub dragging_over: HashMap<Entity, HitData>,
