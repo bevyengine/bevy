@@ -283,22 +283,20 @@ fn setup_node_rects(commands: &mut Commands) {
 
         let container = {
             let mut container = commands.spawn((
-                NodeBundle {
-                    style: Style {
-                        position_type: PositionType::Absolute,
-                        bottom: Val::Px(node_rect.bottom),
-                        left: Val::Px(node_rect.left),
-                        height: Val::Px(node_rect.height),
-                        width: Val::Px(node_rect.width),
-                        align_items: AlignItems::Center,
-                        justify_items: JustifyItems::Center,
-                        align_content: AlignContent::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
-                    border_color: WHITE.into(),
+                Node::default(),
+                Style {
+                    position_type: PositionType::Absolute,
+                    bottom: Val::Px(node_rect.bottom),
+                    left: Val::Px(node_rect.left),
+                    height: Val::Px(node_rect.height),
+                    width: Val::Px(node_rect.width),
+                    align_items: AlignItems::Center,
+                    justify_items: JustifyItems::Center,
+                    align_content: AlignContent::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
+                BorderColor(WHITE.into()),
                 Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
             ));
 
@@ -316,8 +314,9 @@ fn setup_node_rects(commands: &mut Commands) {
         // Create the background color.
         if let NodeType::Clip(_) = node_type {
             let background = commands
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node::default(),
+                    Style {
                         position_type: PositionType::Absolute,
                         top: Val::Px(0.),
                         left: Val::Px(0.),
@@ -325,9 +324,8 @@ fn setup_node_rects(commands: &mut Commands) {
                         width: Val::Px(node_rect.width),
                         ..default()
                     },
-                    background_color: DARK_GREEN.into(),
-                    ..default()
-                })
+                    BackgroundColor(DARK_GREEN.into()),
+                ))
                 .id();
 
             commands.entity(container).add_child(background);
@@ -343,8 +341,9 @@ fn setup_node_rects(commands: &mut Commands) {
 /// vertical and horizontal lines, respectively.
 fn setup_node_lines(commands: &mut Commands) {
     for line in &HORIZONTAL_LINES {
-        commands.spawn(NodeBundle {
-            style: Style {
+        commands.spawn((
+            Node::default(),
+            Style {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(line.bottom),
                 left: Val::Px(line.left),
@@ -353,14 +352,14 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::bottom(Val::Px(1.0)),
                 ..default()
             },
-            border_color: WHITE.into(),
-            ..default()
-        });
+            BorderColor(WHITE.into()),
+        ));
     }
 
     for line in &VERTICAL_LINES {
-        commands.spawn(NodeBundle {
-            style: Style {
+        commands.spawn((
+            Node::default(),
+            Style {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(line.bottom),
                 left: Val::Px(line.left),
@@ -369,9 +368,8 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::left(Val::Px(1.0)),
                 ..default()
             },
-            border_color: WHITE.into(),
-            ..default()
-        });
+            BorderColor(WHITE.into()),
+        ));
     }
 }
 

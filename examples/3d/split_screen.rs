@@ -85,12 +85,10 @@ fn setup(
         commands
             .spawn((
                 TargetCamera(camera),
-                NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
-                        ..default()
-                    },
+                Node::default(),
+                Style {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
                     ..default()
                 },
             ))
@@ -110,8 +108,9 @@ fn setup(
 
     fn buttons_panel(parent: &mut ChildBuilder) {
         parent
-            .spawn(NodeBundle {
-                style: Style {
+            .spawn((
+                Node::default(),
+                Style {
                     position_type: PositionType::Absolute,
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
@@ -122,8 +121,7 @@ fn setup(
                     padding: UiRect::all(Val::Px(20.)),
                     ..default()
                 },
-                ..default()
-            })
+            ))
             .with_children(|parent| {
                 rotate_button(parent, "<", Direction::Left);
                 rotate_button(parent, ">", Direction::Right);
@@ -134,19 +132,17 @@ fn setup(
         parent
             .spawn((
                 RotateCamera(direction),
-                ButtonBundle {
-                    style: Style {
-                        width: Val::Px(40.),
-                        height: Val::Px(40.),
-                        border: UiRect::all(Val::Px(2.)),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    border_color: Color::WHITE.into(),
-                    background_color: Color::srgb(0.25, 0.25, 0.25).into(),
+                Button,
+                Style {
+                    width: Val::Px(40.),
+                    height: Val::Px(40.),
+                    border: UiRect::all(Val::Px(2.)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
                     ..default()
                 },
+                BorderColor(Color::WHITE),
+                BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
             ))
             .with_children(|parent| {
                 parent.spawn(Text::new(caption));

@@ -238,7 +238,7 @@ fn deselect(sprite: &mut Sprite, contributor: &Contributor, transform: &mut Tran
 
 /// Applies gravity to all entities with a velocity.
 fn gravity(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
-    let delta = time.delta_seconds();
+    let delta = time.delta_secs();
 
     for mut velocity in &mut velocity_query {
         velocity.translation.y -= GRAVITY * delta;
@@ -298,7 +298,7 @@ fn collisions(
 
 /// Apply velocity to positions and rotations.
 fn movement(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
-    let delta = time.delta_seconds();
+    let delta = time.delta_secs();
 
     for (velocity, mut transform) in &mut query {
         transform.translation += delta * velocity.translation;

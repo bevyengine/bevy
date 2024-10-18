@@ -168,8 +168,9 @@ fn setup_ui(mut commands: Commands) {
 
     // Add the buttons that allow the user to toggle mask groups on and off.
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 flex_direction: FlexDirection::Column,
                 position_type: PositionType::Absolute,
                 row_gap: Val::Px(6.0),
@@ -177,8 +178,7 @@ fn setup_ui(mut commands: Commands) {
                 bottom: Val::Px(12.0),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             let row_style = Style {
                 flex_direction: FlexDirection::Row,
@@ -189,10 +189,7 @@ fn setup_ui(mut commands: Commands) {
             add_mask_group_control(parent, "Head", Val::Auto, MASK_GROUP_HEAD);
 
             parent
-                .spawn(NodeBundle {
-                    style: row_style.clone(),
-                    ..default()
-                })
+                .spawn((Node::default(), row_style.clone()))
                 .with_children(|parent| {
                     add_mask_group_control(
                         parent,
@@ -209,10 +206,7 @@ fn setup_ui(mut commands: Commands) {
                 });
 
             parent
-                .spawn(NodeBundle {
-                    style: row_style,
-                    ..default()
-                })
+                .spawn((Node::default(), row_style))
                 .with_children(|parent| {
                     add_mask_group_control(
                         parent,
@@ -251,8 +245,9 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
     );
 
     parent
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 border: UiRect::all(Val::Px(1.0)),
                 width,
                 flex_direction: FlexDirection::Column,
@@ -262,15 +257,15 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                 margin: UiRect::ZERO,
                 ..default()
             },
-            border_color: BorderColor(Color::WHITE),
-            border_radius: BorderRadius::all(Val::Px(3.0)),
-            background_color: Color::BLACK.into(),
-            ..default()
-        })
+            BorderColor(Color::WHITE),
+            BorderRadius::all(Val::Px(3.0)),
+            BackgroundColor(Color::BLACK),
+        ))
         .with_children(|builder| {
             builder
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node::default(),
+                    Style {
                         border: UiRect::ZERO,
                         width: Val::Percent(100.0),
                         justify_content: JustifyContent::Center,
@@ -279,9 +274,8 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                         margin: UiRect::ZERO,
                         ..default()
                     },
-                    background_color: Color::BLACK.into(),
-                    ..default()
-                })
+                    BackgroundColor(Color::BLACK),
+                ))
                 .with_child((
                     Text::new(label),
                     label_text_style.clone(),
@@ -292,8 +286,9 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                 ));
 
             builder
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node::default(),
+                    Style {
                         width: Val::Percent(100.0),
                         flex_direction: FlexDirection::Row,
                         justify_content: JustifyContent::Center,
@@ -301,9 +296,8 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                         border: UiRect::top(Val::Px(1.0)),
                         ..default()
                     },
-                    border_color: BorderColor(Color::WHITE),
-                    ..default()
-                })
+                    BorderColor(Color::WHITE),
+                ))
                 .with_children(|builder| {
                     for (index, label) in [
                         AnimationLabel::Run,
@@ -315,13 +309,14 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                     .enumerate()
                     {
                         builder
-                            .spawn(ButtonBundle {
-                                background_color: if index > 0 {
-                                    Color::BLACK.into()
+                            .spawn((
+                                Button,
+                                BackgroundColor(if index > 0 {
+                                    Color::BLACK
                                 } else {
-                                    Color::WHITE.into()
-                                },
-                                style: Style {
+                                    Color::WHITE
+                                }),
+                                Style {
                                     flex_grow: 1.0,
                                     border: if index > 0 {
                                         UiRect::left(Val::Px(1.0))
@@ -330,9 +325,8 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                                     },
                                     ..default()
                                 },
-                                border_color: BorderColor(Color::WHITE),
-                                ..default()
-                            })
+                                BorderColor(Color::WHITE),
+                            ))
                             .with_child((
                                 Text(format!("{:?}", label)),
                                 if index > 0 {

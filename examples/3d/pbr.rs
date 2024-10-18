@@ -1,6 +1,7 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
-use bevy::{prelude::*, render::camera::ScalingMode};
+use bevy::prelude::*;
+use bevy::render::camera::ScalingMode;
 
 fn main() {
     App::new()
@@ -110,7 +111,8 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
         Projection::from(OrthographicProjection {
-            scaling_mode: ScalingMode::WindowSize(100.0),
+            scale: 100.,
+            scaling_mode: ScalingMode::WindowSize,
             ..OrthographicProjection::default_3d()
         }),
         EnvironmentMapLight {

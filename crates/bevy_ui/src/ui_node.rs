@@ -1,4 +1,4 @@
-use crate::{UiRect, Val};
+use crate::{widget::UiImageSize, ContentSize, FocusPolicy, UiRect, Val};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -7,8 +7,10 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
     texture::{Image, TRANSPARENT_IMAGE_HANDLE},
+    view::Visibility,
 };
 use bevy_sprite::BorderRect;
+use bevy_transform::components::Transform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
@@ -25,6 +27,18 @@ use smallvec::SmallVec;
 /// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug)]
+#[require(
+    Style,
+    BackgroundColor,
+    BorderColor,
+    BorderRadius,
+    ContentSize,
+    FocusPolicy,
+    ScrollPosition,
+    Transform,
+    Visibility,
+    ZIndex
+)]
 pub struct Node {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
@@ -883,7 +897,7 @@ pub enum Display {
     /// Use no layout, don't render this node and its children.
     ///
     /// If you want to hide a node and its children,
-    /// but keep its layout in place, set its [`Visibility`](bevy_render::view::Visibility) component instead.
+    /// but keep its layout in place, set its [`Visibility`] component instead.
     None,
 }
 
@@ -1955,22 +1969,20 @@ impl Default for BorderColor {
 /// The [`Outline`] component adds an outline outside the edge of a UI node.
 /// Outlines do not take up space in the layout.
 ///
-/// To add an [`Outline`] to a ui node you can spawn a `(NodeBundle, Outline)` tuple bundle:
+/// To add an [`Outline`] to a ui node you can spawn a `(Node, Outline)` tuple bundle:
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
 /// # use bevy_color::palettes::basic::{RED, BLUE};
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
-///         NodeBundle {
-///             style: Style {
-///                 width: Val::Px(100.),
-///                 height: Val::Px(100.),
-///                 ..Default::default()
-///             },
-///             background_color: BLUE.into(),
+///         Node::default(),
+///         Style {
+///             width: Val::Px(100.),
+///             height: Val::Px(100.),
 ///             ..Default::default()
 ///         },
+///         BackgroundColor(BLUE.into()),
 ///         Outline::new(Val::Px(10.), Val::ZERO, RED.into())
 ///     ));
 /// }
@@ -2032,6 +2044,7 @@ impl Outline {
 /// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
+#[require(Node, UiImageSize)]
 pub struct UiImage {
     /// The tint color used to draw the image.
     ///
@@ -2173,32 +2186,30 @@ pub struct GlobalZIndex(pub i32);
 /// dimension, either width or height.
 ///
 /// # Example
-/// ```
+/// ```rust
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
 /// # use bevy_color::palettes::basic::{BLUE};
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
-///         NodeBundle {
-///             style: Style {
-///                 width: Val::Px(100.),
-///                 height: Val::Px(100.),
-///                 border: UiRect::all(Val::Px(2.)),
-///                 ..Default::default()
-///             },
-///             background_color: BLUE.into(),
-///             border_radius: BorderRadius::new(
-///                 // top left
-///                 Val::Px(10.),
-///                 // top right
-///                 Val::Px(20.),
-///                 // bottom right
-///                 Val::Px(30.),
-///                 // bottom left
-///                 Val::Px(40.),
-///             ),
+///         Node::default(),
+///         Style {
+///             width: Val::Px(100.),
+///             height: Val::Px(100.),
+///             border: UiRect::all(Val::Px(2.)),
 ///             ..Default::default()
 ///         },
+///         BackgroundColor(BLUE.into()),
+///         BorderRadius::new(
+///             // top left
+///             Val::Px(10.),
+///             // top right
+///             Val::Px(20.),
+///             // bottom right
+///             Val::Px(30.),
+///             // bottom left
+///             Val::Px(40.),
+///         ),
 ///     ));
 /// }
 /// ```

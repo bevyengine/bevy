@@ -137,7 +137,7 @@ fn setup(
 }
 
 fn rotate_camera(mut transform: Single<&mut Transform, With<Camera>>, time: Res<Time>) {
-    transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_seconds() / 2.));
+    transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_secs() / 2.));
 }
 
 fn update_config(
@@ -155,11 +155,11 @@ fn update_config(
 
     let (config, light_config) = config_store.config_mut::<LightGizmoConfigGroup>();
     if keyboard.pressed(KeyCode::ArrowRight) {
-        config.line_width += 5. * time.delta_seconds();
+        config.line_width += 5. * time.delta_secs();
         config.line_width = config.line_width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        config.line_width -= 5. * time.delta_seconds();
+        config.line_width -= 5. * time.delta_secs();
         config.line_width = config.line_width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::KeyA) {

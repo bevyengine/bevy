@@ -51,7 +51,16 @@ fn setup(
 
     // spawn help text
     commands
-        .spawn((Text::default(), RenderLayers::layer(1)))
+        .spawn((
+            Text::default(),
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+            RenderLayers::layer(1),
+        ))
         .with_children(|p| {
             p.spawn(TextSpan::new("Press T to toggle OIT\n"));
             p.spawn(TextSpan::new("OIT Enabled"));

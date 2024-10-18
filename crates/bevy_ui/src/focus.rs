@@ -39,7 +39,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// # See also
 ///
-/// - [`ButtonBundle`](crate::node_bundles::ButtonBundle) which includes this component
+/// - [`Button`](crate::widget::Button) which requires this component
 /// - [`RelativeCursorPosition`] to obtain the position of the cursor relative to current node
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug)]

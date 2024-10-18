@@ -141,7 +141,9 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Projection::from(OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical(6.0),
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 6.0,
+            },
             ..OrthographicProjection::default_3d()
         }),
         Camera {
@@ -161,7 +163,9 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Projection::from(OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical(6.0),
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 6.0,
+            },
             ..OrthographicProjection::default_3d()
         }),
         Camera {
@@ -187,7 +191,9 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Projection::from(OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical(6.0),
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 6.0,
+            },
             ..OrthographicProjection::default_3d()
         }),
         Camera {
@@ -214,7 +220,9 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Projection::from(OrthographicProjection {
-            scaling_mode: ScalingMode::FixedVertical(6.0),
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: 6.0,
+            },
             ..OrthographicProjection::default_3d()
         }),
         Camera {
@@ -237,7 +245,7 @@ fn move_camera_view(
 ) {
     for mut camera in movable_camera_query.iter_mut() {
         if let Some(sub_view) = &mut camera.sub_camera_view {
-            sub_view.offset.x = (time.elapsed_seconds() * 150.) % 450.0 - 50.0;
+            sub_view.offset.x = (time.elapsed_secs() * 150.) % 450.0 - 50.0;
             sub_view.offset.y = sub_view.offset.x;
         }
     }

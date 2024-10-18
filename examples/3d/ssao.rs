@@ -104,7 +104,7 @@ fn update(
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    sphere.translation.y = ops::sin(time.elapsed_seconds() / 1.7) * 0.7;
+    sphere.translation.y = ops::sin(time.elapsed_secs() / 1.7) * 0.7;
 
     let (camera_entity, ssao, temporal_jitter) = *camera;
     let current_ssao = ssao.cloned().unwrap_or_default();

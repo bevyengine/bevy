@@ -8,7 +8,7 @@
 
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
-//! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`Text`](prelude::Text) and [`node_bundles::NodeBundle`]
+//! Spawn UI elements with [`widget::Button`], [`UiImage`], [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod measurement;
@@ -23,9 +23,11 @@ pub mod picking_backend;
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
+// This module is not re-exported, but is instead made public.
+// This is intended to discourage accidental use of the experimental API.
+pub mod experimental;
 mod focus;
 mod geometry;
-mod ghost_hierarchy;
 mod layout;
 mod render;
 mod stack;
@@ -33,7 +35,6 @@ mod ui_node;
 
 pub use focus::*;
 pub use geometry::*;
-pub use ghost_hierarchy::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
@@ -58,7 +59,7 @@ pub mod prelude {
             ui_material::*,
             ui_node::*,
             widget::{Button, Label},
-            Interaction, UiMaterialHandle, UiMaterialPlugin, UiScale,
+            Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer},

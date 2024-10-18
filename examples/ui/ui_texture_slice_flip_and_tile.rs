@@ -39,8 +39,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
                 justify_content: JustifyContent::Center,
@@ -50,8 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 row_gap: Val::Px(10.),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             for ([width, height], flip_x, flip_y) in [
                 ([160., 160.], false, false),
@@ -60,19 +60,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ([160., 160.], true, true),
             ] {
                 parent.spawn((
-                    NodeBundle {
-                        style: Style {
-                            width: Val::Px(width),
-                            height: Val::Px(height),
-                            ..default()
-                        },
-                        ..Default::default()
-                    },
                     UiImage {
                         texture: image.clone(),
                         flip_x,
                         flip_y,
-                        ..Default::default()
+                        ..default()
+                    },
+                    Style {
+                        width: Val::Px(width),
+                        height: Val::Px(height),
+                        ..default()
                     },
                     ImageScaleMode::Sliced(slicer.clone()),
                 ));

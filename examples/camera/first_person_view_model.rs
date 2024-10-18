@@ -192,15 +192,15 @@ fn spawn_lights(mut commands: Commands) {
 
 fn spawn_text(mut commands: Commands) {
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(12.0),
                 left: Val::Px(12.0),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_child(Text::new(concat!(
             "Move the camera with your mouse.\n",
             "Press arrow up to decrease the FOV of the world model.\n",

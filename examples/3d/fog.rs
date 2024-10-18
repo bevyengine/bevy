@@ -133,8 +133,8 @@ fn update_system(
     time: Res<Time>,
     keycode: Res<ButtonInput<KeyCode>>,
 ) {
-    let now = time.elapsed_seconds();
-    let delta = time.delta_seconds();
+    let now = time.elapsed_secs();
+    let delta = time.delta_secs();
 
     let (mut fog, mut transform) = camera.into_inner();
 
