@@ -1926,20 +1926,18 @@ where
         if world.entities.contains(id) {
             self(world.entity_mut(id));
         } else {
-            if failure_mode != FailureMode::Ignore {
-                match failure_mode {
-                    FailureMode::Ignore => unreachable!(),
-                    FailureMode::Log => info!(
-                        "Could not execute EntityCommand because its entity {id:?} was missing"
-                    ),
-                    FailureMode::Warn => warn!(
-                        "Could not execute EntityCommand because its entity {id:?} was missing"
-                    ),
-                    FailureMode::Panic => panic!(
-                        "Could not execute EntityCommand because its entity {id:?} was missing"
-                    ),
-                };
-            }
+            match failure_mode {
+                FailureMode::Ignore => (),
+                FailureMode::Log => {
+                    info!("Could not execute EntityCommand because its entity {id:?} was missing")
+                }
+                FailureMode::Warn => {
+                    warn!("Could not execute EntityCommand because its entity {id:?} was missing")
+                }
+                FailureMode::Panic => {
+                    panic!("Could not execute EntityCommand because its entity {id:?} was missing")
+                }
+            };
         }
     }
 }
@@ -1952,20 +1950,18 @@ where
         if world.entities.contains(id) {
             self(id, world);
         } else {
-            if failure_mode != FailureMode::Ignore {
-                match failure_mode {
-                    FailureMode::Ignore => unreachable!(),
-                    FailureMode::Log => info!(
-                        "Could not execute EntityCommand because its entity {id:?} was missing"
-                    ),
-                    FailureMode::Warn => warn!(
-                        "Could not execute EntityCommand because its entity {id:?} was missing"
-                    ),
-                    FailureMode::Panic => panic!(
-                        "Could not execute EntityCommand because its entity {id:?} was missing"
-                    ),
-                };
-            }
+            match failure_mode {
+                FailureMode::Ignore => (),
+                FailureMode::Log => {
+                    info!("Could not execute EntityCommand because its entity {id:?} was missing")
+                }
+                FailureMode::Warn => {
+                    warn!("Could not execute EntityCommand because its entity {id:?} was missing")
+                }
+                FailureMode::Panic => {
+                    panic!("Could not execute EntityCommand because its entity {id:?} was missing")
+                }
+            };
         }
     }
 }
