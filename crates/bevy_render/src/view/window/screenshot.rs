@@ -623,7 +623,7 @@ fn render_screenshot(
                 occlusion_query_set: None,
             });
             pass.set_pipeline(pipeline);
-            pass.set_bind_group(0, &prepared_state.bind_group, &[]);
+            pass.set_bind_group(0, Some(&prepared_state.bind_group), &[]);
             pass.draw(0..3, 0..1);
         }
     }

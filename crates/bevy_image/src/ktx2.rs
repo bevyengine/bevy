@@ -641,7 +641,7 @@ pub fn ktx2_dfd_to_texture_format(
                         && sample_information[2].channel_type == 2
                         && sample_information[2].bit_length == 10
                     {
-                        TextureFormat::Rg11b10Float
+                        TextureFormat::Rg11b10Ufloat
                     } else if sample_information[0].channel_type == 0
                         && sample_information[0].bit_length == 9
                         && sample_information[1].channel_type == 1
@@ -1276,7 +1276,7 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::R32G32B32A32_SINT => TextureFormat::Rgba32Sint,
         ktx2::Format::R32G32B32A32_SFLOAT => TextureFormat::Rgba32Float,
 
-        ktx2::Format::B10G11R11_UFLOAT_PACK32 => TextureFormat::Rg11b10Float,
+        ktx2::Format::B10G11R11_UFLOAT_PACK32 => TextureFormat::Rg11b10Ufloat,
         ktx2::Format::E5B9G9R9_UFLOAT_PACK32 => TextureFormat::Rgb9e5Ufloat,
 
         ktx2::Format::X8_D24_UNORM_PACK32 => TextureFormat::Depth24Plus,
