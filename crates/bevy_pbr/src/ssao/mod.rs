@@ -261,10 +261,14 @@ impl ViewNode for SsaoNode {
                         timestamp_writes: None,
                     });
             preprocess_depth_pass.set_pipeline(preprocess_depth_pipeline);
-            preprocess_depth_pass.set_bind_group(0, &bind_groups.preprocess_depth_bind_group, &[]);
+            preprocess_depth_pass.set_bind_group(
+                0,
+                Some(&bind_groups.preprocess_depth_bind_group),
+                &[],
+            );
             preprocess_depth_pass.set_bind_group(
                 1,
-                &bind_groups.common_bind_group,
+                Some(&bind_groups.common_bind_group),
                 &[view_uniform_offset.offset],
             );
             preprocess_depth_pass.dispatch_workgroups(
@@ -283,10 +287,10 @@ impl ViewNode for SsaoNode {
                         timestamp_writes: None,
                     });
             ssao_pass.set_pipeline(ssao_pipeline);
-            ssao_pass.set_bind_group(0, &bind_groups.ssao_bind_group, &[]);
+            ssao_pass.set_bind_group(0, Some(&bind_groups.ssao_bind_group), &[]);
             ssao_pass.set_bind_group(
                 1,
-                &bind_groups.common_bind_group,
+                Some(&bind_groups.common_bind_group),
                 &[view_uniform_offset.offset],
             );
             ssao_pass.dispatch_workgroups(camera_size.x.div_ceil(8), camera_size.y.div_ceil(8), 1);
@@ -301,10 +305,14 @@ impl ViewNode for SsaoNode {
                         timestamp_writes: None,
                     });
             spatial_denoise_pass.set_pipeline(spatial_denoise_pipeline);
-            spatial_denoise_pass.set_bind_group(0, &bind_groups.spatial_denoise_bind_group, &[]);
+            spatial_denoise_pass.set_bind_group(
+                0,
+                Some(&bind_groups.spatial_denoise_bind_group),
+                &[],
+            );
             spatial_denoise_pass.set_bind_group(
                 1,
-                &bind_groups.common_bind_group,
+                Some(&bind_groups.common_bind_group),
                 &[view_uniform_offset.offset],
             );
             spatial_denoise_pass.dispatch_workgroups(

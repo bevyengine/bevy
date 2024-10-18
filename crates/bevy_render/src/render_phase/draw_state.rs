@@ -205,7 +205,7 @@ impl<'a> TrackedRenderPass<'a> {
         );
 
         self.pass
-            .set_bind_group(index as u32, bind_group, dynamic_uniform_indices);
+            .set_bind_group(index as u32, Some(bind_group), dynamic_uniform_indices);
         self.state
             .set_bind_group(index, bind_group.id(), dynamic_uniform_indices);
     }

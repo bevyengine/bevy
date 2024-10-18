@@ -344,7 +344,7 @@ fn fill_cluster_buffers_pass(
     });
     fill_pass.set_pipeline(fill_cluster_buffers_pass_pipeline);
     fill_pass.set_push_constants(0, &cluster_count.to_le_bytes());
-    fill_pass.set_bind_group(0, fill_cluster_buffers_bind_group, &[]);
+    fill_pass.set_bind_group(0, Some(fill_cluster_buffers_bind_group), &[]);
     fill_pass.dispatch_workgroups(
         fill_cluster_buffers_pass_workgroups,
         fill_cluster_buffers_pass_workgroups,
@@ -374,7 +374,7 @@ fn cull_pass(
     cull_pass.set_push_constants(0, &raster_cluster_rightmost_slot.to_le_bytes());
     cull_pass.set_bind_group(
         0,
-        culling_bind_group,
+        Some(culling_bind_group),
         &[view_offset.offset, previous_view_offset.offset],
     );
     cull_pass.dispatch_workgroups(culling_workgroups, culling_workgroups, culling_workgroups);
@@ -384,7 +384,7 @@ fn cull_pass(
         remap_1d_to_2d_dispatch_bind_group,
     ) {
         cull_pass.set_pipeline(remap_1d_to_2d_dispatch_pipeline);
-        cull_pass.set_bind_group(0, remap_1d_to_2d_dispatch_bind_group, &[]);
+        cull_pass.set_bind_group(0, Some(remap_1d_to_2d_dispatch_bind_group), &[]);
         cull_pass.dispatch_workgroups(1, 1, 1);
     }
 }
@@ -415,7 +415,7 @@ fn raster_pass(
     software_pass.set_pipeline(visibility_buffer_hardware_software_pipeline);
     software_pass.set_bind_group(
         0,
-        &meshlet_view_bind_groups.visibility_buffer_raster,
+        Some(&meshlet_view_bind_groups.visibility_buffer_raster),
         &[view_offset.offset],
     );
     software_pass
@@ -477,7 +477,7 @@ fn downsample_depth(
             meshlet_view_resources.view_size.x,
         ]),
     );
-    downsample_pass.set_bind_group(0, &meshlet_view_bind_groups.downsample_depth, &[]);
+    downsample_pass.set_bind_group(0, Some(&meshlet_view_bind_groups.downsample_depth), &[]);
     downsample_pass.dispatch_workgroups(
         meshlet_view_resources.view_size.x.div_ceil(64),
         meshlet_view_resources.view_size.y.div_ceil(64),
