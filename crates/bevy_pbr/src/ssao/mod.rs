@@ -261,7 +261,11 @@ impl ViewNode for SsaoNode {
                         timestamp_writes: None,
                     });
             preprocess_depth_pass.set_pipeline(preprocess_depth_pipeline);
-            preprocess_depth_pass.set_bind_group(0, Some(&bind_groups.preprocess_depth_bind_group), &[]);
+            preprocess_depth_pass.set_bind_group(
+                0,
+                Some(&bind_groups.preprocess_depth_bind_group),
+                &[],
+            );
             preprocess_depth_pass.set_bind_group(
                 1,
                 Some(&bind_groups.common_bind_group),
@@ -301,7 +305,11 @@ impl ViewNode for SsaoNode {
                         timestamp_writes: None,
                     });
             spatial_denoise_pass.set_pipeline(spatial_denoise_pipeline);
-            spatial_denoise_pass.set_bind_group(0, Some(&bind_groups.spatial_denoise_bind_group), &[]);
+            spatial_denoise_pass.set_bind_group(
+                0,
+                Some(&bind_groups.spatial_denoise_bind_group),
+                &[],
+            );
             spatial_denoise_pass.set_bind_group(
                 1,
                 Some(&bind_groups.common_bind_group),
