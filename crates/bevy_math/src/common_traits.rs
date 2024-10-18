@@ -157,7 +157,7 @@ impl NormedVectorSpace for Vec2 {
 impl NormedVectorSpace for f32 {
     #[inline]
     fn norm(self) -> f32 {
-        self.abs()
+        ops::abs(self)
     }
 
     #[inline]

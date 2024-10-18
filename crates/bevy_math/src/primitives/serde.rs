@@ -31,7 +31,7 @@ pub(crate) mod array {
         type Value = [T; N];
 
         fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
-            formatter.write_str(&format!("an array of length {}", N))
+            formatter.write_fmt(format_args!("an array of length {}", N))
         }
 
         #[inline]
@@ -39,17 +39,21 @@ pub(crate) mod array {
         where
             A: SeqAccess<'de>,
         {
-            let mut data = Vec::with_capacity(N);
-            for _ in 0..N {
+            let mut data = [const { Option::<T>::None }; N];
+
+            for element in data.iter_mut() {
                 match (seq.next_element())? {
-                    Some(val) => data.push(val),
+                    Some(val) => *element = Some(val),
                     None => return Err(serde::de::Error::invalid_length(N, &self)),
                 }
             }
-            match data.try_into() {
-                Ok(arr) => Ok(arr),
-                Err(_) => unreachable!(),
-            }
+
+            let data = data.map(|value| match value {
+                Some(value) => value,
+                None => unreachable!(),
+            });
+
+            Ok(data)
         }
     }
 
