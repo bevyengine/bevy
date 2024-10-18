@@ -211,14 +211,14 @@ pub fn ui_layout_system(
     // Sync Node and ContentSize to Taffy for all nodes
     node_query
         .iter_mut()
-        .for_each(|(entity, style, content_size, target_camera)| {
+        .for_each(|(entity, node, content_size, target_camera)| {
             if let Some(camera) =
                 camera_with_default(target_camera).and_then(|c| camera_layout_info.get(&c))
             {
                 if camera.resized
                     || !scale_factor_events.is_empty()
                     || ui_scale.is_changed()
-                    || style.is_changed()
+                    || node.is_changed()
                     || content_size
                         .as_ref()
                         .map(|c| c.measure.is_some())
@@ -229,7 +229,7 @@ pub fn ui_layout_system(
                         [camera.size.x as f32, camera.size.y as f32].into(),
                     );
                     let measure = content_size.and_then(|mut c| c.measure.take());
-                    ui_surface.upsert_node(&layout_context, entity, &style, measure);
+                    ui_surface.upsert_node(&layout_context, entity, &node, measure);
                 }
             } else {
                 ui_surface.upsert_node(&LayoutContext::DEFAULT, entity, &Node::default(), None);

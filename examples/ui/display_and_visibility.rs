@@ -50,13 +50,13 @@ trait TargetUpdate {
 impl TargetUpdate for Target<Display> {
     type TargetComponent = Node;
     const NAME: &'static str = "Display";
-    fn update_target(&self, style: &mut Self::TargetComponent) -> String {
-        style.display = match style.display {
+    fn update_target(&self, node: &mut Self::TargetComponent) -> String {
+        node.display = match node.display {
             Display::Flex => Display::None,
             Display::None => Display::Flex,
             Display::Block | Display::Grid => unreachable!(),
         };
-        format!("{}::{:?} ", Self::NAME, style.display)
+        format!("{}::{:?} ", Self::NAME, node.display)
     }
 }
 

@@ -447,7 +447,7 @@ pub struct Node {
     /// # Example
     /// ```
     /// # use bevy_ui::{Node, UiRect, Val};
-    /// let style = Node {
+    /// let node = Node {
     ///     margin: UiRect {
     ///         left: Val::Percent(10.),
     ///         right: Val::Percent(10.),
