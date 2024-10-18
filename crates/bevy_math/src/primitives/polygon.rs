@@ -154,7 +154,7 @@ impl<'a> SweepLine<'a> {
         }
     }
 
-    /// Determine whther the given edges of the polygon intersect.
+    /// Determine whether the given edges of the polygon intersect.
     fn intersects(&self, edge1: Option<usize>, edge2: Option<usize>) -> bool {
         let Some(edge1) = edge1 else {
             return false;
@@ -218,15 +218,15 @@ impl<'a> SweepLine<'a> {
 
     /// Remove `s` from the [`SweepLine`].
     fn remove(&mut self, s: &Segment) {
-        let Some(nd) = self.tree.get(s).copied() else {
+        let Some(s_ord) = self.tree.get(s).copied() else {
             return;
         };
 
         if let Some((_, above_ord)) = self.tree.range_mut(s..).next() {
-            above_ord.below = nd.below;
+            above_ord.below = s_ord.below;
         }
         if let Some((_, below_ord)) = self.tree.range_mut(..s).next_back() {
-            below_ord.above = nd.above;
+            below_ord.above = s_ord.above;
         }
 
         self.tree.remove(s);
