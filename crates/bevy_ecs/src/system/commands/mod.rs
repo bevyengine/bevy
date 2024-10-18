@@ -1929,13 +1929,13 @@ where
             match failure_mode {
                 FailureMode::Ignore => (),
                 FailureMode::Log => {
-                    info!("Could not execute EntityCommand because its entity {id:?} was missing")
+                    info!("Could not execute EntityCommand because its entity {id:?} was missing");
                 }
                 FailureMode::Warn => {
-                    warn!("Could not execute EntityCommand because its entity {id:?} was missing")
+                    warn!("Could not execute EntityCommand because its entity {id:?} was missing");
                 }
                 FailureMode::Panic => {
-                    panic!("Could not execute EntityCommand because its entity {id:?} was missing")
+                    panic!("Could not execute EntityCommand because its entity {id:?} was missing");
                 }
             };
         }
@@ -1953,13 +1953,13 @@ where
             match failure_mode {
                 FailureMode::Ignore => (),
                 FailureMode::Log => {
-                    info!("Could not execute EntityCommand because its entity {id:?} was missing")
+                    info!("Could not execute EntityCommand because its entity {id:?} was missing");
                 }
                 FailureMode::Warn => {
-                    warn!("Could not execute EntityCommand because its entity {id:?} was missing")
+                    warn!("Could not execute EntityCommand because its entity {id:?} was missing");
                 }
                 FailureMode::Panic => {
-                    panic!("Could not execute EntityCommand because its entity {id:?} was missing")
+                    panic!("Could not execute EntityCommand because its entity {id:?} was missing");
                 }
             };
         }
