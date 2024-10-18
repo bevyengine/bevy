@@ -1608,14 +1608,6 @@ impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
     }
 }
 
-impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
-    fn from(val: ConvexPolygon<N>) -> Self {
-        Polygon {
-            vertices: val.vertices,
-        }
-    }
-}
-
 /// A convex polygon with `N` vertices.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
