@@ -12,19 +12,27 @@ enum Endpoint {
     Right,
 }
 
-/// An event in the [`EventQueue`] is either the left or right end of an edge of the polygon.
+/// An event in the [`EventQueue`] is either the left or right vertex of an edge of the polygon.
+///
+/// Events are ordered so that any event `e1` which is to the left of another event `e2` is less than that event.
+/// If `e1.position().x == e2.position().x` the events are ordered from bottom to top.
 #[derive(Debug, Clone, Copy)]
 struct Event {
-    /// Event vertex
-    position: Vec2,
-    /// Index of the edge in the polygon
-    edge_index: usize,
+    segment: Segment,
     /// Type of the vertex (left or right)
-    ty: Endpoint,
+    endpoint: Endpoint,
+}
+impl Event {
+    fn position(&self) -> Vec2 {
+        match self.endpoint {
+            Endpoint::Left => self.segment.left,
+            Endpoint::Right => self.segment.right,
+        }
+    }
 }
 impl PartialEq for Event {
     fn eq(&self, other: &Self) -> bool {
-        self.position == other.position
+        self.position() == other.position()
     }
 }
 impl Eq for Event {}
@@ -35,7 +43,7 @@ impl PartialOrd for Event {
 }
 impl Ord for Event {
     fn cmp(&self, other: &Self) -> Ordering {
-        xy_order(self.position, other.position)
+        xy_order(self.position(), other.position())
     }
 }
 
@@ -55,7 +63,7 @@ struct EventQueue {
 impl EventQueue {
     /// Initialize a new `EventQueue` with all events from the polygon represented by `vertices`.
     ///
-    /// The events will be ordered
+    /// The events in the event queue will be ordered.
     fn new(vertices: &[Vec2]) -> Self {
         if vertices.is_empty() {
             return Self { events: Vec::new() };
@@ -65,21 +73,24 @@ impl EventQueue {
         for i in 0..vertices.len() {
             let v1 = vertices[i];
             let v2 = *vertices.get(i + 1).unwrap_or(&vertices[0]);
-            let (ty1, ty2) = if xy_order(v1, v2) == Ordering::Less {
-                (Endpoint::Left, Endpoint::Right)
+            let (left, right) = if xy_order(v1, v2) == Ordering::Less {
+                (v1, v2)
             } else {
-                (Endpoint::Right, Endpoint::Left)
+                (v2, v1)
             };
 
-            events.push(Event {
+            let segment = Segment {
                 edge_index: i,
-                position: v1,
-                ty: ty1,
+                left,
+                right,
+            };
+            events.push(Event {
+                segment,
+                endpoint: Endpoint::Left,
             });
             events.push(Event {
-                edge_index: i,
-                position: v2,
-                ty: ty2,
+                segment,
+                endpoint: Endpoint::Right,
             });
         }
 
@@ -89,7 +100,10 @@ impl EventQueue {
     }
 }
 
-/// Represents a segment in the [`Sweepline`]
+/// Represents a segment or rather an edge of the polygon in the [`Sweepline`].
+///
+/// Segments are ordered from bottom to top based on their left vertices if possible.
+/// If their y values are identical, the segments are ordered based on the y values of their right vertices.
 #[derive(Debug, Clone, Copy)]
 struct Segment {
     edge_index: usize,
@@ -123,7 +137,7 @@ struct SegmentOrder {
     below: Option<usize>,
 }
 
-/// A sweep line allows for efficient an efficient search for intersections between [segments](`Segment`).
+/// A sweep line allows for an efficient search for intersections between [segments](`Segment`).
 ///
 /// It can be thought of as a vertical line sweeping from -X to +X across the polygon that keeps track of the order of the segments
 /// the sweep line is intersecting at any given moment.
@@ -175,18 +189,16 @@ impl<'a> SweepLine<'a> {
         true
     }
 
-    /// Add a new event to the sweep line
-    fn add(&mut self, e: Event) -> SegmentOrder {
-        let s = self.segment_from_event(e);
-
+    /// Add a new segment to the sweep line
+    fn add(&mut self, s: Segment) -> SegmentOrder {
         let above = if let Some((next_s, next_ord)) = self.tree.range_mut(s..).next() {
-            next_ord.below.replace(e.edge_index);
+            next_ord.below.replace(s.edge_index);
             Some(next_s.edge_index)
         } else {
             None
         };
         let below = if let Some((prev_s, prev_ord)) = self.tree.range_mut(..s).next_back() {
-            prev_ord.above.replace(e.edge_index);
+            prev_ord.above.replace(s.edge_index);
             Some(prev_s.edge_index)
         } else {
             None
@@ -197,20 +209,16 @@ impl<'a> SweepLine<'a> {
         s_ord
     }
 
-    /// Get the segment order for the event `e`.
+    /// Get the segment order for the given segment.
     ///
-    /// If `e` has not been added to the [`SweepLine`] `None` will be returned.
-    fn find(&self, e: Event) -> Option<&SegmentOrder> {
-        let s = self.segment_from_event(e);
-
-        self.tree.get(&s)
+    /// If `s` has not been added to the [`SweepLine`] `None` will be returned.
+    fn find(&self, s: &Segment) -> Option<&SegmentOrder> {
+        self.tree.get(s)
     }
 
-    /// Remove an event from the [`SweepLine`].
-    fn remove(&mut self, e: Event) {
-        let s = self.segment_from_event(e);
-
-        let Some(nd) = self.tree.get(&s).copied() else {
+    /// Remove `s` from the [`SweepLine`].
+    fn remove(&mut self, s: &Segment) {
+        let Some(nd) = self.tree.get(s).copied() else {
             return;
         };
 
@@ -221,26 +229,7 @@ impl<'a> SweepLine<'a> {
             below_ord.above = nd.above;
         }
 
-        self.tree.remove(&s);
-    }
-
-    fn segment_from_event(&self, e: Event) -> Segment {
-        let v1 = self.vertices[e.edge_index];
-        let v2 = *self
-            .vertices
-            .get(e.edge_index + 1)
-            .unwrap_or(&self.vertices[0]);
-        let (left, right) = if xy_order(v1, v2) == Ordering::Less {
-            (v1, v2)
-        } else {
-            (v2, v1)
-        };
-
-        Segment {
-            edge_index: e.edge_index,
-            left,
-            right,
-        }
+        self.tree.remove(s);
     }
 }
 
@@ -248,8 +237,8 @@ impl<'a> SweepLine<'a> {
 ///
 /// The result will be `0` if the `q` is on the segment, negative for one side and positive for the other.
 #[inline(always)]
-fn point_side(p0: Vec2, p1: Vec2, q: Vec2) -> f32 {
-    (p1.x - p0.x) * (q.y - p0.y) - (q.x - p0.x) * (p1.y - p0.y)
+fn point_side(p1: Vec2, p2: Vec2, q: Vec2) -> f32 {
+    (p2.x - p1.x) * (q.y - p1.y) - (q.x - p1.x) * (p2.y - p1.y)
 }
 
 /// Tests whether the `vertices` describe a simple polygon.
@@ -260,7 +249,7 @@ fn point_side(p0: Vec2, p1: Vec2, q: Vec2) -> f32 {
 ///
 /// Any 'polygon' with less than three vertices is simple.
 ///
-/// The algorithm used is the Shamos-Hoey algorithm, a simplified version of the Bentley-Ottman algorithm.
+/// The algorithm used is the Shamos-Hoey algorithm, a version of the Bentley-Ottman algorithm adapted to only detect whether any intersections exist.
 /// This function will run in O(n * log n)
 pub fn is_polygon_simple(vertices: &[Vec2]) -> bool {
     if vertices.len() < 3 {
@@ -270,25 +259,25 @@ pub fn is_polygon_simple(vertices: &[Vec2]) -> bool {
         return Triangle2d::new(vertices[0], vertices[1], vertices[2]).area() > 0.0;
     }
 
-    let eq = EventQueue::new(vertices);
-    let mut sl = SweepLine::new(vertices);
+    let event_queue = EventQueue::new(vertices);
+    let mut sweep_line = SweepLine::new(vertices);
 
-    for e in eq.events {
-        match e.ty {
+    for e in event_queue.events {
+        match e.endpoint {
             Endpoint::Left => {
-                let s = sl.add(e);
-                if sl.intersects(Some(e.edge_index), s.above)
-                    || sl.intersects(Some(e.edge_index), s.below)
+                let s = sweep_line.add(e.segment);
+                if sweep_line.intersects(Some(e.segment.edge_index), s.above)
+                    || sweep_line.intersects(Some(e.segment.edge_index), s.below)
                 {
                     return false;
                 }
             }
             Endpoint::Right => {
-                if let Some(s) = sl.find(e) {
-                    if sl.intersects(s.above, s.below) {
+                if let Some(s) = sweep_line.find(&e.segment) {
+                    if sweep_line.intersects(s.above, s.below) {
                         return false;
                     }
-                    sl.remove(e);
+                    sweep_line.remove(&e.segment);
                 }
             }
         }
