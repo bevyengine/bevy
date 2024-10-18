@@ -1926,9 +1926,11 @@ where
         if world.entities.contains(id) {
             self(world.entity_mut(id));
         } else {
-            let message =
-                format!("Could not execute EntityCommand because its entity {id:?} was missing");
-            failure_mode.fail(message);
+            if failure_mode != FailureMode::Ignore {
+                let message =
+                    format!("Could not execute EntityCommand because its entity {id:?} was missing");
+                failure_mode.fail(message);
+            }
         }
     }
 }
@@ -1941,9 +1943,11 @@ where
         if world.entities.contains(id) {
             self(id, world);
         } else {
-            let message =
-                format!("Could not execute EntityCommand because its entity {id:?} was missing");
-            failure_mode.fail(message);
+            if failure_mode != FailureMode::Ignore {
+                let message =
+                    format!("Could not execute EntityCommand because its entity {id:?} was missing");
+                failure_mode.fail(message);
+            }
         }
     }
 }
