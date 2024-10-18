@@ -51,7 +51,7 @@ use crate::{
     },
 };
 use bevy_ptr::{OwningPtr, Ptr};
-use bevy_utils::tracing::warn;
+use bevy_utils::tracing::{info, warn};
 use core::{
     any::TypeId,
     fmt,
@@ -2491,6 +2491,7 @@ impl World {
         self.insert_batch_with_caller(
             batch,
             InsertMode::Replace,
+            FailureMode::Panic,
             #[cfg(feature = "track_change_detection")]
             Location::caller(),
         );
@@ -2521,6 +2522,7 @@ impl World {
         self.insert_batch_with_caller(
             batch,
             InsertMode::Keep,
+            FailureMode::Panic,
             #[cfg(feature = "track_change_detection")]
             Location::caller(),
         );
@@ -2538,6 +2540,7 @@ impl World {
         &mut self,
         iter: I,
         insert_mode: InsertMode,
+        failure_mode: FailureMode,
         #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) where
         I: IntoIterator,
@@ -2613,11 +2616,21 @@ impl World {
                             )
                         };
                     } else {
-                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), entity);
+                        let message = format!(
+                            "error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003",
+                            core::any::type_name::<B>(),
+                            entity,
+                        );
+                        failure_mode.fail(message);
                     }
                 }
             } else {
-                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), first_entity);
+                let message = format!(
+                    "error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003",
+                    core::any::type_name::<B>(),
+                    first_entity,
+                );
+                failure_mode.fail(message);
             }
         }
     }
@@ -3783,6 +3796,34 @@ impl<T: Default> FromWorld for T {
     /// Creates `Self` using [`default()`](`Default::default`).
     fn from_world(_world: &mut World) -> Self {
         T::default()
+    }
+}
+
+/// How to respond if a function fails
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
+pub enum FailureMode {
+    /// Do nothing
+    Ignore,
+    /// Send a benign message to the log
+    #[default]
+    Log,
+    /// Send a more serious message to the log
+    Warn,
+    /// Stop the application
+    Panic,
+}
+
+impl FailureMode {
+    /// Convenience method to send a message upon failure.
+    /// If you want to send different messages for different modes,
+    /// match the enum manually.
+    pub fn fail(&self, message: String) {
+        match self {
+            Self::Ignore => (),
+            Self::Log => info!("{}", message),
+            Self::Warn => warn!("{}", message),
+            Self::Panic => panic!("{}", message),
+        };
     }
 }
 
