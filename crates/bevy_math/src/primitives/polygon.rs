@@ -47,7 +47,7 @@ impl Ord for Event {
     }
 }
 
-/// Orders 2D points according to the order expected by the sweepline and event queue from -X to +X and then -Y to Y.
+/// Orders 2D points according to the order expected by the sweep line and event queue from -X to +X and then -Y to Y.
 fn xy_order(a: Vec2, b: Vec2) -> Ordering {
     match a.x.total_cmp(&b.x) {
         Ordering::Equal => a.y.total_cmp(&b.y),
@@ -55,7 +55,7 @@ fn xy_order(a: Vec2, b: Vec2) -> Ordering {
     }
 }
 
-/// The event queue holds an ordered list of all events the [`Sweepline`] will encounter when checking the current polygon.
+/// The event queue holds an ordered list of all events the [`SweepLine`] will encounter when checking the current polygon.
 #[derive(Debug, Clone)]
 struct EventQueue {
     events: Vec<Event>,
@@ -100,7 +100,7 @@ impl EventQueue {
     }
 }
 
-/// Represents a segment or rather an edge of the polygon in the [`Sweepline`].
+/// Represents a segment or rather an edge of the polygon in the [`SweepLine`].
 ///
 /// Segments are ordered from bottom to top based on their left vertices if possible.
 /// If their y values are identical, the segments are ordered based on the y values of their right vertices.
