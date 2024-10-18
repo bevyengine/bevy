@@ -72,7 +72,7 @@ fn update(
     buffer.set_data(
         (0..5)
             .map(|i| {
-                let t = time.elapsed_seconds() * 5.0;
+                let t = time.elapsed_secs() * 5.0;
                 [
                     ops::sin(t + i as f32) / 2.0 + 0.5,
                     ops::sin(t + i as f32 + 2.0) / 2.0 + 0.5,

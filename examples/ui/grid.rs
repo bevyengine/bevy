@@ -21,8 +21,9 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Top-level grid (app frame)
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 // Use the CSS Grid algorithm for laying out this node
                 display: Display::Grid,
                 // Make node fill the entirety of its parent (in this case the window)
@@ -43,30 +44,30 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ],
                 ..default()
             },
-            background_color: BackgroundColor(Color::WHITE),
-            ..default()
-        })
+            BackgroundColor(Color::WHITE),
+        ))
         .with_children(|builder| {
             // Header
             builder
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node::default(),
+                    Style {
                         display: Display::Grid,
                         // Make this node span two grid columns so that it takes up the entire top tow
                         grid_column: GridPlacement::span(2),
                         padding: UiRect::all(Val::Px(6.0)),
                         ..default()
                     },
-                    ..default()
-                })
+                ))
                 .with_children(|builder| {
                     spawn_nested_text_bundle(builder, font.clone(), "Bevy CSS Grid Layout Example");
                 });
 
             // Main content grid (auto placed in row 2, column 1)
             builder
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node::default(),
+                    Style {
                         // Make the height of the node fill its parent
                         height: Val::Percent(100.0),
                         // Make the grid have a 1:1 aspect ratio meaning it will scale as an exact square
@@ -87,9 +88,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         column_gap: Val::Px(12.0),
                         ..default()
                     },
-                    background_color: BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-                    ..default()
-                })
+                    BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+                ))
                 .with_children(|builder| {
                     // Note there is no need to specify the position for each grid item. Grid items that are
                     // not given an explicit position will be automatically positioned into the next available
@@ -116,8 +116,9 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             // Right side bar (auto placed in row 2, column 2)
             builder
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node::default(),
+                    Style {
                         display: Display::Grid,
                         // Align content towards the start (top) in the vertical axis
                         align_items: AlignItems::Start,
@@ -132,9 +133,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         row_gap: Val::Px(10.),
                         ..default()
                     },
-                    background_color: BackgroundColor(BLACK.into()),
-                    ..default()
-                })
+                    BackgroundColor(BLACK.into()),
+                ))
                 .with_children(|builder| {
                     builder.spawn((Text::new("Sidebar"),
                         TextFont {
@@ -149,24 +149,25 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ..default()
                         },
                     ));
-                    builder.spawn(NodeBundle::default());
+                    builder.spawn(Node::default());
                 });
 
             // Footer / status bar
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node::default(),
+                Style {
                     // Make this node span two grid column so that it takes up the entire bottom row
                     grid_column: GridPlacement::span(2),
                     ..default()
                 },
-                background_color: BackgroundColor(WHITE.into()),
-                ..default()
-            });
+                BackgroundColor(WHITE.into()),
+            ));
 
             // Modal (absolutely positioned on top of content - currently hidden: to view it, change its visibility)
-            builder.spawn(NodeBundle {
-                visibility: Visibility::Hidden,
-                style: Style {
+            builder.spawn((
+                Node::default(),
+                Visibility::Hidden,
+                Style {
                     position_type: PositionType::Absolute,
                     margin: UiRect {
                         top: Val::Px(100.),
@@ -179,9 +180,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     max_width: Val::Px(600.),
                     ..default()
                 },
-                background_color: BackgroundColor(Color::WHITE.with_alpha(0.8)),
-                ..default()
-            });
+                BackgroundColor(Color::WHITE.with_alpha(0.8)),
+            ));
         });
 }
 
@@ -190,20 +190,17 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// which will allow it to take its size from the size of the grid area it occupies.
 fn item_rect(builder: &mut ChildBuilder, color: Srgba) {
     builder
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 display: Display::Grid,
                 padding: UiRect::all(Val::Px(3.0)),
                 ..default()
             },
-            background_color: BackgroundColor(BLACK.into()),
-            ..default()
-        })
+            BackgroundColor(BLACK.into()),
+        ))
         .with_children(|builder| {
-            builder.spawn(NodeBundle {
-                background_color: BackgroundColor(color.into()),
-                ..default()
-            });
+            builder.spawn((Node::default(), BackgroundColor(color.into())));
         });
 }
 

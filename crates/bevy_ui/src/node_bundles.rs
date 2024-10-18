@@ -1,9 +1,10 @@
 //! This module contains basic node bundles used to build UIs
+#![expect(deprecated)]
 
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, BorderRadius, ContentSize, FocusPolicy, Interaction, Node,
-    ScrollPosition, Style, UiImage, UiMaterial, UiMaterialHandle, ZIndex,
+    BackgroundColor, BorderColor, BorderRadius, ContentSize, FocusPolicy, Interaction,
+    MaterialNode, Node, ScrollPosition, Style, UiImage, UiMaterial, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
@@ -15,6 +16,10 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 ///
 /// See [`node_bundles`](crate::node_bundles) for more specialized bundles like [`ImageBundle`].
 #[derive(Bundle, Clone, Debug, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Node` component instead. Inserting `Node` will also insert the other components required automatically."
+)]
 pub struct NodeBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -59,6 +64,10 @@ pub struct NodeBundle {
 /// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
 /// - [`TextureAtlas`](bevy_sprite::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Debug, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `UiImage` component instead. Inserting `UiImage` will also insert the other components required automatically."
+)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -108,6 +117,10 @@ pub struct ImageBundle {
 /// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
 /// - [`TextureAtlas`](bevy_sprite::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Clone, Debug)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Button` component instead. Inserting `Button` will also insert the other components required automatically."
+)]
 pub struct ButtonBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -174,6 +187,10 @@ impl Default for ButtonBundle {
 /// Adding a `BackgroundColor` component to an entity with this bundle will ignore the custom
 /// material and use the background color instead.
 #[derive(Bundle, Clone, Debug)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `MaterialNode` component instead. Inserting `MaterialNode` will also insert the other components required automatically."
+)]
 pub struct MaterialNodeBundle<M: UiMaterial> {
     /// Describes the logical size of the node
     pub node: Node,
@@ -181,7 +198,7 @@ pub struct MaterialNodeBundle<M: UiMaterial> {
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
     /// The [`UiMaterial`] used to render the node.
-    pub material: UiMaterialHandle<M>,
+    pub material: MaterialNode<M>,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node

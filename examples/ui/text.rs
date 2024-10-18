@@ -118,7 +118,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn text_color_system(time: Res<Time>, mut query: Query<&mut TextColor, With<ColorText>>) {
     for mut text_color in &mut query {
-        let seconds = time.elapsed_seconds();
+        let seconds = time.elapsed_secs();
 
         // Update the color of the ColorText span.
         text_color.0 = Color::srgb(

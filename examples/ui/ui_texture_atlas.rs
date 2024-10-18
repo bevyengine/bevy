@@ -33,8 +33,9 @@ fn setup(
 
     // root node
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 flex_direction: FlexDirection::Column,
@@ -43,20 +44,16 @@ fn setup(
                 row_gap: Val::Px(text_font.font_size * 2.),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             parent.spawn((
-                ImageBundle {
-                    style: Style {
-                        width: Val::Px(256.),
-                        height: Val::Px(256.),
-                        ..default()
-                    },
-                    image: UiImage::new(texture_handle),
-                    background_color: BackgroundColor(ANTIQUE_WHITE.into()),
+                UiImage::new(texture_handle),
+                Style {
+                    width: Val::Px(256.),
+                    height: Val::Px(256.),
                     ..default()
                 },
+                BackgroundColor(ANTIQUE_WHITE.into()),
                 TextureAtlas::from(texture_atlas_handle),
                 Outline::new(Val::Px(8.0), Val::ZERO, CRIMSON.into()),
             ));

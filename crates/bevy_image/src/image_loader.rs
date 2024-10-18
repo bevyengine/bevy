@@ -12,6 +12,67 @@ pub struct ImageLoader {
 }
 
 impl ImageLoader {
+    /// Full list of supported formats.
+    pub const SUPPORTED_FORMATS: &'static [ImageFormat] = &[
+        #[cfg(feature = "basis-universal")]
+        ImageFormat::Basis,
+        #[cfg(feature = "bmp")]
+        ImageFormat::Bmp,
+        #[cfg(feature = "dds")]
+        ImageFormat::Dds,
+        #[cfg(feature = "ff")]
+        ImageFormat::Farbfeld,
+        #[cfg(feature = "gif")]
+        ImageFormat::Gif,
+        #[cfg(feature = "ico")]
+        ImageFormat::Ico,
+        #[cfg(feature = "jpeg")]
+        ImageFormat::Jpeg,
+        #[cfg(feature = "ktx2")]
+        ImageFormat::Ktx2,
+        #[cfg(feature = "png")]
+        ImageFormat::Png,
+        #[cfg(feature = "pnm")]
+        ImageFormat::Pnm,
+        #[cfg(feature = "qoi")]
+        ImageFormat::Qoi,
+        #[cfg(feature = "tga")]
+        ImageFormat::Tga,
+        #[cfg(feature = "tiff")]
+        ImageFormat::Tiff,
+        #[cfg(feature = "webp")]
+        ImageFormat::WebP,
+    ];
+
+    /// Total count of file extensions, for computing supported file extensions list.
+    const COUNT_FILE_EXTENSIONS: usize = {
+        let mut count = 0;
+        let mut idx = 0;
+        while idx < Self::SUPPORTED_FORMATS.len() {
+            count += Self::SUPPORTED_FORMATS[idx].to_file_extensions().len();
+            idx += 1;
+        }
+        count
+    };
+
+    /// Gets the list of file extensions for all formats.
+    pub const SUPPORTED_FILE_EXTENSIONS: &'static [&'static str] = &{
+        let mut exts = [""; Self::COUNT_FILE_EXTENSIONS];
+        let mut ext_idx = 0;
+        let mut fmt_idx = 0;
+        while fmt_idx < Self::SUPPORTED_FORMATS.len() {
+            let mut off = 0;
+            let fmt_exts = Self::SUPPORTED_FORMATS[fmt_idx].to_file_extensions();
+            while off < fmt_exts.len() {
+                exts[ext_idx] = fmt_exts[off];
+                off += 1;
+                ext_idx += 1;
+            }
+            fmt_idx += 1;
+        }
+        exts
+    };
+
     /// Creates a new image loader that supports the provided formats.
     pub fn new(supported_compressed_formats: CompressedImageFormats) -> Self {
         Self {
@@ -105,7 +166,7 @@ impl AssetLoader for ImageLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        ImageFormat::SUPPORTED_FILE_EXTENSIONS
+        Self::SUPPORTED_FILE_EXTENSIONS
     }
 }
 

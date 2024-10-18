@@ -10,7 +10,9 @@ keywords = ["bevy", "color"]
 rust-version = "1.76.0"
 
 [dependencies]
-bevy_math = { path = "../bevy_math", version = "0.15.0-dev", default-features = false }
+bevy_math = { path = "../bevy_math", version = "0.15.0-dev", default-features = false, features = [
+  "curve",
+] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "bevy",
 ], optional = true }
@@ -26,7 +28,7 @@ encase = { version = "0.10", default-features = false }
 
 [features]
 default = ["bevy_reflect"]
-serialize = ["serde"]
+serialize = ["serde", "bevy_math/serialize"]
 
 [lints]
 workspace = true

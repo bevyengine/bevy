@@ -114,18 +114,17 @@ fn setup(
         Transform::from_xyz(0.0, 0.0, 0.0),
     ));
 
-    commands.spawn(ImageBundle {
-        image: UiImage {
+    commands.spawn((
+        UiImage {
             texture: metering_mask,
             ..default()
         },
-        style: Style {
+        Style {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 
     let text_style = TextFont::default();
 
@@ -171,9 +170,9 @@ fn example_control_system(
     let (mut camera_transform, mut auto_exposure) = camera.into_inner();
 
     let rotation = if input.pressed(KeyCode::ArrowLeft) {
-        time.delta_seconds()
+        time.delta_secs()
     } else if input.pressed(KeyCode::ArrowRight) {
-        -time.delta_seconds()
+        -time.delta_secs()
     } else {
         0.0
     };

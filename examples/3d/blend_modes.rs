@@ -192,11 +192,9 @@ fn setup(
     let mut label = |entity: Entity, label: &str| {
         commands
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        position_type: PositionType::Absolute,
-                        ..default()
-                    },
+                Node::default(),
+                Style {
+                    position_type: PositionType::Absolute,
                     ..default()
                 },
                 ExampleLabel { entity },
@@ -263,9 +261,9 @@ fn example_control_system(
     input: Res<ButtonInput<KeyCode>>,
 ) {
     if input.pressed(KeyCode::ArrowUp) {
-        state.alpha = (state.alpha + time.delta_seconds()).min(1.0);
+        state.alpha = (state.alpha + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::ArrowDown) {
-        state.alpha = (state.alpha - time.delta_seconds()).max(0.0);
+        state.alpha = (state.alpha - time.delta_secs()).max(0.0);
     }
 
     if input.just_pressed(KeyCode::Space) {
@@ -301,9 +299,9 @@ fn example_control_system(
     }
 
     let rotation = if input.pressed(KeyCode::ArrowLeft) {
-        time.delta_seconds()
+        time.delta_secs()
     } else if input.pressed(KeyCode::ArrowRight) {
-        -time.delta_seconds()
+        -time.delta_secs()
     } else {
         0.0
     };

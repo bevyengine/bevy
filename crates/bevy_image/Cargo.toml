@@ -10,7 +10,6 @@ keywords = ["bevy"]
 
 [features]
 # Image formats
-avif = ["image/avif"]
 basis-universal = ["dep:basis-universal"]
 bmp = ["image/bmp"]
 dds = ["ddsfile"]

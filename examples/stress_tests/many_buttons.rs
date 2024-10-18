@@ -138,8 +138,9 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
     commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
@@ -147,32 +148,29 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                 height: Val::Percent(100.),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|commands| {
             for column in 0..args.buttons {
-                commands
-                    .spawn(NodeBundle::default())
-                    .with_children(|commands| {
-                        for row in 0..args.buttons {
-                            let color = as_rainbow(row % column.max(1));
-                            let border_color = Color::WHITE.with_alpha(0.5).into();
-                            spawn_button(
-                                commands,
-                                color,
-                                buttons_f,
-                                column,
-                                row,
-                                !args.no_text,
-                                border,
-                                border_color,
-                                image
-                                    .as_ref()
-                                    .filter(|_| (column + row) % args.image_freq == 0)
-                                    .cloned(),
-                            );
-                        }
-                    });
+                commands.spawn(Node::default()).with_children(|commands| {
+                    for row in 0..args.buttons {
+                        let color = as_rainbow(row % column.max(1));
+                        let border_color = Color::WHITE.with_alpha(0.5).into();
+                        spawn_button(
+                            commands,
+                            color,
+                            buttons_f,
+                            column,
+                            row,
+                            !args.no_text,
+                            border,
+                            border_color,
+                            image
+                                .as_ref()
+                                .filter(|_| (column + row) % args.image_freq == 0)
+                                .cloned(),
+                        );
+                    }
+                });
             }
         });
 }
@@ -195,8 +193,9 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
     commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 display: Display::Grid,
                 width: Val::Percent(100.),
                 height: Val::Percent(100.0),
@@ -204,8 +203,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                 grid_template_rows: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|commands| {
             for column in 0..args.buttons {
                 for row in 0..args.buttons {
@@ -246,20 +244,18 @@ fn spawn_button(
     let height = Val::Vh(90.0 / buttons);
     let margin = UiRect::axes(width * 0.05, height * 0.05);
     let mut builder = commands.spawn((
-        ButtonBundle {
-            style: Style {
-                width,
-                height,
-                margin,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border,
-                ..default()
-            },
-            background_color: background_color.into(),
-            border_color,
+        Button,
+        Style {
+            width,
+            height,
+            margin,
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            border,
             ..default()
         },
+        BackgroundColor(background_color),
+        border_color,
         IdleColor(background_color),
     ));
 

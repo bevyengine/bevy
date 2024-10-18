@@ -8,7 +8,7 @@
 
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
-//! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`Text`](prelude::Text) and [`node_bundles::NodeBundle`]
+//! Spawn UI elements with [`widget::Button`], [`UiImage`], [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod measurement;
@@ -22,11 +22,12 @@ pub mod picking_backend;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-#[cfg(feature = "bevy_text")]
 mod accessibility;
+// This module is not re-exported, but is instead made public.
+// This is intended to discourage accidental use of the experimental API.
+pub mod experimental;
 mod focus;
 mod geometry;
-mod ghost_hierarchy;
 mod layout;
 mod render;
 mod stack;
@@ -34,7 +35,6 @@ mod ui_node;
 
 pub use focus::*;
 pub use geometry::*;
-pub use ghost_hierarchy::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
@@ -49,7 +49,6 @@ pub mod prelude {
     #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::widget::TextBundle;
-    #[cfg(feature = "bevy_text")]
     #[doc(hidden)]
     pub use crate::widget::{Text, TextUiReader, TextUiWriter};
     #[doc(hidden)]
@@ -60,7 +59,7 @@ pub mod prelude {
             ui_material::*,
             ui_node::*,
             widget::{Button, Label},
-            Interaction, UiMaterialHandle, UiMaterialPlugin, UiScale,
+            Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer},
@@ -178,17 +177,21 @@ impl Plugin for UiPlugin {
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
             );
 
+        let ui_layout_system_config = ui_layout_system
+            .in_set(UiSystem::Layout)
+            .before(TransformSystem::TransformPropagate);
+
+        let ui_layout_system_config = ui_layout_system_config
+            // Text and Text2D operate on disjoint sets of entities
+            .ambiguous_with(bevy_text::update_text2d_layout)
+            .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>);
+
         app.add_systems(
             PostUpdate,
             (
                 check_visibility::<WithNode>.in_set(VisibilitySystems::CheckVisibility),
                 update_target_camera_system.in_set(UiSystem::Prepare),
-                ui_layout_system
-                    .in_set(UiSystem::Layout)
-                    .before(TransformSystem::TransformPropagate)
-                    // Text and Text2D operate on disjoint sets of entities
-                    .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
-                    .ambiguous_with(bevy_text::update_text2d_layout),
+                ui_layout_system_config,
                 ui_stack_system
                     .in_set(UiSystem::Stack)
                     // the systems don't care about stack index
@@ -207,7 +210,6 @@ impl Plugin for UiPlugin {
             ),
         );
 
-        #[cfg(feature = "bevy_text")]
         build_text_interop(app);
 
         build_ui_render(app);
@@ -225,8 +227,6 @@ impl Plugin for UiPlugin {
     }
 }
 
-/// A function that should be called from [`UiPlugin::build`] when [`bevy_text`] is enabled.
-#[cfg(feature = "bevy_text")]
 fn build_text_interop(app: &mut App) {
     use crate::widget::TextNodeFlags;
     use bevy_text::TextLayoutInfo;

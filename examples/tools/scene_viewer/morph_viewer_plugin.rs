@@ -219,7 +219,7 @@ fn update_morphs(
         // component and call `weights_mut` to get access to the weights.
         let weights_slice = weights.weights_mut();
         let i = target.index;
-        let change = time.delta_seconds() * WEIGHT_PER_SECOND;
+        let change = time.delta_secs() * WEIGHT_PER_SECOND;
         let new_weight = target.change_dir.change_weight(weights_slice[i], change);
         weights_slice[i] = new_weight;
         target.weight = new_weight;

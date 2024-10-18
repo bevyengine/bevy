@@ -1,6 +1,7 @@
 use crate::{
+    experimental::{UiChildren, UiRootNodes},
     BorderRadius, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
-    ScrollPosition, Style, TargetCamera, UiChildren, UiRootNodes, UiScale,
+    ScrollPosition, Style, TargetCamera, UiScale,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -21,9 +22,8 @@ use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use derive_more::derive::{Display, Error, From};
 use ui_surface::UiSurface;
 
-#[cfg(feature = "bevy_text")]
 use bevy_text::ComputedTextBlock;
-#[cfg(feature = "bevy_text")]
+
 use bevy_text::CosmicFontSystem;
 
 mod convert;
@@ -53,6 +53,16 @@ impl LayoutContext {
             max_size: physical_size.x.max(physical_size.y),
         }
     }
+}
+
+#[cfg(test)]
+impl LayoutContext {
+    pub const TEST_CONTEXT: Self = Self {
+        scale_factor: 1.0,
+        physical_size: Vec2::new(1000.0, 1000.0),
+        min_size: 0.0,
+        max_size: 1000.0,
+    };
 }
 
 impl Default for LayoutContext {
@@ -125,8 +135,8 @@ pub fn ui_layout_system(
         Option<&Outline>,
         Option<&ScrollPosition>,
     )>,
-    #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut ComputedTextBlock>,
-    #[cfg(feature = "bevy_text")] mut font_system: ResMut<CosmicFontSystem>,
+    mut buffer_query: Query<&mut ComputedTextBlock>,
+    mut font_system: ResMut<CosmicFontSystem>,
 ) {
     let UiLayoutSystemBuffers {
         interned_root_nodes,
@@ -267,7 +277,6 @@ with UI components as a child of an entity without UI components, your UI layout
         }
     });
 
-    #[cfg(feature = "bevy_text")]
     let text_buffers = &mut buffer_query;
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(removed_components.removed_nodes.read());
@@ -282,14 +291,7 @@ with UI components as a child of an entity without UI components, your UI layout
     for (camera_id, mut camera) in camera_layout_info.drain() {
         let inverse_target_scale_factor = camera.scale_factor.recip();
 
-        ui_surface.compute_camera_layout(
-            camera_id,
-            camera.size,
-            #[cfg(feature = "bevy_text")]
-            text_buffers,
-            #[cfg(feature = "bevy_text")]
-            &mut font_system.0,
-        );
+        ui_surface.compute_camera_layout(camera_id, camera.size, text_buffers, &mut font_system.0);
 
         for root in &camera.root_nodes {
             update_uinode_geometry_recursive(
@@ -513,7 +515,7 @@ mod tests {
         prelude::*,
         ui_layout_system,
         update::update_target_camera_system,
-        ContentSize,
+        ContentSize, LayoutContext,
     };
 
     #[test]
@@ -539,11 +541,11 @@ mod tests {
         world.init_resource::<Events<AssetEvent<Image>>>();
         world.init_resource::<Assets<Image>>();
         world.init_resource::<ManualTextureViews>();
-        #[cfg(feature = "bevy_text")]
+
         world.init_resource::<bevy_text::TextPipeline>();
-        #[cfg(feature = "bevy_text")]
+
         world.init_resource::<bevy_text::CosmicFontSystem>();
-        #[cfg(feature = "bevy_text")]
+
         world.init_resource::<bevy_text::SwashCache>();
 
         // spawn a dummy primary window and camera
@@ -579,25 +581,25 @@ mod tests {
 
         // spawn a root entity with width and height set to fill 100% of its parent
         let ui_root = world
-            .spawn(NodeBundle {
-                style: Style {
+            .spawn((
+                Node::default(),
+                Style {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
                     ..default()
                 },
-                ..default()
-            })
+            ))
             .id();
 
         let ui_child = world
-            .spawn(NodeBundle {
-                style: Style {
+            .spawn((
+                Node::default(),
+                Style {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
                     ..default()
                 },
-                ..default()
-            })
+            ))
             .id();
 
         world.entity_mut(ui_root).add_child(ui_child);
@@ -622,7 +624,7 @@ mod tests {
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.entity_to_taffy.is_empty());
 
-        let ui_entity = world.spawn(NodeBundle::default()).id();
+        let ui_entity = world.spawn(Node::default()).id();
 
         // `ui_layout_system` should map `ui_entity` to a ui node in `UiSurface::entity_to_taffy`
         ui_schedule.run(&mut world);
@@ -664,7 +666,7 @@ mod tests {
         let camera_entity = world.spawn(Camera2d).id();
 
         let ui_entity = world
-            .spawn((NodeBundle::default(), TargetCamera(camera_entity)))
+            .spawn((Node::default(), TargetCamera(camera_entity)))
             .id();
 
         // `ui_layout_system` should map `camera_entity` to a ui node in `UiSurface::camera_entity_to_taffy`
@@ -694,7 +696,7 @@ mod tests {
     fn despawning_a_ui_entity_should_remove_its_corresponding_ui_node() {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
 
-        let ui_entity = world.spawn(NodeBundle::default()).id();
+        let ui_entity = world.spawn(Node::default()).id();
 
         // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to `ui_entity`
         ui_schedule.run(&mut world);
@@ -719,7 +721,7 @@ mod tests {
     fn changes_to_children_of_a_ui_entity_change_its_corresponding_ui_nodes_children() {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
 
-        let ui_parent_entity = world.spawn(NodeBundle::default()).id();
+        let ui_parent_entity = world.spawn(Node::default()).id();
 
         // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to `ui_entity`
         ui_schedule.run(&mut world);
@@ -732,7 +734,7 @@ mod tests {
 
         let mut ui_child_entities = (0..10)
             .map(|_| {
-                let child = world.spawn(NodeBundle::default()).id();
+                let child = world.spawn(Node::default()).id();
                 world.entity_mut(ui_parent_entity).add_child(child);
                 child
             })
@@ -826,40 +828,40 @@ mod tests {
 
         let mut size = 150.;
 
-        world.spawn(NodeBundle {
-            style: Style {
+        world.spawn((
+            Node::default(),
+            Style {
                 // test should pass without explicitly requiring position_type to be set to Absolute
                 // position_type: PositionType::Absolute,
                 width: Val::Px(size),
                 height: Val::Px(size),
                 ..default()
             },
-            ..default()
-        });
+        ));
 
         size -= 50.;
 
-        world.spawn(NodeBundle {
-            style: Style {
+        world.spawn((
+            Node::default(),
+            Style {
                 // position_type: PositionType::Absolute,
                 width: Val::Px(size),
                 height: Val::Px(size),
                 ..default()
             },
-            ..default()
-        });
+        ));
 
         size -= 50.;
 
-        world.spawn(NodeBundle {
-            style: Style {
+        world.spawn((
+            Node::default(),
+            Style {
                 // position_type: PositionType::Absolute,
                 width: Val::Px(size),
                 height: Val::Px(size),
                 ..default()
             },
-            ..default()
-        });
+        ));
 
         ui_schedule.run(&mut world);
 
@@ -994,13 +996,11 @@ mod tests {
         ));
 
         world.spawn((
-            NodeBundle {
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    top: Val::Px(0.),
-                    left: Val::Px(0.),
-                    ..default()
-                },
+            Node::default(),
+            Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(0.),
+                left: Val::Px(0.),
                 ..default()
             },
             MovingUiNode,
@@ -1050,12 +1050,10 @@ mod tests {
 
         let ui_entity = world
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        align_self: AlignSelf::Start,
-                        ..Default::default()
-                    },
-                    ..Default::default()
+                Node::default(),
+                Style {
+                    align_self: AlignSelf::Start,
+                    ..default()
                 },
                 ContentSize::fixed_size(content_size),
             ))
@@ -1078,11 +1076,9 @@ mod tests {
         let content_size = Vec2::new(50., 25.);
         let ui_entity = world
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        align_self: AlignSelf::Start,
-                        ..Default::default()
-                    },
+                Node::default(),
+                Style {
+                    align_self: AlignSelf::Start,
                     ..Default::default()
                 },
                 ContentSize::fixed_size(content_size),
@@ -1119,26 +1115,26 @@ mod tests {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
 
         let parent = world
-            .spawn(NodeBundle {
-                style: Style {
+            .spawn((
+                Node::default(),
+                Style {
                     display: Display::Grid,
                     grid_template_columns: RepeatedGridTrack::min_content(2),
                     margin: UiRect::all(Val::Px(4.0)),
-                    ..Default::default()
+                    ..default()
                 },
-                ..Default::default()
-            })
+            ))
             .with_children(|commands| {
                 for _ in 0..2 {
-                    commands.spawn(NodeBundle {
-                        style: Style {
+                    commands.spawn((
+                        Node::default(),
+                        Style {
                             display: Display::Grid,
                             width: Val::Px(160.),
                             height: Val::Px(160.),
-                            ..Default::default()
+                            ..default()
                         },
-                        ..Default::default()
-                    });
+                    ));
                 }
             })
             .id();
@@ -1180,11 +1176,11 @@ mod tests {
         world.init_resource::<Events<AssetEvent<Image>>>();
         world.init_resource::<Assets<Image>>();
         world.init_resource::<ManualTextureViews>();
-        #[cfg(feature = "bevy_text")]
+
         world.init_resource::<bevy_text::TextPipeline>();
-        #[cfg(feature = "bevy_text")]
+
         world.init_resource::<bevy_text::CosmicFontSystem>();
-        #[cfg(feature = "bevy_text")]
+
         world.init_resource::<bevy_text::SwashCache>();
 
         // spawn a dummy primary window and camera
@@ -1209,29 +1205,78 @@ mod tests {
         );
 
         let ui_root = world
-            .spawn(NodeBundle {
-                style: Style {
+            .spawn((
+                Node::default(),
+                Style {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
                     ..default()
                 },
-                ..default()
-            })
+            ))
             .id();
 
         let ui_child = world
-            .spawn(NodeBundle {
-                style: Style {
+            .spawn((
+                Node::default(),
+                Style {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
                     ..default()
                 },
-                ..default()
-            })
+            ))
             .id();
 
         world.entity_mut(ui_root).add_child(ui_child);
 
         ui_schedule.run(&mut world);
+    }
+
+    #[test]
+    fn test_ui_surface_compute_camera_layout() {
+        use bevy_ecs::prelude::ResMut;
+
+        let (mut world, ..) = setup_ui_test_world();
+
+        let camera_entity = Entity::from_raw(0);
+        let root_node_entity = Entity::from_raw(1);
+
+        struct TestSystemParam {
+            camera_entity: Entity,
+            root_node_entity: Entity,
+        }
+
+        fn test_system(
+            params: In<TestSystemParam>,
+            mut ui_surface: ResMut<UiSurface>,
+            mut computed_text_block_query: Query<&mut bevy_text::ComputedTextBlock>,
+            mut font_system: ResMut<bevy_text::CosmicFontSystem>,
+        ) {
+            ui_surface.upsert_node(
+                &LayoutContext::TEST_CONTEXT,
+                params.root_node_entity,
+                &Style::default(),
+                None,
+            );
+
+            ui_surface.compute_camera_layout(
+                params.camera_entity,
+                UVec2::new(800, 600),
+                &mut computed_text_block_query,
+                &mut font_system.0,
+            );
+        }
+
+        let _ = world.run_system_once_with(
+            TestSystemParam {
+                camera_entity,
+                root_node_entity,
+            },
+            test_system,
+        );
+
+        let ui_surface = world.resource::<UiSurface>();
+
+        let taffy_node = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
+        assert!(ui_surface.taffy.layout(*taffy_node).is_ok());
     }
 }

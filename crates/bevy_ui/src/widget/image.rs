@@ -87,10 +87,7 @@ impl Measure for ImageMeasure {
     }
 }
 
-#[cfg(feature = "bevy_text")]
 type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
-#[cfg(not(feature = "bevy_text"))]
-type UpdateImageFilter = With<Node>;
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(

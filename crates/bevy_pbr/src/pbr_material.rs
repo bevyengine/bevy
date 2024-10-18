@@ -599,7 +599,7 @@ pub struct StandardMaterial {
 
     /// The depth map used for [parallax mapping].
     ///
-    /// It is a greyscale image where white represents bottom and black the top.
+    /// It is a grayscale image where white represents bottom and black the top.
     /// If this field is set, bevy will apply [parallax mapping].
     /// Parallax mapping, unlike simple normal maps, will move the texture
     /// coordinate according to the current perspective,

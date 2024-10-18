@@ -36,6 +36,7 @@ const TRANSFORM_2D: Transform = Transform {
 const PROJECTION_2D: Projection = Projection::Orthographic(OrthographicProjection {
     near: -1.0,
     far: 10.0,
+    scale: 1.0,
     viewport_origin: Vec2::new(0.5, 0.5),
     scaling_mode: ScalingMode::AutoMax {
         max_width: 8.0,
@@ -168,7 +169,7 @@ fn setup(
 
 // Rotate the 2D shapes.
 fn rotate_2d_shapes(mut shapes: Query<&mut Transform, With<Shape2d>>, time: Res<Time>) {
-    let elapsed_seconds = time.elapsed_seconds();
+    let elapsed_seconds = time.elapsed_secs();
 
     for mut transform in shapes.iter_mut() {
         transform.rotation = Quat::from_rotation_z(elapsed_seconds);
@@ -207,7 +208,7 @@ fn bounding_shapes_2d(
 
 // Rotate the 3D shapes.
 fn rotate_3d_shapes(mut shapes: Query<&mut Transform, With<Shape3d>>, time: Res<Time>) {
-    let delta_seconds = time.delta_seconds();
+    let delta_seconds = time.delta_secs();
 
     for mut transform in shapes.iter_mut() {
         transform.rotate_y(delta_seconds);

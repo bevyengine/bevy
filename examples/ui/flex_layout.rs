@@ -22,8 +22,9 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 // fill the entire window
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
@@ -33,19 +34,18 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 row_gap: MARGIN,
                 ..Default::default()
             },
-            background_color: BackgroundColor(Color::BLACK),
-            ..Default::default()
-        })
+            BackgroundColor(Color::BLACK),
+        ))
         .with_children(|builder| {
             // spawn the key
             builder
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node::default(),
+                    Style {
                         flex_direction: FlexDirection::Row,
-                        ..Default::default()
+                        ..default()
                     },
-                    ..Default::default()
-                })
+                ))
                 .with_children(|builder| {
                     spawn_nested_text_bundle(
                         builder,
@@ -64,16 +64,16 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
 
             builder
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node::default(),
+                    Style {
                         width: Val::Percent(100.),
                         height: Val::Percent(100.),
                         flex_direction: FlexDirection::Column,
                         row_gap: MARGIN,
-                        ..Default::default()
+                        ..default()
                     },
-                    ..Default::default()
-                })
+                ))
                 .with_children(|builder| {
                     // spawn one child node for each combination of `AlignItems` and `JustifyContent`
                     let justifications = [
@@ -93,16 +93,16 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ];
                     for align_items in alignments {
                         builder
-                            .spawn(NodeBundle {
-                                style: Style {
+                            .spawn((
+                                Node::default(),
+                                Style {
                                     width: Val::Percent(100.),
                                     height: Val::Percent(100.),
                                     flex_direction: FlexDirection::Row,
                                     column_gap: MARGIN,
                                     ..Default::default()
                                 },
-                                ..Default::default()
-                            })
+                            ))
                             .with_children(|builder| {
                                 for justify_content in justifications {
                                     spawn_child_node(
@@ -125,18 +125,18 @@ fn spawn_child_node(
     justify_content: JustifyContent,
 ) {
     builder
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 flex_direction: FlexDirection::Column,
                 align_items,
                 justify_content,
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
-                ..Default::default()
+                ..default()
             },
-            background_color: BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-            ..Default::default()
-        })
+            BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+        ))
         .with_children(|builder| {
             let labels = [
                 (format!("{align_items:?}"), ALIGN_ITEMS_COLOR, 0.),
@@ -163,15 +163,15 @@ fn spawn_nested_text_bundle(
     text: &str,
 ) {
     builder
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node::default(),
+            Style {
                 margin,
                 padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
-                ..Default::default()
+                ..default()
             },
-            background_color: BackgroundColor(background_color),
-            ..Default::default()
-        })
+            BackgroundColor(background_color),
+        ))
         .with_children(|builder| {
             builder.spawn((
                 Text::new(text),
