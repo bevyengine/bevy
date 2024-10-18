@@ -4,6 +4,9 @@ use gltf::{Document, Material};
 
 use bevy_asset::LoadContext;
 
+#[cfg(feature = "pbr_multi_layer_material_textures")]
+use {bevy_asset::Handle, bevy_image::Image, bevy_pbr::UvChannel, gltf::json, serde_json::value};
+
 /// Parsed data from the `KHR_materials_clearcoat` extension.
 ///
 /// See the specification:
@@ -44,8 +47,8 @@ impl ClearcoatExtension {
             .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
             .map(|json_info| {
                 (
-                    get_uv_channel(material, "clearcoat", json_info.tex_coord),
-                    texture_handle_from_info(load_context, document, &json_info),
+                    super::get_uv_channel(material, "clearcoat", json_info.tex_coord),
+                    super::texture_handle_from_info(load_context, document, &json_info),
                 )
             })
             .unzip();
@@ -56,8 +59,8 @@ impl ClearcoatExtension {
             .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
             .map(|json_info| {
                 (
-                    get_uv_channel(material, "clearcoat roughness", json_info.tex_coord),
-                    texture_handle_from_info(load_context, document, &json_info),
+                    super::get_uv_channel(material, "clearcoat roughness", json_info.tex_coord),
+                    super::texture_handle_from_info(load_context, document, &json_info),
                 )
             })
             .unzip();
@@ -68,8 +71,8 @@ impl ClearcoatExtension {
             .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
             .map(|json_info| {
                 (
-                    get_uv_channel(material, "clearcoat normal", json_info.tex_coord),
-                    texture_handle_from_info(load_context, document, &json_info),
+                    super::get_uv_channel(material, "clearcoat normal", json_info.tex_coord),
+                    super::texture_handle_from_info(load_context, document, &json_info),
                 )
             })
             .unzip();

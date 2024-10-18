@@ -701,3 +701,19 @@ fn convert_texture_transform_to_affine2(texture_transform: TextureTransform) -> 
         texture_transform.offset().into(),
     )
 }
+
+#[cfg(any(
+    feature = "pbr_anisotropy_texture",
+    feature = "pbr_multi_layer_material_textures"
+))]
+fn texture_handle_from_info(
+    load_context: &mut LoadContext,
+    document: &Document,
+    texture_info: &json::texture::Info,
+) -> Handle<Image> {
+    let texture = document
+        .textures()
+        .nth(texture_info.index.value())
+        .expect("Texture info references a nonexistent texture");
+    texture_handle(load_context, &texture)
+}

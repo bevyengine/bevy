@@ -4,6 +4,9 @@ use gltf::{Document, Material};
 
 use bevy_asset::LoadContext;
 
+#[cfg(feature = "pbr_anisotropy_texture")]
+use {bevy_asset::Handle, bevy_image::Image, bevy_pbr::UvChannel, gltf::json, serde_json::value};
+
 /// Parsed data from the `KHR_materials_anisotropy` extension.
 ///
 /// See the specification:
@@ -36,8 +39,8 @@ impl AnisotropyExtension {
             .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
             .map(|json_info| {
                 (
-                    get_uv_channel(material, "anisotropy", json_info.tex_coord),
-                    texture_handle_from_info(load_context, document, &json_info),
+                    super::get_uv_channel(material, "anisotropy", json_info.tex_coord),
+                    super::texture_handle_from_info(load_context, document, &json_info),
                 )
             })
             .unzip();
