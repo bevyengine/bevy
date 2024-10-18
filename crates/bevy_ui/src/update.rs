@@ -21,9 +21,9 @@ pub fn update_clipping_system(
     mut commands: Commands,
     root_nodes: UiRootNodes,
     mut node_query: Query<(
+        &Node,
         &ComputedNode,
         &GlobalTransform,
-        &Node,
         Option<&mut CalculatedClip>,
     )>,
     ui_children: UiChildren,
