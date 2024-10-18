@@ -190,7 +190,7 @@ fn setup(
     // Example instructions
     commands.spawn((
         Text::default(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),

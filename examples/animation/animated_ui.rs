@@ -151,9 +151,8 @@ fn setup(
     // text to be animated.
     commands
         .spawn((
-            Node::default(),
             // Cover the whole screen, and center contents.
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(0.0),
                 left: Val::Px(0.0),
@@ -163,9 +162,9 @@ fn setup(
                 align_items: AlignItems::Center,
                 ..default()
             },
+            animation_player,
+            AnimationGraphHandle(animation_graph),
         ))
-        .insert(animation_player)
-        .insert(AnimationGraphHandle(animation_graph))
         .with_children(|builder| {
             // Build the text node.
             let player = builder.parent_entity();

@@ -119,17 +119,17 @@ fn setup(
             texture: metering_mask,
             ..default()
         },
-        Style {
+        Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             ..default()
         },
     ));
 
-    let text_style = TextFont::default();
+    let text_font = TextFont::default();
 
     commands.spawn((Text::new("Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask"),
-            text_style.clone(), Style {
+            text_font.clone(), Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -139,8 +139,8 @@ fn setup(
 
     commands.spawn((
         Text::default(),
-        text_style,
-        Style {
+        text_font,
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             right: Val::Px(12.0),
@@ -162,7 +162,7 @@ struct ExampleResources {
 fn example_control_system(
     camera: Single<(&mut Transform, &mut AutoExposure), With<Camera3d>>,
     mut display: Single<&mut Text, With<ExampleDisplay>>,
-    mut mask_image: Single<&mut Style, With<UiImage>>,
+    mut mask_image: Single<&mut Node, With<UiImage>>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
     resources: Res<ExampleResources>,

@@ -39,19 +39,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::Center,
-                align_content: AlignContent::Center,
-                flex_wrap: FlexWrap::Wrap,
-                column_gap: Val::Px(10.),
-                row_gap: Val::Px(10.),
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            justify_content: JustifyContent::Center,
+            align_content: AlignContent::Center,
+            flex_wrap: FlexWrap::Wrap,
+            column_gap: Val::Px(10.),
+            row_gap: Val::Px(10.),
+            ..default()
+        })
         .with_children(|parent| {
             for ([width, height], flip_x, flip_y) in [
                 ([160., 160.], false, false),
@@ -66,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         flip_y,
                         ..default()
                     },
-                    Style {
+                    Node {
                         width: Val::Px(width),
                         height: Val::Px(height),
                         ..default()

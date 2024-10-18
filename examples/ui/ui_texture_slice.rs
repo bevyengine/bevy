@@ -55,22 +55,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
     commands.spawn(Camera2d);
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        })
         .with_children(|parent| {
             for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
                 parent
                     .spawn((
                         Button,
-                        Style {
+                        Node {
                             width: Val::Px(w),
                             height: Val::Px(h),
                             // horizontally center child text

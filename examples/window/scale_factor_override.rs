@@ -28,21 +28,17 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
     // root node
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::SpaceBetween,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            justify_content: JustifyContent::SpaceBetween,
+            ..default()
+        })
         .with_children(|parent| {
             // left vertical fill (border)
             parent
                 .spawn((
-                    Node::default(),
-                    Style {
+                    Node {
                         width: Val::Px(300.0),
                         height: Val::Percent(100.0),
                         border: UiRect::all(Val::Px(2.0)),
@@ -57,7 +53,7 @@ fn setup(mut commands: Commands) {
                         font_size: 25.0,
                         ..default()
                     },
-                    Style {
+                    Node {
                         align_self: AlignSelf::FlexEnd,
                         ..default()
                     },

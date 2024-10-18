@@ -377,7 +377,7 @@ fn setup_connected(mut commands: Commands) {
     commands
         .spawn((
             Text::new("Connected Gamepads:\n"),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.),
                 left: Val::Px(12.),

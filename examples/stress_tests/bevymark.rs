@@ -261,8 +261,7 @@ fn setup(
     commands.spawn(Camera2d);
     commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 padding: UiRect::all(Val::Px(5.0)),
                 ..default()

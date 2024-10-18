@@ -103,7 +103,7 @@ fn setup(
             Click and drag the mouse to rotate the camera.\n\
             Press 'H' to hide/show these instructions.",
         ),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),

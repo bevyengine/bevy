@@ -1,7 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    BorderRadius, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
-    ScrollPosition, Style, TargetCamera, UiScale,
+    BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
+    ScrollPosition, TargetCamera, UiScale,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -115,22 +115,19 @@ pub fn ui_layout_system(
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
     root_nodes: UiRootNodes,
-    mut style_query: Query<
-        (
-            Entity,
-            Ref<Style>,
-            Option<&mut ContentSize>,
-            Option<&TargetCamera>,
-        ),
-        With<Node>,
-    >,
-    node_query: Query<(Entity, Option<Ref<Parent>>), With<Node>>,
+    mut node_query: Query<(
+        Entity,
+        Ref<Node>,
+        Option<&mut ContentSize>,
+        Option<&TargetCamera>,
+    )>,
+    computed_node_query: Query<(Entity, Option<Ref<Parent>>), With<ComputedNode>>,
     ui_children: UiChildren,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(
-        &mut Node,
+        &mut ComputedNode,
         &mut Transform,
-        &Style,
+        &Node,
         Option<&BorderRadius>,
         Option<&Outline>,
         Option<&ScrollPosition>,
@@ -173,7 +170,7 @@ pub fn ui_layout_system(
     // Precalculate the layout info for each camera, so we have fast access to it for each node
     camera_layout_info.clear();
 
-    style_query
+    node_query
         .iter_many(root_nodes.iter())
         .for_each(|(entity, _, _, target_camera)| {
             match camera_with_default(target_camera) {
@@ -211,8 +208,8 @@ pub fn ui_layout_system(
         ui_surface.try_remove_node_context(entity);
     }
 
-    // Sync Style and ContentSize to Taffy for all nodes
-    style_query
+    // Sync Node and ContentSize to Taffy for all nodes
+    node_query
         .iter_mut()
         .for_each(|(entity, style, content_size, target_camera)| {
             if let Some(camera) =
@@ -235,7 +232,7 @@ pub fn ui_layout_system(
                     ui_surface.upsert_node(&layout_context, entity, &style, measure);
                 }
             } else {
-                ui_surface.upsert_node(&LayoutContext::DEFAULT, entity, &Style::default(), None);
+                ui_surface.upsert_node(&LayoutContext::DEFAULT, entity, &Node::default(), None);
             }
         });
     scale_factor_events.clear();
@@ -259,30 +256,32 @@ pub fn ui_layout_system(
         ui_surface.try_remove_children(entity);
     }
 
-    node_query.iter().for_each(|(entity, maybe_parent)| {
-        if let Some(parent) = maybe_parent {
-            // Note: This does not cover the case where a parent's Node component was removed.
-            // Users are responsible for fixing hierarchies if they do that (it is not recommended).
-            // Detecting it here would be a permanent perf burden on the hot path.
-            if parent.is_changed() && !ui_children.is_ui_node(parent.get()) {
-                warn!(
-                    "Styled child ({entity}) in a non-UI entity hierarchy. You are using an entity \
+    computed_node_query
+        .iter()
+        .for_each(|(entity, maybe_parent)| {
+            if let Some(parent) = maybe_parent {
+                // Note: This does not cover the case where a parent's Node component was removed.
+                // Users are responsible for fixing hierarchies if they do that (it is not recommended).
+                // Detecting it here would be a permanent perf burden on the hot path.
+                if parent.is_changed() && !ui_children.is_ui_node(parent.get()) {
+                    warn!(
+                        "Node ({entity}) is in a non-UI entity hierarchy. You are using an entity \
 with UI components as a child of an entity without UI components, your UI layout may be broken."
-                );
+                    );
+                }
             }
-        }
 
-        if ui_children.is_changed(entity) {
-            ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
-        }
-    });
+            if ui_children.is_changed(entity) {
+                ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
+            }
+        });
 
     let text_buffers = &mut buffer_query;
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(removed_components.removed_nodes.read());
 
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
-    node_query.iter().for_each(|(entity, _)| {
+    computed_node_query.iter().for_each(|(entity, _)| {
         if ui_children.is_changed(entity) {
             ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
         }
@@ -319,9 +318,9 @@ with UI components as a child of an entity without UI components, your UI layout
         ui_surface: &UiSurface,
         root_size: Option<Vec2>,
         node_transform_query: &mut Query<(
-            &mut Node,
+            &mut ComputedNode,
             &mut Transform,
-            &Style,
+            &Node,
             Option<&BorderRadius>,
             Option<&Outline>,
             Option<&ScrollPosition>,
@@ -581,25 +580,19 @@ mod tests {
 
         // spawn a root entity with width and height set to fill 100% of its parent
         let ui_root = world
-            .spawn((
-                Node::default(),
-                Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    ..default()
-                },
-            ))
+            .spawn(Node {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                ..default()
+            })
             .id();
 
         let ui_child = world
-            .spawn((
-                Node::default(),
-                Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    ..default()
-                },
-            ))
+            .spawn(Node {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                ..default()
+            })
             .id();
 
         world.entity_mut(ui_root).add_child(ui_child);
@@ -828,45 +821,36 @@ mod tests {
 
         let mut size = 150.;
 
-        world.spawn((
-            Node::default(),
-            Style {
-                // test should pass without explicitly requiring position_type to be set to Absolute
-                // position_type: PositionType::Absolute,
-                width: Val::Px(size),
-                height: Val::Px(size),
-                ..default()
-            },
-        ));
+        world.spawn(Node {
+            // test should pass without explicitly requiring position_type to be set to Absolute
+            // position_type: PositionType::Absolute,
+            width: Val::Px(size),
+            height: Val::Px(size),
+            ..default()
+        });
 
         size -= 50.;
 
-        world.spawn((
-            Node::default(),
-            Style {
-                // position_type: PositionType::Absolute,
-                width: Val::Px(size),
-                height: Val::Px(size),
-                ..default()
-            },
-        ));
+        world.spawn(Node {
+            // position_type: PositionType::Absolute,
+            width: Val::Px(size),
+            height: Val::Px(size),
+            ..default()
+        });
 
         size -= 50.;
 
-        world.spawn((
-            Node::default(),
-            Style {
-                // position_type: PositionType::Absolute,
-                width: Val::Px(size),
-                height: Val::Px(size),
-                ..default()
-            },
-        ));
+        world.spawn(Node {
+            // position_type: PositionType::Absolute,
+            width: Val::Px(size),
+            height: Val::Px(size),
+            ..default()
+        });
 
         ui_schedule.run(&mut world);
 
         let overlap_check = world
-            .query_filtered::<(Entity, &Node, &GlobalTransform), Without<Parent>>()
+            .query_filtered::<(Entity, &ComputedNode, &GlobalTransform), Without<Parent>>()
             .iter(&world)
             .fold(
                 Option::<(Rect, bool)>::None,
@@ -949,7 +933,7 @@ mod tests {
                 commands
                     .entity(moving_ui_entity)
                     .insert(TargetCamera(target_camera_entity))
-                    .insert(Style {
+                    .insert(Node {
                         position_type: PositionType::Absolute,
                         top: Val::Px(pos.y),
                         left: Val::Px(pos.x),
@@ -996,8 +980,7 @@ mod tests {
         ));
 
         world.spawn((
-            Node::default(),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(0.),
                 left: Val::Px(0.),
@@ -1050,8 +1033,7 @@ mod tests {
 
         let ui_entity = world
             .spawn((
-                Node::default(),
-                Style {
+                Node {
                     align_self: AlignSelf::Start,
                     ..default()
                 },
@@ -1076,8 +1058,7 @@ mod tests {
         let content_size = Vec2::new(50., 25.);
         let ui_entity = world
             .spawn((
-                Node::default(),
-                Style {
+                Node {
                     align_self: AlignSelf::Start,
                     ..Default::default()
                 },
@@ -1115,26 +1096,20 @@ mod tests {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
 
         let parent = world
-            .spawn((
-                Node::default(),
-                Style {
-                    display: Display::Grid,
-                    grid_template_columns: RepeatedGridTrack::min_content(2),
-                    margin: UiRect::all(Val::Px(4.0)),
-                    ..default()
-                },
-            ))
+            .spawn(Node {
+                display: Display::Grid,
+                grid_template_columns: RepeatedGridTrack::min_content(2),
+                margin: UiRect::all(Val::Px(4.0)),
+                ..default()
+            })
             .with_children(|commands| {
                 for _ in 0..2 {
-                    commands.spawn((
-                        Node::default(),
-                        Style {
-                            display: Display::Grid,
-                            width: Val::Px(160.),
-                            height: Val::Px(160.),
-                            ..default()
-                        },
-                    ));
+                    commands.spawn(Node {
+                        display: Display::Grid,
+                        width: Val::Px(160.),
+                        height: Val::Px(160.),
+                        ..default()
+                    });
                 }
             })
             .id();
@@ -1154,9 +1129,9 @@ mod tests {
                 ui_schedule.run(&mut world);
                 let width_sum: f32 = children
                     .iter()
-                    .map(|child| world.get::<Node>(*child).unwrap().calculated_size.x)
+                    .map(|child| world.get::<ComputedNode>(*child).unwrap().calculated_size.x)
                     .sum();
-                let parent_width = world.get::<Node>(parent).unwrap().calculated_size.x;
+                let parent_width = world.get::<ComputedNode>(parent).unwrap().calculated_size.x;
                 assert!((width_sum - parent_width).abs() < 0.001);
                 assert!((width_sum - 320.).abs() <= 1.);
                 s += r;
@@ -1205,25 +1180,19 @@ mod tests {
         );
 
         let ui_root = world
-            .spawn((
-                Node::default(),
-                Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    ..default()
-                },
-            ))
+            .spawn(Node {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                ..default()
+            })
             .id();
 
         let ui_child = world
-            .spawn((
-                Node::default(),
-                Style {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    ..default()
-                },
-            ))
+            .spawn(Node {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                ..default()
+            })
             .id();
 
         world.entity_mut(ui_root).add_child(ui_child);
@@ -1254,7 +1223,7 @@ mod tests {
             ui_surface.upsert_node(
                 &LayoutContext::TEST_CONTEXT,
                 params.root_node_entity,
-                &Style::default(),
+                &Node::default(),
                 None,
             );
 

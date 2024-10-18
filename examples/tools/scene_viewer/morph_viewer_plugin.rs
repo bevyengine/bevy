@@ -268,7 +268,7 @@ fn detect_morphs(
     commands
         .spawn((
             Text::default(),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(10.0),
                 left: Val::Px(10.0),

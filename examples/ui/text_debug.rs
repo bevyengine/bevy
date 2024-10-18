@@ -36,29 +36,23 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     let root_uinode = commands
-        .spawn((
-            Node::default(),
-            Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::SpaceBetween,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            justify_content: JustifyContent::SpaceBetween,
+            ..default()
+        })
         .id();
 
     let left_column = commands
-        .spawn((
-            Node::default(),
-            Style {
+        .spawn(Node {
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::SpaceBetween,
             align_items: AlignItems::Start,
             flex_grow: 1.,
             margin: UiRect::axes(Val::Px(15.), Val::Px(5.)),
             ..default()
-        },
-    )).with_children(|builder| {
+        }).with_children(|builder| {
         builder.spawn((
             Text::new("This is\ntext with\nline breaks\nin the top left."),
             TextFont {
@@ -79,7 +73,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             TextColor(YELLOW.into()),
             TextLayout::new_with_justify(JustifyText::Right),
-            Style {
+            Node {
                 max_width: Val::Px(300.),
                 ..default()
             },
@@ -93,7 +87,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font_size: 25.0,
                 ..default()
             },
-            Style {
+            Node {
                 max_width: Val::Px(300.),
                 ..default()
             },
@@ -102,151 +96,150 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         );
     }).id();
 
-    let right_column = commands.spawn((
-            Node::default(),
-            Style {
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::SpaceBetween,
-                align_items: AlignItems::End,
-                flex_grow: 1.,
-                margin: UiRect::axes(Val::Px(15.), Val::Px(5.)),
-                ..default()
-            },
-    )).with_children(|builder| {
-
-        builder.spawn((Text::new(
-            "This text is very long, has a limited width, is center-justified, is positioned in the top right and is also colored pink."),
-            TextFont {
-                font: font.clone(),
-                font_size: 33.0,
-                ..default()
-            },
-            TextColor(Color::srgb(0.8, 0.2, 0.7)),
-            TextLayout::new_with_justify(JustifyText::Center),
-            Style {
-                max_width: Val::Px(400.),
-                ..default()
-            },BackgroundColor(background_color))
-        );
-
-        builder.spawn((Text::new(
-            "This text is left-justified and is vertically positioned to distribute the empty space equally above and below it."),
-            TextFont {
-                font: font.clone(),
-                font_size: 29.0,
-                ..default()
-            },
-            TextColor(YELLOW.into()),
-            TextLayout::new_with_justify(JustifyText::Left),
-            Style {
-                max_width: Val::Px(300.),
-                ..default()
-            },
-            BackgroundColor(background_color)
-        ));
-
-        builder.spawn((
-            Text::new("This text is fully justified and is positioned in the same way."),
-            TextFont {
-                font: font.clone(),
-                font_size: 29.0,
-                ..default()
-            },
-            TextLayout::new_with_justify(JustifyText::Justified),
-            TextColor(GREEN_YELLOW.into()),
-            Style {
-                max_width: Val::Px(300.),
-                ..default()
-            },
-            BackgroundColor(background_color)
-        )
-        );
-
-        builder.spawn((
-            Text::default(),
-            TextFont {
-                font: font.clone(),
-                font_size: 21.0,
-                ..default()
-            },
-            TextChanges,
-            BackgroundColor(background_color)
-        ))
-        .with_children(|p| {
-            p.spawn((
-                TextSpan::new("\nThis text changes in the bottom right"),
+    let right_column = commands
+        .spawn(Node {
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::SpaceBetween,
+            align_items: AlignItems::End,
+            flex_grow: 1.,
+            margin: UiRect::axes(Val::Px(15.), Val::Px(5.)),
+            ..default()
+        })
+        .with_children(|builder| {
+            builder.spawn((
+                Text::new("This text is very long, has a limited width, is center-justified, is positioned in the top right and is also colored pink."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 21.0,
+                    font_size: 33.0,
                     ..default()
                 },
-            ));
-            p.spawn((
-                TextSpan::new(" this text has zero fontsize"),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 0.0,
+                TextColor(Color::srgb(0.8, 0.2, 0.7)),
+                TextLayout::new_with_justify(JustifyText::Center),
+                Node {
+                    max_width: Val::Px(400.),
                     ..default()
                 },
-                TextColor(BLUE.into()),
+                BackgroundColor(background_color),
             ));
-            p.spawn((
-                TextSpan::new("\nThis text changes in the bottom right - "),
+
+            builder.spawn((
+                Text::new("This text is left-justified and is vertically positioned to distribute the empty space equally above and below it."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 21.0,
-                    ..default()
-                },
-                TextColor(RED.into()),
-            ));
-            p.spawn((
-                TextSpan::default(),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 21.0,
-                    ..default()
-                },
-                TextColor(ORANGE_RED.into()),
-            ));
-            p.spawn((
-                TextSpan::new(" fps, "),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 10.0,
+                    font_size: 29.0,
                     ..default()
                 },
                 TextColor(YELLOW.into()),
-            ));
-            p.spawn((
-                TextSpan::default(),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 21.0,
+                TextLayout::new_with_justify(JustifyText::Left),
+                Node {
+                    max_width: Val::Px(300.),
                     ..default()
                 },
-                TextColor(LIME.into()),
+                BackgroundColor(background_color),
             ));
-            p.spawn((
-                TextSpan::new(" ms/frame"),
+
+            builder.spawn((
+                Text::new("This text is fully justified and is positioned in the same way."),
                 TextFont {
                     font: font.clone(),
-                    font_size: 42.0,
+                    font_size: 29.0,
                     ..default()
                 },
-                TextColor(BLUE.into()),
-            ));
-            p.spawn((
-                TextSpan::new(" this text has negative fontsize"),
-                TextFont {
-                    font: font.clone(),
-                    font_size: -42.0,
+                TextLayout::new_with_justify(JustifyText::Justified),
+                TextColor(GREEN_YELLOW.into()),
+                Node {
+                    max_width: Val::Px(300.),
                     ..default()
                 },
-                TextColor(BLUE.into()),
+                BackgroundColor(background_color),
             ));
-        });
-    })
-    .id();
+
+            builder
+                .spawn((
+                    Text::default(),
+                    TextFont {
+                        font: font.clone(),
+                        font_size: 21.0,
+                        ..default()
+                    },
+                    TextChanges,
+                    BackgroundColor(background_color),
+                ))
+                .with_children(|p| {
+                    p.spawn((
+                        TextSpan::new("\nThis text changes in the bottom right"),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 21.0,
+                            ..default()
+                        },
+                    ));
+                    p.spawn((
+                        TextSpan::new(" this text has zero fontsize"),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 0.0,
+                            ..default()
+                        },
+                        TextColor(BLUE.into()),
+                    ));
+                    p.spawn((
+                        TextSpan::new("\nThis text changes in the bottom right - "),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 21.0,
+                            ..default()
+                        },
+                        TextColor(RED.into()),
+                    ));
+                    p.spawn((
+                        TextSpan::default(),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 21.0,
+                            ..default()
+                        },
+                        TextColor(ORANGE_RED.into()),
+                    ));
+                    p.spawn((
+                        TextSpan::new(" fps, "),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 10.0,
+                            ..default()
+                        },
+                        TextColor(YELLOW.into()),
+                    ));
+                    p.spawn((
+                        TextSpan::default(),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 21.0,
+                            ..default()
+                        },
+                        TextColor(LIME.into()),
+                    ));
+                    p.spawn((
+                        TextSpan::new(" ms/frame"),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: 42.0,
+                            ..default()
+                        },
+                        TextColor(BLUE.into()),
+                    ));
+                    p.spawn((
+                        TextSpan::new(" this text has negative fontsize"),
+                        TextFont {
+                            font: font.clone(),
+                            font_size: -42.0,
+                            ..default()
+                        },
+                        TextColor(BLUE.into()),
+                    ));
+                });
+        })
+        .id();
     commands
         .entity(root_uinode)
         .add_children(&[left_column, right_column]);

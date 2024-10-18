@@ -23,21 +23,17 @@ fn setup(mut commands: Commands) {
     // the default z-index value is `ZIndex::Local(0)`.
     // because this is a root UI node, using local or global values will do the same thing.
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        })
         .with_children(|parent| {
             parent
                 .spawn((
-                    Node::default(),
-                    Style {
+                    Node {
                         width: Val::Px(180.0),
                         height: Val::Px(100.0),
                         ..default()
@@ -47,8 +43,7 @@ fn setup(mut commands: Commands) {
                 .with_children(|parent| {
                     // spawn a node with default z-index.
                     parent.spawn((
-                        Node::default(),
-                        Style {
+                        Node {
                             position_type: PositionType::Absolute,
                             left: Val::Px(10.0),
                             bottom: Val::Px(40.0),
@@ -62,8 +57,7 @@ fn setup(mut commands: Commands) {
                     // spawn a node with a positive local z-index of 2.
                     // it will show above other nodes in the gray container.
                     parent.spawn((
-                        Node::default(),
-                        Style {
+                        Node {
                             position_type: PositionType::Absolute,
                             left: Val::Px(45.0),
                             bottom: Val::Px(30.0),
@@ -78,8 +72,7 @@ fn setup(mut commands: Commands) {
                     // spawn a node with a negative local z-index.
                     // it will show under other nodes in the gray container.
                     parent.spawn((
-                        Node::default(),
-                        Style {
+                        Node {
                             position_type: PositionType::Absolute,
                             left: Val::Px(70.0),
                             bottom: Val::Px(20.0),
@@ -95,8 +88,7 @@ fn setup(mut commands: Commands) {
                     // it will show above all other nodes, because it's the highest global z-index in this example.
                     // by default, boxes all share the global z-index of 0 that the gray container is added to.
                     parent.spawn((
-                        Node::default(),
-                        Style {
+                        Node {
                             position_type: PositionType::Absolute,
                             left: Val::Px(15.0),
                             bottom: Val::Px(10.0),
@@ -112,8 +104,7 @@ fn setup(mut commands: Commands) {
                     // this will show under all other nodes including its parent, because it's the lowest global z-index
                     // in this example.
                     parent.spawn((
-                        Node::default(),
-                        Style {
+                        Node {
                             position_type: PositionType::Absolute,
                             left: Val::Px(-15.0),
                             bottom: Val::Px(-15.0),

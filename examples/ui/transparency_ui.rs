@@ -17,21 +17,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
 
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::SpaceAround,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::SpaceAround,
+            ..default()
+        })
         .with_children(|parent| {
             parent
                 .spawn((
                     Button,
-                    Style {
+                    Node {
                         width: Val::Px(150.0),
                         height: Val::Px(65.0),
                         justify_content: JustifyContent::Center,
@@ -58,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn((
                     Button,
-                    Style {
+                    Node {
                         width: Val::Px(150.0),
                         height: Val::Px(65.0),
                         justify_content: JustifyContent::Center,
