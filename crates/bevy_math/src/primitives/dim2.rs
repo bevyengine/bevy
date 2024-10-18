@@ -1,7 +1,7 @@
 use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
 use derive_more::derive::{Display, Error, From};
 
-use super::{Measured2d, Primitive2d, WindingOrder};
+use super::{polygon::is_polygon_simple, Measured2d, Primitive2d, WindingOrder};
 use crate::{
     ops::{self, FloatPow},
     Dir2, Vec2,
@@ -1590,6 +1590,14 @@ impl<const N: usize> Polygon<N> {
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
     }
+
+    /// Tests if the polygon is simple.
+    ///
+    /// A polygon is simple if it is not self intersecting and not self tangent.
+    /// As such, no two edges of the polygon may cross each other and each vertex must not lie on another edge.
+    pub fn is_simple(&self) -> bool {
+        is_polygon_simple(&self.vertices)
+    }
 }
 
 impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
@@ -1700,6 +1708,14 @@ impl BoxedPolygon {
     /// Create a new `BoxedPolygon` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
+    }
+
+    /// Tests if the polygon is simple.
+    ///
+    /// A polygon is simple if it is not self intersecting and not self tangent.
+    /// As such, no two edges of the polygon may cross each other and each vertex must not lie on another edge.
+    pub fn is_simple(&self) -> bool {
+        is_polygon_simple(&self.vertices)
     }
 }
 
