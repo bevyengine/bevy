@@ -1,6 +1,6 @@
 //! Demonstrates the use of [`UiMaterials`](UiMaterial) and how to change material values
 
-use bevy::{color::palettes::css::RED, prelude::*, reflect::TypePath, render::render_resource::*};
+use bevy::{prelude::*, reflect::TypePath, render::render_resource::*};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/custom_ui_material.wgsl";
@@ -49,7 +49,6 @@ fn setup(
                     border: UiRect::all(Val::Px(10.)),
                     ..default()
                 },
-                BackgroundColor(RED.into()),
             ));
         });
 }
