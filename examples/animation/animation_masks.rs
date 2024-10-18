@@ -316,6 +316,10 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                                     ..default()
                                 },
                                 BorderColor(Color::WHITE),
+                                AnimationControl {
+                                    group_id: mask_group_id,
+                                    label: *label,
+                                },
                             ))
                             .with_child((
                                 Text(format!("{:?}", label)),
@@ -329,10 +333,6 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                                     flex_grow: 1.0,
                                     margin: UiRect::vertical(Val::Px(3.0)),
                                     ..default()
-                                },
-                                AnimationControl {
-                                    group_id: mask_group_id,
-                                    label: *label,
                                 },
                             ));
                     }
