@@ -7,7 +7,7 @@ use super::IntoSystem;
 
 /// Implemented for [`System`]s that have a [`Trigger`] as the first argument.
 pub trait ObserverSystem<E: 'static, B: Bundle, Out = ()>:
-    System<In = Trigger<'static, E, B>, Out = Out> + Send + 'static
+    System<In = Trigger<'static, 'static, E, B>, Out = Out> + Send + 'static
 {
 }
 
@@ -15,7 +15,7 @@ impl<
         E: 'static,
         B: Bundle,
         Out,
-        T: System<In = Trigger<'static, E, B>, Out = Out> + Send + 'static,
+        T: System<In = Trigger<'static, 'static, E, B>, Out = Out> + Send + 'static,
     > ObserverSystem<E, B, Out> for T
 {
 }
@@ -35,7 +35,7 @@ pub trait IntoObserverSystem<E: 'static, B: Bundle, M, Out = ()>: Send + 'static
 }
 
 impl<
-        S: IntoSystem<Trigger<'static, E, B>, Out, M> + Send + 'static,
+        S: IntoSystem<Trigger<'static, 'static, E, B>, Out, M> + Send + 'static,
         M,
         Out,
         E: 'static,
@@ -44,7 +44,7 @@ impl<
 where
     S::System: ObserverSystem<E, B, Out>,
 {
-    type System = <S as IntoSystem<Trigger<'static, E, B>, Out, M>>::System;
+    type System = <S as IntoSystem<Trigger<'static, 'static, E, B>, Out, M>>::System;
 
     fn into_system(this: Self) -> Self::System {
         IntoSystem::into_system(this)

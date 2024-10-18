@@ -343,7 +343,7 @@ impl World {
             initialized = true;
         }
 
-        let result = if system.validate_param(self) {
+        let result = if system.validate_param(&input, self) {
             Ok(system.run(input, self))
         } else {
             Err(RegisteredSystemError::InvalidParams(id))

@@ -194,7 +194,7 @@ pub unsafe trait SystemParam: Sized {
     /// and creates a new instance of this param's [`State`](SystemParam::State).
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
 
-    /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).a
+    /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).
     ///
     /// # Safety
     /// `archetype` must be from the [`World`] used to initialize `state` in [`SystemParam::init_state`].
@@ -227,7 +227,7 @@ pub unsafe trait SystemParam: Sized {
     ///
     /// However calling and respecting [`SystemParam::validate_param`]
     /// is not a strict requirement, [`SystemParam::get_param`] should
-    /// provide it's own safety mechanism to prevent undefined behavior.
+    /// provide its own safety mechanism to prevent undefined behavior.
     ///
     /// The [`world`](UnsafeWorldCell) can only be used to read param's data
     /// and world metadata. No data can be written.
