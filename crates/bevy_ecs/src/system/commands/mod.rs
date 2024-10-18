@@ -1927,9 +1927,18 @@ where
             self(world.entity_mut(id));
         } else {
             if failure_mode != FailureMode::Ignore {
-                let message =
-                    format!("Could not execute EntityCommand because its entity {id:?} was missing");
-                failure_mode.fail(message);
+                match failure_mode {
+                    FailureMode::Ignore => unreachable!(),
+                    FailureMode::Log => info!(
+                        "Could not execute EntityCommand because its entity {id:?} was missing"
+                    ),
+                    FailureMode::Warn => warn!(
+                        "Could not execute EntityCommand because its entity {id:?} was missing"
+                    ),
+                    FailureMode::Panic => panic!(
+                        "Could not execute EntityCommand because its entity {id:?} was missing"
+                    ),
+                };
             }
         }
     }
@@ -1944,9 +1953,18 @@ where
             self(id, world);
         } else {
             if failure_mode != FailureMode::Ignore {
-                let message =
-                    format!("Could not execute EntityCommand because its entity {id:?} was missing");
-                failure_mode.fail(message);
+                match failure_mode {
+                    FailureMode::Ignore => unreachable!(),
+                    FailureMode::Log => info!(
+                        "Could not execute EntityCommand because its entity {id:?} was missing"
+                    ),
+                    FailureMode::Warn => warn!(
+                        "Could not execute EntityCommand because its entity {id:?} was missing"
+                    ),
+                    FailureMode::Panic => panic!(
+                        "Could not execute EntityCommand because its entity {id:?} was missing"
+                    ),
+                };
             }
         }
     }
