@@ -964,7 +964,7 @@ mod tests {
         }
     }
 
-    /// These tests just verify that that the [`assert_scene_eq`] function is working properly for our tests.
+    /// These tests just verify that the [`assert_scene_eq`] function is working properly for our tests.
     mod assert_scene_eq_tests {
         use super::*;
 

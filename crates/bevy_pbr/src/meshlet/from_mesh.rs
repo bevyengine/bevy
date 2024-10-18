@@ -42,7 +42,7 @@ impl MeshletMesh {
     ///
     /// # Vertex precision
     ///
-    /// `vertex_position_quantization_factor` is the amount of precision to to use when quantizing vertex positions.
+    /// `vertex_position_quantization_factor` is the amount of precision to use when quantizing vertex positions.
     ///
     /// Vertices are snapped to the nearest (1/2^x)th of a centimeter, where x = `vertex_position_quantization_factor`.
     /// E.g. if x = 4, then vertices are snapped to the nearest 1/2^4 = 1/16th of a centimeter.

@@ -74,7 +74,7 @@ impl SystemMeta {
         &self.name
     }
 
-    /// Sets the name of of this system.
+    /// Sets the name of this system.
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
     #[inline]
