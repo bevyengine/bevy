@@ -2,9 +2,11 @@ use alloc::sync::Arc;
 use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
 use std::thread::{self, JoinHandle};
 
-use async_executor::FallibleTask;
+use async_task::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
+
+use crate::executor::{Executor, LocalExecutor};
 
 use crate::{
     block_on,
@@ -12,15 +14,7 @@ use crate::{
     Task,
 };
 
-struct CallOnDrop(Option<Arc<dyn Fn() + Send + Sync + 'static>>);
-
-impl Drop for CallOnDrop {
-    fn drop(&mut self) {
-        if let Some(call) = self.0.as_ref() {
-            call();
-        }
-    }
-}
+use bevy_utils::OnDrop;
 
 /// Used to create a [`TaskPool`]
 #[derive(Default)]
@@ -102,7 +96,7 @@ impl TaskPoolBuilder {
 #[derive(Debug)]
 pub struct TaskPool {
     /// The executor for the pool.
-    executor: Arc<async_executor::Executor<'static>>,
+    executor: Arc<Executor<'static>>,
 
     // The inner state of the pool.
     threads: Vec<JoinHandle<()>>,
@@ -111,7 +105,7 @@ pub struct TaskPool {
 
 impl TaskPool {
     thread_local! {
-        static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = const { async_executor::LocalExecutor::new() };
+        static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
         static THREAD_EXECUTOR: Arc<ThreadExecutor<'static>> = Arc::new(ThreadExecutor::new());
     }
 
@@ -128,7 +122,7 @@ impl TaskPool {
     fn new_internal(builder: TaskPoolBuilder) -> Self {
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
 
-        let executor = Arc::new(async_executor::Executor::new());
+        let executor = Arc::new(Executor::new());
 
         let num_threads = builder
             .num_threads
@@ -160,7 +154,11 @@ impl TaskPool {
                                 on_thread_spawn();
                                 drop(on_thread_spawn);
                             }
-                            let _destructor = CallOnDrop(on_thread_destroy);
+                            let _destructor = OnDrop::new(move || {
+                                if let Some(f) = on_thread_destroy {
+                                    (f)();
+                                }
+                            });
                             loop {
                                 let res = std::panic::catch_unwind(|| {
                                     let tick_forever = async move {
@@ -344,9 +342,9 @@ impl TaskPool {
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
-        let executor: &async_executor::Executor = &self.executor;
+        let executor: &Executor = &self.executor;
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
+        let executor: &'env Executor = unsafe { mem::transmute(executor) };
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let external_executor: &'env ThreadExecutor<'env> =
             unsafe { mem::transmute(external_executor) };
@@ -432,7 +430,7 @@ impl TaskPool {
 
     #[inline]
     async fn execute_global_external_scope<'scope, 'ticker, T>(
-        executor: &'scope async_executor::Executor<'scope>,
+        executor: &'scope Executor<'scope>,
         external_ticker: ThreadExecutorTicker<'scope, 'ticker>,
         scope_ticker: ThreadExecutorTicker<'scope, 'ticker>,
         get_results: impl Future<Output = Vec<T>>,
@@ -478,7 +476,7 @@ impl TaskPool {
 
     #[inline]
     async fn execute_global_scope<'scope, 'ticker, T>(
-        executor: &'scope async_executor::Executor<'scope>,
+        executor: &'scope Executor<'scope>,
         scope_ticker: ThreadExecutorTicker<'scope, 'ticker>,
         get_results: impl Future<Output = Vec<T>>,
     ) -> Vec<T> {
@@ -562,7 +560,7 @@ impl TaskPool {
     /// ```
     pub fn with_local_executor<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&async_executor::LocalExecutor) -> R,
+        F: FnOnce(&LocalExecutor) -> R,
     {
         Self::LOCAL_EXECUTOR.with(f)
     }
@@ -593,7 +591,7 @@ impl Drop for TaskPool {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor: &'scope async_executor::Executor<'scope>,
+    executor: &'scope Executor<'scope>,
     external_executor: &'scope ThreadExecutor<'scope>,
     scope_executor: &'scope ThreadExecutor<'scope>,
     spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>>,
