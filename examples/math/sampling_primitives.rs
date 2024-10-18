@@ -388,7 +388,7 @@ fn setup(
             Move camera by L/R arrow keys.\n\
             Tab: Toggle this text",
         ),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),

@@ -87,7 +87,7 @@ fn instructions(mut commands: Commands) {
             Mouse left or right: yaw\n\
             Mouse buttons: roll",
         ),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),

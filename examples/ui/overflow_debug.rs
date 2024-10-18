@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 "Next Overflow Setting (O)\nNext Container Size (S)\nToggle Animation (space)\n\n",
             ),
             text_font.clone(),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
@@ -105,29 +105,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Overflow Debug
 
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        })
         .with_children(|parent| {
             parent
-                .spawn((
-                    Node::default(),
-                    Style {
-                        display: Display::Grid,
-                        grid_template_columns: RepeatedGridTrack::px(3, CONTAINER_SIZE),
-                        grid_template_rows: RepeatedGridTrack::px(2, CONTAINER_SIZE),
-                        row_gap: Val::Px(80.),
-                        column_gap: Val::Px(80.),
-                        ..default()
-                    },
-                ))
+                .spawn(Node {
+                    display: Display::Grid,
+                    grid_template_columns: RepeatedGridTrack::px(3, CONTAINER_SIZE),
+                    grid_template_rows: RepeatedGridTrack::px(2, CONTAINER_SIZE),
+                    row_gap: Val::Px(80.),
+                    column_gap: Val::Px(80.),
+                    ..default()
+                })
                 .with_children(|parent| {
                     spawn_image(parent, &asset_server, Move);
                     spawn_image(parent, &asset_server, Scale);
@@ -148,7 +142,7 @@ fn spawn_image(
     spawn_container(parent, update_transform, |parent| {
         parent.spawn((
             UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
-            Style {
+            Node {
                 height: Val::Px(100.),
                 position_type: PositionType::Absolute,
                 top: Val::Px(-50.),
@@ -187,8 +181,7 @@ fn spawn_container(
 
     parent
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
                 align_items: AlignItems::Center,
@@ -202,8 +195,7 @@ fn spawn_container(
         .with_children(|parent| {
             parent
                 .spawn((
-                    Node::default(),
-                    Style {
+                    Node {
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         top: Val::Px(transform.translation.x),
@@ -241,23 +233,23 @@ fn update_animation(
 
 fn update_transform<T: UpdateTransform + Component>(
     animation: Res<AnimationState>,
-    mut containers: Query<(&mut Transform, &mut Style, &T)>,
+    mut containers: Query<(&mut Transform, &mut Node, &T)>,
 ) {
-    for (mut transform, mut style, update_transform) in &mut containers {
+    for (mut transform, mut node, update_transform) in &mut containers {
         update_transform.update(animation.t, &mut transform);
 
-        style.left = Val::Px(transform.translation.x);
-        style.top = Val::Px(transform.translation.y);
+        node.left = Val::Px(transform.translation.x);
+        node.top = Val::Px(transform.translation.y);
     }
 }
 
 fn toggle_overflow(
-    mut containers: Query<&mut Style, With<Container>>,
+    mut containers: Query<&mut Node, With<Container>>,
     instructions: Single<Entity, With<Instructions>>,
     mut writer: TextUiWriter,
 ) {
-    for mut style in &mut containers {
-        style.overflow = match style.overflow {
+    for mut node in &mut containers {
+        node.overflow = match node.overflow {
             Overflow {
                 x: OverflowAxis::Visible,
                 y: OverflowAxis::Visible,
@@ -274,19 +266,19 @@ fn toggle_overflow(
         };
 
         let entity = *instructions;
-        *writer.text(entity, 1) = format!("{:?}", style.overflow);
+        *writer.text(entity, 1) = format!("{:?}", node.overflow);
     }
 }
 
-fn next_container_size(mut containers: Query<(&mut Style, &mut Container)>) {
-    for (mut style, mut container) in &mut containers {
+fn next_container_size(mut containers: Query<(&mut Node, &mut Container)>) {
+    for (mut node, mut container) in &mut containers {
         container.0 = (container.0 + 1) % 3;
 
-        style.width = match container.0 {
+        node.width = match container.0 {
             2 => Val::Percent(30.),
             _ => Val::Percent(100.),
         };
-        style.height = match container.0 {
+        node.height = match container.0 {
             1 => Val::Percent(30.),
             _ => Val::Percent(100.),
         };

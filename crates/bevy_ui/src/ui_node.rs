@@ -17,29 +17,10 @@ use core::num::NonZero;
 use derive_more::derive::{Display, Error, From};
 use smallvec::SmallVec;
 
-/// Base component for a UI node, which also provides the computed size of the node.
-///
-/// # See also
-///
-/// - [`node_bundles`](crate::node_bundles) for the list of built-in bundles that set up UI node
-/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition)
-///   to obtain the cursor position relative to this node
-/// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
+/// Provides the computed size and layout properties of the node.
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(
-    Style,
-    BackgroundColor,
-    BorderColor,
-    BorderRadius,
-    ContentSize,
-    FocusPolicy,
-    ScrollPosition,
-    Transform,
-    Visibility,
-    ZIndex
-)]
-pub struct Node {
+pub struct ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub(crate) stack_index: u32,
@@ -79,7 +60,7 @@ pub struct Node {
     pub(crate) padding: BorderRect,
 }
 
-impl Node {
+impl ComputedNode {
     /// The calculated node size as width and height in logical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
@@ -215,7 +196,7 @@ impl Node {
     }
 }
 
-impl Node {
+impl ComputedNode {
     pub const DEFAULT: Self = Self {
         stack_index: 0,
         calculated_size: Vec2::ZERO,
@@ -228,7 +209,7 @@ impl Node {
     };
 }
 
-impl Default for Node {
+impl Default for ComputedNode {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -238,7 +219,7 @@ impl Default for Node {
 ///
 /// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount.
 /// `ScrollPosition` may be updated by the layout system when a layout change makes a previously valid `ScrollPosition` invalid.
-/// Changing this does nothing on a `Node` without a `Style` setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
+/// Changing this does nothing on a `Node` without setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct ScrollPosition {
@@ -276,7 +257,9 @@ impl From<&Vec2> for ScrollPosition {
     }
 }
 
-/// Describes the style of a UI container node
+/// The base component for UI entities. It describes UI layout and style properties.
+///
+/// When defining new types of UI entities, require [`Node`] to make them behave like UI nodes.
 ///
 /// Nodes can be laid out using either Flexbox or CSS Grid Layout.
 ///
@@ -293,15 +276,32 @@ impl From<&Vec2> for ScrollPosition {
 /// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
 /// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
+///
+/// # See also
+///
+/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition) to obtain the cursor position relative to this node
+/// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[require(
+    ComputedNode,
+    BackgroundColor,
+    BorderColor,
+    BorderRadius,
+    ContentSize,
+    FocusPolicy,
+    ScrollPosition,
+    Transform,
+    Visibility,
+    ZIndex
+)]
 #[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct Style {
+pub struct Node {
     /// Which layout algorithm to use when laying out this node's contents:
     ///   - [`Display::Flex`]: Use the Flexbox layout algorithm
     ///   - [`Display::Grid`]: Use the CSS Grid layout algorithm
@@ -446,8 +446,8 @@ pub struct Style {
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Val};
-    /// let style = Style {
+    /// # use bevy_ui::{Node, UiRect, Val};
+    /// let style = Node {
     ///     margin: UiRect {
     ///         left: Val::Percent(10.),
     ///         right: Val::Percent(10.),
@@ -468,8 +468,8 @@ pub struct Style {
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Val};
-    /// let style = Style {
+    /// # use bevy_ui::{Node, UiRect, Val};
+    /// let node = Node {
     ///     padding: UiRect {
     ///         left: Val::Percent(1.),
     ///         right: Val::Percent(2.),
@@ -574,7 +574,7 @@ pub struct Style {
     pub grid_column: GridPlacement,
 }
 
-impl Style {
+impl Node {
     pub const DEFAULT: Self = Self {
         display: Display::DEFAULT,
         position_type: PositionType::DEFAULT,
@@ -617,7 +617,7 @@ impl Style {
     };
 }
 
-impl Default for Style {
+impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -879,7 +879,7 @@ impl Default for JustifyContent {
 
 /// Defines the layout model used by this node.
 ///
-/// Part of the [`Style`] component.
+/// Part of the [`Node`] component.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
 #[reflect(Default, PartialEq)]
 #[cfg_attr(
@@ -1976,8 +1976,7 @@ impl Default for BorderColor {
 /// # use bevy_color::palettes::basic::{RED, BLUE};
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
-///         Node::default(),
-///         Style {
+///         Node {
 ///             width: Val::Px(100.),
 ///             height: Val::Px(100.),
 ///             ..Default::default()
@@ -2192,8 +2191,7 @@ pub struct GlobalZIndex(pub i32);
 /// # use bevy_color::palettes::basic::{BLUE};
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
-///         Node::default(),
-///         Style {
+///         Node {
 ///             width: Val::Px(100.),
 ///             height: Val::Px(100.),
 ///             border: UiRect::all(Val::Px(2.)),

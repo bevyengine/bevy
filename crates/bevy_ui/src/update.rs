@@ -2,10 +2,10 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, Display, OverflowAxis, Style, TargetCamera,
+    CalculatedClip, Display, Node, OverflowAxis, TargetCamera,
 };
 
-use super::Node;
+use super::ComputedNode;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, With},
@@ -20,7 +20,12 @@ use bevy_utils::HashSet;
 pub fn update_clipping_system(
     mut commands: Commands,
     root_nodes: UiRootNodes,
-    mut node_query: Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
+    mut node_query: Query<(
+        &ComputedNode,
+        &GlobalTransform,
+        &Node,
+        Option<&mut CalculatedClip>,
+    )>,
     ui_children: UiChildren,
 ) {
     for root_node in root_nodes.iter() {
@@ -37,7 +42,12 @@ pub fn update_clipping_system(
 fn update_clipping(
     commands: &mut Commands,
     ui_children: &UiChildren,
-    node_query: &mut Query<(&Node, &GlobalTransform, &Style, Option<&mut CalculatedClip>)>,
+    node_query: &mut Query<(
+        &ComputedNode,
+        &GlobalTransform,
+        &Node,
+        Option<&mut CalculatedClip>,
+    )>,
     entity: Entity,
     mut maybe_inherited_clip: Option<Rect>,
 ) {
@@ -87,7 +97,7 @@ fn update_clipping(
         let mut clip_rect =
             Rect::from_center_size(global_transform.translation().truncate(), node.size());
 
-        // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Style::overflow_clip_margin`].
+        // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Node::overflow_clip_margin`].
         //
         // `clip_inset` should always fit inside `node_rect`.
         // Even if `clip_inset` were to overflow, we won't return a degenerate result as `Rect::intersect` will clamp the intersection, leaving it empty.

@@ -35,8 +35,7 @@ fn setup(mut commands: Commands) {
 
     commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 padding: UiRect::all(Val::Px(30.)),
@@ -201,8 +200,7 @@ fn box_shadow_node_bundle(
     border_radius: BorderRadius,
 ) -> impl Bundle {
     (
-        Node::default(),
-        Style {
+        Node {
             width: Val::Px(size.x),
             height: Val::Px(size.y),
             border: UiRect::all(Val::Px(4.)),

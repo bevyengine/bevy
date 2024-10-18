@@ -148,7 +148,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Text::new("Contributor showcase"),
             text_style.clone(),
             ContributorDisplay,
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.),
                 left: Val::Px(12.),

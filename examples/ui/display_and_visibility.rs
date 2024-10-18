@@ -48,7 +48,7 @@ trait TargetUpdate {
 }
 
 impl TargetUpdate for Target<Display> {
-    type TargetComponent = Style;
+    type TargetComponent = Node;
     const NAME: &'static str = "Display";
     fn update_target(&self, style: &mut Self::TargetComponent) -> String {
         style.display = match style.display {
@@ -82,99 +82,94 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
 
     commands.spawn(Camera2d);
-    commands.spawn((Node::default(),
-        Style {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
-            flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::SpaceEvenly,
-            ..Default::default()
-        },
-        BackgroundColor(Color::BLACK),
-    )).with_children(|parent| {
-        parent.spawn((Text::new("Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left"),
-            text_font.clone(),
-            TextLayout::new_with_justify(JustifyText::Center),
-            Style {
-                margin: UiRect::bottom(Val::Px(10.)),
+    commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceEvenly,
                 ..Default::default()
             },
-        ));
+            BackgroundColor(Color::BLACK),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new("Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left"),
+                text_font.clone(),
+                TextLayout::new_with_justify(JustifyText::Center),
+                Node {
+                    margin: UiRect::bottom(Val::Px(10.)),
+                    ..Default::default()
+                },
+            ));
 
-        parent
-            .spawn((
-                Node::default(),
-                Style {
+            parent
+                .spawn(Node {
                     width: Val::Percent(100.),
                     ..default()
-                },
-            ))
-            .with_children(|parent| {
-                let mut target_ids = vec![];
-                parent.spawn((
-                    Node::default(),
-                    Style {
-                        width: Val::Percent(50.),
-                        height: Val::Px(520.),
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
-                )).with_children(|parent| {
-                    target_ids = spawn_left_panel(parent, &palette);
+                })
+                .with_children(|parent| {
+                    let mut target_ids = vec![];
+                    parent
+                        .spawn(Node {
+                            width: Val::Percent(50.),
+                            height: Val::Px(520.),
+                            justify_content: JustifyContent::Center,
+                            ..default()
+                        })
+                        .with_children(|parent| {
+                            target_ids = spawn_left_panel(parent, &palette);
+                        });
+
+                    parent
+                        .spawn(Node {
+                            width: Val::Percent(50.),
+                            justify_content: JustifyContent::Center,
+                            ..default()
+                        })
+                        .with_children(|parent| {
+                            spawn_right_panel(parent, text_font, &palette, target_ids);
+                        });
                 });
 
-                parent.spawn((
-                    Node::default(),
-                    Style {
-                        width: Val::Percent(50.),
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
-                )).with_children(|parent| {
-                    spawn_right_panel(parent, text_font, &palette, target_ids);
-                });
-            });
-
-            parent.spawn((
-                Node::default(),
-                Style {
+            parent
+                .spawn(Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Start,
                     justify_content: JustifyContent::Start,
                     column_gap: Val::Px(10.),
                     ..default()
-                },
-            ))
-            .with_children(|builder| {
-                let text_font = TextFont {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    ..default()
-                };
+                })
+                .with_children(|builder| {
+                    let text_font = TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    };
 
-                builder.spawn((Text::new("Display::None\nVisibility::Hidden\nVisibility::Inherited"),
+                    builder.spawn((
+                        Text::new("Display::None\nVisibility::Hidden\nVisibility::Inherited"),
                         text_font.clone(),
                         TextColor(HIDDEN_COLOR),
                         TextLayout::new_with_justify(JustifyText::Center),
-                ));
-                builder.spawn((Text::new("-\n-\n-"),
+                    ));
+                    builder.spawn((
+                        Text::new("-\n-\n-"),
                         text_font.clone(),
                         TextColor(DARK_GRAY.into()),
                         TextLayout::new_with_justify(JustifyText::Center),
-                ));
-                builder.spawn((Text::new("The UI Node and its descendants will not be visible and will not be allotted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible."),
-                    text_font
-                ));
-            });
-    });
+                    ));
+                    builder.spawn((Text::new("The UI Node and its descendants will not be visible and will not be allotted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible."), text_font));
+                });
+        });
 }
 
 fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Entity> {
     let mut target_ids = vec![];
     builder
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 padding: UiRect::all(Val::Px(10.)),
                 ..default()
             },
@@ -186,8 +181,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                 .with_children(|parent| {
                     let id = parent
                         .spawn((
-                            Node::default(),
-                            Style {
+                            Node {
                                 align_items: AlignItems::FlexEnd,
                                 justify_content: JustifyContent::FlexEnd,
                                 ..default()
@@ -195,19 +189,15 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                             BackgroundColor(palette[0]),
                         ))
                         .with_children(|parent| {
-                            parent.spawn((
-                                Node::default(),
-                                Style {
-                                    width: Val::Px(100.),
-                                    height: Val::Px(500.),
-                                    ..default()
-                                },
-                            ));
+                            parent.spawn(Node {
+                                width: Val::Px(100.),
+                                height: Val::Px(500.),
+                                ..default()
+                            });
 
                             let id = parent
                                 .spawn((
-                                    Node::default(),
-                                    Style {
+                                    Node {
                                         height: Val::Px(400.),
                                         align_items: AlignItems::FlexEnd,
                                         justify_content: JustifyContent::FlexEnd,
@@ -216,19 +206,15 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                     BackgroundColor(palette[1]),
                                 ))
                                 .with_children(|parent| {
-                                    parent.spawn((
-                                        Node::default(),
-                                        Style {
-                                            width: Val::Px(100.),
-                                            height: Val::Px(400.),
-                                            ..default()
-                                        },
-                                    ));
+                                    parent.spawn(Node {
+                                        width: Val::Px(100.),
+                                        height: Val::Px(400.),
+                                        ..default()
+                                    });
 
                                     let id = parent
                                         .spawn((
-                                            Node::default(),
-                                            Style {
+                                            Node {
                                                 height: Val::Px(300.),
                                                 align_items: AlignItems::FlexEnd,
                                                 justify_content: JustifyContent::FlexEnd,
@@ -237,19 +223,15 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                             BackgroundColor(palette[2]),
                                         ))
                                         .with_children(|parent| {
-                                            parent.spawn((
-                                                Node::default(),
-                                                Style {
-                                                    width: Val::Px(100.),
-                                                    height: Val::Px(300.),
-                                                    ..default()
-                                                },
-                                            ));
+                                            parent.spawn(Node {
+                                                width: Val::Px(100.),
+                                                height: Val::Px(300.),
+                                                ..default()
+                                            });
 
                                             let id = parent
                                                 .spawn((
-                                                    Node::default(),
-                                                    Style {
+                                                    Node {
                                                         width: Val::Px(200.),
                                                         height: Val::Px(200.),
                                                         ..default()
@@ -284,8 +266,7 @@ fn spawn_right_panel(
     };
     parent
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 padding: UiRect::all(Val::Px(10.)),
                 ..default()
             },
@@ -294,8 +275,7 @@ fn spawn_right_panel(
         .with_children(|parent| {
             parent
                 .spawn((
-                    Node::default(),
-                    Style {
+                    Node {
                         width: Val::Px(500.),
                         height: Val::Px(500.),
                         flex_direction: FlexDirection::Column,
@@ -315,8 +295,7 @@ fn spawn_right_panel(
 
                     parent
                         .spawn((
-                            Node::default(),
-                            Style {
+                            Node {
                                 width: Val::Px(400.),
                                 height: Val::Px(400.),
                                 flex_direction: FlexDirection::Column,
@@ -336,8 +315,7 @@ fn spawn_right_panel(
 
                             parent
                                 .spawn((
-                                    Node::default(),
-                                    Style {
+                                    Node {
                                         width: Val::Px(300.),
                                         height: Val::Px(300.),
                                         flex_direction: FlexDirection::Column,
@@ -357,8 +335,7 @@ fn spawn_right_panel(
 
                                     parent
                                         .spawn((
-                                            Node::default(),
-                                            Style {
+                                            Node {
                                                 width: Val::Px(200.),
                                                 height: Val::Px(200.),
                                                 align_items: AlignItems::FlexStart,
@@ -376,14 +353,11 @@ fn spawn_right_panel(
                                         .with_children(|parent| {
                                             spawn_buttons(parent, target_ids.pop().unwrap());
 
-                                            parent.spawn((
-                                                Node::default(),
-                                                Style {
-                                                    width: Val::Px(100.),
-                                                    height: Val::Px(100.),
-                                                    ..default()
-                                                },
-                                            ));
+                                            parent.spawn(Node {
+                                                width: Val::Px(100.),
+                                                height: Val::Px(100.),
+                                                ..default()
+                                            });
                                         });
                                 });
                         });
@@ -399,7 +373,7 @@ where
     parent
         .spawn((
             Button,
-            Style {
+            Node {
                 align_self: AlignSelf::FlexStart,
                 padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
                 ..default()

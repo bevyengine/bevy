@@ -99,7 +99,7 @@ fn instructions(mut commands: Commands) {
             "Scroll mouse wheel to zoom in/out\n\
             Space: switch between orthographic and perspective projections",
         ),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),

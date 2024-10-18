@@ -85,8 +85,7 @@ fn setup(
         commands
             .spawn((
                 TargetCamera(camera),
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
                     ..default()
@@ -95,7 +94,7 @@ fn setup(
             .with_children(|parent| {
                 parent.spawn((
                     Text::new(*camera_name),
-                    Style {
+                    Node {
                         position_type: PositionType::Absolute,
                         top: Val::Px(12.),
                         left: Val::Px(12.),
@@ -108,20 +107,17 @@ fn setup(
 
     fn buttons_panel(parent: &mut ChildBuilder) {
         parent
-            .spawn((
-                Node::default(),
-                Style {
-                    position_type: PositionType::Absolute,
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    display: Display::Flex,
-                    flex_direction: FlexDirection::Row,
-                    justify_content: JustifyContent::SpaceBetween,
-                    align_items: AlignItems::Center,
-                    padding: UiRect::all(Val::Px(20.)),
-                    ..default()
-                },
-            ))
+            .spawn(Node {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+                padding: UiRect::all(Val::Px(20.)),
+                ..default()
+            })
             .with_children(|parent| {
                 rotate_button(parent, "<", Direction::Left);
                 rotate_button(parent, ">", Direction::Right);
@@ -133,7 +129,7 @@ fn setup(
             .spawn((
                 RotateCamera(direction),
                 Button,
-                Style {
+                Node {
                     width: Val::Px(40.),
                     height: Val::Px(40.),
                     border: UiRect::all(Val::Px(2.)),

@@ -35,13 +35,10 @@ fn setup_camera(mut commands: Commands) {
 fn setup_ui(mut commands: Commands) {
     // Node that fills entire background
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                width: Val::Percent(100.),
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.),
+            ..default()
+        })
         // Text where we display current resolution
         .with_child((
             Text::new("Resolution"),

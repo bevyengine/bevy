@@ -23,16 +23,13 @@ fn setup(
     commands.spawn(Camera2d);
 
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        })
         .with_children(|parent| {
             let banner_scale_factor = 0.5;
             parent.spawn((
@@ -42,7 +39,7 @@ fn setup(
                     color_texture: asset_server.load("branding/banner.png"),
                     border_color: LinearRgba::WHITE.to_f32_array().into(),
                 })),
-                Style {
+                Node {
                     position_type: PositionType::Absolute,
                     width: Val::Px(905.0 * banner_scale_factor),
                     height: Val::Px(363.0 * banner_scale_factor),

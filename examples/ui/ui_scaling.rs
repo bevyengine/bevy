@@ -30,8 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 width: Val::Percent(50.0),
                 height: Val::Percent(50.0),
                 position_type: PositionType::Absolute,
@@ -46,8 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| {
             parent
                 .spawn((
-                    Node::default(),
-                    Style {
+                    Node {
                         width: Val::Px(40.0),
                         height: Val::Px(40.0),
                         ..default()
@@ -58,8 +56,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn((Text::new("Size!"), text_font, TextColor::BLACK));
                 });
             parent.spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Percent(15.0),
                     height: Val::Percent(15.0),
                     ..default()
@@ -68,7 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ));
             parent.spawn((
                 UiImage::new(asset_server.load("branding/icon.png")),
-                Style {
+                Node {
                     width: Val::Px(30.0),
                     height: Val::Px(30.0),
                     ..default()

@@ -48,7 +48,7 @@ impl Plugin for UiPickingBackendPlugin {
 #[query_data(mutable)]
 pub struct NodeQuery {
     entity: Entity,
-    node: &'static Node,
+    node: &'static ComputedNode,
     global_transform: &'static GlobalTransform,
     picking_behavior: Option<&'static PickingBehavior>,
     calculated_clip: Option<&'static CalculatedClip>,

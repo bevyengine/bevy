@@ -3,8 +3,8 @@
 
 use crate::{
     widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, BorderRadius, ContentSize, FocusPolicy, Interaction,
-    MaterialNode, Node, ScrollPosition, Style, UiImage, UiMaterial, ZIndex,
+    BackgroundColor, BorderColor, BorderRadius, ComputedNode, ContentSize, FocusPolicy,
+    Interaction, MaterialNode, Node, ScrollPosition, UiImage, UiMaterial, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
@@ -21,11 +21,11 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
     note = "Use the `Node` component instead. Inserting `Node` will also insert the other components required automatically."
 )]
 pub struct NodeBundle {
-    /// Describes the logical size of the node
+    /// Controls the layout (size and position) of the node and its children
+    /// This also affect how the node is drawn/painted.
     pub node: Node,
-    /// Styles which control the layout (size and position) of the node and its children
-    /// In some cases these styles also affect how the node drawn/painted.
-    pub style: Style,
+    /// Describes the logical size of the node
+    pub computed_node: ComputedNode,
     /// The background color, which serves as a "fill" for this node
     pub background_color: BackgroundColor,
     /// The color of the Node's border
@@ -39,12 +39,12 @@ pub struct NodeBundle {
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Node`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
     /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Node`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -70,10 +70,10 @@ pub struct NodeBundle {
 )]
 pub struct ImageBundle {
     /// Describes the logical size of the node
+    pub computed_node: ComputedNode,
+    /// Controls the layout (size and position) of the node and its children
+    /// This also affects how the node is drawn/painted.
     pub node: Node,
-    /// Styles which control the layout (size and position) of the node and its children
-    /// In some cases these styles also affect how the node drawn/painted.
-    pub style: Style,
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
     /// The image of the node.
@@ -93,7 +93,7 @@ pub struct ImageBundle {
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
-    /// To alter the position of the `ImageBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `ImageBundle`, use the properties of the [`Node`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
@@ -123,12 +123,12 @@ pub struct ImageBundle {
 )]
 pub struct ButtonBundle {
     /// Describes the logical size of the node
-    pub node: Node,
+    pub computed_node: ComputedNode,
     /// Marker component that signals this node is a button
     pub button: Button,
-    /// Styles which control the layout (size and position) of the node and its children
-    /// In some cases these styles also affect how the node drawn/painted.
-    pub style: Style,
+    /// Controls the layout (size and position) of the node and its children
+    /// Also affect how the node is drawn/painted.
+    pub node: Node,
     /// Describes whether and how the button has been interacted with by the input
     pub interaction: Interaction,
     /// Whether this node should block interaction with lower nodes
@@ -144,7 +144,7 @@ pub struct ButtonBundle {
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
-    /// To alter the position of the `ButtonBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `ButtonBundle`, use the properties of the [`Node`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
@@ -164,8 +164,8 @@ impl Default for ButtonBundle {
     fn default() -> Self {
         Self {
             node: Default::default(),
+            computed_node: Default::default(),
             button: Default::default(),
-            style: Default::default(),
             interaction: Default::default(),
             focus_policy: FocusPolicy::Block,
             border_color: Default::default(),
@@ -193,10 +193,10 @@ impl Default for ButtonBundle {
 )]
 pub struct MaterialNodeBundle<M: UiMaterial> {
     /// Describes the logical size of the node
+    pub computed_node: ComputedNode,
+    /// Controls the layout (size and position) of the node and its children
+    /// Also affects how the node is drawn/painted.
     pub node: Node,
-    /// Styles which control the layout (size and position) of the node and its children
-    /// In some cases these styles also affect how the node drawn/painted.
-    pub style: Style,
     /// The [`UiMaterial`] used to render the node.
     pub material: MaterialNode<M>,
     /// Whether this node should block interaction with lower nodes
@@ -204,12 +204,12 @@ pub struct MaterialNodeBundle<M: UiMaterial> {
     /// The transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Node`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Node`] component.
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -225,7 +225,7 @@ impl<M: UiMaterial> Default for MaterialNodeBundle<M> {
     fn default() -> Self {
         Self {
             node: Default::default(),
-            style: Default::default(),
+            computed_node: Default::default(),
             material: Default::default(),
             focus_policy: Default::default(),
             transform: Default::default(),

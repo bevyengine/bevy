@@ -243,22 +243,19 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn setup_menu(mut commands: Commands) {
     let button_entity = commands
-        .spawn((
-            Node::default(),
-            Style {
-                // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            // center button
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        })
         .with_children(|parent| {
             parent
                 .spawn((
                     Button,
-                    Style {
+                    Node {
                         width: Val::Px(150.),
                         height: Val::Px(65.),
                         // horizontally center child text

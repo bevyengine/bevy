@@ -94,7 +94,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     // Spawn the help text.
     commands.spawn((
         create_text(&app_settings),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),

@@ -33,22 +33,19 @@ fn setup(
 
     // root node
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                row_gap: Val::Px(text_font.font_size * 2.),
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            row_gap: Val::Px(text_font.font_size * 2.),
+            ..default()
+        })
         .with_children(|parent| {
             parent.spawn((
                 UiImage::new(texture_handle),
-                Style {
+                Node {
                     width: Val::Px(256.),
                     height: Val::Px(256.),
                     ..default()

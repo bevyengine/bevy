@@ -370,8 +370,7 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
     commands
         .spawn((
             HeaderNode,
-            Node::default(),
-            Style {
+            Node {
                 justify_self: JustifySelf::Center,
                 top: Val::Px(5.0),
                 ..Default::default()

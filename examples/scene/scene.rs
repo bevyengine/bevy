@@ -152,7 +152,7 @@ fn infotext_system(mut commands: Commands) {
             font_size: 42.0,
             ..default()
         },
-        Style {
+        Node {
             align_self: AlignSelf::FlexEnd,
             ..default()
         },
