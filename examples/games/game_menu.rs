@@ -374,7 +374,7 @@ mod menu {
 
     fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Common style for all buttons on the screen
-        let button_style = Node {
+        let button_node = Node {
             width: Val::Px(300.0),
             height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
@@ -382,7 +382,7 @@ mod menu {
             align_items: AlignItems::Center,
             ..default()
         };
-        let button_icon_style = Node {
+        let button_icon_node = Node {
             width: Val::Px(30.0),
             // This takes the icons out of the flexbox flow, to be positioned exactly
             position_type: PositionType::Absolute,
@@ -438,13 +438,13 @@ mod menu {
                         parent
                             .spawn((
                                 Button,
-                                button_style.clone(),
+                                button_node.clone(),
                                 BackgroundColor(NORMAL_BUTTON),
                                 MenuButtonAction::Play,
                             ))
                             .with_children(|parent| {
                                 let icon = asset_server.load("textures/Game Icons/right.png");
-                                parent.spawn((UiImage::new(icon), button_icon_style.clone()));
+                                parent.spawn((UiImage::new(icon), button_icon_node.clone()));
                                 parent.spawn((
                                     Text::new("New Game"),
                                     button_text_font.clone(),
@@ -454,13 +454,13 @@ mod menu {
                         parent
                             .spawn((
                                 Button,
-                                button_style.clone(),
+                                button_node.clone(),
                                 BackgroundColor(NORMAL_BUTTON),
                                 MenuButtonAction::Settings,
                             ))
                             .with_children(|parent| {
                                 let icon = asset_server.load("textures/Game Icons/wrench.png");
-                                parent.spawn((UiImage::new(icon), button_icon_style.clone()));
+                                parent.spawn((UiImage::new(icon), button_icon_node.clone()));
                                 parent.spawn((
                                     Text::new("Settings"),
                                     button_text_font.clone(),
@@ -470,13 +470,13 @@ mod menu {
                         parent
                             .spawn((
                                 Button,
-                                button_style,
+                                button_node,
                                 BackgroundColor(NORMAL_BUTTON),
                                 MenuButtonAction::Quit,
                             ))
                             .with_children(|parent| {
                                 let icon = asset_server.load("textures/Game Icons/exitRight.png");
-                                parent.spawn((UiImage::new(icon), button_icon_style));
+                                parent.spawn((UiImage::new(icon), button_icon_node));
                                 parent.spawn((
                                     Text::new("Quit"),
                                     button_text_font,
@@ -488,7 +488,7 @@ mod menu {
     }
 
     fn settings_menu_setup(mut commands: Commands) {
-        let button_style = Node {
+        let button_node = Node {
             width: Val::Px(200.0),
             height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
@@ -535,7 +535,7 @@ mod menu {
                             parent
                                 .spawn((
                                     Button,
-                                    button_style.clone(),
+                                    button_node.clone(),
                                     BackgroundColor(NORMAL_BUTTON),
                                     action,
                                 ))
