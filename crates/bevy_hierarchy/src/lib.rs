@@ -5,7 +5,7 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
-//! Parent-child relationships for Bevy entities.
+//! Relationships for Bevy entities.
 //!
 //! You should use the tools in this crate
 //! whenever you want to organize your entities in a hierarchical fashion,
@@ -43,6 +43,22 @@
 //! are not capable of automatically despawning hierarchies of entities.
 //! In most cases, these operations will invalidate the hierarchy.
 //! Instead, you should use the provided [hierarchical despawn extension methods].
+//!
+//! ## Generic relationships
+//!
+//! This crate also provides a number of components defining custom relationships, such as:
+//!
+//! * [`OneToOne`]
+//! * [`OneToMany`] and [`ManyToOne`]
+//! * [`ManyToMany`]
+//!
+//! These components will use component hooks to ensure both members of a relationship
+//! have appropriate data for that relationship.
+//!
+//! Note that to maintain the invariants of a relationship, you must not mutate the component
+//! in-place using methods like [`swap`](core::mem::swap), as these bypass the currently
+//! available component hooks. To mutate a relationship, instead replace the component with an
+//! updated value.
 //!
 //! [command and world]: BuildChildren
 //! [diagnostic plugin]: ValidParentCheckPlugin
