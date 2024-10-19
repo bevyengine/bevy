@@ -192,9 +192,9 @@ impl<FK, PK> ManyToMany<FK, PK> {
     ///
     /// For the underlying implementation, see [`slice::sort_by`].
     ///
-    /// For the unstable version, see [`sort_unstable_by`](OneToMany::sort_unstable_by).
+    /// For the unstable version, see [`sort_unstable_by`](ManyToMany::sort_unstable_by).
     ///
-    /// See also [`sort_by_key`](OneToMany::sort_by_key), [`sort_by_cached_key`](OneToMany::sort_by_cached_key).
+    /// See also [`sort_by_key`](ManyToMany::sort_by_key), [`sort_by_cached_key`](ManyToMany::sort_by_cached_key).
     #[inline]
     pub fn sort_by<F>(&mut self, compare: F)
     where
@@ -208,9 +208,9 @@ impl<FK, PK> ManyToMany<FK, PK> {
     ///
     /// For the underlying implementation, see [`slice::sort_by_key`].
     ///
-    /// For the unstable version, see [`sort_unstable_by_key`](OneToMany::sort_unstable_by_key).
+    /// For the unstable version, see [`sort_unstable_by_key`](ManyToMany::sort_unstable_by_key).
     ///
-    /// See also [`sort_by`](OneToMany::sort_by), [`sort_by_cached_key`](OneToMany::sort_by_cached_key).
+    /// See also [`sort_by`](ManyToMany::sort_by), [`sort_by_cached_key`](ManyToMany::sort_by_cached_key).
     #[inline]
     pub fn sort_by_key<K, F>(&mut self, compare: F)
     where
@@ -226,7 +226,7 @@ impl<FK, PK> ManyToMany<FK, PK> {
     ///
     /// For the underlying implementation, see [`slice::sort_by_cached_key`].
     ///
-    /// See also [`sort_by`](OneToMany::sort_by), [`sort_by_key`](OneToMany::sort_by_key).
+    /// See also [`sort_by`](ManyToMany::sort_by), [`sort_by_key`](ManyToMany::sort_by_key).
     #[inline]
     pub fn sort_by_cached_key<K, F>(&mut self, compare: F)
     where
@@ -241,9 +241,9 @@ impl<FK, PK> ManyToMany<FK, PK> {
     ///
     /// For the underlying implementation, see [`slice::sort_unstable_by`].
     ///
-    /// For the stable version, see [`sort_by`](OneToMany::sort_by).
+    /// For the stable version, see [`sort_by`](ManyToMany::sort_by).
     ///
-    /// See also [`sort_unstable_by_key`](OneToMany::sort_unstable_by_key).
+    /// See also [`sort_unstable_by_key`](ManyToMany::sort_unstable_by_key).
     #[inline]
     pub fn sort_unstable_by<F>(&mut self, compare: F)
     where
@@ -257,9 +257,9 @@ impl<FK, PK> ManyToMany<FK, PK> {
     ///
     /// For the underlying implementation, see [`slice::sort_unstable_by_key`].
     ///
-    /// For the stable version, see [`sort_by_key`](OneToMany::sort_by_key).
+    /// For the stable version, see [`sort_by_key`](ManyToMany::sort_by_key).
     ///
-    /// See also [`sort_unstable_by`](OneToMany::sort_unstable_by).
+    /// See also [`sort_unstable_by`](ManyToMany::sort_unstable_by).
     #[inline]
     pub fn sort_unstable_by_key<K, F>(&mut self, compare: F)
     where

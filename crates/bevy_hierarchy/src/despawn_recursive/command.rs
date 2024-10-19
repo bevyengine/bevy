@@ -12,7 +12,7 @@ use bevy_utils::tracing::debug;
 /// If an [`Entity`] cannot be found, a warning will be emitted.
 ///
 /// The target [`Entity`] can be excluded from being despawned using
-/// [`with_inclusion`](`DespawnRecursive::with_inclusion`).
+/// [`without_inclusion`](`DespawnRecursive::without_inclusion`).
 ///
 /// Warnings can be disabled using [`with_warn`](`DespawnRecursive::with_warn`).
 ///
