@@ -11,7 +11,6 @@ use bevy::{
 };
 
 fn main() {
-    std::env::set_var("RUST_BACKTRACE", "1");
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
@@ -26,18 +25,15 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // camera
-    commands
-        .spawn((
-            Camera3d::default(),
-            Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-            // Add this component to this camera to render transparent meshes using OIT
-            OrderIndependentTransparencySettings::default(),
-            RenderLayers::layer(1),
-        ))
-        .insert(
-            // Msaa currently doesn't work with OIT
-            Msaa::Off,
-        );
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // Add this component to this camera to render transparent meshes using OIT
+        OrderIndependentTransparencySettings::default(),
+        RenderLayers::layer(1),
+        // Msaa currently doesn't work with OIT
+        Msaa::Off,
+    ));
 
     // light
     commands.spawn((
