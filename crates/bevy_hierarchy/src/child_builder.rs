@@ -636,13 +636,13 @@ mod tests {
 
         assert_parent(world, b, Some(a));
         assert_children(world, a, Some(&[b]));
-        assert_events(world, &[HierarchyEvent::added(a, b)]);
+        assert_events(world, &[HierarchyEvent::added(b, a)]);
 
         world.entity_mut(a).add_child(c);
 
         assert_children(world, a, Some(&[b, c]));
         assert_parent(world, c, Some(a));
-        assert_events(world, &[HierarchyEvent::added(a, c)]);
+        assert_events(world, &[HierarchyEvent::added(c, a)]);
         // Children component should be removed when it's empty.
         world.entity_mut(d).add_child(b).add_child(c);
         assert_children(world, a, None);
@@ -659,7 +659,7 @@ mod tests {
 
         assert_parent(world, a, Some(b));
         assert_children(world, b, Some(&[a]));
-        assert_events(world, &[HierarchyEvent::added(b, a)]);
+        assert_events(world, &[HierarchyEvent::added(a, b)]);
 
         world.entity_mut(a).set_parent(c);
 
@@ -668,7 +668,7 @@ mod tests {
         assert_children(world, c, Some(&[a]));
         assert_events(
             world,
-            &[HierarchyEvent::removed(b, a), HierarchyEvent::added(c, a)],
+            &[HierarchyEvent::removed(a, b), HierarchyEvent::added(a, c)],
         );
     }
 
@@ -703,12 +703,12 @@ mod tests {
         assert_parent(world, c, Some(a));
         assert_children(world, a, Some(&[c]));
         omit_events(world, 2); // Omit Added events.
-        assert_events(world, &[HierarchyEvent::removed(a, b)]);
+        assert_events(world, &[HierarchyEvent::removed(b, a)]);
 
         world.entity_mut(c).remove_parent();
         assert_parent(world, c, None);
         assert_children(world, a, None);
-        assert_events(world, &[HierarchyEvent::removed(a, c)]);
+        assert_events(world, &[HierarchyEvent::removed(c, a)]);
     }
 
     #[allow(dead_code)]

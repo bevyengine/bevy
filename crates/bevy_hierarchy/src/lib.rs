@@ -53,11 +53,20 @@
 
 extern crate alloc;
 
+pub(crate) mod relationship;
+pub use relationship::*;
+
 mod one_to_one;
-pub use one_to_one::{OneToOne, OneToOneEvent};
+pub use one_to_one::OneToOne;
 
 mod one_to_many;
-pub use one_to_many::{ManyToOne, OneToMany, OneToManyEvent};
+pub use one_to_many::OneToMany;
+
+mod many_to_one;
+pub use many_to_one::ManyToOne;
+
+mod many_to_many;
+pub use many_to_many::ManyToMany;
 
 mod family;
 pub use family::*;

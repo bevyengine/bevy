@@ -1,15 +1,168 @@
-//! Provides access to the [`OneToOne`] component, allowing for one-to-one relationships
-//! of an arbitrary type to be automatically managed in the ECS.
+#[cfg(feature = "reflect")]
+use bevy_ecs::reflect::{
+    ReflectComponent, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
+    ReflectVisitEntitiesMut,
+};
+use bevy_ecs::{
+    component::Component,
+    entity::{Entity, VisitEntities, VisitEntitiesMut},
+    traversal::Traversal,
+    world::{FromWorld, World},
+};
+use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 
-mod component;
-pub use component::OneToOne;
+use crate::relationship::Relationship;
 
-mod event;
-pub use event::OneToOneEvent;
+/// Represents one half of a one-to-one relationship between two [entities](Entity).
+///
+/// The type of relationship is denoted by the parameter `R`.
+#[derive(Component)]
+#[component(
+    on_insert = <Self as Relationship>::associate,
+    on_replace = <Self as Relationship>::disassociate,
+)]
+#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
+#[cfg_attr(
+    feature = "reflect",
+    reflect(
+        Component,
+        MapEntities,
+        VisitEntities,
+        VisitEntitiesMut,
+        PartialEq,
+        Debug,
+        FromWorld
+    )
+)]
+pub struct OneToOne<FK, PK = FK> {
+    entity: Entity,
+    #[cfg_attr(feature = "reflect", reflect(ignore))]
+    _phantom: PhantomData<fn(&FK, &PK)>,
+}
+
+impl<FK: 'static, PK: 'static> Relationship for OneToOne<FK, PK> {
+    type Other = OneToOne<PK, FK>;
+
+    fn has(&self, entity: Entity) -> bool {
+        self.entity == entity
+    }
+
+    fn new(entity: Entity) -> Self {
+        Self {
+            entity,
+            _phantom: PhantomData,
+        }
+    }
+
+    fn with(self, entity: Entity) -> Self {
+        Self {
+            entity,
+            _phantom: PhantomData,
+        }
+    }
+
+    fn without(self, entity: Entity) -> Option<Self> {
+        (self.entity != entity).then_some(self)
+    }
+
+    fn iter(&self) -> impl ExactSizeIterator<Item = Entity> {
+        [self.entity].into_iter()
+    }
+}
+
+impl<FK, PK> PartialEq for OneToOne<FK, PK> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity == other.entity
+    }
+}
+
+impl<FK, PK> Eq for OneToOne<FK, PK> {}
+
+impl<FK, PK> Debug for OneToOne<FK, PK> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "Has One {} ({}) With One ({})",
+            self.entity,
+            core::any::type_name::<FK>(),
+            core::any::type_name::<PK>()
+        )
+    }
+}
+
+impl<FK, PK> VisitEntities for OneToOne<FK, PK> {
+    fn visit_entities<F: FnMut(Entity)>(&self, mut f: F) {
+        f(self.entity);
+    }
+}
+
+impl<FK, PK> VisitEntitiesMut for OneToOne<FK, PK> {
+    fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, mut f: F) {
+        f(&mut self.entity);
+    }
+}
+
+// TODO: We need to impl either FromWorld or Default so OneToOne<R> can be registered as Reflect.
+// This is because Reflect deserialize by creating an instance and apply a patch on top.
+// However OneToOne<R> should only ever be set with a real user-defined entity. It's worth looking into
+// better ways to handle cases like this.
+impl<FK, PK> FromWorld for OneToOne<FK, PK> {
+    #[inline(always)]
+    fn from_world(_world: &mut World) -> Self {
+        Self {
+            entity: Entity::PLACEHOLDER,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<FK, PK> Deref for OneToOne<FK, PK> {
+    type Target = Entity;
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        &self.entity
+    }
+}
+
+/// This provides generalized hierarchy traversal for use in [event propagation].
+///
+/// [event propagation]: bevy_ecs::observer::Trigger::propagate
+impl<FK: 'static, PK: 'static> Traversal for &OneToOne<FK, PK> {
+    fn traverse(item: Self::Item<'_>) -> Option<Entity> {
+        Some(item.entity)
+    }
+}
+
+impl<FK, PK> OneToOne<FK, PK> {
+    /// Gets the [`Entity`] ID of the other member of this one-to-one relationship.
+    #[inline(always)]
+    pub fn get(&self) -> Entity {
+        self.entity
+    }
+
+    /// Gets the other [`Entity`] as a slice of length 1.
+    #[inline(always)]
+    pub fn as_slice(&self) -> &[Entity] {
+        core::slice::from_ref(&self.entity)
+    }
+
+    /// Create a new relationship with the provided [`Entity`].
+    #[inline(always)]
+    #[must_use]
+    pub fn new(other: Entity) -> Self {
+        Self {
+            entity: other,
+            _phantom: PhantomData,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{event::Events, world::World};
+
+    use crate::RelationshipEvent;
 
     use super::*;
 
@@ -177,7 +330,7 @@ mod tests {
         let mut world = World::new();
 
         world.register_component::<Friend>();
-        world.init_resource::<Events<OneToOneEvent<Friendship>>>();
+        world.init_resource::<Events<RelationshipEvent<Friend>>>();
 
         let a = world.spawn_empty().id();
         let b = world.spawn(Friend::new(a)).id();
@@ -189,10 +342,10 @@ mod tests {
 
         assert_eq!(
             world
-                .resource_mut::<Events<OneToOneEvent<Friendship>>>()
+                .resource_mut::<Events<RelationshipEvent<Friend>>>()
                 .drain()
                 .collect::<Vec<_>>(),
-            vec![OneToOneEvent::<Friendship>::added(b, a)]
+            vec![RelationshipEvent::<Friend>::added(b, a)]
         );
 
         world.entity_mut(a).remove::<Friend>();
@@ -204,10 +357,10 @@ mod tests {
 
         assert_eq!(
             world
-                .resource_mut::<Events<OneToOneEvent<Friendship>>>()
+                .resource_mut::<Events<RelationshipEvent<Friend>>>()
                 .drain()
                 .collect::<Vec<_>>(),
-            vec![OneToOneEvent::<Friendship>::removed(a, b)]
+            vec![RelationshipEvent::<Friend>::removed(a, b)]
         );
     }
 }

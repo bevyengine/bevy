@@ -1,4 +1,4 @@
-use crate::{ManyToOne, OneToMany, OneToManyEvent};
+use crate::{ManyToOne, OneToMany, RelationshipEvent};
 
 /// A familial relationship
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
@@ -37,4 +37,4 @@ pub type Children = OneToMany<Family>;
 /// An [`Event`] that is fired whenever there is a change in the world's hierarchy.
 ///
 /// [`Event`]: bevy_ecs::event::Event
-pub type HierarchyEvent = OneToManyEvent<Family>;
+pub type HierarchyEvent = RelationshipEvent<Parent>;

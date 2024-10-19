@@ -4,23 +4,21 @@ use bevy_ecs::reflect::{
     ReflectVisitEntitiesMut,
 };
 use bevy_ecs::{
-    component::{Component, ComponentId},
+    component::Component,
     entity::{Entity, VisitEntitiesMut},
-    event::Events,
-    world::{DeferredWorld, World},
 };
 use core::{fmt::Debug, marker::PhantomData, ops::Deref};
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 
-use super::{ManyToOne, OneToManyEvent};
+use crate::relationship::Relationship;
 
-/// Represents one half of a one-to-many relationship between an [`Entity`] and some number of other [entities](Entity).
+/// Represents one half of a many-to-many relationship between an [`Entity`] and some number of other [entities](Entity).
 ///
 /// The type of relationship is denoted by the parameter `R`.
 #[derive(Component)]
 #[component(
-    on_insert = Self::associate,
-    on_replace = Self::disassociate,
+    on_insert = <Self as Relationship>::associate,
+    on_replace = <Self as Relationship>::disassociate,
 )]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
@@ -35,104 +33,67 @@ use super::{ManyToOne, OneToManyEvent};
         FromWorld
     )
 )]
-pub struct OneToMany<R> {
-    entities: SmallVec<[Entity; 8]>,
+pub struct ManyToMany<FK, PK = FK> {
+    // [Entity; 7] chosen to keep entities at 64 bytes on 64 bit platforms.
+    entities: SmallVec<[Entity; 7]>,
     #[cfg_attr(feature = "reflect", reflect(ignore))]
-    _phantom: PhantomData<fn(&R)>,
+    _phantom: PhantomData<fn(&FK, &PK)>,
 }
 
-impl<R: 'static> OneToMany<R> {
-    fn associate(mut world: DeferredWorld<'_>, a_id: Entity, _component: ComponentId) {
-        world.commands().queue(move |world: &mut World| {
-            let b_ids_len = world
-                .get_entity(a_id)
-                .ok()
-                .and_then(|a| a.get::<Self>())
-                .map(|a_relationship| a_relationship.entities.len());
+impl<FK: 'static, PK: 'static> Relationship for ManyToMany<FK, PK> {
+    type Other = ManyToMany<PK, FK>;
 
-            let Some(b_ids_len) = b_ids_len else { return };
-
-            for b_id_index in 0..b_ids_len {
-                let b = world
-                    .get_entity(a_id)
-                    .ok()
-                    .and_then(|a| a.get::<Self>())
-                    .map(|a_relationship| a_relationship.entities[b_id_index])
-                    .and_then(|b_id| world.get_entity_mut(b_id).ok());
-
-                let Some(mut b) = b else { return };
-
-                let b_id = b.id();
-
-                let b_points_to_a = b
-                    .get::<ManyToOne<R>>()
-                    .is_some_and(|b_relationship| b_relationship.get() == a_id);
-
-                if !b_points_to_a {
-                    b.insert(ManyToOne::<R>::new(a_id));
-
-                    if let Some(mut moved) = world.get_resource_mut::<Events<OneToManyEvent<R>>>() {
-                        moved.send(OneToManyEvent::<R>::added(a_id, b_id));
-                    }
-                }
-            }
-        });
+    fn has(&self, entity: Entity) -> bool {
+        self.entities.contains(&entity)
     }
 
-    fn disassociate(mut world: DeferredWorld<'_>, a_id: Entity, _component: ComponentId) {
-        let Some(a_relationship) = world.get::<Self>(a_id) else {
-            unreachable!("component hook should only be called when component is available");
-        };
+    fn new(entity: Entity) -> Self {
+        Self {
+            entities: smallvec![entity],
+            _phantom: PhantomData,
+        }
+    }
 
-        // Cloning to allow a user to `take` the component for modification
-        let b_ids = a_relationship.entities.clone();
+    fn with(mut self, entity: Entity) -> Self {
+        if !self.has(entity) {
+            self.entities.push(entity);
+        }
 
-        world.commands().queue(move |world: &mut World| {
-            for b_id in b_ids {
-                let a_points_to_b = world
-                    .get_entity(a_id)
-                    .ok()
-                    .and_then(|a| a.get::<Self>())
-                    .is_some_and(|a_relationship| a_relationship.entities.contains(&b_id));
+        self
+    }
 
-                let b_points_to_a = world
-                    .get_entity(b_id)
-                    .ok()
-                    .and_then(|b| b.get::<ManyToOne<R>>())
-                    .is_some_and(|b_relationship| b_relationship.get() == a_id);
+    fn without(mut self, entity: Entity) -> Option<Self> {
+        self.entities.retain(|&mut id| id != entity);
 
-                if b_points_to_a && !a_points_to_b {
-                    if let Ok(mut b) = world.get_entity_mut(b_id) {
-                        b.remove::<ManyToOne<R>>();
-                    }
+        (!self.entities.is_empty()).then_some(self)
+    }
 
-                    if let Some(mut moved) = world.get_resource_mut::<Events<OneToManyEvent<R>>>() {
-                        moved.send(OneToManyEvent::<R>::removed(a_id, b_id));
-                    }
-                }
-            }
-        });
+    fn iter(&self) -> impl ExactSizeIterator<Item = Entity> {
+        self.entities.iter().copied()
     }
 }
 
-impl<R> PartialEq for OneToMany<R> {
+impl<FK, PK> PartialEq for ManyToMany<FK, PK> {
     fn eq(&self, other: &Self) -> bool {
         self.entities == other.entities
     }
 }
 
-impl<R> Eq for OneToMany<R> {}
+impl<FK, PK> Eq for ManyToMany<FK, PK> {}
 
-impl<R> Debug for OneToMany<R> {
+impl<FK, PK> Debug for ManyToMany<FK, PK> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("OneToMany")
-            .field(&self.entities)
-            .field(&core::any::type_name::<R>())
-            .finish()
+        write!(
+            f,
+            "Has Many {:?} ({}) With Many ({})",
+            self.entities,
+            core::any::type_name::<FK>(),
+            core::any::type_name::<PK>()
+        )
     }
 }
 
-impl<R> VisitEntitiesMut for OneToMany<R> {
+impl<FK, PK> VisitEntitiesMut for ManyToMany<FK, PK> {
     fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, mut f: F) {
         for entity in &mut self.entities {
             f(entity);
@@ -140,7 +101,7 @@ impl<R> VisitEntitiesMut for OneToMany<R> {
     }
 }
 
-impl<R> Deref for OneToMany<R> {
+impl<FK, PK> Deref for ManyToMany<FK, PK> {
     type Target = [Entity];
 
     #[inline(always)]
@@ -149,7 +110,7 @@ impl<R> Deref for OneToMany<R> {
     }
 }
 
-impl<'a, R> IntoIterator for &'a OneToMany<R> {
+impl<'a, FK, PK> IntoIterator for &'a ManyToMany<FK, PK> {
     type Item = <Self::IntoIter as Iterator>::Item;
 
     type IntoIter = core::slice::Iter<'a, Entity>;
@@ -160,19 +121,19 @@ impl<'a, R> IntoIterator for &'a OneToMany<R> {
     }
 }
 
-impl<R> FromIterator<Entity> for OneToMany<R> {
+impl<FK, PK> FromIterator<Entity> for ManyToMany<FK, PK> {
     fn from_iter<T: IntoIterator<Item = Entity>>(iter: T) -> Self {
         Self::from_smallvec(iter.into_iter().collect())
     }
 }
 
-impl<R> Default for OneToMany<R> {
+impl<FK, PK> Default for ManyToMany<FK, PK> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<R> OneToMany<R> {
+impl<FK, PK> ManyToMany<FK, PK> {
     /// Gets the other [`Entity`] as a slice of length 1.
     #[inline(always)]
     pub fn as_slice(&self) -> &[Entity] {
@@ -188,7 +149,7 @@ impl<R> OneToMany<R> {
 
     #[inline(always)]
     #[must_use]
-    fn from_smallvec(entities: SmallVec<[Entity; 8]>) -> Self {
+    fn from_smallvec(entities: SmallVec<[Entity; 7]>) -> Self {
         Self {
             entities,
             _phantom: PhantomData,
@@ -211,10 +172,6 @@ impl<R> OneToMany<R> {
     pub fn without(mut self, other: Entity) -> Self {
         self.entities.retain(|&mut e| e != other);
         self
-    }
-
-    pub(super) fn entities_mut(&mut self) -> &mut SmallVec<[Entity; 8]> {
-        &mut self.entities
     }
 
     /// Swaps the entity at `a_index` with the entity at `b_index`.
@@ -303,5 +260,68 @@ impl<R> OneToMany<R> {
         K: Ord,
     {
         self.entities.sort_unstable_by_key(compare);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_ecs::world::World;
+
+    use super::ManyToMany;
+
+    /// A familial relationship
+    struct Friendship;
+
+    /// Shorthand for a group of friends
+    type Friends = ManyToMany<Friendship>;
+
+    #[test]
+    fn simple_add_then_remove() {
+        let mut world = World::new();
+
+        world.register_component::<Friends>();
+
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn(Friends::new().with(a).with(b)).id();
+
+        world.flush();
+
+        assert_eq!(
+            world
+                .get::<Friends>(a)
+                .map(|c| c.iter().copied().collect::<Vec<_>>()),
+            Some(vec![c])
+        );
+        assert_eq!(
+            world
+                .get::<Friends>(b)
+                .map(|c| c.iter().copied().collect::<Vec<_>>()),
+            Some(vec![c])
+        );
+        assert_eq!(
+            world
+                .get::<Friends>(c)
+                .map(|c| c.iter().copied().collect::<Vec<_>>()),
+            Some(vec![a, b])
+        );
+
+        world.entity_mut(a).remove::<Friends>();
+
+        world.flush();
+
+        assert_eq!(world.get::<Friends>(a), None);
+        assert_eq!(
+            world
+                .get::<Friends>(b)
+                .map(|c| c.iter().copied().collect::<Vec<_>>()),
+            Some(vec![c])
+        );
+        assert_eq!(
+            world
+                .get::<Friends>(c)
+                .map(|c| c.iter().copied().collect::<Vec<_>>()),
+            Some(vec![b])
+        );
     }
 }
