@@ -81,8 +81,19 @@ pub use stack::UiStack;
 use update::{update_clipping_system, update_target_camera_system};
 
 /// The basic plugin for Bevy UI
-#[derive(Default)]
-pub struct UiPlugin;
+pub struct UiPlugin {
+    /// If set to false, the UI's rendering systems won't be added to the `RenderApp` and no UI elements will be drawn.
+    /// The layout and interaction components will still be updated as normal.
+    pub enable_rendering: bool,
+}
+
+impl Default for UiPlugin {
+    fn default() -> Self {
+        Self {
+            enable_rendering: true,
+        }
+    }
+}
 
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -205,16 +216,23 @@ impl Plugin for UiPlugin {
                     .in_set(AmbiguousWithUpdateText2DLayout),
             ),
         );
-
         build_text_interop(app);
-
-        build_ui_render(app);
 
         #[cfg(feature = "bevy_ui_picking_backend")]
         app.add_plugins(picking_backend::UiPickingBackendPlugin);
+
+        if !self.enable_rendering {
+            return;
+        }
+
+        build_ui_render(app);
     }
 
     fn finish(&self, app: &mut App) {
+        if !self.enable_rendering {
+            return;
+        }
+
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
