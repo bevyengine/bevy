@@ -8,6 +8,7 @@ pub use settings::{
     Bloom, BloomCompositeMode, BloomPrefilter, BloomPrefilterSettings, BloomSettings,
 };
 
+use crate::bloom::settings::UseBloom;
 use crate::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
@@ -16,6 +17,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::{ops, UVec2};
+use bevy_render::render_component::RenderComponentPlugin;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -29,7 +31,6 @@ use bevy_render::{
     view::ViewTarget,
     Render, RenderApp, RenderSet,
 };
-use bevy_render::render_component::RenderComponentPlugin;
 use downsampling_pipeline::{
     prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
     BloomUniforms,
@@ -37,7 +38,6 @@ use downsampling_pipeline::{
 use upsampling_pipeline::{
     prepare_upsampling_pipeline, BloomUpsamplingPipeline, UpsamplingPipelineIds,
 };
-use crate::bloom::settings::UseBloom;
 
 const BLOOM_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(929599476923908);
 

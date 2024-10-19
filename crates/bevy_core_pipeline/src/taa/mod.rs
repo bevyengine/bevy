@@ -394,7 +394,10 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
 
 fn prepare_taa_jitter_and_mip_bias(
     frame_count: Res<FrameCount>,
-    mut query: Query<(Entity, &mut TemporalJitter, Option<&MipBias>), With<UseTemporalAntiAliasing>>,
+    mut query: Query<
+        (Entity, &mut TemporalJitter, Option<&MipBias>),
+        With<UseTemporalAntiAliasing>,
+    >,
     mut commands: Commands,
 ) {
     // Halton sequence (2, 3) - 0.5, skipping i = 0

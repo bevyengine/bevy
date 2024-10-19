@@ -13,6 +13,7 @@ use bevy_ecs::{
 };
 use bevy_math::{AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::render_component::RenderComponent;
 use bevy_render::{
     camera::Camera,
     render_resource::{
@@ -23,7 +24,6 @@ use bevy_render::{
     sync_world::RenderEntity,
     Extract,
 };
-use bevy_render::render_component::RenderComponent;
 use bevy_utils::{hashbrown::HashSet, tracing::warn};
 
 pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
@@ -569,7 +569,7 @@ pub fn extract_clusters(
                 far: clusters.far,
                 dimensions: clusters.dimensions,
             },
-            UseClustering
+            UseClustering,
         ));
     }
 }

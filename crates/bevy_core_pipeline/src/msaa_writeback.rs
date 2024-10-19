@@ -6,6 +6,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_render::camera::CameraActive;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
@@ -14,7 +15,6 @@ use bevy_render::{
     view::{Msaa, ViewTarget},
     Render, RenderApp, RenderSet,
 };
-use bevy_render::camera::CameraActive;
 
 /// This enables "msaa writeback" support for the `core_2d` and `core_3d` pipelines, which can be enabled on cameras
 /// using [`bevy_render::camera::Camera::msaa_writeback`]. See the docs on that field for more information.

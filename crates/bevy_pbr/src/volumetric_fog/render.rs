@@ -45,13 +45,13 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
 use bitflags::bitflags;
 
+use crate::volumetric_fog::UseVolumetricFog;
 use crate::{
     FogVolume, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
     ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset, VolumetricFog,
     VolumetricLight,
 };
-use crate::volumetric_fog::UseVolumetricFog;
 
 bitflags! {
     /// Flags that describe the bind group layout used to render volumetric fog.
@@ -280,9 +280,7 @@ pub fn extract_volumetric_fog(
     }
 
     for entity in view_targets.iter() {
-        commands
-            .entity(entity)
-            .insert(UseVolumetricFog);
+        commands.entity(entity).insert(UseVolumetricFog);
     }
 }
 

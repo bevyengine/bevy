@@ -563,7 +563,10 @@ fn prepare_ssao_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion), With<UseScreenSpaceAmbientOcclusion>>,
+    views: Query<
+        (Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion),
+        With<UseScreenSpaceAmbientOcclusion>,
+    >,
 ) {
     for (entity, camera, ssao_settings) in &views {
         let Some(physical_viewport_size) = camera.physical_viewport_size else {

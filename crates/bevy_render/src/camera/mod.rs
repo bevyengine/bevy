@@ -11,13 +11,13 @@ pub use clear_color::*;
 pub use manual_texture_view::*;
 pub use projection::*;
 
+use crate::render_component::RenderComponentPlugin;
 use crate::{
     extract_component::ExtractComponentPlugin, extract_resource::ExtractResourcePlugin,
     render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoSystemConfigs;
-use crate::render_component::RenderComponentPlugin;
 
 #[derive(Default)]
 pub struct CameraPlugin;

@@ -5,6 +5,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_utils::tracing::info;
 #[cfg(target_os = "linux")]
 use bevy_utils::warn_once;
 use bevy_utils::{default, tracing::debug, HashSet};
@@ -18,7 +19,6 @@ use core::{
 use wgpu::{
     SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
 };
-use bevy_utils::tracing::info;
 
 pub mod screenshot;
 

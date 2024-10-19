@@ -7,6 +7,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_math::FloatOrd;
+use bevy_render::camera::CameraActive;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     camera::ExtractedCamera,
@@ -16,11 +17,13 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
-use bevy_render::camera::CameraActive;
 use bevy_utils::tracing::error;
 
 pub struct UiPassNode {
-    ui_view_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera), (With<ExtractedView>, With<CameraActive>)>,
+    ui_view_query: QueryState<
+        (&'static ViewTarget, &'static ExtractedCamera),
+        (With<ExtractedView>, With<CameraActive>),
+    >,
     default_camera_view_query: QueryState<&'static DefaultCameraView>,
 }
 

@@ -14,7 +14,10 @@ use bevy_utils::tracing::info_span;
 
 use crate::skybox::prepass::{RenderSkyboxPrepassPipeline, SkyboxPrepassBindGroup};
 
-use super::{AlphaMask3dPrepass, DeferredPrepass, Opaque3dPrepass, PreviousViewUniformOffset, ViewPrepassTextures};
+use super::{
+    AlphaMask3dPrepass, DeferredPrepass, Opaque3dPrepass, PreviousViewUniformOffset,
+    ViewPrepassTextures,
+};
 
 /// Render node used by the prepass.
 ///

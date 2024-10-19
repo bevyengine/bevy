@@ -7,18 +7,18 @@ use crate::{
     renderer::RenderContext,
 };
 pub use bevy_ecs::label::DynEq;
+use bevy_ecs::query::QueryFilter;
 use bevy_ecs::{
     define_label,
     intern::Interned,
     query::{QueryItem, QueryState, ReadOnlyQueryData},
     world::{FromWorld, World},
 };
+pub use bevy_render_macros::RenderLabel;
 use bevy_utils::all_tuples_with_size;
 use core::fmt::Debug;
 use derive_more::derive::{Display, Error, From};
 use downcast_rs::{impl_downcast, Downcast};
-use bevy_ecs::query::QueryFilter;
-pub use bevy_render_macros::RenderLabel;
 
 use super::{InternedRenderSubGraph, RenderSubGraph};
 

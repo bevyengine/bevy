@@ -9,7 +9,6 @@ use bevy_ecs::system::{Commands, Query};
 
 pub use bevy_render_macros::RenderComponent;
 
-
 /// A plugin that registers a component used to indicate that an entity should be rendered using
 /// a particular render pipeline. These components are automatically removed from entities every
 /// frame and must be re-added if the entity should continue to be rendered using the given
@@ -24,7 +23,7 @@ impl<C: RenderComponent> Plugin for RenderComponentPlugin<C> {
     }
 }
 
-impl <C> Default for RenderComponentPlugin<C> {
+impl<C> Default for RenderComponentPlugin<C> {
     fn default() -> Self {
         Self(std::marker::PhantomData)
     }

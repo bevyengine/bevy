@@ -38,16 +38,17 @@ use bevy_core_pipeline::core_3d::{
     graph::{Core3d, Node3d},
     prepare_core_3d_depth_textures,
 };
+use bevy_ecs::query::QueryItem;
 use bevy_ecs::{
     bundle::Bundle, component::Component, reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
 };
-use bevy_ecs::query::QueryItem;
 use bevy_math::{
     primitives::{Cuboid, Plane3d},
     Vec2, Vec3,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::render_component::{RenderComponent, RenderComponentPlugin};
 use bevy_render::{
     mesh::{Mesh, Meshable},
@@ -58,7 +59,6 @@ use bevy_render::{
     view::{InheritedVisibility, ViewVisibility, Visibility},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_transform::components::{GlobalTransform, Transform};
 use render::{
     VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer, CUBE_MESH, PLANE_MESH,
@@ -228,7 +228,9 @@ impl ExtractComponent for FogVolume {
     type QueryFilter = ();
     type Out = (Self, GlobalTransform);
 
-    fn extract_component((fog_volume, global_transform): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component(
+        (fog_volume, global_transform): QueryItem<'_, Self::QueryData>,
+    ) -> Option<Self::Out> {
         Some((fog_volume.clone(), global_transform.clone()))
     }
 }

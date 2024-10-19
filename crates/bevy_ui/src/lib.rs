@@ -70,12 +70,12 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_render::render_component::RenderComponentPlugin;
+use bevy_render::sync_component::SyncComponentPlugin;
 use bevy_render::{
     camera::CameraUpdateSystem,
     view::{check_visibility, VisibilitySystems},
     RenderApp,
 };
-use bevy_render::sync_component::SyncComponentPlugin;
 use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;

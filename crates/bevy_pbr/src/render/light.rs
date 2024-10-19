@@ -9,6 +9,7 @@ use bevy_ecs::{
     system::lifetimeless::Read,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_render::render_component::RenderComponent;
 use bevy_render::sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
@@ -31,7 +32,6 @@ use bevy_utils::{
     tracing::{error, warn},
 };
 use core::{hash::Hash, ops::Range};
-use bevy_render::render_component::RenderComponent;
 
 #[derive(Component)]
 pub struct ExtractedPointLight {
@@ -668,7 +668,7 @@ pub fn prepare_lights(
             &ExtractedClusterConfig,
             Option<&RenderLayers>,
         ),
-        (With<Camera3d>, With<UseClustering>)
+        (With<Camera3d>, With<UseClustering>),
     >,
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
@@ -1450,10 +1450,7 @@ pub fn queue_shadows<M: Material>(
     view_lights: Query<(Entity, &ViewLightEntities)>,
     view_light_entities: Query<&LightEntity>,
     point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
-    directional_light_entities: Query<
-        &RenderCascadesVisibleEntities,
-        With<VisibleLight>,
-    >,
+    directional_light_entities: Query<&RenderCascadesVisibleEntities, With<VisibleLight>>,
     spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,

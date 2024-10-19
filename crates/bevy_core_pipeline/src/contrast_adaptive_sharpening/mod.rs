@@ -7,6 +7,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::render_component::{RenderComponent, RenderComponentPlugin};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     prelude::Camera,
@@ -20,7 +21,6 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
-use bevy_render::render_component::{RenderComponent, RenderComponentPlugin};
 
 mod node;
 

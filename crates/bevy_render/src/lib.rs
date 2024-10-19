@@ -31,6 +31,7 @@ pub mod mesh;
 pub mod pipelined_rendering;
 pub mod primitives;
 pub mod render_asset;
+pub mod render_component;
 pub mod render_graph;
 pub mod render_phase;
 pub mod render_resource;
@@ -42,7 +43,6 @@ pub mod sync_component;
 pub mod sync_world;
 pub mod texture;
 pub mod view;
-pub mod render_component;
 
 /// The render prelude.
 ///
