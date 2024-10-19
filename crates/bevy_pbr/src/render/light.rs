@@ -382,11 +382,7 @@ pub fn extract_lights(
             commands
                 .get_entity(entity)
                 .expect("Light entity wasn't synced.")
-                .remove::<(
-                    ExtractedDirectionalLight,
-                    RenderCascadesVisibleEntities,
-                    LightViewEntities,
-                )>();
+                .remove::<(ExtractedDirectionalLight, RenderCascadesVisibleEntities)>();
             continue;
         }
 
@@ -478,6 +474,16 @@ pub(crate) fn add_light_view_entities(
 ) {
     if let Some(mut v) = commands.get_entity(trigger.entity()) {
         v.insert(LightViewEntities::default());
+    }
+}
+
+/// Removes LightViewEntities when light is removed.
+pub(crate) fn extracted_light_removed(
+    trigger: Trigger<OnRemove, (ExtractedDirectionalLight, ExtractedPointLight)>,
+    mut commands: Commands,
+) {
+    if let Some(mut v) = commands.get_entity(trigger.entity()) {
+        v.remove::<LightViewEntities>();
     }
 }
 
