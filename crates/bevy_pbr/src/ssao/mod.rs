@@ -42,6 +42,7 @@ use bevy_utils::{
     tracing::{error, warn},
 };
 use core::mem;
+use bevy_render::extract_component::ExtractComponentPlugin;
 
 const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(102258915420479);
 const SSAO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(253938746510568);
@@ -76,7 +77,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         app.register_type::<ScreenSpaceAmbientOcclusion>();
 
         app.add_plugins((
-            SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default(),
+            ExtractComponentPlugin::<ScreenSpaceAmbientOcclusion>::default(),
             RenderComponentPlugin::<UseScreenSpaceAmbientOcclusion>::default(),
         ));
     }
@@ -529,12 +530,12 @@ fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<
-            (RenderEntity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
-            (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
+            (RenderEntity, &Camera, &Msaa),
+            (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>, With<ScreenSpaceAmbientOcclusion>),
         >,
     >,
 ) {
-    for (entity, camera, ssao_settings, msaa) in &cameras {
+    for (entity, camera, msaa) in &cameras {
         if *msaa != Msaa::Off {
             error!(
                 "SSAO is being used which requires Msaa::Off, but Msaa is currently set to Msaa::{:?}",
@@ -545,7 +546,7 @@ fn extract_ssao_settings(
         if camera.is_active {
             commands
                 .entity(entity)
-                .insert((ssao_settings.clone(), UseScreenSpaceAmbientOcclusion));
+                .insert(UseScreenSpaceAmbientOcclusion);
         }
     }
 }

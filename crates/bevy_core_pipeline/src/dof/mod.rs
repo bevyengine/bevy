@@ -54,7 +54,6 @@ use bevy_render::{
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
-    sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{BevyDefault, CachedTexture, TextureCache},
     view::{
@@ -65,6 +64,7 @@ use bevy_render::{
 };
 use bevy_utils::{info_once, prelude::default, warn_once};
 use smallvec::SmallVec;
+use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 
 const DOF_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2031861180739216043);
 
@@ -75,7 +75,7 @@ pub struct DepthOfFieldPlugin;
 /// simulating the focus of a camera lens.
 ///
 /// [depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
-#[derive(Component, Clone, Copy, Reflect)]
+#[derive(Component, ExtractComponent, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct DepthOfField {
     /// The appearance of the effect.
@@ -218,7 +218,7 @@ impl Plugin for DepthOfFieldPlugin {
             RenderComponentPlugin::<UseDepthOfField>::default(),
         ));
 
-        app.add_plugins(SyncComponentPlugin::<DepthOfField>::default());
+        app.add_plugins(ExtractComponentPlugin::<DepthOfField>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -840,7 +840,6 @@ fn extract_depth_of_field_settings(
 
         // Convert `DepthOfField` to `DepthOfFieldUniform`.
         commands.entity(entity).insert((
-            *depth_of_field,
             DepthOfFieldUniform {
                 focal_distance: depth_of_field.focal_distance,
                 focal_length,

@@ -6,7 +6,7 @@ pub mod ui_texture_slice_pipeline;
 
 use crate::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, DefaultUiCamera, Outline,
-    ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples, UiImage, UiScale,
+    ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiImage, UiScale,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};

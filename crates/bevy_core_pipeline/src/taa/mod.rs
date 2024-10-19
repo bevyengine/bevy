@@ -39,6 +39,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
+use bevy_render::extract_component::ExtractComponent;
 use bevy_utils::tracing::warn;
 
 const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276);
@@ -145,7 +146,7 @@ pub struct TemporalAntiAliasBundle {
 /// 2. Render particles after TAA
 ///
 /// If no [`MipBias`] component is attached to the camera, TAA will add a `MipBias(-1.0)` component.
-#[derive(Component, Reflect, Clone)]
+#[derive(Component, ExtractComponent, Reflect, Clone)]
 #[reflect(Component, Default)]
 #[require(TemporalJitter, DepthPrepass, MotionVectorPrepass)]
 #[doc(alias = "Taa")]
@@ -386,7 +387,7 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
         if camera.is_active && has_perspective_projection {
             commands
                 .entity(entity)
-                .insert((taa_settings.clone(), UseTemporalAntiAliasing));
+                .insert(UseTemporalAntiAliasing);
             taa_settings.reset = false;
         }
     }
