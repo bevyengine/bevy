@@ -382,7 +382,7 @@ pub fn prepare_shadows(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut ui_meta: ResMut<BoxShadowMeta>,
-    mut extracted_shadows: ResMut<ExtractedBoxShadows>,
+    extracted_shadows: ResMut<ExtractedBoxShadows>,
     view_uniforms: Res<ViewUniforms>,
     texture_slicer_pipeline: Res<BoxShadowPipeline>,
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,

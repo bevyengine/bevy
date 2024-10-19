@@ -17,7 +17,7 @@ pub struct CameraDriverNode {
 impl CameraDriverNode {
     pub fn new(world: &mut World) -> Self {
         Self {
-            cameras: world.query(),
+            cameras: world.query_filtered(),
         }
     }
 }

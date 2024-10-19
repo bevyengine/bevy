@@ -524,8 +524,6 @@ pub fn extract_default_ui_camera_view(
             (
                 RenderEntity,
                 &Camera,
-                Option<&UiAntiAlias>,
-                Option<&UiBoxShadowSamples>,
             ),
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
@@ -535,7 +533,7 @@ pub fn extract_default_ui_camera_view(
     live_entities.clear();
 
     let scale = ui_scale.0.recip();
-    for (entity, camera, ui_anti_alias, shadow_samples) in &query {
+    for (entity, camera) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             continue;
