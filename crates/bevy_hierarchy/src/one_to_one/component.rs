@@ -21,7 +21,6 @@ use super::OneToOneEvent;
 #[component(
     on_insert = Self::associate,
     on_replace = Self::disassociate,
-    on_remove = Self::disassociate
 )]
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
