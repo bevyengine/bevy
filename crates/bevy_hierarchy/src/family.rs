@@ -8,8 +8,9 @@ pub struct Family;
 /// This component should only be present on entities that actually have a parent entity.
 ///
 /// Parent entity must have this entity stored in its [`Children`] component.
-/// It is hard to set up parent/child relationships manually,
-/// consider using higher level utilities like [`BuildChildren::with_children`].
+/// This invariant will be upheld using component hooks, but will only be valid after a sync point,
+/// when deferred commands are applied.
+/// To avoid this delay, consider using higher level utilities like [`BuildChildren::with_children`].
 ///
 /// See [`HierarchyQueryExt`] for hierarchy related methods on [`Query`].
 ///
@@ -21,9 +22,10 @@ pub type Parent = ManyToOne<Family>;
 /// Contains references to the child entities of this entity.
 ///
 /// Each child must contain a [`Parent`] component that points back to this entity.
-/// This component rarely needs to be created manually,
-/// consider using higher level utilities like [`BuildChildren::with_children`]
-/// which are safer and easier to use.
+/// This component rarely needs to be created manually, the recommended way to
+/// work with this component is to insert [`Parent`] on all child entities, as
+/// component hooks will ensure this component is available.
+/// You may also consider using higher level utilities like [`BuildChildren::with_children`].
 ///
 /// See [`HierarchyQueryExt`] for hierarchy related methods on [`Query`].
 ///
