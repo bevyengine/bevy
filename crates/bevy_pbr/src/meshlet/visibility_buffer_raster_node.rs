@@ -380,6 +380,11 @@ fn cull_pass(
     remap_1d_to_2d_dispatch_bind_group: Option<&BindGroup>,
     remap_1d_to_2d_dispatch_pipeline: Option<&ComputePipeline>,
 ) {
+    let max_compute_workgroups_per_dimension = render_context
+        .render_device()
+        .limits()
+        .max_compute_workgroups_per_dimension;
+
     let command_encoder = render_context.command_encoder();
     let mut cull_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
         label: Some(label),
@@ -401,11 +406,6 @@ fn cull_pass(
         remap_1d_to_2d_dispatch_pipeline,
         remap_1d_to_2d_dispatch_bind_group,
     ) {
-        let max_compute_workgroups_per_dimension = render_context
-            .render_device()
-            .limits()
-            .max_compute_workgroups_per_dimension;
-
         cull_pass.set_pipeline(remap_1d_to_2d_dispatch_pipeline);
         cull_pass.set_push_constants(0, &max_compute_workgroups_per_dimension.to_be_bytes());
         cull_pass.set_bind_group(0, remap_1d_to_2d_dispatch_bind_group, &[]);
