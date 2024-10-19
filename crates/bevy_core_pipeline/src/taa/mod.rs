@@ -173,7 +173,6 @@ pub struct TemporalAntiAliasNode;
 
 impl ViewNode for TemporalAntiAliasNode {
     type ViewQuery = (
-        &'static TemporalAntiAliasing,
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static TemporalAntiAliasHistoryTextures,
@@ -186,7 +185,7 @@ impl ViewNode for TemporalAntiAliasNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (_, camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
+        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
@@ -384,7 +383,13 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
             entity_commands.insert(taa_settings.clone());
             taa_settings.reset = false;
         } else {
-            entity_commands.remove::<TemporalAntiAliasing>();
+            // TODO: needs better strategy for cleaning up
+            entity_commands.remove::<(
+                TemporalAntiAliasing,
+                // components added in prepare systems (because `TemporalAntiAliasNode` does not query extracted components)
+                TemporalAntiAliasHistoryTextures,
+                TemporalAntiAliasPipelineId,
+            )>();
         }
     }
 }

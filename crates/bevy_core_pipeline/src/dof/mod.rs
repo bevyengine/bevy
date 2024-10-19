@@ -331,7 +331,6 @@ pub struct DepthOfFieldPipeline {
 
 impl ViewNode for DepthOfFieldNode {
     type ViewQuery = (
-        Read<DepthOfField>,
         Read<ViewUniformOffset>,
         Read<ViewTarget>,
         Read<ViewDepthTexture>,
@@ -346,7 +345,6 @@ impl ViewNode for DepthOfFieldNode {
         _: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         (
-            _depth_of_field,
             view_uniform_offset,
             view_target,
             view_depth_texture,
@@ -831,7 +829,15 @@ fn extract_depth_of_field_settings(
 
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
-            entity_commands.remove::<(DepthOfField, DepthOfFieldUniform)>();
+            // TODO: needs better strategy for cleaning up
+            entity_commands.remove::<(
+                DepthOfField,
+                DepthOfFieldUniform,
+                // components added in prepare systems (because `DepthOfFieldNode` does not query extracted components)
+                DepthOfFieldPipelines,
+                AuxiliaryDepthOfFieldTexture,
+                ViewDepthOfFieldBindGroupLayouts,
+            )>();
             continue;
         };
 
