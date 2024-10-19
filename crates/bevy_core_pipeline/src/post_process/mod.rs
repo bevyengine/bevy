@@ -355,6 +355,7 @@ impl ViewNode for PostProcessingNode {
         Read<ChromaticAberration>,
         Read<PostProcessingUniformBufferOffsets>,
     );
+    type ViewFilter = ();
 
     fn run<'w>(
         &self,

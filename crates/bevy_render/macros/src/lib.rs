@@ -5,6 +5,7 @@
 mod as_bind_group;
 mod extract_component;
 mod extract_resource;
+mod render_component;
 
 use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
@@ -63,6 +64,11 @@ pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     as_bind_group::derive_as_bind_group(input).unwrap_or_else(|err| err.to_compile_error().into())
+}
+
+#[proc_macro_derive(RenderComponent)]
+pub fn derive_render_component(input: TokenStream) -> TokenStream {
+    render_component::derive_render_component(input)
 }
 
 /// Derive macro generating an impl of the trait `RenderLabel`.

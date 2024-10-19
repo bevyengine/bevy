@@ -22,6 +22,7 @@ impl ViewNode for MainTransparentPass2dNode {
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );
+    type ViewFilter = ();
 
     fn run<'w>(
         &self,

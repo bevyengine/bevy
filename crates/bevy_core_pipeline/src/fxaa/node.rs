@@ -23,6 +23,7 @@ impl ViewNode for FxaaNode {
         &'static CameraFxaaPipeline,
         &'static Fxaa,
     );
+    type ViewFilter = ();
 
     fn run(
         &self,

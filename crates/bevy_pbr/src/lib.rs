@@ -132,6 +132,7 @@ use bevy_render::{
     view::{check_visibility, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
+use bevy_render::render_component::RenderComponentPlugin;
 use bevy_transform::TransformSystem;
 
 pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
@@ -350,6 +351,9 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<DirectionalLight>::default(),
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),
+            ))
+            .add_plugins((
+                RenderComponentPlugin::<HasClusterableObjects>::default(),
             ))
             .configure_sets(
                 PostUpdate,

@@ -25,6 +25,7 @@ impl ViewNode for MainOpaquePass2dNode {
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );
+    type ViewFilter = ();
 
     fn run<'w>(
         &self,

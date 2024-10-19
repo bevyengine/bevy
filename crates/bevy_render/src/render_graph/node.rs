@@ -17,7 +17,7 @@ use bevy_utils::all_tuples_with_size;
 use core::fmt::Debug;
 use derive_more::derive::{Display, Error, From};
 use downcast_rs::{impl_downcast, Downcast};
-
+use bevy_ecs::query::QueryFilter;
 pub use bevy_render_macros::RenderLabel;
 
 use super::{InternedRenderSubGraph, RenderSubGraph};
@@ -344,6 +344,7 @@ pub trait ViewNode {
     /// The query that will be used on the view entity.
     /// It is guaranteed to run on the view entity, so there's no need for a filter
     type ViewQuery: ReadOnlyQueryData;
+    type ViewFilter: QueryFilter;
 
     /// Updates internal node state using the current render [`World`] prior to the run method.
     fn update(&mut self, _world: &mut World) {}
@@ -365,7 +366,7 @@ pub trait ViewNode {
 ///
 /// This [`Node`] exists to help reduce boilerplate when making a render node that runs on a view.
 pub struct ViewNodeRunner<N: ViewNode> {
-    view_query: QueryState<N::ViewQuery>,
+    view_query: QueryState<N::ViewQuery, N::ViewFilter>,
     node: N,
 }
 

@@ -51,6 +51,7 @@ use crate::{
     ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset, VolumetricFog,
     VolumetricLight,
 };
+use crate::volumetric_fog::UseVolumetricFog;
 
 bitflags! {
     /// Flags that describe the bind group layout used to render volumetric fog.
@@ -292,7 +293,7 @@ pub fn extract_volumetric_fog(
         commands
             .get_entity(entity)
             .expect("Volumetric fog entity wasn't synced.")
-            .insert(*volumetric_fog);
+            .insert((*volumetric_fog, UseVolumetricFog));
     }
 
     for (entity, fog_volume, fog_transform) in fog_volumes.iter() {
@@ -326,6 +327,7 @@ impl ViewNode for VolumetricFogNode {
         Read<Msaa>,
         Read<ViewEnvironmentMapUniformOffset>,
     );
+    type ViewFilter = With<UseVolumetricFog>;
 
     fn run<'w>(
         &self,

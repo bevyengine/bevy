@@ -32,6 +32,7 @@ impl ViewNode for MainOpaquePass3dNode {
         Option<&'static SkyboxBindGroup>,
         &'static ViewUniformOffset,
     );
+    type ViewFilter = ();
 
     fn run<'w>(
         &self,

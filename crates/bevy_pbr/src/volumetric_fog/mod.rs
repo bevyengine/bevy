@@ -47,6 +47,7 @@ use bevy_math::{
     Vec2, Vec3,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::render_component::{RenderComponent, RenderComponentPlugin};
 use bevy_render::{
     mesh::{Mesh, Meshable},
     render_graph::{RenderGraphApp, ViewNodeRunner},
@@ -117,6 +118,10 @@ pub struct VolumetricFog {
     /// The default value is 64.
     pub step_count: u32,
 }
+
+/// A marker component that enables volumetric fog.
+#[derive(Component, RenderComponent)]
+pub struct UseVolumetricFog;
 
 #[deprecated(since = "0.15.0", note = "Renamed to `VolumetricFog`")]
 pub type VolumetricFogSettings = VolumetricFog;
@@ -232,7 +237,10 @@ impl Plugin for VolumetricFogPlugin {
         app.register_type::<VolumetricFog>()
             .register_type::<VolumetricLight>();
 
-        app.add_plugins(SyncComponentPlugin::<FogVolume>::default());
+        app.add_plugins((
+            SyncComponentPlugin::<FogVolume>::default(),
+            RenderComponentPlugin::<UseVolumetricFog>::default(),
+        ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

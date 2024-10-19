@@ -834,6 +834,7 @@ impl ViewNode for SmaaNode {
         Read<SmaaTextures>,
         Read<SmaaBindGroups>,
     );
+    type ViewFilter = ();
 
     fn run<'w>(
         &self,

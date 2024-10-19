@@ -107,6 +107,7 @@ impl ViewNode for BloomNode {
         &'static UpsamplingPipelineIds,
         &'static BloomDownsamplingPipelineIds,
     );
+    type ViewFilter = ();
 
     // Atypically for a post-processing effect, we do not need to
     // use a secondary texture normally provided by view_target.post_process_write(),

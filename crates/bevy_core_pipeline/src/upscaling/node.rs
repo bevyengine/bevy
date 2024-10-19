@@ -22,6 +22,7 @@ impl ViewNode for UpscalingNode {
         &'static ViewUpscalingPipeline,
         Option<&'static ExtractedCamera>,
     );
+    type ViewFilter = ();
 
     fn run(
         &self,

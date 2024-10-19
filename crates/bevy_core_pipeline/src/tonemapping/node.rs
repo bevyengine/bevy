@@ -30,6 +30,7 @@ impl ViewNode for TonemappingNode {
         &'static ViewTonemappingPipeline,
         &'static Tonemapping,
     );
+    type ViewFilter = ();
 
     fn run(
         &self,

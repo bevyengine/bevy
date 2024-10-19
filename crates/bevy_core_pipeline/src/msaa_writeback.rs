@@ -56,6 +56,7 @@ impl ViewNode for MsaaWritebackNode {
         &'static MsaaWritebackBlitPipeline,
         &'static Msaa,
     );
+    type ViewFilter = ();
 
     fn run<'w>(
         &self,

@@ -14,6 +14,13 @@
 //!
 //! [Depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
 
+use crate::{
+    core_3d::{
+        graph::{Core3d, Node3d},
+        Camera3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED,
+    },
+    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -28,6 +35,7 @@ use bevy_ecs::{
 };
 use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::render_component::{RenderComponent, RenderComponentPlugin};
 use bevy_render::{
     camera::{PhysicalCameraParameters, Projection},
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -57,14 +65,6 @@ use bevy_render::{
 };
 use bevy_utils::{info_once, prelude::default, warn_once};
 use smallvec::SmallVec;
-
-use crate::{
-    core_3d::{
-        graph::{Core3d, Node3d},
-        Camera3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED,
-    },
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
-};
 
 const DOF_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2031861180739216043);
 
@@ -117,6 +117,9 @@ pub struct DepthOfField {
     /// or background are.
     pub max_depth: f32,
 }
+
+#[derive(Component, RenderComponent)]
+pub struct UseDepthOfField;
 
 #[deprecated(since = "0.15.0", note = "Renamed to `DepthOfField`")]
 pub type DepthOfFieldSettings = DepthOfField;
@@ -210,7 +213,10 @@ impl Plugin for DepthOfFieldPlugin {
 
         app.register_type::<DepthOfField>();
         app.register_type::<DepthOfFieldMode>();
-        app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
+        app.add_plugins((
+            UniformComponentPlugin::<DepthOfFieldUniform>::default(),
+            RenderComponentPlugin::<UseDepthOfField>::default(),
+        ));
 
         app.add_plugins(SyncComponentPlugin::<DepthOfField>::default());
 
@@ -339,6 +345,7 @@ impl ViewNode for DepthOfFieldNode {
         Read<DynamicUniformIndex<DepthOfFieldUniform>>,
         Option<Read<AuxiliaryDepthOfFieldTexture>>,
     );
+    type ViewFilter = With<UseDepthOfField>;
 
     fn run<'w>(
         &self,

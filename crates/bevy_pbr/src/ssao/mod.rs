@@ -17,6 +17,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::render_component::{RenderComponent, RenderComponentPlugin};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
@@ -74,7 +75,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 
         app.register_type::<ScreenSpaceAmbientOcclusion>();
 
-        app.add_plugins(SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default());
+        app.add_plugins((SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default(), RenderComponentPlugin::<UseScreenSpaceAmbientOcclusion>::default()));
     }
 
     fn finish(&self, app: &mut App) {
@@ -185,6 +186,9 @@ impl Default for ScreenSpaceAmbientOcclusion {
     }
 }
 
+#[derive(Component, RenderComponent)]
+pub struct UseScreenSpaceAmbientOcclusion;
+
 #[deprecated(since = "0.15.0", note = "Renamed to `ScreenSpaceAmbientOcclusion`")]
 pub type ScreenSpaceAmbientOcclusionSettings = ScreenSpaceAmbientOcclusion;
 
@@ -228,6 +232,7 @@ impl ViewNode for SsaoNode {
         &'static SsaoBindGroups,
         &'static ViewUniformOffset,
     );
+    type ViewFilter = ();
 
     fn run(
         &self,
@@ -538,7 +543,7 @@ fn extract_ssao_settings(
             .get_entity(entity)
             .expect("SSAO entity wasn't synced.");
         if camera.is_active {
-            entity_commands.insert(ssao_settings.clone());
+            entity_commands.insert((ssao_settings.clone(), UseScreenSpaceAmbientOcclusion));
         } else {
             entity_commands.remove::<ScreenSpaceAmbientOcclusion>();
         }

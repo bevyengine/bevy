@@ -23,6 +23,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     Extract,
 };
+use bevy_render::render_component::RenderComponent;
 use bevy_utils::{hashbrown::HashSet, tracing::warn};
 
 pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
@@ -193,6 +194,9 @@ enum ExtractedClusterableObjectElement {
 pub struct ExtractedClusterableObjects {
     data: Vec<ExtractedClusterableObjectElement>,
 }
+
+#[derive(Component, RenderComponent)]
+pub struct HasClusterableObjects;
 
 #[derive(ShaderType)]
 struct GpuClusterOffsetsAndCountsUniform {
@@ -565,6 +569,7 @@ pub fn extract_clusters(
                 far: clusters.far,
                 dimensions: clusters.dimensions,
             },
+            HasClusterableObjects
         ));
     }
 }
@@ -575,7 +580,7 @@ pub fn prepare_clusters(
     render_queue: Res<RenderQueue>,
     mesh_pipeline: Res<MeshPipeline>,
     global_clusterable_object_meta: Res<GlobalClusterableObjectMeta>,
-    views: Query<(Entity, &ExtractedClusterableObjects)>,
+    views: Query<(Entity, &ExtractedClusterableObjects), With<HasClusterableObjects>>,
 ) {
     let render_device = render_device.into_inner();
     let supports_storage_buffers = matches!(

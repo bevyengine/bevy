@@ -65,6 +65,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
         &'static ViewPrepassTextures,
         &'static DeferredLightingIdDepthTexture,
     );
+    type ViewFilter = ();
 
     fn run(
         &self,

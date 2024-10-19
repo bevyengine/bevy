@@ -30,6 +30,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
     );
+    type ViewFilter = ();
 
     fn run<'w>(
         &self,

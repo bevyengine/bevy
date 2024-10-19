@@ -24,6 +24,8 @@ impl ViewNode for MainTransparentPass3dNode {
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );
+    type ViewFilter = ();
+
     fn run(
         &self,
         graph: &mut RenderGraphContext,

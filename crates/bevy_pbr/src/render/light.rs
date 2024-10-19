@@ -667,7 +667,7 @@ pub fn prepare_lights(
             &ExtractedClusterConfig,
             Option<&RenderLayers>,
         ),
-        With<Camera3d>,
+        (With<Camera3d>, With<HasClusterableObjects>)
     >,
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
