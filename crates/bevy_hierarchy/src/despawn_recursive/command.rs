@@ -50,7 +50,7 @@ pub struct DespawnRecursive<C> {
     /// Whether this command will despawn the provided entity (`inclusive`) or just
     /// its descendants (`exclusive`).
     inclusive: bool,
-    /// Marker for the
+    /// Marker for the relationship type to be despawned.
     _phantom: PhantomData<fn(C)>,
 }
 
@@ -72,10 +72,10 @@ impl<C> DespawnRecursive<C> {
         self
     }
 
-    /// Control whether this [`Command`] should also despawn the target [`Entity`] (`true`)
-    /// or on its descendants (`false`).
-    pub const fn with_inclusion(mut self, inclusive: bool) -> Self {
-        self.inclusive = inclusive;
+    /// Control whether this [`Command`] should exclude the target [`Entity`], only despawning
+    /// its descendants.
+    pub const fn without_inclusion(mut self) -> Self {
+        self.inclusive = false;
         self
     }
 }

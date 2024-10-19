@@ -46,8 +46,7 @@ impl DespawnRecursiveExt for EntityCommands<'_> {
         let entity = self.id();
         self.commands().queue(
             DespawnRecursive::<C>::new(entity)
-                .with_warn(warn)
-                .with_inclusion(true),
+                .with_warn(warn),
         );
     }
 
@@ -59,7 +58,7 @@ impl DespawnRecursiveExt for EntityCommands<'_> {
         self.commands().queue(
             DespawnRecursive::<C>::new(entity)
                 .with_warn(warn)
-                .with_inclusion(false),
+                .without_inclusion(),
         );
         self
     }
@@ -69,7 +68,6 @@ impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
     fn despawn_recursive_with_option<C: Component + VisitEntities>(self, warn: bool) {
         DespawnRecursive::<C>::new(self.id())
             .with_warn(warn)
-            .with_inclusion(true)
             .apply(self.into_world_mut());
     }
 
@@ -82,7 +80,7 @@ impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
         self.world_scope(|world| {
             DespawnRecursive::<C>::new(entity)
                 .with_warn(warn)
-                .with_inclusion(false)
+                .without_inclusion()
                 .apply(world);
         });
         self
