@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 use smallvec::SmallVec;
 
 /// Trait representing a relationship [`Component`].
-/// 
+///
 /// A relationship consists of two [entities](Entity), one with this [`Component`],
 /// and the other with the [`Other`](Relationship::Other).
 /// These entities are referred to as `primary` and `foreign` to align with typical
@@ -55,7 +55,9 @@ pub(crate) trait Relationship: Component + Sized {
                 .and_then(|a| a.get::<Self>())
                 .map(Self::len);
 
-            let Some(foreign_ids_len) = foreign_ids_len else { return };
+            let Some(foreign_ids_len) = foreign_ids_len else {
+                return;
+            };
 
             for foreign_id_index in 0..foreign_ids_len {
                 let foreign = world
@@ -98,7 +100,9 @@ pub(crate) trait Relationship: Component + Sized {
 
         // Cloning to allow a user to `take` the component for modification
         // [Entity; 7] chosen to keep b_ids at 64 bytes on 64 bit platforms.
-        let foreign_ids = primary_relationship.iter().collect::<SmallVec<[Entity; 7]>>();
+        let foreign_ids = primary_relationship
+            .iter()
+            .collect::<SmallVec<[Entity; 7]>>();
 
         world.commands().queue(move |world: &mut World| {
             for foreign_id in foreign_ids {

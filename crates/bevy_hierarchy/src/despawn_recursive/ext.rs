@@ -44,10 +44,8 @@ pub trait DespawnRecursiveExt: Sized {
 impl DespawnRecursiveExt for EntityCommands<'_> {
     fn despawn_recursive_with_option<C: Component + VisitEntities>(mut self, warn: bool) {
         let entity = self.id();
-        self.commands().queue(
-            DespawnRecursive::<C>::new(entity)
-                .with_warn(warn),
-        );
+        self.commands()
+            .queue(DespawnRecursive::<C>::new(entity).with_warn(warn));
     }
 
     fn despawn_descendants_with_option<C: Component + VisitEntities>(
