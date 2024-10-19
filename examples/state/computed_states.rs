@@ -336,35 +336,30 @@ mod ui {
 
     pub fn setup_menu(mut commands: Commands, tutorial_state: Res<State<TutorialState>>) {
         let button_entity = commands
-            .spawn(NodeBundle {
-                style: Style {
-                    // center button
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(10.),
-                    ..default()
-                },
+            .spawn(Node {
+                // center button
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(10.),
                 ..default()
             })
             .with_children(|parent| {
                 parent
                     .spawn((
-                        ButtonBundle {
-                            style: Style {
-                                width: Val::Px(200.),
-                                height: Val::Px(65.),
-                                // horizontally center child text
-                                justify_content: JustifyContent::Center,
-                                // vertically center child text
-                                align_items: AlignItems::Center,
-                                ..default()
-                            },
-                            background_color: NORMAL_BUTTON.into(),
+                        Button,
+                        Node {
+                            width: Val::Px(200.),
+                            height: Val::Px(65.),
+                            // horizontally center child text
+                            justify_content: JustifyContent::Center,
+                            // vertically center child text
+                            align_items: AlignItems::Center,
                             ..default()
                         },
+                        BackgroundColor(NORMAL_BUTTON),
                         MenuButton::Play,
                     ))
                     .with_children(|parent| {
@@ -380,23 +375,20 @@ mod ui {
 
                 parent
                     .spawn((
-                        ButtonBundle {
-                            style: Style {
-                                width: Val::Px(200.),
-                                height: Val::Px(65.),
-                                // horizontally center child text
-                                justify_content: JustifyContent::Center,
-                                // vertically center child text
-                                align_items: AlignItems::Center,
-                                ..default()
-                            },
-                            background_color: match tutorial_state.get() {
-                                TutorialState::Active => ACTIVE_BUTTON,
-                                TutorialState::Inactive => NORMAL_BUTTON,
-                            }
-                            .into(),
+                        Button,
+                        Node {
+                            width: Val::Px(200.),
+                            height: Val::Px(65.),
+                            // horizontally center child text
+                            justify_content: JustifyContent::Center,
+                            // vertically center child text
+                            align_items: AlignItems::Center,
                             ..default()
                         },
+                        BackgroundColor(match tutorial_state.get() {
+                            TutorialState::Active => ACTIVE_BUTTON,
+                            TutorialState::Inactive => NORMAL_BUTTON,
+                        }),
                         MenuButton::Tutorial,
                     ))
                     .with_children(|parent| {
@@ -454,7 +446,7 @@ mod ui {
             if direction != Vec3::ZERO {
                 transform.translation += direction.normalize()
                     * if turbo.is_some() { TURBO_SPEED } else { SPEED }
-                    * time.delta_seconds();
+                    * time.delta_secs();
             }
         }
     }
@@ -464,37 +456,31 @@ mod ui {
         commands
             .spawn((
                 StateScoped(IsPaused::Paused),
-                NodeBundle {
-                    style: Style {
-                        // center button
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(10.),
-                        position_type: PositionType::Absolute,
-                        ..default()
-                    },
+                Node {
+                    // center button
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(10.),
+                    position_type: PositionType::Absolute,
                     ..default()
                 },
             ))
             .with_children(|parent| {
                 parent
                     .spawn((
-                        NodeBundle {
-                            style: Style {
-                                width: Val::Px(400.),
-                                height: Val::Px(400.),
-                                // horizontally center child text
-                                justify_content: JustifyContent::Center,
-                                // vertically center child text
-                                align_items: AlignItems::Center,
-                                ..default()
-                            },
-                            background_color: NORMAL_BUTTON.into(),
+                        Node {
+                            width: Val::Px(400.),
+                            height: Val::Px(400.),
+                            // horizontally center child text
+                            justify_content: JustifyContent::Center,
+                            // vertically center child text
+                            align_items: AlignItems::Center,
                             ..default()
                         },
+                        BackgroundColor(NORMAL_BUTTON),
                         MenuButton::Play,
                     ))
                     .with_children(|parent| {
@@ -514,18 +500,15 @@ mod ui {
         commands
             .spawn((
                 StateScoped(TurboMode),
-                NodeBundle {
-                    style: Style {
-                        // center button
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
-                        justify_content: JustifyContent::Start,
-                        align_items: AlignItems::Center,
-                        flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(10.),
-                        position_type: PositionType::Absolute,
-                        ..default()
-                    },
+                Node {
+                    // center button
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    justify_content: JustifyContent::Start,
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(10.),
+                    position_type: PositionType::Absolute,
                     ..default()
                 },
             ))
@@ -544,7 +527,7 @@ mod ui {
     pub fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
         for mut sprite in &mut query {
             let new_color = LinearRgba {
-                blue: ops::sin(time.elapsed_seconds() * 0.5) + 2.0,
+                blue: ops::sin(time.elapsed_secs() * 0.5) + 2.0,
                 ..LinearRgba::from(sprite.color)
             };
 
@@ -556,18 +539,15 @@ mod ui {
         commands
             .spawn((
                 StateScoped(Tutorial::MovementInstructions),
-                NodeBundle {
-                    style: Style {
-                        // center button
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
-                        justify_content: JustifyContent::End,
-                        align_items: AlignItems::Center,
-                        flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(10.),
-                        position_type: PositionType::Absolute,
-                        ..default()
-                    },
+                Node {
+                    // center button
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    justify_content: JustifyContent::End,
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(10.),
+                    position_type: PositionType::Absolute,
                     ..default()
                 },
             ))
@@ -613,18 +593,15 @@ mod ui {
         commands
             .spawn((
                 StateScoped(Tutorial::PauseInstructions),
-                NodeBundle {
-                    style: Style {
-                        // center button
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
-                        justify_content: JustifyContent::End,
-                        align_items: AlignItems::Center,
-                        flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(10.),
-                        position_type: PositionType::Absolute,
-                        ..default()
-                    },
+                Node {
+                    // center button
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    justify_content: JustifyContent::End,
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(10.),
+                    position_type: PositionType::Absolute,
                     ..default()
                 },
             ))

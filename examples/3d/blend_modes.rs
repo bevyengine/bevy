@@ -169,7 +169,7 @@ fn setup(
 
     commands.spawn((Text::new("Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors"),
             text_style.clone(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -180,7 +180,7 @@ fn setup(
     commands.spawn((
         Text::default(),
         text_style,
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             right: Val::Px(12.0),
@@ -192,11 +192,8 @@ fn setup(
     let mut label = |entity: Entity, label: &str| {
         commands
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        position_type: PositionType::Absolute,
-                        ..default()
-                    },
+                Node {
+                    position_type: PositionType::Absolute,
                     ..default()
                 },
                 ExampleLabel { entity },
@@ -205,7 +202,7 @@ fn setup(
                 parent.spawn((
                     Text::new(label),
                     label_text_style.clone(),
-                    Style {
+                    Node {
                         position_type: PositionType::Absolute,
                         bottom: Val::ZERO,
                         ..default()
@@ -255,7 +252,7 @@ fn example_control_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
     camera: Single<(&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
-    mut labels: Query<(&mut Style, &ExampleLabel)>,
+    mut labels: Query<(&mut Node, &ExampleLabel)>,
     mut display: Single<&mut Text, With<ExampleDisplay>>,
     labelled: Query<&GlobalTransform>,
     mut state: Local<ExampleState>,
@@ -263,9 +260,9 @@ fn example_control_system(
     input: Res<ButtonInput<KeyCode>>,
 ) {
     if input.pressed(KeyCode::ArrowUp) {
-        state.alpha = (state.alpha + time.delta_seconds()).min(1.0);
+        state.alpha = (state.alpha + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::ArrowDown) {
-        state.alpha = (state.alpha - time.delta_seconds()).max(0.0);
+        state.alpha = (state.alpha - time.delta_secs()).max(0.0);
     }
 
     if input.just_pressed(KeyCode::Space) {
@@ -301,24 +298,24 @@ fn example_control_system(
     }
 
     let rotation = if input.pressed(KeyCode::ArrowLeft) {
-        time.delta_seconds()
+        time.delta_secs()
     } else if input.pressed(KeyCode::ArrowRight) {
-        -time.delta_seconds()
+        -time.delta_secs()
     } else {
         0.0
     };
 
     camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(rotation));
 
-    for (mut style, label) in &mut labels {
+    for (mut node, label) in &mut labels {
         let world_position = labelled.get(label.entity).unwrap().translation() + Vec3::Y;
 
         let viewport_position = camera
             .world_to_viewport(camera_global_transform, world_position)
             .unwrap();
 
-        style.top = Val::Px(viewport_position.y);
-        style.left = Val::Px(viewport_position.x);
+        node.top = Val::Px(viewport_position.y);
+        node.left = Val::Px(viewport_position.x);
     }
 
     display.0 = format!(

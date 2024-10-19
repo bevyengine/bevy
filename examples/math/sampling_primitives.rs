@@ -388,7 +388,7 @@ fn setup(
             Move camera by L/R arrow keys.\n\
             Tab: Toggle this text",
         ),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -638,7 +638,7 @@ fn animate_spawning(
     time: Res<Time>,
     mut samples: Query<(Entity, &mut Transform, &mut SpawningPoint)>,
 ) {
-    let dt = time.delta_seconds();
+    let dt = time.delta_secs();
 
     for (entity, mut transform, mut point) in samples.iter_mut() {
         point.progress += dt / ANIMATION_TIME;
@@ -654,7 +654,7 @@ fn animate_despawning(
     time: Res<Time>,
     mut samples: Query<(Entity, &mut Transform, &mut DespawningPoint)>,
 ) {
-    let dt = time.delta_seconds();
+    let dt = time.delta_secs();
 
     for (entity, mut transform, mut point) in samples.iter_mut() {
         point.progress += dt / ANIMATION_TIME;

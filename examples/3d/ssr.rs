@@ -253,7 +253,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
     commands.spawn((
         create_text(app_settings),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -292,7 +292,7 @@ fn rotate_model(
     time: Res<Time>,
 ) {
     for mut transform in query.iter_mut() {
-        transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.0, time.elapsed_seconds(), 0.0);
+        transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.0, time.elapsed_secs(), 0.0);
     }
 }
 

@@ -1,7 +1,7 @@
 use core::{hash::Hash, ops::Range};
 
 use crate::{
-    BoxShadow, CalculatedClip, DefaultUiCamera, Node, RenderUiSystem, ResolvedBorderRadius,
+    BoxShadow, CalculatedClip, ComputedNode, DefaultUiCamera, RenderUiSystem, ResolvedBorderRadius,
     TargetCamera, TransparentUi, UiBoxShadowSamples, UiScale, Val,
 };
 use bevy_app::prelude::*;
@@ -239,7 +239,7 @@ pub fn extract_shadows(
     box_shadow_query: Extract<
         Query<(
             Entity,
-            &Node,
+            &ComputedNode,
             &GlobalTransform,
             &ViewVisibility,
             &BoxShadow,
@@ -356,7 +356,7 @@ pub fn queue_shadows(
             &ui_slicer_pipeline,
             UiTextureSlicePipelineKey {
                 hdr: view.hdr,
-                samples: shadow_samples.map(|samples| samples.0).unwrap_or_default(),
+                samples: shadow_samples.copied().unwrap_or_default().0,
             },
         );
 

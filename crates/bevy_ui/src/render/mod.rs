@@ -5,7 +5,7 @@ mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
 use crate::{
-    BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Node, Outline,
+    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, DefaultUiCamera, Outline,
     ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples, UiImage, UiScale,
 };
 use bevy_app::prelude::*;
@@ -40,7 +40,7 @@ use bevy_render::{
 };
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
-#[cfg(feature = "bevy_text")]
+
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
@@ -63,6 +63,25 @@ pub mod graph {
     pub enum NodeUi {
         UiPass,
     }
+}
+
+/// Z offsets of "extracted nodes" for a given entity. These exist to allow rendering multiple "extracted nodes"
+/// for a given source entity (ex: render both a background color _and_ a custom material for a given node).
+///
+/// When possible these offsets should be defined in _this_ module to ensure z-index coordination across contexts.
+/// When this is _not_ possible, pick a suitably unique index unlikely to clash with other things (ex: `0.1826823` not `0.1`).
+///
+/// Offsets should be unique for a given node entity to avoid z fighting.
+/// These should pretty much _always_ be larger than -1.0 and smaller than 1.0 to avoid clipping into nodes
+/// above / below the current node in the stack.
+///
+/// A z-index of 0.0 is the baseline, which is used as the primary "background color" of the node.
+///
+/// Note that nodes "stack" on each other, so a negative offset on the node above could clip _into_
+/// a positive offset on a node below.
+pub mod stack_z_offsets {
+    pub const BACKGROUND_COLOR: f32 = 0.0;
+    pub const MATERIAL: f32 = 0.18267;
 }
 
 pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(13012847047162779583);
@@ -112,7 +131,6 @@ pub fn build_ui_render(app: &mut App) {
                 extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
-                #[cfg(feature = "bevy_text")]
                 extract_text_sections.in_set(RenderUiSystem::ExtractText),
             ),
         )
@@ -227,7 +245,7 @@ pub fn extract_uinode_background_colors(
     uinode_query: Extract<
         Query<(
             Entity,
-            &Node,
+            &ComputedNode,
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
@@ -291,7 +309,7 @@ pub fn extract_uinode_images(
         Query<
             (
                 Entity,
-                &Node,
+                &ComputedNode,
                 &GlobalTransform,
                 &ViewVisibility,
                 Option<&CalculatedClip>,
@@ -380,7 +398,7 @@ pub fn extract_uinode_borders(
     uinode_query: Extract<
         Query<(
             Entity,
-            &Node,
+            &ComputedNode,
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
@@ -588,7 +606,6 @@ pub fn extract_default_ui_camera_view(
     transparent_render_phases.retain(|entity, _| live_entities.contains(entity));
 }
 
-#[cfg(feature = "bevy_text")]
 #[allow(clippy::too_many_arguments)]
 pub fn extract_text_sections(
     mut commands: Commands,
@@ -600,7 +617,7 @@ pub fn extract_text_sections(
     uinode_query: Extract<
         Query<(
             Entity,
-            &Node,
+            &ComputedNode,
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
@@ -829,7 +846,7 @@ pub fn queue_uinodes(
             pipeline,
             entity: (*entity, extracted_uinode.main_entity),
             sort_key: (
-                FloatOrd(extracted_uinode.stack_index as f32),
+                FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR),
                 entity.index(),
             ),
             // batch_range will be calculated in prepare_uinodes

@@ -1398,7 +1398,9 @@ fn load_node(
                     let orthographic_projection = OrthographicProjection {
                         near: orthographic.znear(),
                         far: orthographic.zfar(),
-                        scaling_mode: ScalingMode::FixedHorizontal(xmag),
+                        scaling_mode: ScalingMode::FixedHorizontal {
+                            viewport_width: xmag,
+                        },
                         ..OrthographicProjection::default_3d()
                     };
 

@@ -59,7 +59,7 @@ fn setup(
     // UI
     commands.spawn((
         Text::default(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -112,7 +112,7 @@ fn update_bloom_settings(
                 commands.entity(entity).remove::<Bloom>();
             }
 
-            let dt = time.delta_seconds();
+            let dt = time.delta_secs();
 
             if keycode.pressed(KeyCode::KeyA) {
                 bloom.intensity -= dt / 10.0;

@@ -88,7 +88,7 @@ fn setup(mut commands: Commands) {
     }
     commands.spawn((
         Text::default(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -110,7 +110,7 @@ fn display_curves(
     let duration = 2.5;
     let time_margin = 0.5;
 
-    let now = ((time.elapsed_seconds() % (duration + time_margin * 2.0) - time_margin) / duration)
+    let now = ((time.elapsed_secs() % (duration + time_margin * 2.0) - time_margin) / duration)
         .clamp(0.0, 1.0);
 
     ui_text.0 = format!("Progress: {:.2}", now);

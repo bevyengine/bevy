@@ -118,7 +118,7 @@ fn setup(
             D: Add 100 random samples.\n\
             Rotate camera by holding left mouse and panning left/right.",
         ),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),

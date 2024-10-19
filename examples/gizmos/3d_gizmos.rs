@@ -62,7 +62,7 @@ fn setup(
             Press 'U' or 'I' to cycle through line styles for straight or round gizmos\n\
             Press 'J' or 'K' to cycle through line joins for straight or round gizmos",
         ),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -98,8 +98,8 @@ fn draw_example_collection(
                 half_size: Vec2::splat(1.0),
             },
             Isometry3d::new(
-                Vec3::splat(4.0) + Vec2::from(ops::sin_cos(time.elapsed_seconds())).extend(0.0),
-                Quat::from_rotation_x(PI / 2. + time.elapsed_seconds()),
+                Vec3::splat(4.0) + Vec2::from(ops::sin_cos(time.elapsed_secs())).extend(0.0),
+                Quat::from_rotation_x(PI / 2. + time.elapsed_secs()),
             ),
             GREEN,
         )
@@ -112,7 +112,7 @@ fn draw_example_collection(
     );
     gizmos.rect(
         Isometry3d::new(
-            Vec3::new(ops::cos(time.elapsed_seconds()) * 2.5, 1., 0.),
+            Vec3::new(ops::cos(time.elapsed_secs()) * 2.5, 1., 0.),
             Quat::from_rotation_y(PI / 2.),
         ),
         Vec2::splat(2.),
@@ -125,7 +125,7 @@ fn draw_example_collection(
     let curve = function_curve(domain, |t| {
         (Vec2::from(ops::sin_cos(t * 10.0))).extend(t - 6.0)
     });
-    let resolution = ((ops::sin(time.elapsed_seconds()) + 1.0) * 100.0) as usize;
+    let resolution = ((ops::sin(time.elapsed_secs()) + 1.0) * 100.0) as usize;
     let times_and_colors = (0..=resolution)
         .map(|n| n as f32 / resolution as f32)
         .map(|t| t * 5.0)
@@ -142,7 +142,7 @@ fn draw_example_collection(
     for y in [0., 0.5, 1.] {
         gizmos.ray(
             Vec3::new(1., y, 0.),
-            Vec3::new(-3., ops::sin(time.elapsed_seconds() * 3.), 0.),
+            Vec3::new(-3., ops::sin(time.elapsed_secs() * 3.), 0.),
             BLUE,
         );
     }
@@ -200,11 +200,11 @@ fn update_config(
 
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
     if keyboard.pressed(KeyCode::ArrowRight) {
-        config.line_width += 5. * time.delta_seconds();
+        config.line_width += 5. * time.delta_secs();
         config.line_width = config.line_width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        config.line_width -= 5. * time.delta_seconds();
+        config.line_width -= 5. * time.delta_secs();
         config.line_width = config.line_width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit1) {
@@ -227,11 +227,11 @@ fn update_config(
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::ArrowUp) {
-        my_config.line_width += 5. * time.delta_seconds();
+        my_config.line_width += 5. * time.delta_secs();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowDown) {
-        my_config.line_width -= 5. * time.delta_seconds();
+        my_config.line_width -= 5. * time.delta_secs();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit2) {

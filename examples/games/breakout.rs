@@ -225,7 +225,7 @@ fn setup(
             },
             TextColor(TEXT_COLOR),
             ScoreboardUi,
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: SCOREBOARD_TEXT_PADDING,
                 left: SCOREBOARD_TEXT_PADDING,
@@ -316,7 +316,7 @@ fn move_paddle(
 
     // Calculate the new horizontal paddle position based on player input
     let new_paddle_position =
-        paddle_transform.translation.x + direction * PADDLE_SPEED * time.delta_seconds();
+        paddle_transform.translation.x + direction * PADDLE_SPEED * time.delta_secs();
 
     // Update the paddle position,
     // making sure it doesn't cause the paddle to leave the arena
@@ -328,8 +328,8 @@ fn move_paddle(
 
 fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>) {
     for (mut transform, velocity) in &mut query {
-        transform.translation.x += velocity.x * time.delta_seconds();
-        transform.translation.y += velocity.y * time.delta_seconds();
+        transform.translation.x += velocity.x * time.delta_secs();
+        transform.translation.y += velocity.y * time.delta_secs();
     }
 }
 
