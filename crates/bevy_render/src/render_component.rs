@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use crate::RenderSet::Cleanup;
 use crate::{Render, RenderApp};
 use bevy_app::{App, Plugin};
@@ -13,7 +14,7 @@ pub use bevy_render_macros::RenderComponent;
 /// a particular render pipeline. These components are automatically removed from entities every
 /// frame and must be re-added if the entity should continue to be rendered using the given
 /// pipeline.
-pub struct RenderComponentPlugin<C>(std::marker::PhantomData<C>);
+pub struct RenderComponentPlugin<C>(PhantomData<C>);
 
 impl<C: RenderComponent> Plugin for RenderComponentPlugin<C> {
     fn build(&self, app: &mut App) {
@@ -25,7 +26,7 @@ impl<C: RenderComponent> Plugin for RenderComponentPlugin<C> {
 
 impl<C> Default for RenderComponentPlugin<C> {
     fn default() -> Self {
-        Self(std::marker::PhantomData)
+        Self(PhantomData)
     }
 }
 
