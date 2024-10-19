@@ -3,15 +3,18 @@
 use bevy::{
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::{
-        mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
+        mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
         render_resource::{
             AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
             VertexFormat,
         },
     },
 };
+
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/custom_vertex_attribute.wgsl";
 
 fn main() {
     App::new()
@@ -31,53 +34,52 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
-    let mut mesh = Mesh::from(shape::Cube { size: 1.0 });
-    mesh.insert_attribute(
-        ATTRIBUTE_BLEND_COLOR,
-        // The cube mesh has 24 vertices (6 faces, 4 vertices per face), so we insert one BlendColor for each
-        vec![[1.0, 0.0, 0.0, 1.0]; 24],
-    );
+    let mesh = Mesh::from(Cuboid::default())
+        // Sets the custom attribute
+        .with_inserted_attribute(
+            ATTRIBUTE_BLEND_COLOR,
+            // The cube mesh has 24 vertices (6 faces, 4 vertices per face), so we insert one BlendColor for each
+            vec![[1.0, 0.0, 0.0, 1.0]; 24],
+        );
 
     // cube
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(mesh),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        material: materials.add(CustomMaterial {
-            color: Color::WHITE,
-        }),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(mesh)),
+        MeshMaterial3d(materials.add(CustomMaterial {
+            color: LinearRgba::WHITE,
+        })),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 // This is the struct that will be passed to your shader
-#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
-#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
-pub struct CustomMaterial {
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+struct CustomMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LinearRgba,
 }
 
 impl Material for CustomMaterial {
     fn vertex_shader() -> ShaderRef {
-        "shaders/custom_vertex_attribute.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
     fn fragment_shader() -> ShaderRef {
-        "shaders/custom_vertex_attribute.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        let vertex_layout = layout.get_layout(&[
+        let vertex_layout = layout.0.get_layout(&[
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             ATTRIBUTE_BLEND_COLOR.at_shader_location(1),
         ])?;

@@ -3,14 +3,18 @@
 use bevy::{
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::{
-        mesh::MeshVertexBufferLayout,
+        mesh::MeshVertexBufferLayoutRef,
         render_resource::{
             AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
         },
     },
 };
+
+/// This example uses shader source files from the assets subdirectory
+const VERTEX_SHADER_ASSET_PATH: &str = "shaders/custom_material.vert";
+const FRAGMENT_SHADER_ASSET_PATH: &str = "shaders/custom_material.frag";
 
 fn main() {
     App::new()
@@ -27,30 +31,28 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // cube
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        material: materials.add(CustomMaterial {
-            color: Color::BLUE,
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {
+            color: LinearRgba::BLUE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
-        }),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 // This is the struct that will be passed to your shader
-#[derive(AsBindGroup, Clone, TypeUuid, TypePath)]
-#[uuid = "4ee9c363-1124-4113-890e-199d81b00281"]
-pub struct CustomMaterial {
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+struct CustomMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LinearRgba,
     #[texture(1)]
     #[sampler(2)]
     color_texture: Option<Handle<Image>>,
@@ -62,11 +64,11 @@ pub struct CustomMaterial {
 /// When using the GLSL shading language for your shader, the specialize method must be overridden.
 impl Material for CustomMaterial {
     fn vertex_shader() -> ShaderRef {
-        "shaders/custom_material.vert".into()
+        VERTEX_SHADER_ASSET_PATH.into()
     }
 
     fn fragment_shader() -> ShaderRef {
-        "shaders/custom_material.frag".into()
+        FRAGMENT_SHADER_ASSET_PATH.into()
     }
 
     fn alpha_mode(&self) -> AlphaMode {
@@ -79,7 +81,7 @@ impl Material for CustomMaterial {
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
+        _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.vertex.entry_point = "main".into();

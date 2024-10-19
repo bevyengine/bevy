@@ -5,158 +5,160 @@ use bevy::{
         accesskit::{NodeBuilder, Role},
         AccessibilityNode,
     },
+    color::palettes::basic::LIME,
     input::mouse::{MouseScrollUnit, MouseWheel},
+    picking::focus::HoverMap,
     prelude::*,
     winit::WinitSettings,
 };
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins)
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
-        .add_systems(Update, mouse_scroll)
-        .run();
+        .add_systems(Update, update_scroll_position);
+
+    #[cfg(feature = "bevy_dev_tools")]
+    {
+        app.add_plugins(bevy::dev_tools::ui_debug_overlay::DebugUiPlugin)
+            .add_systems(Update, toggle_overlay);
+    }
+
+    app.run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2d, IsDefaultUiCamera, UiBoxShadowSamples(6)));
 
     // root node
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::SpaceBetween,
-                ..default()
-            },
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            justify_content: JustifyContent::SpaceBetween,
             ..default()
         })
+        .insert(PickingBehavior::IGNORE)
         .with_children(|parent| {
             // left vertical fill (border)
             parent
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         width: Val::Px(200.),
                         border: UiRect::all(Val::Px(2.)),
                         ..default()
                     },
-                    background_color: Color::rgb(0.65, 0.65, 0.65).into(),
-                    ..default()
-                })
+                    BackgroundColor(Color::srgb(0.65, 0.65, 0.65)),
+                ))
                 .with_children(|parent| {
                     // left vertical fill (content)
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
+                        .spawn((
+                            Node {
                                 width: Val::Percent(100.),
+                                flex_direction: FlexDirection::Column,
+                                padding: UiRect::all(Val::Px(5.)),
+                                row_gap: Val::Px(5.),
                                 ..default()
                             },
-                            background_color: Color::rgb(0.15, 0.15, 0.15).into(),
-                            ..default()
-                        })
+                            BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+                        ))
                         .with_children(|parent| {
                             // text
                             parent.spawn((
-                                TextBundle::from_section(
-                                    "Text Example",
-                                    TextStyle {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 30.0,
-                                        color: Color::WHITE,
-                                    },
-                                )
-                                .with_style(Style {
-                                    margin: UiRect::all(Val::Px(5.)),
+                                Text::new("Text Example"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: 25.0,
                                     ..default()
-                                }),
+                                },
                                 // Because this is a distinct label widget and
                                 // not button/list item text, this is necessary
                                 // for accessibility to treat the text accordingly.
+                                Label,
+                            ));
+
+                            #[cfg(feature = "bevy_dev_tools")]
+                            // Debug overlay text
+                            parent.spawn((
+                                Text::new("Press Space to enable debug outlines."),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    ..default()
+                                },
+                                Label,
+                            ));
+
+                            #[cfg(not(feature = "bevy_dev_tools"))]
+                            parent.spawn((
+                                Text::new("Try enabling feature \"bevy_dev_tools\"."),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    ..default()
+                                },
                                 Label,
                             ));
                         });
                 });
             // right vertical fill
             parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        flex_direction: FlexDirection::Column,
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        width: Val::Px(200.),
-                        ..default()
-                    },
-                    background_color: Color::rgb(0.15, 0.15, 0.15).into(),
+                .spawn(Node {
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    width: Val::Px(200.),
                     ..default()
                 })
                 .with_children(|parent| {
                     // Title
                     parent.spawn((
-                        TextBundle::from_section(
-                            "Scrolling list",
-                            TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 25.,
-                                color: Color::WHITE,
-                            },
-                        ),
+                        Text::new("Scrolling list"),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 21.,
+                            ..default()
+                        },
                         Label,
                     ));
-                    // List with hidden overflow
+                    // Scrolling list
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
+                        .spawn((
+                            Node {
                                 flex_direction: FlexDirection::Column,
                                 align_self: AlignSelf::Stretch,
                                 height: Val::Percent(50.),
-                                overflow: Overflow::clip_y(),
+                                overflow: Overflow::scroll_y(),
                                 ..default()
                             },
-                            background_color: Color::rgb(0.10, 0.10, 0.10).into(),
-                            ..default()
-                        })
+                            BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                        ))
                         .with_children(|parent| {
-                            // Moving panel
-                            parent
-                                .spawn((
-                                    NodeBundle {
-                                        style: Style {
-                                            flex_direction: FlexDirection::Column,
-                                            align_items: AlignItems::Center,
+                            // List items
+                            for i in 0..25 {
+                                parent
+                                    .spawn((
+                                        Text(format!("Item {i}")),
+                                        TextFont {
+                                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                             ..default()
                                         },
+                                        Label,
+                                        AccessibilityNode(NodeBuilder::new(Role::ListItem)),
+                                    ))
+                                    .insert(PickingBehavior {
+                                        should_block_lower: false,
                                         ..default()
-                                    },
-                                    ScrollingList::default(),
-                                    AccessibilityNode(NodeBuilder::new(Role::List)),
-                                ))
-                                .with_children(|parent| {
-                                    // List items
-                                    for i in 0..30 {
-                                        parent.spawn((
-                                            TextBundle::from_section(
-                                                format!("Item {i}"),
-                                                TextStyle {
-                                                    font: asset_server
-                                                        .load("fonts/FiraSans-Bold.ttf"),
-                                                    font_size: 20.,
-                                                    color: Color::WHITE,
-                                                },
-                                            ),
-                                            Label,
-                                            AccessibilityNode(NodeBuilder::new(Role::ListItem)),
-                                        ));
-                                    }
-                                });
+                                    });
+                            }
                         });
                 });
+
             parent
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         width: Val::Px(200.0),
                         height: Val::Px(200.0),
                         position_type: PositionType::Absolute,
@@ -165,48 +167,53 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         border: UiRect::all(Val::Px(20.)),
                         ..default()
                     },
-                    border_color: Color::GREEN.into(),
-                    background_color: Color::rgb(0.4, 0.4, 1.).into(),
-                    ..default()
-                })
+                    BorderColor(LIME.into()),
+                    BackgroundColor(Color::srgb(0.4, 0.4, 1.)),
+                ))
                 .with_children(|parent| {
-                    parent.spawn(NodeBundle {
-                        style: Style {
+                    parent.spawn((
+                        Node {
                             width: Val::Percent(100.0),
                             height: Val::Percent(100.0),
                             ..default()
                         },
-                        background_color: Color::rgb(0.8, 0.8, 1.).into(),
-                        ..default()
-                    });
+                        BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
+                    ));
                 });
+
+            let shadow = BoxShadow {
+                color: Color::BLACK.with_alpha(0.5),
+                blur_radius: Val::Px(2.),
+                x_offset: Val::Px(10.),
+                y_offset: Val::Px(10.),
+                ..Default::default()
+            };
+
             // render order test: reddest in the back, whitest in the front (flex center)
             parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        position_type: PositionType::Absolute,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
+                .spawn(Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    position_type: PositionType::Absolute,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
                 })
+                .insert(PickingBehavior::IGNORE)
                 .with_children(|parent| {
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
+                        .spawn((
+                            Node {
                                 width: Val::Px(100.0),
                                 height: Val::Px(100.0),
                                 ..default()
                             },
-                            background_color: Color::rgb(1.0, 0.0, 0.).into(),
-                            ..default()
-                        })
+                            BackgroundColor(Color::srgb(1.0, 0.0, 0.)),
+                            shadow,
+                        ))
                         .with_children(|parent| {
-                            parent.spawn(NodeBundle {
-                                style: Style {
+                            parent.spawn((
+                                Node {
                                     // Take the size of the parent node.
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
@@ -215,11 +222,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     bottom: Val::Px(20.),
                                     ..default()
                                 },
-                                background_color: Color::rgb(1.0, 0.3, 0.3).into(),
-                                ..default()
-                            });
-                            parent.spawn(NodeBundle {
-                                style: Style {
+                                BackgroundColor(Color::srgb(1.0, 0.3, 0.3)),
+                                shadow,
+                            ));
+                            parent.spawn((
+                                Node {
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
@@ -227,11 +234,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     bottom: Val::Px(40.),
                                     ..default()
                                 },
-                                background_color: Color::rgb(1.0, 0.5, 0.5).into(),
-                                ..default()
-                            });
-                            parent.spawn(NodeBundle {
-                                style: Style {
+                                BackgroundColor(Color::srgb(1.0, 0.5, 0.5)),
+                                shadow,
+                            ));
+                            parent.spawn((
+                                Node {
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
@@ -239,12 +246,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     bottom: Val::Px(60.),
                                     ..default()
                                 },
-                                background_color: Color::rgb(1.0, 0.7, 0.7).into(),
-                                ..default()
-                            });
+                                BackgroundColor(Color::srgb(0.0, 0.7, 0.7)),
+                                shadow,
+                            ));
                             // alpha test
-                            parent.spawn(NodeBundle {
-                                style: Style {
+                            parent.spawn((
+                                Node {
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
@@ -252,86 +259,89 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     bottom: Val::Px(80.),
                                     ..default()
                                 },
-                                background_color: Color::rgba(1.0, 0.9, 0.9, 0.4).into(),
-                                ..default()
-                            });
+                                BackgroundColor(Color::srgba(1.0, 0.9, 0.9, 0.4)),
+                                BoxShadow {
+                                    color: Color::BLACK.with_alpha(0.3),
+                                    ..shadow
+                                },
+                            ));
                         });
                 });
             // bevy logo (flex center)
             parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        position_type: PositionType::Absolute,
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::FlexStart,
-                        ..default()
-                    },
+                .spawn(Node {
+                    width: Val::Percent(100.0),
+                    position_type: PositionType::Absolute,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::FlexStart,
                     ..default()
                 })
                 .with_children(|parent| {
                     // bevy logo (image)
-                    // A `NodeBundle` is used to display the logo the image as an `ImageBundle` can't automatically
-                    // size itself with a child node present.
                     parent
                         .spawn((
-                            NodeBundle {
-                                style: Style {
-                                    width: Val::Px(500.0),
-                                    height: Val::Px(125.0),
-                                    margin: UiRect::top(Val::VMin(5.)),
-                                    ..default()
-                                },
-                                // a `NodeBundle` is transparent by default, so to see the image we have to its color to `WHITE`
-                                background_color: Color::WHITE.into(),
+                            UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
+                            Node {
+                                width: Val::Px(500.0),
+                                height: Val::Px(125.0),
+                                margin: UiRect::top(Val::VMin(5.)),
                                 ..default()
                             },
-                            UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
                         ))
                         .with_children(|parent| {
                             // alt text
-                            // This UI node takes up no space in the layout and the `Text` component is used by the accessiblity module
+                            // This UI node takes up no space in the layout and the `Text` component is used by the accessibility module
                             // and is not rendered.
                             parent.spawn((
-                                NodeBundle {
-                                    style: Style {
-                                        display: Display::None,
-                                        ..Default::default()
-                                    },
-                                    ..Default::default()
+                                Node {
+                                    display: Display::None,
+                                    ..default()
                                 },
-                                Text::from_section("Bevy logo", TextStyle::default()),
+                                Text::new("Bevy logo"),
                             ));
                         });
                 });
         });
 }
 
-#[derive(Component, Default)]
-struct ScrollingList {
-    position: f32,
+#[cfg(feature = "bevy_dev_tools")]
+// The system that will enable/disable the debug outlines around the nodes
+fn toggle_overlay(
+    input: Res<ButtonInput<KeyCode>>,
+    mut options: ResMut<bevy::dev_tools::ui_debug_overlay::UiDebugOptions>,
+) {
+    info_once!("The debug outlines are enabled, press Space to turn them on/off");
+    if input.just_pressed(KeyCode::Space) {
+        // The toggle method will enable the debug_overlay if disabled and disable if enabled
+        options.toggle();
+    }
 }
 
-fn mouse_scroll(
+/// Updates the scroll position of scrollable nodes in response to mouse input
+pub fn update_scroll_position(
     mut mouse_wheel_events: EventReader<MouseWheel>,
-    mut query_list: Query<(&mut ScrollingList, &mut Style, &Parent, &Node)>,
-    query_node: Query<&Node>,
+    hover_map: Res<HoverMap>,
+    mut scrolled_node_query: Query<&mut ScrollPosition>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
-    for mouse_wheel_event in mouse_wheel_events.iter() {
-        for (mut scrolling_list, mut style, parent, list_node) in &mut query_list {
-            let items_height = list_node.size().y;
-            let container_height = query_node.get(parent.get()).unwrap().size().y;
+    for mouse_wheel_event in mouse_wheel_events.read() {
+        let (mut dx, mut dy) = match mouse_wheel_event.unit {
+            MouseScrollUnit::Line => (mouse_wheel_event.x * 20., mouse_wheel_event.y * 20.),
+            MouseScrollUnit::Pixel => (mouse_wheel_event.x, mouse_wheel_event.y),
+        };
 
-            let max_scroll = (items_height - container_height).max(0.);
+        if keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight)
+        {
+            std::mem::swap(&mut dx, &mut dy);
+        }
 
-            let dy = match mouse_wheel_event.unit {
-                MouseScrollUnit::Line => mouse_wheel_event.y * 20.,
-                MouseScrollUnit::Pixel => mouse_wheel_event.y,
-            };
-
-            scrolling_list.position += dy;
-            scrolling_list.position = scrolling_list.position.clamp(-max_scroll, 0.);
-            style.top = Val::Px(scrolling_list.position);
+        for (_pointer, pointer_map) in hover_map.iter() {
+            for (entity, _hit) in pointer_map.iter() {
+                if let Ok(mut scroll_position) = scrolled_node_query.get_mut(*entity) {
+                    scroll_position.offset_x -= dx;
+                    scroll_position.offset_y -= dy;
+                }
+            }
         }
     }
 }

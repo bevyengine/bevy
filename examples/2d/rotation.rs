@@ -1,14 +1,13 @@
 //! Demonstrates rotating entities in 2D using quaternions.
 
-use bevy::{math::Vec3Swizzles, prelude::*};
+use bevy::{math::ops, prelude::*};
 
-const TIME_STEP: f32 = 1.0 / 60.0;
 const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(FixedTime::new_from_secs(TIME_STEP))
+        .insert_resource(Time::<Fixed>::from_hz(60.0))
         .add_systems(Startup, setup)
         .add_systems(
             FixedUpdate,
@@ -18,7 +17,6 @@ fn main() {
                 rotate_to_player_system,
             ),
         )
-        .add_systems(Update, bevy::window::close_on_esc)
         .run();
 }
 
@@ -57,17 +55,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let enemy_b_handle = asset_server.load("textures/simplespace/enemy_B.png");
 
     // 2D orthographic camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let horizontal_margin = BOUNDS.x / 4.0;
     let vertical_margin = BOUNDS.y / 4.0;
 
     // player controlled ship
     commands.spawn((
-        SpriteBundle {
-            texture: ship_handle,
-            ..default()
-        },
+        Sprite::from_image(ship_handle),
         Player {
             movement_speed: 500.0,                  // meters per second
             rotation_speed: f32::to_radians(360.0), // degrees per second
@@ -76,39 +71,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // enemy that snaps to face the player spawns on the bottom and left
     commands.spawn((
-        SpriteBundle {
-            texture: enemy_a_handle.clone(),
-            transform: Transform::from_xyz(0.0 - horizontal_margin, 0.0, 0.0),
-            ..default()
-        },
+        Sprite::from_image(enemy_a_handle.clone()),
+        Transform::from_xyz(0.0 - horizontal_margin, 0.0, 0.0),
         SnapToPlayer,
     ));
     commands.spawn((
-        SpriteBundle {
-            texture: enemy_a_handle,
-            transform: Transform::from_xyz(0.0, 0.0 - vertical_margin, 0.0),
-            ..default()
-        },
+        Sprite::from_image(enemy_a_handle),
+        Transform::from_xyz(0.0, 0.0 - vertical_margin, 0.0),
         SnapToPlayer,
     ));
 
     // enemy that rotates to face the player enemy spawns on the top and right
     commands.spawn((
-        SpriteBundle {
-            texture: enemy_b_handle.clone(),
-            transform: Transform::from_xyz(0.0 + horizontal_margin, 0.0, 0.0),
-            ..default()
-        },
+        Sprite::from_image(enemy_b_handle.clone()),
+        Transform::from_xyz(0.0 + horizontal_margin, 0.0, 0.0),
         RotateToPlayer {
             rotation_speed: f32::to_radians(45.0), // degrees per second
         },
     ));
     commands.spawn((
-        SpriteBundle {
-            texture: enemy_b_handle,
-            transform: Transform::from_xyz(0.0, 0.0 + vertical_margin, 0.0),
-            ..default()
-        },
+        Sprite::from_image(enemy_b_handle),
+        Transform::from_xyz(0.0, 0.0 + vertical_margin, 0.0),
         RotateToPlayer {
             rotation_speed: f32::to_radians(90.0), // degrees per second
         },
@@ -117,33 +100,36 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Demonstrates applying rotation and movement based on keyboard input.
 fn player_movement_system(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&Player, &mut Transform)>,
+    time: Res<Time>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    query: Single<(&Player, &mut Transform)>,
 ) {
-    let (ship, mut transform) = query.single_mut();
+    let (ship, mut transform) = query.into_inner();
 
     let mut rotation_factor = 0.0;
     let mut movement_factor = 0.0;
 
-    if keyboard_input.pressed(KeyCode::Left) {
+    if keyboard_input.pressed(KeyCode::ArrowLeft) {
         rotation_factor += 1.0;
     }
 
-    if keyboard_input.pressed(KeyCode::Right) {
+    if keyboard_input.pressed(KeyCode::ArrowRight) {
         rotation_factor -= 1.0;
     }
 
-    if keyboard_input.pressed(KeyCode::Up) {
+    if keyboard_input.pressed(KeyCode::ArrowUp) {
         movement_factor += 1.0;
     }
 
     // update the ship rotation around the Z axis (perpendicular to the 2D plane of the screen)
-    transform.rotate_z(rotation_factor * ship.rotation_speed * TIME_STEP);
+    transform.rotate_z(rotation_factor * ship.rotation_speed * time.delta_secs());
 
-    // get the ship's forward vector by applying the current rotation to the ships initial facing vector
+    // get the ship's forward vector by applying the current rotation to the ships initial facing
+    // vector
     let movement_direction = transform.rotation * Vec3::Y;
-    // get the distance the ship will move based on direction, the ship's movement speed and delta time
-    let movement_distance = movement_factor * ship.movement_speed * TIME_STEP;
+    // get the distance the ship will move based on direction, the ship's movement speed and delta
+    // time
+    let movement_distance = movement_factor * ship.movement_speed * time.delta_secs();
     // create the change in translation using the new movement direction and distance
     let translation_delta = movement_direction * movement_distance;
     // update the ship translation with our new translation delta
@@ -157,9 +143,8 @@ fn player_movement_system(
 /// Demonstrates snapping the enemy ship to face the player ship immediately.
 fn snap_to_player_system(
     mut query: Query<&mut Transform, (With<SnapToPlayer>, Without<Player>)>,
-    player_query: Query<&Transform, With<Player>>,
+    player_transform: Single<&Transform, With<Player>>,
 ) {
-    let player_transform = player_query.single();
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();
 
@@ -182,8 +167,8 @@ fn snap_to_player_system(
 /// if not, which way to rotate to face the player. The dot product on two unit length vectors
 /// will return a value between -1.0 and +1.0 which tells us the following about the two vectors:
 ///
-/// * If the result is 1.0 the vectors are pointing in the same direction, the angle between them
-///   is 0 degrees.
+/// * If the result is 1.0 the vectors are pointing in the same direction, the angle between them is
+///   0 degrees.
 /// * If the result is 0.0 the vectors are perpendicular, the angle between them is 90 degrees.
 /// * If the result is -1.0 the vectors are parallel but pointing in opposite directions, the angle
 ///   between them is 180 degrees.
@@ -198,10 +183,10 @@ fn snap_to_player_system(
 /// floating point precision loss, so it pays to clamp your dot product value before calling
 /// `acos`.
 fn rotate_to_player_system(
+    time: Res<Time>,
     mut query: Query<(&RotateToPlayer, &mut Transform), Without<Player>>,
-    player_query: Query<&Transform, With<Player>>,
+    player_transform: Single<&Transform, With<Player>>,
 ) {
-    let player_transform = player_query.single();
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();
 
@@ -239,10 +224,11 @@ fn rotate_to_player_system(
 
         // limit rotation so we don't overshoot the target. We need to convert our dot product to
         // an angle here so we can get an angle of rotation to clamp against.
-        let max_angle = forward_dot_player.clamp(-1.0, 1.0).acos(); // clamp acos for safety
+        let max_angle = ops::acos(forward_dot_player.clamp(-1.0, 1.0)); // clamp acos for safety
 
         // calculate angle of rotation with limit
-        let rotation_angle = rotation_sign * (config.rotation_speed * TIME_STEP).min(max_angle);
+        let rotation_angle =
+            rotation_sign * (config.rotation_speed * time.delta_secs()).min(max_angle);
 
         // rotate the enemy to face the player
         enemy_transform.rotate_z(rotation_angle);

@@ -3,15 +3,19 @@
 use bevy::{
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::{
-        mesh::{MeshVertexBufferLayout, PrimitiveTopology},
+        mesh::{MeshVertexBufferLayoutRef, PrimitiveTopology},
+        render_asset::RenderAssetUsages,
         render_resource::{
             AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
             SpecializedMeshPipelineError,
         },
     },
 };
+
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/line_material.wgsl";
 
 fn main() {
     App::new()
@@ -26,57 +30,56 @@ fn setup(
     mut materials: ResMut<Assets<LineMaterial>>,
 ) {
     // Spawn a list of lines with start and end points for each lines
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(LineList {
+    commands.spawn((
+        Mesh3d(meshes.add(LineList {
             lines: vec![
                 (Vec3::ZERO, Vec3::new(1.0, 1.0, 0.0)),
                 (Vec3::new(1.0, 1.0, 0.0), Vec3::new(1.0, 0.0, 0.0)),
             ],
         })),
-        transform: Transform::from_xyz(-1.5, 0.0, 0.0),
-        material: materials.add(LineMaterial {
-            color: Color::GREEN,
-        }),
-        ..default()
-    });
+        MeshMaterial3d(materials.add(LineMaterial {
+            color: LinearRgba::GREEN,
+        })),
+        Transform::from_xyz(-1.5, 0.0, 0.0),
+    ));
 
     // Spawn a line strip that goes from point to point
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(LineStrip {
+    commands.spawn((
+        Mesh3d(meshes.add(LineStrip {
             points: vec![
                 Vec3::ZERO,
                 Vec3::new(1.0, 1.0, 0.0),
                 Vec3::new(1.0, 0.0, 0.0),
             ],
         })),
-        transform: Transform::from_xyz(0.5, 0.0, 0.0),
-        material: materials.add(LineMaterial { color: Color::BLUE }),
-        ..default()
-    });
+        MeshMaterial3d(materials.add(LineMaterial {
+            color: LinearRgba::BLUE,
+        })),
+        Transform::from_xyz(0.5, 0.0, 0.0),
+    ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
-#[derive(Default, AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
-#[uuid = "050ce6ac-080a-4d8c-b6b5-b5bab7560d8f"]
+#[derive(Asset, TypePath, Default, AsBindGroup, Debug, Clone)]
 struct LineMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LinearRgba,
 }
 
 impl Material for LineMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/line_material.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
+        _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         // This is the important part to tell bevy to render this material as a line between vertices
@@ -87,35 +90,40 @@ impl Material for LineMaterial {
 
 /// A list of lines with a start and end position
 #[derive(Debug, Clone)]
-pub struct LineList {
-    pub lines: Vec<(Vec3, Vec3)>,
+struct LineList {
+    lines: Vec<(Vec3, Vec3)>,
 }
 
 impl From<LineList> for Mesh {
     fn from(line: LineList) -> Self {
-        // This tells wgpu that the positions are list of lines
-        // where every pair is a start and end point
-        let mut mesh = Mesh::new(PrimitiveTopology::LineList);
-
         let vertices: Vec<_> = line.lines.into_iter().flat_map(|(a, b)| [a, b]).collect();
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
-        mesh
+
+        Mesh::new(
+            // This tells wgpu that the positions are list of lines
+            // where every pair is a start and end point
+            PrimitiveTopology::LineList,
+            RenderAssetUsages::RENDER_WORLD,
+        )
+        // Add the vertices positions as an attribute
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
     }
 }
 
 /// A list of points that will have a line drawn between each consecutive points
 #[derive(Debug, Clone)]
-pub struct LineStrip {
-    pub points: Vec<Vec3>,
+struct LineStrip {
+    points: Vec<Vec3>,
 }
 
 impl From<LineStrip> for Mesh {
     fn from(line: LineStrip) -> Self {
-        // This tells wgpu that the positions are a list of points
-        // where a line will be drawn between each consecutive point
-        let mut mesh = Mesh::new(PrimitiveTopology::LineStrip);
-
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, line.points);
-        mesh
+        Mesh::new(
+            // This tells wgpu that the positions are a list of points
+            // where a line will be drawn between each consecutive point
+            PrimitiveTopology::LineStrip,
+            RenderAssetUsages::RENDER_WORLD,
+        )
+        // Add the point positions as an attribute
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points)
     }
 }

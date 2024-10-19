@@ -1,15 +1,12 @@
 //! Shows how to display a window in transparent mode.
 //!
 //! This feature works as expected depending on the platform. Please check the
-//! [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.transparent)
+//! [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.transparent)
 //! for more details.
 
-#[cfg(target_os = "macos")]
+use bevy::prelude::*;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 use bevy::window::CompositeAlphaMode;
-use bevy::{
-    prelude::*,
-    window::{Window, WindowPlugin},
-};
 
 fn main() {
     App::new()
@@ -21,6 +18,8 @@ fn main() {
                 decorations: false,
                 #[cfg(target_os = "macos")]
                 composite_alpha_mode: CompositeAlphaMode::PostMultiplied,
+                #[cfg(target_os = "linux")]
+                composite_alpha_mode: CompositeAlphaMode::PreMultiplied,
                 ..default()
             }),
             ..default()
@@ -32,9 +31,6 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
-    commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/icon.png"),
-        ..default()
-    });
+    commands.spawn(Camera2d);
+    commands.spawn(Sprite::from_image(asset_server.load("branding/icon.png")));
 }

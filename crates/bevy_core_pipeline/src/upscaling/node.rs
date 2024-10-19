@@ -1,12 +1,10 @@
 use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
-    camera::{CameraOutputMode, ExtractedCamera},
+    camera::{CameraOutputMode, ClearColor, ClearColorConfig, ExtractedCamera},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, LoadOp, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
-        TextureViewId,
+        BindGroup, BindGroupEntries, PipelineCache, RenderPassDescriptor, TextureViewId,
     },
     renderer::RenderContext,
     view::ViewTarget,
@@ -34,73 +32,64 @@ impl ViewNode for UpscalingNode {
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.get_resource::<PipelineCache>().unwrap();
         let blit_pipeline = world.get_resource::<BlitPipeline>().unwrap();
+        let clear_color_global = world.get_resource::<ClearColor>().unwrap();
 
-        let color_attachment_load_op = if let Some(camera) = camera {
+        let clear_color = if let Some(camera) = camera {
             match camera.output_mode {
-                CameraOutputMode::Write {
-                    color_attachment_load_op,
-                    ..
-                } => color_attachment_load_op,
+                CameraOutputMode::Write { clear_color, .. } => clear_color,
                 CameraOutputMode::Skip => return Ok(()),
             }
         } else {
-            LoadOp::Clear(Default::default())
+            ClearColorConfig::Default
         };
-
+        let clear_color = match clear_color {
+            ClearColorConfig::Default => Some(clear_color_global.0),
+            ClearColorConfig::Custom(color) => Some(color),
+            ClearColorConfig::None => None,
+        };
+        let converted_clear_color = clear_color.map(Into::into);
         let upscaled_texture = target.main_texture_view();
 
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {
             Some((id, bind_group)) if upscaled_texture.id() == *id => bind_group,
             cached_bind_group => {
-                let sampler = render_context
-                    .render_device()
-                    .create_sampler(&SamplerDescriptor::default());
-
-                let bind_group =
-                    render_context
-                        .render_device()
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: None,
-                            layout: &blit_pipeline.texture_bind_group,
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(upscaled_texture),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&sampler),
-                                },
-                            ],
-                        });
+                let bind_group = render_context.render_device().create_bind_group(
+                    None,
+                    &blit_pipeline.texture_bind_group,
+                    &BindGroupEntries::sequential((upscaled_texture, &blit_pipeline.sampler)),
+                );
 
                 let (_, bind_group) = cached_bind_group.insert((upscaled_texture.id(), bind_group));
                 bind_group
             }
         };
 
-        let pipeline = match pipeline_cache.get_render_pipeline(upscaling_target.0) {
-            Some(pipeline) => pipeline,
-            None => return Ok(()),
+        let Some(pipeline) = pipeline_cache.get_render_pipeline(upscaling_target.0) else {
+            return Ok(());
         };
 
         let pass_descriptor = RenderPassDescriptor {
             label: Some("upscaling_pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: target.out_texture(),
-                resolve_target: None,
-                ops: Operations {
-                    load: color_attachment_load_op,
-                    store: true,
-                },
-            })],
+            color_attachments: &[Some(
+                target.out_texture_color_attachment(converted_clear_color),
+            )],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         };
 
         let mut render_pass = render_context
             .command_encoder()
             .begin_render_pass(&pass_descriptor);
+
+        if let Some(camera) = camera {
+            if let Some(viewport) = &camera.viewport {
+                let size = viewport.physical_size;
+                let position = viewport.physical_position;
+                render_pass.set_scissor_rect(position.x, position.y, size.x, size.y);
+            }
+        }
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[]);

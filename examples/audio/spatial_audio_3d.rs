@@ -1,98 +1,130 @@
 //! This example illustrates how to load and play an audio file, and control where the sounds seems to come from.
-use bevy::prelude::*;
+use bevy::{
+    color::palettes::basic::{BLUE, LIME, RED},
+    prelude::*,
+    time::Stopwatch,
+};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, update_positions)
+        .add_systems(Update, update_listener)
         .run();
 }
 
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    audio: Res<Audio>,
-    audio_sinks: Res<Assets<SpatialAudioSink>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Space between the two ears
     let gap = 4.0;
 
-    let music = asset_server.load("sounds/Windless Slopes.ogg");
-    let handle = audio_sinks.get_handle(audio.play_spatial_with_settings(
-        music,
-        PlaybackSettings::LOOP,
-        Transform::IDENTITY,
-        gap,
-        Vec3::ZERO,
-    ));
-    commands.insert_resource(AudioController(handle));
-
-    // left ear
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
-        material: materials.add(Color::RED.into()),
-        transform: Transform::from_xyz(-gap / 2.0, 0.0, 0.0),
-        ..default()
-    });
-
-    // right ear
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.2 })),
-        material: materials.add(Color::GREEN.into()),
-        transform: Transform::from_xyz(gap / 2.0, 0.0, 0.0),
-        ..default()
-    });
-
     // sound emitter
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::UVSphere {
-                radius: 0.2,
-                ..default()
-            })),
-            material: materials.add(Color::BLUE.into()),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
-        },
-        Emitter,
+        Mesh3d(meshes.add(Sphere::new(0.2).mesh().uv(32, 18))),
+        MeshMaterial3d(materials.add(Color::from(BLUE))),
+        Transform::from_xyz(0.0, 0.0, 0.0),
+        Emitter::default(),
+        AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
+        PlaybackSettings::LOOP.with_spatial(true),
     ));
 
+    let listener = SpatialListener::new(gap);
+    commands
+        .spawn((
+            Transform::default(),
+            Visibility::default(),
+            listener.clone(),
+        ))
+        .with_children(|parent| {
+            // left ear indicator
+            parent.spawn((
+                Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
+                MeshMaterial3d(materials.add(Color::from(RED))),
+                Transform::from_translation(listener.left_ear_offset),
+            ));
+
+            // right ear indicator
+            parent.spawn((
+                Mesh3d(meshes.add(Cuboid::new(0.2, 0.2, 0.2))),
+                MeshMaterial3d(materials.add(Color::from(LIME))),
+                Transform::from_translation(listener.right_ear_offset),
+            ));
+        });
+
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 1500.0,
-            shadows_enabled: true,
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+
+    // example instructions
+    commands.spawn((
+        Text::new("Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement"),
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+    ));
+
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
-#[derive(Component)]
-struct Emitter;
-
-#[derive(Resource)]
-struct AudioController(Handle<SpatialAudioSink>);
+#[derive(Component, Default)]
+struct Emitter {
+    stopwatch: Stopwatch,
+}
 
 fn update_positions(
-    audio_sinks: Res<Assets<SpatialAudioSink>>,
-    music_controller: Res<AudioController>,
     time: Res<Time>,
-    mut emitter: Query<&mut Transform, With<Emitter>>,
+    mut emitters: Query<(&mut Transform, &mut Emitter), With<Emitter>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
 ) {
-    if let Some(sink) = audio_sinks.get(&music_controller.0) {
-        let mut emitter_transform = emitter.single_mut();
-        emitter_transform.translation.x = time.elapsed_seconds().sin() * 3.0;
-        emitter_transform.translation.z = time.elapsed_seconds().cos() * 3.0;
-        sink.set_emitter_position(emitter_transform.translation);
+    for (mut emitter_transform, mut emitter) in emitters.iter_mut() {
+        if keyboard.just_pressed(KeyCode::Space) {
+            if emitter.stopwatch.is_paused() {
+                emitter.stopwatch.unpause();
+            } else {
+                emitter.stopwatch.pause();
+            }
+        }
+
+        emitter.stopwatch.tick(time.delta());
+
+        if !emitter.stopwatch.is_paused() {
+            emitter_transform.translation.x = ops::sin(emitter.stopwatch.elapsed_secs()) * 3.0;
+            emitter_transform.translation.z = ops::cos(emitter.stopwatch.elapsed_secs()) * 3.0;
+        }
+    }
+}
+
+fn update_listener(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    mut listeners: Single<&mut Transform, With<SpatialListener>>,
+) {
+    let speed = 2.;
+
+    if keyboard.pressed(KeyCode::ArrowRight) {
+        listeners.translation.x += speed * time.delta_secs();
+    }
+    if keyboard.pressed(KeyCode::ArrowLeft) {
+        listeners.translation.x -= speed * time.delta_secs();
+    }
+    if keyboard.pressed(KeyCode::ArrowDown) {
+        listeners.translation.z += speed * time.delta_secs();
+    }
+    if keyboard.pressed(KeyCode::ArrowUp) {
+        listeners.translation.z -= speed * time.delta_secs();
     }
 }

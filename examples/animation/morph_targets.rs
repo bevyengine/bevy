@@ -3,9 +3,9 @@
 //! Illustrates:
 //!
 //! - How to access and modify individual morph target weights.
-//!   See the [`update_weights`] system for details.
-//! - How to read morph target names in [`name_morphs`].
-//! - How to play morph target animations in [`setup_animations`].
+//!   See the `update_weights` system for details.
+//! - How to read morph target names in `name_morphs`.
+//! - How to play morph target animations in `setup_animations`.
 
 use bevy::prelude::*;
 use std::f32::consts::PI;
@@ -20,7 +20,7 @@ fn main() {
             ..default()
         }))
         .insert_resource(AmbientLight {
-            brightness: 1.0,
+            brightness: 150.0,
             ..default()
         })
         .add_systems(Startup, setup)
@@ -36,43 +36,52 @@ struct MorphData {
 
 fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.insert_resource(MorphData {
-        the_wave: asset_server.load("models/animated/MorphStressTest.gltf#Animation2"),
-        mesh: asset_server.load("models/animated/MorphStressTest.gltf#Mesh0/Primitive0"),
+        the_wave: asset_server
+            .load(GltfAssetLabel::Animation(2).from_asset("models/animated/MorphStressTest.gltf")),
+        mesh: asset_server.load(
+            GltfAssetLabel::Primitive {
+                mesh: 0,
+                primitive: 0,
+            }
+            .from_asset("models/animated/MorphStressTest.gltf"),
+        ),
     });
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/animated/MorphStressTest.gltf#Scene0"),
-        ..default()
-    });
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            color: Color::WHITE,
-            illuminance: 19350.0,
-            ..default()
-        },
-        transform: Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
-        ..default()
-    });
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(3.0, 2.1, 10.2).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/animated/MorphStressTest.gltf"),
+    )));
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_rotation(Quat::from_rotation_z(PI / 2.0)),
+    ));
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(3.0, 2.1, 10.2).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 /// Plays an [`AnimationClip`] from the loaded [`Gltf`] on the [`AnimationPlayer`] created by the spawned scene.
 fn setup_animations(
     mut has_setup: Local<bool>,
-    mut players: Query<(&Name, &mut AnimationPlayer)>,
+    mut commands: Commands,
+    mut players: Query<(Entity, &Name, &mut AnimationPlayer)>,
     morph_data: Res<MorphData>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
     if *has_setup {
         return;
     }
-    for (name, mut player) in &mut players {
+    for (entity, name, mut player) in &mut players {
         // The name of the entity in the GLTF scene containing the AnimationPlayer for our morph targets is "Main"
         if name.as_str() != "Main" {
             continue;
         }
-        player.play(morph_data.the_wave.clone()).repeat();
+
+        let (graph, animation) = AnimationGraph::from_clip(morph_data.the_wave.clone());
+        commands
+            .entity(entity)
+            .insert(AnimationGraphHandle(graphs.add(graph)));
+
+        player.play(animation).repeat();
         *has_setup = true;
     }
 }
@@ -88,10 +97,16 @@ fn name_morphs(
         return;
     }
 
-    let Some(mesh) = meshes.get(&morph_data.mesh) else { return };
-    let Some(names) = mesh.morph_target_names() else { return };
+    let Some(mesh) = meshes.get(&morph_data.mesh) else {
+        return;
+    };
+    let Some(names) = mesh.morph_target_names() else {
+        return;
+    };
+
+    info!("Target names:");
     for name in names {
-        println!("  {name}");
+        info!("  {name}");
     }
     *has_printed = true;
 }

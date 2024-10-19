@@ -1,76 +1,76 @@
+#![expect(deprecated)]
+
+use crate::{
+    DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
+    SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+};
 use bevy_app::{App, Plugin};
-use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
+use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_2d::Transparent2d,
+    core_2d::{AlphaMask2d, AlphaMask2dBinKey, Opaque2d, Opaque2dBinKey, Transparent2d},
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    query::ROQueryItem,
-    system::{
-        lifetimeless::{Read, SRes},
-        SystemParamItem,
-    },
+    system::{lifetimeless::SRes, SystemParamItem},
 };
-use bevy_log::error;
-use bevy_reflect::{TypePath, TypeUuid};
+use bevy_math::FloatOrd;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::sync_world::MainEntityHashMap;
+use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
-    extract_component::ExtractComponentPlugin,
-    mesh::{Mesh, MeshVertexBufferLayout},
-    prelude::Image,
-    render_asset::{PrepareAssetSet, RenderAssets},
+    mesh::{MeshVertexBufferLayoutRef, RenderMesh},
+    render_asset::{
+        prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
+    },
     render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-        RenderPhase, SetItemPipeline, TrackedRenderPass,
+        AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
+        RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
+        ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,
-        PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
-        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout,
+        OwnedBindingResource, PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef,
+        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
-    texture::FallbackImage,
-    view::{ComputedVisibility, ExtractedView, Msaa, Visibility, VisibleEntities},
+    view::{ExtractedView, InheritedVisibility, Msaa, ViewVisibility, Visibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{FloatOrd, HashMap, HashSet};
-use std::hash::Hash;
-use std::marker::PhantomData;
+use bevy_utils::tracing::error;
+use core::{hash::Hash, marker::PhantomData};
+use derive_more::derive::From;
 
-use crate::{
-    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform, SetMesh2dBindGroup,
-    SetMesh2dViewBindGroup,
-};
-
-/// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
+/// Materials are used alongside [`Material2dPlugin`], [`Mesh2d`], and [`MeshMaterial2d`]
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
-/// way to render [`Mesh2dHandle`] entities with custom shader logic.
+/// way to render [`Mesh2d`] entities with custom shader logic.
 ///
-/// Material2ds must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
+/// Materials must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
 /// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
-///
-/// Materials must also implement [`TypeUuid`] so they can be treated as an [`Asset`](bevy_asset::Asset).
 ///
 /// # Example
 ///
-/// Here is a simple Material2d implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
+/// Here is a simple [`Material2d`] implementation. The [`AsBindGroup`] derive has many features. To see what else is available,
 /// check out the [`AsBindGroup`] documentation.
-/// ```
-/// # use bevy_sprite::{Material2d, MaterialMesh2dBundle};
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_reflect::{TypeUuid, TypePath};
-/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
-/// # use bevy_asset::{Handle, AssetServer, Assets};
 ///
-/// #[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
-/// #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
+/// ```
+/// # use bevy_sprite::{Material2d, MeshMaterial2d};
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_reflect::TypePath;
+/// # use bevy_render::{mesh::{Mesh, Mesh2d}, render_resource::{AsBindGroup, ShaderRef}, texture::Image};
+/// # use bevy_color::LinearRgba;
+/// # use bevy_color::palettes::basic::RED;
+/// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
+/// # use bevy_math::primitives::Circle;
+/// #
+/// #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]
 /// pub struct CustomMaterial {
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to
 ///     // its shader-compatible equivalent. Most core math types already implement `ShaderType`.
 ///     #[uniform(0)]
-///     color: Color,
+///     color: LinearRgba,
 ///     // Images can be bound as textures in shaders. If the Image's sampler is also needed, just
 ///     // add the sampler attribute with a different binding index.
 ///     #[texture(1)]
@@ -86,17 +86,23 @@ use crate::{
 ///     }
 /// }
 ///
-/// // Spawn an entity using `CustomMaterial`.
-/// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
-///     commands.spawn(MaterialMesh2dBundle {
-///         material: materials.add(CustomMaterial {
-///             color: Color::RED,
+/// // Spawn an entity with a mesh using `CustomMaterial`.
+/// fn setup(
+///     mut commands: Commands,
+///     mut meshes: ResMut<Assets<Mesh>>,
+///     mut materials: ResMut<Assets<CustomMaterial>>,
+///     asset_server: Res<AssetServer>,
+/// ) {
+///     commands.spawn((
+///         Mesh2d(meshes.add(Circle::new(50.0))),
+///         MeshMaterial2d(materials.add(CustomMaterial {
+///             color: RED.into(),
 ///             color_texture: asset_server.load("some_image.png"),
-///         }),
-///         ..Default::default()
-///     });
+///         })),
+///     ));
 /// }
 /// ```
+///
 /// In WGSL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
@@ -104,14 +110,11 @@ use crate::{
 ///     color: vec4<f32>,
 /// }
 ///
-/// @group(1) @binding(0)
-/// var<uniform> material: CustomMaterial;
-/// @group(1) @binding(1)
-/// var color_texture: texture_2d<f32>;
-/// @group(1) @binding(2)
-/// var color_sampler: sampler;
+/// @group(2) @binding(0) var<uniform> material: CustomMaterial;
+/// @group(2) @binding(1) var color_texture: texture_2d<f32>;
+/// @group(2) @binding(2) var color_sampler: sampler;
 /// ```
-pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Sized {
+pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {
@@ -124,16 +127,102 @@ pub trait Material2d: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + 
         ShaderRef::Default
     }
 
+    /// Add a bias to the view depth of the mesh which can be used to force a specific render order.
+    #[inline]
+    fn depth_bias(&self) -> f32 {
+        0.0
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Opaque
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`].
     #[allow(unused_variables)]
     #[inline]
     fn specialize(
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         key: Material2dKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
+}
+
+/// A [material](Material2d) used for rendering a [`Mesh2d`].
+///
+/// See [`Material2d`] for general information about 2D materials and how to implement your own materials.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_sprite::{ColorMaterial, MeshMaterial2d};
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_render::mesh::{Mesh, Mesh2d};
+/// # use bevy_color::palettes::basic::RED;
+/// # use bevy_asset::Assets;
+/// # use bevy_math::primitives::Circle;
+/// #
+/// // Spawn an entity with a mesh using `ColorMaterial`.
+/// fn setup(
+///     mut commands: Commands,
+///     mut meshes: ResMut<Assets<Mesh>>,
+///     mut materials: ResMut<Assets<ColorMaterial>>,
+/// ) {
+///     commands.spawn((
+///         Mesh2d(meshes.add(Circle::new(50.0))),
+///         MeshMaterial2d(materials.add(ColorMaterial::from_color(RED))),
+///     ));
+/// }
+/// ```
+///
+/// [`MeshMaterial2d`]: crate::MeshMaterial2d
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[reflect(Component, Default)]
+pub struct MeshMaterial2d<M: Material2d>(pub Handle<M>);
+
+impl<M: Material2d> Default for MeshMaterial2d<M> {
+    fn default() -> Self {
+        Self(Handle::default())
+    }
+}
+
+impl<M: Material2d> From<MeshMaterial2d<M>> for AssetId<M> {
+    fn from(material: MeshMaterial2d<M>) -> Self {
+        material.id()
+    }
+}
+
+impl<M: Material2d> From<&MeshMaterial2d<M>> for AssetId<M> {
+    fn from(material: &MeshMaterial2d<M>) -> Self {
+        material.id()
+    }
+}
+
+/// Sets how a 2d material's base color alpha channel is used for transparency.
+/// Currently, this only works with [`Mesh2d`]. Sprites are always transparent.
+///
+/// This is very similar to [`AlphaMode`](bevy_render::alpha::AlphaMode) but this only applies to 2d meshes.
+/// We use a separate type because 2d doesn't support all the transparency modes that 3d does.
+#[derive(Debug, Default, Reflect, Copy, Clone, PartialEq)]
+#[reflect(Default, Debug)]
+pub enum AlphaMode2d {
+    /// Base color alpha values are overridden to be fully opaque (1.0).
+    #[default]
+    Opaque,
+    /// Reduce transparency to fully opaque or fully transparent
+    /// based on a threshold.
+    ///
+    /// Compares the base color alpha value to the specified threshold.
+    /// If the value is below the threshold,
+    /// considers the color to be fully transparent (alpha is set to 0.0).
+    /// If it is equal to or above the threshold,
+    /// considers the color to be fully opaque (alpha is set to 1.0).
+    Mask(f32),
+    /// The base color alpha value defines the opacity of the color.
+    /// Standard alpha-blending is used to blend the fragment's color
+    /// with the color behind it.
+    Blend,
 }
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material2d`]
@@ -151,31 +240,52 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.add_asset::<M>()
-            .add_plugins(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+        app.init_asset::<M>()
+            .register_type::<MeshMaterial2d<M>>()
+            .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default());
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
+                .add_render_command::<AlphaMask2d, DrawMaterial2d<M>>()
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
-                .init_resource::<ExtractedMaterials2d<M>>()
-                .init_resource::<RenderMaterials2d<M>>()
+                .init_resource::<RenderMaterial2dInstances<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_systems(ExtractSchedule, extract_materials_2d::<M>)
+                .add_systems(ExtractSchedule, extract_mesh_materials_2d::<M>)
                 .add_systems(
                     Render,
-                    (
-                        prepare_materials_2d::<M>
-                            .in_set(RenderSet::Prepare)
-                            .after(PrepareAssetSet::PreAssetPrepare),
-                        queue_material2d_meshes::<M>.in_set(RenderSet::Queue),
-                    ),
+                    queue_material2d_meshes::<M>
+                        .in_set(RenderSet::QueueMeshes)
+                        .after(prepare_assets::<PreparedMaterial2d<M>>),
                 );
         }
     }
 
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<Material2dPipeline<M>>();
+        }
+    }
+}
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderMaterial2dInstances<M: Material2d>(MainEntityHashMap<AssetId<M>>);
+
+impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+fn extract_mesh_materials_2d<M: Material2d>(
+    mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
+    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial2d<M>), With<Mesh2d>>>,
+) {
+    material_instances.clear();
+
+    for (entity, view_visibility, material) in &query {
+        if view_visibility.get() {
+            material_instances.insert(entity.into(), material.id());
         }
     }
 }
@@ -222,7 +332,7 @@ impl<M: Material2d> Hash for Material2dKey<M>
 where
     M::Data: Hash,
 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.mesh_key.hash(state);
         self.bind_group_data.hash(state);
     }
@@ -249,7 +359,7 @@ where
     fn specialize(
         &self,
         key: Self::Key,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh2d_pipeline.specialize(key.mesh_key, layout)?;
         if let Some(vertex_shader) = &self.vertex_shader {
@@ -261,8 +371,8 @@ where
         }
         descriptor.layout = vec![
             self.mesh2d_pipeline.view_layout.clone(),
-            self.material2d_layout.clone(),
             self.mesh2d_pipeline.mesh_layout.clone(),
+            self.material2d_layout.clone(),
         ];
 
         M::specialize(&mut descriptor, layout, key)?;
@@ -294,11 +404,11 @@ impl<M: Material2d> FromWorld for Material2dPipeline<M> {
     }
 }
 
-type DrawMaterial2d<M> = (
+pub(super) type DrawMaterial2d<M> = (
     SetItemPipeline,
     SetMesh2dViewBindGroup<0>,
-    SetMaterial2dBindGroup<M, 1>,
-    SetMesh2dBindGroup<2>,
+    SetMesh2dBindGroup<1>,
+    SetMaterial2dBindGroup<M, 2>,
     DrawMesh2d,
 );
 
@@ -306,50 +416,101 @@ pub struct SetMaterial2dBindGroup<M: Material2d, const I: usize>(PhantomData<M>)
 impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     for SetMaterial2dBindGroup<M, I>
 {
-    type Param = SRes<RenderMaterials2d<M>>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<Handle<M>>;
+    type Param = (
+        SRes<RenderAssets<PreparedMaterial2d<M>>>,
+        SRes<RenderMaterial2dInstances<M>>,
+    );
+    type ViewQuery = ();
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
-        _item: &P,
+        item: &P,
         _view: (),
-        material2d_handle: ROQueryItem<'_, Self::ItemWorldQuery>,
-        materials: SystemParamItem<'w, '_, Self::Param>,
+        _item_query: Option<()>,
+        (materials, material_instances): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material2d = materials.into_inner().get(material2d_handle).unwrap();
+        let materials = materials.into_inner();
+        let material_instances = material_instances.into_inner();
+        let Some(material_instance) = material_instances.get(&item.main_entity()) else {
+            return RenderCommandResult::Skip;
+        };
+        let Some(material2d) = materials.get(*material_instance) else {
+            return RenderCommandResult::Skip;
+        };
         pass.set_bind_group(I, &material2d.bind_group, &[]);
         RenderCommandResult::Success
     }
 }
 
+pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode2d) -> Mesh2dPipelineKey {
+    match alpha_mode {
+        AlphaMode2d::Blend => Mesh2dPipelineKey::BLEND_ALPHA,
+        AlphaMode2d::Mask(_) => Mesh2dPipelineKey::MAY_DISCARD,
+        _ => Mesh2dPipelineKey::NONE,
+    }
+}
+
+pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelineKey {
+    match tonemapping {
+        Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
+        Tonemapping::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
+        Tonemapping::ReinhardLuminance => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE,
+        Tonemapping::AcesFitted => Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED,
+        Tonemapping::AgX => Mesh2dPipelineKey::TONEMAP_METHOD_AGX,
+        Tonemapping::SomewhatBoringDisplayTransform => {
+            Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
+        }
+        Tonemapping::TonyMcMapface => Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
+        Tonemapping::BlenderFilmic => Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material2d_meshes<M: Material2d>(
+    opaque_draw_functions: Res<DrawFunctions<Opaque2d>>,
+    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask2d>>,
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<Mesh>>,
-    render_materials: Res<RenderMaterials2d<M>>,
-    material2d_meshes: Query<(&Handle<M>, &Mesh2dHandle, &Mesh2dUniform)>,
-    mut views: Query<(
+    render_meshes: Res<RenderAssets<RenderMesh>>,
+    render_materials: Res<RenderAssets<PreparedMaterial2d<M>>>,
+    mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
+    render_material_instances: Res<RenderMaterial2dInstances<M>>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
+    mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
+    views: Query<(
+        Entity,
         &ExtractedView,
-        &VisibleEntities,
+        &RenderVisibleEntities,
+        &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
-        &mut RenderPhase<Transparent2d>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    if material2d_meshes.is_empty() {
+    if render_material_instances.is_empty() {
         return;
     }
 
-    for (view, visible_entities, tonemapping, dither, mut transparent_phase) in &mut views {
-        let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
+    for (view_entity, view, visible_entities, msaa, tonemapping, dither) in &views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+        let Some(opaque_phase) = opaque_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+        let Some(alpha_mask_phase) = alpha_mask_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+
+        let draw_transparent_2d = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
+        let draw_opaque_2d = opaque_draw_functions.read().id::<DrawMaterial2d<M>>();
+        let draw_alpha_mask_2d = alpha_mask_draw_functions.read().id::<DrawMaterial2d<M>>();
 
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
@@ -357,234 +518,178 @@ pub fn queue_material2d_meshes<M: Material2d>(
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
                 view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
-                view_key |= match tonemapping {
-                    Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
-                    Tonemapping::Reinhard => Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD,
-                    Tonemapping::ReinhardLuminance => {
-                        Mesh2dPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
-                    }
-                    Tonemapping::AcesFitted => Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED,
-                    Tonemapping::AgX => Mesh2dPipelineKey::TONEMAP_METHOD_AGX,
-                    Tonemapping::SomewhatBoringDisplayTransform => {
-                        Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
-                    }
-                    Tonemapping::TonyMcMapface => Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
-                    Tonemapping::BlenderFilmic => Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
-                };
+                view_key |= tonemapping_pipeline_key(*tonemapping);
             }
             if let Some(DebandDither::Enabled) = dither {
                 view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
             }
         }
+        for (render_entity, visible_entity) in visible_entities.iter::<With<Mesh2d>>() {
+            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
+                continue;
+            };
+            let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
+                continue;
+            };
+            let Some(material_2d) = render_materials.get(*material_asset_id) else {
+                continue;
+            };
+            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                continue;
+            };
+            let mesh_key = view_key
+                | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology())
+                | material_2d.properties.mesh_pipeline_key_bits;
 
-        for visible_entity in &visible_entities.entities {
-            if let Ok((material2d_handle, mesh2d_handle, mesh2d_uniform)) =
-                material2d_meshes.get(*visible_entity)
-            {
-                if let Some(material2d) = render_materials.get(material2d_handle) {
-                    if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
-                        let mesh_key = view_key
-                            | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            let pipeline_id = pipelines.specialize(
+                &pipeline_cache,
+                &material2d_pipeline,
+                Material2dKey {
+                    mesh_key,
+                    bind_group_data: material_2d.key.clone(),
+                },
+                &mesh.layout,
+            );
 
-                        let pipeline_id = pipelines.specialize(
-                            &pipeline_cache,
-                            &material2d_pipeline,
-                            Material2dKey {
-                                mesh_key,
-                                bind_group_data: material2d.key.clone(),
-                            },
-                            &mesh.layout,
-                        );
+            let pipeline_id = match pipeline_id {
+                Ok(id) => id,
+                Err(err) => {
+                    error!("{}", err);
+                    continue;
+                }
+            };
 
-                        let pipeline_id = match pipeline_id {
-                            Ok(id) => id,
-                            Err(err) => {
-                                error!("{}", err);
-                                continue;
-                            }
-                        };
+            mesh_instance.material_bind_group_id = material_2d.get_bind_group_id();
+            let mesh_z = mesh_instance.transforms.world_from_local.translation.z;
 
-                        let mesh_z = mesh2d_uniform.transform.w_axis.z;
-                        transparent_phase.add(Transparent2d {
-                            entity: *visible_entity,
-                            draw_function: draw_transparent_pbr,
-                            pipeline: pipeline_id,
-                            // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
-                            // lowest sort key and getting closer should increase. As we have
-                            // -z in front of the camera, the largest distance is -far with values increasing toward the
-                            // camera. As such we can just use mesh_z as the distance
-                            sort_key: FloatOrd(mesh_z),
-                            // This material is not batched
-                            batch_range: None,
-                        });
-                    }
+            match material_2d.properties.alpha_mode {
+                AlphaMode2d::Opaque => {
+                    let bin_key = Opaque2dBinKey {
+                        pipeline: pipeline_id,
+                        draw_function: draw_opaque_2d,
+                        asset_id: mesh_instance.mesh_asset_id.into(),
+                        material_bind_group_id: material_2d.get_bind_group_id().0,
+                    };
+                    opaque_phase.add(
+                        bin_key,
+                        (*render_entity, *visible_entity),
+                        BinnedRenderPhaseType::mesh(mesh_instance.automatic_batching),
+                    );
+                }
+                AlphaMode2d::Mask(_) => {
+                    let bin_key = AlphaMask2dBinKey {
+                        pipeline: pipeline_id,
+                        draw_function: draw_alpha_mask_2d,
+                        asset_id: mesh_instance.mesh_asset_id.into(),
+                        material_bind_group_id: material_2d.get_bind_group_id().0,
+                    };
+                    alpha_mask_phase.add(
+                        bin_key,
+                        (*render_entity, *visible_entity),
+                        BinnedRenderPhaseType::mesh(mesh_instance.automatic_batching),
+                    );
+                }
+                AlphaMode2d::Blend => {
+                    transparent_phase.add(Transparent2d {
+                        entity: (*render_entity, *visible_entity),
+                        draw_function: draw_transparent_2d,
+                        pipeline: pipeline_id,
+                        // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
+                        // lowest sort key and getting closer should increase. As we have
+                        // -z in front of the camera, the largest distance is -far with values increasing toward the
+                        // camera. As such we can just use mesh_z as the distance
+                        sort_key: FloatOrd(mesh_z + material_2d.properties.depth_bias),
+                        // Batching is done in batch_and_prepare_render_phase
+                        batch_range: 0..1,
+                        extra_index: PhaseItemExtraIndex::NONE,
+                    });
                 }
             }
         }
     }
 }
 
+#[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
+pub struct Material2dBindGroupId(pub Option<BindGroupId>);
+
+/// Common [`Material2d`] properties, calculated for a specific material instance.
+pub struct Material2dProperties {
+    /// The [`AlphaMode2d`] of this material.
+    pub alpha_mode: AlphaMode2d,
+    /// Add a bias to the view depth of the mesh which can be used to force a specific render order
+    /// for meshes with equal depth, to avoid z-fighting.
+    /// The bias is in depth-texture units so large values may
+    pub depth_bias: f32,
+    /// The bits in the [`Mesh2dPipelineKey`] for this material.
+    ///
+    /// These are precalculated so that we can just "or" them together in
+    /// [`queue_material2d_meshes`].
+    pub mesh_pipeline_key_bits: Mesh2dPipelineKey,
+}
+
 /// Data prepared for a [`Material2d`] instance.
 pub struct PreparedMaterial2d<T: Material2d> {
-    pub bindings: Vec<OwnedBindingResource>,
+    pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
     pub key: T::Data,
+    pub properties: Material2dProperties,
 }
 
-#[derive(Resource)]
-pub struct ExtractedMaterials2d<M: Material2d> {
-    extracted: Vec<(Handle<M>, M)>,
-    removed: Vec<Handle<M>>,
-}
-
-impl<M: Material2d> Default for ExtractedMaterials2d<M> {
-    fn default() -> Self {
-        Self {
-            extracted: Default::default(),
-            removed: Default::default(),
-        }
+impl<T: Material2d> PreparedMaterial2d<T> {
+    pub fn get_bind_group_id(&self) -> Material2dBindGroupId {
+        Material2dBindGroupId(Some(self.bind_group.id()))
     }
 }
 
-/// Stores all prepared representations of [`Material2d`] assets for as long as they exist.
-#[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterials2d<T: Material2d>(HashMap<Handle<T>, PreparedMaterial2d<T>>);
+impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
+    type SourceAsset = M;
 
-impl<T: Material2d> Default for RenderMaterials2d<T> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
+    type Param = (SRes<RenderDevice>, SRes<Material2dPipeline<M>>, M::Param);
 
-/// This system extracts all created or modified assets of the corresponding [`Material2d`] type
-/// into the "render world".
-pub fn extract_materials_2d<M: Material2d>(
-    mut commands: Commands,
-    mut events: Extract<EventReader<AssetEvent<M>>>,
-    assets: Extract<Res<Assets<M>>>,
-) {
-    let mut changed_assets = HashSet::default();
-    let mut removed = Vec::new();
-    for event in events.iter() {
-        match event {
-            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                changed_assets.insert(handle.clone_weak());
-            }
-            AssetEvent::Removed { handle } => {
-                changed_assets.remove(handle);
-                removed.push(handle.clone_weak());
-            }
-        }
-    }
-
-    let mut extracted_assets = Vec::new();
-    for handle in changed_assets.drain() {
-        if let Some(asset) = assets.get(&handle) {
-            extracted_assets.push((handle, asset.clone()));
-        }
-    }
-
-    commands.insert_resource(ExtractedMaterials2d {
-        extracted: extracted_assets,
-        removed,
-    });
-}
-
-/// All [`Material2d`] values of a given type that should be prepared next frame.
-pub struct PrepareNextFrameMaterials<M: Material2d> {
-    assets: Vec<(Handle<M>, M)>,
-}
-
-impl<M: Material2d> Default for PrepareNextFrameMaterials<M> {
-    fn default() -> Self {
-        Self {
-            assets: Default::default(),
-        }
-    }
-}
-
-/// This system prepares all assets of the corresponding [`Material2d`] type
-/// which where extracted this frame for the GPU.
-pub fn prepare_materials_2d<M: Material2d>(
-    mut prepare_next_frame: Local<PrepareNextFrameMaterials<M>>,
-    mut extracted_assets: ResMut<ExtractedMaterials2d<M>>,
-    mut render_materials: ResMut<RenderMaterials2d<M>>,
-    render_device: Res<RenderDevice>,
-    images: Res<RenderAssets<Image>>,
-    fallback_image: Res<FallbackImage>,
-    pipeline: Res<Material2dPipeline<M>>,
-) {
-    let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-    for (handle, material) in queued_assets {
-        match prepare_material2d(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
-            Ok(prepared_asset) => {
-                render_materials.insert(handle, prepared_asset);
+    fn prepare_asset(
+        material: Self::SourceAsset,
+        (render_device, pipeline, material_param): &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        match material.as_bind_group(&pipeline.material2d_layout, render_device, material_param) {
+            Ok(prepared) => {
+                let mut mesh_pipeline_key_bits = Mesh2dPipelineKey::empty();
+                mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(material.alpha_mode()));
+                Ok(PreparedMaterial2d {
+                    bindings: prepared.bindings,
+                    bind_group: prepared.bind_group,
+                    key: prepared.data,
+                    properties: Material2dProperties {
+                        depth_bias: material.depth_bias(),
+                        alpha_mode: material.alpha_mode(),
+                        mesh_pipeline_key_bits,
+                    },
+                })
             }
             Err(AsBindGroupError::RetryNextUpdate) => {
-                prepare_next_frame.assets.push((handle, material));
+                Err(PrepareAssetError::RetryNextUpdate(material))
             }
-        }
-    }
-
-    for removed in std::mem::take(&mut extracted_assets.removed) {
-        render_materials.remove(&removed);
-    }
-
-    for (handle, material) in std::mem::take(&mut extracted_assets.extracted) {
-        match prepare_material2d(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
-            Ok(prepared_asset) => {
-                render_materials.insert(handle, prepared_asset);
-            }
-            Err(AsBindGroupError::RetryNextUpdate) => {
-                prepare_next_frame.assets.push((handle, material));
-            }
+            Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
         }
     }
 }
 
-fn prepare_material2d<M: Material2d>(
-    material: &M,
-    render_device: &RenderDevice,
-    images: &RenderAssets<Image>,
-    fallback_image: &FallbackImage,
-    pipeline: &Material2dPipeline<M>,
-) -> Result<PreparedMaterial2d<M>, AsBindGroupError> {
-    let prepared = material.as_bind_group(
-        &pipeline.material2d_layout,
-        render_device,
-        images,
-        fallback_image,
-    )?;
-    Ok(PreparedMaterial2d {
-        bindings: prepared.bindings,
-        bind_group: prepared.bind_group,
-        key: prepared.data,
-    })
-}
-
-/// A component bundle for entities with a [`Mesh2dHandle`] and a [`Material2d`].
+/// A component bundle for entities with a [`Mesh2d`] and a [`MeshMaterial2d`].
 #[derive(Bundle, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Mesh2d` and `MeshMaterial2d` components instead. Inserting them will now also insert the other components required by them automatically."
+)]
 pub struct MaterialMesh2dBundle<M: Material2d> {
-    pub mesh: Mesh2dHandle,
-    pub material: Handle<M>,
+    pub mesh: Mesh2d,
+    pub material: MeshMaterial2d<M>,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    // Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
+    // Indication of whether an entity is visible in any view.
+    pub view_visibility: ViewVisibility,
 }
 
 impl<M: Material2d> Default for MaterialMesh2dBundle<M> {
@@ -595,7 +700,8 @@ impl<M: Material2d> Default for MaterialMesh2dBundle<M> {
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
-            computed_visibility: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
         }
     }
 }

@@ -1,7 +1,9 @@
 //! This example illustrates how `FontAtlas`'s are populated.
 //! Bevy uses `FontAtlas`'s under the hood to optimize text rendering.
 
-use bevy::{prelude::*, text::FontAtlasSet};
+use bevy::{color::palettes::basic::YELLOW, prelude::*, text::FontAtlasSets};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
@@ -30,41 +32,45 @@ impl Default for State {
     }
 }
 
+#[derive(Resource, Deref, DerefMut)]
+struct SeededRng(ChaCha8Rng);
+
 fn atlas_render_system(
     mut commands: Commands,
     mut state: ResMut<State>,
-    font_atlas_sets: Res<Assets<FontAtlasSet>>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
+    font_atlas_sets: Res<FontAtlasSets>,
 ) {
-    if let Some(set) = font_atlas_sets.get(&state.handle.cast_weak::<FontAtlasSet>()) {
+    if let Some(set) = font_atlas_sets.get(&state.handle) {
         if let Some((_size, font_atlas)) = set.iter().next() {
             let x_offset = state.atlas_count as f32;
             if state.atlas_count == font_atlas.len() as u32 {
                 return;
             }
-            let texture_atlas = texture_atlases
-                .get(&font_atlas[state.atlas_count as usize].texture_atlas)
-                .unwrap();
+            let font_atlas = &font_atlas[state.atlas_count as usize];
             state.atlas_count += 1;
-            commands.spawn(ImageBundle {
-                image: texture_atlas.texture.clone().into(),
-                style: Style {
+            commands.spawn((
+                UiImage::new(font_atlas.texture.clone()),
+                Node {
                     position_type: PositionType::Absolute,
-                    top: Val::Px(0.0),
+                    top: Val::ZERO,
                     left: Val::Px(512.0 * x_offset),
                     ..default()
                 },
-                ..default()
-            });
+            ));
         }
     }
 }
 
-fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Query<&mut Text>) {
+fn text_update_system(
+    mut state: ResMut<State>,
+    time: Res<Time>,
+    mut query: Query<&mut Text>,
+    mut seeded_rng: ResMut<SeededRng>,
+) {
     if state.timer.tick(time.delta()).finished() {
         for mut text in &mut query {
-            let c = rand::random::<u8>() as char;
-            let string = &mut text.sections[0].value;
+            let c = seeded_rng.gen::<u8>() as char;
+            let string = &mut **text;
             if !string.contains(c) {
                 string.push(c);
             }
@@ -77,25 +83,28 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            background_color: Color::NONE.into(),
-            style: Style {
+        .spawn((
+            Node {
                 position_type: PositionType::Absolute,
-                bottom: Val::Px(0.0),
+                bottom: Val::ZERO,
                 ..default()
             },
-            ..default()
-        })
+            BackgroundColor(Color::NONE),
+        ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "a",
-                TextStyle {
+            parent.spawn((
+                Text::new("a"),
+                TextFont {
                     font: font_handle,
-                    font_size: 60.0,
-                    color: Color::YELLOW,
+                    font_size: 50.0,
+                    ..default()
                 },
+                TextColor(YELLOW.into()),
             ));
         });
+    // We're seeding the PRNG here to make this example deterministic for testing purposes.
+    // This isn't strictly required in practical use unless you need your app to be deterministic.
+    commands.insert_resource(SeededRng(ChaCha8Rng::seed_from_u64(19878367467713)));
 }

@@ -1,52 +1,37 @@
-use crate::{
-    texture_atlas::{TextureAtlas, TextureAtlasSprite},
-    Sprite,
-};
-use bevy_asset::Handle;
+#![expect(deprecated)]
+use crate::Sprite;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
-    texture::{Image, DEFAULT_IMAGE_HANDLE},
-    view::{ComputedVisibility, Visibility},
+    sync_world::SyncToRenderWorld,
+    view::{InheritedVisibility, ViewVisibility, Visibility},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
-#[derive(Bundle, Clone)]
+/// A [`Bundle`] of components for drawing a single sprite from an image.
+///
+/// # Extra behaviours
+///
+/// You may add one or both of the following components to enable additional behaviours:
+/// - [`ImageScaleMode`](crate::ImageScaleMode) to enable either slicing or tiling of the texture
+/// - [`TextureAtlas`](crate::TextureAtlas) to draw a specific section of the texture
+#[derive(Bundle, Clone, Debug, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Sprite` component instead. Inserting it will now also insert `Transform` and `Visibility` automatically."
+)]
 pub struct SpriteBundle {
+    /// Specifies the rendering properties of the sprite, such as color tint and flip.
     pub sprite: Sprite,
+    /// The local transform of the sprite, relative to its parent.
     pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    pub texture: Handle<Image>,
-    /// User indication of whether an entity is visible
-    pub visibility: Visibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
-}
-
-impl Default for SpriteBundle {
-    fn default() -> Self {
-        Self {
-            sprite: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            texture: DEFAULT_IMAGE_HANDLE.typed(),
-            visibility: Default::default(),
-            computed_visibility: Default::default(),
-        }
-    }
-}
-/// A Bundle of components for drawing a single sprite from a sprite sheet (also referred
-/// to as a `TextureAtlas`)
-#[derive(Bundle, Clone, Default)]
-pub struct SpriteSheetBundle {
-    /// The specific sprite from the texture atlas to be drawn, defaulting to the sprite at index 0.
-    pub sprite: TextureAtlasSprite,
-    /// A handle to the texture atlas that holds the sprite images
-    pub texture_atlas: Handle<TextureAtlas>,
-    /// Data pertaining to how the sprite is drawn on the screen
-    pub transform: Transform,
+    /// The absolute transform of the sprite. This should generally not be written to directly.
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub view_visibility: ViewVisibility,
+    /// Marker component that indicates that its entity needs to be synchronized to the render world
+    pub sync: SyncToRenderWorld,
 }

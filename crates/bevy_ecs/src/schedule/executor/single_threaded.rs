@@ -1,12 +1,14 @@
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
+use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
-use std::panic::AssertUnwindSafe;
 
 use crate::{
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
+
+use super::__rust_begin_short_backtrace;
 
 /// Runs the schedule using a single thread.
 ///
@@ -29,10 +31,6 @@ impl SystemExecutor for SingleThreadedExecutor {
         ExecutorKind::SingleThreaded
     }
 
-    fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) {
-        self.apply_final_deferred = apply_final_deferred;
-    }
-
     fn init(&mut self, schedule: &SystemSchedule) {
         // pre-allocate space
         let sys_count = schedule.system_ids.len();
@@ -42,7 +40,20 @@ impl SystemExecutor for SingleThreadedExecutor {
         self.unapplied_systems = FixedBitSet::with_capacity(sys_count);
     }
 
-    fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
+    fn run(
+        &mut self,
+        schedule: &mut SystemSchedule,
+        world: &mut World,
+        _skip_systems: Option<&FixedBitSet>,
+    ) {
+        // If stepping is enabled, make sure we skip those systems that should
+        // not be run.
+        #[cfg(feature = "bevy_debug_stepping")]
+        if let Some(skipped_systems) = _skip_systems {
+            // mark skipped systems as completed
+            self.completed_systems |= skipped_systems;
+        }
+
         for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
             let name = schedule.systems[system_index].name();
@@ -74,6 +85,12 @@ impl SystemExecutor for SingleThreadedExecutor {
 
             should_run &= system_conditions_met;
 
+            let system = &mut schedule.systems[system_index];
+            if should_run {
+                let valid_params = system.validate_param(world);
+                should_run &= valid_params;
+            }
+
             #[cfg(feature = "trace")]
             should_run_span.exit();
 
@@ -84,27 +101,28 @@ impl SystemExecutor for SingleThreadedExecutor {
                 continue;
             }
 
-            let system = &mut schedule.systems[system_index];
             if is_apply_deferred(system) {
-                #[cfg(feature = "trace")]
-                let system_span = info_span!("system", name = &*name).entered();
                 self.apply_deferred(schedule, world);
-                #[cfg(feature = "trace")]
-                system_span.exit();
-            } else {
-                #[cfg(feature = "trace")]
-                let system_span = info_span!("system", name = &*name).entered();
-                let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    system.run((), world);
-                }));
-                #[cfg(feature = "trace")]
-                system_span.exit();
-                if let Err(payload) = res {
-                    eprintln!("Encountered a panic in system `{}`!", &*system.name());
-                    std::panic::resume_unwind(payload);
-                }
-                self.unapplied_systems.insert(system_index);
+                continue;
             }
+
+            let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                if system.is_exclusive() {
+                    __rust_begin_short_backtrace::run(&mut **system, world);
+                } else {
+                    // Use run_unsafe to avoid immediately applying deferred buffers
+                    let world = world.as_unsafe_world_cell();
+                    system.update_archetype_component_access(world);
+                    // SAFETY: We have exclusive, single-threaded access to the world and
+                    // update_archetype_component_access is being called immediately before this.
+                    unsafe { __rust_begin_short_backtrace::run_unsafe(&mut **system, world) };
+                }
+            }));
+            if let Err(payload) = res {
+                eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                std::panic::resume_unwind(payload);
+            }
+            self.unapplied_systems.insert(system_index);
         }
 
         if self.apply_final_deferred {
@@ -112,6 +130,10 @@ impl SystemExecutor for SingleThreadedExecutor {
         }
         self.evaluated_sets.clear();
         self.completed_systems.clear();
+    }
+
+    fn set_apply_final_deferred(&mut self, apply_final_deferred: bool) {
+        self.apply_final_deferred = apply_final_deferred;
     }
 }
 
@@ -144,9 +166,10 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     conditions
         .iter_mut()
         .map(|condition| {
-            #[cfg(feature = "trace")]
-            let _condition_span = info_span!("condition", name = &*condition.name()).entered();
-            condition.run((), world)
+            if !condition.validate_param(world) {
+                return false;
+            }
+            __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
         })
         .fold(true, |acc, res| acc && res)
 }

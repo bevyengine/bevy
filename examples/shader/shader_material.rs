@@ -2,9 +2,12 @@
 
 use bevy::{
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
+
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/custom_material.wgsl";
 
 fn main() {
     App::new()
@@ -21,44 +24,42 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // cube
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        material: materials.add(CustomMaterial {
-            color: Color::BLUE,
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {
+            color: LinearRgba::BLUE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
-        }),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+}
+
+// This struct defines the data that will be passed to your shader
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+struct CustomMaterial {
+    #[uniform(0)]
+    color: LinearRgba,
+    #[texture(1)]
+    #[sampler(2)]
+    color_texture: Option<Handle<Image>>,
+    alpha_mode: AlphaMode,
 }
 
 /// The Material trait is very configurable, but comes with sensible defaults for all methods.
 /// You only need to implement functions for features that need non-default behavior. See the Material api docs for details!
 impl Material for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/custom_material.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 
     fn alpha_mode(&self) -> AlphaMode {
         self.alpha_mode
     }
-}
-
-// This is the struct that will be passed to your shader
-#[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
-#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
-pub struct CustomMaterial {
-    #[uniform(0)]
-    color: Color,
-    #[texture(1)]
-    #[sampler(2)]
-    color_texture: Option<Handle<Image>>,
-    alpha_mode: AlphaMode,
 }

@@ -2,20 +2,22 @@ use crate::{
     render_graph::{NodeState, RenderGraph, SlotInfos, SlotLabel, SlotType, SlotValue},
     render_resource::{Buffer, Sampler, TextureView},
 };
+use alloc::borrow::Cow;
 use bevy_ecs::entity::Entity;
-use std::borrow::Cow;
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
-/// A command that signals the graph runner to run the sub graph corresponding to the `name`
+use super::{InternedRenderSubGraph, RenderSubGraph};
+
+/// A command that signals the graph runner to run the sub graph corresponding to the `sub_graph`
 /// with the specified `inputs` next.
 pub struct RunSubGraph {
-    pub name: Cow<'static, str>,
+    pub sub_graph: InternedRenderSubGraph,
     pub inputs: Vec<SlotValue>,
     pub view_entity: Option<Entity>,
 }
 
 /// The context with all graph information required to run a [`Node`](super::Node).
-/// This context is created for each node by the `RenderGraphRunner`.
+/// This context is created for each node by the render graph runner.
 ///
 /// The slot input can be read from here and the outputs must be written back to the context for
 /// passing them onto the next node.
@@ -28,10 +30,10 @@ pub struct RenderGraphContext<'a> {
     inputs: &'a [SlotValue],
     outputs: &'a mut [Option<SlotValue>],
     run_sub_graphs: Vec<RunSubGraph>,
-    /// The view_entity associated with the render graph being executed
-    /// This is optional because you aren't required to have a view_entity for a node.
+    /// The `view_entity` associated with the render graph being executed
+    /// This is optional because you aren't required to have a `view_entity` for a node.
     /// For example, compute shader nodes don't have one.
-    /// It should always be set when the RenderGraph is running on a View.
+    /// It should always be set when the [`RenderGraph`] is running on a View.
     view_entity: Option<Entity>,
 }
 
@@ -180,15 +182,15 @@ impl<'a> RenderGraphContext<'a> {
     /// Queues up a sub graph for execution after the node has finished running.
     pub fn run_sub_graph(
         &mut self,
-        name: impl Into<Cow<'static, str>>,
+        name: impl RenderSubGraph,
         inputs: Vec<SlotValue>,
         view_entity: Option<Entity>,
     ) -> Result<(), RunSubGraphError> {
-        let name = name.into();
+        let name = name.intern();
         let sub_graph = self
             .graph
-            .get_sub_graph(&name)
-            .ok_or_else(|| RunSubGraphError::MissingSubGraph(name.clone()))?;
+            .get_sub_graph(name)
+            .ok_or(RunSubGraphError::MissingSubGraph(name))?;
         if let Some(input_node) = sub_graph.get_input_node() {
             for (i, input_slot) in input_node.input_slots.iter().enumerate() {
                 if let Some(input_value) = inputs.get(i) {
@@ -214,7 +216,7 @@ impl<'a> RenderGraphContext<'a> {
         }
 
         self.run_sub_graphs.push(RunSubGraph {
-            name,
+            sub_graph: name,
             inputs,
             view_entity,
         });
@@ -229,21 +231,23 @@ impl<'a> RenderGraphContext<'a> {
     }
 }
 
-#[derive(Error, Debug, Eq, PartialEq)]
+#[derive(Error, Display, Debug, Eq, PartialEq)]
 pub enum RunSubGraphError {
-    #[error("attempted to run sub-graph `{0}`, but it does not exist")]
-    MissingSubGraph(Cow<'static, str>),
-    #[error("attempted to pass inputs to sub-graph `{0}`, which has no input slots")]
-    SubGraphHasNoInputs(Cow<'static, str>),
-    #[error("sub graph (name: `{graph_name:?}`) could not be run because slot `{slot_name}` at index {slot_index} has no value")]
+    #[display("attempted to run sub-graph `{_0:?}`, but it does not exist")]
+    #[error(ignore)]
+    MissingSubGraph(InternedRenderSubGraph),
+    #[display("attempted to pass inputs to sub-graph `{_0:?}`, which has no input slots")]
+    #[error(ignore)]
+    SubGraphHasNoInputs(InternedRenderSubGraph),
+    #[display("sub graph (name: `{graph_name:?}`) could not be run because slot `{slot_name}` at index {slot_index} has no value")]
     MissingInput {
         slot_index: usize,
         slot_name: Cow<'static, str>,
-        graph_name: Cow<'static, str>,
+        graph_name: InternedRenderSubGraph,
     },
-    #[error("attempted to use the wrong type for input slot")]
+    #[display("attempted to use the wrong type for input slot")]
     MismatchedInputSlotType {
-        graph_name: Cow<'static, str>,
+        graph_name: InternedRenderSubGraph,
         slot_index: usize,
         label: SlotLabel,
         expected: SlotType,
@@ -251,11 +255,12 @@ pub enum RunSubGraphError {
     },
 }
 
-#[derive(Error, Debug, Eq, PartialEq)]
+#[derive(Error, Display, Debug, Eq, PartialEq)]
 pub enum OutputSlotError {
-    #[error("output slot `{0:?}` does not exist")]
+    #[display("output slot `{_0:?}` does not exist")]
+    #[error(ignore)]
     InvalidSlot(SlotLabel),
-    #[error("attempted to output a value of type `{actual}` to output slot `{label:?}`, which has type `{expected}`")]
+    #[display("attempted to output a value of type `{actual}` to output slot `{label:?}`, which has type `{expected}`")]
     MismatchedSlotType {
         label: SlotLabel,
         expected: SlotType,
@@ -263,11 +268,12 @@ pub enum OutputSlotError {
     },
 }
 
-#[derive(Error, Debug, Eq, PartialEq)]
+#[derive(Error, Display, Debug, Eq, PartialEq)]
 pub enum InputSlotError {
-    #[error("input slot `{0:?}` does not exist")]
+    #[display("input slot `{_0:?}` does not exist")]
+    #[error(ignore)]
     InvalidSlot(SlotLabel),
-    #[error("attempted to retrieve a value of type `{actual}` from input slot `{label:?}`, which has type `{expected}`")]
+    #[display("attempted to retrieve a value of type `{actual}` from input slot `{label:?}`, which has type `{expected}`")]
     MismatchedSlotType {
         label: SlotLabel,
         expected: SlotType,

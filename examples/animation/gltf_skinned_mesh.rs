@@ -3,13 +3,13 @@
 
 use std::f32::consts::*;
 
-use bevy::{pbr::AmbientLight, prelude::*, render::mesh::skinning::SkinnedMesh};
+use bevy::{math::ops, prelude::*, render::mesh::skinning::SkinnedMesh};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
-            brightness: 1.0,
+            brightness: 750.0,
             ..default()
         })
         .add_systems(Startup, setup)
@@ -19,24 +19,23 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Create a camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y),
+    ));
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/SimpleSkin/SimpleSkin.gltf#Scene0"),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/SimpleSkin/SimpleSkin.gltf"),
+    )));
 }
 
 /// The scene hierarchy currently looks somewhat like this:
 ///
-/// ```ignore
+/// ```text
 /// <Parent entity>
-///   + Mesh node (without `PbrBundle` or `SkinnedMesh` component)
-///     + Skinned mesh entity (with `PbrBundle` and `SkinnedMesh` component, created by glTF loader)
+///   + Mesh node (without `Mesh3d` or `SkinnedMesh` component)
+///     + Skinned mesh entity (with `Mesh3d` and `SkinnedMesh` component, created by glTF loader)
 ///     + First joint
 ///       + Second joint
 /// ```
@@ -67,6 +66,6 @@ fn joint_animation(
         let mut second_joint_transform = transform_query.get_mut(second_joint_entity).unwrap();
 
         second_joint_transform.rotation =
-            Quat::from_rotation_z(FRAC_PI_2 * time.elapsed_seconds().sin());
+            Quat::from_rotation_z(FRAC_PI_2 * ops::sin(time.elapsed_secs()));
     }
 }

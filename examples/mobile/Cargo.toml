@@ -1,6 +1,7 @@
 [package]
 name = "bevy_mobile_example"
-version = "0.1.0"
+# Version is required by `cargo-apk`, though this value will never change.
+version = "0.0.0"
 edition = "2021"
 description = "Example for building an iOS or Android app with Bevy"
 publish = false
@@ -13,17 +14,8 @@ crate-type = ["staticlib", "cdylib"]
 [dependencies]
 bevy = { path = "../../" }
 
-[package.metadata.android]
-package = "org.bevyengine.example"
-apk_name = "bevyexample"
-assets = "../../assets"
-resources = "../../assets/android-res"
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
+[target.aarch64-apple-ios-sim.dependencies]
+bevy = { path = "../../", features = ["ios_simulator"] }
 
-[package.metadata.android.sdk]
-target_sdk_version = 31
-
-[package.metadata.android.application]
-icon = "@mipmap/ic_launcher"
-label = "Bevy Example"
-
+[lints]
+workspace = true

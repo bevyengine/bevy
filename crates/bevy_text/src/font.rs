@@ -1,45 +1,35 @@
-use ab_glyph::{FontArc, FontVec, InvalidFont, OutlinedGlyph};
-use bevy_reflect::{TypePath, TypeUuid};
-use bevy_render::{
-    render_resource::{Extent3d, TextureDimension, TextureFormat},
-    texture::Image,
-};
+use alloc::sync::Arc;
 
-#[derive(Debug, TypeUuid, TypePath, Clone)]
-#[uuid = "97059ac6-c9ba-4da9-95b6-bed82c3ce198"]
+use bevy_asset::Asset;
+use bevy_reflect::TypePath;
+
+/// An [`Asset`] that contains the data for a loaded font, if loaded as an asset.
+///
+/// Loaded by [`FontLoader`](crate::FontLoader).
+///
+/// # A note on fonts
+///
+/// `Font` may differ from the everyday notion of what a "font" is.
+/// A font *face* (e.g. Fira Sans Semibold Italic) is part of a font *family* (e.g. Fira Sans),
+/// and is distinguished from other font faces in the same family
+/// by its style (e.g. italic), its weight (e.g. bold) and its stretch (e.g. condensed).
+///
+/// Bevy currently loads a single font face as a single `Font` asset.
+#[derive(Debug, TypePath, Clone, Asset)]
 pub struct Font {
-    pub font: FontArc,
+    /// Content of a font file as bytes
+    pub data: Arc<Vec<u8>>,
 }
 
 impl Font {
-    pub fn try_from_bytes(font_data: Vec<u8>) -> Result<Self, InvalidFont> {
-        let font = FontVec::try_from_vec(font_data)?;
-        let font = FontArc::new(font);
-        Ok(Font { font })
-    }
-
-    pub fn get_outlined_glyph_texture(outlined_glyph: OutlinedGlyph) -> Image {
-        let bounds = outlined_glyph.px_bounds();
-        let width = bounds.width() as usize;
-        let height = bounds.height() as usize;
-        let mut alpha = vec![0.0; width * height];
-        outlined_glyph.draw(|x, y, v| {
-            alpha[y as usize * width + x as usize] = v;
-        });
-
-        // TODO: make this texture grayscale
-        Image::new(
-            Extent3d {
-                width: width as u32,
-                height: height as u32,
-                depth_or_array_layers: 1,
-            },
-            TextureDimension::D2,
-            alpha
-                .iter()
-                .flat_map(|a| vec![255, 255, 255, (*a * 255.0) as u8])
-                .collect::<Vec<u8>>(),
-            TextureFormat::Rgba8UnormSrgb,
-        )
+    /// Creates a [`Font`] from bytes
+    pub fn try_from_bytes(
+        font_data: Vec<u8>,
+    ) -> Result<Self, cosmic_text::ttf_parser::FaceParsingError> {
+        use cosmic_text::ttf_parser;
+        ttf_parser::Face::parse(&font_data, 0)?;
+        Ok(Self {
+            data: Arc::new(font_data),
+        })
     }
 }
