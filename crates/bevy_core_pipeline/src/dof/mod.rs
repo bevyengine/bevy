@@ -35,6 +35,7 @@ use bevy_ecs::{
 };
 use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::render_component::{RenderComponent, RenderComponentPlugin};
 use bevy_render::{
     camera::{PhysicalCameraParameters, Projection},
@@ -64,7 +65,6 @@ use bevy_render::{
 };
 use bevy_utils::{info_once, prelude::default, warn_once};
 use smallvec::SmallVec;
-use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 
 const DOF_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2031861180739216043);
 

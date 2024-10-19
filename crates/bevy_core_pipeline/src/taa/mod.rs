@@ -18,6 +18,7 @@ use bevy_ecs::{
 };
 use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::extract_component::ExtractComponent;
 use bevy_render::render_component::{RenderComponent, RenderComponentPlugin};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
@@ -39,7 +40,6 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
-use bevy_render::extract_component::ExtractComponent;
 use bevy_utils::tracing::warn;
 
 const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276);
@@ -385,9 +385,7 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
 
         if camera.is_active && has_perspective_projection {
-            commands
-                .entity(entity)
-                .insert(UseTemporalAntiAliasing);
+            commands.entity(entity).insert(UseTemporalAntiAliasing);
             taa_settings.reset = false;
         }
     }

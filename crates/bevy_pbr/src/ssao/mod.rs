@@ -17,6 +17,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::extract_component::ExtractComponentPlugin;
 use bevy_render::render_component::{RenderComponent, RenderComponentPlugin};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
@@ -42,7 +43,6 @@ use bevy_utils::{
     tracing::{error, warn},
 };
 use core::mem;
-use bevy_render::extract_component::ExtractComponentPlugin;
 
 const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(102258915420479);
 const SSAO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(253938746510568);
@@ -531,7 +531,12 @@ fn extract_ssao_settings(
     cameras: Extract<
         Query<
             (RenderEntity, &Camera, &Msaa),
-            (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>, With<ScreenSpaceAmbientOcclusion>),
+            (
+                With<Camera3d>,
+                With<DepthPrepass>,
+                With<NormalPrepass>,
+                With<ScreenSpaceAmbientOcclusion>,
+            ),
         >,
     >,
 ) {
