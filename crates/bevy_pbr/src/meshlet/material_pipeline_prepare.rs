@@ -57,7 +57,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
         ),
-        With<Camera3d>,
+        (With<Camera3d>, With<ExtractedView>),
     >,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,

@@ -20,6 +20,8 @@ use bevy_render::{
 };
 use binding_types::*;
 use core::{array, iter, sync::atomic::AtomicBool};
+use bevy_ecs::prelude::With;
+use bevy_render::camera::ExtractedCamera;
 use encase::internal::WriteInto;
 
 /// Manages per-view and per-cluster GPU resources for [`super::MeshletPlugin`].
@@ -307,7 +309,7 @@ pub fn prepare_meshlet_per_frame_resources(
         &ExtractedView,
         Option<&RenderLayers>,
         AnyOf<(&Camera3d, &ShadowView)>,
-    )>,
+    ), With<ExtractedCamera>>,
     mut texture_cache: ResMut<TextureCache>,
     render_queue: Res<RenderQueue>,
     render_device: Res<RenderDevice>,

@@ -46,6 +46,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
     );
+    type ViewFilter = ();
 
     fn run(
         &self,
@@ -152,6 +153,7 @@ impl ViewNode for MeshletPrepassNode {
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
     );
+    type ViewFilter = ();
 
     fn run(
         &self,
@@ -275,6 +277,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
     );
+    type ViewFilter = ();
 
     fn run(
         &self,
