@@ -1,3 +1,5 @@
+use super::{InternedRenderSubGraph, RenderSubGraph};
+use crate::camera::CameraActive;
 use crate::{
     render_graph::{
         Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
@@ -19,8 +21,6 @@ use bevy_utils::all_tuples_with_size;
 use core::fmt::Debug;
 use derive_more::derive::{Display, Error, From};
 use downcast_rs::{impl_downcast, Downcast};
-use crate::camera::CameraActive;
-use super::{InternedRenderSubGraph, RenderSubGraph};
 
 define_label!(
     /// A strongly-typed class of labels used to identify a [`Node`] in a render graph.
