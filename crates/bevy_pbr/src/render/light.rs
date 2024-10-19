@@ -477,7 +477,7 @@ pub(crate) fn add_light_view_entities(
     }
 }
 
-/// Removes LightViewEntities when light is removed.
+/// Removes [`LightViewEntities`] when light is removed. See [`add_light_view_entities`].
 pub(crate) fn extracted_light_removed(
     trigger: Trigger<OnRemove, (ExtractedDirectionalLight, ExtractedPointLight)>,
     mut commands: Commands,
