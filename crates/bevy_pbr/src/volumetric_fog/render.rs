@@ -285,9 +285,6 @@ pub fn extract_volumetric_fog(
         for (entity, ..) in fog_volumes.iter() {
             commands.entity(entity).remove::<FogVolume>();
         }
-        for (entity, ..) in volumetric_lights.iter() {
-            commands.entity(entity).remove::<VolumetricLight>();
-        }
         return;
     }
 
