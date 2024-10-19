@@ -5,7 +5,7 @@
 
 use alloc::collections::BTreeMap;
 use core::fmt::Debug;
-use core::ops::BitOrAssign;
+use core::ops::{BitOr, BitOrAssign};
 use std::collections::HashSet;
 
 use crate::{
@@ -202,6 +202,15 @@ pub enum PickingInteraction {
     None = 0,
 }
 
+impl BitOr for PickingInteraction {
+    type Output = Self;
+
+    fn bitor(mut self, rhs: Self) -> PickingInteraction {
+        self |= rhs;
+        self
+    }
+}
+
 impl BitOrAssign for PickingInteraction {
     fn bitor_assign(&mut self, rhs: Self) {
         use PickingInteraction::*;
@@ -326,4 +335,37 @@ fn merge_interaction_states(
         .entry(*hovered_entity)
         .and_modify(|old| *old |= new_interaction)
         .or_insert(new_interaction);
+}
+
+#[cfg(test)]
+mod test {
+    use crate::focus::{PickingInteraction::*, PressedButtons};
+
+    #[test]
+    fn merge_interaction() {
+        assert_eq!(
+            Pressed(PressedButtons::PRIMARY) | Pressed(PressedButtons::SECONDARY),
+            Pressed(PressedButtons::PRIMARY | PressedButtons::SECONDARY)
+        );
+        assert_eq!(
+            Pressed(PressedButtons::PRIMARY) | Hovered,
+            Pressed(PressedButtons::PRIMARY)
+        );
+        assert_eq!(
+            Hovered | Pressed(PressedButtons::PRIMARY),
+            Pressed(PressedButtons::PRIMARY)
+        );
+        assert_eq!(
+            Pressed(PressedButtons::PRIMARY) | None,
+            Pressed(PressedButtons::PRIMARY)
+        );
+        assert_eq!(
+            None | Pressed(PressedButtons::PRIMARY),
+            Pressed(PressedButtons::PRIMARY)
+        );
+        assert_eq!(Hovered | None, Hovered);
+        assert_eq!(None | Hovered, Hovered);
+        assert_eq!(Hovered | Hovered, Hovered);
+        assert_eq!(None | None, None);
+    }
 }
