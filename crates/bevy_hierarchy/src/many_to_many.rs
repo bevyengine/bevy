@@ -175,6 +175,10 @@ impl<FK, PK> ManyToMany<FK, PK> {
     }
 
     /// Swaps the entity at `a_index` with the entity at `b_index`.
+    /// 
+    /// # Panics
+    /// 
+    /// Will panic of either index is out-of-bounds.
     #[inline]
     pub fn swap(&mut self, a_index: usize, b_index: usize) {
         self.entities.swap(a_index, b_index);
