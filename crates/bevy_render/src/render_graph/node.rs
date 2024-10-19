@@ -7,7 +7,7 @@ use crate::{
     renderer::RenderContext,
 };
 pub use bevy_ecs::label::DynEq;
-use bevy_ecs::query::QueryFilter;
+use bevy_ecs::query::{QueryFilter, With};
 use bevy_ecs::{
     define_label,
     intern::Interned,
@@ -19,7 +19,7 @@ use bevy_utils::all_tuples_with_size;
 use core::fmt::Debug;
 use derive_more::derive::{Display, Error, From};
 use downcast_rs::{impl_downcast, Downcast};
-
+use crate::camera::CameraActive;
 use super::{InternedRenderSubGraph, RenderSubGraph};
 
 define_label!(
@@ -366,7 +366,7 @@ pub trait ViewNode {
 ///
 /// This [`Node`] exists to help reduce boilerplate when making a render node that runs on a view.
 pub struct ViewNodeRunner<N: ViewNode> {
-    view_query: QueryState<N::ViewQuery, N::ViewFilter>,
+    view_query: QueryState<N::ViewQuery, (N::ViewFilter, With<CameraActive>)>,
     node: N,
 }
 
