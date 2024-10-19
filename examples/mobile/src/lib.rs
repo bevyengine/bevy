@@ -27,6 +27,7 @@ fn main() {
                     // on iOS, gestures must be enabled.
                     // This doesn't work on Android
                     recognize_rotation_gesture: true,
+                    prefers_home_indicator_hidden: true,
                     ..default()
                 }),
                 ..default()

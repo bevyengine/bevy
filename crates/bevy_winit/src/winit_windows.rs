@@ -140,6 +140,13 @@ impl WinitWindows {
                 .with_titlebar_buttons_hidden(!window.titlebar_show_buttons);
         }
 
+        #[cfg(target_os = "ios")]
+        {
+            use winit::platform::ios::WindowAttributesExtIOS;
+            winit_window_attributes = winit_window_attributes
+                .with_prefers_home_indicator_hidden(window.prefers_home_indicator_hidden);
+        }
+
         let display_info = DisplayInfo {
             window_physical_resolution: (
                 window.resolution.physical_width(),

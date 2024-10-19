@@ -388,6 +388,16 @@ pub struct Window {
     ///
     /// [`WindowAttributesExtMacOS::with_titlebar_buttons_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_titlebar_buttons_hidden
     pub titlebar_show_buttons: bool,
+    /// Sets whether the Window prefers the home indicator hidden.
+    ///
+    /// Corresponds to [`WindowAttributesExtIOS::with_prefers_home_indicator_hidden`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on iOS.
+    ///
+    /// [`WindowAttributesExtIOS::with_prefers_home_indicator_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/ios/trait.WindowAttributesExtIOS.html#tymethod.with_prefers_home_indicator_hidden
+    pub prefers_home_indicator_hidden: bool,
 }
 
 impl Default for Window {
@@ -429,6 +439,7 @@ impl Default for Window {
             titlebar_transparent: false,
             titlebar_show_title: true,
             titlebar_show_buttons: true,
+            prefers_home_indicator_hidden: false,
         }
     }
 }
