@@ -20,6 +20,7 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
+use bevy_render::render_component::{RenderComponent, RenderComponentPlugin};
 
 mod node;
 
@@ -67,6 +68,9 @@ impl Default for ContrastAdaptiveSharpening {
     }
 }
 
+#[derive(Component, RenderComponent)]
+pub struct UseContrastAdaptiveSharpening;
+
 #[derive(Component, Default, Reflect, Clone)]
 #[reflect(Component, Default)]
 pub struct DenoiseCas(bool);
@@ -82,7 +86,7 @@ pub struct CasUniform {
 impl ExtractComponent for ContrastAdaptiveSharpening {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
-    type Out = (DenoiseCas, CasUniform);
+    type Out = (DenoiseCas, CasUniform, UseContrastAdaptiveSharpening);
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         if !item.enabled || item.sharpening_strength == 0.0 {
@@ -94,6 +98,7 @@ impl ExtractComponent for ContrastAdaptiveSharpening {
                 // above 1.0 causes extreme artifacts and fireflies
                 sharpness: item.sharpening_strength.clamp(0.0, 1.0),
             },
+            UseContrastAdaptiveSharpening,
         ))
     }
 }
@@ -117,6 +122,7 @@ impl Plugin for CasPlugin {
         app.add_plugins((
             ExtractComponentPlugin::<ContrastAdaptiveSharpening>::default(),
             UniformComponentPlugin::<CasUniform>::default(),
+            RenderComponentPlugin::<UseContrastAdaptiveSharpening>::default(),
         ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {

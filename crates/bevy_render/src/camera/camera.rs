@@ -32,7 +32,7 @@ use bevy_ecs::{
 };
 use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
-use bevy_render_macros::ExtractComponent;
+use bevy_render_macros::{ExtractComponent, RenderComponent};
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{tracing::warn, warn_once, HashMap, HashSet};
 use bevy_window::{
@@ -1015,6 +1015,9 @@ pub struct ExtractedCamera {
     pub hdr: bool,
 }
 
+#[derive(Component, RenderComponent)]
+pub struct CameraActive;
+
 pub fn extract_cameras(
     mut commands: Commands,
     query: Extract<
@@ -1054,15 +1057,6 @@ pub fn extract_cameras(
     ) in query.iter()
     {
         if !camera.is_active {
-            commands.entity(render_entity).remove::<(
-                ExtractedCamera,
-                ExtractedView,
-                RenderVisibleEntities,
-                TemporalJitter,
-                RenderLayers,
-                Projection,
-                GpuCulling,
-            )>();
             continue;
         }
 
@@ -1108,6 +1102,7 @@ pub fn extract_cameras(
             };
             let mut commands = commands.entity(render_entity);
             commands.insert((
+                CameraActive,
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),
                     viewport: camera.viewport.clone(),
@@ -1179,7 +1174,7 @@ pub struct SortedCamera {
 
 pub fn sort_cameras(
     mut sorted_cameras: ResMut<SortedCameras>,
-    mut cameras: Query<(Entity, &mut ExtractedCamera)>,
+    mut cameras: Query<(Entity, &mut ExtractedCamera), With<CameraActive>>,
 ) {
     sorted_cameras.0.clear();
     for (entity, camera) in cameras.iter() {

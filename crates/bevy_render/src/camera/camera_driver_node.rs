@@ -7,9 +7,11 @@ use crate::{
 use bevy_ecs::{prelude::QueryState, world::World};
 use bevy_utils::HashSet;
 use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp};
+use bevy_ecs::query::With;
+use crate::camera::CameraActive;
 
 pub struct CameraDriverNode {
-    cameras: QueryState<&'static ExtractedCamera>,
+    cameras: QueryState<&'static ExtractedCamera, With<CameraActive>>,
 }
 
 impl CameraDriverNode {

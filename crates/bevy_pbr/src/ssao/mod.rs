@@ -75,7 +75,10 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 
         app.register_type::<ScreenSpaceAmbientOcclusion>();
 
-        app.add_plugins((SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default(), RenderComponentPlugin::<UseScreenSpaceAmbientOcclusion>::default()));
+        app.add_plugins((
+            SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default(),
+            RenderComponentPlugin::<UseScreenSpaceAmbientOcclusion>::default(),
+        ));
     }
 
     fn finish(&self, app: &mut App) {
@@ -539,13 +542,10 @@ fn extract_ssao_settings(
             );
             return;
         }
-        let mut entity_commands = commands
-            .get_entity(entity)
-            .expect("SSAO entity wasn't synced.");
         if camera.is_active {
-            entity_commands.insert((ssao_settings.clone(), UseScreenSpaceAmbientOcclusion));
-        } else {
-            entity_commands.remove::<ScreenSpaceAmbientOcclusion>();
+            commands
+                .entity(entity)
+                .insert((ssao_settings.clone(), UseScreenSpaceAmbientOcclusion));
         }
     }
 }
@@ -563,7 +563,7 @@ fn prepare_ssao_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion)>,
+    views: Query<(Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion), With<UseScreenSpaceAmbientOcclusion>>,
 ) {
     for (entity, camera, ssao_settings) in &views {
         let Some(physical_viewport_size) = camera.physical_viewport_size else {

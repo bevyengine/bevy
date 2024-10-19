@@ -17,6 +17,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoSystemConfigs;
+use crate::render_component::RenderComponentPlugin;
 
 #[derive(Default)]
 pub struct CameraPlugin;
@@ -39,6 +40,7 @@ impl Plugin for CameraPlugin {
                 ExtractResourcePlugin::<ManualTextureViews>::default(),
                 ExtractResourcePlugin::<ClearColor>::default(),
                 ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
+                RenderComponentPlugin::<CameraActive>::default(),
             ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {

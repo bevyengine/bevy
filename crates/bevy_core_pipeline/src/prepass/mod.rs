@@ -46,6 +46,7 @@ use bevy_render::{
     },
     texture::ColorAttachment,
 };
+use bevy_render::render_component::RenderComponent;
 
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
@@ -72,7 +73,7 @@ pub struct MotionVectorPrepass;
 #[reflect(Component, Default)]
 pub struct DeferredPrepass;
 
-#[derive(Component, ShaderType, Clone)]
+#[derive(Component, RenderComponent, ShaderType, Clone)]
 pub struct PreviousViewData {
     pub view_from_world: Mat4,
     pub clip_from_world: Mat4,

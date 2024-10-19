@@ -196,7 +196,7 @@ pub struct ExtractedClusterableObjects {
 }
 
 #[derive(Component, RenderComponent)]
-pub struct HasClusterableObjects;
+pub struct UseClustering;
 
 #[derive(ShaderType)]
 struct GpuClusterOffsetsAndCountsUniform {
@@ -569,7 +569,7 @@ pub fn extract_clusters(
                 far: clusters.far,
                 dimensions: clusters.dimensions,
             },
-            HasClusterableObjects
+            UseClustering
         ));
     }
 }
@@ -580,7 +580,7 @@ pub fn prepare_clusters(
     render_queue: Res<RenderQueue>,
     mesh_pipeline: Res<MeshPipeline>,
     global_clusterable_object_meta: Res<GlobalClusterableObjectMeta>,
-    views: Query<(Entity, &ExtractedClusterableObjects), With<HasClusterableObjects>>,
+    views: Query<(Entity, &ExtractedClusterableObjects), With<UseClustering>>,
 ) {
     let render_device = render_device.into_inner();
     let supports_storage_buffers = matches!(

@@ -18,6 +18,7 @@ use core::{
 use wgpu::{
     SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
 };
+use bevy_utils::tracing::info;
 
 pub mod screenshot;
 

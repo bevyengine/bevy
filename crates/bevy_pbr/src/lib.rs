@@ -353,7 +353,8 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<SpotLight>::default(),
             ))
             .add_plugins((
-                RenderComponentPlugin::<HasClusterableObjects>::default(),
+                RenderComponentPlugin::<UseClustering>::default(),
+                RenderComponentPlugin::<VisibleLight>::default(),
             ))
             .configure_sets(
                 PostUpdate,

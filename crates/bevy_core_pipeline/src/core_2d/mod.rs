@@ -62,7 +62,7 @@ use bevy_render::{
     view::{Msaa, ViewDepthTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-
+use bevy_render::camera::CameraActive;
 use self::graph::{Core2d, Node2d};
 
 pub const CORE_2D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
@@ -403,7 +403,7 @@ pub fn prepare_core_2d_depth_textures(
     render_device: Res<RenderDevice>,
     transparent_2d_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
-    views_2d: Query<(Entity, &ExtractedCamera, &Msaa), (With<Camera2d>,)>,
+    views_2d: Query<(Entity, &ExtractedCamera, &Msaa), (With<Camera2d>, With<CameraActive>)>,
 ) {
     let mut textures = HashMap::default();
     for (view, camera, msaa) in &views_2d {

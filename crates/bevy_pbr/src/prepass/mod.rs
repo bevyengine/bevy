@@ -153,6 +153,7 @@ where
                 .add_plugins((
                     BinnedRenderPhasePlugin::<Opaque3dPrepass, MeshPipeline>::default(),
                     BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::default(),
+                    RenderComponentPlugin::<PreviousViewData>::default(),
                 ));
         }
 
@@ -588,15 +589,10 @@ pub fn extract_camera_previous_view_data(
     cameras_3d: Extract<Query<(RenderEntity, &Camera, Option<&PreviousViewData>), With<Camera3d>>>,
 ) {
     for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
-        let mut entity = commands
-            .get_entity(entity)
-            .expect("Camera entity wasn't synced.");
         if camera.is_active {
             if let Some(previous_view_data) = maybe_previous_view_data {
-                entity.insert(previous_view_data.clone());
+                commands.entity(entity).insert(previous_view_data.clone());
             }
-        } else {
-            entity.remove::<PreviousViewData>();
         }
     }
 }

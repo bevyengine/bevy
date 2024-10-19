@@ -42,6 +42,7 @@ use bevy_ecs::{
     bundle::Bundle, component::Component, reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
 };
+use bevy_ecs::query::QueryItem;
 use bevy_math::{
     primitives::{Cuboid, Plane3d},
     Vec2, Vec3,
@@ -57,6 +58,7 @@ use bevy_render::{
     view::{InheritedVisibility, ViewVisibility, Visibility},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
+use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_transform::components::{GlobalTransform, Transform};
 use render::{
     VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer, CUBE_MESH, PLANE_MESH,
@@ -74,14 +76,14 @@ pub struct VolumetricFogPlugin;
 /// (`shadows_enabled: true`) to make volumetric fog interact with it.
 ///
 /// This allows the light to generate light shafts/god rays.
-#[derive(Clone, Copy, Component, Default, Debug, Reflect)]
+#[derive(Clone, Copy, Component, ExtractComponent, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct VolumetricLight;
 
 /// When placed on a [`bevy_core_pipeline::core_3d::Camera3d`], enables
 /// volumetric fog and volumetric lighting, also known as light shafts or god
 /// rays.
-#[derive(Clone, Copy, Component, Debug, Reflect)]
+#[derive(Clone, Copy, Component, ExtractComponent, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct VolumetricFog {
     /// Color of the ambient light.
@@ -221,6 +223,16 @@ pub struct FogVolume {
     pub light_intensity: f32,
 }
 
+impl ExtractComponent for FogVolume {
+    type QueryData = (&'static Self, &'static GlobalTransform);
+    type QueryFilter = ();
+    type Out = (Self, GlobalTransform);
+
+    fn extract_component((fog_volume, global_transform): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+        Some((fog_volume.clone(), global_transform.clone()))
+    }
+}
+
 impl Plugin for VolumetricFogPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
@@ -238,7 +250,9 @@ impl Plugin for VolumetricFogPlugin {
             .register_type::<VolumetricLight>();
 
         app.add_plugins((
-            SyncComponentPlugin::<FogVolume>::default(),
+            ExtractComponentPlugin::<VolumetricLight>::default(),
+            ExtractComponentPlugin::<VolumetricFog>::default(),
+            ExtractComponentPlugin::<FogVolume>::default(),
             RenderComponentPlugin::<UseVolumetricFog>::default(),
         ));
 

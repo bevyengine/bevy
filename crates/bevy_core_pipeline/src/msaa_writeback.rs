@@ -14,6 +14,7 @@ use bevy_render::{
     view::{Msaa, ViewTarget},
     Render, RenderApp, RenderSet,
 };
+use bevy_render::camera::CameraActive;
 
 /// This enables "msaa writeback" support for the `core_2d` and `core_3d` pipelines, which can be enabled on cameras
 /// using [`bevy_render::camera::Camera::msaa_writeback`]. See the docs on that field for more information.
@@ -125,7 +126,7 @@ fn prepare_msaa_writeback_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
     blit_pipeline: Res<BlitPipeline>,
-    view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera, &Msaa)>,
+    view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera, &Msaa), With<CameraActive>>,
 ) {
     for (entity, view_target, camera, msaa) in view_targets.iter() {
         // only do writeback if writeback is enabled for the camera and this isn't the first camera in the target,

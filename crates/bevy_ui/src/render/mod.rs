@@ -41,6 +41,7 @@ use bevy_render::{
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
 
+use bevy_render::render_component::RenderComponent;
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
@@ -510,7 +511,7 @@ const UI_CAMERA_FAR: f32 = 1000.0;
 // TODO: Evaluate if we still need this.
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
-#[derive(Component)]
+#[derive(Component, RenderComponent)]
 pub struct DefaultCameraView(pub Entity);
 
 /// Extracts all UI elements associated with a camera into the render world.
@@ -537,10 +538,6 @@ pub fn extract_default_ui_camera_view(
     for (entity, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
-            commands
-                .get_entity(entity)
-                .expect("Camera entity wasn't synced.")
-                .remove::<(DefaultCameraView, UiAntiAlias, UiBoxShadowSamples)>();
             continue;
         }
 
@@ -591,12 +588,7 @@ pub fn extract_default_ui_camera_view(
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.");
             entity_commands.insert(DefaultCameraView(default_camera_view));
-            if let Some(ui_anti_alias) = ui_anti_alias {
-                entity_commands.insert(*ui_anti_alias);
-            }
-            if let Some(shadow_samples) = shadow_samples {
-                entity_commands.insert(*shadow_samples);
-            }
+
             transparent_render_phases.insert_or_clear(entity);
 
             live_entities.insert(entity);

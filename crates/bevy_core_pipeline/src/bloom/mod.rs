@@ -29,6 +29,7 @@ use bevy_render::{
     view::ViewTarget,
     Render, RenderApp, RenderSet,
 };
+use bevy_render::render_component::RenderComponentPlugin;
 use downsampling_pipeline::{
     prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
     BloomUniforms,
@@ -36,6 +37,7 @@ use downsampling_pipeline::{
 use upsampling_pipeline::{
     prepare_upsampling_pipeline, BloomUpsamplingPipeline, UpsamplingPipelineIds,
 };
+use crate::bloom::settings::UseBloom;
 
 const BLOOM_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(929599476923908);
 
@@ -53,6 +55,7 @@ impl Plugin for BloomPlugin {
         app.add_plugins((
             ExtractComponentPlugin::<Bloom>::default(),
             UniformComponentPlugin::<BloomUniforms>::default(),
+            RenderComponentPlugin::<UseBloom>::default(),
         ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -107,7 +110,7 @@ impl ViewNode for BloomNode {
         &'static UpsamplingPipelineIds,
         &'static BloomDownsamplingPipelineIds,
     );
-    type ViewFilter = ();
+    type ViewFilter = With<UseBloom>;
 
     // Atypically for a post-processing effect, we do not need to
     // use a secondary texture normally provided by view_target.post_process_write(),
@@ -328,7 +331,7 @@ fn prepare_bloom_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera, &Bloom)>,
+    views: Query<(Entity, &ExtractedCamera, &Bloom), With<UseBloom>>,
 ) {
     for (entity, camera, bloom) in &views {
         if let Some(UVec2 {

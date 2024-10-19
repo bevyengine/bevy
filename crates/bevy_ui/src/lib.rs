@@ -69,11 +69,13 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
+use bevy_render::render_component::RenderComponentPlugin;
 use bevy_render::{
     camera::CameraUpdateSystem,
     view::{check_visibility, VisibilitySystems},
     RenderApp,
 };
+use bevy_render::sync_component::SyncComponentPlugin;
 use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
@@ -131,47 +133,52 @@ struct AmbiguousWithUpdateText2DLayout;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<UiSurface>()
-            .init_resource::<UiScale>()
-            .init_resource::<UiStack>()
-            .register_type::<BackgroundColor>()
-            .register_type::<CalculatedClip>()
-            .register_type::<ComputedNode>()
-            .register_type::<ContentSize>()
-            .register_type::<FocusPolicy>()
-            .register_type::<Interaction>()
-            .register_type::<Node>()
-            .register_type::<RelativeCursorPosition>()
-            .register_type::<ScrollPosition>()
-            .register_type::<TargetCamera>()
-            .register_type::<UiImage>()
-            .register_type::<UiImageSize>()
-            .register_type::<UiRect>()
-            .register_type::<UiScale>()
-            .register_type::<BorderColor>()
-            .register_type::<BorderRadius>()
-            .register_type::<widget::Button>()
-            .register_type::<widget::Label>()
-            .register_type::<ZIndex>()
-            .register_type::<Outline>()
-            .register_type::<UiBoxShadowSamples>()
-            .register_type::<UiAntiAlias>()
-            .configure_sets(
-                PostUpdate,
-                (
-                    CameraUpdateSystem,
-                    UiSystem::Prepare
-                        .before(UiSystem::Stack)
-                        .after(bevy_animation::Animation),
-                    UiSystem::Layout,
-                    UiSystem::PostLayout,
-                )
-                    .chain(),
+        app.add_plugins((
+            SyncComponentPlugin::<UiAntiAlias>::default(),
+            SyncComponentPlugin::<UiBoxShadowSamples>::default(),
+            RenderComponentPlugin::<DefaultCameraView>::default(),
+        ))
+        .init_resource::<UiSurface>()
+        .init_resource::<UiScale>()
+        .init_resource::<UiStack>()
+        .register_type::<BackgroundColor>()
+        .register_type::<CalculatedClip>()
+        .register_type::<ComputedNode>()
+        .register_type::<ContentSize>()
+        .register_type::<FocusPolicy>()
+        .register_type::<Interaction>()
+        .register_type::<Node>()
+        .register_type::<RelativeCursorPosition>()
+        .register_type::<ScrollPosition>()
+        .register_type::<TargetCamera>()
+        .register_type::<UiImage>()
+        .register_type::<UiImageSize>()
+        .register_type::<UiRect>()
+        .register_type::<UiScale>()
+        .register_type::<BorderColor>()
+        .register_type::<BorderRadius>()
+        .register_type::<widget::Button>()
+        .register_type::<widget::Label>()
+        .register_type::<ZIndex>()
+        .register_type::<Outline>()
+        .register_type::<UiBoxShadowSamples>()
+        .register_type::<UiAntiAlias>()
+        .configure_sets(
+            PostUpdate,
+            (
+                CameraUpdateSystem,
+                UiSystem::Prepare
+                    .before(UiSystem::Stack)
+                    .after(bevy_animation::Animation),
+                UiSystem::Layout,
+                UiSystem::PostLayout,
             )
-            .add_systems(
-                PreUpdate,
-                ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
-            );
+                .chain(),
+        )
+        .add_systems(
+            PreUpdate,
+            ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+        );
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystem::Layout)

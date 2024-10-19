@@ -20,7 +20,7 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     renderer::RenderContext,
 };
-
+use bevy_render::camera::CameraActive;
 use super::DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT;
 
 pub const COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE: Handle<Shader> =
@@ -179,7 +179,7 @@ fn prepare_deferred_lighting_id_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<DeferredPrepass>>,
+    views: Query<(Entity, &ExtractedCamera), (With<DeferredPrepass>, With<CameraActive>)>,
 ) {
     for (entity, camera) in &views {
         if let Some(UVec2 {

@@ -16,6 +16,7 @@ use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
 use derive_more::derive::{Display, Error, From};
 use smallvec::SmallVec;
+use bevy_render::render_component::RenderComponent;
 
 /// Provides the computed size and layout properties of the node.
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]

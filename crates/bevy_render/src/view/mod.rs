@@ -41,6 +41,7 @@ use wgpu::{
     BufferUsages, Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
+use crate::camera::CameraActive;
 
 pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
 
@@ -815,7 +816,7 @@ pub fn prepare_view_attachments(
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<GpuImage>>,
     manual_texture_views: Res<ManualTextureViews>,
-    cameras: Query<&ExtractedCamera>,
+    cameras: Query<&ExtractedCamera, With<CameraActive>>,
     mut view_target_attachments: ResMut<ViewTargetAttachments>,
 ) {
     for camera in cameras.iter() {

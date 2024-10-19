@@ -95,6 +95,7 @@ use bevy_render::{
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
+use bevy_render::camera::CameraActive;
 use bevy_utils::{tracing::warn, HashMap};
 
 use crate::{
@@ -715,7 +716,7 @@ pub fn prepare_core_3d_transmission_textures(
     alpha_mask_3d_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
     transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
     transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
-    views_3d: Query<(Entity, &ExtractedCamera, &Camera3d, &ExtractedView)>,
+    views_3d: Query<(Entity, &ExtractedCamera, &Camera3d, &ExtractedView), With<CameraActive>>,
 ) {
     let mut textures = HashMap::default();
     for (entity, camera, camera_3d, view) in &views_3d {

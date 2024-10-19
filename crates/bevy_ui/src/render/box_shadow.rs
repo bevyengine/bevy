@@ -249,6 +249,8 @@ pub fn extract_shadows(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
+    extracted_box_shadows.box_shadows.clear();
+
     for (entity, uinode, transform, view_visibility, box_shadow, clip, camera) in &box_shadow_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
@@ -511,7 +513,6 @@ pub fn prepare_shadows(
         *previous_len = batches.len();
         commands.insert_or_spawn_batch(batches);
     }
-    extracted_shadows.box_shadows.clear();
 }
 
 pub type DrawBoxShadows = (SetItemPipeline, SetBoxShadowViewBindGroup<0>, DrawBoxShadow);

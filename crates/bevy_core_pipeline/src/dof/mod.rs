@@ -603,7 +603,7 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
 /// need to set the appropriate flag to tell Bevy to make samplable depth
 /// buffers.
 pub fn configure_depth_of_field_view_targets(
-    mut view_targets: Query<&mut Camera3d, With<DepthOfField>>,
+    mut view_targets: Query<&mut Camera3d, With<UseDepthOfField>>,
 ) {
     for mut camera_3d in view_targets.iter_mut() {
         let mut depth_texture_usages = TextureUsages::from(camera_3d.depth_texture_usages);
@@ -830,21 +830,8 @@ fn extract_depth_of_field_settings(
     }
 
     for (entity, depth_of_field, projection) in query.iter_mut() {
-        let mut entity_commands = commands
-            .get_entity(entity)
-            .expect("Depth of field entity wasn't synced.");
-
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
-            // TODO: needs better strategy for cleaning up
-            entity_commands.remove::<(
-                DepthOfField,
-                DepthOfFieldUniform,
-                // components added in prepare systems (because `DepthOfFieldNode` does not query extracted components)
-                DepthOfFieldPipelines,
-                AuxiliaryDepthOfFieldTexture,
-                ViewDepthOfFieldBindGroupLayouts,
-            )>();
             continue;
         };
 
@@ -852,7 +839,7 @@ fn extract_depth_of_field_settings(
             calculate_focal_length(depth_of_field.sensor_height, perspective_projection.fov);
 
         // Convert `DepthOfField` to `DepthOfFieldUniform`.
-        entity_commands.insert((
+        commands.entity(entity).insert((
             *depth_of_field,
             DepthOfFieldUniform {
                 focal_distance: depth_of_field.focal_distance,
@@ -865,6 +852,7 @@ fn extract_depth_of_field_settings(
                 pad_b: 0,
                 pad_c: 0,
             },
+            UseDepthOfField,
         ));
     }
 }

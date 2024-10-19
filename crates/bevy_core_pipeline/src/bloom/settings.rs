@@ -3,6 +3,7 @@ use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
 use bevy_math::{AspectRatio, URect, UVec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
+use bevy_render::render_component::RenderComponent;
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///
@@ -179,6 +180,9 @@ impl Default for Bloom {
     }
 }
 
+#[derive(Component, RenderComponent)]
+pub struct UseBloom;
+
 /// Applies a threshold filter to the input image to extract the brightest
 /// regions before blurring them and compositing back onto the original image.
 /// These settings are useful when emulating the 1990s-2000s game look.
@@ -216,7 +220,7 @@ impl ExtractComponent for Bloom {
     type QueryData = (&'static Self, &'static Camera);
 
     type QueryFilter = ();
-    type Out = (Self, BloomUniforms);
+    type Out = (Self, BloomUniforms, UseBloom);
 
     fn extract_component((bloom, camera): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
         match (
@@ -249,7 +253,7 @@ impl ExtractComponent for Bloom {
                     uv_offset: bloom.uv_offset,
                 };
 
-                Some((bloom.clone(), uniform))
+                Some((bloom.clone(), uniform, UseBloom))
             }
             _ => None,
         }

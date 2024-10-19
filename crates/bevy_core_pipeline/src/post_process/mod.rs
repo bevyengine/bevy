@@ -15,6 +15,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::render_component::{RenderComponent, RenderComponentPlugin};
 use bevy_render::{
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -122,6 +123,9 @@ pub struct ChromaticAberration {
     pub max_samples: u32,
 }
 
+#[derive(Component, RenderComponent)]
+pub struct UseChromaticAberration;
+
 /// GPU pipeline data for the built-in postprocessing stack.
 ///
 /// This is stored in the render world.
@@ -216,7 +220,10 @@ impl Plugin for PostProcessingPlugin {
         );
 
         app.register_type::<ChromaticAberration>();
-        app.add_plugins(ExtractComponentPlugin::<ChromaticAberration>::default());
+        app.add_plugins((
+            ExtractComponentPlugin::<ChromaticAberration>::default(),
+            RenderComponentPlugin::<UseChromaticAberration>::default(),
+        ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -355,7 +362,7 @@ impl ViewNode for PostProcessingNode {
         Read<ChromaticAberration>,
         Read<PostProcessingUniformBufferOffsets>,
     );
-    type ViewFilter = ();
+    type ViewFilter = With<UseChromaticAberration>;
 
     fn run<'w>(
         &self,
@@ -491,14 +498,14 @@ impl ExtractComponent for ChromaticAberration {
 
     type QueryFilter = With<Camera>;
 
-    type Out = ChromaticAberration;
+    type Out = (ChromaticAberration, UseChromaticAberration);
 
     fn extract_component(
         chromatic_aberration: QueryItem<'_, Self::QueryData>,
     ) -> Option<Self::Out> {
         // Skip the postprocessing phase entirely if the intensity is zero.
         if chromatic_aberration.intensity > 0.0 {
-            Some(chromatic_aberration.clone())
+            Some((chromatic_aberration.clone(), UseChromaticAberration))
         } else {
             None
         }
