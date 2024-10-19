@@ -230,7 +230,7 @@ impl ExtractComponent for FogVolume {
     fn extract_component(
         (fog_volume, global_transform): QueryItem<'_, Self::QueryData>,
     ) -> Option<Self::Out> {
-        Some((fog_volume.clone(), global_transform.clone()))
+        Some((fog_volume.clone(), *global_transform))
     }
 }
 
