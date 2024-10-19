@@ -270,10 +270,10 @@ mod animation {
                 SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH))),
                 StateScoped(CURRENT_SCENE),
             ))
-            .observe(start_animation);
+            .observe(pause_animation_frame);
     }
 
-    fn start_animation(
+    fn pause_animation_frame(
         trigger: Trigger<SceneInstanceReady>,
         children: Query<&Children>,
         mut commands: Commands,
