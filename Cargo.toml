@@ -3844,3 +3844,11 @@ doc-scrape-examples = true
 
 [package.metadata.example.testbed_2d]
 hidden = true
+
+[[example]]
+name = "testbed_3d"
+path = "examples/testbed/3d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_3d]
+hidden = true
