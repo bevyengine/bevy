@@ -1,4 +1,3 @@
-use core::marker::PhantomData;
 use crate::RenderSet::Cleanup;
 use crate::{Render, RenderApp};
 use bevy_app::{App, Plugin};
@@ -7,6 +6,7 @@ use bevy_ecs::prelude::Component;
 use bevy_ecs::query::With;
 use bevy_ecs::schedule::IntoSystemConfigs;
 use bevy_ecs::system::{Commands, Query};
+use core::marker::PhantomData;
 
 pub use bevy_render_macros::RenderComponent;
 
