@@ -15,7 +15,10 @@ use crate::relationship::Relationship;
 
 /// Represents one half of a one-to-one relationship between two [entities](Entity).
 ///
-/// The type of relationship is denoted by the parameter `R`.
+/// The type of relationship is denoted by the parameters `FK` and `PK`, shorthand
+/// for Primary Key and Foreign Key.
+/// An undirected relationship would have equal `FK` and `PK` types.
+/// Whereas, an directed relationship would have differing parameters.
 #[derive(Component)]
 #[component(
     on_insert = <Self as Relationship>::associate,

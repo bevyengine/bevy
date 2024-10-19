@@ -8,8 +8,14 @@ use core::marker::PhantomData;
 use smallvec::SmallVec;
 
 /// Trait representing a relationship [`Component`].
+/// 
 /// A relationship consists of two [entities](Entity), one with this [`Component`],
 /// and the other with the [`Other`](Relationship::Other).
+/// These entities are referred to as `primary` and `foreign` to align with typical
+/// relational database terminology.
+/// The `primary` owns a component which contains some number of `foreign` entities.
+/// This trait is designed to ensure that those `foreign` entities also own a component of type
+/// [Other](Relationship::Other), where its `foreign` entities include the aforementioned `primary`.
 pub(crate) trait Relationship: Component + Sized {
     /// The other [`Component`] used to form this relationship.
     type Other: Relationship<Other = Self>;
@@ -41,94 +47,94 @@ pub(crate) trait Relationship: Component + Sized {
         self.iter().nth(index)
     }
 
-    fn associate(mut world: DeferredWorld<'_>, a_id: Entity, _component: ComponentId) {
+    fn associate(mut world: DeferredWorld<'_>, primary_id: Entity, _component: ComponentId) {
         world.commands().queue(move |world: &mut World| {
-            let b_ids_len = world
-                .get_entity(a_id)
+            let foreign_ids_len = world
+                .get_entity(primary_id)
                 .ok()
                 .and_then(|a| a.get::<Self>())
                 .map(Self::len);
 
-            let Some(b_ids_len) = b_ids_len else { return };
+            let Some(foreign_ids_len) = foreign_ids_len else { return };
 
-            for b_id_index in 0..b_ids_len {
-                let b = world
-                    .get_entity(a_id)
+            for foreign_id_index in 0..foreign_ids_len {
+                let foreign = world
+                    .get_entity(primary_id)
                     .ok()
-                    .and_then(|a| a.get::<Self>())
-                    .map(|a_relationship| a_relationship.get(b_id_index).unwrap())
-                    .and_then(|b_id| world.get_entity_mut(b_id).ok());
+                    .and_then(|primary| primary.get::<Self>())
+                    .map(|primary_relationship| primary_relationship.get(foreign_id_index).unwrap())
+                    .and_then(|foreign_id| world.get_entity_mut(foreign_id).ok());
 
-                let Some(mut b) = b else { return };
+                let Some(mut foreign) = foreign else { return };
 
-                let _b_id = b.id();
+                let foreign_id = foreign.id();
 
-                let b_points_to_a = b
+                let foreign_points_to_primary = foreign
                     .get::<Self::Other>()
-                    .is_some_and(|b_relationship| b_relationship.has(a_id));
+                    .is_some_and(|foreign_relationship| foreign_relationship.has(primary_id));
 
-                if !b_points_to_a {
-                    let other = b
+                if !foreign_points_to_primary {
+                    let other = foreign
                         .take::<Self::Other>()
-                        .unwrap_or(Self::Other::new(a_id))
-                        .with(a_id);
+                        .unwrap_or(Self::Other::new(primary_id))
+                        .with(primary_id);
 
-                    b.insert(other);
+                    foreign.insert(other);
 
                     if let Some(mut events) =
                         world.get_resource_mut::<Events<RelationshipEvent<Self>>>()
                     {
-                        events.send(RelationshipEvent::<Self>::added(a_id, _b_id));
+                        events.send(RelationshipEvent::<Self>::added(primary_id, foreign_id));
                     }
                 }
             }
         });
     }
 
-    fn disassociate(mut world: DeferredWorld<'_>, a_id: Entity, _component: ComponentId) {
-        let Some(a_relationship) = world.get::<Self>(a_id) else {
+    fn disassociate(mut world: DeferredWorld<'_>, primary_id: Entity, _component: ComponentId) {
+        let Some(primary_relationship) = world.get::<Self>(primary_id) else {
             unreachable!("component hook should only be called when component is available");
         };
 
         // Cloning to allow a user to `take` the component for modification
         // [Entity; 7] chosen to keep b_ids at 64 bytes on 64 bit platforms.
-        let b_ids = a_relationship.iter().collect::<SmallVec<[Entity; 7]>>();
+        let foreign_ids = primary_relationship.iter().collect::<SmallVec<[Entity; 7]>>();
 
         world.commands().queue(move |world: &mut World| {
-            for b_id in b_ids {
-                let a_points_to_b = world
-                    .get_entity(a_id)
+            for foreign_id in foreign_ids {
+                let primary_points_to_foreign = world
+                    .get_entity(primary_id)
                     .ok()
-                    .and_then(|a| a.get::<Self>())
-                    .is_some_and(|a_relationship| a_relationship.has(b_id));
+                    .and_then(|primary| primary.get::<Self>())
+                    .is_some_and(|primary_relationship| primary_relationship.has(foreign_id));
 
-                let b_points_to_a = world
-                    .get_entity(b_id)
+                let foreign_points_to_primary = world
+                    .get_entity(foreign_id)
                     .ok()
-                    .and_then(|b| b.get::<Self::Other>())
-                    .is_some_and(|b_relationship| b_relationship.has(a_id));
+                    .and_then(|foreign| foreign.get::<Self::Other>())
+                    .is_some_and(|foreign_relationship| foreign_relationship.has(primary_id));
 
-                if b_points_to_a && !a_points_to_b {
-                    if let Ok(mut b) = world.get_entity_mut(b_id) {
+                if foreign_points_to_primary && !primary_points_to_foreign {
+                    if let Ok(mut foreign) = world.get_entity_mut(foreign_id) {
                         // Using a placeholder relationship to avoid triggering on_remove and on_insert
                         // hooks erroneously.
                         let mut placeholder = Self::Other::new(Entity::PLACEHOLDER);
-                        let mut other = b.get_mut::<Self::Other>().unwrap();
+                        let mut other = foreign.get_mut::<Self::Other>().unwrap();
                         let other = other.as_mut();
 
                         core::mem::swap(&mut placeholder, other);
 
-                        if let Some(mut new_other) = placeholder.without(a_id) {
+                        if let Some(mut new_other) = placeholder.without(primary_id) {
                             core::mem::swap(&mut new_other, other);
                         } else {
-                            b.remove::<Self::Other>();
+                            foreign.remove::<Self::Other>();
                         }
                     }
 
                     if let Some(mut events) =
                         world.get_resource_mut::<Events<RelationshipEvent<Self>>>()
                     {
-                        events.send(RelationshipEvent::<Self>::removed(a_id, b_id));
+                        events.send(RelationshipEvent::<Self>::removed(primary_id, foreign_id));
                     }
                 }
             }
