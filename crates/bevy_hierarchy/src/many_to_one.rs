@@ -11,9 +11,7 @@ use bevy_ecs::{
 };
 use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 
-use crate::relationship::Relationship;
-
-use super::OneToMany;
+use crate::{one_to_many::OneToMany, relationship::Relationship};
 
 /// Represents one half of a one-to-many relationship between an [`Entity`] and some number of other [entities](Entity).
 ///

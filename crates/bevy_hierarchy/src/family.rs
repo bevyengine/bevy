@@ -1,4 +1,4 @@
-use crate::{ManyToOne, OneToMany, RelationshipEvent};
+use crate::{many_to_one::ManyToOne, one_to_many::OneToMany, relationship::RelationshipEvent};
 
 /// A familial relationship
 #[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]

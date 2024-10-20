@@ -37,21 +37,6 @@
 //! Similarly, unassigning a child in the parent
 //! will always unassign the parent in the child.
 //!
-//! ## Despawning entities
-//!
-//! The commands and methods provided by `bevy_ecs` to despawn entities
-//! are not capable of automatically despawning hierarchies of entities.
-//! In most cases, these operations will invalidate the hierarchy.
-//! Instead, you should use the provided [hierarchical despawn extension methods].
-//!
-//! ## Generic relationships
-//!
-//! This crate also provides a number of components defining custom relationships, such as:
-//!
-//! * [`OneToOne`]
-//! * [`OneToMany`] and [`ManyToOne`]
-//! * [`ManyToMany`]
-//!
 //! These components will use component hooks to ensure both members of a relationship
 //! have appropriate data for that relationship.
 //!
@@ -59,6 +44,13 @@
 //! in-place using methods like [`swap`](core::mem::swap), as these bypass the currently
 //! available component hooks. To mutate a relationship, instead replace the component with an
 //! updated value.
+//!
+//! ## Despawning entities
+//!
+//! The commands and methods provided by `bevy_ecs` to despawn entities
+//! are not capable of automatically despawning hierarchies of entities.
+//! In most cases, these operations will invalidate the hierarchy.
+//! Instead, you should use the provided [hierarchical despawn extension methods].
 //!
 //! [command and world]: BuildChildren
 //! [diagnostic plugin]: ValidParentCheckPlugin
@@ -69,20 +61,9 @@
 
 extern crate alloc;
 
+pub(crate) mod many_to_one;
+pub(crate) mod one_to_many;
 pub(crate) mod relationship;
-pub use relationship::*;
-
-mod one_to_one;
-pub use one_to_one::OneToOne;
-
-mod one_to_many;
-pub use one_to_many::OneToMany;
-
-mod many_to_one;
-pub use many_to_one::ManyToOne;
-
-mod many_to_many;
-pub use many_to_many::ManyToMany;
 
 mod family;
 pub use family::*;
