@@ -13,6 +13,7 @@ fn main() {
         .run();
 }
 
+// Move the sprite for variety.
 fn move_sprite(time: Res<Time>, mut sprite: Query<&mut Transform, With<Sprite>>) {
     let t = time.elapsed_secs() * 0.1;
     for mut transform in &mut sprite {
@@ -25,25 +26,30 @@ fn move_sprite(time: Res<Time>, mut sprite: Query<&mut Transform, With<Sprite>>)
     }
 }
 
+// Display the current picking state.
 fn picking(sprite: Query<(&PickingInteraction, &Children)>, mut text: Query<&mut Text2d>) {
     for (interaction, children) in sprite.iter() {
         let mut iter = text.iter_many_mut(children);
         while let Some(mut text) = iter.fetch_next() {
             match interaction {
-                PickingInteraction::Pressed(pressed_buttons) => {
-                    if pressed_buttons.contains(PressedButtons::PRIMARY) {
-                        text.0 = "Left Clicked!".into();
-                    } else if pressed_buttons.contains(PressedButtons::SECONDARY) {
-                        text.0 = "Right Clicked!".into();
-                    } else if pressed_buttons.contains(PressedButtons::MIDDLE) {
-                        text.0 = "Middle Clicked!".into();
-                    } else if pressed_buttons.contains(PressedButtons::TOUCH) {
-                        text.0 = "Touched!".into();
-                    } else {
-                        text.0 = "Clicked!".into();
-                    }
+                PickingInteraction::Pressed(pressed_buttons)
+                    if pressed_buttons.contains(PressedButtons::PRIMARY) =>
+                {
+                    text.0 = "Left Clicked!".into();
                 }
-                PickingInteraction::Hovered => {
+                PickingInteraction::Pressed(pressed_buttons)
+                    if pressed_buttons.contains(PressedButtons::SECONDARY) =>
+                {
+                    text.0 = "Right Clicked!".into();
+                }
+                PickingInteraction::Pressed(pressed_buttons)
+                    if pressed_buttons.contains(PressedButtons::TOUCH) =>
+                {
+                    text.0 = "Touched!".into();
+                }
+                // We choose to ignore other mouse buttons like MMB,
+                // in this pattern we treat them as hover.
+                PickingInteraction::Hovered | PickingInteraction::Pressed(..) => {
                     text.0 = "Hovered!".into();
                 }
                 PickingInteraction::None => {
@@ -54,7 +60,7 @@ fn picking(sprite: Query<(&PickingInteraction, &Children)>, mut text: Query<&mut
     }
 }
 
-/// Set up a scene that tests all sprite anchor types.
+/// Set up the scene.
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
