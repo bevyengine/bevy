@@ -503,14 +503,11 @@ impl<'w, 's> Commands<'w, 's> {
     #[track_caller]
     pub fn entity(&mut self, entity: Entity) -> EntityCommands {
         if !self.entities.contains(entity) {
-            let message = format!(
-                "Attempted to create an EntityCommands for entity {entity:?}, which doesn't exist"
-            );
             match self.failure_mode {
                 FailureMode::Ignore => (),
-                FailureMode::Log => info!("{}; returned invalid EntityCommands", message),
-                FailureMode::Warn => warn!("{}; returned invalid EntityCommands", message),
-                FailureMode::Panic => panic!("{}", message),
+                FailureMode::Log => info!("Attempted to create an EntityCommands for Entity {entity:?}, which doesn't exist; returned invalid EntityCommands"),
+                FailureMode::Warn => warn!("Attempted to create an EntityCommands for Entity {entity:?}, which doesn't exist; returned invalid EntityCommands"),
+                FailureMode::Panic => panic!("Attempted to create an EntityCommands for Entity {entity:?}, which doesn't exist"),
             };
         }
         EntityCommands {
@@ -1041,7 +1038,7 @@ impl<'w, 's> Commands<'w, 's> {
 
 /// A [`Command`] which gets executed for a given [`Entity`].
 ///
-/// # Examples
+/// # Example
 ///
 /// ```
 /// # use std::collections::HashSet;
@@ -1093,26 +1090,70 @@ impl<'w, 's> Commands<'w, 's> {
 /// }
 /// ```
 ///
-/// # Implementing
+/// # Custom commands
 ///
-/// This trait is blanket-implemented for any function or closure that takes the parameters
-/// `(Entity, &mut World)`. This blanket implementation automatically checks if the entity
-/// exists in the `apply` method as follows:
+/// There are three ways to create a new `EntityCommand`:
+///
+/// ## Function
+///
+/// As seen above, a function can be used as an `EntityCommand` if it takes the parameters
+/// `(Entity, &mut World)` and returns nothing:
 ///
 /// ```ignore
-/// if world.entities.contains(entity) {
-///     // Execute command
-/// } else {
-///     // Handle failure according to internal `failure_mode`
+/// fn new_command(entity: Entity, world: &mut World) {
+///     // Command code
 /// }
+/// commands.entity(entity).queue(new_command);
 /// ```
 ///
-/// If you directly implement this trait on a struct (not recommended), you will have to
-/// manually implement the `apply` method yourself. If you do not check that the entity
-/// exists as above, the command could fail in less predictable ways.
+/// Note that this approach does not allow the command to take additional parameters
+/// (see below if that's what you need).
+///
+/// ## Closure
+///
+/// A closure can be used as an `EntityCommand` if it takes the parameters
+/// `(Entity, &mut World)` and returns nothing.
+///
+/// The most versatile form of this (and the way most built-in `EntityCommand`s are implemented)
+/// is a function that returns such a closure. This allows you to take in parameters for the command:
+///
+/// ```ignore
+/// fn new_command(whatever_parameters: i32) -> impl EntityCommand {
+///     move |entity: Entity, world: &mut World| {
+///         // Command code (can access parameters here)
+///     }
+/// }
+/// commands.entity(entity).queue(new_command(5));
+/// ```
+///
+/// You can also queue a closure directly if so desired:
+///
+/// ```ignore
+/// commands.entity(entity).queue(|entity: Entity, world: &mut World| {
+///     // Command code
+/// });
+/// ```
+///
+/// ## Struct
+///
+/// A struct (or enum) can be used as an `EntityCommand` if it implements the trait
+/// and its `apply` method:
+///
+/// ```ignore
+/// struct NewCommand {
+///     // Fields act as parameters
+///     whatever_parameters: i32,
+/// }
+/// impl EntityCommand for NewCommand {
+///     fn apply(self, entity: Entity, world: &mut World) {
+///         // Command code
+///     }
+/// }
+/// commands.entity(entity).queue(NewCommand { whatever_parameters: 5 });
+/// ```
 pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`].
-    fn apply(self, entity: Entity, world: &mut World, failure_mode: FailureMode);
+    fn apply(self, entity: Entity, world: &mut World);
 
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
     ///
@@ -1125,7 +1166,24 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
     where
         Self: Sized,
     {
-        move |world: &mut World| self.apply(entity, world, failure_mode)
+        move |world: &mut World| {
+            if world.entities.contains(entity) {
+                self.apply(entity, world);
+            } else {
+                match failure_mode {
+                    FailureMode::Ignore => (),
+                    FailureMode::Log => {
+                        info!("Could not execute EntityCommand because its Entity {entity:?} was missing");
+                    }
+                    FailureMode::Warn => {
+                        warn!("Could not execute EntityCommand because its Entity {entity:?} was missing");
+                    }
+                    FailureMode::Panic => {
+                        panic!("Could not execute EntityCommand because its Entity {entity:?} was missing");
+                    }
+                };
+            }
+        }
     }
 }
 
@@ -1136,6 +1194,8 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
 /// it's not executed immediately. Instead, the command is added to a "command queue."
 /// The command queue is applied between [`Schedules`](bevy_ecs::schedule::Schedule), one by one,
 /// so that each command can have exclusive access to the World.
+///
+/// # Fallible
 ///
 /// Due to their deferred nature, an entity you're trying change with an `EntityCommand` can be
 /// despawned by the time the command is executed. Use the following commands to set how you
@@ -1829,7 +1889,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         self
     }
 
-    /// Modify the component `T` if it exists, using the the function `modify`.
+    /// Modify the component `T` if it exists, using the function `modify`.
     pub fn and_modify(&mut self, modify: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> &mut Self {
         self.entity_commands
             .queue(move |mut entity: EntityWorldMut| {
@@ -1922,23 +1982,8 @@ impl<F> EntityCommand<World> for F
 where
     F: FnOnce(EntityWorldMut) + Send + 'static,
 {
-    fn apply(self, id: Entity, world: &mut World, failure_mode: FailureMode) {
-        if world.entities.contains(id) {
-            self(world.entity_mut(id));
-        } else {
-            match failure_mode {
-                FailureMode::Ignore => (),
-                FailureMode::Log => {
-                    info!("Could not execute EntityCommand because its Entity {id:?} was missing");
-                }
-                FailureMode::Warn => {
-                    warn!("Could not execute EntityCommand because its Entity {id:?} was missing");
-                }
-                FailureMode::Panic => {
-                    panic!("Could not execute EntityCommand because its Entity {id:?} was missing");
-                }
-            };
-        }
+    fn apply(self, id: Entity, world: &mut World) {
+        self(world.entity_mut(id));
     }
 }
 
@@ -1946,23 +1991,8 @@ impl<F> EntityCommand for F
 where
     F: FnOnce(Entity, &mut World) + Send + 'static,
 {
-    fn apply(self, id: Entity, world: &mut World, failure_mode: FailureMode) {
-        if world.entities.contains(id) {
-            self(id, world);
-        } else {
-            match failure_mode {
-                FailureMode::Ignore => (),
-                FailureMode::Log => {
-                    info!("Could not execute EntityCommand because its Entity {id:?} was missing");
-                }
-                FailureMode::Warn => {
-                    warn!("Could not execute EntityCommand because its Entity {id:?} was missing");
-                }
-                FailureMode::Panic => {
-                    panic!("Could not execute EntityCommand because its Entity {id:?} was missing");
-                }
-            };
-        }
+    fn apply(self, id: Entity, world: &mut World) {
+        self(id, world);
     }
 }
 
