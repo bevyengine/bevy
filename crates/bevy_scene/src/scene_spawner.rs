@@ -8,6 +8,7 @@ use bevy_ecs::{
     world::{Command, Mut, World},
 };
 use bevy_hierarchy::{AddChild, BuildChildren, DespawnRecursiveExt, Parent};
+use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet};
 use derive_more::derive::{Display, Error};
 use uuid::Uuid;
@@ -17,7 +18,8 @@ use uuid::Uuid;
 /// See also [`Trigger`], [`SceneSpawner::instance_is_ready`].
 ///
 /// [`Trigger`]: bevy_ecs::observer::Trigger
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Event)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Event, Reflect)]
+#[reflect(Debug, PartialEq)]
 pub struct SceneInstanceReady {
     /// Instance which has been spawned.
     pub instance_id: InstanceId,
@@ -31,7 +33,8 @@ pub struct InstanceInfo {
 }
 
 /// Unique id identifying a scene instance.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Reflect)]
+#[reflect(Debug, PartialEq, Hash)]
 pub struct InstanceId(Uuid);
 
 impl InstanceId {

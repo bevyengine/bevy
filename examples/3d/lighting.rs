@@ -211,7 +211,7 @@ fn setup(
     commands
         .spawn((
             Text::default(),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
@@ -293,7 +293,7 @@ fn animate_light_direction(
     mut query: Query<&mut Transform, With<DirectionalLight>>,
 ) {
     for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() * 0.5);
+        transform.rotate_y(time.delta_secs() * 0.5);
     }
 }
 
@@ -317,6 +317,6 @@ fn movement(
             direction.x += 1.0;
         }
 
-        transform.translation += time.delta_seconds() * 2.0 * direction;
+        transform.translation += time.delta_secs() * 2.0 * direction;
     }
 }

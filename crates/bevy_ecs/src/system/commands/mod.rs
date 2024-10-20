@@ -808,10 +808,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// #     high_score: u32,
     /// # }
     /// #
-    /// # fn initialise_scoreboard(mut commands: Commands) {
+    /// # fn initialize_scoreboard(mut commands: Commands) {
     /// commands.init_resource::<Scoreboard>();
     /// # }
-    /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
+    /// # bevy_ecs::system::assert_is_system(initialize_scoreboard);
     /// ```
     #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
@@ -1888,6 +1888,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         self.entity_commands.panic_if_missing();
         self
     }
+
 
     /// Modify the component `T` if it exists, using the function `modify`.
     pub fn and_modify(&mut self, modify: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> &mut Self {

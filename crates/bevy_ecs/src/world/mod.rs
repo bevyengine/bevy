@@ -3281,7 +3281,7 @@ impl World {
         let id = self
             .bundles
             .register_info::<B>(&mut self.components, &mut self.storages);
-        // SAFETY: We just initialised the bundle so its id should definitely be valid.
+        // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
 }

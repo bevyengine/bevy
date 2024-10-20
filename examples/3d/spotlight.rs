@@ -128,7 +128,7 @@ fn setup(
 
     commands.spawn((
         Text::new(INSTRUCTIONS),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -141,11 +141,11 @@ fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)
     for (mut transform, mut angles) in query.iter_mut() {
         transform.rotation = Quat::from_euler(
             EulerRot::XYZ,
-            -FRAC_PI_2 + ops::sin(time.elapsed_seconds() * 0.67 * 3.0) * 0.5,
-            ops::sin(time.elapsed_seconds() * 3.0) * 0.5,
+            -FRAC_PI_2 + ops::sin(time.elapsed_secs() * 0.67 * 3.0) * 0.5,
+            ops::sin(time.elapsed_secs() * 3.0) * 0.5,
             0.0,
         );
-        let angle = (ops::sin(time.elapsed_seconds() * 1.2) + 1.0) * (FRAC_PI_4 - 0.1);
+        let angle = (ops::sin(time.elapsed_secs() * 1.2) + 1.0) * (FRAC_PI_4 - 0.1);
         angles.inner_angle = angle * 0.8;
         angles.outer_angle = angle;
     }
@@ -180,7 +180,7 @@ fn movement(
         translation.y -= 1.0;
     }
 
-    translation *= 2.0 * time.delta_seconds();
+    translation *= 2.0 * time.delta_secs();
 
     // Apply translation
     for mut transform in &mut query {
@@ -193,7 +193,7 @@ fn rotation(
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let delta = time.delta_seconds();
+    let delta = time.delta_secs();
 
     if input.pressed(KeyCode::ArrowLeft) {
         transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(delta));

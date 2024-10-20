@@ -45,7 +45,6 @@ zlib = ["bevy_image/zlib"]
 zstd = ["bevy_image/zstd"]
 
 # Image format support (PNG enabled by default)
-avif = ["bevy_image/avif"]
 bmp = ["bevy_image/bmp"]
 ff = ["bevy_image/ff"]
 gif = ["bevy_image/gif"]
@@ -240,6 +239,9 @@ reflect_functions = [
 
 # Enable winit custom cursor support
 custom_cursor = ["bevy_winit/custom_cursor"]
+
+# Experimental support for nodes that are ignored for UI layouting
+ghost_nodes = ["bevy_ui/ghost_nodes"]
 
 [dependencies]
 # bevy

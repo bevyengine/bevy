@@ -78,15 +78,12 @@ fn setup(mut commands: Commands) {
     let style = TextFont::default();
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(20.0),
-                ..default()
-            },
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(20.0),
             ..default()
         })
         .with_children(|parent| {

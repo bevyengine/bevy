@@ -1005,7 +1005,7 @@ pub fn advance_animations(
     animation_graphs: Res<Assets<AnimationGraph>>,
     mut players: Query<(&mut AnimationPlayer, &AnimationGraphHandle)>,
 ) {
-    let delta_seconds = time.delta_seconds();
+    let delta_seconds = time.delta_secs();
     players
         .par_iter_mut()
         .for_each(|(mut player, graph_handle)| {

@@ -3,7 +3,6 @@
         fixed_frame_time: Some(0.03),
     ),
     events: [
-        (200, Screenshot),
         (900, AppExit),
     ]
 )

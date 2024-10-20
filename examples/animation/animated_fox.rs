@@ -270,12 +270,12 @@ fn simulate_particles(
         if particle.lifeteime_timer.tick(time.delta()).just_finished() {
             commands.entity(entity).despawn();
         } else {
-            transform.translation += particle.velocity * time.delta_seconds();
+            transform.translation += particle.velocity * time.delta_secs();
             transform.scale =
                 Vec3::splat(particle.size.lerp(0.0, particle.lifeteime_timer.fraction()));
             particle
                 .velocity
-                .smooth_nudge(&Vec3::ZERO, 4.0, time.delta_seconds());
+                .smooth_nudge(&Vec3::ZERO, 4.0, time.delta_secs());
         }
     }
 }

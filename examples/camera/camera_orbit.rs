@@ -80,25 +80,20 @@ fn setup(
 }
 
 fn instructions(mut commands: Commands) {
-    commands
-        .spawn((
-            Name::new("Instructions"),
-            NodeBundle {
-                style: Style {
-                    align_items: AlignItems::Start,
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Start,
-                    width: Val::Percent(100.),
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(Text::new("Mouse up or down: pitch"));
-            parent.spawn(Text::new("Mouse left or right: yaw"));
-            parent.spawn(Text::new("Mouse buttons: roll"));
-        });
+    commands.spawn((
+        Name::new("Instructions"),
+        Text::new(
+            "Mouse up or down: pitch\n\
+            Mouse left or right: yaw\n\
+            Mouse buttons: roll",
+        ),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.),
+            left: Val::Px(12.),
+            ..default()
+        },
+    ));
 }
 
 fn orbit(
@@ -125,7 +120,7 @@ fn orbit(
     let delta_yaw = delta.x * camera_settings.yaw_speed;
 
     // Conversely, we DO need to factor in delta time for mouse button inputs.
-    delta_roll *= camera_settings.roll_speed * time.delta_seconds();
+    delta_roll *= camera_settings.roll_speed * time.delta_secs();
 
     // Obtain the existing pitch, yaw, and roll values from the transform.
     let (yaw, pitch, roll) = camera.rotation.to_euler(EulerRot::YXZ);
@@ -140,7 +135,7 @@ fn orbit(
     camera.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
 
     // Adjust the translation to maintain the correct orientation toward the orbit target.
-    // In our example it's a static target, but this could easily be customised.
+    // In our example it's a static target, but this could easily be customized.
     let target = Vec3::ZERO;
     camera.translation = target - camera.forward() * camera_settings.orbit_distance;
 }

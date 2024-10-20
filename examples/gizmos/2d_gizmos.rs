@@ -28,7 +28,7 @@ fn setup(mut commands: Commands) {
         Press 'U' / 'I' to cycle through line styles\n\
         Press 'J' / 'K' to cycle through line joins",
         ),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),
@@ -42,7 +42,7 @@ fn draw_example_collection(
     mut my_gizmos: Gizmos<MyRoundGizmos>,
     time: Res<Time>,
 ) {
-    let sin_t_scaled = ops::sin(time.elapsed_seconds()) * 50.;
+    let sin_t_scaled = ops::sin(time.elapsed_secs()) * 50.;
     gizmos.line_2d(Vec2::Y * -sin_t_scaled, Vec2::splat(-80.), RED);
     gizmos.ray_2d(Vec2::Y * sin_t_scaled, Vec2::splat(80.), LIME);
 
@@ -70,7 +70,7 @@ fn draw_example_collection(
 
     let domain = Interval::EVERYWHERE;
     let curve = function_curve(domain, |t| Vec2::new(t, ops::sin(t / 25.0) * 100.0));
-    let resolution = ((ops::sin(time.elapsed_seconds()) + 1.0) * 50.0) as usize;
+    let resolution = ((ops::sin(time.elapsed_secs()) + 1.0) * 50.0) as usize;
     let times_and_colors = (0..=resolution)
         .map(|n| n as f32 / resolution as f32)
         .map(|t| (t - 0.5) * 600.0)
@@ -79,7 +79,7 @@ fn draw_example_collection(
 
     my_gizmos
         .rounded_rect_2d(Isometry2d::IDENTITY, Vec2::splat(630.), BLACK)
-        .corner_radius(ops::cos(time.elapsed_seconds() / 3.) * 100.);
+        .corner_radius(ops::cos(time.elapsed_secs() / 3.) * 100.);
 
     // Circles have 32 line-segments by default.
     // You may want to increase this for larger circles.
@@ -88,7 +88,7 @@ fn draw_example_collection(
         .resolution(64);
 
     my_gizmos.ellipse_2d(
-        Rot2::radians(time.elapsed_seconds() % TAU),
+        Rot2::radians(time.elapsed_secs() % TAU),
         Vec2::new(100., 200.),
         YELLOW_GREEN,
     );
@@ -129,11 +129,11 @@ fn update_config(
 ) {
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
     if keyboard.pressed(KeyCode::ArrowRight) {
-        config.line_width += 5. * time.delta_seconds();
+        config.line_width += 5. * time.delta_secs();
         config.line_width = config.line_width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        config.line_width -= 5. * time.delta_seconds();
+        config.line_width -= 5. * time.delta_secs();
         config.line_width = config.line_width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit1) {
@@ -156,11 +156,11 @@ fn update_config(
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::ArrowUp) {
-        my_config.line_width += 5. * time.delta_seconds();
+        my_config.line_width += 5. * time.delta_secs();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowDown) {
-        my_config.line_width -= 5. * time.delta_seconds();
+        my_config.line_width -= 5. * time.delta_secs();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit2) {
