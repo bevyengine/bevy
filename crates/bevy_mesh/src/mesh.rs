@@ -690,7 +690,6 @@ impl Mesh {
             .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
 
         let mut normals = vec![Vec3::ZERO; positions.len()];
-        let mut adjacency_counts = vec![0_usize; positions.len()];
 
         self.indices()
             .unwrap()
@@ -702,17 +701,13 @@ impl Mesh {
                 let normal = Vec3::from(face_normal(positions[a], positions[b], positions[c]));
                 [a, b, c].iter().for_each(|pos| {
                     normals[*pos] += normal;
-                    adjacency_counts[*pos] += 1;
                 });
             });
 
         // average (smooth) normals for shared vertices...
         // TODO: support different methods of weighting the average
-        for i in 0..normals.len() {
-            let count = adjacency_counts[i];
-            if count > 0 {
-                normals[i] = (normals[i] / (count as f32)).normalize();
-            }
+        for normal in &mut normals {
+            *normal = normal.try_normalize().unwrap_or(Vec3::ZERO);
         }
 
         self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
