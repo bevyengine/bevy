@@ -1,8 +1,6 @@
 #[cfg(feature = "bevy_animation")]
 mod animation;
 mod buffer;
-mod data_uri;
-mod error;
 mod extras;
 mod gltf_tree_iterator;
 mod material;
@@ -20,12 +18,11 @@ use bevy_render::{
 };
 use bevy_utils::HashMap;
 
-use crate::Gltf;
+use crate::{DataUri, Gltf, GltfError};
 
 #[cfg(feature = "bevy_animation")]
 use self::animation::AnimationContext;
-pub use self::error::GltfError;
-use self::{data_uri::DataUri, gltf_tree_iterator::GltfTreeIterator};
+use self::gltf_tree_iterator::GltfTreeIterator;
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
 pub struct GltfLoader {

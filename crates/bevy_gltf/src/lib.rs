@@ -90,6 +90,8 @@
 //!
 //! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
 
+mod data_uri;
+mod error;
 mod gltf;
 mod loader;
 mod vertex_attributes;
@@ -103,7 +105,8 @@ use bevy_render::{
 };
 use bevy_utils::HashMap;
 
-pub use self::{gltf::*, loader::*};
+use self::data_uri::DataUri;
+pub use self::{error::GltfError, gltf::*, loader::*};
 
 /// The glTF prelude.
 ///
