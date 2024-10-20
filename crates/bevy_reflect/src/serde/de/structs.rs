@@ -5,30 +5,19 @@ use crate::{
 use core::{fmt, fmt::Formatter};
 use serde::de::{MapAccess, SeqAccess, Visitor};
 
+use super::ReflectDeserializerProcessor;
+
 /// A [`Visitor`] for deserializing [`Struct`] values.
 ///
 /// [`Struct`]: crate::Struct
-pub(super) struct StructVisitor<'a> {
-    struct_info: &'static StructInfo,
-    registration: &'a TypeRegistration,
-    registry: &'a TypeRegistry,
+pub(super) struct StructVisitor<'a, P> {
+    pub struct_info: &'static StructInfo,
+    pub registration: &'a TypeRegistration,
+    pub registry: &'a TypeRegistry,
+    pub processor: Option<&'a mut P>,
 }
 
-impl<'a> StructVisitor<'a> {
-    pub fn new(
-        struct_info: &'static StructInfo,
-        registration: &'a TypeRegistration,
-        registry: &'a TypeRegistry,
-    ) -> Self {
-        Self {
-            struct_info,
-            registration,
-            registry,
-        }
-    }
-}
-
-impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for StructVisitor<'_, P> {
     type Value = DynamicStruct;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -39,13 +28,25 @@ impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
     where
         A: SeqAccess<'de>,
     {
-        visit_struct_seq(&mut seq, self.struct_info, self.registration, self.registry)
+        visit_struct_seq(
+            &mut seq,
+            self.struct_info,
+            self.registration,
+            self.registry,
+            self.processor,
+        )
     }
 
     fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
     where
         V: MapAccess<'de>,
     {
-        visit_struct(&mut map, self.struct_info, self.registration, self.registry)
+        visit_struct(
+            &mut map,
+            self.struct_info,
+            self.registration,
+            self.registry,
+            self.processor,
+        )
     }
 }
