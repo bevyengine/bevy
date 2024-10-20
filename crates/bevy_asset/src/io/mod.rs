@@ -23,6 +23,7 @@ pub use source::*;
 
 use alloc::sync::Arc;
 use bevy_utils::{BoxedFuture, ConditionalSendFuture};
+use core::future::Future;
 use core::{
     mem::size_of,
     pin::Pin,
@@ -31,10 +32,7 @@ use core::{
 use derive_more::derive::{Display, Error, From};
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::{ready, Stream};
-use std::{
-    future::Future,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 /// Errors that occur while loading assets.
 #[derive(Error, Display, Debug, Clone)]
