@@ -178,7 +178,7 @@ impl<R> OneToMany<R> {
     ///
     /// # Panics
     ///
-    /// Will panic of either index is out-of-bounds.
+    /// Will panic if either index is out-of-bounds.
     #[inline]
     pub fn swap(&mut self, a_index: usize, b_index: usize) {
         self.entities.swap(a_index, b_index);
