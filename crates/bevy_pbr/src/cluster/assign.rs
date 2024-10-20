@@ -5,7 +5,10 @@ use bevy_ecs::{
     query::{Has, With},
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_math::{ops, Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _};
+use bevy_math::{
+    ops::{self, sin_cos},
+    Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _,
+};
 use bevy_render::{
     camera::Camera,
     primitives::{Aabb, Frustum, HalfSpace, Sphere},
@@ -598,7 +601,7 @@ pub(crate) fn assign_objects_to_clusters(
                 };
                 let spot_light_dir_sin_cos = match clusterable_object.object_type {
                     ClusterableObjectType::SpotLight { outer_angle, .. } => {
-                        let (angle_sin, angle_cos) = outer_angle.sin_cos();
+                        let (angle_sin, angle_cos) = sin_cos(outer_angle);
                         Some((
                             (view_from_world * clusterable_object.transform.back().extend(0.0))
                                 .truncate()

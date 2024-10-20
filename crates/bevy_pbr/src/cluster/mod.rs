@@ -527,7 +527,7 @@ impl Default for GpuClusterableObjectsUniform {
 pub(crate) fn clusterable_object_order(
     (entity_1, object_type_1): (&Entity, &ClusterableObjectType),
     (entity_2, object_type_2): (&Entity, &ClusterableObjectType),
-) -> std::cmp::Ordering {
+) -> core::cmp::Ordering {
     object_type_1
         .ordering()
         .cmp(&object_type_2.ordering()) // object type and shadow status
