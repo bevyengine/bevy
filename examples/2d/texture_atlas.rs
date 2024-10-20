@@ -94,36 +94,34 @@ fn setup(
     let atlas_nearest_padded_handle = texture_atlases.add(texture_atlas_nearest_padded);
 
     // setup 2d scene
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // padded textures are to the right, unpadded to the left
 
     // draw unpadded texture atlas
-    commands.spawn(SpriteBundle {
-        texture: linear_texture.clone(),
-        transform: Transform {
+    commands.spawn((
+        Sprite::from_image(linear_texture.clone()),
+        Transform {
             translation: Vec3::new(-250.0, -130.0, 0.0),
             scale: Vec3::splat(0.8),
             ..default()
         },
-        ..default()
-    });
+    ));
 
     // draw padded texture atlas
-    commands.spawn(SpriteBundle {
-        texture: linear_padded_texture.clone(),
-        transform: Transform {
+    commands.spawn((
+        Sprite::from_image(linear_padded_texture.clone()),
+        Transform {
             translation: Vec3::new(250.0, -130.0, 0.0),
             scale: Vec3::splat(0.8),
             ..default()
         },
-        ..default()
-    });
+    ));
 
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
     // padding label text style
-    let text_style: TextStyle = TextStyle {
+    let text_style: TextFont = TextFont {
         font: font.clone(),
         font_size: 42.0,
         ..default()
@@ -186,7 +184,7 @@ fn setup(
     ];
 
     // label text style
-    let sampling_label_style = TextStyle {
+    let sampling_label_style = TextFont {
         font,
         font_size: 25.0,
         ..default()
@@ -260,16 +258,15 @@ fn create_sprite_from_atlas(
     vendor_handle: &Handle<Image>,
 ) {
     commands.spawn((
-        SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(translation.0, translation.1, translation.2),
-                scale: Vec3::splat(3.0),
-                ..default()
-            },
-            texture: atlas_texture,
+        Transform {
+            translation: Vec3::new(translation.0, translation.1, translation.2),
+            scale: Vec3::splat(3.0),
             ..default()
         },
-        atlas_sources.handle(atlas_handle, vendor_handle).unwrap(),
+        Sprite::from_atlas_image(
+            atlas_texture,
+            atlas_sources.handle(atlas_handle, vendor_handle).unwrap(),
+        ),
     ));
 }
 
@@ -278,14 +275,15 @@ fn create_label(
     commands: &mut Commands,
     translation: (f32, f32, f32),
     text: &str,
-    text_style: TextStyle,
+    text_style: TextFont,
 ) {
-    commands.spawn(Text2dBundle {
-        text: Text::from_section(text, text_style).with_justify(JustifyText::Center),
-        transform: Transform {
+    commands.spawn((
+        Text2d::new(text),
+        text_style,
+        TextLayout::new_with_justify(JustifyText::Center),
+        Transform {
             translation: Vec3::new(translation.0, translation.1, translation.2),
             ..default()
         },
-        ..default()
-    });
+    ));
 }

@@ -54,10 +54,10 @@ fn setup(
     ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 #[derive(Component)]
@@ -65,7 +65,7 @@ struct Rotate;
 
 fn rotate_things(mut q: Query<&mut Transform, With<Rotate>>, time: Res<Time>) {
     for mut t in &mut q {
-        t.rotate_y(time.delta_seconds());
+        t.rotate_y(time.delta_secs());
     }
 }
 

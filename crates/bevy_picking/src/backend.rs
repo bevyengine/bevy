@@ -20,7 +20,7 @@
 //! - The [`PointerHits`] events produced by a backend do **not** need to be sorted or filtered, all
 //!   that is needed is an unordered list of entities and their [`HitData`].
 //!
-//! - Backends do not need to consider the [`Pickable`](crate::Pickable) component, though they may
+//! - Backends do not need to consider the [`PickingBehavior`](crate::PickingBehavior) component, though they may
 //!   use it for optimization purposes. For example, a backend that traverses a spatial hierarchy
 //!   may want to early exit if it intersects an entity that blocks lower entities from being
 //!   picked.
@@ -42,7 +42,7 @@ pub mod prelude {
     pub use super::{ray::RayMap, HitData, PointerHits};
     pub use crate::{
         pointer::{PointerId, PointerLocation},
-        PickSet, Pickable,
+        PickSet, PickingBehavior,
     };
 }
 
@@ -56,7 +56,8 @@ pub mod prelude {
 /// Note that systems reading these events in [`PreUpdate`](bevy_app) will not report ordering
 /// ambiguities with picking backends. Take care to ensure such systems are explicitly ordered
 /// against [`PickSet::Backends`](crate), or better, avoid reading `PointerHits` in `PreUpdate`.
-#[derive(Event, Debug, Clone)]
+#[derive(Event, Debug, Clone, Reflect)]
+#[reflect(Debug)]
 pub struct PointerHits {
     /// The pointer associated with this hit test.
     pub pointer: prelude::PointerId,

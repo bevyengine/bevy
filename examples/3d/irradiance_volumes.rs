@@ -231,29 +231,26 @@ fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
 }
 
 fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
-    commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        })
-        .insert(Skybox {
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
+        Skybox {
             image: assets.skybox.clone(),
             brightness: 150.0,
             ..default()
-        });
+        },
+    ));
 }
 
 fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
-    commands
-        .spawn(SpatialBundle {
-            transform: Transform::from_matrix(VOXEL_FROM_WORLD),
-            ..SpatialBundle::default()
-        })
-        .insert(IrradianceVolume {
+    commands.spawn((
+        Transform::from_matrix(VOXEL_FROM_WORLD),
+        IrradianceVolume {
             voxels: assets.irradiance_volume.clone(),
             intensity: IRRADIANCE_VOLUME_INTENSITY,
-        })
-        .insert(LightProbe);
+        },
+        LightProbe,
+    ));
 }
 
 fn spawn_light(commands: &mut Commands) {
@@ -278,12 +275,7 @@ fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {
 }
 
 fn spawn_voxel_cube_parent(commands: &mut Commands) {
-    commands
-        .spawn(SpatialBundle {
-            visibility: Visibility::Hidden,
-            ..default()
-        })
-        .insert(VoxelCubeParent);
+    commands.spawn((Visibility::Hidden, Transform::default(), VoxelCubeParent));
 }
 
 fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
@@ -296,18 +288,15 @@ fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
 }
 
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
-    commands.spawn(
-        TextBundle {
-            text: app_status.create_text(),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        app_status.create_text(),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // A system that updates the help text.
@@ -344,16 +333,14 @@ impl AppStatus {
             ExampleModel::Fox => SWITCH_TO_SPHERE_HELP_TEXT,
         };
 
-        Text::from_section(
-            format!(
-                "{CLICK_TO_MOVE_HELP_TEXT}
-        {voxels_help_text}
-        {irradiance_volume_help_text}
-        {rotation_help_text}
-        {switch_mesh_help_text}"
-            ),
-            TextStyle::default(),
+        format!(
+            "{CLICK_TO_MOVE_HELP_TEXT}\n\
+            {voxels_help_text}\n\
+            {irradiance_volume_help_text}\n\
+            {rotation_help_text}\n\
+            {switch_mesh_help_text}"
         )
+        .into()
     }
 }
 
@@ -368,7 +355,7 @@ fn rotate_camera(
     }
 
     for mut transform in camera_query.iter_mut() {
-        transform.translation = Vec2::from_angle(ROTATION_SPEED * time.delta_seconds())
+        transform.translation = Vec2::from_angle(ROTATION_SPEED * time.delta_secs())
             .rotate(transform.translation.xz())
             .extend(transform.translation.y)
             .xzy();
@@ -523,12 +510,12 @@ impl FromWorld for ExampleAssets {
 fn play_animations(
     mut commands: Commands,
     assets: Res<ExampleAssets>,
-    mut players: Query<(Entity, &mut AnimationPlayer), Without<Handle<AnimationGraph>>>,
+    mut players: Query<(Entity, &mut AnimationPlayer), Without<AnimationGraphHandle>>,
 ) {
     for (entity, mut player) in players.iter_mut() {
         commands
             .entity(entity)
-            .insert(assets.fox_animation_graph.clone());
+            .insert(AnimationGraphHandle(assets.fox_animation_graph.clone()));
         player.play(assets.fox_animation_node).repeat();
     }
 }

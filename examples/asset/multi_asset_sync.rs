@@ -59,7 +59,7 @@ pub struct OneHundredThings([Handle<Gltf>; 100]);
 ///
 /// For sync only the easiest implementation is
 /// [`Arc<()>`] and use [`Arc::strong_count`] for completion.
-/// [`Arc<Atomic*>`] is a more robust alternative.
+/// [`Arc<Atomic>`] is a more robust alternative.
 #[derive(Debug, Resource, Deref)]
 pub struct AssetBarrier(Arc<AssetBarrierInner>);
 
@@ -168,37 +168,17 @@ fn setup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn setup_ui(mut commands: Commands) {
     // Display the result of async loading.
-    commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::End,
 
-                ..default()
-            },
+    commands.spawn((
+        LoadingText,
+        Text::new("Loading...".to_owned()),
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(12.0),
+            top: Val::Px(12.0),
             ..default()
-        })
-        .with_children(|b| {
-            b.spawn((
-                TextBundle {
-                    text: Text {
-                        sections: vec![TextSection {
-                            value: "Loading...".to_owned(),
-                            style: TextStyle {
-                                font_size: 53.0,
-                                color: Color::BLACK,
-                                ..Default::default()
-                            },
-                        }],
-                        justify: JustifyText::Right,
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                },
-                LoadingText,
-            ));
-        });
+        },
+    ));
 }
 
 fn setup_scene(
@@ -207,11 +187,10 @@ fn setup_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(10.0, 10.0, 15.0)
-            .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(10.0, 10.0, 15.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+    ));
 
     // Light
     commands.spawn((
@@ -279,7 +258,7 @@ fn get_async_loading_state(
     if is_loaded {
         next_loading_state.set(LoadingState::Loaded);
         if let Ok(mut text) = text.get_single_mut() {
-            "Loaded!".clone_into(&mut text.sections[0].value);
+            "Loaded!".clone_into(&mut **text);
         }
     }
 }

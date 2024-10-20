@@ -27,7 +27,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let shapes = [
         meshes.add(Circle::new(50.0)),
@@ -64,15 +64,15 @@ fn setup(
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    commands.spawn(
-        TextBundle::from_section("Press space to toggle wireframes", TextStyle::default())
-            .with_style(Style {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            }),
-    );
+    commands.spawn((
+        Text::new("Press space to toggle wireframes"),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
 }
 
 #[cfg(not(target_arch = "wasm32"))]

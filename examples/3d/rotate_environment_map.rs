@@ -36,7 +36,7 @@ fn rotate_skybox_and_environment_map(
     mut environments: Query<(&mut Skybox, &mut EnvironmentMapLight)>,
     time: Res<Time>,
 ) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_secs();
     let rotation = Quat::from_rotation_y(0.2 * now);
     for (mut skybox, mut environment_map) in environments.iter_mut() {
         skybox.rotation = rotation;
@@ -93,19 +93,19 @@ fn spawn_light(commands: &mut Commands) {
 /// Spawns a camera with associated skybox and environment map.
 fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands
-        .spawn(Camera3dBundle {
-            camera: Camera {
+        .spawn((
+            Camera3d::default(),
+            Camera {
                 hdr: true,
                 ..default()
             },
-            projection: Projection::Perspective(PerspectiveProjection {
+            Projection::Perspective(PerspectiveProjection {
                 fov: 27.0 / 180.0 * PI,
                 ..default()
             }),
-            transform: Transform::from_xyz(0.0, 0.0, 10.0),
-            tonemapping: AcesFitted,
-            ..default()
-        })
+            Transform::from_xyz(0.0, 0.0, 10.0),
+            AcesFitted,
+        ))
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),

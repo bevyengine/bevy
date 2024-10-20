@@ -54,40 +54,37 @@ fn setup(
     commands.spawn(DirectionalLight::default());
 
     let texture_camera = commands
-        .spawn(Camera2dBundle {
-            camera: Camera {
+        .spawn((
+            Camera2d,
+            Camera {
                 target: RenderTarget::Image(image_handle.clone()),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .id();
 
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    // Cover the whole image
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                background_color: GOLD.into(),
+            Node {
+                // Cover the whole image
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
             },
+            BackgroundColor(GOLD.into()),
             TargetCamera(texture_camera),
         ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "This is a cube",
-                TextStyle {
+            parent.spawn((
+                Text::new("This is a cube"),
+                TextFont {
                     font_size: 40.0,
-                    color: Color::BLACK,
                     ..default()
                 },
+                TextColor::BLACK,
             ));
         });
 
@@ -112,17 +109,17 @@ fn setup(
     ));
 
     // The main pass camera.
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 const ROTATION_SPEED: f32 = 0.5;
 
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Cube>>) {
     for mut transform in &mut query {
-        transform.rotate_x(1.0 * time.delta_seconds() * ROTATION_SPEED);
-        transform.rotate_y(0.7 * time.delta_seconds() * ROTATION_SPEED);
+        transform.rotate_x(1.0 * time.delta_secs() * ROTATION_SPEED);
+        transform.rotate_y(0.7 * time.delta_secs() * ROTATION_SPEED);
     }
 }

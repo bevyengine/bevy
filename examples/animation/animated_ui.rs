@@ -40,22 +40,22 @@ fn main() {
 }
 
 impl AnimatableProperty for FontSizeProperty {
-    type Component = Text;
+    type Component = TextFont;
 
     type Property = f32;
 
     fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-        Some(&mut component.sections.get_mut(0)?.style.font_size)
+        Some(&mut component.font_size)
     }
 }
 
 impl AnimatableProperty for TextColorProperty {
-    type Component = Text;
+    type Component = TextColor;
 
     type Property = Srgba;
 
     fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-        match component.sections.get_mut(0)?.style.color {
+        match component.0 {
             Color::Srgba(ref mut color) => Some(color),
             _ => None,
         }
@@ -144,15 +144,15 @@ fn setup(
     animation_player.play(animation_node_index).repeat();
 
     // Add a camera.
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Build the UI. We have a parent node that covers the whole screen and
     // contains the `AnimationPlayer`, as well as a child node that contains the
     // text to be animated.
     commands
-        .spawn(NodeBundle {
+        .spawn((
             // Cover the whole screen, and center contents.
-            style: Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(0.0),
                 left: Val::Px(0.0),
@@ -162,25 +162,23 @@ fn setup(
                 align_items: AlignItems::Center,
                 ..default()
             },
-            ..default()
-        })
-        .insert(animation_player)
-        .insert(animation_graph)
+            animation_player,
+            AnimationGraphHandle(animation_graph),
+        ))
         .with_children(|builder| {
             // Build the text node.
             let player = builder.parent_entity();
             builder
-                .spawn(
-                    TextBundle::from_section(
-                        "Bevy",
-                        TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 24.0,
-                            color: Color::Srgba(Srgba::RED),
-                        },
-                    )
-                    .with_text_justify(JustifyText::Center),
-                )
+                .spawn((
+                    Text::new("Bevy"),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 24.0,
+                        ..default()
+                    },
+                    TextColor(Color::Srgba(Srgba::RED)),
+                    TextLayout::new_with_justify(JustifyText::Center),
+                ))
                 // Mark as an animation target.
                 .insert(AnimationTarget {
                     id: animation_target_id,

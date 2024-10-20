@@ -27,7 +27,7 @@ use core::{
     marker::PhantomData,
     mem::needs_drop,
 };
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 /// A data type that can be used to store data for an [entity].
 ///
@@ -146,25 +146,33 @@ use thiserror::Error;
 /// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
 /// ```
 ///
-/// You can also define a custom constructor:
+/// You can also define a custom constructor function or closure:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #[derive(Component)]
-/// #[require(B(init_b))]
+/// #[require(C(init_c))]
 /// struct A;
 ///
 /// #[derive(Component, PartialEq, Eq, Debug)]
-/// struct B(usize);
+/// #[require(C(|| C(20)))]
+/// struct B;
 ///
-/// fn init_b() -> B {
-///     B(10)
+/// #[derive(Component, PartialEq, Eq, Debug)]
+/// struct C(usize);
+///
+/// fn init_c() -> C {
+///     C(10)
 /// }
 ///
 /// # let mut world = World::default();
-/// // This will implicitly also insert B with the init_b() constructor
+/// // This will implicitly also insert C with the init_c() constructor
 /// let id = world.spawn(A).id();
-/// assert_eq!(&B(10), world.entity(id).get::<B>().unwrap());
+/// assert_eq!(&C(10), world.entity(id).get::<C>().unwrap());
+///
+/// // This will implicitly also insert C with the `|| C(20)` constructor closure
+/// let id = world.spawn(B).id();
+/// assert_eq!(&C(20), world.entity(id).get::<C>().unwrap());
 /// ```
 ///
 /// Required components are _recursive_. This means, if a Required Component has required components,
@@ -202,23 +210,15 @@ use thiserror::Error;
 /// struct X(usize);
 ///
 /// #[derive(Component, Default)]
-/// #[require(X(x1))]
+/// #[require(X(|| X(1)))]
 /// struct Y;
-///
-/// fn x1() -> X {
-///     X(1)
-/// }
 ///
 /// #[derive(Component)]
 /// #[require(
 ///     Y,
-///     X(x2),
+///     X(|| X(2)),
 /// )]
 /// struct Z;
-///
-/// fn x2() -> X {
-///     X(2)
-/// }
 ///
 /// # let mut world = World::default();
 /// // In this case, the x2 constructor is used for X
@@ -228,7 +228,7 @@ use thiserror::Error;
 ///
 /// In general, this shouldn't happen often, but when it does the algorithm is simple and predictable:
 /// 1. Use all of the constructors (including default constructors) directly defined in the spawned component's require list
-/// 2. In the order the requires are defined in `#[require()]`, recursively visit the require list of each of the components in the list (this is a depth Depth First Search). When a constructor is found, it will only be used if one has not already been found.
+/// 2. In the order the requires are defined in `#[require()]`, recursively visit the require list of each of the components in the list (this is a Depth First Search). When a constructor is found, it will only be used if one has not already been found.
 ///
 /// From a user perspective, just think about this as the following:
 /// 1. Specifying a required component constructor for Foo directly on a spawned component Bar will result in that constructor being used (and overriding existing constructors lower in the inheritance tree). This is the classic "inheritance override" behavior people expect.
@@ -1623,14 +1623,18 @@ impl<T: Component> FromWorld for InitComponentId<T> {
 }
 
 /// An error returned when the registration of a required component fails.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 #[non_exhaustive]
 pub enum RequiredComponentsError {
     /// The component is already a directly required component for the requiree.
-    #[error("Component {0:?} already directly requires component {1:?}")]
+    #[display("Component {0:?} already directly requires component {_1:?}")]
+    #[error(ignore)]
     DuplicateRegistration(ComponentId, ComponentId),
     /// An archetype with the component that requires other components already exists
-    #[error("An archetype with the component {0:?} that requires other components already exists")]
+    #[display(
+        "An archetype with the component {_0:?} that requires other components already exists"
+    )]
+    #[error(ignore)]
     ArchetypeExists(ComponentId),
 }
 

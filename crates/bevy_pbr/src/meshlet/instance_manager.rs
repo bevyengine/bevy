@@ -1,15 +1,16 @@
-use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh};
+use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d};
 use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
     PreviousGlobalTransform, RenderMaterialInstances,
 };
-use bevy_asset::{AssetEvent, AssetServer, Assets, Handle, UntypedAssetId};
+use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_ecs::{
     entity::{Entities, Entity, EntityHashMap},
     event::EventReader,
     query::Has,
     system::{Local, Query, Res, ResMut, Resource, SystemState},
 };
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{render_resource::StorageBuffer, view::RenderLayers, MainWorld};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
@@ -21,8 +22,8 @@ pub struct InstanceManager {
     /// Amount of clusters in the scene (sum of all meshlet counts across all instances)
     pub scene_cluster_count: u32,
 
-    /// Per-instance [`Entity`], [`RenderLayers`], and [`NotShadowCaster`]
-    pub instances: Vec<(Entity, RenderLayers, bool)>,
+    /// Per-instance [`MainEntity`], [`RenderLayers`], and [`NotShadowCaster`]
+    pub instances: Vec<(MainEntity, RenderLayers, bool)>,
     /// Per-instance [`MeshUniform`]
     pub instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
     /// Per-instance material ID
@@ -107,7 +108,7 @@ impl InstanceManager {
 
         // Append instance data
         self.instances.push((
-            instance,
+            instance.into(),
             render_layers.cloned().unwrap_or(RenderLayers::default()),
             not_shadow_caster,
         ));
@@ -168,7 +169,7 @@ pub fn extract_meshlet_mesh_entities(
             SystemState<(
                 Query<(
                     Entity,
-                    &Handle<MeshletMesh>,
+                    &MeshletMesh3d,
                     &GlobalTransform,
                     Option<&PreviousGlobalTransform>,
                     Option<&RenderLayers>,

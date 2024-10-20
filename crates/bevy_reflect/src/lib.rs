@@ -51,7 +51,7 @@
 //! `dyn Reflect` trait objects can be used similarly to `dyn PartialReflect`,
 //! but `Reflect` is also often used in trait bounds (like `T: Reflect`).
 //!
-//! The distinction between `PartialReflect` and `Reflect` is summarised in the following:
+//! The distinction between `PartialReflect` and `Reflect` is summarized in the following:
 //! * `PartialReflect` is a trait for interacting with values under `bevy_reflect`'s data model.
 //!   This means values implementing `PartialReflect` can be dynamically constructed and introspected.
 //! * The `Reflect` trait, however, ensures that the interface exposed by `PartialReflect`
@@ -454,15 +454,11 @@
 //! but [`Reflect`] requires all types to have a `'static` lifetime.
 //! This makes it impossible to reflect any type with non-static borrowed data.
 //!
-//! ## Function Reflection
+//! ## Generic Function Reflection
 //!
-//! Another limitation is the inability to fully reflect functions and methods.
-//! Most languages offer some way of calling methods dynamically,
-//! but Rust makes this very difficult to do.
-//! For non-generic methods, this can be done by registering custom [type data] that
-//! contains function pointers.
-//! For generic methods, the same can be done but will typically require manual monomorphization
-//! (i.e. manually specifying the types the generic method can take).
+//! Another limitation is the inability to reflect over generic functions directly. It can be done, but will
+//! typically require manual monomorphization (i.e. manually specifying the types the generic method can
+//! take).
 //!
 //! ## Manual Registration of Generic Types
 //!
@@ -483,6 +479,17 @@
 //! enables the optional dependencies: [`bevy_math`], [`glam`], and [`smallvec`].
 //! These dependencies are used by the [Bevy] game engine and must define their reflection implementations
 //! within this crate due to Rust's [orphan rule].
+//!
+//! ## `functions`
+//!
+//! | Default | Dependencies                      |
+//! | :-----: | :-------------------------------: |
+//! | ❌      | [`bevy_reflect_derive/functions`] |
+//!
+//! This feature allows creating a [`DynamicFunction`] or [`DynamicFunctionMut`] from Rust functions. Dynamic
+//! functions can then be called with valid [`ArgList`]s.
+//!
+//! For more information, read the [`func`] module docs.
 //!
 //! ## `documentation`
 //!
@@ -519,7 +526,7 @@
 //! [the language feature for dyn upcasting coercion]: https://github.com/rust-lang/rust/issues/65991
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
-//! [`Function`]: func::Function
+//! [`Function`]: crate::func::Function
 //! [derive macro documentation]: derive@crate::Reflect
 //! [deriving `Reflect`]: derive@crate::Reflect
 //! [type data]: TypeData
@@ -539,6 +546,10 @@
 //! [`smallvec`]: https://docs.rs/smallvec/latest/smallvec/
 //! [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type:~:text=But%20we%20can%E2%80%99t,implementation%20to%20use.
 //! [`bevy_reflect_derive/documentation`]: bevy_reflect_derive
+//! [`bevy_reflect_derive/functions`]: bevy_reflect_derive
+//! [`DynamicFunction`]: crate::func::DynamicFunction
+//! [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
+//! [`ArgList`]: crate::func::ArgList
 //! [derive `Reflect`]: derive@crate::Reflect
 
 extern crate alloc;
@@ -1921,6 +1932,41 @@ mod tests {
         let value: &dyn Reflect = &String::from("Hello!");
         let info = value.reflect_type_info();
         assert!(info.is::<MyValue>());
+    }
+
+    #[test]
+    fn get_represented_kind_info() {
+        #[derive(Reflect)]
+        struct SomeStruct;
+
+        #[derive(Reflect)]
+        struct SomeTupleStruct(f32);
+
+        #[derive(Reflect)]
+        enum SomeEnum {
+            Foo,
+            Bar,
+        }
+
+        let dyn_struct: &dyn Struct = &SomeStruct;
+        let _: &StructInfo = dyn_struct.get_represented_struct_info().unwrap();
+
+        let dyn_map: &dyn Map = &HashMap::<(), ()>::default();
+        let _: &MapInfo = dyn_map.get_represented_map_info().unwrap();
+
+        let dyn_array: &dyn Array = &[1, 2, 3];
+        let _: &ArrayInfo = dyn_array.get_represented_array_info().unwrap();
+
+        let dyn_list: &dyn List = &vec![1, 2, 3];
+        let _: &ListInfo = dyn_list.get_represented_list_info().unwrap();
+
+        let dyn_tuple_struct: &dyn TupleStruct = &SomeTupleStruct(5.0);
+        let _: &TupleStructInfo = dyn_tuple_struct
+            .get_represented_tuple_struct_info()
+            .unwrap();
+
+        let dyn_enum: &dyn Enum = &SomeEnum::Foo;
+        let _: &EnumInfo = dyn_enum.get_represented_enum_info().unwrap();
     }
 
     #[test]

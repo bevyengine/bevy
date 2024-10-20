@@ -46,10 +46,10 @@ fn setup(
     ));
 
     // Spawn a camera looking at the entities to show what's happening in this example.
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(entity_spawn, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 10.0, 20.0).looking_at(entity_spawn, Vec3::Y),
+    ));
 
     // Add a light source for better 3d visibility.
     commands.spawn((
@@ -66,6 +66,6 @@ fn move_cube(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Res<Time>)
             cube.speed *= -1.0;
         }
         let direction = transform.local_x();
-        transform.translation += direction * cube.speed * timer.delta_seconds();
+        transform.translation += direction * cube.speed * timer.delta_secs();
     }
 }

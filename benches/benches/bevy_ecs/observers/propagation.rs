@@ -1,9 +1,5 @@
 use bevy_ecs::{
-    component::Component,
-    entity::Entity,
-    event::Event,
-    observer::Trigger,
-    world::World,
+    component::Component, entity::Entity, event::Event, observer::Trigger, world::World,
 };
 use bevy_hierarchy::{BuildChildren, Parent};
 

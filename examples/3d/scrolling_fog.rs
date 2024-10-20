@@ -49,16 +49,13 @@ fn setup(
 ) {
     // Spawn camera with temporal anti-aliasing and a VolumetricFog configuration.
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 2.0, 0.0)
-                .looking_at(Vec3::new(-5.0, 3.5, -6.0), Vec3::Y),
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            msaa: Msaa::Off,
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 2.0, 0.0).looking_at(Vec3::new(-5.0, 3.5, -6.0), Vec3::Y),
+        Camera {
+            hdr: true,
             ..default()
         },
+        Msaa::Off,
         TemporalAntiAliasing::default(),
         Bloom::default(),
         VolumetricFog {
@@ -116,11 +113,7 @@ fn setup(
 
     // Spawn a FogVolume and use the repeating noise texture as its density texture.
     commands.spawn((
-        SpatialBundle {
-            visibility: Visibility::Visible,
-            transform: Transform::from_xyz(0.0, 32.0, 0.0).with_scale(Vec3::splat(64.0)),
-            ..default()
-        },
+        Transform::from_xyz(0.0, 32.0, 0.0).with_scale(Vec3::splat(64.0)),
         FogVolume {
             density_texture: Some(noise_texture),
             density_factor: 0.05,
@@ -132,6 +125,6 @@ fn setup(
 /// Moves fog density texture offset every frame.
 fn scroll_fog(time: Res<Time>, mut query: Query<&mut FogVolume>) {
     for mut fog_volume in query.iter_mut() {
-        fog_volume.density_texture_offset += Vec3::new(0.0, 0.0, 0.04) * time.delta_seconds();
+        fog_volume.density_texture_offset += Vec3::new(0.0, 0.0, 0.04) * time.delta_secs();
     }
 }

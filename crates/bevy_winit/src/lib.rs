@@ -15,6 +15,8 @@
 extern crate alloc;
 
 use bevy_derive::Deref;
+use bevy_reflect::prelude::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
 use core::marker::PhantomData;
 use winit::event_loop::EventLoop;
@@ -23,8 +25,6 @@ use bevy_a11y::AccessibilityRequested;
 use bevy_app::{App, Last, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_window::{exit_on_all_closed, Window, WindowCreated};
-pub use converters::convert_system_cursor_icon;
-pub use state::{CursorSource, CustomCursorCache, CustomCursorCacheKey, PendingCursor};
 use system::{changed_windows, check_keyboard_focus_lost, despawn_windows};
 pub use system::{create_monitors, create_windows};
 #[cfg(all(target_family = "wasm", target_os = "unknown"))]
@@ -44,6 +44,8 @@ use crate::{
 
 pub mod accessibility;
 mod converters;
+#[cfg(feature = "custom_cursor")]
+pub mod cursor;
 mod state;
 mod system;
 mod winit_config;
@@ -59,6 +61,9 @@ mod winit_windows;
 ///
 /// The `T` event type can be used to pass custom events to the `winit`'s loop, and handled as events
 /// in systems.
+///
+/// When using eg. `MinimalPlugins` you can add this using `WinitPlugin::<WakeUp>::default()`, where
+/// `WakeUp` is the default `Event` that bevy uses.
 #[derive(Default)]
 pub struct WinitPlugin<T: Event = WakeUp> {
     /// Allows the window (and the event loop) to be created on any thread
@@ -131,6 +136,8 @@ impl<T: Event> Plugin for WinitPlugin<T> {
             );
 
         app.add_plugins(AccessKitPlugin);
+        #[cfg(feature = "custom_cursor")]
+        app.add_plugins(cursor::CursorPlugin);
 
         let event_loop = event_loop_builder
             .build()
@@ -144,7 +151,8 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 
 /// The default event that can be used to wake the window loop
 /// Wakes up the loop if in wait state
-#[derive(Debug, Default, Clone, Copy, Event)]
+#[derive(Debug, Default, Clone, Copy, Event, Reflect)]
+#[reflect(Debug, Default)]
 pub struct WakeUp;
 
 /// A wrapper type around [`winit::event_loop::EventLoopProxy`] with the specific

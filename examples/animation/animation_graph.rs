@@ -47,24 +47,24 @@ static NODE_RECTS: [NodeRect; 5] = [
     NodeRect::new(10.00, 10.00, 97.64, 48.41),
     NodeRect::new(10.00, 78.41, 97.64, 48.41),
     NodeRect::new(286.08, 78.41, 97.64, 48.41),
-    NodeRect::new(148.04, 44.20, 97.64, 48.41),
+    NodeRect::new(148.04, 112.61, 97.64, 48.41), // was 44.20
     NodeRect::new(10.00, 146.82, 97.64, 48.41),
 ];
 
 /// The positions of the horizontal lines in the UI.
 static HORIZONTAL_LINES: [Line; 6] = [
-    Line::new(107.64, 34.21, 20.20),
+    Line::new(107.64, 34.21, 158.24),
     Line::new(107.64, 102.61, 20.20),
-    Line::new(107.64, 171.02, 158.24),
-    Line::new(127.84, 68.41, 20.20),
-    Line::new(245.68, 68.41, 20.20),
+    Line::new(107.64, 171.02, 20.20),
+    Line::new(127.84, 136.82, 20.20),
+    Line::new(245.68, 136.82, 20.20),
     Line::new(265.88, 102.61, 20.20),
 ];
 
 /// The positions of the vertical lines in the UI.
 static VERTICAL_LINES: [Line; 2] = [
-    Line::new(127.83, 34.21, 68.40),
-    Line::new(265.88, 68.41, 102.61),
+    Line::new(127.83, 102.61, 68.40),
+    Line::new(265.88, 34.21, 102.61),
 ];
 
 /// Initializes the app.
@@ -218,10 +218,10 @@ fn setup_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-10.0, 5.0, 13.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-10.0, 5.0, 13.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+    ));
 
     commands.spawn((
         PointLight {
@@ -250,16 +250,15 @@ fn setup_scene(
 
 /// Places the help text at the top left of the window.
 fn setup_help_text(commands: &mut Commands) {
-    commands.spawn(TextBundle {
-        text: Text::from_section(HELP_TEXT, TextStyle::default()),
-        style: Style {
+    commands.spawn((
+        Text::new(HELP_TEXT),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 }
 
 /// Initializes the node UI widgets.
@@ -271,43 +270,37 @@ fn setup_node_rects(commands: &mut Commands) {
         };
 
         let text = commands
-            .spawn(TextBundle {
-                text: Text::from_section(
-                    node_string,
-                    TextStyle {
-                        font_size: 16.0,
-                        color: ANTIQUE_WHITE.into(),
-                        ..default()
-                    },
-                )
-                .with_justify(JustifyText::Center),
-                ..default()
-            })
+            .spawn((
+                Text::new(node_string),
+                TextFont {
+                    font_size: 16.0,
+                    ..default()
+                },
+                TextColor(ANTIQUE_WHITE.into()),
+                TextLayout::new_with_justify(JustifyText::Center),
+            ))
             .id();
 
         let container = {
             let mut container = commands.spawn((
-                NodeBundle {
-                    style: Style {
-                        position_type: PositionType::Absolute,
-                        bottom: Val::Px(node_rect.bottom),
-                        left: Val::Px(node_rect.left),
-                        height: Val::Px(node_rect.height),
-                        width: Val::Px(node_rect.width),
-                        align_items: AlignItems::Center,
-                        justify_items: JustifyItems::Center,
-                        align_content: AlignContent::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
-                    border_color: WHITE.into(),
+                Node {
+                    position_type: PositionType::Absolute,
+                    bottom: Val::Px(node_rect.bottom),
+                    left: Val::Px(node_rect.left),
+                    height: Val::Px(node_rect.height),
+                    width: Val::Px(node_rect.width),
+                    align_items: AlignItems::Center,
+                    justify_items: JustifyItems::Center,
+                    align_content: AlignContent::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
+                BorderColor(WHITE.into()),
                 Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
             ));
 
             if let NodeType::Clip(ref clip) = node_type {
-                container = container.insert((
+                container.insert((
                     Interaction::None,
                     RelativeCursorPosition::default(),
                     (*clip).clone(),
@@ -320,8 +313,8 @@ fn setup_node_rects(commands: &mut Commands) {
         // Create the background color.
         if let NodeType::Clip(_) = node_type {
             let background = commands
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         position_type: PositionType::Absolute,
                         top: Val::Px(0.),
                         left: Val::Px(0.),
@@ -329,9 +322,8 @@ fn setup_node_rects(commands: &mut Commands) {
                         width: Val::Px(node_rect.width),
                         ..default()
                     },
-                    background_color: DARK_GREEN.into(),
-                    ..default()
-                })
+                    BackgroundColor(DARK_GREEN.into()),
+                ))
                 .id();
 
             commands.entity(container).add_child(background);
@@ -347,8 +339,8 @@ fn setup_node_rects(commands: &mut Commands) {
 /// vertical and horizontal lines, respectively.
 fn setup_node_lines(commands: &mut Commands) {
     for line in &HORIZONTAL_LINES {
-        commands.spawn(NodeBundle {
-            style: Style {
+        commands.spawn((
+            Node {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(line.bottom),
                 left: Val::Px(line.left),
@@ -357,14 +349,13 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::bottom(Val::Px(1.0)),
                 ..default()
             },
-            border_color: WHITE.into(),
-            ..default()
-        });
+            BorderColor(WHITE.into()),
+        ));
     }
 
     for line in &VERTICAL_LINES {
-        commands.spawn(NodeBundle {
-            style: Style {
+        commands.spawn((
+            Node {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(line.bottom),
                 left: Val::Px(line.left),
@@ -373,9 +364,8 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::left(Val::Px(1.0)),
                 ..default()
             },
-            border_color: WHITE.into(),
-            ..default()
-        });
+            BorderColor(WHITE.into()),
+        ));
     }
 }
 
@@ -392,7 +382,7 @@ fn init_animations(
 
     for (entity, mut player) in query.iter_mut() {
         commands.entity(entity).insert((
-            animation_graph.0.clone(),
+            AnimationGraphHandle(animation_graph.0.clone()),
             ExampleAnimationWeights::default(),
         ));
         for &node_index in &CLIP_NODE_INDICES {
@@ -427,7 +417,7 @@ fn handle_weight_drag(
 // Updates the UI based on the weights that the user has chosen.
 fn update_ui(
     mut text_query: Query<&mut Text>,
-    mut background_query: Query<&mut Style, Without<Text>>,
+    mut background_query: Query<&mut Node, Without<Text>>,
     container_query: Query<(&Children, &ClipNode)>,
     animation_weights_query: Query<&ExampleAnimationWeights, Changed<ExampleAnimationWeights>>,
 ) {
@@ -435,16 +425,16 @@ fn update_ui(
         for (children, clip_node) in &container_query {
             // Draw the green background color to visually indicate the weight.
             let mut bg_iter = background_query.iter_many_mut(children);
-            if let Some(mut style) = bg_iter.fetch_next() {
+            if let Some(mut node) = bg_iter.fetch_next() {
                 // All nodes are the same width, so `NODE_RECTS[0]` is as good as any other.
-                style.width =
+                node.width =
                     Val::Px(NODE_RECTS[0].width * animation_weights.weights[clip_node.index]);
             }
 
             // Update the node labels with the current weights.
             let mut text_iter = text_query.iter_many_mut(children);
             if let Some(mut text) = text_iter.fetch_next() {
-                text.sections[0].value = format!(
+                **text = format!(
                     "{}\n{:.2}",
                     clip_node.text, animation_weights.weights[clip_node.index]
                 );

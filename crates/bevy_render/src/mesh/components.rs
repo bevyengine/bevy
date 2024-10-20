@@ -4,14 +4,12 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
+use derive_more::derive::From;
 
-/// A component for rendering 2D meshes, typically with a [`MeshMaterial2d`] using a [`ColorMaterial`].
-///
-/// Meshes without a [`MeshMaterial2d`] will be rendered with a [default material].
+/// A component for 2D meshes. Requires a [`MeshMaterial2d`] to be rendered, commonly using a [`ColorMaterial`].
 ///
 /// [`MeshMaterial2d`]: <https://docs.rs/bevy/latest/bevy/sprite/struct.MeshMaterial2d.html>
 /// [`ColorMaterial`]: <https://docs.rs/bevy/latest/bevy/sprite/struct.ColorMaterial.html>
-/// [default material]: <https://docs.rs/bevy/latest/bevy/sprite/struct.MeshMaterial2d.html#default-material>
 ///
 /// # Example
 ///
@@ -35,16 +33,10 @@ use bevy_transform::components::Transform;
 ///     ));
 /// }
 /// ```
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
 #[require(Transform, Visibility)]
 pub struct Mesh2d(pub Handle<Mesh>);
-
-impl From<Handle<Mesh>> for Mesh2d {
-    fn from(handle: Handle<Mesh>) -> Self {
-        Self(handle)
-    }
-}
 
 impl From<Mesh2d> for AssetId<Mesh> {
     fn from(mesh: Mesh2d) -> Self {
@@ -58,13 +50,10 @@ impl From<&Mesh2d> for AssetId<Mesh> {
     }
 }
 
-/// A component for rendering 3D meshes, typically with a [`MeshMaterial3d`] using a [`StandardMaterial`].
-///
-/// Meshes without a [`MeshMaterial3d`] will be rendered with a [default material].
+/// A component for 3D meshes. Requires a [`MeshMaterial3d`] to be rendered, commonly using a [`StandardMaterial`].
 ///
 /// [`MeshMaterial3d`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterial3d.html>
 /// [`StandardMaterial`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.StandardMaterial.html>
-/// [default material]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterial3d.html#default-material>
 ///
 /// # Example
 ///
@@ -91,16 +80,10 @@ impl From<&Mesh2d> for AssetId<Mesh> {
 ///     ));
 /// }
 /// ```
-#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
 #[require(Transform, Visibility)]
 pub struct Mesh3d(pub Handle<Mesh>);
-
-impl From<Handle<Mesh>> for Mesh3d {
-    fn from(handle: Handle<Mesh>) -> Self {
-        Self(handle)
-    }
-}
 
 impl From<Mesh3d> for AssetId<Mesh> {
     fn from(mesh: Mesh3d) -> Self {

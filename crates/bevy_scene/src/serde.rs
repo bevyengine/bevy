@@ -775,7 +775,7 @@ mod tests {
         assert!(dst_world
             .query_filtered::<&MyEntityRef, With<Foo>>()
             .iter(&dst_world)
-            .all(|r| world.get_entity(r.0).is_none()));
+            .all(|r| world.get_entity(r.0).is_err()));
     }
 
     #[test]
@@ -964,7 +964,7 @@ mod tests {
         }
     }
 
-    /// These tests just verify that that the [`assert_scene_eq`] function is working properly for our tests.
+    /// These tests just verify that the [`assert_scene_eq`] function is working properly for our tests.
     mod assert_scene_eq_tests {
         use super::*;
 

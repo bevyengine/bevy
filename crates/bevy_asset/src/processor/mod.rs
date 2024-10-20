@@ -68,11 +68,11 @@ use bevy_utils::{
     tracing::{info_span, instrument::Instrument},
     ConditionalSendFuture,
 };
+use derive_more::derive::{Display, Error};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use parking_lot::RwLock;
 use std::path::{Path, PathBuf};
-use thiserror::Error;
 
 /// A "background" asset processor that reads asset values from a source [`AssetSource`] (which corresponds to an [`AssetReader`](crate::io::AssetReader) / [`AssetWriter`](crate::io::AssetWriter) pair),
 /// processes them in some way, and writes them to a destination [`AssetSource`].
@@ -670,7 +670,7 @@ impl AssetProcessor {
                 }
 
                 for dependency in dependencies {
-                    asset_infos.add_dependant(&dependency, asset_path.clone());
+                    asset_infos.add_dependent(&dependency, asset_path.clone());
                 }
             }
         }
@@ -859,7 +859,7 @@ impl AssetProcessor {
                 }
             }
         }
-        // Note: this lock must remain alive until all processed asset asset and meta writes have finished (or failed)
+        // Note: this lock must remain alive until all processed asset and meta writes have finished (or failed)
         // See ProcessedAssetInfo::file_transaction_lock docs for more info
         let _transaction_lock = {
             let mut infos = self.data.asset_infos.write().await;
@@ -1137,7 +1137,7 @@ pub enum ProcessStatus {
 pub(crate) struct ProcessorAssetInfo {
     processed_info: Option<ProcessedInfo>,
     /// Paths of assets that depend on this asset when they are being processed.
-    dependants: HashSet<AssetPath<'static>>,
+    dependents: HashSet<AssetPath<'static>>,
     status: Option<ProcessStatus>,
     /// A lock that controls read/write access to processed asset files. The lock is shared for both the asset bytes and the meta bytes.
     /// _This lock must be locked whenever a read or write to processed assets occurs_
@@ -1161,7 +1161,7 @@ impl Default for ProcessorAssetInfo {
         status_sender.set_overflow(true);
         Self {
             processed_info: Default::default(),
-            dependants: Default::default(),
+            dependents: Default::default(),
             file_transaction_lock: Default::default(),
             status: None,
             status_sender,
@@ -1187,13 +1187,13 @@ pub struct ProcessorAssetInfos {
     /// The "current" in memory view of the asset space. During processing, if path does not exist in this, it should
     /// be considered non-existent.
     /// NOTE: YOU MUST USE `Self::get_or_insert` or `Self::insert` TO ADD ITEMS TO THIS COLLECTION TO ENSURE
-    /// `non_existent_dependants` DATA IS CONSUMED
+    /// `non_existent_dependents` DATA IS CONSUMED
     infos: HashMap<AssetPath<'static>, ProcessorAssetInfo>,
-    /// Dependants for assets that don't exist. This exists to track "dangling" asset references due to deleted / missing files.
-    /// If the dependant asset is added, it can "resolve" these dependencies and re-compute those assets.
+    /// Dependents for assets that don't exist. This exists to track "dangling" asset references due to deleted / missing files.
+    /// If the dependent asset is added, it can "resolve" these dependencies and re-compute those assets.
     /// Therefore this _must_ always be consistent with the `infos` data. If a new asset is added to `infos`, it should
-    /// check this maps for dependencies and add them. If an asset is removed, it should update the dependants here.
-    non_existent_dependants: HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
+    /// check this maps for dependencies and add them. If an asset is removed, it should update the dependents here.
+    non_existent_dependents: HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
     check_reprocess_queue: VecDeque<AssetPath<'static>>,
 }
 
@@ -1201,9 +1201,9 @@ impl ProcessorAssetInfos {
     fn get_or_insert(&mut self, asset_path: AssetPath<'static>) -> &mut ProcessorAssetInfo {
         self.infos.entry(asset_path.clone()).or_insert_with(|| {
             let mut info = ProcessorAssetInfo::default();
-            // track existing dependants by resolving existing "hanging" dependants.
-            if let Some(dependants) = self.non_existent_dependants.remove(&asset_path) {
-                info.dependants = dependants;
+            // track existing dependents by resolving existing "hanging" dependents.
+            if let Some(dependents) = self.non_existent_dependents.remove(&asset_path) {
+                info.dependents = dependents;
             }
             info
         })
@@ -1217,15 +1217,15 @@ impl ProcessorAssetInfos {
         self.infos.get_mut(asset_path)
     }
 
-    fn add_dependant(&mut self, asset_path: &AssetPath<'static>, dependant: AssetPath<'static>) {
+    fn add_dependent(&mut self, asset_path: &AssetPath<'static>, dependent: AssetPath<'static>) {
         if let Some(info) = self.get_mut(asset_path) {
-            info.dependants.insert(dependant);
+            info.dependents.insert(dependent);
         } else {
-            let dependants = self
-                .non_existent_dependants
+            let dependents = self
+                .non_existent_dependents
                 .entry(asset_path.clone())
                 .or_default();
-            dependants.insert(dependant);
+            dependents.insert(dependent);
         }
     }
 
@@ -1238,7 +1238,7 @@ impl ProcessorAssetInfos {
         match result {
             Ok(ProcessResult::Processed(processed_info)) => {
                 debug!("Finished processing \"{:?}\"", asset_path);
-                // clean up old dependants
+                // clean up old dependents
                 let old_processed_info = self
                     .infos
                     .get_mut(&asset_path)
@@ -1247,15 +1247,15 @@ impl ProcessorAssetInfos {
                     self.clear_dependencies(&asset_path, old_processed_info);
                 }
 
-                // populate new dependants
+                // populate new dependents
                 for process_dependency_info in &processed_info.process_dependencies {
-                    self.add_dependant(&process_dependency_info.path, asset_path.to_owned());
+                    self.add_dependent(&process_dependency_info.path, asset_path.to_owned());
                 }
                 let info = self.get_or_insert(asset_path);
                 info.processed_info = Some(processed_info);
                 info.update_status(ProcessStatus::Processed).await;
-                let dependants = info.dependants.iter().cloned().collect::<Vec<_>>();
-                for path in dependants {
+                let dependents = info.dependents.iter().cloned().collect::<Vec<_>>();
+                for path in dependents {
                     self.check_reprocess_queue.push_back(path);
                 }
             }
@@ -1298,7 +1298,7 @@ impl ProcessorAssetInfos {
                         full_hash: AssetHash::default(),
                         process_dependencies: vec![],
                     });
-                    self.add_dependant(dependency.path(), asset_path.to_owned());
+                    self.add_dependent(dependency.path(), asset_path.to_owned());
                 }
 
                 let info = self.get_mut(&asset_path).expect("info should exist");
@@ -1319,13 +1319,13 @@ impl ProcessorAssetInfos {
                 .broadcast(ProcessStatus::NonExistent)
                 .await
                 .unwrap();
-            if !info.dependants.is_empty() {
+            if !info.dependents.is_empty() {
                 error!(
                     "The asset at {asset_path} was removed, but it had assets that depend on it to be processed. Consider updating the path in the following assets: {:?}",
-                    info.dependants
+                    info.dependents
                 );
-                self.non_existent_dependants
-                    .insert(asset_path.clone(), info.dependants);
+                self.non_existent_dependents
+                    .insert(asset_path.clone(), info.dependents);
             }
         }
     }
@@ -1334,31 +1334,31 @@ impl ProcessorAssetInfos {
     async fn rename(&mut self, old: &AssetPath<'static>, new: &AssetPath<'static>) {
         let info = self.infos.remove(old);
         if let Some(mut info) = info {
-            if !info.dependants.is_empty() {
+            if !info.dependents.is_empty() {
                 // TODO: We can't currently ensure "moved" folders with relative paths aren't broken because AssetPath
                 // doesn't distinguish between absolute and relative paths. We have "erased" relativeness. In the short term,
                 // we could do "remove everything in a folder and re-add", but that requires full rebuilds / destroying the cache.
                 // If processors / loaders could enumerate dependencies, we could check if the new deps line up with a rename.
                 // If deps encoded "relativeness" as part of loading, that would also work (this seems like the right call).
-                // TODO: it would be nice to log an error here for dependants that aren't also being moved + fixed.
+                // TODO: it would be nice to log an error here for dependents that aren't also being moved + fixed.
                 // (see the remove impl).
                 error!(
                     "The asset at {old} was removed, but it had assets that depend on it to be processed. Consider updating the path in the following assets: {:?}",
-                    info.dependants
+                    info.dependents
                 );
-                self.non_existent_dependants
-                    .insert(old.clone(), core::mem::take(&mut info.dependants));
+                self.non_existent_dependents
+                    .insert(old.clone(), core::mem::take(&mut info.dependents));
             }
             if let Some(processed_info) = &info.processed_info {
-                // Update "dependant" lists for this asset's "process dependencies" to use new path.
+                // Update "dependent" lists for this asset's "process dependencies" to use new path.
                 for dep in &processed_info.process_dependencies {
                     if let Some(info) = self.infos.get_mut(&dep.path) {
-                        info.dependants.remove(old);
-                        info.dependants.insert(new.clone());
-                    } else if let Some(dependants) = self.non_existent_dependants.get_mut(&dep.path)
+                        info.dependents.remove(old);
+                        info.dependents.insert(new.clone());
+                    } else if let Some(dependents) = self.non_existent_dependents.get_mut(&dep.path)
                     {
-                        dependants.remove(old);
-                        dependants.insert(new.clone());
+                        dependents.remove(old);
+                        dependents.insert(new.clone());
                     }
                 }
             }
@@ -1367,7 +1367,7 @@ impl ProcessorAssetInfos {
                 .broadcast(ProcessStatus::NonExistent)
                 .await
                 .unwrap();
-            let dependants: Vec<AssetPath<'static>> = {
+            let dependents: Vec<AssetPath<'static>> = {
                 let new_info = self.get_or_insert(new.clone());
                 new_info.processed_info = info.processed_info;
                 new_info.status = info.status;
@@ -1375,13 +1375,13 @@ impl ProcessorAssetInfos {
                 if let Some(status) = new_info.status {
                     new_info.status_sender.broadcast(status).await.unwrap();
                 }
-                new_info.dependants.iter().cloned().collect()
+                new_info.dependents.iter().cloned().collect()
             };
             // Queue the asset for a reprocess check, in case it needs new meta.
             self.check_reprocess_queue.push_back(new.clone());
-            for dependant in dependants {
-                // Queue dependants for reprocessing because they might have been waiting for this asset.
-                self.check_reprocess_queue.push_back(dependant);
+            for dependent in dependents {
+                // Queue dependents for reprocessing because they might have been waiting for this asset.
+                self.check_reprocess_queue.push_back(dependent);
             }
         }
     }
@@ -1389,11 +1389,11 @@ impl ProcessorAssetInfos {
     fn clear_dependencies(&mut self, asset_path: &AssetPath<'static>, removed_info: ProcessedInfo) {
         for old_load_dep in removed_info.process_dependencies {
             if let Some(info) = self.infos.get_mut(&old_load_dep.path) {
-                info.dependants.remove(asset_path);
-            } else if let Some(dependants) =
-                self.non_existent_dependants.get_mut(&old_load_dep.path)
+                info.dependents.remove(asset_path);
+            } else if let Some(dependents) =
+                self.non_existent_dependents.get_mut(&old_load_dep.path)
             {
-                dependants.remove(asset_path);
+                dependents.remove(asset_path);
             }
         }
     }
@@ -1413,12 +1413,10 @@ pub enum ProcessorState {
 }
 
 /// An error that occurs when initializing the [`AssetProcessor`].
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 pub enum InitializeError {
-    #[error(transparent)]
     FailedToReadSourcePaths(AssetReaderError),
-    #[error(transparent)]
     FailedToReadDestinationPaths(AssetReaderError),
-    #[error("Failed to validate asset log: {0}")]
+    #[display("Failed to validate asset log: {_0}")]
     ValidateLogError(ValidateLogError),
 }

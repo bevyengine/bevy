@@ -1,7 +1,7 @@
 //! A freecam-style camera controller plugin.
 //! To use in your own application:
 //! - Copy the code for the [`CameraControllerPlugin`] and add the plugin to your App.
-//! - Attach the [`CameraController`] component to an entity with a [`Camera3dBundle`].
+//! - Attach the [`CameraController`] component to an entity with a [`Camera3d`].
 
 use bevy::{
     input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseScrollUnit},
@@ -111,7 +111,7 @@ fn run_camera_controller(
     mut mouse_cursor_grab: Local<bool>,
     mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
 ) {
-    let dt = time.delta_seconds();
+    let dt = time.delta_secs();
 
     if let Ok((mut transform, mut controller)) = query.get_single_mut() {
         if !controller.initialized {

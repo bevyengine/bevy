@@ -1,8 +1,16 @@
 //! This example demonstrates the use of Ghost Nodes.
 //!
 //! UI layout will ignore ghost nodes, and treat their children as if they were direct descendants of the first non-ghost ancestor.
+//!
+//! # Warning
+//!
+//! This is an experimental feature, and should be used with caution,
+//! especially in concert with 3rd party plugins or systems that may not be aware of ghost nodes.
+//!
+//! To add [`GhostNode`] components to entities, you must enable the `ghost_nodes` feature flag,
+//! as they are otherwise unconstructable even though the type is defined.
 
-use bevy::{prelude::*, ui::GhostNode, winit::WinitSettings};
+use bevy::{prelude::*, ui::experimental::GhostNode, winit::WinitSettings};
 
 fn main() {
     App::new()
@@ -19,36 +27,33 @@ struct Counter(i32);
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Ghost UI root
-    commands.spawn(GhostNode).with_children(|ghost_root| {
-        ghost_root
-            .spawn(NodeBundle::default())
-            .with_child(create_label(
+    commands
+        .spawn(GhostNode::new())
+        .with_children(|ghost_root| {
+            ghost_root.spawn(Node::default()).with_child(create_label(
                 "This text node is rendered under a ghost root",
                 font_handle.clone(),
             ));
-    });
+        });
 
     // Normal UI root
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
             ..default()
         })
         .with_children(|parent| {
             parent
-                .spawn((NodeBundle::default(), Counter(0)))
+                .spawn((Node::default(), Counter(0)))
                 .with_children(|layout_parent| {
                     layout_parent
-                        .spawn((GhostNode, Counter(0)))
+                        .spawn((GhostNode::new(), Counter(0)))
                         .with_children(|ghost_parent| {
                             // Ghost children using a separate counter state
                             // These buttons are being treated as children of layout_parent in the context of UI
@@ -68,9 +73,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn create_button() -> ButtonBundle {
-    ButtonBundle {
-        style: Style {
+fn create_button() -> impl Bundle {
+    (
+        Button,
+        Node {
             width: Val::Px(150.0),
             height: Val::Px(65.0),
             border: UiRect::all(Val::Px(5.0)),
@@ -80,21 +86,21 @@ fn create_button() -> ButtonBundle {
             align_items: AlignItems::Center,
             ..default()
         },
-        border_color: BorderColor(Color::BLACK),
-        border_radius: BorderRadius::MAX,
-        background_color: Color::srgb(0.15, 0.15, 0.15).into(),
-        ..default()
-    }
+        BorderColor(Color::BLACK),
+        BorderRadius::MAX,
+        BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+    )
 }
 
-fn create_label(text: &str, font: Handle<Font>) -> TextBundle {
-    TextBundle::from_section(
-        text,
-        TextStyle {
+fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont, TextColor) {
+    (
+        Text::new(text),
+        TextFont {
             font,
             font_size: 33.0,
-            color: Color::srgb(0.9, 0.9, 0.9),
+            ..default()
         },
+        TextColor(Color::srgb(0.9, 0.9, 0.9)),
     )
 }
 
@@ -117,6 +123,6 @@ fn button_system(
         let counter = counter_query.get(parent.get()).unwrap();
         let mut text = text_query.get_mut(children[0]).unwrap();
 
-        text.sections[0].value = counter.0.to_string();
+        **text = counter.0.to_string();
     }
 }

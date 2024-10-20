@@ -32,7 +32,7 @@ use core::{any::TypeId, ptr::NonNull};
 ///
 /// Each bundle represents a static set of [`Component`] types.
 /// Currently, bundles can only contain one of each [`Component`], and will
-/// panic once initialised if this is not met.
+/// panic once initialized if this is not met.
 ///
 /// ## Insertion
 ///
@@ -55,9 +55,6 @@ use core::{any::TypeId, ptr::NonNull};
 /// would create incoherent behavior.
 /// This would be unexpected if bundles were treated as an abstraction boundary, as
 /// the abstraction would be unmaintainable for these cases.
-/// For example, both `Camera3dBundle` and `Camera2dBundle` contain the `CameraRenderGraph`
-/// component, but specifying different render graphs to use.
-/// If the bundles were both added to the same entity, only one of these two bundles would work.
 ///
 /// For this reason, there is intentionally no [`Query`] to match whether an entity
 /// contains the components of a bundle.
@@ -80,8 +77,6 @@ use core::{any::TypeId, ptr::NonNull};
 /// Additionally, [Tuples](`tuple`) of bundles are also [`Bundle`] (with up to 15 bundles).
 /// These bundles contain the items of the 'inner' bundles.
 /// This is a convenient shorthand which is primarily used when spawning entities.
-/// For example, spawning an entity using the bundle `(SpriteBundle {...}, PlayerMarker)`
-/// will spawn an entity with components required for a 2d sprite, and the `PlayerMarker` component.
 ///
 /// [`unit`], otherwise known as [`()`](`unit`), is a [`Bundle`] containing no components (since it
 /// can also be considered as the empty tuple).
@@ -287,6 +282,7 @@ macro_rules! tuple_impl {
             }
         }
 
+        $(#[$meta])*
         impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
             #[allow(unused_variables, unused_mut)]
             #[inline(always)]
@@ -465,10 +461,9 @@ impl BundleInfo {
     }
 
     /// Returns an iterator over the [ID](ComponentId) of each component explicitly defined in this bundle (ex: this excludes Required Components).
-
     /// To iterate all components contributed by this bundle (including Required Components), see [`BundleInfo::iter_contributed_components`]
     #[inline]
-    pub fn iter_explicit_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn iter_explicit_components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.explicit_components().iter().copied()
     }
 
@@ -476,7 +471,7 @@ impl BundleInfo {
     ///
     /// To iterate only components explicitly defined in this bundle, see [`BundleInfo::iter_explicit_components`]
     #[inline]
-    pub fn iter_contributed_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn iter_contributed_components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.component_ids.iter().copied()
     }
 
@@ -1301,6 +1296,8 @@ pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
     /// Cache static [`BundleId`]
     bundle_ids: TypeIdMap<BundleId>,
+    /// Cache bundles, which contains both explicit and required components of [`Bundle`]
+    contributed_bundle_ids: TypeIdMap<BundleId>,
     /// Cache dynamic [`BundleId`] with multiple components
     dynamic_bundle_ids: HashMap<Box<[ComponentId]>, BundleId>,
     dynamic_bundle_storages: HashMap<BundleId, Vec<StorageType>>,
@@ -1348,6 +1345,36 @@ impl Bundles {
             id
         });
         id
+    }
+
+    /// Registers a new [`BundleInfo`], which contains both explicit and required components for a statically known type.
+    ///
+    /// Also registers all the components in the bundle.
+    pub(crate) fn register_contributed_bundle_info<T: Bundle>(
+        &mut self,
+        components: &mut Components,
+        storages: &mut Storages,
+    ) -> BundleId {
+        if let Some(id) = self.contributed_bundle_ids.get(&TypeId::of::<T>()).cloned() {
+            id
+        } else {
+            let explicit_bundle_id = self.register_info::<T>(components, storages);
+            // SAFETY: reading from `explicit_bundle_id` and creating new bundle in same time. Its valid because bundle hashmap allow this
+            let id = unsafe {
+                let (ptr, len) = {
+                    // SAFETY: `explicit_bundle_id` is valid and defined above
+                    let contributed = self
+                        .get_unchecked(explicit_bundle_id)
+                        .contributed_components();
+                    (contributed.as_ptr(), contributed.len())
+                };
+                // SAFETY: this is sound because the contributed_components Vec for explicit_bundle_id will not be accessed mutably as
+                // part of init_dynamic_info. No mutable references will be created and the allocation will remain valid.
+                self.init_dynamic_info(components, core::slice::from_raw_parts(ptr, len))
+            };
+            self.contributed_bundle_ids.insert(TypeId::of::<T>(), id);
+            id
+        }
     }
 
     /// # Safety

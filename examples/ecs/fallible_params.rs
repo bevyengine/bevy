@@ -20,9 +20,22 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        // We add all the systems one after another.
-        // We don't need to use run conditions here.
-        .add_systems(Update, (user_input, move_targets, move_pointer).chain())
+        // Systems that fail parameter validation will emit warnings.
+        // The default policy is to emit a warning once per system.
+        // This is good for catching unexpected behavior, but can
+        // lead to spam. You can disable invalid param warnings
+        // per system using the `.never_param_warn()` method.
+        .add_systems(
+            Update,
+            (
+                user_input,
+                move_targets.never_param_warn(),
+                move_pointer.never_param_warn(),
+            )
+                .chain(),
+        )
+        // We will leave this systems with default warning policy.
+        .add_systems(Update, do_nothing_fail_validation)
         .run();
 }
 
@@ -45,7 +58,7 @@ struct Player {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn 2D camera.
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Spawn player.
     let texture = asset_server.load("textures/simplespace/ship_C.png");
@@ -55,21 +68,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             rotation_speed: 2.0,
             min_follow_radius: 50.0,
         },
-        SpriteBundle {
-            sprite: Sprite {
-                color: bevy::color::palettes::tailwind::BLUE_800.into(),
-                ..default()
-            },
-            transform: Transform::from_translation(Vec3::ZERO),
-            texture,
-            ..default()
+        Sprite {
+            image: texture,
+            color: bevy::color::palettes::tailwind::BLUE_800.into(),
+            ..Default::default()
         },
+        Transform::from_translation(Vec3::ZERO),
     ));
 }
 
-// System that reads user input.
-// If user presses 'A' we spawn a new random enemy.
-// If user presses 'R' we remove a random enemy (if any exist).
+/// System that reads user input.
+/// If user presses 'A' we spawn a new random enemy.
+/// If user presses 'R' we remove a random enemy (if any exist).
 fn user_input(
     mut commands: Commands,
     enemies: Query<Entity, With<Enemy>>,
@@ -86,15 +96,12 @@ fn user_input(
                 rotation: rng.gen_range(0.0..std::f32::consts::TAU),
                 rotation_speed: rng.gen_range(0.5..1.5),
             },
-            SpriteBundle {
-                sprite: Sprite {
-                    color: bevy::color::palettes::tailwind::RED_800.into(),
-                    ..default()
-                },
-                transform: Transform::from_translation(Vec3::ZERO),
-                texture,
+            Sprite {
+                image: texture,
+                color: bevy::color::palettes::tailwind::RED_800.into(),
                 ..default()
             },
+            Transform::from_translation(Vec3::ZERO),
         ));
     }
 
@@ -109,7 +116,7 @@ fn user_input(
 // Only runs if there are enemies.
 fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<Time>) {
     for (mut transform, mut target) in &mut *enemies {
-        target.rotation += target.rotation_speed * time.delta_seconds();
+        target.rotation += target.rotation_speed * time.delta_secs();
         transform.rotation = Quat::from_rotation_z(target.rotation);
         let offset = transform.right() * target.radius;
         transform.translation = target.origin.extend(0.0) + offset;
@@ -121,9 +128,9 @@ fn move_targets(mut enemies: Populated<(&mut Transform, &mut Enemy)>, time: Res<
 /// If there is one, player will track it.
 /// If there are too many enemies, the player will cease all action (the system will not run).
 fn move_pointer(
-    // `QuerySingle` ensures the system runs ONLY when exactly one matching entity exists.
+    // `Single` ensures the system runs ONLY when exactly one matching entity exists.
     mut player: Single<(&mut Transform, &Player)>,
-    // `Option<QuerySingle>` ensures that the system runs ONLY when zero or one matching entity exists.
+    // `Option<Single>` ensures that the system runs ONLY when zero or one matching entity exists.
     enemy: Option<Single<&Transform, (With<Enemy>, Without<Player>)>>,
     time: Res<Time>,
 ) {
@@ -138,11 +145,15 @@ fn move_pointer(
         player_transform.rotation = Quat::from_mat3(&Mat3::from_cols(side, front, up));
         let max_step = distance - player.min_follow_radius;
         if 0.0 < max_step {
-            let velocity = (player.speed * time.delta_seconds()).min(max_step);
+            let velocity = (player.speed * time.delta_secs()).min(max_step);
             player_transform.translation += front * velocity;
         }
     } else {
         // No enemy found, keep searching.
-        player_transform.rotate_axis(Dir3::Z, player.rotation_speed * time.delta_seconds());
+        player_transform.rotate_axis(Dir3::Z, player.rotation_speed * time.delta_secs());
     }
 }
+
+/// This system always fails param validation, because we never
+/// create an entity with both [`Player`] and [`Enemy`] components.
+fn do_nothing_fail_validation(_: Single<(), (With<Player>, With<Enemy>)>) {}

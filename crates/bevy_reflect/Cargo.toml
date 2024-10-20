@@ -38,7 +38,11 @@ bevy_ptr = { path = "../bevy_ptr", version = "0.15.0-dev" }
 erased-serde = "0.4"
 disqualified = "1.0"
 downcast-rs = "1.2"
-thiserror = "1.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+] }
 serde = "1"
 smallvec = { version = "1.11", optional = true }
 assert_type_match = "0.1.1"

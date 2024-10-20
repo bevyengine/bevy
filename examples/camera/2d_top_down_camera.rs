@@ -49,27 +49,22 @@ fn setup_scene(
 }
 
 fn setup_instructions(mut commands: Commands) {
-    commands.spawn(
-        TextBundle::from_section(
-            "Move the light with WASD.\nThe camera will smoothly track the light.",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new("Move the light with WASD.\nThe camera will smoothly track the light."),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn((
-        Camera2dBundle {
-            camera: Camera {
-                hdr: true, // HDR is required for the bloom effect
-                ..default()
-            },
+        Camera2d,
+        Camera {
+            hdr: true, // HDR is required for the bloom effect
             ..default()
         },
         Bloom::NATURAL,
@@ -97,7 +92,7 @@ fn update_camera(
     // between the camera position and the player position on the x and y axes.
     camera
         .translation
-        .smooth_nudge(&direction, CAMERA_DECAY_RATE, time.delta_seconds());
+        .smooth_nudge(&direction, CAMERA_DECAY_RATE, time.delta_secs());
 }
 
 /// Update the player position with keyboard inputs.
@@ -135,6 +130,6 @@ fn move_player(
     // Progressively update the player's position over time. Normalize the
     // direction vector to prevent it from exceeding a magnitude of 1 when
     // moving diagonally.
-    let move_delta = direction.normalize_or_zero() * PLAYER_SPEED * time.delta_seconds();
+    let move_delta = direction.normalize_or_zero() * PLAYER_SPEED * time.delta_secs();
     player.translation += move_delta.extend(0.);
 }

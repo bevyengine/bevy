@@ -94,8 +94,14 @@ where
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
+    fn sample_clamped(&self, t: f32) -> T {
+        // `EvenCore::sample_with` is implicitly clamped.
         self.core.sample_with(t, &self.interpolation)
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.sample_clamped(t)
     }
 }
 
@@ -143,9 +149,15 @@ where
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
+    fn sample_clamped(&self, t: f32) -> T {
+        // `EvenCore::sample_with` is implicitly clamped.
         self.core
             .sample_with(t, <T as StableInterpolate>::interpolate_stable)
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.sample_clamped(t)
     }
 }
 
@@ -242,8 +254,14 @@ where
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
+    fn sample_clamped(&self, t: f32) -> T {
+        // `UnevenCore::sample_with` is implicitly clamped.
         self.core.sample_with(t, &self.interpolation)
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.sample_clamped(t)
     }
 }
 
@@ -301,17 +319,23 @@ where
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
+    fn sample_clamped(&self, t: f32) -> T {
+        // `UnevenCore::sample_with` is implicitly clamped.
         self.core
             .sample_with(t, <T as StableInterpolate>::interpolate_stable)
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.sample_clamped(t)
     }
 }
 
 impl<T> UnevenSampleAutoCurve<T> {
-    /// Create a new [`UnevenSampleAutoCurve`] from a given set of timed samples, interpolated
-    /// using the  The samples are filtered to finite times and
-    /// sorted internally; if there are not at least 2 valid timed samples, an error will be
-    /// returned.
+    /// Create a new [`UnevenSampleAutoCurve`] from a given set of timed samples.
+    ///
+    /// The samples are filtered to finite times and sorted internally; if there are not
+    /// at least 2 valid timed samples, an error will be returned.
     pub fn new(timed_samples: impl IntoIterator<Item = (f32, T)>) -> Result<Self, UnevenCoreError> {
         Ok(Self {
             core: UnevenCore::new(timed_samples)?,

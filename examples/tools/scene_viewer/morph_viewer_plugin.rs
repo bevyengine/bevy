@@ -122,8 +122,8 @@ impl fmt::Display for Target {
     }
 }
 impl Target {
-    fn text_section(&self, key: &str, style: TextStyle) -> TextSection {
-        TextSection::new(format!("[{key}] {self}\n"), style)
+    fn text_span(&self, key: &str, style: TextFont) -> (String, TextFont) {
+        (format!("[{key}] {self}\n"), style)
     }
     fn new(
         entity_name: Option<&Name>,
@@ -178,8 +178,9 @@ impl MorphKey {
 }
 fn update_text(
     controls: Option<ResMut<WeightsControl>>,
-    mut text: Query<&mut Text>,
+    text: Single<Entity, With<Text>>,
     morphs: Query<&MorphWeights>,
+    mut writer: TextUiWriter,
 ) {
     let Some(mut controls) = controls else {
         return;
@@ -195,8 +196,7 @@ fn update_text(
             target.weight = actual_weight;
         }
         let key_name = &AVAILABLE_KEYS[i].name;
-        let mut text = text.single_mut();
-        text.sections[i + 2].value = format!("[{key_name}] {target}\n");
+        *writer.text(*text, i + 3) = format!("[{key_name}] {target}\n");
     }
 }
 fn update_morphs(
@@ -219,7 +219,7 @@ fn update_morphs(
         // component and call `weights_mut` to get access to the weights.
         let weights_slice = weights.weights_mut();
         let i = target.index;
-        let change = time.delta_seconds() * WEIGHT_PER_SECOND;
+        let change = time.delta_secs() * WEIGHT_PER_SECOND;
         let new_weight = target.change_dir.change_weight(weights_slice[i], change);
         weights_slice[i] = new_weight;
         target.weight = new_weight;
@@ -253,24 +253,32 @@ fn detect_morphs(
         detected.extend(targets);
     }
     detected.truncate(AVAILABLE_KEYS.len());
-    let style = TextStyle {
+    let style = TextFont {
         font_size: 13.0,
         ..default()
     };
-    let mut sections = vec![
-        TextSection::new("Morph Target Controls\n", style.clone()),
-        TextSection::new("---------------\n", style.clone()),
+    let mut spans = vec![
+        ("Morph Target Controls\n".into(), style.clone()),
+        ("---------------\n".into(), style.clone()),
     ];
     let target_to_text =
-        |(i, target): (usize, &Target)| target.text_section(AVAILABLE_KEYS[i].name, style.clone());
-    sections.extend(detected.iter().enumerate().map(target_to_text));
+        |(i, target): (usize, &Target)| target.text_span(AVAILABLE_KEYS[i].name, style.clone());
+    spans.extend(detected.iter().enumerate().map(target_to_text));
     commands.insert_resource(WeightsControl { weights: detected });
-    commands.spawn(TextBundle::from_sections(sections).with_style(Style {
-        position_type: PositionType::Absolute,
-        top: Val::Px(10.0),
-        left: Val::Px(10.0),
-        ..default()
-    }));
+    commands
+        .spawn((
+            Text::default(),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(10.0),
+                left: Val::Px(10.0),
+                ..default()
+            },
+        ))
+        .with_children(|p| {
+            p.spawn((TextSpan::new("Morph Target Controls\n"), style.clone()));
+            p.spawn((TextSpan::new("---------------\n"), style));
+        });
 }
 
 pub struct MorphViewerPlugin;

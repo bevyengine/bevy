@@ -54,10 +54,10 @@ fn setup(
     }
 
     // Camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 // Update the material color by time
@@ -72,7 +72,7 @@ fn update(
     buffer.set_data(
         (0..5)
             .map(|i| {
-                let t = time.elapsed_seconds() * 5.0;
+                let t = time.elapsed_secs() * 5.0;
                 [
                     ops::sin(t + i as f32) / 2.0 + 0.5,
                     ops::sin(t + i as f32 + 2.0) / 2.0 + 0.5,

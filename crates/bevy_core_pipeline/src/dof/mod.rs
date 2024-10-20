@@ -46,12 +46,13 @@ use bevy_render::{
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
+    sync_component::SyncComponentPlugin,
+    sync_world::RenderEntity,
     texture::{BevyDefault, CachedTexture, TextureCache},
     view::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
     },
-    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{info_once, prelude::default, warn_once};
@@ -210,6 +211,8 @@ impl Plugin for DepthOfFieldPlugin {
         app.register_type::<DepthOfField>();
         app.register_type::<DepthOfFieldMode>();
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
+
+        app.add_plugins(SyncComponentPlugin::<DepthOfField>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -810,7 +813,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
 /// Extracts all [`DepthOfField`] components into the render world.
 fn extract_depth_of_field_settings(
     mut commands: Commands,
-    mut query: Extract<Query<(&RenderEntity, &DepthOfField, &Projection)>>,
+    mut query: Extract<Query<(RenderEntity, &DepthOfField, &Projection)>>,
 ) {
     if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
         info_once!(
@@ -820,9 +823,21 @@ fn extract_depth_of_field_settings(
     }
 
     for (entity, depth_of_field, projection) in query.iter_mut() {
-        let entity = entity.id();
+        let mut entity_commands = commands
+            .get_entity(entity)
+            .expect("Depth of field entity wasn't synced.");
+
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
+            // TODO: needs better strategy for cleaning up
+            entity_commands.remove::<(
+                DepthOfField,
+                DepthOfFieldUniform,
+                // components added in prepare systems (because `DepthOfFieldNode` does not query extracted components)
+                DepthOfFieldPipelines,
+                AuxiliaryDepthOfFieldTexture,
+                ViewDepthOfFieldBindGroupLayouts,
+            )>();
             continue;
         };
 
@@ -830,7 +845,7 @@ fn extract_depth_of_field_settings(
             calculate_focal_length(depth_of_field.sensor_height, perspective_projection.fov);
 
         // Convert `DepthOfField` to `DepthOfFieldUniform`.
-        commands.get_or_spawn(entity).insert((
+        entity_commands.insert((
             *depth_of_field,
             DepthOfFieldUniform {
                 focal_distance: depth_of_field.focal_distance,

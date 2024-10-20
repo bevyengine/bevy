@@ -1,4 +1,4 @@
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 use crate::{entity::Entity, world::unsafe_world_cell::UnsafeWorldCell};
 
@@ -70,7 +70,7 @@ fn format_archetype(
             .components()
             .get_name(component_id)
             .expect("entity does not belong to world");
-        write!(f, "{name}")?;
+        write!(f, "{}", disqualified::ShortName(name))?;
     }
     Ok(())
 }
@@ -90,13 +90,15 @@ impl<'w> Eq for QueryEntityError<'w> {}
 
 /// An error that occurs when evaluating a [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState) as a single expected result via
 /// [`get_single`](crate::system::Query::get_single) or [`get_single_mut`](crate::system::Query::get_single_mut).
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub enum QuerySingleError {
     /// No entity fits the query.
-    #[error("No entities fit the query {0}")]
+    #[display("No entities fit the query {_0}")]
+    #[error(ignore)]
     NoEntities(&'static str),
     /// Multiple entities fit the query.
-    #[error("Multiple entities fit the query {0}")]
+    #[display("Multiple entities fit the query {_0}")]
+    #[error(ignore)]
     MultipleEntities(&'static str),
 }
 
@@ -124,6 +126,9 @@ mod test {
             .get(&world, entity)
             .unwrap_err();
 
-        assert_eq!(format!("{err:?}"), "QueryDoesNotMatch(0v1 with components bevy_ecs::query::error::test::query_does_not_match::Present1, bevy_ecs::query::error::test::query_does_not_match::Present2)");
+        assert_eq!(
+            format!("{err:?}"),
+            "QueryDoesNotMatch(0v1 with components Present1, Present2)"
+        );
     }
 }

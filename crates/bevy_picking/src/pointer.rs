@@ -17,7 +17,7 @@ use bevy_window::PrimaryWindow;
 
 use uuid::Uuid;
 
-use core::fmt::Debug;
+use core::{fmt::Debug, ops::Deref};
 
 use crate::backend::HitData;
 
@@ -26,6 +26,7 @@ use crate::backend::HitData;
 /// This component is needed because pointers can be spawned and despawned, but they need to have a
 /// stable ID that persists regardless of the Entity they are associated with.
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, Component, Reflect)]
+#[require(PointerLocation, PointerPress, PointerInteraction)]
 #[reflect(Component, Default, Debug, Hash, PartialEq)]
 pub enum PointerId {
     /// The mouse pointer.
@@ -68,6 +69,21 @@ impl PointerId {
 #[reflect(Component, Default, Debug)]
 pub struct PointerInteraction {
     pub(crate) sorted_entities: Vec<(Entity, HitData)>,
+}
+
+impl PointerInteraction {
+    /// Returns the nearest hit entity and data about that intersection.
+    pub fn get_nearest_hit(&self) -> Option<&(Entity, HitData)> {
+        self.sorted_entities.first()
+    }
+}
+
+impl Deref for PointerInteraction {
+    type Target = Vec<(Entity, HitData)>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.sorted_entities
+    }
 }
 
 /// A resource that maps each [`PointerId`] to their [`Entity`] for easy lookups.
@@ -164,6 +180,13 @@ pub struct PointerLocation {
 }
 
 impl PointerLocation {
+    ///Returns a [`PointerLocation`] associated with the given location
+    pub fn new(location: Location) -> Self {
+        Self {
+            location: Some(location),
+        }
+    }
+
     /// Returns `Some(&`[`Location`]`)` if the pointer is active, or `None` if the pointer is
     /// inactive.
     pub fn location(&self) -> Option<&Location> {

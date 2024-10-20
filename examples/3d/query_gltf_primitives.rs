@@ -23,14 +23,18 @@ fn find_top_material_and_mesh(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     time: Res<Time>,
-    mat_query: Query<(&Handle<StandardMaterial>, &Handle<Mesh>, &GltfMaterialName)>,
+    mat_query: Query<(
+        &MeshMaterial3d<StandardMaterial>,
+        &Mesh3d,
+        &GltfMaterialName,
+    )>,
 ) {
     for (mat_handle, mesh_handle, name) in mat_query.iter() {
         // locate a material by material name
         if name.0 == "Top" {
             if let Some(material) = materials.get_mut(mat_handle) {
                 if let Color::Hsla(ref mut hsla) = material.base_color {
-                    *hsla = hsla.rotate_hue(time.delta_seconds() * 100.0);
+                    *hsla = hsla.rotate_hue(time.delta_secs() * 100.0);
                 } else {
                     material.base_color = Color::from(Hsla::hsl(0.0, 0.8, 0.5));
                 }
@@ -41,7 +45,7 @@ fn find_top_material_and_mesh(
                     mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)
                 {
                     positions[0] = (
-                        ops::sin(2.0 * PI * time.elapsed_seconds()),
+                        ops::sin(2.0 * PI * time.elapsed_secs()),
                         positions[0][1],
                         positions[0][2],
                     )
@@ -54,11 +58,8 @@ fn find_top_material_and_mesh(
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.6, 1.6, 11.3)
-                .looking_at(Vec3::new(0.0, 0.0, 3.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(0.6, 1.6, 11.3).looking_at(Vec3::new(0.0, 0.0, 3.0), Vec3::Y),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),

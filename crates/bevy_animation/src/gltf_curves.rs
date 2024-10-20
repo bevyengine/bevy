@@ -5,7 +5,7 @@ use bevy_math::{
     vec4, Quat, Vec4, VectorSpace,
 };
 use bevy_reflect::Reflect;
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
 
 /// A keyframe-defined curve that "interpolates" by stepping at `t = 1.0` to the next keyframe.
 #[derive(Debug, Clone, Reflect)]
@@ -23,9 +23,14 @@ where
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
+    fn sample_clamped(&self, t: f32) -> T {
         self.core
             .sample_with(t, |x, y, t| if t >= 1.0 { y.clone() } else { x.clone() })
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.sample_clamped(t)
     }
 }
 
@@ -57,7 +62,7 @@ where
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> V {
+    fn sample_clamped(&self, t: f32) -> V {
         match self.core.sample_interp_timed(t) {
             // In all the cases where only one frame matters, defer to the position within it.
             InterpolationDatum::Exact((_, v))
@@ -68,6 +73,11 @@ where
                 cubic_spline_interpolation(u[1], u[2], v[0], v[1], s, t1 - t0)
             }
         }
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> V {
+        self.sample_clamped(t)
     }
 }
 
@@ -112,7 +122,7 @@ impl Curve<Quat> for CubicRotationCurve {
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> Quat {
+    fn sample_clamped(&self, t: f32) -> Quat {
         let vec = match self.core.sample_interp_timed(t) {
             // In all the cases where only one frame matters, defer to the position within it.
             InterpolationDatum::Exact((_, v))
@@ -124,6 +134,11 @@ impl Curve<Quat> for CubicRotationCurve {
             }
         };
         Quat::from_vec4(vec.normalize())
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> Quat {
+        self.sample_clamped(t)
     }
 }
 
@@ -170,7 +185,7 @@ where
     }
 
     #[inline]
-    fn sample_iter_unchecked(&self, t: f32) -> impl Iterator<Item = T> {
+    fn sample_iter_clamped(&self, t: f32) -> impl Iterator<Item = T> {
         match self.core.sample_interp(t) {
             InterpolationDatum::Exact(v)
             | InterpolationDatum::LeftTail(v)
@@ -181,6 +196,11 @@ where
                 TwoIterators::Right(interpolated)
             }
         }
+    }
+
+    #[inline]
+    fn sample_iter_unchecked(&self, t: f32) -> impl Iterator<Item = T> {
+        self.sample_iter_clamped(t)
     }
 }
 
@@ -219,7 +239,7 @@ where
     }
 
     #[inline]
-    fn sample_iter_unchecked(&self, t: f32) -> impl Iterator<Item = T> {
+    fn sample_iter_clamped(&self, t: f32) -> impl Iterator<Item = T> {
         match self.core.sample_interp(t) {
             InterpolationDatum::Exact(v)
             | InterpolationDatum::LeftTail(v)
@@ -233,6 +253,11 @@ where
                 TwoIterators::Right(interpolated)
             }
         }
+    }
+
+    #[inline]
+    fn sample_iter_unchecked(&self, t: f32) -> impl Iterator<Item = T> {
+        self.sample_iter_clamped(t)
     }
 }
 
@@ -269,7 +294,7 @@ where
         self.core.domain()
     }
 
-    fn sample_iter_unchecked(&self, t: f32) -> impl Iterator<Item = T> {
+    fn sample_iter_clamped(&self, t: f32) -> impl Iterator<Item = T> {
         match self.core.sample_interp_timed(t) {
             InterpolationDatum::Exact((_, v))
             | InterpolationDatum::LeftTail((_, v))
@@ -285,23 +310,27 @@ where
             ),
         }
     }
+
+    #[inline]
+    fn sample_iter_unchecked(&self, t: f32) -> impl Iterator<Item = T> {
+        self.sample_iter_clamped(t)
+    }
 }
 
 /// An error indicating that a multisampling keyframe curve could not be constructed.
-#[derive(Debug, Error)]
-#[error("unable to construct a curve using this data")]
+#[derive(Debug, Error, Display, From)]
+#[display("unable to construct a curve using this data")]
 pub enum WideKeyframeCurveError {
     /// The number of given values was not divisible by a multiple of the number of keyframes.
-    #[error("number of values ({values_given}) is not divisible by {divisor}")]
+    #[display("number of values ({values_given}) is not divisible by {divisor}")]
     LengthMismatch {
         /// The number of values given.
         values_given: usize,
         /// The number that `values_given` was supposed to be divisible by.
         divisor: usize,
     },
-
     /// An error was returned by the internal core constructor.
-    CoreError(#[from] ChunkedUnevenCoreError),
+    CoreError(ChunkedUnevenCoreError),
 }
 
 impl<T> WideCubicKeyframeCurve<T> {
