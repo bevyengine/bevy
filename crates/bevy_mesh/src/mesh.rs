@@ -1368,4 +1368,39 @@ mod tests {
             vec![3, 2, 1, 0]
         );
     }
+
+    #[test]
+    fn compute_smooth_normals() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+
+        //  z      y
+        //  |    /
+        //  3---2
+        //  | /  \
+        //  0-----1--x
+
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[0., 0., 0.], [1., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
+        );
+        mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
+        mesh.compute_smooth_normals();
+        let normals = mesh
+            .attribute(Mesh::ATTRIBUTE_NORMAL)
+            .unwrap()
+            .as_float3()
+            .unwrap();
+        assert_eq!(4, normals.len());
+        // 0
+        assert_eq!(Vec3::new(1., 0., 1.).normalize().to_array(), normals[0]);
+        // 1
+        assert_eq!([0., 0., 1.], normals[1]);
+        // 2
+        assert_eq!(Vec3::new(1., 0., 1.).normalize().to_array(), normals[2]);
+        // 3
+        assert_eq!([1., 0., 0.], normals[3]);
+    }
 }
