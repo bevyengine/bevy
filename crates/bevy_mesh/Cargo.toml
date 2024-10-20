@@ -24,6 +24,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 # misc
 bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5" }
+either = "1.13"
 wgpu = { version = "22", default-features = false }
 serde = { version = "1", features = ["derive"] }
 hexasphere = "15.0"

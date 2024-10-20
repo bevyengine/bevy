@@ -1,7 +1,7 @@
 use bevy_reflect::Reflect;
 use core::iter;
-use core::iter::FusedIterator;
 use derive_more::derive::{Display, Error};
+use either::Either;
 use wgpu::IndexFormat;
 
 /// A disjunction of four iterators. This is necessary to have a well-formed type for the output
@@ -79,8 +79,8 @@ impl Indices {
     /// Returns an iterator over the indices.
     pub fn iter(&self) -> impl Iterator<Item = usize> + '_ {
         match self {
-            Indices::U16(vec) => IndicesIter::U16(vec.iter()),
-            Indices::U32(vec) => IndicesIter::U32(vec.iter()),
+            Indices::U16(vec) => Either::Left(vec.iter().map(|&index| index as usize)),
+            Indices::U32(vec) => Either::Right(vec.iter().map(|&index| index as usize)),
         }
     }
 
@@ -119,33 +119,6 @@ impl Indices {
         }
     }
 }
-
-/// An Iterator for the [`Indices`].
-enum IndicesIter<'a> {
-    U16(core::slice::Iter<'a, u16>),
-    U32(core::slice::Iter<'a, u32>),
-}
-
-impl Iterator for IndicesIter<'_> {
-    type Item = usize;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            IndicesIter::U16(iter) => iter.next().map(|val| *val as usize),
-            IndicesIter::U32(iter) => iter.next().map(|val| *val as usize),
-        }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        match self {
-            IndicesIter::U16(iter) => iter.size_hint(),
-            IndicesIter::U32(iter) => iter.size_hint(),
-        }
-    }
-}
-
-impl<'a> ExactSizeIterator for IndicesIter<'a> {}
-impl<'a> FusedIterator for IndicesIter<'a> {}
 
 impl From<&Indices> for IndexFormat {
     fn from(indices: &Indices) -> Self {
