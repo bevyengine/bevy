@@ -225,7 +225,7 @@ fn setup(
             },
             TextColor(TEXT_COLOR),
             ScoreboardUi,
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: SCOREBOARD_TEXT_PADDING,
                 left: SCOREBOARD_TEXT_PADDING,

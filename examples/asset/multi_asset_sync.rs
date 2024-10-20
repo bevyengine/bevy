@@ -172,7 +172,7 @@ fn setup_ui(mut commands: Commands) {
     commands.spawn((
         LoadingText,
         Text::new("Loading...".to_owned()),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             left: Val::Px(12.0),
             top: Val::Px(12.0),

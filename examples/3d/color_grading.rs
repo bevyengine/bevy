@@ -138,17 +138,14 @@ fn setup(
 fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &ColorGrading) {
     // Spawn the parent node that contains all the buttons.
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                flex_direction: FlexDirection::Column,
-                position_type: PositionType::Absolute,
-                row_gap: Val::Px(6.0),
-                left: Val::Px(12.0),
-                bottom: Val::Px(12.0),
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            flex_direction: FlexDirection::Column,
+            position_type: PositionType::Absolute,
+            row_gap: Val::Px(6.0),
+            left: Val::Px(12.0),
+            bottom: Val::Px(12.0),
+            ..default()
+        })
         .with_children(|parent| {
             // Create the first row, which contains the global controls.
             add_buttons_for_global_controls(parent, color_grading, font);
@@ -174,13 +171,10 @@ fn add_buttons_for_global_controls(
     // Add the parent node for the row.
     parent.spawn(Node::default()).with_children(|parent| {
         // Add some placeholder text to fill this column.
-        parent.spawn((
-            Node::default(),
-            Style {
-                width: Val::Px(125.0),
-                ..default()
-            },
-        ));
+        parent.spawn(Node {
+            width: Val::Px(125.0),
+            ..default()
+        });
 
         // Add each global color grading option button.
         for option in [
@@ -209,16 +203,13 @@ fn add_buttons_for_section(
 ) {
     // Spawn the row container.
     parent
-        .spawn((
-            Node::default(),
-            Style {
-                align_items: AlignItems::Center,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            align_items: AlignItems::Center,
+            ..default()
+        })
         .with_children(|parent| {
             // Spawn the label ("Highlights", etc.)
-            add_text(parent, &section.to_string(), font, Color::WHITE).insert(Style {
+            add_text(parent, &section.to_string(), font, Color::WHITE).insert(Node {
                 width: Val::Px(125.0),
                 ..default()
             });
@@ -252,7 +243,7 @@ fn add_button_for_value(
     parent
         .spawn((
             Button,
-            Style {
+            Node {
                 border: UiRect::all(Val::Px(1.0)),
                 width: Val::Px(200.0),
                 justify_content: JustifyContent::Center,
@@ -281,13 +272,10 @@ fn add_button_for_value(
             });
 
             // Add a spacer.
-            parent.spawn((
-                Node::default(),
-                Style {
-                    flex_grow: 1.0,
-                    ..default()
-                },
-            ));
+            parent.spawn(Node {
+                flex_grow: 1.0,
+                ..default()
+            });
 
             // Add the value text.
             add_text(
@@ -315,7 +303,7 @@ fn add_help_text(
             font: font.clone(),
             ..default()
         },
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             left: Val::Px(12.0),
             top: Val::Px(12.0),

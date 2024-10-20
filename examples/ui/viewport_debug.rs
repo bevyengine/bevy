@@ -40,7 +40,7 @@ fn update(
     mut timer: Local<f32>,
     mut visible_tree: Local<Coords>,
     time: Res<Time>,
-    mut coords_style_query: Query<(&Coords, &mut Style)>,
+    mut coords_nodes: Query<(&Coords, &mut Node)>,
 ) {
     *timer -= time.delta_secs();
     if *timer <= 0. {
@@ -49,8 +49,8 @@ fn update(
             Coords::Viewport => Coords::Pixel,
             Coords::Pixel => Coords::Viewport,
         };
-        for (coords, mut style) in coords_style_query.iter_mut() {
-            style.display = if *coords == *visible_tree {
+        for (coords, mut node) in coords_nodes.iter_mut() {
+            node.display = if *coords == *visible_tree {
                 Display::Flex
             } else {
                 Display::None
@@ -68,8 +68,7 @@ fn setup(mut commands: Commands) {
 fn spawn_with_viewport_coords(commands: &mut Commands) {
     commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 width: Val::Vw(100.),
                 height: Val::Vh(100.),
                 border: UiRect::axes(Val::Vw(5.), Val::Vh(5.)),
@@ -81,8 +80,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
         ))
         .with_children(|builder| {
             builder.spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Vw(30.),
                     height: Val::Vh(30.),
                     border: UiRect::all(Val::VMin(5.)),
@@ -93,8 +91,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
             ));
 
             builder.spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Vw(60.),
                     height: Val::Vh(30.),
                     ..default()
@@ -103,8 +100,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
             ));
 
             builder.spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Vw(45.),
                     height: Val::Vh(30.),
                     border: UiRect::left(Val::VMax(45. / 2.)),
@@ -115,8 +111,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
             ));
 
             builder.spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Vw(45.),
                     height: Val::Vh(30.),
                     border: UiRect::right(Val::VMax(45. / 2.)),
@@ -127,8 +122,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
             ));
 
             builder.spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Vw(60.),
                     height: Val::Vh(30.),
                     ..default()
@@ -137,8 +131,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
             ));
 
             builder.spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Vw(30.),
                     height: Val::Vh(30.),
                     border: UiRect::all(Val::VMin(5.)),
@@ -153,8 +146,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 fn spawn_with_pixel_coords(commands: &mut Commands) {
     commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 width: Val::Px(640.),
                 height: Val::Px(360.),
                 border: UiRect::axes(Val::Px(32.), Val::Px(18.)),
@@ -166,8 +158,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
         ))
         .with_children(|builder| {
             builder.spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Px(192.),
                     height: Val::Px(108.),
                     border: UiRect::axes(Val::Px(18.), Val::Px(18.)),
@@ -178,8 +169,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
             ));
 
             builder.spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Px(384.),
                     height: Val::Px(108.),
                     ..default()
@@ -188,8 +178,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
             ));
 
             builder.spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Px(288.),
                     height: Val::Px(108.),
                     border: UiRect::left(Val::Px(144.)),
@@ -200,8 +189,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
             ));
 
             builder.spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Px(288.),
                     height: Val::Px(108.),
                     border: UiRect::right(Val::Px(144.)),
@@ -212,8 +200,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
             ));
 
             builder.spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Px(384.),
                     height: Val::Px(108.),
                     ..default()
@@ -222,8 +209,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
             ));
 
             builder.spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Px(192.),
                     height: Val::Px(108.),
                     border: UiRect::axes(Val::Px(18.), Val::Px(18.)),

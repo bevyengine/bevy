@@ -332,10 +332,10 @@ where
 }
 
 impl<T> UnevenSampleAutoCurve<T> {
-    /// Create a new [`UnevenSampleAutoCurve`] from a given set of timed samples, interpolated
-    /// using the  The samples are filtered to finite times and
-    /// sorted internally; if there are not at least 2 valid timed samples, an error will be
-    /// returned.
+    /// Create a new [`UnevenSampleAutoCurve`] from a given set of timed samples.
+    ///
+    /// The samples are filtered to finite times and sorted internally; if there are not
+    /// at least 2 valid timed samples, an error will be returned.
     pub fn new(timed_samples: impl IntoIterator<Item = (f32, T)>) -> Result<Self, UnevenCoreError> {
         Ok(Self {
             core: UnevenCore::new(timed_samples)?,

@@ -116,7 +116,7 @@ fn setup_scene(
     commands
         .spawn((
             Button,
-            Style {
+            Node {
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 position_type: PositionType::Absolute,

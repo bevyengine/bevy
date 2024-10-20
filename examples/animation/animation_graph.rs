@@ -252,7 +252,7 @@ fn setup_scene(
 fn setup_help_text(commands: &mut Commands) {
     commands.spawn((
         Text::new(HELP_TEXT),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -283,8 +283,7 @@ fn setup_node_rects(commands: &mut Commands) {
 
         let container = {
             let mut container = commands.spawn((
-                Node::default(),
-                Style {
+                Node {
                     position_type: PositionType::Absolute,
                     bottom: Val::Px(node_rect.bottom),
                     left: Val::Px(node_rect.left),
@@ -315,8 +314,7 @@ fn setup_node_rects(commands: &mut Commands) {
         if let NodeType::Clip(_) = node_type {
             let background = commands
                 .spawn((
-                    Node::default(),
-                    Style {
+                    Node {
                         position_type: PositionType::Absolute,
                         top: Val::Px(0.),
                         left: Val::Px(0.),
@@ -342,8 +340,7 @@ fn setup_node_rects(commands: &mut Commands) {
 fn setup_node_lines(commands: &mut Commands) {
     for line in &HORIZONTAL_LINES {
         commands.spawn((
-            Node::default(),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(line.bottom),
                 left: Val::Px(line.left),
@@ -358,8 +355,7 @@ fn setup_node_lines(commands: &mut Commands) {
 
     for line in &VERTICAL_LINES {
         commands.spawn((
-            Node::default(),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(line.bottom),
                 left: Val::Px(line.left),
@@ -421,7 +417,7 @@ fn handle_weight_drag(
 // Updates the UI based on the weights that the user has chosen.
 fn update_ui(
     mut text_query: Query<&mut Text>,
-    mut background_query: Query<&mut Style, Without<Text>>,
+    mut background_query: Query<&mut Node, Without<Text>>,
     container_query: Query<(&Children, &ClipNode)>,
     animation_weights_query: Query<&ExampleAnimationWeights, Changed<ExampleAnimationWeights>>,
 ) {
@@ -429,9 +425,9 @@ fn update_ui(
         for (children, clip_node) in &container_query {
             // Draw the green background color to visually indicate the weight.
             let mut bg_iter = background_query.iter_many_mut(children);
-            if let Some(mut style) = bg_iter.fetch_next() {
+            if let Some(mut node) = bg_iter.fetch_next() {
                 // All nodes are the same width, so `NODE_RECTS[0]` is as good as any other.
-                style.width =
+                node.width =
                     Val::Px(NODE_RECTS[0].width * animation_weights.weights[clip_node.index]);
             }
 

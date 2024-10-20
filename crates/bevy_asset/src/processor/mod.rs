@@ -859,7 +859,7 @@ impl AssetProcessor {
                 }
             }
         }
-        // Note: this lock must remain alive until all processed asset asset and meta writes have finished (or failed)
+        // Note: this lock must remain alive until all processed asset and meta writes have finished (or failed)
         // See ProcessedAssetInfo::file_transaction_lock docs for more info
         let _transaction_lock = {
             let mut infos = self.data.asset_infos.write().await;

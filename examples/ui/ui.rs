@@ -35,22 +35,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // root node
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::SpaceBetween,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            justify_content: JustifyContent::SpaceBetween,
+            ..default()
+        })
         .insert(PickingBehavior::IGNORE)
         .with_children(|parent| {
             // left vertical fill (border)
             parent
                 .spawn((
-                    Node::default(),
-                    Style {
+                    Node {
                         width: Val::Px(200.),
                         border: UiRect::all(Val::Px(2.)),
                         ..default()
@@ -61,8 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     // left vertical fill (content)
                     parent
                         .spawn((
-                            Node::default(),
-                            Style {
+                            Node {
                                 width: Val::Percent(100.),
                                 flex_direction: FlexDirection::Column,
                                 padding: UiRect::all(Val::Px(5.)),
@@ -110,16 +105,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
             // right vertical fill
             parent
-                .spawn((
-                    Node::default(),
-                    Style {
-                        flex_direction: FlexDirection::Column,
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        width: Val::Px(200.),
-                        ..default()
-                    },
-                ))
+                .spawn(Node {
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    width: Val::Px(200.),
+                    ..default()
+                })
                 .with_children(|parent| {
                     // Title
                     parent.spawn((
@@ -134,8 +126,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     // Scrolling list
                     parent
                         .spawn((
-                            Node::default(),
-                            Style {
+                            Node {
                                 flex_direction: FlexDirection::Column,
                                 align_self: AlignSelf::Stretch,
                                 height: Val::Percent(50.),
@@ -167,8 +158,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             parent
                 .spawn((
-                    Node::default(),
-                    Style {
+                    Node {
                         width: Val::Px(200.0),
                         height: Val::Px(200.0),
                         position_type: PositionType::Absolute,
@@ -182,8 +172,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ))
                 .with_children(|parent| {
                     parent.spawn((
-                        Node::default(),
-                        Style {
+                        Node {
                             width: Val::Percent(100.0),
                             height: Val::Percent(100.0),
                             ..default()
@@ -202,23 +191,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             // render order test: reddest in the back, whitest in the front (flex center)
             parent
-                .spawn((
-                    Node::default(),
-                    Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        position_type: PositionType::Absolute,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
-                ))
+                .spawn(Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    position_type: PositionType::Absolute,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                })
                 .insert(PickingBehavior::IGNORE)
                 .with_children(|parent| {
                     parent
                         .spawn((
-                            Node::default(),
-                            Style {
+                            Node {
                                 width: Val::Px(100.0),
                                 height: Val::Px(100.0),
                                 ..default()
@@ -228,8 +213,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ))
                         .with_children(|parent| {
                             parent.spawn((
-                                Node::default(),
-                                Style {
+                                Node {
                                     // Take the size of the parent node.
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
@@ -242,8 +226,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 shadow,
                             ));
                             parent.spawn((
-                                Node::default(),
-                                Style {
+                                Node {
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
@@ -255,8 +238,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 shadow,
                             ));
                             parent.spawn((
-                                Node::default(),
-                                Style {
+                                Node {
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
@@ -269,8 +251,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ));
                             // alpha test
                             parent.spawn((
-                                Node::default(),
-                                Style {
+                                Node {
                                     width: Val::Percent(100.0),
                                     height: Val::Percent(100.0),
                                     position_type: PositionType::Absolute,
@@ -288,22 +269,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
             // bevy logo (flex center)
             parent
-                .spawn((
-                    Node::default(),
-                    Style {
-                        width: Val::Percent(100.0),
-                        position_type: PositionType::Absolute,
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::FlexStart,
-                        ..default()
-                    },
-                ))
+                .spawn(Node {
+                    width: Val::Percent(100.0),
+                    position_type: PositionType::Absolute,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::FlexStart,
+                    ..default()
+                })
                 .with_children(|parent| {
                     // bevy logo (image)
                     parent
                         .spawn((
                             UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
-                            Style {
+                            Node {
                                 width: Val::Px(500.0),
                                 height: Val::Px(125.0),
                                 margin: UiRect::top(Val::VMin(5.)),
@@ -315,8 +293,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             // This UI node takes up no space in the layout and the `Text` component is used by the accessibility module
                             // and is not rendered.
                             parent.spawn((
-                                Node::default(),
-                                Style {
+                                Node {
                                     display: Display::None,
                                     ..default()
                                 },

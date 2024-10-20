@@ -188,7 +188,7 @@ pub(crate) mod test_setup {
         commands
             .spawn((
                 Text::default(),
-                Style {
+                Node {
                     align_self: AlignSelf::FlexStart,
                     position_type: PositionType::Absolute,
                     top: Val::Px(12.0),

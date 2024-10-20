@@ -66,7 +66,7 @@ fn setup(
     // example instructions
     commands.spawn((
         Text::new("Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement"),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),

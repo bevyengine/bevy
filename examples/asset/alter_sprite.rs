@@ -96,7 +96,7 @@ fn spawn_text(mut commands: Commands) {
             "Space: swap the right sprite's image handle\n\
             Return: modify the image Asset of the left sprite, affecting all uses of it",
         ),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),

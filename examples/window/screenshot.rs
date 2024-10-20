@@ -83,7 +83,7 @@ fn setup(
 
     commands.spawn((
         Text::new("Press <spacebar> to save a screenshot to disk"),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),

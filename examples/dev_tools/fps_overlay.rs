@@ -51,7 +51,7 @@ fn setup(mut commands: Commands) {
             "Press 3 to increase the overlay size.\n",
             "Press 4 to toggle the overlay visibility."
         )),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.),
             left: Val::Px(12.),

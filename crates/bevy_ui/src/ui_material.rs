@@ -1,5 +1,3 @@
-use core::hash::Hash;
-
 use crate::Node;
 use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -9,6 +7,7 @@ use bevy_render::{
     extract_component::ExtractComponent,
     render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
 };
+use core::hash::Hash;
 use derive_more::derive::From;
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNode`]
@@ -64,7 +63,7 @@ use derive_more::derive::From;
 ///             color: LinearRgba::RED,
 ///             color_texture: asset_server.load("some_image.png"),
 ///         })),
-///         Style {
+///         Node {
 ///             width: Val::Percent(100.0),
 ///             ..Default::default()
 ///         },

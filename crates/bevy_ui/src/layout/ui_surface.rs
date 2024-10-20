@@ -9,9 +9,7 @@ use bevy_ecs::{
 use bevy_math::UVec2;
 use bevy_utils::default;
 
-use crate::{
-    layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, NodeMeasure, Style,
-};
+use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootNodePair {
@@ -71,7 +69,7 @@ impl UiSurface {
         &mut self,
         layout_context: &LayoutContext,
         entity: Entity,
-        style: &Style,
+        node: &Node,
         mut new_node_context: Option<NodeMeasure>,
     ) {
         let taffy = &mut self.taffy;
@@ -81,14 +79,11 @@ impl UiSurface {
             added = true;
             if let Some(measure) = new_node_context.take() {
                 taffy
-                    .new_leaf_with_context(
-                        convert::from_style(layout_context, style, true),
-                        measure,
-                    )
+                    .new_leaf_with_context(convert::from_node(node, layout_context, true), measure)
                     .unwrap()
             } else {
                 taffy
-                    .new_leaf(convert::from_style(layout_context, style, false))
+                    .new_leaf(convert::from_node(node, layout_context, false))
                     .unwrap()
             }
         });
@@ -106,7 +101,7 @@ impl UiSurface {
             taffy
                 .set_style(
                     taffy_node_id,
-                    convert::from_style(layout_context, style, has_measure),
+                    convert::from_node(node, layout_context, has_measure),
                 )
                 .unwrap();
         }
@@ -353,17 +348,17 @@ mod tests {
         let mut ui_surface = UiSurface::default();
         let camera_entity = Entity::from_raw(0);
         let root_node_entity = Entity::from_raw(1);
-        let style = Style::default();
+        let node = Node::default();
 
         // standard upsert
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &style, None);
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
 
         // should be inserted into taffy
         assert_eq!(ui_surface.taffy.total_node_count(), 1);
         assert!(ui_surface.entity_to_taffy.contains_key(&root_node_entity));
 
         // test duplicate insert 1
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &style, None);
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
 
         // node count should not have increased
         assert_eq!(ui_surface.taffy.total_node_count(), 1);
@@ -380,7 +375,7 @@ mod tests {
         assert!(is_root_node_pair_valid(&ui_surface.taffy, root_node_pair));
 
         // test duplicate insert 2
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &style, None);
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
 
         // node count should not have increased
         assert_eq!(ui_surface.taffy.total_node_count(), 2);
@@ -418,9 +413,9 @@ mod tests {
         let mut ui_surface = UiSurface::default();
         let camera_entity = Entity::from_raw(0);
         let root_node_entity = Entity::from_raw(1);
-        let style = Style::default();
+        let node = Node::default();
 
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &style, None);
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
 
         // assign root node to camera
         ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
@@ -453,9 +448,9 @@ mod tests {
         let mut ui_surface = UiSurface::default();
         let camera_entity = Entity::from_raw(0);
         let root_node_entity = Entity::from_raw(1);
-        let style = Style::default();
+        let node = Node::default();
 
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &style, None);
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
 
         // assign root node to camera
         ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
@@ -502,9 +497,9 @@ mod tests {
         let mut ui_surface = UiSurface::default();
         let camera_entity = Entity::from_raw(0);
         let root_node_entity = Entity::from_raw(1);
-        let style = Style::default();
+        let node = Node::default();
 
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &style, None);
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
 
         ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
 
@@ -548,9 +543,9 @@ mod tests {
     fn test_try_update_measure() {
         let mut ui_surface = UiSurface::default();
         let root_node_entity = Entity::from_raw(1);
-        let style = Style::default();
+        let node = Node::default();
 
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &style, None);
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
         let mut content_size = ContentSize::default();
         content_size.set(NodeMeasure::Fixed(FixedMeasure { size: Vec2::ONE }));
         let measure_func = content_size.measure.take().unwrap();
@@ -564,10 +559,10 @@ mod tests {
         let mut ui_surface = UiSurface::default();
         let root_node_entity = Entity::from_raw(1);
         let child_entity = Entity::from_raw(2);
-        let style = Style::default();
+        let node = Node::default();
 
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &style, None);
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, child_entity, &style, None);
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, child_entity, &node, None);
 
         ui_surface.update_children(root_node_entity, vec![child_entity].into_iter());
 
@@ -583,10 +578,10 @@ mod tests {
         let camera_entity = Entity::from_raw(0);
         let root_node_entity = Entity::from_raw(1);
         let child_entity = Entity::from_raw(2);
-        let style = Style::default();
+        let node = Node::default();
 
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &style, None);
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, child_entity, &style, None);
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, child_entity, &node, None);
 
         let root_taffy_node = *ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
         let child_taffy = *ui_surface.entity_to_taffy.get(&child_entity).unwrap();

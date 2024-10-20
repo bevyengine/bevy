@@ -165,7 +165,7 @@ fn build_ui(
         .spawn((
             Text::default(),
             SteppingUi,
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: state.ui_top,
                 left: state.ui_left,
@@ -197,7 +197,7 @@ fn build_stepping_hint(mut commands: Commands) {
             ..default()
         },
         TextColor(FONT_COLOR),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
             left: Val::Px(5.0),

@@ -441,7 +441,7 @@ impl AnimationGraph {
     /// All of the animation clips will be direct children of the root with
     /// weight 1.0.
     ///
-    /// Returns the the graph and indices of the new nodes.
+    /// Returns the graph and indices of the new nodes.
     pub fn from_clips<'a, I>(clips: I) -> (Self, Vec<AnimationNodeIndex>)
     where
         I: IntoIterator<Item = Handle<AnimationClip>>,

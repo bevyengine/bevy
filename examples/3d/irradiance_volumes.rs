@@ -290,7 +290,7 @@ fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
     commands.spawn((
         app_status.create_text(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),

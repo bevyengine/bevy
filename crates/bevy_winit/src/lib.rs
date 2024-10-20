@@ -59,6 +59,9 @@ mod winit_windows;
 ///
 /// The `T` event type can be used to pass custom events to the `winit`'s loop, and handled as events
 /// in systems.
+///
+/// When using eg. `MinimalPlugins` you can add this using `WinitPlugin::<WakeUp>::default()`, where
+/// `WakeUp` is the default `Event` that bevy uses.
 #[derive(Default)]
 pub struct WinitPlugin<T: Event = WakeUp> {
     /// Allows the window (and the event loop) to be created on any thread

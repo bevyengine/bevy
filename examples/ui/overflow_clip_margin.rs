@@ -18,8 +18,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
                 align_items: AlignItems::Center,
@@ -38,19 +37,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 OverflowClipMargin::content_box(),
             ] {
                 parent
-                    .spawn((
-                        Node::default(),
-                        Style {
-                            flex_direction: FlexDirection::Row,
-                            column_gap: Val::Px(20.),
-                            ..default()
-                        },
-                    ))
+                    .spawn(Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(20.),
+                        ..default()
+                    })
                     .with_children(|parent| {
                         parent
                             .spawn((
-                                Node::default(),
-                                Style {
+                                Node {
                                     padding: UiRect::all(Val::Px(10.)),
                                     margin: UiRect::bottom(Val::Px(25.)),
                                     ..default()
@@ -61,8 +56,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                         parent
                             .spawn((
-                                Node::default(),
-                                Style {
+                                Node {
                                     margin: UiRect::top(Val::Px(10.)),
                                     width: Val::Px(100.),
                                     height: Val::Px(100.),
@@ -78,8 +72,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             .with_children(|parent| {
                                 parent
                                     .spawn((
-                                        Node::default(),
-                                        Style {
+                                        Node {
                                             min_width: Val::Px(50.),
                                             min_height: Val::Px(50.),
                                             ..default()
@@ -88,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     ))
                                     .with_child((
                                         UiImage::new(image.clone()),
-                                        Style {
+                                        Node {
                                             min_width: Val::Px(100.),
                                             min_height: Val::Px(100.),
                                             ..default()

@@ -13,8 +13,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
     let root = commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 margin: UiRect::all(Val::Px(25.0)),
                 align_self: AlignSelf::Stretch,
                 justify_self: JustifySelf::Stretch,
@@ -30,8 +29,7 @@ fn setup(mut commands: Commands) {
 
     let root_rounded = commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 margin: UiRect::all(Val::Px(25.0)),
                 align_self: AlignSelf::Stretch,
                 justify_self: JustifySelf::Stretch,
@@ -125,8 +123,7 @@ fn setup(mut commands: Commands) {
     for (label, border) in border_labels.into_iter().zip(borders) {
         let inner_spot = commands
             .spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Px(10.),
                     height: Val::Px(10.),
                     ..default()
@@ -136,8 +133,7 @@ fn setup(mut commands: Commands) {
             .id();
         let border_node = commands
             .spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Px(50.),
                     height: Val::Px(50.),
                     border,
@@ -166,14 +162,11 @@ fn setup(mut commands: Commands) {
             ))
             .id();
         let container = commands
-            .spawn((
-                Node::default(),
-                Style {
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-            ))
+            .spawn(Node {
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                ..default()
+            })
             .add_children(&[border_node, label_node])
             .id();
         commands.entity(root).add_child(container);
@@ -182,8 +175,7 @@ fn setup(mut commands: Commands) {
     for (label, border) in border_labels.into_iter().zip(borders) {
         let inner_spot = commands
             .spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Px(10.),
                     height: Val::Px(10.),
                     ..default()
@@ -202,8 +194,7 @@ fn setup(mut commands: Commands) {
         );
         let border_node = commands
             .spawn((
-                Node::default(),
-                Style {
+                Node {
                     width: Val::Px(50.),
                     height: Val::Px(50.),
                     border,
@@ -233,14 +224,11 @@ fn setup(mut commands: Commands) {
             ))
             .id();
         let container = commands
-            .spawn((
-                Node::default(),
-                Style {
-                    flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-            ))
+            .spawn(Node {
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                ..default()
+            })
             .add_children(&[border_node, label_node])
             .id();
         commands.entity(root_rounded).add_child(container);
@@ -248,8 +236,7 @@ fn setup(mut commands: Commands) {
 
     let border_label = commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 margin: UiRect {
                     left: Val::Px(25.0),
                     right: Val::Px(25.0),
@@ -273,8 +260,7 @@ fn setup(mut commands: Commands) {
 
     let border_rounded_label = commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 margin: UiRect {
                     left: Val::Px(25.0),
                     right: Val::Px(25.0),
@@ -298,8 +284,7 @@ fn setup(mut commands: Commands) {
 
     commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 margin: UiRect::all(Val::Px(25.0)),
                 flex_direction: FlexDirection::Column,
                 align_self: AlignSelf::Stretch,

@@ -23,8 +23,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 // fill the entire window
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
@@ -39,13 +38,10 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|builder| {
             // spawn the key
             builder
-                .spawn((
-                    Node::default(),
-                    Style {
-                        flex_direction: FlexDirection::Row,
-                        ..default()
-                    },
-                ))
+                .spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    ..default()
+                })
                 .with_children(|builder| {
                     spawn_nested_text_bundle(
                         builder,
@@ -64,16 +60,13 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
 
             builder
-                .spawn((
-                    Node::default(),
-                    Style {
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
-                        flex_direction: FlexDirection::Column,
-                        row_gap: MARGIN,
-                        ..default()
-                    },
-                ))
+                .spawn(Node {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: MARGIN,
+                    ..default()
+                })
                 .with_children(|builder| {
                     // spawn one child node for each combination of `AlignItems` and `JustifyContent`
                     let justifications = [
@@ -93,16 +86,13 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ];
                     for align_items in alignments {
                         builder
-                            .spawn((
-                                Node::default(),
-                                Style {
-                                    width: Val::Percent(100.),
-                                    height: Val::Percent(100.),
-                                    flex_direction: FlexDirection::Row,
-                                    column_gap: MARGIN,
-                                    ..Default::default()
-                                },
-                            ))
+                            .spawn(Node {
+                                width: Val::Percent(100.),
+                                height: Val::Percent(100.),
+                                flex_direction: FlexDirection::Row,
+                                column_gap: MARGIN,
+                                ..Default::default()
+                            })
                             .with_children(|builder| {
                                 for justify_content in justifications {
                                     spawn_child_node(
@@ -126,8 +116,7 @@ fn spawn_child_node(
 ) {
     builder
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 flex_direction: FlexDirection::Column,
                 align_items,
                 justify_content,
@@ -164,8 +153,7 @@ fn spawn_nested_text_bundle(
 ) {
     builder
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 margin,
                 padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
                 ..default()

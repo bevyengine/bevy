@@ -1,6 +1,6 @@
 use crate::{
-    ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure,
-    TargetCamera, UiScale,
+    ComputedNode, ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node,
+    NodeMeasure, TargetCamera, UiScale,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
@@ -102,7 +102,7 @@ pub struct TextBundle {}
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(TextLayout, TextFont, TextColor, TextNodeFlags, Node)]
+#[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags)]
 pub struct Text(pub String);
 
 impl Text {
@@ -331,7 +331,7 @@ fn queue_text(
     scale_factor: f32,
     inverse_scale_factor: f32,
     block: &TextLayout,
-    node: Ref<Node>,
+    node: Ref<ComputedNode>,
     mut text_flags: Mut<TextNodeFlags>,
     text_layout_info: Mut<TextLayoutInfo>,
     computed: &mut ComputedTextBlock,
@@ -408,7 +408,7 @@ pub fn text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
-        Ref<Node>,
+        Ref<ComputedNode>,
         &TextLayout,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,

@@ -66,7 +66,7 @@ fn setup(
     #[cfg(not(target_arch = "wasm32"))]
     commands.spawn((
         Text::new("Press space to toggle wireframes"),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),

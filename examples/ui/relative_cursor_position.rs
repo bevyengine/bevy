@@ -29,22 +29,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                flex_direction: FlexDirection::Column,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            flex_direction: FlexDirection::Column,
+            ..default()
+        })
         .with_children(|parent| {
             parent
                 .spawn((
-                    Node::default(),
-                    Style {
+                    Node {
                         width: Val::Px(250.),
                         height: Val::Px(250.),
                         margin: UiRect::bottom(Val::Px(15.)),

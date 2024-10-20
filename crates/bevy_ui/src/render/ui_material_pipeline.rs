@@ -365,7 +365,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     uinode_query: Extract<
         Query<(
             Entity,
-            &Node,
+            &ComputedNode,
             &GlobalTransform,
             &MaterialNode<M>,
             &ViewVisibility,

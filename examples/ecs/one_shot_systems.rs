@@ -95,7 +95,7 @@ fn setup_ui(mut commands: Commands) {
         .spawn((
             Text::default(),
             TextLayout::new_with_justify(JustifyText::Center),
-            Style {
+            Node {
                 align_self: AlignSelf::Center,
                 justify_self: JustifySelf::Center,
                 ..default()

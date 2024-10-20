@@ -78,17 +78,14 @@ fn setup(mut commands: Commands) {
     let style = TextFont::default();
 
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(20.0),
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(20.0),
+            ..default()
+        })
         .with_children(|parent| {
             parent.spawn((Text::new(instructions_text), style.clone()));
             parent.spawn((SplineModeText, Text(spline_mode_text), style.clone()));

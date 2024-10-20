@@ -182,7 +182,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             ..default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(5.0),
             left: Val::Px(5.0),
@@ -393,15 +393,12 @@ fn gameover_keyboard(
 // display the number of cake eaten before losing
 fn display_score(mut commands: Commands, game: Res<Game>) {
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                width: Val::Percent(100.),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        })
         .with_child((
             Text::new(format!("Cake eaten: {}", game.cake_eaten)),
             TextFont {

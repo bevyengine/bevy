@@ -455,6 +455,7 @@ impl Plugin for PbrPlugin {
         render_app
             .world_mut()
             .add_observer(remove_light_view_entities);
+        render_app.world_mut().add_observer(extracted_light_removed);
 
         let shadow_pass_node = ShadowPassNode::new(render_app.world_mut());
         let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
