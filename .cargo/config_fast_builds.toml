@@ -32,7 +32,7 @@
 #
 # # Nightly configuration
 #
-# Be warned that the following features require nightly Rust, which is expiremental and may contain bugs. If you
+# Be warned that the following features require nightly Rust, which is experimental and may contain bugs. If you
 # are having issues, skip this section and use stable Rust instead.
 #
 # There are a few unstable features that can improve performance. To use them, first install nightly Rust
