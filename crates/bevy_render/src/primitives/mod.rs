@@ -95,6 +95,33 @@ impl Aabb {
     pub fn max(&self) -> Vec3A {
         self.center + self.half_extents
     }
+
+    #[inline]
+    pub fn is_forward_plane(
+        &self,
+        p_normal: &Vec3A,
+        p_distance: f32,
+        world_from_local: &Affine3A,
+    ) -> bool {
+        let aabb_center_world = world_from_local.transform_point3a(self.center);
+        let bb_axis_x_world = world_from_local.x_axis * self.half_extents.x;
+        let bb_axis_y_world = world_from_local.y_axis * self.half_extents.y;
+        let bb_axis_z_world = world_from_local.z_axis * self.half_extents.z;
+        let half_extents_x_world = bb_axis_x_world.dot(Vec3A::X).abs()
+            + bb_axis_y_world.dot(Vec3A::X).abs()
+            + bb_axis_z_world.dot(Vec3A::X).abs();
+        let half_extents_y_world = bb_axis_x_world.dot(Vec3A::Y).abs()
+            + bb_axis_y_world.dot(Vec3A::Y).abs()
+            + bb_axis_z_world.dot(Vec3A::Y).abs();
+        let half_extents_z_world = bb_axis_x_world.dot(Vec3A::Z).abs()
+            + bb_axis_y_world.dot(Vec3A::Z).abs()
+            + bb_axis_z_world.dot(Vec3A::Z).abs();
+        let r = half_extents_x_world * p_normal.x.abs()
+            + half_extents_y_world * p_normal.y.abs()
+            + half_extents_z_world * p_normal.z.abs();
+        let signed_distance = p_normal.dot(aabb_center_world) - p_distance;
+        signed_distance > r
+    }
 }
 
 impl From<Sphere> for Aabb {
@@ -293,6 +320,17 @@ impl Frustum {
             let p_normal = half_space.normal();
             let relative_radius = aabb.relative_radius(&p_normal, &world_from_local.matrix3);
             if half_space.normal_d().dot(aabb_center_world) + relative_radius <= 0.0 {
+                return false;
+            }
+        }
+        true
+    }
+
+    #[inline]
+    pub fn contains_aabb(&self, aabb: &Aabb, world_from_local: &Affine3A) -> bool {
+        for half_space in &self.half_spaces {
+            let p_normal = half_space.normal();
+            if !aabb.is_forward_plane(&p_normal, half_space.d(), world_from_local) {
                 return false;
             }
         }
