@@ -271,7 +271,7 @@ impl<R> OneToMany<R> {
 mod tests {
     use bevy_ecs::{event::Events, world::World};
 
-    use crate::{ManyToOne, RelationshipEvent};
+    use crate::{many_to_one::ManyToOne, relationship::RelationshipEvent};
 
     use super::OneToMany;
 
