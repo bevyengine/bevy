@@ -218,9 +218,12 @@ pub(crate) fn assign_objects_to_clusters(
             continue;
         }
 
-        let Some(screen_size) = camera.physical_viewport_size() else {
-            clusters.clear();
-            continue;
+        let screen_size = match camera.physical_viewport_size() {
+            Some(screen_size) if screen_size.x != 0 && screen_size.y != 0 => screen_size,
+            _ => {
+                clusters.clear();
+                continue;
+            }
         };
 
         let mut requested_cluster_dimensions = config.dimensions_for_screen_size(screen_size);

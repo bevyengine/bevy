@@ -463,7 +463,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// #[derive(Component)]
     /// struct Label(&'static str);
-
     /// fn example_system(mut commands: Commands) {
     ///     // Create a new, empty entity
     ///     let entity = commands.spawn_empty().id();
@@ -565,7 +564,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///         counter.0 += 25;
     ///     });
     /// }
-
     /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
@@ -614,6 +612,110 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(insert_or_spawn_batch(bundles_iter));
     }
 
+    /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
+    ///
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    ///
+    /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
+    /// the `Bundle` is added to the `Entity`, overwriting any existing components shared by the `Bundle`.
+    ///
+    /// This method is equivalent to iterating the batch,
+    /// calling [`entity`](Self::entity) for each pair,
+    /// and passing the bundle to [`insert`](EntityCommands::insert),
+    /// but it is faster due to memory pre-allocation.
+    ///
+    /// # Panics
+    ///
+    /// This command panics if any of the given entities do not exist.
+    ///
+    /// For the non-panicking version, see [`try_insert_batch`](Self::try_insert_batch).
+    #[track_caller]
+    pub fn insert_batch<I, B>(&mut self, batch: I)
+    where
+        I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+        B: Bundle,
+    {
+        self.queue(insert_batch(batch));
+    }
+
+    /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
+    ///
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    ///
+    /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
+    /// the `Bundle` is added to the `Entity`, except for any components already present on the `Entity`.
+    ///
+    /// This method is equivalent to iterating the batch,
+    /// calling [`entity`](Self::entity) for each pair,
+    /// and passing the bundle to [`insert_if_new`](EntityCommands::insert_if_new),
+    /// but it is faster due to memory pre-allocation.
+    ///
+    /// # Panics
+    ///
+    /// This command panics if any of the given entities do not exist.
+    ///
+    /// For the non-panicking version, see [`try_insert_batch_if_new`](Self::try_insert_batch_if_new).
+    #[track_caller]
+    pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
+    where
+        I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+        B: Bundle,
+    {
+        self.queue(insert_batch_if_new(batch));
+    }
+
+    /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
+    ///
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    ///
+    /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
+    /// the `Bundle` is added to the `Entity`, overwriting any existing components shared by the `Bundle`.
+    ///
+    /// This method is equivalent to iterating the batch,
+    /// calling [`get_entity`](Self::get_entity) for each pair,
+    /// and passing the bundle to [`insert`](EntityCommands::insert),
+    /// but it is faster due to memory pre-allocation.
+    ///
+    /// This command silently fails by ignoring any entities that do not exist.
+    ///
+    /// For the panicking version, see [`insert_batch`](Self::insert_batch).
+    #[track_caller]
+    pub fn try_insert_batch<I, B>(&mut self, batch: I)
+    where
+        I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+        B: Bundle,
+    {
+        self.queue(try_insert_batch(batch));
+    }
+
+    /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
+    ///
+    /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
+    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    ///
+    /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
+    /// the `Bundle` is added to the `Entity`, except for any components already present on the `Entity`.
+    ///
+    /// This method is equivalent to iterating the batch,
+    /// calling [`get_entity`](Self::get_entity) for each pair,
+    /// and passing the bundle to [`insert_if_new`](EntityCommands::insert_if_new),
+    /// but it is faster due to memory pre-allocation.
+    ///
+    /// This command silently fails by ignoring any entities that do not exist.
+    ///
+    /// For the panicking version, see [`insert_batch_if_new`](Self::insert_batch_if_new).
+    #[track_caller]
+    pub fn try_insert_batch_if_new<I, B>(&mut self, batch: I)
+    where
+        I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+        B: Bundle,
+    {
+        self.queue(try_insert_batch_if_new(batch));
+    }
+
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
     ///
     /// The inferred value is determined by the [`FromWorld`] trait of the resource.
@@ -633,10 +735,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// #     high_score: u32,
     /// # }
     /// #
-    /// # fn initialise_scoreboard(mut commands: Commands) {
+    /// # fn initialize_scoreboard(mut commands: Commands) {
     /// commands.init_resource::<Scoreboard>();
     /// # }
-    /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
+    /// # bevy_ecs::system::assert_is_system(initialize_scoreboard);
     /// ```
     #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
@@ -832,8 +934,13 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(TriggerEvent { event, targets });
     }
 
-    /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.
-    pub fn observe<E: Event, B: Bundle, M>(
+    /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated
+    /// with the entity that stores the observer.
+    ///
+    /// **Calling [`observe`](EntityCommands::observe) on the returned
+    /// [`EntityCommands`] will observe the observer itself, which you very
+    /// likely do not want.**
+    pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> EntityCommands {
@@ -934,7 +1041,7 @@ pub struct EntityCommands<'a> {
     pub(crate) commands: Commands<'a, 'a>,
 }
 
-impl EntityCommands<'_> {
+impl<'a> EntityCommands<'a> {
     /// Returns the [`Entity`] id of the entity.
     ///
     /// # Example
@@ -1528,6 +1635,11 @@ impl EntityCommands<'_> {
         self.commands.reborrow()
     }
 
+    /// Returns a mutable reference to the underlying [`Commands`].
+    pub fn commands_mut(&mut self) -> &mut Commands<'a, 'a> {
+        &mut self.commands
+    }
+
     /// Sends a [`Trigger`] targeting this entity. This will run any [`Observer`] of the `event` that
     /// watches this entity.
     ///
@@ -1553,7 +1665,7 @@ pub struct EntityEntryCommands<'a, T> {
 }
 
 impl<'a, T: Component> EntityEntryCommands<'a, T> {
-    /// Modify the component `T` if it exists, using the the function `modify`.
+    /// Modify the component `T` if it exists, using the function `modify`.
     pub fn and_modify(&mut self, modify: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> &mut Self {
         self.entity_commands
             .queue(move |mut entity: EntityWorldMut| {
@@ -1721,6 +1833,94 @@ where
                 invalid_entities
             );
         }
+    }
+}
+
+/// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of entities.
+/// If any entities do not exist in the world, this command will panic.
+///
+/// This is more efficient than inserting the bundles individually.
+#[track_caller]
+fn insert_batch<I, B>(batch: I) -> impl Command
+where
+    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+    B: Bundle,
+{
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
+    move |world: &mut World| {
+        world.insert_batch_with_caller(
+            batch,
+            InsertMode::Replace,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
+    }
+}
+
+/// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of entities.
+/// If any entities do not exist in the world, this command will panic.
+///
+/// This is more efficient than inserting the bundles individually.
+#[track_caller]
+fn insert_batch_if_new<I, B>(batch: I) -> impl Command
+where
+    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+    B: Bundle,
+{
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
+    move |world: &mut World| {
+        world.insert_batch_with_caller(
+            batch,
+            InsertMode::Keep,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
+    }
+}
+
+/// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of entities.
+/// If any entities do not exist in the world, this command will ignore them.
+///
+/// This is more efficient than inserting the bundles individually.
+#[track_caller]
+fn try_insert_batch<I, B>(batch: I) -> impl Command
+where
+    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+    B: Bundle,
+{
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
+    move |world: &mut World| {
+        world.try_insert_batch_with_caller(
+            batch,
+            InsertMode::Replace,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
+    }
+}
+
+/// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of entities.
+/// If any entities do not exist in the world, this command will ignore them.
+///
+/// This is more efficient than inserting the bundles individually.
+#[track_caller]
+fn try_insert_batch_if_new<I, B>(batch: I) -> impl Command
+where
+    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
+    B: Bundle,
+{
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
+    move |world: &mut World| {
+        world.try_insert_batch_with_caller(
+            batch,
+            InsertMode::Keep,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
     }
 }
 
@@ -1923,7 +2123,7 @@ fn observe<E: Event, B: Bundle, M>(
 ) -> impl EntityCommand {
     move |entity: Entity, world: &mut World| {
         if let Ok(mut entity) = world.get_entity_mut(entity) {
-            entity.observe_entity(observer);
+            entity.observe(observer);
         }
     }
 }

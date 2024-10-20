@@ -1,8 +1,5 @@
-#[cfg(feature = "basis-universal")]
-mod compressed_image_saver;
 mod fallback_image;
 mod gpu_image;
-mod image_loader;
 mod texture_attachment;
 mod texture_cache;
 
@@ -12,15 +9,15 @@ pub use bevy_image::ExrTextureLoader;
 #[cfg(feature = "hdr")]
 pub use bevy_image::HdrTextureLoader;
 pub use bevy_image::{
-    BevyDefault, CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageFormat,
-    ImageSampler, ImageSamplerDescriptor, ImageType, IntoDynamicImageError, TextureError,
-    TextureFormatPixelInfo,
+    BevyDefault, CompressedImageFormats, FileTextureError, Image, ImageAddressMode,
+    ImageFilterMode, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderError,
+    ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor, ImageType, IntoDynamicImageError,
+    TextureError, TextureFormatPixelInfo,
 };
 #[cfg(feature = "basis-universal")]
-pub use compressed_image_saver::*;
+pub use bevy_image::{CompressedImageSaver, CompressedImageSaverError};
 pub use fallback_image::*;
 pub use gpu_image::*;
-pub use image_loader::*;
 pub use texture_attachment::*;
 pub use texture_cache::*;
 
@@ -114,14 +111,20 @@ impl Plugin for ImagePlugin {
             );
         }
 
-        if !ImageFormat::SUPPORTED_FILE_EXTENSIONS.is_empty() {
-            app.preregister_asset_loader::<ImageLoader>(ImageFormat::SUPPORTED_FILE_EXTENSIONS);
+        if !ImageLoader::SUPPORTED_FILE_EXTENSIONS.is_empty() {
+            app.preregister_asset_loader::<ImageLoader>(ImageLoader::SUPPORTED_FILE_EXTENSIONS);
         }
     }
 
     fn finish(&self, app: &mut App) {
-        if !ImageFormat::SUPPORTED.is_empty() {
-            app.init_asset_loader::<ImageLoader>();
+        if !ImageLoader::SUPPORTED_FORMATS.is_empty() {
+            let supported_compressed_formats = match app.world().get_resource::<RenderDevice>() {
+                Some(render_device) => {
+                    CompressedImageFormats::from_features(render_device.features())
+                }
+                None => CompressedImageFormats::NONE,
+            };
+            app.register_asset_loader(ImageLoader::new(supported_compressed_formats));
         }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {

@@ -47,21 +47,23 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .id();
 
-    // Since we are using multiple cameras, we need to specify which camera UI should be rendered to
-    commands
-        .spawn((NodeBundle::default(), TargetCamera(first_window_camera)))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "First window",
-                TextStyle::default(),
-            ));
-        });
-    commands
-        .spawn((NodeBundle::default(), TargetCamera(second_window_camera)))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Second window",
-                TextStyle::default(),
-            ));
-        });
+    let node = Node {
+        position_type: PositionType::Absolute,
+        top: Val::Px(12.0),
+        left: Val::Px(12.0),
+        ..default()
+    };
+
+    commands.spawn((
+        Text::new("First window"),
+        node.clone(),
+        // Since we are using multiple cameras, we need to specify which camera UI should be rendered to
+        TargetCamera(first_window_camera),
+    ));
+
+    commands.spawn((
+        Text::new("Second window"),
+        node,
+        TargetCamera(second_window_camera),
+    ));
 }

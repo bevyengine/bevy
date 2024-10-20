@@ -132,30 +132,19 @@ fn setup(
 }
 
 fn spawn_text(mut commands: Commands) {
-    commands
-        .spawn((
-            Name::new("Instructions"),
-            NodeBundle {
-                style: Style {
-                    align_items: AlignItems::Start,
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Start,
-                    width: Val::Percent(100.),
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Space: swap meshes by mutating a Handle<Mesh>",
-                TextStyle::default(),
-            ));
-            parent.spawn(TextBundle::from_section(
-                "Return: mutate the mesh itself, changing all copies of it",
-                TextStyle::default(),
-            ));
-        });
+    commands.spawn((
+        Name::new("Instructions"),
+        Text::new(
+            "Space: swap meshes by mutating a Handle<Mesh>\n\
+            Return: mutate the mesh itself, changing all copies of it",
+        ),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.),
+            left: Val::Px(12.),
+            ..default()
+        },
+    ));
 }
 
 fn alter_handle(
@@ -223,7 +212,7 @@ fn alter_mesh(
             position[2] *= scale_factor;
         }
 
-        // Flip the local value to reverse the behaviour next time the key is pressed.
+        // Flip the local value to reverse the behavior next time the key is pressed.
         *is_mesh_scaled = !*is_mesh_scaled;
     }
 }

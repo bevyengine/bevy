@@ -1,6 +1,7 @@
 use bevy_reflect::Reflect;
+use core::iter;
 use core::iter::FusedIterator;
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 use wgpu::IndexFormat;
 
 /// A disjunction of four iterators. This is necessary to have a well-formed type for the output
@@ -33,35 +34,35 @@ where
 }
 
 /// An error that occurred while trying to invert the winding of a [`Mesh`](super::Mesh).
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub enum MeshWindingInvertError {
     /// This error occurs when you try to invert the winding for a mesh with [`PrimitiveTopology::PointList`](super::PrimitiveTopology::PointList).
-    #[error("Mesh winding invertation does not work for primitive topology `PointList`")]
+    #[display("Mesh winding invertation does not work for primitive topology `PointList`")]
     WrongTopology,
 
     /// This error occurs when you try to invert the winding for a mesh with
     /// * [`PrimitiveTopology::TriangleList`](super::PrimitiveTopology::TriangleList), but the indices are not in chunks of 3.
     /// * [`PrimitiveTopology::LineList`](super::PrimitiveTopology::LineList), but the indices are not in chunks of 2.
-    #[error("Indices weren't in chunks according to topology")]
+    #[display("Indices weren't in chunks according to topology")]
     AbruptIndicesEnd,
 }
 
 /// An error that occurred while trying to extract a collection of triangles from a [`Mesh`](super::Mesh).
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub enum MeshTrianglesError {
-    #[error("Source mesh does not have primitive topology TriangleList or TriangleStrip")]
+    #[display("Source mesh does not have primitive topology TriangleList or TriangleStrip")]
     WrongTopology,
 
-    #[error("Source mesh lacks position data")]
+    #[display("Source mesh lacks position data")]
     MissingPositions,
 
-    #[error("Source mesh position data is not Float32x3")]
+    #[display("Source mesh position data is not Float32x3")]
     PositionsFormat,
 
-    #[error("Source mesh lacks face index data")]
+    #[display("Source mesh lacks face index data")]
     MissingIndices,
 
-    #[error("Face index data references vertices that do not exist")]
+    #[display("Face index data references vertices that do not exist")]
     BadIndices,
 }
 
@@ -96,6 +97,25 @@ impl Indices {
         match self {
             Indices::U16(vec) => vec.is_empty(),
             Indices::U32(vec) => vec.is_empty(),
+        }
+    }
+
+    /// Add an index. If the index is greater than `u16::MAX`,
+    /// the storage will be converted to `u32`.
+    pub fn push(&mut self, index: u32) {
+        match self {
+            Indices::U32(vec) => vec.push(index),
+            Indices::U16(vec) => match u16::try_from(index) {
+                Ok(index) => vec.push(index),
+                Err(_) => {
+                    let new_vec = vec
+                        .iter()
+                        .map(|&index| u32::from(index))
+                        .chain(iter::once(index))
+                        .collect::<Vec<u32>>();
+                    *self = Indices::U32(new_vec);
+                }
+            },
         }
     }
 }
@@ -133,5 +153,32 @@ impl From<&Indices> for IndexFormat {
             Indices::U16(_) => IndexFormat::Uint16,
             Indices::U32(_) => IndexFormat::Uint32,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Indices;
+    use wgpu::IndexFormat;
+
+    #[test]
+    fn test_indices_push() {
+        let mut indices = Indices::U16(Vec::new());
+        indices.push(10);
+        assert_eq!(IndexFormat::Uint16, IndexFormat::from(&indices));
+        assert_eq!(vec![10], indices.iter().collect::<Vec<_>>());
+
+        // Add a value that is too large for `u16` so the storage should be converted to `U32`.
+        indices.push(0x10000);
+        assert_eq!(IndexFormat::Uint32, IndexFormat::from(&indices));
+        assert_eq!(vec![10, 0x10000], indices.iter().collect::<Vec<_>>());
+
+        indices.push(20);
+        indices.push(0x20000);
+        assert_eq!(IndexFormat::Uint32, IndexFormat::from(&indices));
+        assert_eq!(
+            vec![10, 0x10000, 20, 0x20000],
+            indices.iter().collect::<Vec<_>>()
+        );
     }
 }

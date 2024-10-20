@@ -231,32 +231,32 @@ fn spawn_trees(
 }
 
 fn setup_ui(mut commands: Commands) {
-    let style = TextStyle::default();
-
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new(String::new(), style.clone()),
-            TextSection::new(String::new(), style.clone()),
-            TextSection::new("1/2: -/+ shutter angle (blur amount)\n", style.clone()),
-            TextSection::new("3/4: -/+ sample count (blur quality)\n", style.clone()),
-            TextSection::new("Spacebar: cycle camera\n", style.clone()),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-    );
+    commands
+        .spawn((
+            Text::default(),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+        ))
+        .with_children(|p| {
+            p.spawn(TextSpan::default());
+            p.spawn(TextSpan::default());
+            p.spawn(TextSpan::new("1/2: -/+ shutter angle (blur amount)\n"));
+            p.spawn(TextSpan::new("3/4: -/+ sample count (blur quality)\n"));
+            p.spawn(TextSpan::new("Spacebar: cycle camera\n"));
+        });
 }
 
 fn keyboard_inputs(
-    mut motion_blur: Query<&mut MotionBlur>,
+    mut motion_blur: Single<&mut MotionBlur>,
     presses: Res<ButtonInput<KeyCode>>,
-    mut text: Query<&mut Text>,
+    text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
     mut camera: ResMut<CameraMode>,
 ) {
-    let mut motion_blur = motion_blur.single_mut();
     if presses.just_pressed(KeyCode::Digit1) {
         motion_blur.shutter_angle -= 0.25;
     } else if presses.just_pressed(KeyCode::Digit2) {
@@ -273,9 +273,9 @@ fn keyboard_inputs(
     }
     motion_blur.shutter_angle = motion_blur.shutter_angle.clamp(0.0, 1.0);
     motion_blur.samples = motion_blur.samples.clamp(0, 64);
-    let mut text = text.single_mut();
-    text.sections[0].value = format!("Shutter angle: {:.2}\n", motion_blur.shutter_angle);
-    text.sections[1].value = format!("Samples: {:.5}\n", motion_blur.samples);
+    let entity = *text;
+    *writer.text(entity, 1) = format!("Shutter angle: {:.2}\n", motion_blur.shutter_angle);
+    *writer.text(entity, 2) = format!("Samples: {:.5}\n", motion_blur.samples);
 }
 
 /// Parametric function for a looping race track. `offset` will return the point offset
@@ -300,7 +300,7 @@ fn move_cars(
     mut spins: Query<&mut Transform, (Without<Moves>, With<Rotates>)>,
 ) {
     for (mut transform, moves, children) in &mut movables {
-        let time = time.elapsed_seconds() * 0.25;
+        let time = time.elapsed_secs() * 0.25;
         let t = time + 0.5 * moves.0;
         let dx = ops::cos(t);
         let dz = -ops::sin(3.0 * t);
@@ -325,12 +325,11 @@ fn move_cars(
 }
 
 fn move_camera(
-    mut camera: Query<(&mut Transform, &mut Projection), Without<CameraTracked>>,
-    tracked: Query<&Transform, With<CameraTracked>>,
+    camera: Single<(&mut Transform, &mut Projection), Without<CameraTracked>>,
+    tracked: Single<&Transform, With<CameraTracked>>,
     mode: Res<CameraMode>,
 ) {
-    let tracked = tracked.single();
-    let (mut transform, mut projection) = camera.single_mut();
+    let (mut transform, mut projection) = camera.into_inner();
     match *mode {
         CameraMode::Track => {
             transform.look_at(tracked.translation, Vec3::Y);
@@ -342,7 +341,7 @@ fn move_camera(
         CameraMode::Chase => {
             transform.translation =
                 tracked.translation + Vec3::new(0.0, 0.15, 0.0) + tracked.back() * 0.6;
-            transform.look_to(*tracked.forward(), Vec3::Y);
+            transform.look_to(tracked.forward(), Vec3::Y);
             if let Projection::Perspective(perspective) = &mut *projection {
                 perspective.fov = 1.0;
             }

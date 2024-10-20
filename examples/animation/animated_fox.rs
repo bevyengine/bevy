@@ -24,7 +24,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, setup_scene_once_loaded.before(animate_targets))
         .add_systems(Update, (keyboard_animation_control, simulate_particles))
-        .observe(observe_on_step)
+        .add_observer(observe_on_step)
         .run();
 }
 
@@ -172,7 +172,7 @@ fn setup_scene_once_loaded(
 
         commands
             .entity(entity)
-            .insert(animations.graph.clone())
+            .insert(AnimationGraphHandle(animations.graph.clone()))
             .insert(transitions);
     }
 }
@@ -270,12 +270,12 @@ fn simulate_particles(
         if particle.lifeteime_timer.tick(time.delta()).just_finished() {
             commands.entity(entity).despawn();
         } else {
-            transform.translation += particle.velocity * time.delta_seconds();
+            transform.translation += particle.velocity * time.delta_secs();
             transform.scale =
                 Vec3::splat(particle.size.lerp(0.0, particle.lifeteime_timer.fraction()));
             particle
                 .velocity
-                .smooth_nudge(&Vec3::ZERO, 4.0, time.delta_seconds());
+                .smooth_nudge(&Vec3::ZERO, 4.0, time.delta_secs());
         }
     }
 }

@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [features]
 # Texture formats (require more than just image support)
-basis-universal = ["dep:basis-universal", "bevy_image/basis-universal"]
+basis-universal = ["bevy_image/basis-universal"]
 dds = ["bevy_image/dds"]
 exr = ["bevy_image/exr"]
 hdr = ["bevy_image/hdr"]
@@ -22,7 +22,7 @@ shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
 shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
 
 # Enable SPIR-V shader passthrough
-spirv_shader_passthrough = []
+spirv_shader_passthrough = ["wgpu/spirv"]
 
 trace = ["profiling"]
 tracing-tracy = []
@@ -78,11 +78,13 @@ naga = { version = "22", features = ["wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = "1.2.0"
-thiserror = "1.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+] }
 futures-lite = "2.0.1"
 ktx2 = { version = "0.3.0", optional = true }
-# For transcoding of UASTC/ETC1S universal formats, and for .basis file support
-basis-universal = { version = "0.3.0", optional = true }
 encase = { version = "0.10", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = [

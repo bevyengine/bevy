@@ -27,10 +27,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         speed: 50.0,
     });
     commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
-            ..default()
-        },
+        Sprite::from_image(asset_server.load("branding/icon.png")),
         ImageScaleMode::Tiled {
             tile_x: true,
             tile_y: true,
@@ -43,7 +40,7 @@ fn animate(mut sprites: Query<&mut Sprite>, mut state: ResMut<AnimationState>, t
     if state.current >= state.max || state.current <= state.min {
         state.speed = -state.speed;
     };
-    state.current += state.speed * time.delta_seconds();
+    state.current += state.speed * time.delta_secs();
     for mut sprite in &mut sprites {
         sprite.custom_size = Some(Vec2::splat(state.current));
     }

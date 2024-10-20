@@ -108,7 +108,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// If you define the `RUST_LOG` environment variable, the [`LogPlugin`] settings
 /// will be ignored.
 ///
-/// Also, to disable colour terminal output (ANSI escape codes), you can
+/// Also, to disable color terminal output (ANSI escape codes), you can
 /// set the environment variable `NO_COLOR` to any value. This common
 /// convention is documented at [no-color.org](https://no-color.org/).
 /// For example:
@@ -227,7 +227,11 @@ impl Plugin for LogPlugin {
         #[cfg(feature = "trace")]
         let subscriber = subscriber.with(tracing_error::ErrorLayer::default());
 
-        #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            not(target_os = "android"),
+            not(target_os = "ios")
+        ))]
         {
             #[cfg(feature = "tracing-chrome")]
             let chrome_layer = {
@@ -288,6 +292,11 @@ impl Plugin for LogPlugin {
         #[cfg(target_os = "android")]
         {
             finished_subscriber = subscriber.with(android_tracing::AndroidLayer::default());
+        }
+
+        #[cfg(target_os = "ios")]
+        {
+            finished_subscriber = subscriber.with(tracing_oslog::OsLogger::default());
         }
 
         let logger_already_set = LogTracer::init().is_err();

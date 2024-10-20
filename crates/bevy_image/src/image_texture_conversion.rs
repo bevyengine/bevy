@@ -1,7 +1,7 @@
 use crate::{Image, TextureFormatPixelInfo};
 use bevy_asset::RenderAssetUsages;
+use derive_more::derive::{Display, Error};
 use image::{DynamicImage, ImageBuffer};
-use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 impl Image {
@@ -112,17 +112,17 @@ impl Image {
                     Vec::with_capacity(width as usize * height as usize * format.pixel_size());
 
                 for pixel in image.into_raw().chunks_exact(3) {
-                    // TODO: use the array_chunks method once stabilised
+                    // TODO: use the array_chunks method once stabilized
                     // https://github.com/rust-lang/rust/issues/74985
                     let r = pixel[0];
                     let g = pixel[1];
                     let b = pixel[2];
                     let a = 1f32;
 
-                    local_data.extend_from_slice(&r.to_ne_bytes());
-                    local_data.extend_from_slice(&g.to_ne_bytes());
-                    local_data.extend_from_slice(&b.to_ne_bytes());
-                    local_data.extend_from_slice(&a.to_ne_bytes());
+                    local_data.extend_from_slice(&r.to_le_bytes());
+                    local_data.extend_from_slice(&g.to_le_bytes());
+                    local_data.extend_from_slice(&b.to_le_bytes());
+                    local_data.extend_from_slice(&a.to_le_bytes());
                 }
 
                 data = local_data;
@@ -204,14 +204,16 @@ impl Image {
 
 /// Errors that occur while converting an [`Image`] into a [`DynamicImage`]
 #[non_exhaustive]
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 pub enum IntoDynamicImageError {
     /// Conversion into dynamic image not supported for source format.
-    #[error("Conversion into dynamic image not supported for {0:?}.")]
+    #[display("Conversion into dynamic image not supported for {_0:?}.")]
+    #[error(ignore)]
     UnsupportedFormat(TextureFormat),
 
     /// Encountered an unknown error during conversion.
-    #[error("Failed to convert into {0:?}.")]
+    #[display("Failed to convert into {_0:?}.")]
+    #[error(ignore)]
     UnknownConversionError(TextureFormat),
 }
 

@@ -188,14 +188,15 @@ fn setup(
     ));
 
     // Example instructions
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 #[derive(Resource)]
@@ -210,7 +211,7 @@ fn animate_light_direction(
         return;
     }
     for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() * PI / 5.0);
+        transform.rotate_y(time.delta_secs() * PI / 5.0);
     }
 }
 
@@ -240,7 +241,7 @@ fn setup_parallax(
         perceptual_roughness: 0.4,
         base_color_texture: Some(asset_server.load("textures/parallax_example/cube_color.png")),
         normal_map_texture: Some(normal_handle),
-        // The depth map is a greyscale texture where black is the highest level and
+        // The depth map is a grayscale texture where black is the highest level and
         // white the lowest.
         depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.png")),
         parallax_depth_scale: 0.09,
@@ -265,9 +266,9 @@ fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>, pause: Res<P
         return;
     }
     for (mut transform, spin) in query.iter_mut() {
-        transform.rotate_local_y(spin.speed * time.delta_seconds());
-        transform.rotate_local_x(spin.speed * time.delta_seconds());
-        transform.rotate_local_z(-spin.speed * time.delta_seconds());
+        transform.rotate_local_y(spin.speed * time.delta_secs());
+        transform.rotate_local_x(spin.speed * time.delta_secs());
+        transform.rotate_local_z(-spin.speed * time.delta_secs());
     }
 }
 
@@ -281,7 +282,7 @@ enum DefaultRenderMode {
 
 #[allow(clippy::too_many_arguments)]
 fn switch_mode(
-    mut text: Query<&mut Text>,
+    mut text: Single<&mut Text>,
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
@@ -291,9 +292,6 @@ fn switch_mode(
     mut hide_ui: Local<bool>,
     mut mode: Local<DefaultRenderMode>,
 ) {
-    let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
-
     text.clear();
 
     if keys.just_pressed(KeyCode::Space) {

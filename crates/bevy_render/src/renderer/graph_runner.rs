@@ -4,8 +4,8 @@ use bevy_utils::tracing::info_span;
 use bevy_utils::HashMap;
 
 use alloc::{borrow::Cow, collections::VecDeque};
+use derive_more::derive::{Display, Error, From};
 use smallvec::{smallvec, SmallVec};
-use thiserror::Error;
 
 use crate::{
     diagnostic::internal::{DiagnosticsRecorder, RenderDiagnosticsMutex},
@@ -29,30 +29,29 @@ use crate::{
 /// [`CommandBuffer`]: wgpu::CommandBuffer
 pub(crate) struct RenderGraphRunner;
 
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum RenderGraphRunnerError {
-    #[error(transparent)]
-    NodeRunError(#[from] NodeRunError),
-    #[error("node output slot not set (index {slot_index}, name {slot_name})")]
+    NodeRunError(NodeRunError),
+    #[display("node output slot not set (index {slot_index}, name {slot_name})")]
     EmptyNodeOutputSlot {
         type_name: &'static str,
         slot_index: usize,
         slot_name: Cow<'static, str>,
     },
-    #[error("graph '{sub_graph:?}' could not be run because slot '{slot_name}' at index {slot_index} has no value")]
+    #[display("graph '{sub_graph:?}' could not be run because slot '{slot_name}' at index {slot_index} has no value")]
     MissingInput {
         slot_index: usize,
         slot_name: Cow<'static, str>,
         sub_graph: Option<InternedRenderSubGraph>,
     },
-    #[error("attempted to use the wrong type for input slot")]
+    #[display("attempted to use the wrong type for input slot")]
     MismatchedInputSlotType {
         slot_index: usize,
         label: SlotLabel,
         expected: SlotType,
         actual: SlotType,
     },
-    #[error(
+    #[display(
         "node (name: '{node_name:?}') has {slot_count} input slots, but was provided {value_count} values"
     )]
     MismatchedInputCount {

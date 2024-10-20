@@ -28,7 +28,8 @@ use winit::platform::web::WindowExtWebSys;
 
 use crate::{
     converters::{
-        convert_enabled_buttons, convert_window_level, convert_window_theme, convert_winit_theme,
+        convert_enabled_buttons, convert_resize_direction, convert_window_level,
+        convert_window_theme, convert_winit_theme,
     },
     get_best_videomode, get_fitting_videomode, select_monitor,
     state::react_to_resize,
@@ -460,6 +461,20 @@ pub(crate) fn changed_windows(
 
         if let Some(minimized) = window.internal.take_minimize_request() {
             winit_window.set_minimized(minimized);
+        }
+
+        if window.internal.take_move_request() {
+            if let Err(e) = winit_window.drag_window() {
+                warn!("Winit returned an error while attempting to drag the window: {e}");
+            }
+        }
+
+        if let Some(resize_direction) = window.internal.take_resize_request() {
+            if let Err(e) =
+                winit_window.drag_resize_window(convert_resize_direction(resize_direction))
+            {
+                warn!("Winit returned an error while attempting to drag resize the window: {e}");
+            }
         }
 
         if window.focused != cache.window.focused && window.focused {

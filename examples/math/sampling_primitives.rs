@@ -375,8 +375,8 @@ fn setup(
     });
 
     // Instructions for the example:
-    commands.spawn(
-        TextBundle::from_section(
+    commands.spawn((
+        Text::new(
             "Controls:\n\
             M: Toggle between sampling boundary and interior.\n\
             A: Toggle automatic spawning & despawning of points.\n\
@@ -387,15 +387,14 @@ fn setup(
             Zoom camera by scrolling via mouse or +/-.\n\
             Move camera by L/R arrow keys.\n\
             Tab: Toggle this text",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+        ),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
     // No points are scheduled to spawn initially.
     commands.insert_resource(SpawnQueue(0));
@@ -425,7 +424,7 @@ fn handle_keypress(
     mut spawn_queue: ResMut<SpawnQueue>,
     mut counter: ResMut<PointCounter>,
     mut text_menus: Query<&mut Visibility, With<Text>>,
-    mut camera: Query<&mut CameraRig>,
+    mut camera_rig: Single<&mut CameraRig>,
 ) {
     // R => restart, deleting all samples
     if keyboard.just_pressed(KeyCode::KeyR) {
@@ -472,8 +471,6 @@ fn handle_keypress(
         }
     }
 
-    let mut camera_rig = camera.single_mut();
-
     // +/- => zoom camera.
     if keyboard.just_pressed(KeyCode::NumpadSubtract) || keyboard.just_pressed(KeyCode::Minus) {
         camera_rig.distance += MAX_CAMERA_DISTANCE / 15.0;
@@ -517,7 +514,7 @@ fn handle_mouse(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mut button_events: EventReader<MouseButtonInput>,
-    mut camera: Query<&mut CameraRig>,
+    mut camera_rig: Single<&mut CameraRig>,
     mut mouse_pressed: ResMut<MousePressed>,
 ) {
     // Store left-pressed state in the MousePressed resource
@@ -527,8 +524,6 @@ fn handle_mouse(
         }
         *mouse_pressed = MousePressed(button_event.state.is_pressed());
     }
-
-    let mut camera_rig = camera.single_mut();
 
     if accumulated_mouse_scroll.delta != Vec2::ZERO {
         let mouse_scroll = accumulated_mouse_scroll.delta.y;
@@ -546,7 +541,7 @@ fn handle_mouse(
         let displacement = accumulated_mouse_motion.delta;
         camera_rig.yaw += displacement.x / 90.;
         camera_rig.pitch += displacement.y / 90.;
-        // The extra 0.01 is to disallow weird behaviour at the poles of the rotation
+        // The extra 0.01 is to disallow weird behavior at the poles of the rotation
         camera_rig.pitch = camera_rig.pitch.clamp(-PI / 2.01, PI / 2.01);
     }
 }
@@ -643,7 +638,7 @@ fn animate_spawning(
     time: Res<Time>,
     mut samples: Query<(Entity, &mut Transform, &mut SpawningPoint)>,
 ) {
-    let dt = time.delta_seconds();
+    let dt = time.delta_secs();
 
     for (entity, mut transform, mut point) in samples.iter_mut() {
         point.progress += dt / ANIMATION_TIME;
@@ -659,7 +654,7 @@ fn animate_despawning(
     time: Res<Time>,
     mut samples: Query<(Entity, &mut Transform, &mut DespawningPoint)>,
 ) {
-    let dt = time.delta_seconds();
+    let dt = time.delta_secs();
 
     for (entity, mut transform, mut point) in samples.iter_mut() {
         point.progress += dt / ANIMATION_TIME;

@@ -32,7 +32,7 @@ use core::{any::TypeId, ptr::NonNull};
 ///
 /// Each bundle represents a static set of [`Component`] types.
 /// Currently, bundles can only contain one of each [`Component`], and will
-/// panic once initialised if this is not met.
+/// panic once initialized if this is not met.
 ///
 /// ## Insertion
 ///
@@ -77,8 +77,6 @@ use core::{any::TypeId, ptr::NonNull};
 /// Additionally, [Tuples](`tuple`) of bundles are also [`Bundle`] (with up to 15 bundles).
 /// These bundles contain the items of the 'inner' bundles.
 /// This is a convenient shorthand which is primarily used when spawning entities.
-/// For example, spawning an entity using the bundle `(SpriteBundle {...}, PlayerMarker)`
-/// will spawn an entity with components required for a 2d sprite, and the `PlayerMarker` component.
 ///
 /// [`unit`], otherwise known as [`()`](`unit`), is a [`Bundle`] containing no components (since it
 /// can also be considered as the empty tuple).
@@ -463,10 +461,9 @@ impl BundleInfo {
     }
 
     /// Returns an iterator over the [ID](ComponentId) of each component explicitly defined in this bundle (ex: this excludes Required Components).
-
     /// To iterate all components contributed by this bundle (including Required Components), see [`BundleInfo::iter_contributed_components`]
     #[inline]
-    pub fn iter_explicit_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn iter_explicit_components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.explicit_components().iter().copied()
     }
 
@@ -474,7 +471,7 @@ impl BundleInfo {
     ///
     /// To iterate only components explicitly defined in this bundle, see [`BundleInfo::iter_explicit_components`]
     #[inline]
-    pub fn iter_contributed_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn iter_contributed_components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.component_ids.iter().copied()
     }
 

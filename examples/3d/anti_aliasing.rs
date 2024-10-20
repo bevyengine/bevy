@@ -37,7 +37,7 @@ type TaaComponents = (
 
 fn modify_aa(
     keys: Res<ButtonInput<KeyCode>>,
-    mut camera: Query<
+    camera: Single<
         (
             Entity,
             Option<&mut Fxaa>,
@@ -49,7 +49,7 @@ fn modify_aa(
     >,
     mut commands: Commands,
 ) {
-    let (camera_entity, fxaa, smaa, taa, mut msaa) = camera.single_mut();
+    let (camera_entity, fxaa, smaa, taa, mut msaa) = camera.into_inner();
     let mut camera = commands.entity(camera_entity);
 
     // No AA
@@ -177,7 +177,7 @@ fn modify_sharpening(
 }
 
 fn update_ui(
-    camera: Query<
+    camera: Single<
         (
             Option<&Fxaa>,
             Option<&Smaa>,
@@ -187,13 +187,11 @@ fn update_ui(
         ),
         With<Camera>,
     >,
-    mut ui: Query<&mut Text>,
+    mut ui: Single<&mut Text>,
 ) {
-    let (fxaa, smaa, taa, cas, msaa) = camera.single();
+    let (fxaa, smaa, taa, cas, msaa) = *camera;
 
-    let mut ui = ui.single_mut();
-    let ui = &mut ui.sections[0].value;
-
+    let ui = &mut ui.0;
     *ui = "Antialias Method\n".to_string();
 
     draw_selectable_menu_item(
@@ -328,14 +326,15 @@ fn setup(
     ));
 
     // example instructions
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 /// Writes a simple menu item that can be on or off.

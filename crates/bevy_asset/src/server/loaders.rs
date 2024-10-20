@@ -5,17 +5,14 @@ use crate::{
 use alloc::sync::Arc;
 use async_broadcast::RecvError;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{
-    tracing::{error, warn},
-    HashMap, TypeIdMap,
-};
+use bevy_utils::{tracing::warn, HashMap, TypeIdMap};
 #[cfg(feature = "trace")]
 use bevy_utils::{
     tracing::{info_span, instrument::Instrument},
     ConditionalSendFuture,
 };
 use core::any::TypeId;
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
 
 #[derive(Default)]
 pub(crate) struct AssetLoaders {
@@ -278,10 +275,9 @@ impl AssetLoaders {
     }
 }
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Display, Debug, Clone, From)]
 pub(crate) enum GetLoaderError {
-    #[error(transparent)]
-    CouldNotResolve(#[from] RecvError),
+    CouldNotResolve(RecvError),
 }
 
 #[derive(Clone)]

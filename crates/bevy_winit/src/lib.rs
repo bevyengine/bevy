@@ -15,6 +15,8 @@
 extern crate alloc;
 
 use bevy_derive::Deref;
+use bevy_reflect::prelude::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
 use core::marker::PhantomData;
 use winit::event_loop::EventLoop;
@@ -59,6 +61,9 @@ mod winit_windows;
 ///
 /// The `T` event type can be used to pass custom events to the `winit`'s loop, and handled as events
 /// in systems.
+///
+/// When using eg. `MinimalPlugins` you can add this using `WinitPlugin::<WakeUp>::default()`, where
+/// `WakeUp` is the default `Event` that bevy uses.
 #[derive(Default)]
 pub struct WinitPlugin<T: Event = WakeUp> {
     /// Allows the window (and the event loop) to be created on any thread
@@ -146,7 +151,8 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 
 /// The default event that can be used to wake the window loop
 /// Wakes up the loop if in wait state
-#[derive(Debug, Default, Clone, Copy, Event)]
+#[derive(Debug, Default, Clone, Copy, Event, Reflect)]
+#[reflect(Debug, Default)]
 pub struct WakeUp;
 
 /// A wrapper type around [`winit::event_loop::EventLoopProxy`] with the specific

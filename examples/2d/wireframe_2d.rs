@@ -88,14 +88,15 @@ fn setup(
     commands.spawn(Camera2d);
 
     // Text used to show controls
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 /// This system lets you toggle various wireframe settings
@@ -103,9 +104,9 @@ fn update_colors(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<Wireframe2dConfig>,
     mut wireframe_colors: Query<&mut Wireframe2dColor>,
-    mut text: Query<&mut Text>,
+    mut text: Single<&mut Text>,
 ) {
-    text.single_mut().sections[0].value = format!(
+    text.0 = format!(
         "Controls
 ---------------
 Z - Toggle global

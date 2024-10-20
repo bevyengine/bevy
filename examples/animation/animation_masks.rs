@@ -156,34 +156,28 @@ fn setup_scene(
 // Creates the UI.
 fn setup_ui(mut commands: Commands) {
     // Add help text.
-    commands.spawn(
-        TextBundle::from_section(
-            "Click on a button to toggle animations for its associated bones",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new("Click on a button to toggle animations for its associated bones"),
+        Node {
             position_type: PositionType::Absolute,
             left: Val::Px(12.0),
             top: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
     // Add the buttons that allow the user to toggle mask groups on and off.
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                flex_direction: FlexDirection::Column,
-                position_type: PositionType::Absolute,
-                row_gap: Val::Px(6.0),
-                left: Val::Px(12.0),
-                bottom: Val::Px(12.0),
-                ..default()
-            },
+        .spawn(Node {
+            flex_direction: FlexDirection::Column,
+            position_type: PositionType::Absolute,
+            row_gap: Val::Px(6.0),
+            left: Val::Px(12.0),
+            bottom: Val::Px(12.0),
             ..default()
         })
         .with_children(|parent| {
-            let row_style = Style {
+            let row_node = Node {
                 flex_direction: FlexDirection::Row,
                 column_gap: Val::Px(6.0),
                 ..default()
@@ -191,45 +185,35 @@ fn setup_ui(mut commands: Commands) {
 
             add_mask_group_control(parent, "Head", Val::Auto, MASK_GROUP_HEAD);
 
-            parent
-                .spawn(NodeBundle {
-                    style: row_style.clone(),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    add_mask_group_control(
-                        parent,
-                        "Left Front Leg",
-                        Val::Px(MASK_GROUP_BUTTON_WIDTH),
-                        MASK_GROUP_LEFT_FRONT_LEG,
-                    );
-                    add_mask_group_control(
-                        parent,
-                        "Right Front Leg",
-                        Val::Px(MASK_GROUP_BUTTON_WIDTH),
-                        MASK_GROUP_RIGHT_FRONT_LEG,
-                    );
-                });
+            parent.spawn(row_node.clone()).with_children(|parent| {
+                add_mask_group_control(
+                    parent,
+                    "Left Front Leg",
+                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
+                    MASK_GROUP_LEFT_FRONT_LEG,
+                );
+                add_mask_group_control(
+                    parent,
+                    "Right Front Leg",
+                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
+                    MASK_GROUP_RIGHT_FRONT_LEG,
+                );
+            });
 
-            parent
-                .spawn(NodeBundle {
-                    style: row_style,
-                    ..default()
-                })
-                .with_children(|parent| {
-                    add_mask_group_control(
-                        parent,
-                        "Left Hind Leg",
-                        Val::Px(MASK_GROUP_BUTTON_WIDTH),
-                        MASK_GROUP_LEFT_HIND_LEG,
-                    );
-                    add_mask_group_control(
-                        parent,
-                        "Right Hind Leg",
-                        Val::Px(MASK_GROUP_BUTTON_WIDTH),
-                        MASK_GROUP_RIGHT_HIND_LEG,
-                    );
-                });
+            parent.spawn(row_node).with_children(|parent| {
+                add_mask_group_control(
+                    parent,
+                    "Left Hind Leg",
+                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
+                    MASK_GROUP_LEFT_HIND_LEG,
+                );
+                add_mask_group_control(
+                    parent,
+                    "Right Hind Leg",
+                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
+                    MASK_GROUP_RIGHT_HIND_LEG,
+                );
+            });
 
             add_mask_group_control(parent, "Tail", Val::Auto, MASK_GROUP_TAIL);
         });
@@ -240,23 +224,22 @@ fn setup_ui(mut commands: Commands) {
 // The button will automatically become a child of the parent that owns the
 // given `ChildBuilder`.
 fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, mask_group_id: u32) {
-    let button_text_style = TextStyle {
-        font_size: 14.0,
-        color: Color::WHITE,
-        ..default()
-    };
-    let selected_button_text_style = TextStyle {
-        color: Color::BLACK,
-        ..button_text_style.clone()
-    };
-    let label_text_style = TextStyle {
-        color: Color::Srgba(LIGHT_GRAY),
-        ..button_text_style.clone()
-    };
+    let button_text_style = (
+        TextFont {
+            font_size: 14.0,
+            ..default()
+        },
+        TextColor::WHITE,
+    );
+    let selected_button_text_style = (button_text_style.0.clone(), TextColor::BLACK);
+    let label_text_style = (
+        button_text_style.0.clone(),
+        TextColor(Color::Srgba(LIGHT_GRAY)),
+    );
 
     parent
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node {
                 border: UiRect::all(Val::Px(1.0)),
                 width,
                 flex_direction: FlexDirection::Column,
@@ -266,15 +249,14 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                 margin: UiRect::ZERO,
                 ..default()
             },
-            border_color: BorderColor(Color::WHITE),
-            border_radius: BorderRadius::all(Val::Px(3.0)),
-            background_color: Color::BLACK.into(),
-            ..default()
-        })
+            BorderColor(Color::WHITE),
+            BorderRadius::all(Val::Px(3.0)),
+            BackgroundColor(Color::BLACK),
+        ))
         .with_children(|builder| {
             builder
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         border: UiRect::ZERO,
                         width: Val::Percent(100.0),
                         justify_content: JustifyContent::Center,
@@ -283,21 +265,20 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                         margin: UiRect::ZERO,
                         ..default()
                     },
-                    background_color: Color::BLACK.into(),
-                    ..default()
-                })
-                .with_child(TextBundle {
-                    text: Text::from_section(label, label_text_style.clone()),
-                    style: Style {
+                    BackgroundColor(Color::BLACK),
+                ))
+                .with_child((
+                    Text::new(label),
+                    label_text_style.clone(),
+                    Node {
                         margin: UiRect::vertical(Val::Px(3.0)),
                         ..default()
                     },
-                    ..default()
-                });
+                ));
 
             builder
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         width: Val::Percent(100.0),
                         flex_direction: FlexDirection::Row,
                         justify_content: JustifyContent::Center,
@@ -305,9 +286,8 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                         border: UiRect::top(Val::Px(1.0)),
                         ..default()
                     },
-                    border_color: BorderColor(Color::WHITE),
-                    ..default()
-                })
+                    BorderColor(Color::WHITE),
+                ))
                 .with_children(|builder| {
                     for (index, label) in [
                         AnimationLabel::Run,
@@ -319,13 +299,14 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                     .enumerate()
                     {
                         builder
-                            .spawn(ButtonBundle {
-                                background_color: if index > 0 {
-                                    Color::BLACK.into()
+                            .spawn((
+                                Button,
+                                BackgroundColor(if index > 0 {
+                                    Color::BLACK
                                 } else {
-                                    Color::WHITE.into()
-                                },
-                                style: Style {
+                                    Color::WHITE
+                                }),
+                                Node {
                                     flex_grow: 1.0,
                                     border: if index > 0 {
                                         UiRect::left(Val::Px(1.0))
@@ -334,32 +315,26 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                                     },
                                     ..default()
                                 },
-                                border_color: BorderColor(Color::WHITE),
-                                ..default()
-                            })
-                            .with_child(
-                                TextBundle {
-                                    style: Style {
-                                        flex_grow: 1.0,
-                                        margin: UiRect::vertical(Val::Px(3.0)),
-                                        ..default()
-                                    },
-                                    text: Text::from_section(
-                                        format!("{:?}", label),
-                                        if index > 0 {
-                                            button_text_style.clone()
-                                        } else {
-                                            selected_button_text_style.clone()
-                                        },
-                                    ),
+                                BorderColor(Color::WHITE),
+                                AnimationControl {
+                                    group_id: mask_group_id,
+                                    label: *label,
+                                },
+                            ))
+                            .with_child((
+                                Text(format!("{:?}", label)),
+                                if index > 0 {
+                                    button_text_style.clone()
+                                } else {
+                                    selected_button_text_style.clone()
+                                },
+                                TextLayout::new_with_justify(JustifyText::Center),
+                                Node {
+                                    flex_grow: 1.0,
+                                    margin: UiRect::vertical(Val::Px(3.0)),
                                     ..default()
-                                }
-                                .with_text_justify(JustifyText::Center),
-                            )
-                            .insert(AnimationControl {
-                                group_id: mask_group_id,
-                                label: *label,
-                            });
+                                },
+                            ));
                     }
                 });
         });
@@ -411,7 +386,9 @@ fn setup_animation_graph_once_loaded(
 
         // We're doing constructing the animation graph. Add it as an asset.
         let animation_graph = animation_graphs.add(animation_graph);
-        commands.entity(entity).insert(animation_graph);
+        commands
+            .entity(entity)
+            .insert(AnimationGraphHandle(animation_graph));
 
         // Remove animation targets that aren't in any of the mask groups. If we
         // don't do that, those bones will play all animations at once, which is
@@ -436,7 +413,7 @@ fn setup_animation_graph_once_loaded(
 // off.
 fn handle_button_toggles(
     mut interactions: Query<(&Interaction, &mut AnimationControl), Changed<Interaction>>,
-    mut animation_players: Query<&Handle<AnimationGraph>, With<AnimationPlayer>>,
+    mut animation_players: Query<&AnimationGraphHandle, With<AnimationPlayer>>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     mut animation_nodes: Option<ResMut<AnimationNodes>>,
     mut app_state: ResMut<AppState>,
@@ -480,7 +457,8 @@ fn handle_button_toggles(
 // A system that updates the UI based on the current app state.
 fn update_ui(
     mut animation_controls: Query<(&AnimationControl, &mut BackgroundColor, &Children)>,
-    mut texts: Query<&mut Text>,
+    texts: Query<Entity, With<Text>>,
+    mut writer: TextUiWriter,
     app_state: Res<AppState>,
 ) {
     for (animation_control, mut background_color, kids) in animation_controls.iter_mut() {
@@ -494,13 +472,13 @@ fn update_ui(
         };
 
         for &kid in kids {
-            let Ok(mut text) = texts.get_mut(kid) else {
+            let Ok(text) = texts.get(kid) else {
                 continue;
             };
 
-            for section in &mut text.sections {
-                section.style.color = if enabled { Color::BLACK } else { Color::WHITE };
-            }
+            writer.for_each_color(text, |mut color| {
+                color.0 = if enabled { Color::BLACK } else { Color::WHITE };
+            });
         }
     }
 }

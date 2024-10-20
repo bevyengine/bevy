@@ -81,14 +81,15 @@ fn setup(
     ));
 
     // ui
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -169,25 +170,22 @@ fn setup_image_viewer_scene(
         HDRViewer,
     ));
 
-    commands
-        .spawn((
-            TextBundle::from_section(
-                "Drag and drop an HDR or EXR file",
-                TextStyle {
-                    font_size: 36.0,
-                    color: Color::BLACK,
-                    ..default()
-                },
-            )
-            .with_text_justify(JustifyText::Center)
-            .with_style(Style {
-                align_self: AlignSelf::Center,
-                margin: UiRect::all(Val::Auto),
-                ..default()
-            }),
-            SceneNumber(3),
-        ))
-        .insert(Visibility::Hidden);
+    commands.spawn((
+        Text::new("Drag and drop an HDR or EXR file"),
+        TextFont {
+            font_size: 36.0,
+            ..default()
+        },
+        TextColor(Color::BLACK),
+        TextLayout::new_with_justify(JustifyText::Center),
+        Node {
+            align_self: AlignSelf::Center,
+            margin: UiRect::all(Val::Auto),
+            ..default()
+        },
+        SceneNumber(3),
+        Visibility::Hidden,
+    ));
 }
 
 // ----------------------------------------------------------------------------
@@ -287,34 +285,31 @@ fn toggle_scene(
 
 fn toggle_tonemapping_method(
     keys: Res<ButtonInput<KeyCode>>,
-    mut tonemapping: Query<&mut Tonemapping>,
-    mut color_grading: Query<&mut ColorGrading>,
+    mut tonemapping: Single<&mut Tonemapping>,
+    mut color_grading: Single<&mut ColorGrading>,
     per_method_settings: Res<PerMethodSettings>,
 ) {
-    let mut method = tonemapping.single_mut();
-    let mut color_grading = color_grading.single_mut();
-
     if keys.just_pressed(KeyCode::Digit1) {
-        *method = Tonemapping::None;
+        **tonemapping = Tonemapping::None;
     } else if keys.just_pressed(KeyCode::Digit2) {
-        *method = Tonemapping::Reinhard;
+        **tonemapping = Tonemapping::Reinhard;
     } else if keys.just_pressed(KeyCode::Digit3) {
-        *method = Tonemapping::ReinhardLuminance;
+        **tonemapping = Tonemapping::ReinhardLuminance;
     } else if keys.just_pressed(KeyCode::Digit4) {
-        *method = Tonemapping::AcesFitted;
+        **tonemapping = Tonemapping::AcesFitted;
     } else if keys.just_pressed(KeyCode::Digit5) {
-        *method = Tonemapping::AgX;
+        **tonemapping = Tonemapping::AgX;
     } else if keys.just_pressed(KeyCode::Digit6) {
-        *method = Tonemapping::SomewhatBoringDisplayTransform;
+        **tonemapping = Tonemapping::SomewhatBoringDisplayTransform;
     } else if keys.just_pressed(KeyCode::Digit7) {
-        *method = Tonemapping::TonyMcMapface;
+        **tonemapping = Tonemapping::TonyMcMapface;
     } else if keys.just_pressed(KeyCode::Digit8) {
-        *method = Tonemapping::BlenderFilmic;
+        **tonemapping = Tonemapping::BlenderFilmic;
     }
 
-    *color_grading = (*per_method_settings
+    **color_grading = (*per_method_settings
         .settings
-        .get::<Tonemapping>(&method)
+        .get::<Tonemapping>(&tonemapping)
         .as_ref()
         .unwrap())
     .clone();
@@ -339,13 +334,12 @@ fn update_color_grading_settings(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut per_method_settings: ResMut<PerMethodSettings>,
-    tonemapping: Query<&Tonemapping>,
+    tonemapping: Single<&Tonemapping>,
     current_scene: Res<CurrentScene>,
     mut selected_parameter: ResMut<SelectedParameter>,
 ) {
-    let method = tonemapping.single();
-    let color_grading = per_method_settings.settings.get_mut(method).unwrap();
-    let mut dt = time.delta_seconds() * 0.25;
+    let color_grading = per_method_settings.settings.get_mut(*tonemapping).unwrap();
+    let mut dt = time.delta_secs() * 0.25;
     if keys.pressed(KeyCode::ArrowLeft) {
         dt = -dt;
     }
@@ -392,8 +386,8 @@ fn update_color_grading_settings(
 }
 
 fn update_ui(
-    mut text_query: Query<&mut Text, Without<SceneNumber>>,
-    settings: Query<(&Tonemapping, &ColorGrading)>,
+    mut text_query: Single<&mut Text, Without<SceneNumber>>,
+    settings: Single<(&Tonemapping, &ColorGrading)>,
     current_scene: Res<CurrentScene>,
     selected_parameter: Res<SelectedParameter>,
     mut hide_ui: Local<bool>,
@@ -403,21 +397,19 @@ fn update_ui(
         *hide_ui = !*hide_ui;
     }
 
-    let old_text = &text_query.single().sections[0].value;
-
     if *hide_ui {
-        if !old_text.is_empty() {
+        if !text_query.is_empty() {
             // single_mut() always triggers change detection,
             // so only access if text actually needs changing
-            text_query.single_mut().sections[0].value.clear();
+            text_query.clear();
         }
         return;
     }
 
-    let (tonemapping, color_grading) = settings.single();
+    let (tonemapping, color_grading) = *settings;
     let tonemapping = *tonemapping;
 
-    let mut text = String::with_capacity(old_text.len());
+    let mut text = String::with_capacity(text_query.len());
 
     let scn = current_scene.0;
     text.push_str("(H) Hide UI\n\n");
@@ -531,10 +523,10 @@ fn update_ui(
         text.push_str("(Enter) Reset all to scene recommendation\n");
     }
 
-    if text != old_text.as_str() {
+    if text != text_query.as_str() {
         // single_mut() always triggers change detection,
         // so only access if text actually changed
-        text_query.single_mut().sections[0].value = text;
+        text_query.0 = text;
     }
 }
 

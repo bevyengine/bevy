@@ -1,8 +1,8 @@
 use crate::{Image, TextureFormatPixelInfo};
 use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
+use derive_more::derive::{Display, Error, From};
 use image::ImageDecoder;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads EXR textures as Texture assets
@@ -18,13 +18,11 @@ pub struct ExrTextureLoaderSettings {
 
 /// Possible errors that can be produced by [`ExrTextureLoader`]
 #[non_exhaustive]
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display, From)]
 #[cfg(feature = "exr")]
 pub enum ExrTextureLoaderError {
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-    #[error(transparent)]
-    ImageError(#[from] image::ImageError),
+    Io(std::io::Error),
+    ImageError(image::ImageError),
 }
 
 impl AssetLoader for ExrTextureLoader {

@@ -6,7 +6,7 @@ use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
 use core::iter;
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 const MAX_TEXTURE_WIDTH: u32 = 2048;
@@ -17,9 +17,9 @@ const MAX_COMPONENTS: u32 = MAX_TEXTURE_WIDTH * MAX_TEXTURE_WIDTH;
 /// Max target count available for [morph targets](MorphWeights).
 pub const MAX_MORPH_WEIGHTS: usize = 64;
 
-#[derive(Error, Clone, Debug)]
+#[derive(Error, Display, Clone, Debug)]
 pub enum MorphBuildError {
-    #[error(
+    #[display(
         "Too many vertex×components in morph target, max is {MAX_COMPONENTS}, \
         got {vertex_count}×{component_count} = {}",
         *vertex_count * *component_count as usize
@@ -28,7 +28,7 @@ pub enum MorphBuildError {
         vertex_count: usize,
         component_count: u32,
     },
-    #[error(
+    #[display(
         "Bevy only supports up to {} morph targets (individual poses), tried to \
         create a model with {target_count} morph targets",
         MAX_MORPH_WEIGHTS
@@ -223,10 +223,6 @@ impl MorphAttributes {
     }
 }
 
-/// Integer division rounded up.
-const fn div_ceil(lhf: u32, rhs: u32) -> u32 {
-    (lhf + rhs - 1) / rhs
-}
 struct Rect(u32, u32);
 
 /// Find the smallest rectangle of maximum edge size `max_edge` that contains
@@ -249,7 +245,7 @@ struct Rect(u32, u32);
 fn lowest_2d(min_includes: u32, max_edge: u32) -> Option<(Rect, u32)> {
     (1..=max_edge)
         .filter_map(|a| {
-            let b = div_ceil(min_includes, a);
+            let b = min_includes.div_ceil(a);
             let diff = (a * b).checked_sub(min_includes)?;
             Some((Rect(a, b), diff))
         })

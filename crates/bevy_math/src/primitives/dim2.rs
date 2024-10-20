@@ -1,4 +1,5 @@
 use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
+use derive_more::derive::{Display, Error, From};
 
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
@@ -266,7 +267,7 @@ impl Arc2d {
 ///
 /// **Warning:** Circular sectors with negative angle or radius, or with angle greater than an entire circle, are not officially supported.
 /// We recommend normalizing circular sectors to have an angle in [0, 2π].
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -288,12 +289,6 @@ impl Default for CircularSector {
     /// Returns the default [`CircularSector`] with radius `0.5` and covering a third of a circle
     fn default() -> Self {
         Self::from(Arc2d::default())
-    }
-}
-
-impl From<Arc2d> for CircularSector {
-    fn from(arc: Arc2d) -> Self {
-        Self { arc }
     }
 }
 
@@ -405,7 +400,7 @@ impl CircularSector {
 ///
 /// **Warning:** Circular segments with negative angle or radius, or with angle greater than an entire circle, are not officially supported.
 /// We recommend normalizing circular segments to have an angle in [0, 2π].
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -427,12 +422,6 @@ impl Default for CircularSegment {
     /// Returns the default [`CircularSegment`] with radius `0.5` and covering a third of a circle
     fn default() -> Self {
         Self::from(Arc2d::default())
-    }
-}
-
-impl From<Arc2d> for CircularSegment {
-    fn from(arc: Arc2d) -> Self {
-        Self { arc }
     }
 }
 
@@ -1600,6 +1589,89 @@ impl<const N: usize> Polygon<N> {
     /// Create a new `Polygon` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
+    }
+}
+
+impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
+    fn from(val: ConvexPolygon<N>) -> Self {
+        Polygon {
+            vertices: val.vertices,
+        }
+    }
+}
+
+/// A convex polygon with `N` vertices.
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct ConvexPolygon<const N: usize> {
+    /// The vertices of the [`ConvexPolygon`].
+    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
+    vertices: [Vec2; N],
+}
+impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
+
+/// An error that happens when creating a [`ConvexPolygon`].
+#[derive(Error, Display, Debug, Clone)]
+pub enum ConvexPolygonError {
+    /// The created polygon is not convex.
+    #[display("The created polygon is not convex")]
+    Concave,
+}
+
+impl<const N: usize> ConvexPolygon<N> {
+    fn triangle_winding_order(
+        &self,
+        a_index: usize,
+        b_index: usize,
+        c_index: usize,
+    ) -> WindingOrder {
+        let a = self.vertices[a_index];
+        let b = self.vertices[b_index];
+        let c = self.vertices[c_index];
+        Triangle2d::new(a, b, c).winding_order()
+    }
+
+    /// Create a [`ConvexPolygon`] from its `vertices`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConvexPolygonError::Concave`] if the `vertices` do not form a convex polygon.
+    pub fn new(vertices: [Vec2; N]) -> Result<Self, ConvexPolygonError> {
+        let polygon = Self::new_unchecked(vertices);
+        let ref_winding_order = polygon.triangle_winding_order(N - 1, 0, 1);
+        for i in 1..N {
+            let winding_order = polygon.triangle_winding_order(i - 1, i, (i + 1) % N);
+            if winding_order != ref_winding_order {
+                return Err(ConvexPolygonError::Concave);
+            }
+        }
+        Ok(polygon)
+    }
+
+    /// Create a [`ConvexPolygon`] from its `vertices`, without checks.
+    /// Use this version only if you know that the `vertices` make up a convex polygon.
+    #[inline(always)]
+    pub fn new_unchecked(vertices: [Vec2; N]) -> Self {
+        Self { vertices }
+    }
+
+    /// Get the vertices of this polygon
+    #[inline(always)]
+    pub fn vertices(&self) -> &[Vec2; N] {
+        &self.vertices
+    }
+}
+
+impl<const N: usize> TryFrom<Polygon<N>> for ConvexPolygon<N> {
+    type Error = ConvexPolygonError;
+
+    fn try_from(val: Polygon<N>) -> Result<Self, Self::Error> {
+        ConvexPolygon::new(val.vertices)
     }
 }
 

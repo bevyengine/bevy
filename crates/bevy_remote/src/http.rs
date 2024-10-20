@@ -8,26 +8,32 @@
 
 #![cfg(not(target_family = "wasm"))]
 
-use crate::{error_codes, BrpBatch, BrpError, BrpMessage, BrpRequest, BrpResponse, BrpSender};
+use crate::{
+    error_codes, BrpBatch, BrpError, BrpMessage, BrpRequest, BrpResponse, BrpResult, BrpSender,
+};
 use anyhow::Result as AnyhowResult;
-use async_channel::Sender;
+use async_channel::{Receiver, Sender};
 use async_io::Async;
 use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::system::{Res, Resource};
-use bevy_tasks::IoTaskPool;
+use bevy_tasks::{futures_lite::StreamExt, IoTaskPool};
 use core::net::{IpAddr, Ipv4Addr};
+use core::{
+    convert::Infallible,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use http_body_util::{BodyExt as _, Full};
 use hyper::header::{HeaderName, HeaderValue};
 use hyper::{
-    body::{Bytes, Incoming},
+    body::{Body, Bytes, Frame, Incoming},
     server::conn::http1,
     service, Request, Response,
 };
 use serde_json::Value;
 use smol_hyper::rt::{FuturesIo, SmolTimer};
 use std::collections::HashMap;
-use std::net::TcpListener;
-use std::net::TcpStream;
+use std::net::{TcpListener, TcpStream};
 
 /// The default port that Bevy will listen on.
 ///
@@ -259,22 +265,41 @@ async fn process_request_batch(
     request: Request<Incoming>,
     request_sender: &Sender<BrpMessage>,
     headers: &Headers,
-) -> AnyhowResult<Response<Full<Bytes>>> {
+) -> AnyhowResult<Response<BrpHttpBody>> {
     let batch_bytes = request.into_body().collect().await?.to_bytes();
     let batch: Result<BrpBatch, _> = serde_json::from_slice(&batch_bytes);
 
-    let serialized = match batch {
+    let result = match batch {
         Ok(BrpBatch::Single(request)) => {
-            serde_json::to_string(&process_single_request(request, request_sender).await?)?
+            let response = process_single_request(request, request_sender).await?;
+            match response {
+                BrpHttpResponse::Complete(res) => {
+                    BrpHttpResponse::Complete(serde_json::to_string(&res)?)
+                }
+                BrpHttpResponse::Stream(stream) => BrpHttpResponse::Stream(stream),
+            }
         }
         Ok(BrpBatch::Batch(requests)) => {
             let mut responses = Vec::new();
 
             for request in requests {
-                responses.push(process_single_request(request, request_sender).await?);
+                let response = process_single_request(request, request_sender).await?;
+                match response {
+                    BrpHttpResponse::Complete(res) => responses.push(res),
+                    BrpHttpResponse::Stream(BrpStream { id, .. }) => {
+                        responses.push(BrpResponse::new(
+                            id,
+                            Err(BrpError {
+                                code: error_codes::INVALID_REQUEST,
+                                message: "Streaming can not be used in batch requests".to_string(),
+                                data: None,
+                            }),
+                        ));
+                    }
+                }
             }
 
-            serde_json::to_string(&responses)?
+            BrpHttpResponse::Complete(serde_json::to_string(&responses)?)
         }
         Err(err) => {
             let err = BrpResponse::new(
@@ -286,15 +311,30 @@ async fn process_request_batch(
                 }),
             );
 
-            serde_json::to_string(&err)?
+            BrpHttpResponse::Complete(serde_json::to_string(&err)?)
         }
     };
 
-    let mut response = Response::new(Full::new(Bytes::from(serialized.as_bytes().to_owned())));
-    response.headers_mut().insert(
-        hyper::header::CONTENT_TYPE,
-        HeaderValue::from_static("application/json"),
-    );
+    let mut response = match result {
+        BrpHttpResponse::Complete(serialized) => {
+            let mut response = Response::new(BrpHttpBody::Complete(Full::new(Bytes::from(
+                serialized.as_bytes().to_owned(),
+            ))));
+            response.headers_mut().insert(
+                hyper::header::CONTENT_TYPE,
+                HeaderValue::from_static("application/json"),
+            );
+            response
+        }
+        BrpHttpResponse::Stream(stream) => {
+            let mut response = Response::new(BrpHttpBody::Stream(stream));
+            response.headers_mut().insert(
+                hyper::header::CONTENT_TYPE,
+                HeaderValue::from_static("text/event-stream"),
+            );
+            response
+        }
+    };
     for (key, value) in &headers.headers {
         response.headers_mut().insert(key, value.clone());
     }
@@ -306,36 +346,38 @@ async fn process_request_batch(
 async fn process_single_request(
     request: Value,
     request_sender: &Sender<BrpMessage>,
-) -> AnyhowResult<BrpResponse> {
+) -> AnyhowResult<BrpHttpResponse<BrpResponse, BrpStream>> {
     // Reach in and get the request ID early so that we can report it even when parsing fails.
     let id = request.as_object().and_then(|map| map.get("id")).cloned();
 
     let request: BrpRequest = match serde_json::from_value(request) {
         Ok(v) => v,
         Err(err) => {
-            return Ok(BrpResponse::new(
+            return Ok(BrpHttpResponse::Complete(BrpResponse::new(
                 id,
                 Err(BrpError {
                     code: error_codes::INVALID_REQUEST,
                     message: err.to_string(),
                     data: None,
                 }),
-            ));
+            )));
         }
     };
 
     if request.jsonrpc != "2.0" {
-        return Ok(BrpResponse::new(
+        return Ok(BrpHttpResponse::Complete(BrpResponse::new(
             id,
             Err(BrpError {
                 code: error_codes::INVALID_REQUEST,
                 message: String::from("JSON-RPC request requires `\"jsonrpc\": \"2.0\"`"),
                 data: None,
             }),
-        ));
+        )));
     }
 
-    let (result_sender, result_receiver) = async_channel::bounded(1);
+    let watch = request.method.contains("+watch");
+    let size = if watch { 8 } else { 1 };
+    let (result_sender, result_receiver) = async_channel::bounded(size);
 
     let _ = request_sender
         .send(BrpMessage {
@@ -345,6 +387,74 @@ async fn process_single_request(
         })
         .await;
 
-    let result = result_receiver.recv().await?;
-    Ok(BrpResponse::new(request.id, result))
+    if watch {
+        Ok(BrpHttpResponse::Stream(BrpStream {
+            id: request.id,
+            rx: Box::pin(result_receiver),
+        }))
+    } else {
+        let result = result_receiver.recv().await?;
+        Ok(BrpHttpResponse::Complete(BrpResponse::new(
+            request.id, result,
+        )))
+    }
+}
+
+struct BrpStream {
+    id: Option<Value>,
+    rx: Pin<Box<Receiver<BrpResult>>>,
+}
+
+impl Body for BrpStream {
+    type Data = Bytes;
+    type Error = Infallible;
+
+    fn poll_frame(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
+        match self.as_mut().rx.poll_next(cx) {
+            Poll::Ready(result) => match result {
+                Some(result) => {
+                    let response = BrpResponse::new(self.id.clone(), result);
+                    let serialized = serde_json::to_string(&response).unwrap();
+                    let bytes =
+                        Bytes::from(format!("data: {serialized}\n\n").as_bytes().to_owned());
+                    let frame = Frame::data(bytes);
+                    Poll::Ready(Some(Ok(frame)))
+                }
+                None => Poll::Ready(None),
+            },
+            Poll::Pending => Poll::Pending,
+        }
+    }
+
+    fn is_end_stream(&self) -> bool {
+        self.rx.is_closed()
+    }
+}
+
+enum BrpHttpResponse<C, S> {
+    Complete(C),
+    Stream(S),
+}
+
+enum BrpHttpBody {
+    Complete(Full<Bytes>),
+    Stream(BrpStream),
+}
+
+impl Body for BrpHttpBody {
+    type Data = Bytes;
+    type Error = Infallible;
+
+    fn poll_frame(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
+        match &mut *self.get_mut() {
+            BrpHttpBody::Complete(body) => Body::poll_frame(Pin::new(body), cx),
+            BrpHttpBody::Stream(body) => Body::poll_frame(Pin::new(body), cx),
+        }
+    }
 }

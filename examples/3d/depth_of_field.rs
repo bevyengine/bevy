@@ -92,18 +92,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     )));
 
     // Spawn the help text.
-    commands.spawn(
-        TextBundle {
-            text: create_text(&app_settings),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        create_text(&app_settings),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 /// Adjusts the focal distance and f-number per user inputs.
@@ -219,7 +216,7 @@ fn update_text(mut texts: Query<&mut Text>, app_settings: Res<AppSettings>) {
 
 /// Regenerates the app text component per the current app settings.
 fn create_text(app_settings: &AppSettings) -> Text {
-    Text::from_section(app_settings.help_text(), TextStyle::default())
+    app_settings.help_text().into()
 }
 
 impl From<AppSettings> for Option<DepthOfField> {

@@ -98,7 +98,7 @@ fn spawn_car_paint_sphere(
     commands
         .spawn((
             Mesh3d(sphere.clone()),
-            materials.add(StandardMaterial {
+            MeshMaterial3d(materials.add(StandardMaterial {
                 clearcoat: 1.0,
                 clearcoat_perceptual_roughness: 0.1,
                 normal_map_texture: Some(asset_server.load_with_settings(
@@ -109,7 +109,7 @@ fn spawn_car_paint_sphere(
                 perceptual_roughness: 0.5,
                 base_color: BLUE.into(),
                 ..default()
-            }),
+            })),
             Transform::from_xyz(-1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
         ))
         .insert(ExampleSphere);
@@ -217,18 +217,15 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 
 /// Spawns the help text.
 fn spawn_text(commands: &mut Commands, light_mode: &LightMode) {
-    commands.spawn(
-        TextBundle {
-            text: light_mode.create_help_text(),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        light_mode.create_help_text(),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 /// Moves the light around.
@@ -236,7 +233,7 @@ fn animate_light(
     mut lights: Query<&mut Transform, Or<(With<PointLight>, With<DirectionalLight>)>>,
     time: Res<Time>,
 ) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_secs();
     for mut transform in lights.iter_mut() {
         transform.translation = vec3(
             ops::sin(now * 1.4),
@@ -249,7 +246,7 @@ fn animate_light(
 
 /// Rotates the spheres.
 fn animate_spheres(mut spheres: Query<&mut Transform, With<ExampleSphere>>, time: Res<Time>) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_secs();
     for mut transform in spheres.iter_mut() {
         transform.rotation = Quat::from_rotation_y(SPHERE_ROTATION_SPEED * now);
     }
@@ -320,6 +317,6 @@ impl LightMode {
             LightMode::Directional => "Press Space to switch to a point light",
         };
 
-        Text::from_section(help_text, TextStyle::default())
+        Text::new(help_text)
     }
 }

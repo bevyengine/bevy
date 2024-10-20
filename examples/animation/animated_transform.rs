@@ -138,7 +138,7 @@ fn setup(
             MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
             // Add the animation graph and player
             planet,
-            graphs.add(graph),
+            AnimationGraphHandle(graphs.add(graph)),
             player,
         ))
         .id();
@@ -151,7 +151,8 @@ fn setup(
         .with_children(|p| {
             // This entity is just used for animation, but doesn't display anything
             p.spawn((
-                SpatialBundle::INHERITED_IDENTITY,
+                Transform::default(),
+                Visibility::default(),
                 orbit_controller,
                 AnimationTarget {
                     id: orbit_controller_animation_target_id,

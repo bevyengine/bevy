@@ -10,19 +10,25 @@ keywords = ["bevy", "color"]
 rust-version = "1.76.0"
 
 [dependencies]
-bevy_math = { path = "../bevy_math", version = "0.15.0-dev", default-features = false }
+bevy_math = { path = "../bevy_math", version = "0.15.0-dev", default-features = false, features = [
+  "curve",
+] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "bevy",
 ], optional = true }
 bytemuck = { version = "1", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"], optional = true }
-thiserror = "1.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+] }
 wgpu-types = { version = "22", default-features = false, optional = true }
 encase = { version = "0.10", default-features = false }
 
 [features]
 default = ["bevy_reflect"]
-serialize = ["serde"]
+serialize = ["serde", "bevy_math/serialize"]
 
 [lints]
 workspace = true

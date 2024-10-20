@@ -6,7 +6,7 @@ use bevy::{
     ecs::system::Commands,
     gizmos::gizmos::Gizmos,
     input::{mouse::MouseButtonInput, ButtonState},
-    math::{cubic_splines::*, vec2, Isometry2d},
+    math::{cubic_splines::*, vec2},
     prelude::*,
 };
 
@@ -75,30 +75,21 @@ fn setup(mut commands: Commands) {
         C: Toggle cyclic curve construction";
     let spline_mode_text = format!("Spline: {spline_mode}");
     let cycling_mode_text = format!("{cycling_mode}");
-    let style = TextStyle::default();
+    let style = TextFont::default();
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(20.0),
-                ..default()
-            },
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(20.0),
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(instructions_text, style.clone()));
-            parent.spawn((
-                SplineModeText,
-                TextBundle::from_section(spline_mode_text, style.clone()),
-            ));
-            parent.spawn((
-                CyclingModeText,
-                TextBundle::from_section(cycling_mode_text, style.clone()),
-            ));
+            parent.spawn((Text::new(instructions_text), style.clone()));
+            parent.spawn((SplineModeText, Text(spline_mode_text), style.clone()));
+            parent.spawn((CyclingModeText, Text(cycling_mode_text), style.clone()));
         });
 }
 
@@ -197,11 +188,7 @@ fn draw_control_points(
     mut gizmos: Gizmos,
 ) {
     for &(point, tangent) in &control_points.points_and_tangents {
-        gizmos.circle_2d(
-            Isometry2d::from_translation(point),
-            10.0,
-            Color::srgb(0.0, 1.0, 0.0),
-        );
+        gizmos.circle_2d(point, 10.0, Color::srgb(0.0, 1.0, 0.0));
 
         if matches!(*spline_mode, SplineMode::Hermite) {
             gizmos.arrow_2d(point, point + tangent, Color::srgb(1.0, 0.0, 0.0));
@@ -268,9 +255,7 @@ fn update_spline_mode_text(
     let new_text = format!("Spline: {}", *spline_mode);
 
     for mut spline_mode_text in spline_mode_text.iter_mut() {
-        if let Some(section) = spline_mode_text.sections.first_mut() {
-            section.value.clone_from(&new_text);
-        }
+        (**spline_mode_text).clone_from(&new_text);
     }
 }
 
@@ -285,9 +270,7 @@ fn update_cycling_mode_text(
     let new_text = format!("{}", *cycling_mode);
 
     for mut cycling_mode_text in cycling_mode_text.iter_mut() {
-        if let Some(section) = cycling_mode_text.sections.first_mut() {
-            section.value.clone_from(&new_text);
-        }
+        (**cycling_mode_text).clone_from(&new_text);
     }
 }
 
@@ -403,16 +386,8 @@ fn draw_edit_move(
         return;
     };
 
-    gizmos.circle_2d(
-        Isometry2d::from_translation(start),
-        10.0,
-        Color::srgb(0.0, 1.0, 0.7),
-    );
-    gizmos.circle_2d(
-        Isometry2d::from_translation(start),
-        7.0,
-        Color::srgb(0.0, 1.0, 0.7),
-    );
+    gizmos.circle_2d(start, 10.0, Color::srgb(0.0, 1.0, 0.7));
+    gizmos.circle_2d(start, 7.0, Color::srgb(0.0, 1.0, 0.7));
     gizmos.arrow_2d(start, end, Color::srgb(1.0, 0.0, 0.7));
 }
 
