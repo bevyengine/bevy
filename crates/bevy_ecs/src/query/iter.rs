@@ -493,45 +493,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     > {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
-        if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
-            panic!("it is not valid to call sort() after next()")
-        }
-
-        let world = self.world;
-
-        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
-
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
-        let mut keyed_query: Vec<_> = query_lens
-            .map(|(key, entity)| (key, NeutralOrd(entity)))
-            .collect();
-        keyed_query.sort();
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity.0);
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // Each lens query item is dropped before the respective actual query item is accessed.
-        unsafe {
-            QuerySortedIter::new(
-                world,
-                self.query_state,
-                entity_iter,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        }
+        self.sort_impl::<L>(|keyed_query| keyed_query.sort())
     }
 
     /// Sorts all query items into a new iterator, using the query lens as a key.
@@ -585,45 +547,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     > {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
-        if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
-            panic!("it is not valid to call sort() after next()")
-        }
-
-        let world = self.world;
-
-        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
-
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
-        let mut keyed_query: Vec<_> = query_lens
-            .map(|(key, entity)| (key, NeutralOrd(entity)))
-            .collect();
-        keyed_query.sort_unstable();
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity.0);
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // Each lens query item is dropped before the respective actual query item is accessed.
-        unsafe {
-            QuerySortedIter::new(
-                world,
-                self.query_state,
-                entity_iter,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        }
+        self.sort_impl::<L>(|keyed_query| keyed_query.sort_unstable())
     }
 
     /// Sorts all query items into a new iterator with a comparator function over the query lens.
@@ -685,43 +609,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     > {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
-        if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
-            panic!("it is not valid to call sort() after next()")
-        }
-
-        let world = self.world;
-
-        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
-
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
-        let mut keyed_query: Vec<_> = query_lens.collect();
-        keyed_query.sort_by(|(key_1, _), (key_2, _)| compare(key_1, key_2));
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // Each lens query item is dropped before the respective actual query item is accessed.
-        unsafe {
-            QuerySortedIter::new(
-                world,
-                self.query_state,
-                entity_iter,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        }
+        self.sort_impl::<L>(move |keyed_query| {
+            keyed_query.sort_by(|(key_1, _), (key_2, _)| compare(key_1, key_2));
+        })
     }
 
     /// Sorts all query items into a new iterator with a comparator function over the query lens.
@@ -751,43 +641,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     > {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
-        if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
-            panic!("it is not valid to call sort() after next()")
-        }
-
-        let world = self.world;
-
-        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
-
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
-        let mut keyed_query: Vec<_> = query_lens.collect();
-        keyed_query.sort_by(|(key_1, _), (key_2, _)| compare(key_1, key_2));
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // Each lens query item is dropped before the respective actual query item is accessed.
-        unsafe {
-            QuerySortedIter::new(
-                world,
-                self.query_state,
-                entity_iter,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        }
+        self.sort_impl::<L>(move |keyed_query| {
+            keyed_query.sort_unstable_by(|(key_1, _), (key_2, _)| compare(key_1, key_2));
+        })
     }
 
     /// Sorts all query items into a new iterator with a key extraction function over the query lens.
@@ -880,43 +736,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         K: Ord,
     {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
-        if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
-            panic!("it is not valid to call sort() after next()")
-        }
-
-        let world = self.world;
-
-        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
-
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
-        let mut keyed_query: Vec<_> = query_lens.collect();
-        keyed_query.sort_by_key(|(lens, _)| f(lens));
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // Each lens query item is dropped before the respective actual query item is accessed.
-        unsafe {
-            QuerySortedIter::new(
-                world,
-                self.query_state,
-                entity_iter,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        }
+        self.sort_impl::<L>(move |keyed_query| keyed_query.sort_by_key(|(lens, _)| f(lens)))
     }
 
     /// Sorts all query items into a new iterator with a key extraction function over the query lens.
@@ -949,43 +769,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         K: Ord,
     {
-        // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
-        // will be set to a non-zero value. The correctness of this method relies on this.
-        // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
-        // non-empty `QueryIter` has not yet been called. When empty, this sort method will not panic.
-        if !self.cursor.archetype_entities.is_empty() || !self.cursor.table_entities.is_empty() {
-            panic!("it is not valid to call sort() after next()")
-        }
-
-        let world = self.world;
-
-        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
-
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
-        let mut keyed_query: Vec<_> = query_lens.collect();
-        keyed_query.sort_unstable_by_key(|(lens, _)| f(lens));
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
-        // SAFETY:
-        // `self.world` has permission to access the required components.
-        // Each lens query item is dropped before the respective actual query item is accessed.
-        unsafe {
-            QuerySortedIter::new(
-                world,
-                self.query_state,
-                entity_iter,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        }
+        self.sort_impl::<L>(move |keyed_query| {
+            keyed_query.sort_unstable_by_key(|(lens, _)| f(lens));
+        })
     }
 
     /// Sort all query items into a new iterator with a key extraction function over the query lens.
@@ -1018,6 +804,33 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         K: Ord,
     {
+        self.sort_impl::<L>(move |keyed_query| keyed_query.sort_by_cached_key(|(lens, _)| f(lens)))
+    }
+
+    /// Shared implementation for the various `sort` methods.
+    /// This uses the lens to collect the items for sorting, but delegates the actual sorting to the provided closure.
+    ///
+    /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
+    /// This includes the allowed parameter type changes listed under [allowed transmutes].
+    /// However, the lens uses the filter of the original query when present.
+    ///
+    /// The sort is not cached across system runs.
+    ///
+    /// [allowed transmutes]: crate::system::Query#allowed-transmutes
+    ///
+    /// # Panics
+    ///
+    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
+    fn sort_impl<L: ReadOnlyQueryData + 'w>(
+        self,
+        f: impl FnOnce(&mut Vec<(L::Item<'w>, NeutralOrd<Entity>)>),
+    ) -> QuerySortedIter<
+        'w,
+        's,
+        D,
+        F,
+        impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
+    > {
         // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
         // will be set to a non-zero value. The correctness of this method relies on this.
         // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
@@ -1040,9 +853,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 world.change_tick(),
             )
         };
-        let mut keyed_query: Vec<_> = query_lens.collect();
-        keyed_query.sort_by_cached_key(|(lens, _)| f(lens));
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
+        let mut keyed_query: Vec<_> = query_lens
+            .map(|(key, entity)| (key, NeutralOrd(entity)))
+            .collect();
+        f(&mut keyed_query);
+        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity.0);
         // SAFETY:
         // `self.world` has permission to access the required components.
         // Each lens query item is dropped before the respective actual query item is accessed.
