@@ -3,16 +3,16 @@
 mod condition;
 mod config;
 mod executor;
-mod graph_utils;
+mod graph;
 #[allow(clippy::module_inception)]
 mod schedule;
 mod set;
 mod stepping;
 
-use self::graph_utils::*;
+use self::graph::*;
 pub use self::{condition::*, config::*, executor::*, schedule::*, set::*};
 
-pub use self::graph_utils::NodeId;
+pub use self::graph::NodeId;
 
 #[cfg(test)]
 mod tests {
