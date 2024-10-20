@@ -59,7 +59,7 @@ bevy_image = { path = "../bevy_image", version = "0.15.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.15.0-dev" }
 
 # rendering
-image = { version = "0.25.2", default-features = false }
+image = { version = "0.25.4", default-features = false }
 
 # misc
 codespan-reporting = "0.11.0"
