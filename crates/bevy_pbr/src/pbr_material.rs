@@ -387,7 +387,7 @@ pub struct StandardMaterial {
 
     /// Specifies the level of exposure to ambient light.
     ///
-    /// This is usually generated and stored automatically ("baked") by 3D-modelling software.
+    /// This is usually generated and stored automatically ("baked") by 3D-modeling software.
     ///
     /// Typically, steep concave parts of a model (such as the armpit of a shirt) are darker,
     /// because they have little exposure to light.
@@ -913,7 +913,7 @@ pub struct StandardMaterialUniform {
     // Use a color for user-friendliness even though we technically don't use the alpha channel
     // Might be used in the future for exposure correction in HDR
     pub emissive: Vec4,
-    /// Color white light takes after travelling through the attenuation distance underneath the material surface
+    /// Color white light takes after traveling through the attenuation distance underneath the material surface
     pub attenuation_color: Vec4,
     /// The transform applied to the UVs corresponding to `ATTRIBUTE_UV_0` on the mesh before sampling. Default is identity.
     pub uv_transform: Mat3,

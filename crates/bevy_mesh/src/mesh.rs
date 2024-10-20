@@ -87,7 +87,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 ///     other APIs can have other conventions, `OpenGL` starts at bottom-left.
 /// - It is possible and sometimes useful for multiple vertices to have the same
 ///     [position attribute](Mesh::ATTRIBUTE_POSITION) value,
-///     it's a common technique in 3D modelling for complex UV mapping or other calculations.
+///     it's a common technique in 3D modeling for complex UV mapping or other calculations.
 /// - Bevy performs frustum culling based on the `Aabb` of meshes, which is calculated
 ///     and added automatically for new meshes only. If a mesh is modified, the entity's `Aabb`
 ///     needs to be updated manually or deleted so that it is re-calculated.
