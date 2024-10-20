@@ -1,6 +1,5 @@
 #[cfg(feature = "bevy_animation")]
 mod animation;
-mod buffer;
 mod extras;
 mod gltf_tree_iterator;
 mod material;
@@ -18,7 +17,7 @@ use bevy_render::{
 };
 use bevy_utils::HashMap;
 
-use crate::{DataUri, Gltf, GltfError};
+use crate::{DataUri, Gltf, GltfBuffer, GltfError};
 
 #[cfg(feature = "bevy_animation")]
 use self::animation::AnimationContext;
@@ -74,7 +73,7 @@ impl GltfLoader {
                 "Gltf file name invalid",
             ))))?
             .to_string();
-        let buffer_data = buffer::load_buffers(&gltf, load_context).await?;
+        let buffer_data = GltfBuffer::load_buffers(&gltf, load_context).await?;
 
         let linear_textures = material::load_linear_textures(&gltf);
 

@@ -1,3 +1,5 @@
+use core::ops::Deref;
+
 use serde::Deserialize;
 
 use gltf::{
@@ -23,7 +25,9 @@ use bevy_utils::{
     HashMap, HashSet,
 };
 
-use crate::{vertex_attributes::convert_attribute, GltfAssetLabel, GltfMesh, GltfPrimitive};
+use crate::{
+    vertex_attributes::convert_attribute, GltfAssetLabel, GltfBuffer, GltfMesh, GltfPrimitive,
+};
 
 use super::{GltfError, GltfLoader, GltfLoaderSettings};
 
@@ -50,7 +54,7 @@ pub fn load_meshes(
     settings: &GltfLoaderSettings,
     file_name: &str,
     gltf: &gltf::Gltf,
-    buffer_data: &[Vec<u8>],
+    buffer_data: &[GltfBuffer],
     meshes_on_skinned_nodes: &HashSet<usize>,
     meshes_on_non_skinned_nodes: &HashSet<usize>,
     materials: &[Handle<StandardMaterial>],
@@ -94,7 +98,7 @@ pub fn load_meshes(
             }
 
             // Read vertex indices
-            let reader = primitive.reader(|buffer| Some(buffer_data[buffer.index()].as_slice()));
+            let reader = primitive.reader(|buffer| Some(buffer_data[buffer.index()].deref()));
             if let Some(indices) = reader.read_indices() {
                 mesh.insert_indices(match indices {
                     ReadIndices::U8(is) => Indices::U16(is.map(|x| x as u16).collect()),
@@ -204,7 +208,7 @@ pub fn load_meshes(
 pub fn load_skinned_mesh_inverse_bindposes(
     load_context: &mut LoadContext,
     gltf: &gltf::Gltf,
-    buffer_data: &[Vec<u8>],
+    buffer_data: &[GltfBuffer],
 ) -> Vec<Handle<SkinnedMeshInverseBindposes>> {
     gltf.skins()
         .map(|gltf_skin| {

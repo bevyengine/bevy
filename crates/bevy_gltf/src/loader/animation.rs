@@ -8,7 +8,7 @@ use bevy_ecs::entity::Entity;
 use bevy_math::Vec3;
 use bevy_utils::{tracing::warn, HashMap, HashSet};
 
-use crate::GltfAssetLabel;
+use crate::{GltfAssetLabel, GltfBuffer};
 
 use super::GltfError;
 
@@ -25,7 +25,7 @@ pub struct AnimationContext {
 pub fn load_animations(
     load_context: &mut LoadContext,
     gltf: &gltf::Gltf,
-    buffer_data: &[Vec<u8>],
+    buffer_data: &[GltfBuffer],
     animation_paths: HashMap<usize, (usize, Vec<Name>)>,
 ) -> Result<
     (

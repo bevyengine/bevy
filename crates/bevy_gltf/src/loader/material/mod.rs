@@ -29,7 +29,7 @@ use bevy_render::{
 use bevy_tasks::IoTaskPool;
 use bevy_utils::{tracing::warn, HashMap, HashSet};
 
-use crate::GltfAssetLabel;
+use crate::{GltfAssetLabel, GltfBuffer};
 
 use super::{DataUri, GltfError, GltfLoader, GltfLoaderSettings};
 
@@ -92,7 +92,7 @@ pub fn load_linear_textures(gltf: &gltf::Gltf) -> HashSet<usize> {
 /// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
 pub async fn load_image<'a, 'b>(
     gltf_texture: gltf::Texture<'a>,
-    buffer_data: &[Vec<u8>],
+    buffer_data: &[GltfBuffer],
     linear_textures: &HashSet<usize>,
     parent_path: &'b Path,
     supported_compressed_formats: CompressedImageFormats,
@@ -162,7 +162,7 @@ pub async fn collect_texture_handles<'a>(
     load_context: &mut LoadContext<'a>,
     settings: &GltfLoaderSettings,
     gltf: &gltf::Gltf,
-    buffer_data: &[Vec<u8>],
+    buffer_data: &[GltfBuffer],
     linear_textures: &HashSet<usize>,
 ) -> Result<Vec<Handle<Image>>, GltfError> {
     let mut texture_handles = vec![];

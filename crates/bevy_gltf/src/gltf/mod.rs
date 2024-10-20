@@ -1,4 +1,5 @@
 mod asset_label;
+mod buffer;
 mod extras;
 mod material;
 mod mesh;
@@ -17,6 +18,7 @@ use bevy_utils::HashMap;
 
 pub use self::{
     asset_label::GltfAssetLabel,
+    buffer::GltfBuffer,
     extras::GltfExtras,
     material::{GltfMaterialExtras, GltfMaterialName},
     mesh::{GltfMesh, GltfMeshExtras},
