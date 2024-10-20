@@ -126,6 +126,9 @@ mod test {
             .get(&world, entity)
             .unwrap_err();
 
-        assert_eq!(format!("{err:?}"), "QueryDoesNotMatch(0v1 with components bevy_ecs::query::error::test::query_does_not_match::Present1, bevy_ecs::query::error::test::query_does_not_match::Present2)");
+        assert_eq!(
+            format!("{err:?}"),
+            "QueryDoesNotMatch(0v1 with components Present1, Present2)"
+        );
     }
 }
