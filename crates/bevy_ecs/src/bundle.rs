@@ -32,7 +32,7 @@ use core::{any::TypeId, ptr::NonNull};
 ///
 /// Each bundle represents a static set of [`Component`] types.
 /// Currently, bundles can only contain one of each [`Component`], and will
-/// panic once initialised if this is not met.
+/// panic once initialized if this is not met.
 ///
 /// ## Insertion
 ///

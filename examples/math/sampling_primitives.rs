@@ -541,7 +541,7 @@ fn handle_mouse(
         let displacement = accumulated_mouse_motion.delta;
         camera_rig.yaw += displacement.x / 90.;
         camera_rig.pitch += displacement.y / 90.;
-        // The extra 0.01 is to disallow weird behaviour at the poles of the rotation
+        // The extra 0.01 is to disallow weird behavior at the poles of the rotation
         camera_rig.pitch = camera_rig.pitch.clamp(-PI / 2.01, PI / 2.01);
     }
 }

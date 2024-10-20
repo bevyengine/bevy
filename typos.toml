@@ -28,6 +28,7 @@ LOD = "LOD" # Level of detail
 TOI = "TOI" # Time of impact
 
 [default]
+locale = "en-us"
 extend-ignore-identifiers-re = [
   "NDK",        # NDK - Native  Development Kit
   "inventario", # Inventory in Portuguese
