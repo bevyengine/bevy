@@ -70,7 +70,7 @@ fn format_archetype(
             .components()
             .get_name(component_id)
             .expect("entity does not belong to world");
-        write!(f, "{name}")?;
+        write!(f, "{}", disqualified::ShortName(&name))?;
     }
     Ok(())
 }
