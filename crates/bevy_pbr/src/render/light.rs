@@ -1,4 +1,5 @@
 use crate::*;
+use assign::ClusterableObjectType;
 use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
@@ -803,18 +804,14 @@ pub fn prepare_lights(
     // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
     point_lights.sort_by(|(entity_1, light_1, _), (entity_2, light_2, _)| {
         clusterable_object_order(
-            ClusterableObjectOrderData {
-                entity: entity_1,
-                shadows_enabled: &light_1.shadows_enabled,
-                is_volumetric_light: &light_1.volumetric,
-                is_spot_light: &light_1.spot_light_angles.is_some(),
-            },
-            ClusterableObjectOrderData {
-                entity: entity_2,
-                shadows_enabled: &light_2.shadows_enabled,
-                is_volumetric_light: &light_2.volumetric,
-                is_spot_light: &light_2.spot_light_angles.is_some(),
-            },
+            (
+                entity_1,
+                &ClusterableObjectType::from_point_or_spot_light(light_1),
+            ),
+            (
+                entity_2,
+                &ClusterableObjectType::from_point_or_spot_light(light_2),
+            ),
         )
     });
 
