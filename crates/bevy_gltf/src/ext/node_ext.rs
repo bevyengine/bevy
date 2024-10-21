@@ -1,10 +1,12 @@
+use gltf::Node;
+
 use bevy_core::Name;
 use bevy_math::{Mat4, Vec3};
 use bevy_transform::components::Transform;
 
 use crate::GltfAssetLabel;
 
-/// [`Node`](gltf::Node) extension
+/// [`Node`] extension
 pub trait NodeExt {
     /// Calculate the transform of gLTF node.
     ///
@@ -14,20 +16,20 @@ pub trait NodeExt {
     /// platform determinism properly.
     fn node_transform(&self) -> Transform;
 
-    /// Create a [`GltfAssetLabel`] for the [`Node`](gltf::Node).
+    /// Create a [`GltfAssetLabel`] for the [`Node`]
     fn to_label(&self) -> GltfAssetLabel;
 
-    /// Create a [`Name`](bevy_core::Name) for the [`Node`](gltf::Node).
+    /// Create a [`Name`] for the [`Node`]
     fn to_name(&self) -> Name;
 
     /// Check if node is skinned
     fn is_skinned(&self) -> bool;
 
-    /// Get index of [`Mesh`](gltf::Mesh) on [`Node`](gltf::Node)
+    /// Get index of [`Mesh`](gltf::Mesh) on [`Node`]
     fn mesh_index(&self) -> Option<usize>;
 }
 
-impl NodeExt for gltf::Node<'_> {
+impl NodeExt for Node<'_> {
     fn node_transform(&self) -> Transform {
         match self.transform() {
             gltf::scene::Transform::Matrix { matrix } => {

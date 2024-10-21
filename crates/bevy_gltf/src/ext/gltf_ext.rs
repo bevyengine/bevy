@@ -9,7 +9,7 @@ use super::{MaterialExt, NodeExt, SkinExt};
 
 const VALID_MIME_TYPES: &[&str] = &["application/octet-stream", "application/gltf-buffer"];
 
-/// [`glTF`] extension
+/// [`glTF`](gltf::Gltf) extension
 pub trait GltfExt {
     /// Loads the raw glTF buffer data for a specific glTF file.
     async fn load_buffers(
