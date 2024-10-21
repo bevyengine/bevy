@@ -72,7 +72,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x4,
                 // border size
                 VertexFormat::Float32x2,
-                // point
+                // position relative to the center
                 VertexFormat::Float32x2,
             ],
         );
