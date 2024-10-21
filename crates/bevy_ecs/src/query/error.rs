@@ -30,10 +30,11 @@ impl<'w> core::fmt::Display for QueryEntityError<'w> {
                 )?;
                 format_archetype(f, world, entity)
             }
-            Self::NoSuchEntity(entity, world) => {
+            Self::NoSuchEntity(entity, _world) => {
                 #[cfg(feature = "track_change_detection")]
                 {
-                    if let Some(location) = world.entities().get_entity_spawned_despawned_by(entity)
+                    if let Some(location) =
+                        _world.entities().get_entity_spawned_despawned_by(entity)
                     {
                         write!(f, "The entity {entity} was despawned by {location}",)
                     } else {
@@ -61,10 +62,11 @@ impl<'w> core::fmt::Debug for QueryEntityError<'w> {
                 format_archetype(f, world, entity)?;
                 write!(f, ")")
             }
-            Self::NoSuchEntity(entity, world) => {
+            Self::NoSuchEntity(entity, _world) => {
                 #[cfg(feature = "track_change_detection")]
                 {
-                    if let Some(location) = world.entities().get_entity_spawned_despawned_by(entity)
+                    if let Some(location) =
+                        _world.entities().get_entity_spawned_despawned_by(entity)
                     {
                         write!(f, "NoSuchEntity({entity} despawned by {location})")
                     } else {
