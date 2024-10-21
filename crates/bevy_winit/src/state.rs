@@ -46,8 +46,8 @@ use crate::{
     accessibility::AccessKitAdapters,
     converters, create_windows,
     system::{create_monitors, CachedWindow},
-    AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper, UpdateMode,
-    WinitSettings, WinitWindows,
+    AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper,
+    RawWinitWindowEvent, UpdateMode, WinitSettings, WinitWindows,
 };
 
 /// Persistent state that is used to run the [`App`] according to the current
@@ -80,6 +80,8 @@ struct WinitAppRunnerState<T: Event> {
     previous_lifecycle: AppLifecycle,
     /// Bevy window events to send
     bevy_window_events: Vec<bevy_window::WindowEvent>,
+    /// Raw Winit window events to send
+    raw_winit_events: Vec<RawWinitWindowEvent>,
     _marker: PhantomData<T>,
 
     event_writer_system_state: SystemState<(
@@ -121,6 +123,7 @@ impl<T: Event> WinitAppRunnerState<T> {
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
             bevy_window_events: Vec::new(),
+            raw_winit_events: Vec::new(),
             _marker: PhantomData,
             event_writer_system_state,
         }
@@ -249,6 +252,12 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             warn!("Window {window:?} is missing `Window` component, skipping event {event:?}");
             return;
         };
+
+        // Store a copy of the event to send to an EventWriter later.
+        self.raw_winit_events.push(RawWinitWindowEvent {
+            window_id,
+            event: event.clone(),
+        });
 
         // Allow AccessKit to respond to `WindowEvent`s before they reach
         // the engine.
@@ -688,13 +697,15 @@ impl<T: Event> WinitAppRunnerState<T> {
     }
 
     fn forward_bevy_events(&mut self) {
+        let raw_winit_events = self.raw_winit_events.drain(..).collect::<Vec<_>>();
         let buffered_events = self.bevy_window_events.drain(..).collect::<Vec<_>>();
-
-        if buffered_events.is_empty() {
-            return;
-        }
-
         let world = self.world_mut();
+
+        if !raw_winit_events.is_empty() {
+            world
+                .resource_mut::<Events<RawWinitWindowEvent>>()
+                .send_batch(raw_winit_events);
+        }
 
         for winit_event in buffered_events.iter() {
             match winit_event.clone() {
@@ -782,9 +793,11 @@ impl<T: Event> WinitAppRunnerState<T> {
             }
         }
 
-        world
-            .resource_mut::<Events<BevyWindowEvent>>()
-            .send_batch(buffered_events);
+        if !buffered_events.is_empty() {
+            world
+                .resource_mut::<Events<BevyWindowEvent>>()
+                .send_batch(buffered_events);
+        }
     }
 
     #[cfg(feature = "custom_cursor")]
