@@ -290,6 +290,7 @@ impl Plugin for MeshletPlugin {
     }
 }
 
+/// The meshlet mesh equivalent of [`bevy_render::mesh::Mesh3d`].
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
 #[require(Transform, Visibility)]
