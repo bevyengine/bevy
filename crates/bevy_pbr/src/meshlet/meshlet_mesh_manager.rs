@@ -1,5 +1,5 @@
 use super::{
-    asset::{Meshlet, MeshletBoundingSpheres},
+    asset::{Meshlet, MeshletBoundingSpheres, MeshletSimplificationError},
     persistent_buffer::PersistentGpuBuffer,
     MeshletMesh,
 };
@@ -26,7 +26,8 @@ pub struct MeshletMeshManager {
     pub indices: PersistentGpuBuffer<Arc<[u8]>>,
     pub meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
     pub meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSpheres]>>,
-    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, [Range<BufferAddress>; 6]>,
+    pub meshlet_simplification_errors: PersistentGpuBuffer<Arc<[MeshletSimplificationError]>>,
+    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, [Range<BufferAddress>; 7]>,
 }
 
 impl FromWorld for MeshletMeshManager {
@@ -40,6 +41,10 @@ impl FromWorld for MeshletMeshManager {
             meshlets: PersistentGpuBuffer::new("meshlets", render_device),
             meshlet_bounding_spheres: PersistentGpuBuffer::new(
                 "meshlet_bounding_spheres",
+                render_device,
+            ),
+            meshlet_simplification_errors: PersistentGpuBuffer::new(
+                "meshlet_simplification_errors",
                 render_device,
             ),
             meshlet_mesh_slices: HashMap::new(),
@@ -81,6 +86,9 @@ impl MeshletMeshManager {
             let meshlet_bounding_spheres_slice = self
                 .meshlet_bounding_spheres
                 .queue_write(Arc::clone(&meshlet_mesh.meshlet_bounding_spheres), ());
+            let meshlet_simplification_errors_slice = self
+                .meshlet_simplification_errors
+                .queue_write(Arc::clone(&meshlet_mesh.meshlet_simplification_errors), ());
 
             [
                 vertex_positions_slice,
@@ -89,11 +97,12 @@ impl MeshletMeshManager {
                 indices_slice,
                 meshlets_slice,
                 meshlet_bounding_spheres_slice,
+                meshlet_simplification_errors_slice,
             ]
         };
 
         // If the MeshletMesh asset has not been uploaded to the GPU yet, queue it for uploading
-        let [_, _, _, _, meshlets_slice, _] = self
+        let [_, _, _, _, meshlets_slice, _, _] = self
             .meshlet_mesh_slices
             .entry(asset_id)
             .or_insert_with_key(queue_meshlet_mesh)
@@ -106,7 +115,7 @@ impl MeshletMeshManager {
 
     pub fn remove(&mut self, asset_id: &AssetId<MeshletMesh>) {
         if let Some(
-            [vertex_positions_slice, vertex_normals_slice, vertex_uvs_slice, indices_slice, meshlets_slice, meshlet_bounding_spheres_slice],
+            [vertex_positions_slice, vertex_normals_slice, vertex_uvs_slice, indices_slice, meshlets_slice, meshlet_bounding_spheres_slice, meshlet_simplification_errors_slice],
         ) = self.meshlet_mesh_slices.remove(asset_id)
         {
             self.vertex_positions
@@ -117,6 +126,8 @@ impl MeshletMeshManager {
             self.meshlets.mark_slice_unused(meshlets_slice);
             self.meshlet_bounding_spheres
                 .mark_slice_unused(meshlet_bounding_spheres_slice);
+            self.meshlet_simplification_errors
+                .mark_slice_unused(meshlet_simplification_errors_slice);
         }
     }
 }
@@ -144,5 +155,8 @@ pub fn perform_pending_meshlet_mesh_writes(
         .perform_writes(&render_queue, &render_device);
     meshlet_mesh_manager
         .meshlet_bounding_spheres
+        .perform_writes(&render_queue, &render_device);
+    meshlet_mesh_manager
+        .meshlet_simplification_errors
         .perform_writes(&render_queue, &render_device);
 }
