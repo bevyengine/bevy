@@ -5,7 +5,7 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
-//! Parent-child relationships for Bevy entities.
+//! Relationships for Bevy entities.
 //!
 //! You should use the tools in this crate
 //! whenever you want to organize your entities in a hierarchical fashion,
@@ -37,6 +37,14 @@
 //! Similarly, unassigning a child in the parent
 //! will always unassign the parent in the child.
 //!
+//! These components will use component hooks to ensure both members of a relationship
+//! have appropriate data for that relationship.
+//!
+//! Note that to maintain the invariants of a relationship, you must not mutate the component
+//! in-place using methods like [`swap`](core::mem::swap), as these bypass the currently
+//! available component hooks. To mutate a relationship, instead replace the component with an
+//! updated value.
+//!
 //! ## Despawning entities
 //!
 //! The commands and methods provided by `bevy_ecs` to despawn entities
@@ -53,17 +61,18 @@
 
 extern crate alloc;
 
-mod components;
-pub use components::*;
+pub(crate) mod many_to_one;
+pub(crate) mod one_to_many;
+pub(crate) mod relationship;
 
-mod hierarchy;
-pub use hierarchy::*;
+mod family;
+pub use family::*;
+
+mod despawn_recursive;
+pub use despawn_recursive::*;
 
 mod child_builder;
 pub use child_builder::*;
-
-mod events;
-pub use events::*;
 
 mod valid_parent_check_plugin;
 pub use valid_parent_check_plugin::*;
@@ -76,7 +85,7 @@ pub use query_extension::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{child_builder::*, components::*, hierarchy::*, query_extension::*};
+    pub use crate::{child_builder::*, despawn_recursive::*, family::*, query_extension::*};
 
     #[doc(hidden)]
     #[cfg(feature = "bevy_app")]
