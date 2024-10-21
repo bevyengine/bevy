@@ -3559,14 +3559,10 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
 #[cfg(test)]
 mod tests {
     use bevy_ptr::{OwningPtr, Ptr};
-    use bevy_utils::default;
     use core::panic::AssertUnwindSafe;
     use core::panic::Location;
-    use std::sync::Arc;
-    use std::sync::Mutex;
     use std::sync::OnceLock;
 
-    use crate::entity::Entities;
     use crate::world::DeferredWorld;
     use crate::{
         self as bevy_ecs,
@@ -4574,6 +4570,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "track_change_detection")]
     fn update_despawned_by_before_hooks() {
         let mut world = World::new();
 
