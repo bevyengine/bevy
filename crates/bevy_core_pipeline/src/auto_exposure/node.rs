@@ -126,7 +126,7 @@ impl Node for AutoExposureNode {
                     timestamp_writes: None,
                 });
 
-        compute_pass.set_bind_group(0, &compute_bind_group, &[view_uniform_offset.offset]);
+        compute_pass.set_bind_group(0, Some(&compute_bind_group), &[view_uniform_offset.offset]);
         compute_pass.set_pipeline(histogram_pipeline);
         compute_pass.dispatch_workgroups(
             view.viewport.z.div_ceil(16),

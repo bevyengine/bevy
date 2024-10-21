@@ -458,7 +458,7 @@ impl ViewNode for VolumetricFogNode {
             render_pass.set_pipeline(pipeline);
             render_pass.set_bind_group(
                 0,
-                &view_bind_group.value,
+                Some(&view_bind_group.value),
                 &[
                     view_uniform_offset.offset,
                     view_lights_offset.offset,
@@ -470,7 +470,7 @@ impl ViewNode for VolumetricFogNode {
             );
             render_pass.set_bind_group(
                 1,
-                &volumetric_view_bind_group,
+                Some(&volumetric_view_bind_group),
                 &[view_fog_volume.uniform_buffer_offset],
             );
 

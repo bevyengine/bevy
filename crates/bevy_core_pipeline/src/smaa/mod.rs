@@ -960,8 +960,16 @@ fn perform_edge_detection(
         .command_encoder()
         .begin_render_pass(&pass_descriptor);
     render_pass.set_pipeline(edge_detection_pipeline);
-    render_pass.set_bind_group(0, &postprocess_bind_group, &[**view_smaa_uniform_offset]);
-    render_pass.set_bind_group(1, &view_smaa_bind_groups.edge_detection_bind_group, &[]);
+    render_pass.set_bind_group(
+        0,
+        Some(&postprocess_bind_group),
+        &[**view_smaa_uniform_offset],
+    );
+    render_pass.set_bind_group(
+        1,
+        Some(&view_smaa_bind_groups.edge_detection_bind_group),
+        &[],
+    );
     render_pass.set_stencil_reference(1);
     render_pass.draw(0..3, 0..1);
 }
@@ -1016,10 +1024,14 @@ fn perform_blending_weight_calculation(
         .command_encoder()
         .begin_render_pass(&pass_descriptor);
     render_pass.set_pipeline(blending_weight_calculation_pipeline);
-    render_pass.set_bind_group(0, &postprocess_bind_group, &[**view_smaa_uniform_offset]);
+    render_pass.set_bind_group(
+        0,
+        Some(&postprocess_bind_group),
+        &[**view_smaa_uniform_offset],
+    );
     render_pass.set_bind_group(
         1,
-        &view_smaa_bind_groups.blending_weight_calculation_bind_group,
+        Some(&view_smaa_bind_groups.blending_weight_calculation_bind_group),
         &[],
     );
     render_pass.set_stencil_reference(1);
@@ -1067,12 +1079,12 @@ fn perform_neighborhood_blending(
     neighborhood_blending_render_pass.set_pipeline(neighborhood_blending_pipeline);
     neighborhood_blending_render_pass.set_bind_group(
         0,
-        &postprocess_bind_group,
+        Some(&postprocess_bind_group),
         &[**view_smaa_uniform_offset],
     );
     neighborhood_blending_render_pass.set_bind_group(
         1,
-        &view_smaa_bind_groups.neighborhood_blending_bind_group,
+        Some(&view_smaa_bind_groups.neighborhood_blending_bind_group),
         &[],
     );
     neighborhood_blending_render_pass.draw(0..3, 0..1);

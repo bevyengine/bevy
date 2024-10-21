@@ -230,7 +230,7 @@ impl Node for GpuPreprocessNode {
             if gpu_culling {
                 dynamic_offsets.push(view_uniform_offset.offset);
             }
-            compute_pass.set_bind_group(0, &bind_group.0, &dynamic_offsets);
+            compute_pass.set_bind_group(0, Some(&bind_group.0), &dynamic_offsets);
 
             let workgroup_count = index_buffer.buffer.len().div_ceil(WORKGROUP_SIZE);
             compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);

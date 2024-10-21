@@ -420,7 +420,11 @@ impl ViewNode for PostProcessingNode {
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);
-        render_pass.set_bind_group(0, &bind_group, &[**post_processing_uniform_buffer_offsets]);
+        render_pass.set_bind_group(
+            0,
+            Some(&bind_group),
+            &[**post_processing_uniform_buffer_offsets],
+        );
         render_pass.draw(0..3, 0..1);
 
         Ok(())
