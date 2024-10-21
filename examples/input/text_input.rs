@@ -37,7 +37,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             Text::default(),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
@@ -100,7 +100,7 @@ fn bubbling_text(
         if bubble.timer.tick(time.delta()).just_finished() {
             commands.entity(entity).despawn();
         }
-        transform.translation.y += time.delta_seconds() * 100.0;
+        transform.translation.y += time.delta_secs() * 100.0;
     }
 }
 

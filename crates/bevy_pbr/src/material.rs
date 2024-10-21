@@ -270,7 +270,6 @@ where
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
             .register_type::<MeshMaterial3d<M>>()
-            .register_type::<HasMaterial3d>()
             .add_plugins(RenderAssetPlugin::<PreparedMaterial<M>>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -283,10 +282,7 @@ where
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_systems(
-                    ExtractSchedule,
-                    (clear_material_instances::<M>, extract_mesh_materials::<M>).chain(),
-                )
+                .add_systems(ExtractSchedule, extract_mesh_materials::<M>)
                 .add_systems(
                     Render,
                     queue_material_meshes::<M>
@@ -550,31 +546,15 @@ pub const fn screen_space_specular_transmission_pipeline_key(
     }
 }
 
-pub(super) fn clear_material_instances<M: Material>(
-    mut material_instances: ResMut<RenderMaterialInstances<M>>,
-) {
-    material_instances.clear();
-}
-
 fn extract_mesh_materials<M: Material>(
     mut material_instances: ResMut<RenderMaterialInstances<M>>,
     query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial3d<M>)>>,
 ) {
+    material_instances.clear();
+
     for (entity, view_visibility, material) in &query {
         if view_visibility.get() {
             material_instances.insert(entity.into(), material.id());
-        }
-    }
-}
-
-/// Extracts default materials for 3D meshes with no [`MeshMaterial3d`].
-pub(super) fn extract_default_materials(
-    mut material_instances: ResMut<RenderMaterialInstances<StandardMaterial>>,
-    query: Extract<Query<(Entity, &ViewVisibility), (With<Mesh3d>, Without<HasMaterial3d>)>>,
-) {
-    for (entity, view_visibility) in &query {
-        if view_visibility.get() {
-            material_instances.insert(entity.into(), AssetId::default());
         }
     }
 }

@@ -136,8 +136,8 @@ pub(crate) mod test_setup {
         mut cube_transform: Query<&mut Transform, With<Rotator>>,
     ) {
         for mut transform in &mut cube_transform {
-            transform.rotate_x(time.delta_seconds());
-            transform.rotate_local_y(time.delta_seconds());
+            transform.rotate_x(time.delta_secs());
+            transform.rotate_local_y(time.delta_secs());
         }
     }
 
@@ -188,7 +188,7 @@ pub(crate) mod test_setup {
         commands
             .spawn((
                 Text::default(),
-                Style {
+                Node {
                     align_self: AlignSelf::FlexStart,
                     position_type: PositionType::Absolute,
                     top: Val::Px(12.0),

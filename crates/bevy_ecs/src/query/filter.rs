@@ -352,9 +352,9 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
 /// # #[derive(Component, Debug)]
 /// # struct Color {};
 /// # #[derive(Component)]
-/// # struct Style {};
+/// # struct Node {};
 /// #
-/// fn print_cool_entity_system(query: Query<Entity, Or<(Changed<Color>, Changed<Style>)>>) {
+/// fn print_cool_entity_system(query: Query<Entity, Or<(Changed<Color>, Changed<Node>)>>) {
 ///     for entity in &query {
 ///         println!("Entity {:?} got a new style or color", entity);
 ///     }

@@ -114,6 +114,8 @@ impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
             .register_type::<Text2d>()
+            .register_type::<TextFont>()
+            .register_type::<TextColor>()
             .register_type::<TextSpan>()
             .register_type::<TextBounds>()
             .init_asset_loader::<FontLoader>()

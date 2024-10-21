@@ -506,6 +506,7 @@ Example | Description
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
 [Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
 [Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
+[Overflow Clip Margin](../examples/ui/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
 [Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world
@@ -538,6 +539,7 @@ Example | Description
 [Scale Factor Override](../examples/window/scale_factor_override.rs) | Illustrates how to customize the default window settings
 [Screenshot](../examples/window/screenshot.rs) | Shows how to save screenshots to disk
 [Transparent Window](../examples/window/transparent_window.rs) | Illustrates making the window transparent and hiding the window decoration
+[Window Drag Move](../examples/window/window_drag_move.rs) | Demonstrates drag move and drag resize without window decoration
 [Window Resizing](../examples/window/window_resizing.rs) | Demonstrates resizing and responding to resizing a window
 [Window Settings](../examples/window/window_settings.rs) | Demonstrates customizing default window settings
 

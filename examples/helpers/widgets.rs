@@ -22,11 +22,11 @@ pub struct RadioButton;
 #[derive(Clone, Copy, Component)]
 pub struct RadioButtonText;
 
-/// Returns a [`Style`] appropriate for the outer main UI node.
+/// Returns a [`Node`] appropriate for the outer main UI node.
 ///
 /// This UI is in the bottom left corner and has flex column support
-pub fn main_ui_style() -> Style {
-    Style {
+pub fn main_ui_node() -> Node {
+    Node {
         flex_direction: FlexDirection::Column,
         position_type: PositionType::Absolute,
         row_gap: Val::Px(6.0),
@@ -58,8 +58,9 @@ pub fn spawn_option_button<T>(
 
     // Add the button node.
     parent
-        .spawn(ButtonBundle {
-            style: Style {
+        .spawn((
+            Button,
+            Node {
                 border: UiRect::all(Val::Px(1.0)).with_left(if is_first {
                     Val::Px(1.0)
                 } else {
@@ -70,13 +71,12 @@ pub fn spawn_option_button<T>(
                 padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
                 ..default()
             },
-            border_color: BorderColor(Color::WHITE),
-            border_radius: BorderRadius::ZERO
+            BorderColor(Color::WHITE),
+            BorderRadius::ZERO
                 .with_left(if is_first { Val::Px(6.0) } else { Val::Px(0.0) })
                 .with_right(if is_last { Val::Px(6.0) } else { Val::Px(0.0) }),
-            background_color: BackgroundColor(bg_color),
-            ..default()
-        })
+            BackgroundColor(bg_color),
+        ))
         .insert(RadioButton)
         .insert(WidgetClickSender(option_value.clone()))
         .with_children(|parent| {
@@ -97,15 +97,12 @@ where
 {
     // Add the parent node for the row.
     parent
-        .spawn(NodeBundle {
-            style: Style {
-                align_items: AlignItems::Center,
-                ..default()
-            },
+        .spawn(Node {
+            align_items: AlignItems::Center,
             ..default()
         })
         .with_children(|parent| {
-            spawn_ui_text(parent, title, Color::BLACK).insert(Style {
+            spawn_ui_text(parent, title, Color::BLACK).insert(Node {
                 width: Val::Px(125.0),
                 ..default()
             });

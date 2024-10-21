@@ -60,9 +60,9 @@ where
             Shader::from_wgsl
         );
         app.init_asset::<M>()
-            .register_type::<UiMaterialHandle<M>>()
+            .register_type::<MaterialNode<M>>()
             .add_plugins((
-                ExtractComponentPlugin::<UiMaterialHandle<M>>::extract_visible(),
+                ExtractComponentPlugin::<MaterialNode<M>>::extract_visible(),
                 RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
             ));
 
@@ -363,18 +363,15 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     materials: Extract<Res<Assets<M>>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
-        Query<
-            (
-                Entity,
-                &Node,
-                &GlobalTransform,
-                &UiMaterialHandle<M>,
-                &ViewVisibility,
-                Option<&CalculatedClip>,
-                Option<&TargetCamera>,
-            ),
-            Without<BackgroundColor>,
-        >,
+        Query<(
+            Entity,
+            &ComputedNode,
+            &GlobalTransform,
+            &MaterialNode<M>,
+            &ViewVisibility,
+            Option<&CalculatedClip>,
+            Option<&TargetCamera>,
+        )>,
     >,
     render_entity_lookup: Extract<Query<RenderEntity>>,
 ) {
@@ -642,15 +639,17 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 bind_group_data: material.key.clone(),
             },
         );
-        transparent_phase
-            .items
-            .reserve(extracted_uinodes.uinodes.len());
+        if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {
+            transparent_phase.items.reserve_exact(
+                extracted_uinodes.uinodes.len() - transparent_phase.items.capacity(),
+            );
+        }
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
             entity: (*entity, extracted_uinode.main_entity),
             sort_key: (
-                FloatOrd(extracted_uinode.stack_index as f32),
+                FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
                 entity.index(),
             ),
             batch_range: 0..0,

@@ -219,9 +219,9 @@ impl_reflect_opaque!(::alloc::collections::BinaryHeap<T: Clone>);
 
 macro_rules! impl_reflect_for_atomic {
     ($ty:ty, $ordering:expr) => {
-        const _: () = {
-            impl_type_path!($ty);
+        impl_type_path!($ty);
 
+        const _: () = {
             #[cfg(feature = "functions")]
             crate::func::macros::impl_function_traits!($ty);
 
@@ -325,10 +325,6 @@ macro_rules! impl_reflect_for_atomic {
                 }
             }
 
-            // strange rustfmt bug gives this invocation the wrong indentation!
-            #[rustfmt::skip]
-            impl_full_reflect!(for $ty where $ty: Any + Send + Sync);
-
             impl FromReflect for $ty
             where
                 $ty: Any + Send + Sync,
@@ -340,6 +336,8 @@ macro_rules! impl_reflect_for_atomic {
                 }
             }
         };
+
+        impl_full_reflect!(for $ty where $ty: Any + Send + Sync);
     };
 }
 

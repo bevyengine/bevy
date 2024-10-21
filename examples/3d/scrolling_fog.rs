@@ -125,6 +125,6 @@ fn setup(
 /// Moves fog density texture offset every frame.
 fn scroll_fog(time: Res<Time>, mut query: Query<&mut FogVolume>) {
     for mut fog_volume in query.iter_mut() {
-        fog_volume.density_texture_offset += Vec3::new(0.0, 0.0, 0.04) * time.delta_seconds();
+        fog_volume.density_texture_offset += Vec3::new(0.0, 0.0, 0.04) * time.delta_secs();
     }
 }

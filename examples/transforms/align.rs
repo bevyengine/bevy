@@ -103,7 +103,7 @@ fn setup(
             Click and drag the mouse to rotate the camera.\n\
             Press 'H' to hide/show these instructions.",
         ),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -148,7 +148,7 @@ fn rotate_ship(ship: Single<(&mut Ship, &mut Transform)>, time: Res<Time>) {
 
     ship_transform
         .rotation
-        .smooth_nudge(&target_rotation, 3.0, time.delta_seconds());
+        .smooth_nudge(&target_rotation, 3.0, time.delta_secs());
 
     if ship_transform.rotation.angle_between(target_rotation) <= f32::EPSILON {
         ship.in_motion = false;

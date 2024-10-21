@@ -31,7 +31,7 @@ fn bouncing_raycast(
     ray_map: Res<RayMap>,
 ) {
     // Cast an automatically moving ray and bounce it off of surfaces
-    let t = ops::cos((time.elapsed_seconds() - 4.0).max(0.0) * LASER_SPEED) * PI;
+    let t = ops::cos((time.elapsed_secs() - 4.0).max(0.0) * LASER_SPEED) * PI;
     let ray_pos = Vec3::new(ops::sin(t), ops::cos(3.0 * t) * 0.5, ops::cos(t)) * 0.5;
     let ray_dir = Dir3::new(-ray_pos).unwrap();
     let ray = Ray3d::new(ray_pos, ray_dir);

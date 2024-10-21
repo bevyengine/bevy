@@ -251,7 +251,7 @@ pub fn extract_ui_texture_slices(
     slicers_query: Extract<
         Query<(
             Entity,
-            &Node,
+            &ComputedNode,
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,

@@ -111,6 +111,6 @@ fn setup(
 fn animate_text_opacity(mut colors: Query<&mut TextColor>, time: Res<Time>) {
     for mut color in &mut colors {
         let a = color.0.alpha();
-        color.0.set_alpha(a - time.delta_seconds());
+        color.0.set_alpha(a - time.delta_secs());
     }
 }

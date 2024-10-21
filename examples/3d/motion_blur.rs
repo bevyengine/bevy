@@ -234,7 +234,7 @@ fn setup_ui(mut commands: Commands) {
     commands
         .spawn((
             Text::default(),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
@@ -300,7 +300,7 @@ fn move_cars(
     mut spins: Query<&mut Transform, (Without<Moves>, With<Rotates>)>,
 ) {
     for (mut transform, moves, children) in &mut movables {
-        let time = time.elapsed_seconds() * 0.25;
+        let time = time.elapsed_secs() * 0.25;
         let t = time + 0.5 * moves.0;
         let dx = ops::cos(t);
         let dz = -ops::sin(3.0 * t);

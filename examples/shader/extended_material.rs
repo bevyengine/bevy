@@ -65,7 +65,7 @@ struct Rotate;
 
 fn rotate_things(mut q: Query<&mut Transform, With<Rotate>>, time: Res<Time>) {
     for mut t in &mut q {
-        t.rotate_y(time.delta_seconds());
+        t.rotate_y(time.delta_secs());
     }
 }
 

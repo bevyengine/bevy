@@ -104,7 +104,7 @@ fn cycle_cubemap_asset(
     asset_server: Res<AssetServer>,
     render_device: Res<RenderDevice>,
 ) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_secs();
     if *next_swap == 0.0 {
         *next_swap = now + CUBEMAP_SWAP_DELAY;
         return;
@@ -171,6 +171,6 @@ fn animate_light_direction(
     mut query: Query<&mut Transform, With<DirectionalLight>>,
 ) {
     for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() * 0.5);
+        transform.rotate_y(time.delta_secs() * 0.5);
     }
 }

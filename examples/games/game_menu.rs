@@ -75,28 +75,24 @@ mod splash {
         // Display the logo
         commands
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        ..default()
-                    },
+                Node {
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
                     ..default()
                 },
                 OnSplashScreen,
             ))
             .with_children(|parent| {
-                parent.spawn(ImageBundle {
-                    style: Style {
+                parent.spawn((
+                    UiImage::new(icon),
+                    Node {
                         // This will set the logo to be 200px wide, and auto adjust its height
                         width: Val::Px(200.0),
                         ..default()
                     },
-                    image: UiImage::new(icon),
-                    ..default()
-                });
+                ));
             });
         // Insert the timer as a resource
         commands.insert_resource(SplashTimer(Timer::from_seconds(1.0, TimerMode::Once)));
@@ -144,24 +140,21 @@ mod game {
     ) {
         commands
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        // center children
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    // center children
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
                 OnGameScreen,
             ))
             .with_children(|parent| {
-                // First create a `NodeBundle` for centering what we want to display
+                // First create a `Node` for centering what we want to display
                 parent
-                    .spawn(NodeBundle {
-                        style: Style {
+                    .spawn((
+                        Node {
                             // This will display its children in a column, from top to bottom
                             flex_direction: FlexDirection::Column,
                             // `align_items` will align children on the cross axis. Here the main axis is
@@ -170,9 +163,8 @@ mod game {
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: Color::BLACK.into(),
-                        ..default()
-                    })
+                        BackgroundColor(Color::BLACK),
+                    ))
                     .with_children(|p| {
                         p.spawn((
                             Text::new("Will be back to the menu shortly..."),
@@ -181,14 +173,14 @@ mod game {
                                 ..default()
                             },
                             TextColor(TEXT_COLOR),
-                            Style {
+                            Node {
                                 margin: UiRect::all(Val::Px(50.0)),
                                 ..default()
                             },
                         ));
                         p.spawn((
                             Text::default(),
-                            Style {
+                            Node {
                                 margin: UiRect::all(Val::Px(50.0)),
                                 ..default()
                             },
@@ -382,7 +374,7 @@ mod menu {
 
     fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Common style for all buttons on the screen
-        let button_style = Style {
+        let button_node = Node {
             width: Val::Px(300.0),
             height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
@@ -390,7 +382,7 @@ mod menu {
             align_items: AlignItems::Center,
             ..default()
         };
-        let button_icon_style = Style {
+        let button_icon_node = Node {
             width: Val::Px(30.0),
             // This takes the icons out of the flexbox flow, to be positioned exactly
             position_type: PositionType::Absolute,
@@ -405,29 +397,25 @@ mod menu {
 
         commands
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
                 OnMainMenuScreen,
             ))
             .with_children(|parent| {
                 parent
-                    .spawn(NodeBundle {
-                        style: Style {
+                    .spawn((
+                        Node {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: CRIMSON.into(),
-                        ..default()
-                    })
+                        BackgroundColor(CRIMSON.into()),
+                    ))
                     .with_children(|parent| {
                         // Display the game name
                         parent.spawn((
@@ -437,7 +425,7 @@ mod menu {
                                 ..default()
                             },
                             TextColor(TEXT_COLOR),
-                            Style {
+                            Node {
                                 margin: UiRect::all(Val::Px(50.0)),
                                 ..default()
                             },
@@ -449,20 +437,14 @@ mod menu {
                         // - quit
                         parent
                             .spawn((
-                                ButtonBundle {
-                                    style: button_style.clone(),
-                                    background_color: NORMAL_BUTTON.into(),
-                                    ..default()
-                                },
+                                Button,
+                                button_node.clone(),
+                                BackgroundColor(NORMAL_BUTTON),
                                 MenuButtonAction::Play,
                             ))
                             .with_children(|parent| {
                                 let icon = asset_server.load("textures/Game Icons/right.png");
-                                parent.spawn(ImageBundle {
-                                    style: button_icon_style.clone(),
-                                    image: UiImage::new(icon),
-                                    ..default()
-                                });
+                                parent.spawn((UiImage::new(icon), button_icon_node.clone()));
                                 parent.spawn((
                                     Text::new("New Game"),
                                     button_text_font.clone(),
@@ -471,20 +453,14 @@ mod menu {
                             });
                         parent
                             .spawn((
-                                ButtonBundle {
-                                    style: button_style.clone(),
-                                    background_color: NORMAL_BUTTON.into(),
-                                    ..default()
-                                },
+                                Button,
+                                button_node.clone(),
+                                BackgroundColor(NORMAL_BUTTON),
                                 MenuButtonAction::Settings,
                             ))
                             .with_children(|parent| {
                                 let icon = asset_server.load("textures/Game Icons/wrench.png");
-                                parent.spawn(ImageBundle {
-                                    style: button_icon_style.clone(),
-                                    image: UiImage::new(icon),
-                                    ..default()
-                                });
+                                parent.spawn((UiImage::new(icon), button_icon_node.clone()));
                                 parent.spawn((
                                     Text::new("Settings"),
                                     button_text_font.clone(),
@@ -493,20 +469,14 @@ mod menu {
                             });
                         parent
                             .spawn((
-                                ButtonBundle {
-                                    style: button_style,
-                                    background_color: NORMAL_BUTTON.into(),
-                                    ..default()
-                                },
+                                Button,
+                                button_node,
+                                BackgroundColor(NORMAL_BUTTON),
                                 MenuButtonAction::Quit,
                             ))
                             .with_children(|parent| {
                                 let icon = asset_server.load("textures/Game Icons/exitRight.png");
-                                parent.spawn(ImageBundle {
-                                    style: button_icon_style,
-                                    image: UiImage::new(icon),
-                                    ..default()
-                                });
+                                parent.spawn((UiImage::new(icon), button_icon_node));
                                 parent.spawn((
                                     Text::new("Quit"),
                                     button_text_font,
@@ -518,7 +488,7 @@ mod menu {
     }
 
     fn settings_menu_setup(mut commands: Commands) {
-        let button_style = Style {
+        let button_node = Node {
             width: Val::Px(200.0),
             height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
@@ -537,29 +507,25 @@ mod menu {
 
         commands
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
                 OnSettingsMenuScreen,
             ))
             .with_children(|parent| {
                 parent
-                    .spawn(NodeBundle {
-                        style: Style {
+                    .spawn((
+                        Node {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: CRIMSON.into(),
-                        ..default()
-                    })
+                        BackgroundColor(CRIMSON.into()),
+                    ))
                     .with_children(|parent| {
                         for (action, text) in [
                             (MenuButtonAction::SettingsDisplay, "Display"),
@@ -568,11 +534,9 @@ mod menu {
                         ] {
                             parent
                                 .spawn((
-                                    ButtonBundle {
-                                        style: button_style.clone(),
-                                        background_color: NORMAL_BUTTON.into(),
-                                        ..default()
-                                    },
+                                    Button,
+                                    button_node.clone(),
+                                    BackgroundColor(NORMAL_BUTTON),
                                     action,
                                 ))
                                 .with_children(|parent| {
@@ -584,7 +548,7 @@ mod menu {
     }
 
     fn display_settings_menu_setup(mut commands: Commands, display_quality: Res<DisplayQuality>) {
-        let button_style = Style {
+        let button_node = Node {
             width: Val::Px(200.0),
             height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
@@ -602,41 +566,36 @@ mod menu {
 
         commands
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
                 OnDisplaySettingsMenuScreen,
             ))
             .with_children(|parent| {
                 parent
-                    .spawn(NodeBundle {
-                        style: Style {
+                    .spawn((
+                        Node {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: CRIMSON.into(),
-                        ..default()
-                    })
+                        BackgroundColor(CRIMSON.into()),
+                    ))
                     .with_children(|parent| {
-                        // Create a new `NodeBundle`, this time not setting its `flex_direction`. It will
+                        // Create a new `Node`, this time not setting its `flex_direction`. It will
                         // use the default value, `FlexDirection::Row`, from left to right.
                         parent
-                            .spawn(NodeBundle {
-                                style: Style {
+                            .spawn((
+                                Node {
                                     align_items: AlignItems::Center,
                                     ..default()
                                 },
-                                background_color: CRIMSON.into(),
-                                ..default()
-                            })
+                                BackgroundColor(CRIMSON.into()),
+                            ))
                             .with_children(|parent| {
                                 // Display a label for the current setting
                                 parent.spawn((
@@ -650,15 +609,13 @@ mod menu {
                                     DisplayQuality::High,
                                 ] {
                                     let mut entity = parent.spawn((
-                                        ButtonBundle {
-                                            style: Style {
-                                                width: Val::Px(150.0),
-                                                height: Val::Px(65.0),
-                                                ..button_style.clone()
-                                            },
-                                            background_color: NORMAL_BUTTON.into(),
-                                            ..default()
+                                        Button,
+                                        Node {
+                                            width: Val::Px(150.0),
+                                            height: Val::Px(65.0),
+                                            ..button_node.clone()
                                         },
+                                        BackgroundColor(NORMAL_BUTTON),
                                         quality_setting,
                                     ));
                                     entity.with_children(|parent| {
@@ -675,11 +632,9 @@ mod menu {
                         // Display the back button to return to the settings screen
                         parent
                             .spawn((
-                                ButtonBundle {
-                                    style: button_style,
-                                    background_color: NORMAL_BUTTON.into(),
-                                    ..default()
-                                },
+                                Button,
+                                button_node,
+                                BackgroundColor(NORMAL_BUTTON),
                                 MenuButtonAction::BackToSettings,
                             ))
                             .with_children(|parent| {
@@ -690,7 +645,7 @@ mod menu {
     }
 
     fn sound_settings_menu_setup(mut commands: Commands, volume: Res<Volume>) {
-        let button_style = Style {
+        let button_node = Node {
             width: Val::Px(200.0),
             height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
@@ -708,52 +663,45 @@ mod menu {
 
         commands
             .spawn((
-                NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
                     ..default()
                 },
                 OnSoundSettingsMenuScreen,
             ))
             .with_children(|parent| {
                 parent
-                    .spawn(NodeBundle {
-                        style: Style {
+                    .spawn((
+                        Node {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
                             ..default()
                         },
-                        background_color: CRIMSON.into(),
-                        ..default()
-                    })
+                        BackgroundColor(CRIMSON.into()),
+                    ))
                     .with_children(|parent| {
                         parent
-                            .spawn(NodeBundle {
-                                style: Style {
+                            .spawn((
+                                Node {
                                     align_items: AlignItems::Center,
                                     ..default()
                                 },
-                                background_color: CRIMSON.into(),
-                                ..default()
-                            })
+                                BackgroundColor(CRIMSON.into()),
+                            ))
                             .with_children(|parent| {
                                 parent.spawn((Text::new("Volume"), button_text_style.clone()));
                                 for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
                                     let mut entity = parent.spawn((
-                                        ButtonBundle {
-                                            style: Style {
-                                                width: Val::Px(30.0),
-                                                height: Val::Px(65.0),
-                                                ..button_style.clone()
-                                            },
-                                            background_color: NORMAL_BUTTON.into(),
-                                            ..default()
+                                        Button,
+                                        Node {
+                                            width: Val::Px(30.0),
+                                            height: Val::Px(65.0),
+                                            ..button_node.clone()
                                         },
+                                        BackgroundColor(NORMAL_BUTTON),
                                         Volume(volume_setting),
                                     ));
                                     if *volume == Volume(volume_setting) {
@@ -763,11 +711,9 @@ mod menu {
                             });
                         parent
                             .spawn((
-                                ButtonBundle {
-                                    style: button_style,
-                                    background_color: NORMAL_BUTTON.into(),
-                                    ..default()
-                                },
+                                Button,
+                                button_node,
+                                BackgroundColor(NORMAL_BUTTON),
                                 MenuButtonAction::BackToSettings,
                             ))
                             .with_child((Text::new("Back"), button_text_style));

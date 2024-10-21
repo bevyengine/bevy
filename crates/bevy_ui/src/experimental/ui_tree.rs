@@ -5,6 +5,7 @@ use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
 use bevy_reflect::prelude::*;
 use bevy_render::view::Visibility;
 use bevy_transform::prelude::Transform;
+use core::marker::PhantomData;
 use smallvec::SmallVec;
 
 use crate::Node;
@@ -14,10 +15,30 @@ use crate::Node;
 /// The UI systems will traverse past these and treat their first non-ghost descendants as direct children of their first non-ghost ancestor.
 ///
 /// Any components necessary for transform and visibility propagation will be added automatically.
-#[derive(Component, Default, Debug, Copy, Clone, Reflect)]
+///
+/// Instances of this type cannot be constructed unless the `ghost_nodes` feature is enabled.
+#[derive(Component, Debug, Copy, Clone, Reflect)]
+#[cfg_attr(feature = "ghost_nodes", derive(Default))]
 #[reflect(Component, Debug)]
 #[require(Visibility, Transform)]
-pub struct GhostNode;
+pub struct GhostNode {
+    // This is a workaround to ensure that GhostNode is only constructable when the appropriate feature flag is enabled
+    #[reflect(ignore)]
+    unconstructable: PhantomData<()>, // Spooky!
+}
+
+#[cfg(feature = "ghost_nodes")]
+impl GhostNode {
+    /// Creates a new ghost node.
+    ///
+    /// This method is only available when the `ghost_node` feature is enabled,
+    /// and will eventually be deprecated then removed in favor of simply using `GhostNode` as no meaningful data is stored.
+    pub const fn new() -> Self {
+        GhostNode {
+            unconstructable: PhantomData,
+        }
+    }
+}
 
 /// System param that allows iteration of all UI root nodes.
 ///
@@ -200,7 +221,7 @@ impl<'w, 's> Iterator for UiChildrenIter<'w, 's> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "ghost_nodes"))]
 mod tests {
     use bevy_ecs::{
         prelude::Component,
@@ -209,8 +230,7 @@ mod tests {
     };
     use bevy_hierarchy::{BuildChildren, ChildBuild};
 
-    use super::{GhostNode, UiRootNodes, UiTree};
-    use crate::prelude::NodeBundle;
+    use super::{GhostNode, Node, UiRootNodes, UiTree};
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);
@@ -221,22 +241,24 @@ mod tests {
 
         // Normal root
         world
-            .spawn((A(1), NodeBundle::default()))
+            .spawn((A(1), Node::default()))
             .with_children(|parent| {
-                parent.spawn((A(2), NodeBundle::default()));
+                parent.spawn((A(2), Node::default()));
                 parent
-                    .spawn((A(3), GhostNode))
-                    .with_child((A(4), NodeBundle::default()));
+                    .spawn((A(3), GhostNode::new()))
+                    .with_child((A(4), Node::default()));
             });
 
         // Ghost root
-        world.spawn((A(5), GhostNode)).with_children(|parent| {
-            parent.spawn((A(6), NodeBundle::default()));
-            parent
-                .spawn((A(7), GhostNode))
-                .with_child((A(8), NodeBundle::default()))
-                .with_child(A(9));
-        });
+        world
+            .spawn((A(5), GhostNode::new()))
+            .with_children(|parent| {
+                parent.spawn((A(6), Node::default()));
+                parent
+                    .spawn((A(7), GhostNode::new()))
+                    .with_child((A(8), Node::default()))
+                    .with_child(A(9));
+            });
 
         let mut system_state = SystemState::<(UiRootNodes, Query<&A>)>::new(world);
         let (ui_root_nodes, a_query) = system_state.get(world);
@@ -250,18 +272,18 @@ mod tests {
     fn iterate_ui_children() {
         let world = &mut World::new();
 
-        let n1 = world.spawn((A(1), NodeBundle::default())).id();
-        let n2 = world.spawn((A(2), GhostNode)).id();
-        let n3 = world.spawn((A(3), GhostNode)).id();
-        let n4 = world.spawn((A(4), NodeBundle::default())).id();
-        let n5 = world.spawn((A(5), NodeBundle::default())).id();
+        let n1 = world.spawn((A(1), Node::default())).id();
+        let n2 = world.spawn((A(2), GhostNode::new())).id();
+        let n3 = world.spawn((A(3), GhostNode::new())).id();
+        let n4 = world.spawn((A(4), Node::default())).id();
+        let n5 = world.spawn((A(5), Node::default())).id();
 
-        let n6 = world.spawn((A(6), GhostNode)).id();
-        let n7 = world.spawn((A(7), GhostNode)).id();
-        let n8 = world.spawn((A(8), NodeBundle::default())).id();
-        let n9 = world.spawn((A(9), GhostNode)).id();
-        let n10 = world.spawn((A(10), NodeBundle::default())).id();
-        let n11 = world.spawn((A(11), NodeBundle::default())).id();
+        let n6 = world.spawn((A(6), GhostNode::new())).id();
+        let n7 = world.spawn((A(7), GhostNode::new())).id();
+        let n8 = world.spawn((A(8), Node::default())).id();
+        let n9 = world.spawn((A(9), GhostNode::new())).id();
+        let n10 = world.spawn((A(10), Node::default())).id();
+        let n11 = world.spawn((A(11), Node::default())).id();
 
         let no_ui = world.spawn_empty().id();
 
@@ -292,15 +314,15 @@ mod tests {
     fn ancestors() {
         let world = &mut World::new();
 
-        let n1 = world.spawn((A(1), NodeBundle::default())).id();
-        let n2 = world.spawn((A(2), GhostNode)).id();
-        let n3 = world.spawn((A(3), GhostNode)).id();
-        let n4 = world.spawn((A(4), NodeBundle::default())).id();
-        let n5 = world.spawn((A(5), NodeBundle::default())).id();
+        let n1 = world.spawn((A(1), Node::default())).id();
+        let n2 = world.spawn((A(2), GhostNode::new())).id();
+        let n3 = world.spawn((A(3), GhostNode::new())).id();
+        let n4 = world.spawn((A(4), Node::default())).id();
+        let n5 = world.spawn((A(5), Node::default())).id();
 
-        let n6 = world.spawn((A(6), GhostNode)).id();
-        let n7 = world.spawn((A(7), GhostNode)).id();
-        let n8 = world.spawn((A(8), NodeBundle::default())).id();
+        let n6 = world.spawn((A(6), GhostNode::new())).id();
+        let n7 = world.spawn((A(7), GhostNode::new())).id();
+        let n8 = world.spawn((A(8), Node::default())).id();
 
         world.entity_mut(n1).add_children(&[n2, n3]);
         world.entity_mut(n3).add_children(&[n4]);
