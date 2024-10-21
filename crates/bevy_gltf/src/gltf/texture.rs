@@ -29,56 +29,107 @@ impl GltfTexture {
         buffer_data: &[Vec<u8>],
         used_textures: &HashSet<usize>,
     ) -> Result<Vec<Handle<Image>>, GltfError> {
-        let textures = if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
-            let mut textures = vec![];
-            for texture in gltf.textures() {
-                let parent_path = load_context.path().parent().unwrap();
-                let image = Self::load_image(
-                    texture,
+        #[cfg(target_arch = "wasm32")]
+        let textures = Self::singlethreaded_texture_load(
+            load_context,
+            loader,
+            settings,
+            gltf,
+            buffer_data,
+            used_textures,
+        )
+        .await;
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let textures = {
+            if gltf.textures().len() == 1 {
+                Self::singlethreaded_texture_load(
+                    load_context,
+                    loader,
+                    settings,
+                    gltf,
                     buffer_data,
                     used_textures,
-                    parent_path,
-                    loader.supported_compressed_formats,
-                    settings.load_materials,
                 )
-                .await?;
-                textures.push(Self::process_loaded_texture(load_context, image));
+                .await
+            } else {
+                Ok(Self::multithreaded_texture_load(
+                    load_context,
+                    loader,
+                    settings,
+                    gltf,
+                    buffer_data,
+                    used_textures,
+                )
+                .await)
             }
-            textures
-        } else if cfg!(not(target_arch = "wasm32")) {
-            IoTaskPool::get()
-                .scope(|scope| {
-                    gltf.textures().for_each(|gltf_texture| {
-                        let parent_path = load_context.path().parent().unwrap();
-                        let linear_textures = &used_textures;
-                        let buffer_data = &buffer_data;
-                        scope.spawn(async move {
-                            Self::load_image(
-                                gltf_texture,
-                                buffer_data,
-                                linear_textures,
-                                parent_path,
-                                loader.supported_compressed_formats,
-                                settings.load_materials,
-                            )
-                            .await
-                        });
-                    });
-                })
-                .into_iter()
-                .flat_map(|result| match result {
-                    Ok(image) => Some(Self::process_loaded_texture(load_context, image)),
-                    Err(err) => {
-                        warn!("Error loading glTF texture: {}", err);
-                        None
-                    }
-                })
-                .collect::<Vec<_>>()
-        } else {
-            vec![]
         };
 
+        textures
+    }
+
+    async fn singlethreaded_texture_load(
+        load_context: &mut LoadContext<'_>,
+        loader: &GltfLoader,
+        settings: &GltfLoaderSettings,
+        gltf: &gltf::Gltf,
+        buffer_data: &[Vec<u8>],
+        used_textures: &HashSet<usize>,
+    ) -> Result<Vec<Handle<Image>>, GltfError> {
+        let mut textures = vec![];
+        for texture in gltf.textures() {
+            let parent_path = load_context.path().parent().unwrap();
+            let image = Self::load_image(
+                texture,
+                buffer_data,
+                used_textures,
+                parent_path,
+                loader.supported_compressed_formats,
+                settings.load_materials,
+            )
+            .await?;
+            textures.push(Self::process_loaded_texture(load_context, image));
+        }
         Ok(textures)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn multithreaded_texture_load(
+        load_context: &mut LoadContext<'_>,
+        loader: &GltfLoader,
+        settings: &GltfLoaderSettings,
+        gltf: &gltf::Gltf,
+        buffer_data: &[Vec<u8>],
+        used_textures: &HashSet<usize>,
+    ) -> Vec<Handle<Image>> {
+        IoTaskPool::get()
+            .scope(|scope| {
+                gltf.textures().for_each(|gltf_texture| {
+                    let parent_path = load_context.path().parent().unwrap();
+                    let linear_textures = &used_textures;
+                    let buffer_data = &buffer_data;
+                    scope.spawn(async move {
+                        Self::load_image(
+                            gltf_texture,
+                            buffer_data,
+                            linear_textures,
+                            parent_path,
+                            loader.supported_compressed_formats,
+                            settings.load_materials,
+                        )
+                        .await
+                    });
+                });
+            })
+            .into_iter()
+            .flat_map(|result| match result {
+                Ok(image) => Some(Self::process_loaded_texture(load_context, image)),
+                Err(err) => {
+                    warn!("Error loading glTF texture: {}", err);
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
     }
 
     /// Loads a glTF texture as a bevy [`Image`] and returns it together with its label.
