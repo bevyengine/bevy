@@ -775,7 +775,7 @@ struct UiVertex {
     pub border: [f32; 4],
     /// Size of the UI node.
     pub size: [f32; 2],
-    /// Postion relative to the center of the UI node.
+    /// Position relative to the center of the UI node.
     pub point: [f32; 2],
 }
 
