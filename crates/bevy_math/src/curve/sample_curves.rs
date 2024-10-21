@@ -356,6 +356,7 @@ impl<T> UnevenSampleAutoCurve<T> {
 }
 
 #[cfg(test)]
+#[cfg(feature = "bevy_reflect")]
 mod tests {
     //! These tests should guarantee (by even compiling) that `SampleCurve` and `UnevenSampleCurve`
     //! can be `Reflect` under reasonable circumstances where their interpolation is defined by:
