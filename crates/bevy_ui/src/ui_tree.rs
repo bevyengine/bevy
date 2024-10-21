@@ -124,6 +124,25 @@ impl<'w, 's> UiTree<'w, 's> {
             .filter(|entity| !self.ghost_nodes_query.contains(*entity))
     }
 
+    /// Returns an [`Iterator`] of [`Node`] entities over the leaves of the UI tree underneath this `entity`.
+    ///
+    /// Only entities which have no [`Node`] descendants are considered leaves.
+    /// This will not include the entity itself, and will not include any entities which are not descendants of the entity,
+    /// even if they are leaves in the same hierarchical tree.
+    ///
+    /// Traverses the hierarchy depth-first.
+    pub fn iter_leaves(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
+        self.iter_descendants_depth_first(entity).filter(|entity| {
+            // FIXME: This will not include Nodes with only GhostNode descendants
+            self.children_query
+                .get(*entity)
+                // These are leaf nodes if they have the `Children` component but it's empty
+                .map(|children| children.is_empty())
+                // Or if they don't have the `Children` component at all
+                .unwrap_or(true)
+        })
+    }
+
     /// Iterates the [`GhostNode`]s between this entity and its UI children.
     pub fn iter_ghost_nodes(&'s self, entity: Entity) -> Box<dyn Iterator<Item = Entity> + 's> {
         Box::new(
