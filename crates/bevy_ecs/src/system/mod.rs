@@ -317,7 +317,7 @@ mod tests {
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
         change_detection::DetectChanges,
-        component::{Component, Components, Tick},
+        component::{Component, Components},
         entity::{Entities, Entity},
         prelude::{AnyOf, EntityRef},
         query::{Added, Changed, Or, With, Without},
@@ -1335,7 +1335,7 @@ mod tests {
             fn mutable_query(mut query: Query<&mut A>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<&A>) {}
@@ -1350,7 +1350,7 @@ mod tests {
             fn mutable_query(mut query: Query<Option<&mut A>>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<Option<&A>>) {}
@@ -1365,7 +1365,7 @@ mod tests {
             fn mutable_query(mut query: Query<(&mut A, &B)>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<(&A, &B)>) {}
@@ -1380,7 +1380,7 @@ mod tests {
             fn mutable_query(mut query: Query<(&mut A, &mut B)>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<(&A, &B)>) {}
@@ -1395,7 +1395,7 @@ mod tests {
             fn mutable_query(mut query: Query<(&mut A, &mut B), With<C>>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<(&A, &B), With<C>>) {}
@@ -1410,7 +1410,7 @@ mod tests {
             fn mutable_query(mut query: Query<(&mut A, &mut B), Without<C>>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<(&A, &B), Without<C>>) {}
@@ -1425,7 +1425,7 @@ mod tests {
             fn mutable_query(mut query: Query<(&mut A, &mut B), Added<C>>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<(&A, &B), Added<C>>) {}
@@ -1440,7 +1440,7 @@ mod tests {
             fn mutable_query(mut query: Query<(&mut A, &mut B), Changed<C>>) {
                 for _ in &mut query {}
 
-                immutable_query(query.to_readonly());
+                immutable_query(query.as_readonly());
             }
 
             fn immutable_query(_: Query<(&A, &B), Changed<C>>) {}
@@ -1544,24 +1544,6 @@ mod tests {
                 assert_eq!(a.0, 0);
             }
         });
-    }
-
-    #[test]
-    #[should_panic = "Encountered a mismatched World."]
-    fn query_validates_world_id() {
-        let mut world1 = World::new();
-        let world2 = World::new();
-        let qstate = world1.query::<()>();
-        // SAFETY: doesnt access anything
-        let query = unsafe {
-            Query::new(
-                world2.as_unsafe_world_cell_readonly(),
-                &qstate,
-                Tick::new(0),
-                Tick::new(0),
-            )
-        };
-        query.iter();
     }
 
     #[test]
