@@ -10,7 +10,7 @@ use super::GltfError;
 /// Iterator for a Gltf tree.
 ///
 /// It resolves a Gltf tree and allows for a safe Gltf nodes iteration,
-/// putting dependant nodes before dependencies.
+/// putting dependent nodes before dependencies.
 pub struct GltfTreeIterator<'a> {
     nodes: Vec<Node<'a>>,
 }
