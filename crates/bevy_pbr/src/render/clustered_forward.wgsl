@@ -77,7 +77,7 @@ fn cluster_debug_visualization(
 
     // Cluster allocation debug (using 'over' alpha blending)
 #ifdef CLUSTERED_FORWARD_DEBUG_Z_SLICES
-    // NOTE: This debug mode visualises the z-slices
+    // NOTE: This debug mode visualizes the z-slices
     let cluster_overlay_alpha = 0.1;
     var z_slice: u32 = view_z_to_z_slice(view_z, is_orthographic);
     // A hack to make the colors alternate a bit more
@@ -96,7 +96,7 @@ fn cluster_debug_visualization(
     );
 #endif // CLUSTERED_FORWARD_DEBUG_Z_SLICES
 #ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COMPLEXITY
-    // NOTE: This debug mode visualises the number of clusterable objects within
+    // NOTE: This debug mode visualizes the number of clusterable objects within
     // the cluster that contains the fragment. It shows a sort of cluster
     // complexity measure.
     let cluster_overlay_alpha = 0.1;

@@ -1001,7 +1001,7 @@ impl<'a> ReflectTypePath<'a> {
     ///
     /// Returns [`None`] if the type is [primitive] or [anonymous].
     ///
-    /// For non-customised [internal] paths this is created from [`module_path`].
+    /// For non-customized [internal] paths this is created from [`module_path`].
     ///
     /// For `Option<PhantomData>`, this is `"core"`.
     ///
@@ -1131,7 +1131,7 @@ impl<'a> ReflectTypePath<'a> {
     ///
     /// Returns [`None`] if the type is [primitive] or [anonymous].
     ///
-    /// For non-customised [internal] paths this is created from [`module_path`].
+    /// For non-customized [internal] paths this is created from [`module_path`].
     ///
     /// For `Option<PhantomData>`, this is `"std::option"`.
     ///

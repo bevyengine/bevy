@@ -395,7 +395,7 @@ pub enum KeyCode {
     /// Japanese: <kbd>無変換</kbd> (muhenkan)
     NonConvert,
     /// <kbd>⌦</kbd>. The forward delete key.
-    /// Note that on Apple keyboards, the key labelled <kbd>Delete</kbd> on the main part of
+    /// Note that on Apple keyboards, the key labeled <kbd>Delete</kbd> on the main part of
     /// the keyboard is encoded as [`Backspace`].
     ///
     /// [`Backspace`]: Self::Backspace
@@ -532,9 +532,9 @@ pub enum KeyCode {
     /// <kbd>Eject</kbd> or <kbd>⏏</kbd>. This key is placed in the function section on some Apple
     /// keyboards.
     Eject,
-    /// Sometimes labelled <kbd>My Computer</kbd> on the keyboard
+    /// Sometimes labeled <kbd>My Computer</kbd> on the keyboard
     LaunchApp1,
-    /// Sometimes labelled <kbd>Calculator</kbd> on the keyboard
+    /// Sometimes labeled <kbd>Calculator</kbd> on the keyboard
     LaunchApp2,
     /// LaunchMail
     LaunchMail,
@@ -927,7 +927,7 @@ pub enum Key {
     /// be restored. The computer will then shutdown.
     Hibernate,
     /// The Standby key. This key turns off the display and places the computer into a low-power
-    /// mode without completely shutting down. It is sometimes labelled `Suspend` or `Sleep` key.
+    /// mode without completely shutting down. It is sometimes labeled `Suspend` or `Sleep` key.
     /// (`KEYCODE_SLEEP`)
     Standby,
     /// The WakeUp key. (`KEYCODE_WAKEUP`)
