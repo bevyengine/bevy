@@ -6,6 +6,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_render::camera::CameraActive;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
@@ -56,6 +57,7 @@ impl ViewNode for MsaaWritebackNode {
         &'static MsaaWritebackBlitPipeline,
         &'static Msaa,
     );
+    type ViewFilter = ();
 
     fn run<'w>(
         &self,
@@ -124,7 +126,7 @@ fn prepare_msaa_writeback_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
     blit_pipeline: Res<BlitPipeline>,
-    view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera, &Msaa)>,
+    view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera, &Msaa), With<CameraActive>>,
 ) {
     for (entity, view_target, camera, msaa) in view_targets.iter() {
         // only do writeback if writeback is enabled for the camera and this isn't the first camera in the target,

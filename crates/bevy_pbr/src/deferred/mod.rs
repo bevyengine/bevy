@@ -156,6 +156,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         &'static DeferredLightingIdDepthTexture,
         &'static DeferredLightingPipeline,
     );
+    type ViewFilter = ();
 
     fn run(
         &self,

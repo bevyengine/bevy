@@ -11,6 +11,7 @@ pub use clear_color::*;
 pub use manual_texture_view::*;
 pub use projection::*;
 
+use crate::render_component::RenderComponentPlugin;
 use crate::{
     extract_component::ExtractComponentPlugin, extract_resource::ExtractResourcePlugin,
     render_graph::RenderGraph, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -39,6 +40,7 @@ impl Plugin for CameraPlugin {
                 ExtractResourcePlugin::<ManualTextureViews>::default(),
                 ExtractResourcePlugin::<ClearColor>::default(),
                 ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
+                RenderComponentPlugin::<CameraActive>::default(),
             ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {

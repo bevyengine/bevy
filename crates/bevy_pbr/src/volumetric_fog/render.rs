@@ -45,6 +45,7 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
 use bitflags::bitflags;
 
+use crate::volumetric_fog::UseVolumetricFog;
 use crate::{
     FogVolume, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
@@ -271,43 +272,15 @@ impl FromWorld for VolumetricFogPipeline {
 /// from the main world to the render world.
 pub fn extract_volumetric_fog(
     mut commands: Commands,
-    view_targets: Extract<Query<(RenderEntity, &VolumetricFog)>>,
-    fog_volumes: Extract<Query<(RenderEntity, &FogVolume, &GlobalTransform)>>,
-    volumetric_lights: Extract<Query<(RenderEntity, &VolumetricLight)>>,
+    view_targets: Extract<Query<RenderEntity, With<VolumetricFog>>>,
+    volumetric_lights: Extract<Query<RenderEntity, With<VolumetricLight>>>,
 ) {
     if volumetric_lights.is_empty() {
-        // TODO: needs better way to handle clean up in render world
-        for (entity, ..) in view_targets.iter() {
-            commands
-                .entity(entity)
-                .remove::<(VolumetricFog, ViewVolumetricFogPipelines, ViewVolumetricFog)>();
-        }
-        for (entity, ..) in fog_volumes.iter() {
-            commands.entity(entity).remove::<FogVolume>();
-        }
         return;
     }
 
-    for (entity, volumetric_fog) in view_targets.iter() {
-        commands
-            .get_entity(entity)
-            .expect("Volumetric fog entity wasn't synced.")
-            .insert(*volumetric_fog);
-    }
-
-    for (entity, fog_volume, fog_transform) in fog_volumes.iter() {
-        commands
-            .get_entity(entity)
-            .expect("Fog volume entity wasn't synced.")
-            .insert((*fog_volume).clone())
-            .insert(*fog_transform);
-    }
-
-    for (entity, volumetric_light) in volumetric_lights.iter() {
-        commands
-            .get_entity(entity)
-            .expect("Volumetric light entity wasn't synced.")
-            .insert(*volumetric_light);
+    for entity in view_targets.iter() {
+        commands.entity(entity).insert(UseVolumetricFog);
     }
 }
 
@@ -326,6 +299,7 @@ impl ViewNode for VolumetricFogNode {
         Read<Msaa>,
         Read<ViewEnvironmentMapUniformOffset>,
     );
+    type ViewFilter = With<UseVolumetricFog>;
 
     fn run<'w>(
         &self,

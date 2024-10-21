@@ -14,6 +14,13 @@
 //!
 //! [Depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
 
+use crate::{
+    core_3d::{
+        graph::{Core3d, Node3d},
+        Camera3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED,
+    },
+    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -28,6 +35,8 @@ use bevy_ecs::{
 };
 use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
+use bevy_render::render_component::{RenderComponent, RenderComponentPlugin};
 use bevy_render::{
     camera::{PhysicalCameraParameters, Projection},
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -46,7 +55,6 @@ use bevy_render::{
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
-    sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{BevyDefault, CachedTexture, TextureCache},
     view::{
@@ -58,14 +66,6 @@ use bevy_render::{
 use bevy_utils::{info_once, prelude::default, warn_once};
 use smallvec::SmallVec;
 
-use crate::{
-    core_3d::{
-        graph::{Core3d, Node3d},
-        Camera3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED,
-    },
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
-};
-
 const DOF_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2031861180739216043);
 
 /// A plugin that adds support for the depth of field effect to Bevy.
@@ -75,7 +75,7 @@ pub struct DepthOfFieldPlugin;
 /// simulating the focus of a camera lens.
 ///
 /// [depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
-#[derive(Component, Clone, Copy, Reflect)]
+#[derive(Component, ExtractComponent, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct DepthOfField {
     /// The appearance of the effect.
@@ -117,6 +117,9 @@ pub struct DepthOfField {
     /// or background are.
     pub max_depth: f32,
 }
+
+#[derive(Component, RenderComponent)]
+pub struct UseDepthOfField;
 
 #[deprecated(since = "0.15.0", note = "Renamed to `DepthOfField`")]
 pub type DepthOfFieldSettings = DepthOfField;
@@ -210,9 +213,12 @@ impl Plugin for DepthOfFieldPlugin {
 
         app.register_type::<DepthOfField>();
         app.register_type::<DepthOfFieldMode>();
-        app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
+        app.add_plugins((
+            UniformComponentPlugin::<DepthOfFieldUniform>::default(),
+            RenderComponentPlugin::<UseDepthOfField>::default(),
+        ));
 
-        app.add_plugins(SyncComponentPlugin::<DepthOfField>::default());
+        app.add_plugins(ExtractComponentPlugin::<DepthOfField>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -339,6 +345,7 @@ impl ViewNode for DepthOfFieldNode {
         Read<DynamicUniformIndex<DepthOfFieldUniform>>,
         Option<Read<AuxiliaryDepthOfFieldTexture>>,
     );
+    type ViewFilter = With<UseDepthOfField>;
 
     fn run<'w>(
         &self,
@@ -596,7 +603,7 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
 /// need to set the appropriate flag to tell Bevy to make samplable depth
 /// buffers.
 pub fn configure_depth_of_field_view_targets(
-    mut view_targets: Query<&mut Camera3d, With<DepthOfField>>,
+    mut view_targets: Query<&mut Camera3d, With<UseDepthOfField>>,
 ) {
     for mut camera_3d in view_targets.iter_mut() {
         let mut depth_texture_usages = TextureUsages::from(camera_3d.depth_texture_usages);
@@ -823,21 +830,8 @@ fn extract_depth_of_field_settings(
     }
 
     for (entity, depth_of_field, projection) in query.iter_mut() {
-        let mut entity_commands = commands
-            .get_entity(entity)
-            .expect("Depth of field entity wasn't synced.");
-
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
-            // TODO: needs better strategy for cleaning up
-            entity_commands.remove::<(
-                DepthOfField,
-                DepthOfFieldUniform,
-                // components added in prepare systems (because `DepthOfFieldNode` does not query extracted components)
-                DepthOfFieldPipelines,
-                AuxiliaryDepthOfFieldTexture,
-                ViewDepthOfFieldBindGroupLayouts,
-            )>();
             continue;
         };
 
@@ -845,8 +839,7 @@ fn extract_depth_of_field_settings(
             calculate_focal_length(depth_of_field.sensor_height, perspective_projection.fov);
 
         // Convert `DepthOfField` to `DepthOfFieldUniform`.
-        entity_commands.insert((
-            *depth_of_field,
+        commands.entity(entity).insert((
             DepthOfFieldUniform {
                 focal_distance: depth_of_field.focal_distance,
                 focal_length,
@@ -858,6 +851,7 @@ fn extract_depth_of_field_settings(
                 pad_b: 0,
                 pad_c: 0,
             },
+            UseDepthOfField,
         ));
     }
 }

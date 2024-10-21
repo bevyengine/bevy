@@ -27,6 +27,7 @@ impl ViewNode for MainTransmissivePass3dNode {
         Option<&'static ViewTransmissionTexture>,
         &'static ViewDepthTexture,
     );
+    type ViewFilter = ();
 
     fn run(
         &self,

@@ -9,6 +9,7 @@ use bevy_ecs::{
     system::lifetimeless::Read,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_render::render_component::RenderComponent;
 use bevy_render::sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
@@ -64,6 +65,9 @@ pub struct ExtractedDirectionalLight {
     pub frusta: EntityHashMap<Vec<Frustum>>,
     pub render_layers: RenderLayers,
 }
+
+#[derive(Component, RenderComponent)]
+pub struct VisibleLight;
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
 bitflags::bitflags! {
@@ -379,10 +383,6 @@ pub fn extract_lights(
     ) in &directional_lights
     {
         if !view_visibility.get() {
-            commands
-                .get_entity(entity)
-                .expect("Light entity wasn't synced.")
-                .remove::<(ExtractedDirectionalLight, RenderCascadesVisibleEntities)>();
             continue;
         }
 
@@ -440,6 +440,7 @@ pub fn extract_lights(
                 RenderCascadesVisibleEntities {
                     entities: cascade_visible_entities,
                 },
+                VisibleLight,
             ));
     }
 }
@@ -667,7 +668,7 @@ pub fn prepare_lights(
             &ExtractedClusterConfig,
             Option<&RenderLayers>,
         ),
-        With<Camera3d>,
+        (With<Camera3d>, With<UseClustering>),
     >,
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
@@ -682,7 +683,7 @@ pub fn prepare_lights(
         &ExtractedPointLight,
         AnyOf<(&CubemapFrusta, &Frustum)>,
     )>,
-    directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
+    directional_lights: Query<(Entity, &ExtractedDirectionalLight), With<VisibleLight>>,
     mut light_view_entities: Query<&mut LightViewEntities>,
     mut live_shadow_mapping_lights: Local<EntityHashSet>,
 ) {
@@ -1449,10 +1450,7 @@ pub fn queue_shadows<M: Material>(
     view_lights: Query<(Entity, &ViewLightEntities)>,
     view_light_entities: Query<&LightEntity>,
     point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
-    directional_light_entities: Query<
-        &RenderCascadesVisibleEntities,
-        With<ExtractedDirectionalLight>,
-    >,
+    directional_light_entities: Query<&RenderCascadesVisibleEntities, With<VisibleLight>>,
     spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,

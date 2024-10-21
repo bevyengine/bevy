@@ -38,6 +38,7 @@ use bevy_core_pipeline::core_3d::{
     graph::{Core3d, Node3d},
     prepare_core_3d_depth_textures,
 };
+use bevy_ecs::query::QueryItem;
 use bevy_ecs::{
     bundle::Bundle, component::Component, reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
@@ -47,11 +48,12 @@ use bevy_math::{
     Vec2, Vec3,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
+use bevy_render::render_component::{RenderComponent, RenderComponentPlugin};
 use bevy_render::{
     mesh::{Mesh, Meshable},
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, SpecializedRenderPipelines},
-    sync_component::SyncComponentPlugin,
     texture::Image,
     view::{InheritedVisibility, ViewVisibility, Visibility},
     ExtractSchedule, Render, RenderApp, RenderSet,
@@ -73,14 +75,14 @@ pub struct VolumetricFogPlugin;
 /// (`shadows_enabled: true`) to make volumetric fog interact with it.
 ///
 /// This allows the light to generate light shafts/god rays.
-#[derive(Clone, Copy, Component, Default, Debug, Reflect)]
+#[derive(Clone, Copy, Component, ExtractComponent, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct VolumetricLight;
 
 /// When placed on a [`bevy_core_pipeline::core_3d::Camera3d`], enables
 /// volumetric fog and volumetric lighting, also known as light shafts or god
 /// rays.
-#[derive(Clone, Copy, Component, Debug, Reflect)]
+#[derive(Clone, Copy, Component, ExtractComponent, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct VolumetricFog {
     /// Color of the ambient light.
@@ -117,6 +119,10 @@ pub struct VolumetricFog {
     /// The default value is 64.
     pub step_count: u32,
 }
+
+/// A marker component that enables volumetric fog.
+#[derive(Component, RenderComponent)]
+pub struct UseVolumetricFog;
 
 #[deprecated(since = "0.15.0", note = "Renamed to `VolumetricFog`")]
 pub type VolumetricFogSettings = VolumetricFog;
@@ -216,6 +222,18 @@ pub struct FogVolume {
     pub light_intensity: f32,
 }
 
+impl ExtractComponent for FogVolume {
+    type QueryData = (&'static Self, &'static GlobalTransform);
+    type QueryFilter = ();
+    type Out = (Self, GlobalTransform);
+
+    fn extract_component(
+        (fog_volume, global_transform): QueryItem<'_, Self::QueryData>,
+    ) -> Option<Self::Out> {
+        Some((fog_volume.clone(), *global_transform))
+    }
+}
+
 impl Plugin for VolumetricFogPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
@@ -232,7 +250,12 @@ impl Plugin for VolumetricFogPlugin {
         app.register_type::<VolumetricFog>()
             .register_type::<VolumetricLight>();
 
-        app.add_plugins(SyncComponentPlugin::<FogVolume>::default());
+        app.add_plugins((
+            ExtractComponentPlugin::<VolumetricLight>::default(),
+            ExtractComponentPlugin::<VolumetricFog>::default(),
+            ExtractComponentPlugin::<FogVolume>::default(),
+            RenderComponentPlugin::<UseVolumetricFog>::default(),
+        ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

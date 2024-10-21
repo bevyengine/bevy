@@ -24,6 +24,7 @@ impl ViewNode for OitResolveNode {
         &'static OitResolvePipelineId,
         &'static ViewDepthTexture,
     );
+    type ViewFilter = ();
 
     fn run(
         &self,

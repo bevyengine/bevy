@@ -1,3 +1,5 @@
+use super::{InternedRenderSubGraph, RenderSubGraph};
+use crate::camera::CameraActive;
 use crate::{
     render_graph::{
         Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
@@ -7,20 +9,18 @@ use crate::{
     renderer::RenderContext,
 };
 pub use bevy_ecs::label::DynEq;
+use bevy_ecs::query::{QueryFilter, With};
 use bevy_ecs::{
     define_label,
     intern::Interned,
     query::{QueryItem, QueryState, ReadOnlyQueryData},
     world::{FromWorld, World},
 };
+pub use bevy_render_macros::RenderLabel;
 use bevy_utils::all_tuples_with_size;
 use core::fmt::Debug;
 use derive_more::derive::{Display, Error, From};
 use downcast_rs::{impl_downcast, Downcast};
-
-pub use bevy_render_macros::RenderLabel;
-
-use super::{InternedRenderSubGraph, RenderSubGraph};
 
 define_label!(
     /// A strongly-typed class of labels used to identify a [`Node`] in a render graph.
@@ -344,6 +344,7 @@ pub trait ViewNode {
     /// The query that will be used on the view entity.
     /// It is guaranteed to run on the view entity, so there's no need for a filter
     type ViewQuery: ReadOnlyQueryData;
+    type ViewFilter: QueryFilter;
 
     /// Updates internal node state using the current render [`World`] prior to the run method.
     fn update(&mut self, _world: &mut World) {}
@@ -365,7 +366,7 @@ pub trait ViewNode {
 ///
 /// This [`Node`] exists to help reduce boilerplate when making a render node that runs on a view.
 pub struct ViewNodeRunner<N: ViewNode> {
-    view_query: QueryState<N::ViewQuery>,
+    view_query: QueryState<N::ViewQuery, (N::ViewFilter, With<CameraActive>)>,
     node: N,
 }
 

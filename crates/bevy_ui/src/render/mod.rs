@@ -6,7 +6,7 @@ pub mod ui_texture_slice_pipeline;
 
 use crate::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, DefaultUiCamera, Outline,
-    ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples, UiImage, UiScale,
+    ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiImage, UiScale,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -41,6 +41,7 @@ use bevy_render::{
 use bevy_sprite::TextureAtlasLayout;
 use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
 
+use bevy_render::render_component::RenderComponent;
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
@@ -510,7 +511,7 @@ const UI_CAMERA_FAR: f32 = 1000.0;
 // TODO: Evaluate if we still need this.
 const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 
-#[derive(Component)]
+#[derive(Component, RenderComponent)]
 pub struct DefaultCameraView(pub Entity);
 
 /// Extracts all UI elements associated with a camera into the render world.
@@ -518,29 +519,15 @@ pub fn extract_default_ui_camera_view(
     mut commands: Commands,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     ui_scale: Extract<Res<UiScale>>,
-    query: Extract<
-        Query<
-            (
-                RenderEntity,
-                &Camera,
-                Option<&UiAntiAlias>,
-                Option<&UiBoxShadowSamples>,
-            ),
-            Or<(With<Camera2d>, With<Camera3d>)>,
-        >,
-    >,
+    query: Extract<Query<(RenderEntity, &Camera), Or<(With<Camera2d>, With<Camera3d>)>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
 
     let scale = ui_scale.0.recip();
-    for (entity, camera, ui_anti_alias, shadow_samples) in &query {
+    for (entity, camera) in &query {
         // ignore inactive cameras
         if !camera.is_active {
-            commands
-                .get_entity(entity)
-                .expect("Camera entity wasn't synced.")
-                .remove::<(DefaultCameraView, UiAntiAlias, UiBoxShadowSamples)>();
             continue;
         }
 
@@ -591,12 +578,7 @@ pub fn extract_default_ui_camera_view(
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.");
             entity_commands.insert(DefaultCameraView(default_camera_view));
-            if let Some(ui_anti_alias) = ui_anti_alias {
-                entity_commands.insert(*ui_anti_alias);
-            }
-            if let Some(shadow_samples) = shadow_samples {
-                entity_commands.insert(*shadow_samples);
-            }
+
             transparent_render_phases.insert_or_clear(entity);
 
             live_entities.insert(entity);

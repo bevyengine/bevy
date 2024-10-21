@@ -13,6 +13,7 @@ use bevy_ecs::{
 };
 use bevy_math::{AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::render_component::RenderComponent;
 use bevy_render::{
     camera::Camera,
     render_resource::{
@@ -193,6 +194,9 @@ enum ExtractedClusterableObjectElement {
 pub struct ExtractedClusterableObjects {
     data: Vec<ExtractedClusterableObjectElement>,
 }
+
+#[derive(Component, RenderComponent)]
+pub struct UseClustering;
 
 #[derive(ShaderType)]
 struct GpuClusterOffsetsAndCountsUniform {
@@ -565,6 +569,7 @@ pub fn extract_clusters(
                 far: clusters.far,
                 dimensions: clusters.dimensions,
             },
+            UseClustering,
         ));
     }
 }
@@ -575,7 +580,7 @@ pub fn prepare_clusters(
     render_queue: Res<RenderQueue>,
     mesh_pipeline: Res<MeshPipeline>,
     global_clusterable_object_meta: Res<GlobalClusterableObjectMeta>,
-    views: Query<(Entity, &ExtractedClusterableObjects)>,
+    views: Query<(Entity, &ExtractedClusterableObjects), With<UseClustering>>,
 ) {
     let render_device = render_device.into_inner();
     let supports_storage_buffers = matches!(

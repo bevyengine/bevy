@@ -274,6 +274,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         Read<MeshViewBindGroup>,
         Read<ScreenSpaceReflectionsPipelineId>,
     );
+    type ViewFilter = ();
 
     fn run<'w>(
         &self,

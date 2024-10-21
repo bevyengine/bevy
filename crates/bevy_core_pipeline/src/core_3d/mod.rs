@@ -74,6 +74,7 @@ pub use main_transparent_pass_3d_node::*;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
+use bevy_render::camera::CameraActive;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
@@ -715,7 +716,7 @@ pub fn prepare_core_3d_transmission_textures(
     alpha_mask_3d_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
     transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
     transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
-    views_3d: Query<(Entity, &ExtractedCamera, &Camera3d, &ExtractedView)>,
+    views_3d: Query<(Entity, &ExtractedCamera, &Camera3d, &ExtractedView), With<CameraActive>>,
 ) {
     let mut textures = HashMap::default();
     for (entity, camera, camera_3d, view) in &views_3d {

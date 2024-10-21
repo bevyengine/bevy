@@ -18,6 +18,8 @@ use bevy_ecs::{
 };
 use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::extract_component::ExtractComponent;
+use bevy_render::render_component::{RenderComponent, RenderComponentPlugin};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     prelude::{Camera, Projection},
@@ -51,7 +53,8 @@ impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
 
-        app.register_type::<TemporalAntiAliasing>();
+        app.add_plugins(RenderComponentPlugin::<UseTemporalAntiAliasing>::default())
+            .register_type::<TemporalAntiAliasing>();
 
         app.add_plugins(SyncComponentPlugin::<TemporalAntiAliasing>::default());
 
@@ -143,7 +146,7 @@ pub struct TemporalAntiAliasBundle {
 /// 2. Render particles after TAA
 ///
 /// If no [`MipBias`] component is attached to the camera, TAA will add a `MipBias(-1.0)` component.
-#[derive(Component, Reflect, Clone)]
+#[derive(Component, ExtractComponent, Reflect, Clone)]
 #[reflect(Component, Default)]
 #[require(TemporalJitter, DepthPrepass, MotionVectorPrepass)]
 #[doc(alias = "Taa")]
@@ -157,6 +160,9 @@ pub struct TemporalAntiAliasing {
     /// back to false at the end of the frame.
     pub reset: bool,
 }
+
+#[derive(Component, RenderComponent)]
+pub struct UseTemporalAntiAliasing;
 
 #[deprecated(since = "0.15.0", note = "Renamed to `TemporalAntiAliasing`")]
 pub type TemporalAntiAliasSettings = TemporalAntiAliasing;
@@ -180,6 +186,7 @@ impl ViewNode for TemporalAntiAliasNode {
         &'static TemporalAntiAliasPipelineId,
         &'static Msaa,
     );
+    type ViewFilter = With<UseTemporalAntiAliasing>;
 
     fn run(
         &self,
@@ -376,27 +383,20 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
         cameras_3d.iter_mut(&mut main_world)
     {
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
-        let mut entity_commands = commands
-            .get_entity(entity)
-            .expect("Camera entity wasn't synced.");
+
         if camera.is_active && has_perspective_projection {
-            entity_commands.insert(taa_settings.clone());
+            commands.entity(entity).insert(UseTemporalAntiAliasing);
             taa_settings.reset = false;
-        } else {
-            // TODO: needs better strategy for cleaning up
-            entity_commands.remove::<(
-                TemporalAntiAliasing,
-                // components added in prepare systems (because `TemporalAntiAliasNode` does not query extracted components)
-                TemporalAntiAliasHistoryTextures,
-                TemporalAntiAliasPipelineId,
-            )>();
         }
     }
 }
 
 fn prepare_taa_jitter_and_mip_bias(
     frame_count: Res<FrameCount>,
-    mut query: Query<(Entity, &mut TemporalJitter, Option<&MipBias>), With<TemporalAntiAliasing>>,
+    mut query: Query<
+        (Entity, &mut TemporalJitter, Option<&MipBias>),
+        With<UseTemporalAntiAliasing>,
+    >,
     mut commands: Commands,
 ) {
     // Halton sequence (2, 3) - 0.5, skipping i = 0
@@ -433,7 +433,7 @@ fn prepare_taa_history_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     frame_count: Res<FrameCount>,
-    views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasing>>,
+    views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<UseTemporalAntiAliasing>>,
 ) {
     for (entity, camera, view) in &views {
         if let Some(physical_target_size) = camera.physical_target_size {

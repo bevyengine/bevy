@@ -15,13 +15,13 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 
+use super::DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT;
 use bevy_ecs::query::QueryItem;
+use bevy_render::camera::CameraActive;
 use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     renderer::RenderContext,
 };
-
-use super::DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT;
 
 pub const COPY_DEFERRED_LIGHTING_ID_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(5230948520734987);
@@ -65,6 +65,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
         &'static ViewPrepassTextures,
         &'static DeferredLightingIdDepthTexture,
     );
+    type ViewFilter = ();
 
     fn run(
         &self,
@@ -178,7 +179,7 @@ fn prepare_deferred_lighting_id_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<DeferredPrepass>>,
+    views: Query<(Entity, &ExtractedCamera), (With<DeferredPrepass>, With<CameraActive>)>,
 ) {
     for (entity, camera) in &views {
         if let Some(UVec2 {
