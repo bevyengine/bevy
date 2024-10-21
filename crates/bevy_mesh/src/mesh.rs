@@ -87,7 +87,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 ///     other APIs can have other conventions, `OpenGL` starts at bottom-left.
 /// - It is possible and sometimes useful for multiple vertices to have the same
 ///     [position attribute](Mesh::ATTRIBUTE_POSITION) value,
-///     it's a common technique in 3D modelling for complex UV mapping or other calculations.
+///     it's a common technique in 3D modeling for complex UV mapping or other calculations.
 /// - Bevy performs frustum culling based on the `Aabb` of meshes, which is calculated
 ///     and added automatically for new meshes only. If a mesh is modified, the entity's `Aabb`
 ///     needs to be updated manually or deleted so that it is re-calculated.
@@ -690,7 +690,6 @@ impl Mesh {
             .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
 
         let mut normals = vec![Vec3::ZERO; positions.len()];
-        let mut adjacency_counts = vec![0_usize; positions.len()];
 
         self.indices()
             .unwrap()
@@ -702,17 +701,13 @@ impl Mesh {
                 let normal = Vec3::from(face_normal(positions[a], positions[b], positions[c]));
                 [a, b, c].iter().for_each(|pos| {
                     normals[*pos] += normal;
-                    adjacency_counts[*pos] += 1;
                 });
             });
 
         // average (smooth) normals for shared vertices...
         // TODO: support different methods of weighting the average
-        for i in 0..normals.len() {
-            let count = adjacency_counts[i];
-            if count > 0 {
-                normals[i] = (normals[i] / (count as f32)).normalize();
-            }
+        for normal in &mut normals {
+            *normal = normal.try_normalize().unwrap_or(Vec3::ZERO);
         }
 
         self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
@@ -1367,5 +1362,40 @@ mod tests {
             mesh.indices().unwrap().iter().collect::<Vec<usize>>(),
             vec![3, 2, 1, 0]
         );
+    }
+
+    #[test]
+    fn compute_smooth_normals() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+
+        //  z      y
+        //  |    /
+        //  3---2
+        //  | /  \
+        //  0-----1--x
+
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[0., 0., 0.], [1., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
+        );
+        mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
+        mesh.compute_smooth_normals();
+        let normals = mesh
+            .attribute(Mesh::ATTRIBUTE_NORMAL)
+            .unwrap()
+            .as_float3()
+            .unwrap();
+        assert_eq!(4, normals.len());
+        // 0
+        assert_eq!(Vec3::new(1., 0., 1.).normalize().to_array(), normals[0]);
+        // 1
+        assert_eq!([0., 0., 1.], normals[1]);
+        // 2
+        assert_eq!(Vec3::new(1., 0., 1.).normalize().to_array(), normals[2]);
+        // 3
+        assert_eq!([1., 0., 0.], normals[3]);
     }
 }

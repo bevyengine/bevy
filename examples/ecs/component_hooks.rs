@@ -20,7 +20,7 @@ use bevy::{
 use std::collections::HashMap;
 
 #[derive(Debug)]
-/// Hooks can also be registered during component initialisation by
+/// Hooks can also be registered during component initialization by
 /// using [`Component`] derive macro:
 /// ```no_run
 /// #[derive(Component)]
@@ -31,7 +31,7 @@ struct MyComponent(KeyCode);
 impl Component for MyComponent {
     const STORAGE_TYPE: StorageType = StorageType::Table;
 
-    /// Hooks can also be registered during component initialisation by
+    /// Hooks can also be registered during component initialization by
     /// implementing `register_component_hooks`
     fn register_component_hooks(_hooks: &mut ComponentHooks) {
         // Register hooks...

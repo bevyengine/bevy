@@ -8,7 +8,7 @@ use core::fmt;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
 pub enum IdentifierError {
-    /// A given ID has an invalid value for initialising to a [`crate::identifier::Identifier`].
+    /// A given ID has an invalid value for initializing to a [`crate::identifier::Identifier`].
     InvalidIdentifier,
     /// A given ID has an invalid configuration of bits for converting to an [`crate::entity::Entity`].
     InvalidEntityId(u64),

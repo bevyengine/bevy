@@ -3,7 +3,7 @@
 
 ## Cargo Features
 
-Bevy exposes many features to customise the engine. Enabling them add functionalities but often come at the cost of longer compilation times and extra dependencies.
+Bevy exposes many features to customize the engine. Enabling them add functionalities but often come at the cost of longer compilation times and extra dependencies.
 
 ### Default Features
 

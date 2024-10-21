@@ -420,7 +420,7 @@ impl ShapeSample for Cylinder {
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
-        // This uses the area of the ends divided by the overall surface area (optimised)
+        // This uses the area of the ends divided by the overall surface area (optimized)
         // [2 (\pi r^2)]/[2 (\pi r^2) + 2 \pi r h] = r/(r + h)
         if self.radius + 2.0 * self.half_height > 0.0 {
             if rng.gen_bool((self.radius / (self.radius + 2.0 * self.half_height)) as f64) {

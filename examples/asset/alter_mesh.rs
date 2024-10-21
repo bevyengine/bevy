@@ -212,7 +212,7 @@ fn alter_mesh(
             position[2] *= scale_factor;
         }
 
-        // Flip the local value to reverse the behaviour next time the key is pressed.
+        // Flip the local value to reverse the behavior next time the key is pressed.
         *is_mesh_scaled = !*is_mesh_scaled;
     }
 }

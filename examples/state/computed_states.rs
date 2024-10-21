@@ -122,7 +122,7 @@ impl ComputedStates for IsPaused {
 // Lastly, we have our tutorial, which actually has a more complex derivation.
 //
 // Like `IsPaused`, the tutorial has a few fully distinct possible states, so we want to represent them
-// as an Enum. However - in this case they are all dependant on multiple states: the root [`TutorialState`],
+// as an Enum. However - in this case they are all dependent on multiple states: the root [`TutorialState`],
 // and both [`InGame`] and [`IsPaused`] - which are in turn derived from [`AppState`].
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum Tutorial {

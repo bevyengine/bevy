@@ -12,11 +12,11 @@ pub enum PerimeterSegment {
     ///
     /// This has the effect of rendering the segment's faces with softened edges, so it is appropriate for curved shapes.
     ///
-    /// The normals for the vertices that are part of this segment will be calculated based on the positions of their neighbours.
-    /// Each normal is interpolated between the normals of the two line segments connecting it with its neighbours.
+    /// The normals for the vertices that are part of this segment will be calculated based on the positions of their neighbors.
+    /// Each normal is interpolated between the normals of the two line segments connecting it with its neighbors.
     /// Closer vertices have a stronger effect on the normal than more distant ones.
     ///
-    /// Since the vertices corresponding to the first and last indices do not have two neighbouring vertices, their normals must be provided manually.
+    /// Since the vertices corresponding to the first and last indices do not have two neighboring vertices, their normals must be provided manually.
     Smooth {
         /// The normal of the first vertex.
         first_normal: Vec2,
@@ -348,8 +348,8 @@ where
                                 uvs.push([uv_x, uv_y]);
                             }
 
-                            // The normal for the current vertices can be calculated based on the two neighbouring vertices.
-                            // The normal is interpolated between the normals of the two line segments connecting the current vertex with its neighbours.
+                            // The normal for the current vertices can be calculated based on the two neighboring vertices.
+                            // The normal is interpolated between the normals of the two line segments connecting the current vertex with its neighbors.
                             // Closer vertices have a stronger effect on the normal than more distant ones.
                             let n = {
                                 let ab = Vec2::from_slice(&b) - Vec2::from_slice(&a);

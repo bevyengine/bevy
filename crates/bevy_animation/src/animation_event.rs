@@ -24,7 +24,7 @@ pub(crate) fn trigger_animation_event(
 
 /// An event that can be used with animations.
 /// It can be derived to trigger as an observer event,
-/// if you need more complex behaviour, consider
+/// if you need more complex behavior, consider
 /// a manual implementation.
 ///
 /// # Example

@@ -3327,11 +3327,11 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
-name = "minimising"
-path = "tests/window/minimising.rs"
+name = "minimizing"
+path = "tests/window/minimizing.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.minimising]
+[package.metadata.example.minimizing]
 hidden = true
 
 [[example]]

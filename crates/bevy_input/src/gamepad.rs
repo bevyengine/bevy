@@ -1494,6 +1494,7 @@ pub fn gamepad_event_processing_system(
 
 /// The intensity at which a gamepad's force-feedback motors may rumble.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct GamepadRumbleIntensity {
     /// The rumble intensity of the strong gamepad motor.
     ///
@@ -1581,6 +1582,7 @@ impl GamepadRumbleIntensity {
 #[doc(alias = "vibration")]
 #[doc(alias = "vibrate")]
 #[derive(Event, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub enum GamepadRumbleRequest {
     /// Add a rumble to the given gamepad.
     ///

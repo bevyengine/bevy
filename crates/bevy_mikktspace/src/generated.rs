@@ -5,7 +5,7 @@
 //! modification to Morten S. Mikkelsen's original tangent space algorithm
 //! implementation written in C. The original source code can be found at
 //! <https://archive.blender.org/wiki/index.php/Dev:Shading/Tangent_Space_Normal_Maps>
-//! and includes the following licence:
+//! and includes the following license:
 //!
 //! Copyright (C) 2011 by Morten S. Mikkelsen
 //!

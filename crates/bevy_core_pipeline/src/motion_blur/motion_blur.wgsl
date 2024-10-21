@@ -66,7 +66,7 @@ fn fragment(
     // This means that for a frame time of 20ms, the shutter is only open for 10ms.
     //
     // Using a shutter angle larger than 1.0 is non-physical, objects would need to move further
-    // than they physically travelled during a frame, which is not possible. Note: we allow values
+    // than they physically traveled during a frame, which is not possible. Note: we allow values
     // larger than 1.0 because it may be desired for artistic reasons.
     let exposure_vector = shutter_angle * this_motion_vector;
 

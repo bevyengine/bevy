@@ -88,7 +88,7 @@ impl Component for ObserverState {
 /// Type for function that is run when an observer is triggered.
 ///
 /// Typically refers to the default runner that runs the system stored in the associated [`Observer`] component,
-/// but can be overridden for custom behaviour.
+/// but can be overridden for custom behavior.
 pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: &mut bool);
 
 /// An [`Observer`] system. Add this [`Component`] to an [`Entity`] to turn it into an "observer".

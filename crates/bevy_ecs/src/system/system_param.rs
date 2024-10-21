@@ -1190,7 +1190,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///
 /// use bevy_ecs::system::{Deferred, SystemBuffer, SystemMeta};
 ///
-/// // Uses deferred mutations to allow signalling the alarm from multiple systems in parallel.
+/// // Uses deferred mutations to allow signaling the alarm from multiple systems in parallel.
 /// #[derive(Resource, Default)]
 /// struct AlarmFlag(bool);
 ///

@@ -1138,7 +1138,7 @@ impl ScheduleGraph {
         Ok(self.build_schedule_inner(dependency_flattened_dag, hier_results.reachable))
     }
 
-    // modify the graph to have sync nodes for any dependants after a system with deferred system params
+    // modify the graph to have sync nodes for any dependents after a system with deferred system params
     fn auto_insert_apply_deferred(
         &mut self,
         dependency_flattened: &mut GraphMap<NodeId, (), Directed>,

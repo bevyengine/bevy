@@ -159,7 +159,7 @@ impl<'a, T: ShaderType + WriteInto> IntoBinding<'a> for &'a StorageBuffer<T> {
 ///
 /// The contained data is stored in system RAM. [`write_buffer`](DynamicStorageBuffer::write_buffer)
 /// queues copying of the data from system RAM to VRAM. The data within a storage buffer binding must conform to
-/// [std430 alignment/padding requirements]. `DynamicStorageBuffer` takes care of serialising the inner type to conform to
+/// [std430 alignment/padding requirements]. `DynamicStorageBuffer` takes care of serializing the inner type to conform to
 /// these requirements. Each item [`push`](DynamicStorageBuffer::push)ed into this structure
 /// will additionally be aligned to meet dynamic offset alignment requirements.
 ///
