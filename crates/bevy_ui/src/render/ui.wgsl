@@ -38,6 +38,7 @@ fn vertex(
     // x: left, y: top, z: right, w: bottom.
     @location(5) border: vec4<f32>,
     @location(6) size: vec2<f32>,
+    @location(7) point: vec2<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -47,13 +48,6 @@ fn vertex(
     out.radius = radius;
     out.size = size;
     out.border = border;
-    var point = 0.49999 * size;
-    if (flags & RIGHT_VERTEX) == 0u {
-        point.x *= -1.;
-    }
-    if (flags & BOTTOM_VERTEX) == 0u {
-        point.y *= -1.;
-    }
     out.point = point;
 
     return out;
