@@ -12,8 +12,12 @@ use bevy_asset::{Asset, Handle, RenderAssetUsages};
 use bevy_image::Image;
 use bevy_math::{primitives::Triangle3d, *};
 use bevy_reflect::Reflect;
+use bevy_utils::hashbrown::hash_map;
 use bevy_utils::tracing::warn;
+use bevy_utils::HashMap;
 use bytemuck::cast_slice;
+use core::hash::{Hash, Hasher};
+use core::ptr;
 use wgpu::{VertexAttribute, VertexFormat, VertexStepMode};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
@@ -544,6 +548,102 @@ impl Mesh {
     #[must_use]
     pub fn with_duplicated_vertices(mut self) -> Self {
         self.duplicate_vertices();
+        self
+    }
+
+    /// Remove duplicate vertices and create the index pointing to the unique vertices.
+    ///
+    /// This function is no-op if the mesh already has [`Indices`] set,
+    /// even if there are duplicate vertices. If deduplication is needed with indices already set,
+    /// consider calling [`Mesh::duplicate_vertices`] and then this function.
+    pub fn deduplicate_vertices(&mut self) {
+        if self.indices.is_some() {
+            return;
+        }
+
+        #[derive(Copy, Clone)]
+        struct VertexRef<'a> {
+            mesh: &'a Mesh,
+            i: usize,
+        }
+        impl<'a> VertexRef<'a> {
+            fn push_to(&self, target: &mut BTreeMap<MeshVertexAttributeId, MeshAttributeData>) {
+                for (key, this_attribute_data) in self.mesh.attributes.iter() {
+                    let target_attribute_data = target.get_mut(key).unwrap();
+                    target_attribute_data
+                        .values
+                        .push_from(&this_attribute_data.values, self.i);
+                }
+            }
+        }
+        impl<'a> PartialEq for VertexRef<'a> {
+            fn eq(&self, other: &Self) -> bool {
+                assert!(ptr::eq(self.mesh, other.mesh));
+                for values in self.mesh.attributes.values() {
+                    if values.values.get_bytes_at(self.i) != values.values.get_bytes_at(other.i) {
+                        return false;
+                    }
+                }
+                true
+            }
+        }
+        impl<'a> Eq for VertexRef<'a> {}
+        impl<'a> Hash for VertexRef<'a> {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                for values in self.mesh.attributes.values() {
+                    values.values.get_bytes_at(self.i).hash(state);
+                }
+            }
+        }
+
+        let mut new_attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData> = self
+            .attributes
+            .iter()
+            .map(|(k, v)| {
+                (
+                    *k,
+                    MeshAttributeData {
+                        attribute: v.attribute,
+                        values: VertexAttributeValues::new(VertexFormat::from(&v.values)),
+                    },
+                )
+            })
+            .collect();
+
+        let mut vertex_to_new_index: HashMap<VertexRef, u32> = HashMap::new();
+        let mut indices = Vec::with_capacity(self.count_vertices());
+        for i in 0..self.count_vertices() {
+            let len: u32 = vertex_to_new_index
+                .len()
+                .try_into()
+                .expect("The number of vertices exceeds u32::MAX");
+            let vertex_ref = VertexRef { mesh: self, i };
+            let j = match vertex_to_new_index.entry(vertex_ref) {
+                hash_map::Entry::Occupied(e) => *e.get(),
+                hash_map::Entry::Vacant(e) => {
+                    e.insert(len);
+                    vertex_ref.push_to(&mut new_attributes);
+                    len
+                }
+            };
+            indices.push(j);
+        }
+        drop(vertex_to_new_index);
+
+        for v in new_attributes.values_mut() {
+            v.values.shrink_to_fit();
+        }
+
+        self.attributes = new_attributes;
+        self.indices = Some(Indices::U32(indices));
+    }
+
+    /// Consumes the mesh and returns a mesh with merged vertices.
+    ///
+    /// See [`Mesh::deduplicate_vertices`] for more information.
+    #[must_use]
+    pub fn with_deduplicated_vertices(mut self) -> Self {
+        self.deduplicate_vertices();
         self
     }
 
@@ -1397,5 +1497,65 @@ mod tests {
         assert_eq!(Vec3::new(1., 0., 1.).normalize().to_array(), normals[2]);
         // 3
         assert_eq!([1., 0., 0.], normals[3]);
+    }
+
+    #[test]
+    fn deduplicate_vertices() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+
+        // Quad made of two triangles.
+        let positions = vec![
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            // This will be deduplicated.
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            // Position is equal to the first one but UV is different so it won't be deduplicated.
+            [0.0, 0.0, 0.0],
+        ];
+        let uvs = vec![
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 1.0],
+            // This will be deduplicated.
+            [1.0, 1.0],
+            [0.0, 1.0],
+            // Use different UV here so it won't be deduplicated.
+            [0.0, 0.5],
+        ];
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            VertexAttributeValues::Float32x3(positions.clone()),
+        );
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_UV_0,
+            VertexAttributeValues::Float32x2(uvs.clone()),
+        );
+
+        mesh.deduplicate_vertices();
+        assert_eq!(6, mesh.indices().unwrap().len());
+        // Note we have 5 unique vertices, not 6.
+        assert_eq!(5, mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().len());
+        assert_eq!(5, mesh.attribute(Mesh::ATTRIBUTE_UV_0).unwrap().len());
+
+        // Duplicate back.
+        mesh.duplicate_vertices();
+        assert!(mesh.indices().is_none());
+        let VertexAttributeValues::Float32x3(new_positions) =
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap()
+        else {
+            panic!("Unexpected attribute type")
+        };
+        let VertexAttributeValues::Float32x2(new_uvs) =
+            mesh.attribute(Mesh::ATTRIBUTE_UV_0).unwrap()
+        else {
+            panic!("Unexpected attribute type")
+        };
+        assert_eq!(&positions, new_positions);
+        assert_eq!(&uvs, new_uvs);
     }
 }
