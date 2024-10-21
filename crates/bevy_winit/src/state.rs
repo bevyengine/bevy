@@ -34,8 +34,8 @@ use winit::{
 };
 
 use bevy_window::{
-    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, RequestRedraw,
-    Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed,
+    AppLifecycle, ClosingWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime,
+    RequestRedraw, Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed,
     WindowEvent as BevyWindowEvent, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
     WindowScaleFactorChanged, WindowThemeChanged,
 };
@@ -565,10 +565,21 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 self.redraw_requested = true;
             }
 
-            // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
-            let (config, windows) = focused_windows_state.get(self.world());
-            let focused = windows.iter().any(|(_, window)| window.focused);
-            update_mode = config.update_mode(focused);
+            // Looks for closing windows.
+            let is_window_closing = {
+                let mut closing = self.world_mut().query_filtered::<(), With<ClosingWindow>>();
+                closing.iter(self.world()).next().is_some()
+            };
+
+            // If there are closing windows, ignore `UpdateMode::Reactive` to make the window close immediately.
+            if is_window_closing {
+                update_mode = UpdateMode::Continuous;
+            } else {
+                // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
+                let (config, windows) = focused_windows_state.get(self.world());
+                let focused = windows.iter().any(|(_, window)| window.focused);
+                update_mode = config.update_mode(focused);
+            }
         }
 
         // The update mode could have been changed, so we need to redraw and force an update
