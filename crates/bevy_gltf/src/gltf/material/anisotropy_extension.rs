@@ -39,8 +39,16 @@ impl AnisotropyExtension {
             .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
             .map(|json_info| {
                 (
-                    super::get_uv_channel(material, "anisotropy", json_info.tex_coord),
-                    super::texture_handle_from_info(load_context, document, &json_info),
+                    super::GltfMaterial::get_uv_channel(
+                        material,
+                        "anisotropy",
+                        json_info.tex_coord,
+                    ),
+                    super::GltfMaterial::texture_handle_from_info(
+                        load_context,
+                        document,
+                        &json_info,
+                    ),
                 )
             })
             .unzip();

@@ -92,7 +92,9 @@
 
 mod data_uri;
 mod error;
+mod ext;
 mod gltf;
+mod gltf_tree_iterator;
 mod loader;
 mod vertex_attributes;
 
@@ -105,8 +107,11 @@ use bevy_render::{
 };
 use bevy_utils::HashMap;
 
-use self::data_uri::DataUri;
-pub use self::{error::GltfError, gltf::*, loader::*};
+pub use self::{
+    error::GltfError,
+    gltf::*,
+    loader::{GltfLoader, GltfLoaderSettings},
+};
 
 /// The glTF prelude.
 ///

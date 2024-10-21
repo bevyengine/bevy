@@ -5,14 +5,14 @@ use bevy_render::mesh::Mesh;
 
 use super::{GltfAssetLabel, GltfExtras};
 
-/// Part of a [`GltfMesh`] that consists of a [`Mesh`], an optional [`StandardMaterial`] and [`GltfExtras`].
+/// Part of a [`GltfMesh`](super::GltfMesh) that consists of a [`Mesh`], an optional [`StandardMaterial`] and [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-mesh-primitive).
 #[derive(Asset, Debug, Clone, TypePath)]
 pub struct GltfPrimitive {
     /// Index of the primitive inside the mesh
     pub index: usize,
-    /// Index of the parent [`GltfMesh`] of this primitive
+    /// Index of the parent [`GltfMesh`](super::GltfMesh) of this primitive
     pub parent_mesh_index: usize,
     /// Computed name for a primitive - either a user defined primitive name from gLTF or a generated name from index
     pub name: String,
@@ -54,7 +54,7 @@ impl GltfPrimitive {
         }
     }
 
-    /// Subasset label for this primitive within its parent [`GltfMesh`] within the gLTF parent asset.
+    /// Subasset label for this primitive within its parent [`GltfMesh`](super::GltfMesh) within the gLTF parent asset.
     pub fn asset_label(&self) -> GltfAssetLabel {
         GltfAssetLabel::Primitive {
             mesh: self.parent_mesh_index,

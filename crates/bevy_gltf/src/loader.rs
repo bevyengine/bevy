@@ -1,14 +1,3 @@
-#[cfg(feature = "bevy_animation")]
-mod animation;
-mod extras;
-mod gltf_tree_iterator;
-mod material;
-mod mesh;
-mod node;
-mod scene;
-
-use std::io::Error;
-
 use serde::{Deserialize, Serialize};
 
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
@@ -17,11 +6,7 @@ use bevy_render::{
 };
 use bevy_utils::HashMap;
 
-use crate::{DataUri, Gltf, GltfBuffer, GltfError};
-
-#[cfg(feature = "bevy_animation")]
-use self::animation::AnimationContext;
-use self::gltf_tree_iterator::GltfTreeIterator;
+use crate::{Gltf, GltfError};
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
 pub struct GltfLoader {
@@ -47,122 +32,22 @@ impl AssetLoader for GltfLoader {
     ) -> Result<Gltf, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        self.load_gltf(&bytes, load_context, settings).await
-    }
 
-    fn extensions(&self) -> &[&str] {
-        &["gltf", "glb"]
-    }
-}
-
-impl GltfLoader {
-    /// Loads an entire glTF file.
-    async fn load_gltf<'a, 'b, 'c>(
-        &self,
-        bytes: &'a [u8],
-        load_context: &'b mut LoadContext<'c>,
-        settings: &'b GltfLoaderSettings,
-    ) -> Result<Gltf, GltfError> {
-        let gltf = gltf::Gltf::from_slice(bytes)?;
         let file_name = load_context
             .asset_path()
             .path()
             .to_str()
-            .ok_or(GltfError::Gltf(gltf::Error::Io(Error::new(
+            .ok_or(GltfError::Gltf(gltf::Error::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "Gltf file name invalid",
             ))))?
             .to_string();
-        let buffer_data = GltfBuffer::load_buffers(&gltf, load_context).await?;
 
-        let linear_textures = material::load_linear_textures(&gltf);
+        Gltf::load_gltf(self, &file_name, &bytes, load_context, settings).await
+    }
 
-        #[cfg(feature = "bevy_animation")]
-        let animation_paths = animation::load_animation_paths(&gltf);
-
-        #[cfg(feature = "bevy_animation")]
-        let (animations, named_animations, animation_roots) =
-            animation::load_animations(load_context, &gltf, &buffer_data, animation_paths)?;
-
-        // We collect handles to ensure loaded images from paths are not unloaded before they are used elsewhere
-        // in the loader. This prevents "reloads", but it also prevents dropping the is_srgb context on reload.
-        //
-        // In theory we could store a mapping between texture.index() and handle to use
-        // later in the loader when looking up handles for materials. However this would mean
-        // that the material's load context would no longer track those images as dependencies.
-        let mut _texture_handles = material::collect_texture_handles(
-            self,
-            load_context,
-            settings,
-            &gltf,
-            &buffer_data,
-            &linear_textures,
-        )
-        .await?;
-
-        let (materials, named_materials) = material::load_materials(load_context, settings, &gltf);
-
-        let (meshes_on_skinned_nodes, meshes_on_non_skinned_nodes) =
-            mesh::load_meshes_on_nodes(&gltf);
-
-        let (meshes, named_meshes) = mesh::load_meshes(
-            self,
-            load_context,
-            settings,
-            &file_name,
-            &gltf,
-            &buffer_data,
-            &meshes_on_skinned_nodes,
-            &meshes_on_non_skinned_nodes,
-            &materials,
-        )?;
-
-        let skinned_mesh_inverse_bindposes =
-            mesh::load_skinned_mesh_inverse_bindposes(load_context, &gltf, &buffer_data);
-
-        let (nodes, named_nodes, skins, named_skins) = node::load_nodes_and_skins(
-            load_context,
-            &gltf,
-            &meshes,
-            #[cfg(feature = "bevy_animation")]
-            &animation_roots,
-            &skinned_mesh_inverse_bindposes,
-        )?;
-
-        let (scenes, named_scenes) = scene::load_scenes(
-            load_context,
-            settings,
-            &gltf,
-            #[cfg(feature = "bevy_animation")]
-            &animation_roots,
-            &skinned_mesh_inverse_bindposes,
-        )?;
-
-        Ok(Gltf {
-            default_scene: gltf
-                .default_scene()
-                .and_then(|scene| scenes.get(scene.index()))
-                .cloned(),
-            scenes,
-            named_scenes,
-            meshes,
-            named_meshes,
-            skins,
-            named_skins,
-            materials,
-            named_materials,
-            nodes,
-            named_nodes,
-            #[cfg(feature = "bevy_animation")]
-            animations,
-            #[cfg(feature = "bevy_animation")]
-            named_animations,
-            source: if settings.include_source {
-                Some(gltf)
-            } else {
-                None
-            },
-        })
+    fn extensions(&self) -> &[&str] {
+        &["gltf", "glb"]
     }
 }
 
