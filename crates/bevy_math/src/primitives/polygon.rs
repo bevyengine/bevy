@@ -16,13 +16,15 @@ enum Endpoint {
 ///
 /// Events are ordered so that any event `e1` which is to the left of another event `e2` is less than that event.
 /// If `e1.position().x == e2.position().x` the events are ordered from bottom to top.
+///
+/// This is the order expected by the [`SweepLine`].
 #[derive(Debug, Clone, Copy)]
-struct Event {
+struct SweepLineEvent {
     segment: Segment,
     /// Type of the vertex (left or right)
     endpoint: Endpoint,
 }
-impl Event {
+impl SweepLineEvent {
     fn position(&self) -> Vec2 {
         match self.endpoint {
             Endpoint::Left => self.segment.left,
@@ -30,18 +32,18 @@ impl Event {
         }
     }
 }
-impl PartialEq for Event {
+impl PartialEq for SweepLineEvent {
     fn eq(&self, other: &Self) -> bool {
         self.position() == other.position()
     }
 }
-impl Eq for Event {}
-impl PartialOrd for Event {
+impl Eq for SweepLineEvent {}
+impl PartialOrd for SweepLineEvent {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
-impl Ord for Event {
+impl Ord for SweepLineEvent {
     fn cmp(&self, other: &Self) -> Ordering {
         xy_order(self.position(), other.position())
     }
@@ -58,7 +60,7 @@ fn xy_order(a: Vec2, b: Vec2) -> Ordering {
 /// The event queue holds an ordered list of all events the [`SweepLine`] will encounter when checking the current polygon.
 #[derive(Debug, Clone)]
 struct EventQueue {
-    events: Vec<Event>,
+    events: Vec<SweepLineEvent>,
 }
 impl EventQueue {
     /// Initialize a new `EventQueue` with all events from the polygon represented by `vertices`.
@@ -84,11 +86,11 @@ impl EventQueue {
                 left,
                 right,
             };
-            events.push(Event {
+            events.push(SweepLineEvent {
                 segment,
                 endpoint: Endpoint::Left,
             });
-            events.push(Event {
+            events.push(SweepLineEvent {
                 segment,
                 endpoint: Endpoint::Right,
             });
