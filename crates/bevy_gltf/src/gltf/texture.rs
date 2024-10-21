@@ -1,13 +1,16 @@
 use std::path::{Path, PathBuf};
 
+use gltf::texture::{MagFilter, MinFilter, WrappingMode};
+
 use bevy_asset::{Handle, LoadContext, RenderAssetUsages};
 use bevy_image::{
     CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
     ImageSampler, ImageSamplerDescriptor, ImageType,
 };
-use bevy_tasks::IoTaskPool;
-use bevy_utils::{tracing::warn, HashSet};
-use gltf::texture::{MagFilter, MinFilter, WrappingMode};
+use bevy_utils::HashSet;
+
+#[cfg(not(target_arch = "wasm32"))]
+use {bevy_tasks::IoTaskPool, bevy_utils::tracing::warn};
 
 use crate::{data_uri::DataUri, GltfError, GltfLoader, GltfLoaderSettings};
 
@@ -42,8 +45,7 @@ impl GltfTexture {
                 textures.push(Self::process_loaded_texture(load_context, image));
             }
             textures
-        } else {
-            #[cfg(not(target_arch = "wasm32"))]
+        } else if cfg!(not(target_arch = "wasm32")) {
             IoTaskPool::get()
                 .scope(|scope| {
                     gltf.textures().for_each(|gltf_texture| {
@@ -72,6 +74,8 @@ impl GltfTexture {
                     }
                 })
                 .collect::<Vec<_>>()
+        } else {
+            vec![]
         };
 
         Ok(textures)
