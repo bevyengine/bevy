@@ -34,6 +34,9 @@ bevy_reflect_derive = { path = "derive", version = "0.15.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 bevy_ptr = { path = "../bevy_ptr", version = "0.15.0-dev" }
 
+# used by bevy-utils, but it also needs reflect impls
+foldhash = { version = "0.1.3", default-features = false }
+
 # other
 erased-serde = "0.4"
 disqualified = "1.0"

@@ -821,6 +821,7 @@ macro_rules! impl_reflect_for_hashmap {
 }
 
 impl_reflect_for_hashmap!(::std::collections::HashMap<K, V, S>);
+impl_type_path!(::core::hash::BuildHasherDefault<H>);
 impl_type_path!(::std::collections::hash_map::RandomState);
 impl_type_path!(::std::collections::HashMap<K, V, S>);
 #[cfg(feature = "functions")]
@@ -833,7 +834,6 @@ crate::func::macros::impl_function_traits!(::std::collections::HashMap<K, V, S>;
 );
 
 impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
-impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
 impl_type_path!(::bevy_utils::hashbrown::HashMap<K, V, S>);
 #[cfg(feature = "functions")]
 crate::func::macros::impl_function_traits!(::bevy_utils::hashbrown::HashMap<K, V, S>;
@@ -1047,7 +1047,7 @@ macro_rules! impl_reflect_for_hashset {
 }
 
 impl_type_path!(::bevy_utils::NoOpHash);
-impl_type_path!(::bevy_utils::FixedState);
+impl_type_path!(::bevy_utils::FixedHasher);
 
 impl_reflect_for_hashset!(::std::collections::HashSet<V,S>);
 impl_type_path!(::std::collections::HashSet<V, S>);
@@ -2316,10 +2316,10 @@ mod tests {
 
     #[test]
     fn should_partial_eq_hash_map() {
-        let mut a = HashMap::new();
+        let mut a: HashMap<_, _> = HashMap::default();
         a.insert(0usize, 1.23_f64);
         let b = a.clone();
-        let mut c = HashMap::new();
+        let mut c: HashMap<_, _> = HashMap::default();
         c.insert(0usize, 3.21_f64);
 
         let a: &dyn PartialReflect = &a;
