@@ -749,8 +749,7 @@ pub fn prepare_lights(
     let point_light_count = point_lights
         .iter()
         .filter(|light| light.1.spot_light_angles.is_none())
-        .count()
-        .min(max_texture_cubes);
+        .count();
 
     let point_light_volumetric_enabled_count = point_lights
         .iter()
@@ -1060,7 +1059,7 @@ pub fn prepare_lights(
         for &(light_entity, light, (point_light_frusta, _)) in point_lights
             .iter()
             // Lights are sorted, shadow enabled lights are first
-            .take(point_light_count)
+            .take(point_light_count.min(max_texture_cubes))
         {
             let Ok(mut light_view_entities) = light_view_entities.get_mut(light_entity) else {
                 continue;
