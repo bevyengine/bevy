@@ -198,7 +198,7 @@ impl<'w, 's> UiTree<'w, 's> {
         )
     }
 
-    /// Given an entity in the UI tree, check if its parent has changed, e.g if children has been added/removed or if the order has changed.
+    /// Given an entity in the UI tree, check if its children has changed, e.g if children has been added/removed or if the order has changed.
     pub fn children_is_changed(&'s self, entity: Entity) -> bool {
         self.changed_children_query.contains(entity)
             || self
