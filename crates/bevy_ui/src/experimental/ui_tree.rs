@@ -165,6 +165,16 @@ impl<'w, 's> UiTree<'w, 's> {
         }
     }
 
+    /// Returns an [`Iterator`] of [`Node`] entities over the `entity`s immediate siblings, who share the same first [`Node`] ancestor within the UI tree.
+    ///
+    /// The entity itself is not included in the iterator.
+    pub fn iter_siblings(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
+        self.parent(entity).into_iter().flat_map(move |parent| {
+            self.iter_children(parent)
+                .filter(move |child| *child != entity)
+        })
+    }
+
     /// Iterates the [`GhostNode`]s between this entity and its UI children.
     pub fn iter_ghost_nodes(&'s self, entity: Entity) -> Box<dyn Iterator<Item = Entity> + 's> {
         Box::new(
@@ -418,5 +428,25 @@ mod tests {
 
         let result: Vec<_> = a_query.iter_many(ui_tree.iter_leaves(n1)).collect();
         assert_eq!([&A(4), &A(5)], result.as_slice());
+    }
+
+    #[test]
+    fn iter_siblings() {
+        let world = &mut World::new();
+
+        let n1 = world.spawn((A(1), Node::default())).id();
+        let n2 = world.spawn((A(2), GhostNode::new())).id();
+        let n3 = world.spawn((A(3), Node::default())).id();
+        let n4 = world.spawn((A(4), Node::default())).id();
+        let n5 = world.spawn((A(5), Node::default())).id();
+
+        world.entity_mut(n1).add_children(&[n2, n3]);
+        world.entity_mut(n2).add_children(&[n4, n5]);
+
+        let mut system_state = SystemState::<(UiTree, Query<&A>)>::new(world);
+        let (ui_tree, a_query) = system_state.get(world);
+
+        let result: Vec<_> = a_query.iter_many(ui_tree.iter_siblings(n5)).collect();
+        assert_eq!([&A(4), &A(3)], result.as_slice());
     }
 }
