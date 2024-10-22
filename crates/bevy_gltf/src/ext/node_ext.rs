@@ -1,14 +1,24 @@
-use bevy_utils::{HashMap, HashSet};
 use gltf::Node;
 
+use bevy_asset::{Handle, LoadContext};
 use bevy_core::Name;
 use bevy_math::{Mat4, Vec3};
 use bevy_transform::components::Transform;
+use bevy_utils::{HashMap, HashSet};
 
-use crate::GltfAssetLabel;
+use crate::{GltfAssetLabel, GltfNode};
+
+use super::{ExtrasExt, MeshExt, SkinExt};
 
 /// [`Node`] extension
 pub trait NodeExt {
+    fn load_node(
+        &self,
+        load_context: &mut LoadContext,
+        unsorted_nodes: &mut HashMap<usize, Handle<GltfNode>>,
+        #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
+    ) -> GltfNode;
+
     /// Calculate the transform of gLTF node.
     ///
     /// This should be used instead of calling [`gltf::scene::Transform::matrix()`]
@@ -39,6 +49,40 @@ pub trait NodeExt {
 }
 
 impl NodeExt for Node<'_> {
+    fn load_node(
+        &self,
+        load_context: &mut LoadContext,
+        unsorted_nodes: &mut HashMap<usize, Handle<GltfNode>>,
+        #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
+    ) -> GltfNode {
+        let skin = self
+            .skin()
+            .map(|skin| load_context.get_label_handle(skin.to_label().to_string()));
+
+        let children = self
+            .children()
+            .map(|child| unsorted_nodes.get(&child.index()).unwrap().clone())
+            .collect();
+
+        let mesh = self
+            .mesh()
+            .map(|mesh| load_context.get_label_handle(mesh.to_label().to_string()));
+
+        let gltf_node = GltfNode::new(
+            self,
+            children,
+            mesh,
+            self.node_transform(),
+            skin,
+            self.extras().get(),
+        );
+
+        #[cfg(feature = "bevy_animation")]
+        let gltf_node = gltf_node.with_animation_root(animation_roots.contains(&self.index()));
+
+        gltf_node
+    }
+
     fn node_transform(&self) -> Transform {
         match self.transform() {
             gltf::scene::Transform::Matrix { matrix } => {

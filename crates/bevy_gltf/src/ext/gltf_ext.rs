@@ -10,7 +10,10 @@ use bevy_utils::{HashMap, HashSet};
 
 #[cfg(feature = "bevy_animation")]
 use crate::GltfAssetLabel;
-use crate::{data_uri::DataUri, GltfError, GltfLoader, GltfLoaderSettings, GltfMesh};
+use crate::{
+    data_uri::DataUri, gltf_tree_iterator::GltfTreeIterator, GltfError, GltfLoader,
+    GltfLoaderSettings, GltfMesh, GltfNode,
+};
 
 use super::{ExtrasExt, MaterialExt, MeshExt, NodeExt, SkinExt};
 
@@ -67,6 +70,13 @@ pub trait GltfExt {
         buffer_data: &[Vec<u8>],
         materials: &[Handle<StandardMaterial>],
     ) -> Result<(Vec<Handle<GltfMesh>>, HashMap<Box<str>, Handle<GltfMesh>>), GltfError>;
+
+    #[allow(clippy::result_large_err)]
+    fn load_nodes(
+        &self,
+        load_context: &mut LoadContext,
+        #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
+    ) -> Result<(Vec<Handle<GltfNode>>, HashMap<Box<str>, Handle<GltfNode>>), GltfError>;
 
     /// Load [`SkinnedMeshInverseBindposes`] for all [`Skin`](gltf::Skin)
     /// in [`glTF`](gltf::Gltf).
@@ -233,6 +243,42 @@ impl GltfExt for gltf::Gltf {
         }
 
         Ok((meshes, named_meshes))
+    }
+
+    #[allow(clippy::result_large_err)]
+    /// Load all nodes of a [`glTF`](gltf::Gltf)
+    fn load_nodes(
+        &self,
+        load_context: &mut LoadContext,
+        #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
+    ) -> Result<(Vec<Handle<GltfNode>>, HashMap<Box<str>, Handle<GltfNode>>), GltfError> {
+        let mut unsorted_nodes = HashMap::new();
+        let mut named_nodes = HashMap::new();
+
+        for node in GltfTreeIterator::try_new(self)? {
+            let gltf_node = node.load_node(
+                load_context,
+                &mut unsorted_nodes,
+                #[cfg(feature = "bevy_animation")]
+                animation_roots,
+            );
+
+            let handle =
+                load_context.add_labeled_asset(gltf_node.asset_label().to_string(), gltf_node);
+            unsorted_nodes.insert(node.index(), handle.clone());
+            if let Some(name) = node.name() {
+                named_nodes.insert(name.into(), handle);
+            }
+        }
+
+        let mut nodes_to_sort = unsorted_nodes.into_iter().collect::<Vec<_>>();
+        nodes_to_sort.sort_by_key(|(i, _)| *i);
+        let nodes = nodes_to_sort
+            .into_iter()
+            .map(|(_, resolved)| resolved)
+            .collect();
+
+        Ok((nodes, named_nodes))
     }
 
     fn inverse_bind_poses(

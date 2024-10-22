@@ -1,14 +1,5 @@
-use bevy_asset::{Asset, Handle, LoadContext};
+use bevy_asset::{Asset, Handle};
 use bevy_reflect::TypePath;
-use bevy_utils::HashMap;
-#[cfg(feature = "bevy_animation")]
-use bevy_utils::HashSet;
-
-use crate::{
-    ext::{ExtrasExt, MeshExt, NodeExt, SkinExt},
-    gltf_tree_iterator::GltfTreeIterator,
-    GltfError,
-};
 
 use super::{GltfAssetLabel, GltfExtras, GltfMesh, GltfSkin};
 
@@ -63,59 +54,6 @@ impl GltfNode {
             is_animation_root: false,
             extras,
         }
-    }
-
-    #[allow(clippy::result_large_err)]
-    /// Load all nodes of a [`glTF`](gltf::Gltf)
-    pub(crate) fn load_nodes(
-        load_context: &mut LoadContext,
-        gltf: &gltf::Gltf,
-        #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
-    ) -> Result<(Vec<Handle<GltfNode>>, HashMap<Box<str>, Handle<GltfNode>>), GltfError> {
-        let mut unsorted_nodes = HashMap::<usize, Handle<GltfNode>>::new();
-        let mut named_nodes = HashMap::new();
-        for node in GltfTreeIterator::try_new(gltf)? {
-            let skin = node
-                .skin()
-                .map(|skin| load_context.get_label_handle(skin.to_label().to_string()));
-
-            let children = node
-                .children()
-                .map(|child| unsorted_nodes.get(&child.index()).unwrap().clone())
-                .collect();
-
-            let mesh = node
-                .mesh()
-                .map(|mesh| load_context.get_label_handle(mesh.to_label().to_string()));
-
-            let gltf_node = GltfNode::new(
-                &node,
-                children,
-                mesh,
-                node.node_transform(),
-                skin,
-                node.extras().get(),
-            );
-
-            #[cfg(feature = "bevy_animation")]
-            let gltf_node = gltf_node.with_animation_root(animation_roots.contains(&node.index()));
-
-            let handle =
-                load_context.add_labeled_asset(gltf_node.asset_label().to_string(), gltf_node);
-            unsorted_nodes.insert(node.index(), handle.clone());
-            if let Some(name) = node.name() {
-                named_nodes.insert(name.into(), handle);
-            }
-        }
-
-        let mut nodes_to_sort = unsorted_nodes.into_iter().collect::<Vec<_>>();
-        nodes_to_sort.sort_by_key(|(i, _)| *i);
-        let nodes = nodes_to_sort
-            .into_iter()
-            .map(|(_, resolved)| resolved)
-            .collect();
-
-        Ok((nodes, named_nodes))
     }
 
     /// Create a node with animation root mark

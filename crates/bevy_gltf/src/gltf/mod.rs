@@ -111,9 +111,8 @@ impl Gltf {
         )?;
 
         let (skins, named_skins) = GltfSkin::load_skins(load_context, &gltf, &buffer_data)?;
-        let (nodes, named_nodes) = GltfNode::load_nodes(
+        let (nodes, named_nodes) = gltf.load_nodes(
             load_context,
-            &gltf,
             #[cfg(feature = "bevy_animation")]
             &animation_roots,
         )?;
