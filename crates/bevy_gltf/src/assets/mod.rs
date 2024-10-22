@@ -3,6 +3,8 @@ mod node;
 mod primitive;
 mod skin;
 
+#[cfg(feature = "bevy_animation")]
+use bevy_animation::AnimationClip;
 use bevy_asset::{Asset, Handle, LoadContext};
 use bevy_pbr::StandardMaterial;
 use bevy_reflect::TypePath;
@@ -12,8 +14,6 @@ use bevy_utils::HashMap;
 use crate::{ext::GltfExt, GltfError, GltfLoader, GltfLoaderSettings};
 
 pub use self::{mesh::GltfMesh, node::GltfNode, primitive::GltfPrimitive, skin::GltfSkin};
-#[cfg(feature = "bevy_animation")]
-pub use bevy_animation::AnimationClip;
 
 /// Representation of a loaded glTF file.
 #[derive(Asset, Debug, TypePath)]
