@@ -72,6 +72,7 @@ pub struct UiTree<'w, 's> {
         Or<(With<Node>, With<GhostNode>)>,
     >,
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
+    nodes_query: Query<'w, 's, Entity, With<Node>>,
     ghost_nodes_query: Query<'w, 's, Entity, With<GhostNode>>,
     children_query: Query<'w, 's, &'static Children, Or<(With<Node>, With<GhostNode>)>>,
     parents_query: Query<'w, 's, &'static Parent, Or<(With<Node>, With<GhostNode>)>>,
@@ -206,11 +207,30 @@ impl<'w, 's> UiTree<'w, 's> {
 
     /// Returns `true` if the given entity is a root in the UI tree.
     ///
-    /// A [`Node`] is a root node if it has no parent, or if all ancestors are ghost nodes.
+    /// A [`Node`] is a root if it has no parent, or if all ancestors are ghost nodes.
     ///
-    /// A [`GhostNode`] is a root node if it has no parent.
+    /// A [`GhostNode`] is a root if it has no parent.
     pub fn is_root(&'s self, entity: Entity) -> bool {
         self.parent(entity).is_none()
+    }
+
+    /// Returns `true` if the given entity is a leaf in the UI tree.
+    ///
+    /// A [`Node`] is a leaf if it has no [`Node`] descendants.
+    ///
+    /// A [`GhostNode`] is a leaf if it has no [`Node`] or [`GhostNode`] children.
+    pub fn is_leaf(&'s self, entity: Entity) -> bool {
+        if self.ghost_nodes_query.contains(entity) {
+            if let Ok(children) = self.children_query.get(entity) {
+                !children.iter().any(|child| {
+                    self.ghost_nodes_query.contains(*child) || self.nodes_query.contains(*child)
+                })
+            } else {
+                true
+            }
+        } else {
+            self.iter_descendants(entity).next().is_none()
+        }
     }
 }
 
@@ -457,5 +477,35 @@ mod tests {
 
         let result: Vec<_> = a_query.iter_many(ui_tree.iter_siblings(n5)).collect();
         assert_eq!([&A(4), &A(3)], result.as_slice());
+    }
+
+    #[test]
+    fn is_root_or_leaf() {
+        let world = &mut World::new();
+
+        let n1 = world.spawn((A(1), Node::default())).id();
+        let n2 = world.spawn((A(2), GhostNode::new())).id();
+        let n3 = world.spawn((A(3), Node::default())).id();
+
+        let n4 = world.spawn((A(4), GhostNode::new())).id();
+        let n5 = world.spawn((A(5), Node::default())).id();
+
+        world.entity_mut(n1).add_children(&[n2, n3]);
+        world.entity_mut(n4).add_children(&[n5]);
+
+        let mut system_state = SystemState::<UiTree>::new(world);
+        let ui_tree = system_state.get(world);
+
+        assert_eq!(true, ui_tree.is_root(n1));
+        assert_eq!(false, ui_tree.is_root(n2));
+        assert_eq!(false, ui_tree.is_root(n3));
+        assert_eq!(true, ui_tree.is_root(n4));
+        assert_eq!(true, ui_tree.is_root(n5));
+
+        assert_eq!(false, ui_tree.is_leaf(n1));
+        assert_eq!(true, ui_tree.is_leaf(n2));
+        assert_eq!(true, ui_tree.is_leaf(n3));
+        assert_eq!(false, ui_tree.is_leaf(n4));
+        assert_eq!(true, ui_tree.is_leaf(n5));
     }
 }
