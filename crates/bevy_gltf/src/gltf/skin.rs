@@ -2,9 +2,9 @@ use bevy_asset::{Asset, Handle};
 use bevy_reflect::TypePath;
 use bevy_render::mesh::skinning::SkinnedMeshInverseBindposes;
 
-use crate::GltfExtras;
+use crate::{GltfAssetLabel, GltfExtras};
 
-use super::{GltfAssetLabel, GltfNode};
+use super::GltfNode;
 
 /// A glTF skin with all of its joint nodes, [`SkinnedMeshInversiveBindposes`](bevy_render::mesh::skinning::SkinnedMeshInverseBindposes)
 /// and an optional [`GltfExtras`].

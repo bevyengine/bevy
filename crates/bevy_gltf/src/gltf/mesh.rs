@@ -1,9 +1,9 @@
 use bevy_asset::Asset;
 use bevy_reflect::TypePath;
 
-use crate::GltfExtras;
+use crate::{GltfAssetLabel, GltfExtras};
 
-use super::{GltfAssetLabel, GltfPrimitive};
+use super::GltfPrimitive;
 
 /// A glTF mesh, which may consist of multiple [`GltfPrimitives`](GltfPrimitive)
 /// and an optional [`GltfExtras`].

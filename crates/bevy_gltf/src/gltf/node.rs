@@ -1,9 +1,9 @@
 use bevy_asset::{Asset, Handle};
 use bevy_reflect::TypePath;
 
-use crate::GltfExtras;
+use crate::{GltfAssetLabel, GltfExtras};
 
-use super::{GltfAssetLabel, GltfMesh, GltfSkin};
+use super::{GltfMesh, GltfSkin};
 
 /// A glTF node with all of its child nodes, its [`GltfMesh`],
 /// [`Transform`](bevy_transform::prelude::Transform), its optional [`GltfSkin`]

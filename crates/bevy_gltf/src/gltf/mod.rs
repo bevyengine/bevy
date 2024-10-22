@@ -1,4 +1,3 @@
-mod asset_label;
 mod mesh;
 mod node;
 mod primitive;
@@ -12,10 +11,7 @@ use bevy_utils::HashMap;
 
 use crate::{ext::GltfExt, GltfError, GltfLoader, GltfLoaderSettings};
 
-pub use self::{
-    asset_label::GltfAssetLabel, mesh::GltfMesh, node::GltfNode, primitive::GltfPrimitive,
-    skin::GltfSkin,
-};
+pub use self::{mesh::GltfMesh, node::GltfNode, primitive::GltfPrimitive, skin::GltfSkin};
 #[cfg(feature = "bevy_animation")]
 pub use bevy_animation::AnimationClip;
 
