@@ -1774,10 +1774,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("MULTISAMPLED".into());
         };
 
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_VIEW_COUNT".into(),
-            key.max_view_count(),
-        ));
+        let max_view_count = key.max_view_count();
+        if max_view_count > 0 {
+            shader_defs.push(ShaderDefVal::UInt("MAX_VIEW_COUNT".into(), max_view_count));
+        }
         let multiview_count = key.multiview();
         if multiview_count > 1 {
             shader_defs.push("MULTIVIEW".into());

@@ -350,10 +350,10 @@ where
         // since that's the only time it gets called from a prepass pipeline.)
         shader_defs.push("PREPASS_PIPELINE".into());
 
-        shader_defs.push(ShaderDefVal::UInt(
-            "MAX_VIEW_COUNT".into(),
-            key.mesh_key.max_view_count(),
-        ));
+        let max_view_count = key.mesh_key.max_view_count();
+        if max_view_count > 0 {
+            shader_defs.push(ShaderDefVal::UInt("MAX_VIEW_COUNT".into(), max_view_count));
+        }
         let multiview_count = key.mesh_key.multiview();
         if multiview_count > 1 {
             shader_defs.push("MULTIVIEW".into());
