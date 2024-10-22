@@ -1,3 +1,4 @@
+use bevy_utils::{HashMap, HashSet};
 use gltf::Node;
 
 use bevy_core::Name;
@@ -27,6 +28,14 @@ pub trait NodeExt {
 
     /// Get index of [`Mesh`](gltf::Mesh) on [`Node`]
     fn mesh_index(&self) -> Option<usize>;
+
+    fn paths_recur(
+        &self,
+        current_path: &[Name],
+        paths: &mut HashMap<usize, (usize, Vec<Name>)>,
+        root_index: usize,
+        visited: &mut HashSet<usize>,
+    );
 }
 
 impl NodeExt for Node<'_> {
@@ -45,6 +54,24 @@ impl NodeExt for Node<'_> {
                 scale: Vec3::from(scale),
             },
         }
+    }
+
+    fn paths_recur(
+        &self,
+        current_path: &[Name],
+        paths: &mut HashMap<usize, (usize, Vec<Name>)>,
+        root_index: usize,
+        visited: &mut HashSet<usize>,
+    ) {
+        let mut path = current_path.to_owned();
+        path.push(self.to_name());
+        visited.insert(self.index());
+        for child in self.children() {
+            if !visited.contains(&child.index()) {
+                child.paths_recur(&path, paths, root_index, visited);
+            }
+        }
+        paths.insert(self.index(), (root_index, path));
     }
 
     fn to_label(&self) -> GltfAssetLabel {

@@ -1,5 +1,3 @@
-#[cfg(feature = "bevy_animation")]
-mod animation;
 mod asset_label;
 mod extras;
 mod material;
@@ -30,7 +28,7 @@ pub use self::{
     texture::GltfTexture,
 };
 #[cfg(feature = "bevy_animation")]
-pub use {self::animation::GltfAnimation, bevy_animation::AnimationClip};
+pub use bevy_animation::AnimationClip;
 
 /// Representation of a loaded glTF file.
 #[derive(Asset, Debug, TypePath)]
@@ -102,7 +100,7 @@ impl Gltf {
 
         #[cfg(feature = "bevy_animation")]
         let (animations, named_animations, animation_roots) =
-            GltfAnimation::load_animations(load_context, &gltf, &buffer_data)?;
+            gltf.load_animations(load_context, &buffer_data)?;
 
         let (meshes, named_meshes) = GltfMesh::load_meshes(
             loader,
