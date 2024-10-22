@@ -121,7 +121,9 @@ impl<T: ?Sized + AsyncSeekForward + Unpin> AsyncSeekForward for Box<T> {
     }
 }
 
+/// Extension trait for [`AsyncSeekForward`].
 pub trait AsyncSeekForwardExt: AsyncSeekForward {
+    /// Seek by the provided `offset` in the forwards direction, using the [`AsyncSeekForward`] trait.
     fn seek_forward(&mut self, offset: u64) -> SeekForwardFuture<'_, Self>
     where
         Self: Unpin,
