@@ -5,6 +5,7 @@ use bevy_render::{
     render_resource::binding_types::uniform_buffer,
     sync_world::RenderEntity,
 };
+use binding_types::uniform_buffer_sized;
 pub use prepass_bindings::*;
 
 use bevy_asset::{load_internal_asset, AssetServer};
@@ -26,7 +27,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, Msaa, ViewUniformOffset, ViewUniforms},
     Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -40,6 +41,7 @@ use crate::meshlet::{
 use crate::*;
 
 use bevy_render::view::RenderVisibleEntities;
+use core::num::NonZeroU32;
 use core::{hash::Hash, marker::PhantomData};
 
 pub const PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(921124473254008983);
@@ -265,7 +267,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                 ShaderStages::VERTEX_FRAGMENT,
                 (
                     // View
-                    uniform_buffer::<ViewUniform>(true),
+                    uniform_buffer_sized(true, None),
                     // Globals
                     uniform_buffer::<GlobalsUniform>(false),
                     // PreviousViewUniforms
@@ -280,7 +282,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                 ShaderStages::VERTEX_FRAGMENT,
                 (
                     // View
-                    uniform_buffer::<ViewUniform>(true),
+                    uniform_buffer_sized(true, None),
                     // Globals
                     uniform_buffer::<GlobalsUniform>(false),
                 ),
@@ -341,11 +343,22 @@ where
         }];
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
+        let mut multiview = None;
 
         // Let the shader code know that it's running in a prepass pipeline.
         // (PBR code will use this to detect that it's running in deferred mode,
         // since that's the only time it gets called from a prepass pipeline.)
         shader_defs.push("PREPASS_PIPELINE".into());
+
+        shader_defs.push(ShaderDefVal::UInt(
+            "MAX_VIEW_COUNT".into(),
+            key.mesh_key.max_view_count(),
+        ));
+        let multiview_count = key.mesh_key.multiview();
+        if multiview_count > 1 {
+            shader_defs.push("MULTIVIEW".into());
+            multiview = Some(NonZeroU32::new(multiview_count).unwrap());
+        }
 
         // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
         // The main limitation right now is that bind group order is hardcoded in shaders.
@@ -570,7 +583,7 @@ where
                 alpha_to_coverage_enabled: false,
             },
             push_constant_ranges: vec![],
-multiview: None,
+            multiview,
             label: Some("prepass_pipeline".into()),
         };
 
@@ -696,6 +709,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
+    view_uniforms: Res<ViewUniforms>,
     mut opaque_prepass_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
     mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
@@ -762,7 +776,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
             continue;
         }
 
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
+        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
+            | MeshPipelineKey::from_max_view_count(
+                view_uniforms.uniforms.current_max_capacity() as _
+            );
+        dbg!(view_key.max_view_count());
         if depth_prepass.is_some() {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }

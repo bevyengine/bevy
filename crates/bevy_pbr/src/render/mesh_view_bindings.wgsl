@@ -6,8 +6,8 @@
     globals::Globals,
 }
 
-#ifdef MULTIVIEW
-@group(0) @binding(0) var<storage> view: array<View>;
+#ifdef MAX_VIEW_COUNT
+@group(0) @binding(0) var<uniform> view: array<View, #{MAX_VIEW_COUNT}>;
 #else 
 @group(0) @binding(0) var<uniform> view: array<View, 1>;
 #endif

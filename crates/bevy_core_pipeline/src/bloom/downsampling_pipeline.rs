@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use super::{Bloom, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT};
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
@@ -13,6 +15,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
 };
+use binding_types::texture_2d_array;
 
 #[derive(Component)]
 pub struct BloomDownsamplingPipelineIds {
@@ -24,6 +27,7 @@ pub struct BloomDownsamplingPipelineIds {
 pub struct BloomDownsamplingPipeline {
     /// Layout with a texture, a sampler, and uniforms
     pub bind_group_layout: BindGroupLayout,
+    pub multiview_bind_group_layout: BindGroupLayout,
     pub sampler: Sampler,
 }
 
@@ -31,6 +35,7 @@ pub struct BloomDownsamplingPipeline {
 pub struct BloomDownsamplingPipelineKeys {
     prefilter: bool,
     first_downsample: bool,
+    multiview: Option<NonZeroU32>,
 }
 
 /// The uniform struct extracted from [`Bloom`] attached to a Camera.
@@ -64,6 +69,22 @@ impl FromWorld for BloomDownsamplingPipeline {
             ),
         );
 
+        // Bind group layout
+        let multiview_bind_group_layout = render_device.create_bind_group_layout(
+            "multiview_bloom_downsampling_bind_group_layout_with_settings",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
+                    // Input texture binding
+                    texture_2d_array(TextureSampleType::Float { filterable: true }),
+                    // Sampler binding
+                    sampler(SamplerBindingType::Filtering),
+                    // Downsampling settings binding
+                    uniform_buffer::<BloomUniforms>(true),
+                ),
+            ),
+        );
+
         // Sampler
         let sampler = render_device.create_sampler(&SamplerDescriptor {
             min_filter: FilterMode::Linear,
@@ -75,6 +96,7 @@ impl FromWorld for BloomDownsamplingPipeline {
 
         BloomDownsamplingPipeline {
             bind_group_layout,
+            multiview_bind_group_layout,
             sampler,
         }
     }
@@ -84,7 +106,11 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
     type Key = BloomDownsamplingPipelineKeys;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let layout = vec![self.bind_group_layout.clone()];
+        let layout = vec![if key.multiview.is_some() {
+            self.multiview_bind_group_layout.clone()
+        } else {
+            self.bind_group_layout.clone()
+        }];
 
         let entry_point = if key.first_downsample {
             "downsample_first".into()
@@ -100,6 +126,10 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
 
         if key.prefilter {
             shader_defs.push("USE_THRESHOLD".into());
+        }
+
+        if key.multiview.is_some() {
+            shader_defs.push("MULTIVIEW".into());
         }
 
         RenderPipelineDescriptor {
@@ -127,7 +157,7 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
-            multiview: None,
+            multiview: key.multiview,
         }
     }
 }
@@ -148,6 +178,7 @@ pub fn prepare_downsampling_pipeline(
             BloomDownsamplingPipelineKeys {
                 prefilter,
                 first_downsample: false,
+                multiview: None,
             },
         );
 
@@ -157,6 +188,7 @@ pub fn prepare_downsampling_pipeline(
             BloomDownsamplingPipelineKeys {
                 prefilter,
                 first_downsample: true,
+                multiview: None,
             },
         );
 

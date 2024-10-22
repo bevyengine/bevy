@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use crate::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
@@ -23,6 +25,7 @@ use bevy_render::{
 
 mod node;
 
+use binding_types::texture_2d_array;
 pub use node::CasNode;
 
 /// Applies a contrast adaptive sharpening (CAS) filter to the camera.
@@ -173,6 +176,7 @@ impl Plugin for CasPlugin {
 #[derive(Resource)]
 pub struct CasPipeline {
     texture_bind_group: BindGroupLayout,
+    multiview_texture_bind_group: BindGroupLayout,
     sampler: Sampler,
 }
 
@@ -191,11 +195,24 @@ impl FromWorld for CasPipeline {
                 ),
             ),
         );
+        let multiview_texture_bind_group = render_device.create_bind_group_layout(
+            "multiview_sharpening_texture_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
+                    texture_2d_array(TextureSampleType::Float { filterable: true }),
+                    sampler(SamplerBindingType::Filtering),
+                    // CAS Settings
+                    uniform_buffer::<CasUniform>(true),
+                ),
+            ),
+        );
 
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
         CasPipeline {
             texture_bind_group,
+            multiview_texture_bind_group,
             sampler,
         }
     }
@@ -204,6 +221,7 @@ impl FromWorld for CasPipeline {
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
 pub struct CasPipelineKey {
     texture_format: TextureFormat,
+    multiview: Option<NonZeroU32>,
     denoise: bool,
 }
 
@@ -215,9 +233,16 @@ impl SpecializedRenderPipeline for CasPipeline {
         if key.denoise {
             shader_defs.push("RCAS_DENOISE".into());
         }
+        if key.multiview.is_some() {
+            shader_defs.push("MULTIVIEW".into());
+        }
         RenderPipelineDescriptor {
             label: Some("contrast_adaptive_sharpening".into()),
-            layout: vec![self.texture_bind_group.clone()],
+            layout: vec![if key.multiview.is_some() {
+                self.multiview_texture_bind_group.clone()
+            } else {
+                self.texture_bind_group.clone()
+            }],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE,
@@ -233,7 +258,7 @@ impl SpecializedRenderPipeline for CasPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
-            multiview: None,
+            multiview: key.multiview,
         }
     }
 }
@@ -256,6 +281,7 @@ fn prepare_cas_pipelines(
                 } else {
                     TextureFormat::bevy_default()
                 },
+                multiview: None,
             },
         );
 

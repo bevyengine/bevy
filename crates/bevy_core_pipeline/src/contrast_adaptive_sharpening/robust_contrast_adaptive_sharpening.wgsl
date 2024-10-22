@@ -18,12 +18,12 @@
 // THE SOFTWARE.
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
+#import bevy_core_pipeline::input_texture::in_texture as screenTexture
 
 struct CASUniforms {
     sharpness: f32,
 };
 
-@group(0) @binding(0) var screenTexture: texture_2d<f32>;
 @group(0) @binding(1) var samp: sampler;
 @group(0) @binding(2) var<uniform> uniforms: CASUniforms;
 
@@ -62,12 +62,21 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     //    b
     //  d e f
     //    h
+#ifdef MULTIVIEW
+    let b = textureSample(screenTexture, samp, in.uv, in.view_index, vec2<i32>(0, -1)).rgb;
+    let d = textureSample(screenTexture, samp, in.uv, in.view_index, vec2<i32>(-1, 0)).rgb;
+    // We need the alpha value of the pixel we're working on for the output
+    let e = textureSample(screenTexture, samp, in.uv, in.view_index).rgbw;
+    let f = textureSample(screenTexture, samp, in.uv, in.view_index, vec2<i32>(1, 0)).rgb;
+    let h = textureSample(screenTexture, samp, in.uv, in.view_index, vec2<i32>(0, 1)).rgb;
+#else
     let b = textureSample(screenTexture, samp, in.uv, vec2<i32>(0, -1)).rgb;
     let d = textureSample(screenTexture, samp, in.uv, vec2<i32>(-1, 0)).rgb;
     // We need the alpha value of the pixel we're working on for the output
     let e = textureSample(screenTexture, samp, in.uv).rgbw;
     let f = textureSample(screenTexture, samp, in.uv, vec2<i32>(1, 0)).rgb;
     let h = textureSample(screenTexture, samp, in.uv, vec2<i32>(0, 1)).rgb;
+#endif
     // Min and max of ring.
     let mn4 = min(min(b, d), min(f, h));
     let mx4 = max(max(b, d), max(f, h));

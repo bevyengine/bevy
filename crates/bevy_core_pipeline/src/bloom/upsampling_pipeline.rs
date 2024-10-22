@@ -1,3 +1,5 @@
+use core::num::NonZeroU32;
+
 use super::{
     downsampling_pipeline::BloomUniforms, Bloom, BloomCompositeMode, BLOOM_SHADER_HANDLE,
     BLOOM_TEXTURE_FORMAT,
@@ -16,6 +18,7 @@ use bevy_render::{
     renderer::RenderDevice,
     view::ViewTarget,
 };
+use binding_types::texture_2d_array;
 
 #[derive(Component)]
 pub struct UpsamplingPipelineIds {
@@ -26,12 +29,14 @@ pub struct UpsamplingPipelineIds {
 #[derive(Resource)]
 pub struct BloomUpsamplingPipeline {
     pub bind_group_layout: BindGroupLayout,
+    pub multiview_bind_group_layout: BindGroupLayout,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct BloomUpsamplingPipelineKeys {
     composite_mode: BloomCompositeMode,
     final_pipeline: bool,
+    multiview: Option<NonZeroU32>,
 }
 
 impl FromWorld for BloomUpsamplingPipeline {
@@ -53,7 +58,25 @@ impl FromWorld for BloomUpsamplingPipeline {
             ),
         );
 
-        BloomUpsamplingPipeline { bind_group_layout }
+        let multiview_bind_group_layout = render_device.create_bind_group_layout(
+            "multiview_bloom_upsampling_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
+                    // Input texture
+                    texture_2d_array(TextureSampleType::Float { filterable: true }),
+                    // Sampler
+                    sampler(SamplerBindingType::Filtering),
+                    // BloomUniforms
+                    uniform_buffer::<BloomUniforms>(true),
+                ),
+            ),
+        );
+
+        BloomUpsamplingPipeline {
+            bind_group_layout,
+            multiview_bind_group_layout,
+        }
     }
 }
 
@@ -101,11 +124,19 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
 
         RenderPipelineDescriptor {
             label: Some("bloom_upsampling_pipeline".into()),
-            layout: vec![self.bind_group_layout.clone()],
+            layout: vec![if key.multiview.is_some() {
+                self.multiview_bind_group_layout.clone()
+            } else {
+                self.bind_group_layout.clone()
+            }],
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: BLOOM_SHADER_HANDLE,
-                shader_defs: vec![],
+                shader_defs: if key.multiview.is_some() {
+                    vec!["MULTIVIEW".into()]
+                } else {
+                    vec![]
+                },
                 entry_point: "upsample".into(),
                 targets: vec![Some(ColorTargetState {
                     format: texture_format,
@@ -124,7 +155,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
-            multiview: None,
+            multiview: key.multiview,
         }
     }
 }
@@ -143,6 +174,7 @@ pub fn prepare_upsampling_pipeline(
             BloomUpsamplingPipelineKeys {
                 composite_mode: bloom.composite_mode,
                 final_pipeline: false,
+                multiview: None,
             },
         );
 
@@ -152,6 +184,7 @@ pub fn prepare_upsampling_pipeline(
             BloomUpsamplingPipelineKeys {
                 composite_mode: bloom.composite_mode,
                 final_pipeline: true,
+                multiview: None,
             },
         );
 

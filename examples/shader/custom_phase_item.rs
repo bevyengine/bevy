@@ -293,7 +293,7 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
             label: Some("custom render pipeline".into()),
             layout: vec![],
             push_constant_ranges: vec![],
-multiview: None,
+            multiview: None,
             vertex: VertexState {
                 shader: self.shader.clone(),
                 shader_defs: vec![],

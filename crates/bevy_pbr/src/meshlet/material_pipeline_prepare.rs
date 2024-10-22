@@ -37,6 +37,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     asset_server: Res<AssetServer>,
+    view_uniforms: Res<ViewUniforms>,
     mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
     mut views: Query<
         (
@@ -78,8 +79,11 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
         has_irradiance_volumes,
     ) in &mut views
     {
-        let mut view_key =
-            MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = MeshPipelineKey::from_msaa_samples(1)
+            | MeshPipelineKey::from_hdr(view.hdr)
+            | MeshPipelineKey::from_max_view_count(
+                view_uniforms.uniforms.current_max_capacity() as _
+            );
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -175,7 +179,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                     material_pipeline.material_layout.clone(),
                 ],
                 push_constant_ranges: vec![],
-multiview: None,
+                multiview: None,
                 vertex: VertexState {
                     shader: MESHLET_MESH_MATERIAL_SHADER_HANDLE,
                     shader_defs: shader_defs.clone(),
@@ -236,6 +240,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
     render_material_instances: Res<RenderMaterialInstances<M>>,
     mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
     asset_server: Res<AssetServer>,
+    view_uniforms: Res<ViewUniforms>,
     mut views: Query<
         (
             &mut MeshletViewMaterialsPrepass,
@@ -257,8 +262,11 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
         (normal_prepass, motion_vector_prepass, deferred_prepass),
     ) in &mut views
     {
-        let mut view_key =
-            MeshPipelineKey::from_msaa_samples(1) | MeshPipelineKey::from_hdr(view.hdr);
+        let mut view_key = MeshPipelineKey::from_msaa_samples(1)
+            | MeshPipelineKey::from_hdr(view.hdr)
+            | MeshPipelineKey::from_max_view_count(
+                view_uniforms.uniforms.current_max_capacity() as _
+            );
 
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -329,7 +337,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
                     prepass_pipeline.material_layout.clone(),
                 ],
                 push_constant_ranges: vec![],
-multiview: None,
+                multiview: None,
                 vertex: VertexState {
                     shader: MESHLET_MESH_MATERIAL_SHADER_HANDLE,
                     shader_defs: shader_defs.clone(),

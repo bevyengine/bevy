@@ -560,7 +560,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
             label: Some("volumetric lighting pipeline".into()),
             layout: vec![mesh_view_layout.clone(), volumetric_view_bind_group_layout],
             push_constant_ranges: vec![],
-multiview: None,
+            multiview: None,
             vertex: VertexState {
                 shader: VOLUMETRIC_FOG_HANDLE,
                 shader_defs: shader_defs.clone(),

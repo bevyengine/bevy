@@ -643,7 +643,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             }),
             layout: vec![self.view_layout.clone(), self.mesh_layout.clone()],
             push_constant_ranges: vec![],
-multiview: None,
+            multiview: None,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
