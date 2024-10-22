@@ -153,15 +153,16 @@ impl<'w, 's> UiTree<'w, 's> {
     ///
     /// Traverses the hierarchy depth-first.
     pub fn iter_leaves(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
-        self.iter_descendants_depth_first(entity).filter(|entity| {
-            // FIXME: This will not include Nodes with only GhostNode descendants
-            self.children_query
-                .get(*entity)
-                // These are leaf nodes if they have the `Children` component but it's empty
-                .map(|children| children.is_empty())
-                // Or if they don't have the `Children` component at all
-                .unwrap_or(true)
-        })
+        UiLeavesIter {
+            stack: self
+                .ui_children_query
+                .get(entity)
+                .map_or(SmallVec::new(), |(children, _)| {
+                    children.into_iter().flatten().rev().copied().collect()
+                }),
+            query: &self.ui_children_query,
+            potential_leaf: None,
+        }
     }
 
     /// Iterates the [`GhostNode`]s between this entity and its UI children.
@@ -212,6 +213,43 @@ impl<'w, 's> Iterator for UiChildrenIter<'w, 's> {
             if let Ok((children, has_ghost_node)) = self.query.get(entity) {
                 if !has_ghost_node {
                     return Some(entity);
+                }
+                if let Some(children) = children {
+                    self.stack.extend(children.iter().rev().copied());
+                }
+            }
+        }
+    }
+}
+
+pub struct UiLeavesIter<'w, 's> {
+    stack: SmallVec<[Entity; 8]>,
+    query: &'s Query<
+        'w,
+        's,
+        (Option<&'static Children>, Has<GhostNode>),
+        Or<(With<Node>, With<GhostNode>)>,
+    >,
+    potential_leaf: Option<(usize, Entity)>,
+}
+
+impl<'w, 's> Iterator for UiLeavesIter<'w, 's> {
+    type Item = Entity;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some((stack_length, node_entity)) = self.potential_leaf {
+                if stack_length == self.stack.len() {
+                    // Confirmed leaf Node since no entities below it were Nodes
+                    self.potential_leaf = None;
+                    return Some(node_entity);
+                }
+            }
+
+            let entity = self.stack.pop()?;
+            if let Ok((children, has_ghost_node)) = self.query.get(entity) {
+                if !has_ghost_node {
+                    // This is a Node, store as potential leaf and continue traversing.
+                    self.potential_leaf = Some((self.stack.len(), entity));
                 }
                 if let Some(children) = children {
                     self.stack.extend(children.iter().rev().copied());
@@ -357,5 +395,28 @@ mod tests {
         );
 
         assert!(ui_tree.iter_ancestors(n8).next().is_none());
+    }
+
+    #[test]
+    fn iter_leaves() {
+        let world = &mut World::new();
+
+        let n1 = world.spawn((A(1), Node::default())).id();
+        let n2 = world.spawn((A(2), GhostNode::new())).id();
+        let n3 = world.spawn((A(3), Node::default())).id();
+        let n4 = world.spawn((A(4), Node::default())).id();
+        let n5 = world.spawn((A(5), Node::default())).id();
+        let n6 = world.spawn((A(6), GhostNode::default())).id();
+
+        world.entity_mut(n1).add_children(&[n2, n3]);
+        world.entity_mut(n2).add_children(&[n4]);
+        world.entity_mut(n3).add_children(&[n5]);
+        world.entity_mut(n5).add_children(&[n6]);
+
+        let mut system_state = SystemState::<(UiTree, Query<&A>)>::new(world);
+        let (ui_tree, a_query) = system_state.get(world);
+
+        let result: Vec<_> = a_query.iter_many(ui_tree.iter_leaves(n1)).collect();
+        assert_eq!([&A(4), &A(5)], result.as_slice());
     }
 }
