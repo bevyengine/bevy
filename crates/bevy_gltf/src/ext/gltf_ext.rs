@@ -13,7 +13,7 @@ use bevy_utils::{HashMap, HashSet};
 use crate::GltfAssetLabel;
 use crate::{
     data_uri::DataUri, gltf_tree_iterator::GltfTreeIterator, GltfError, GltfLoader,
-    GltfLoaderSettings, GltfMesh, GltfNode,
+    GltfLoaderSettings, GltfMesh, GltfNode, GltfSkin,
 };
 
 use super::{ExtrasExt, MaterialExt, MeshExt, NodeExt, SceneExt, SkinExt};
@@ -87,6 +87,14 @@ pub trait GltfExt {
         settings: &GltfLoaderSettings,
         #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     ) -> Result<(Vec<Handle<Scene>>, HashMap<Box<str>, Handle<Scene>>), GltfError>;
+
+    #[allow(clippy::result_large_err)]
+    /// Load all skins of a [`glTF`](gltf::Gltf)
+    fn load_skins(
+        &self,
+        load_context: &mut LoadContext,
+        buffer_data: &[Vec<u8>],
+    ) -> Result<(Vec<Handle<GltfSkin>>, HashMap<Box<str>, Handle<GltfSkin>>), GltfError>;
 
     /// Load [`SkinnedMeshInverseBindposes`] for all [`Skin`](gltf::Skin)
     /// in [`glTF`](gltf::Gltf).
@@ -319,6 +327,34 @@ impl GltfExt for gltf::Gltf {
             scenes.push(scene_handle);
         }
         Ok((scenes, named_scenes))
+    }
+
+    #[allow(clippy::result_large_err)]
+    /// Load all skins of a [`glTF`](gltf::Gltf)
+    fn load_skins(
+        &self,
+        load_context: &mut LoadContext,
+        buffer_data: &[Vec<u8>],
+    ) -> Result<(Vec<Handle<GltfSkin>>, HashMap<Box<str>, Handle<GltfSkin>>), GltfError> {
+        let mut skins = vec![];
+        let mut named_skins = HashMap::default();
+
+        let skinned_mesh_inverse_bindposes = self.inverse_bind_poses(load_context, buffer_data);
+
+        for node in GltfTreeIterator::try_new(self)? {
+            if let Some(skin) = node.skin() {
+                let gltf_skin = skin.load_skin(load_context, &skinned_mesh_inverse_bindposes);
+
+                let handle = load_context.add_labeled_asset(skin.to_label().to_string(), gltf_skin);
+
+                skins.push(handle.clone());
+                if let Some(name) = skin.name() {
+                    named_skins.insert(name.into(), handle.clone());
+                }
+            }
+        }
+
+        Ok((skins, named_skins))
     }
 
     fn inverse_bind_poses(
