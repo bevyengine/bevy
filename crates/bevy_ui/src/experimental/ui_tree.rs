@@ -102,7 +102,7 @@ impl<'w, 's> UiTree<'w, 's> {
     pub fn parent(&'s self, entity: Entity) -> Option<Entity> {
         self.parents_query
             .iter_ancestors(entity)
-            .find(|entity| !self.ghost_nodes_query.contains(*entity))
+            .find(|entity| self.nodes_query.contains(*entity))
     }
 
     /// Returns the topmost [`Node`] ancestor of the given `entity`.
@@ -122,7 +122,7 @@ impl<'w, 's> UiTree<'w, 's> {
     pub fn iter_ancestors(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
         self.parents_query
             .iter_ancestors(entity)
-            .filter(|entity| !self.ghost_nodes_query.contains(*entity))
+            .filter(|entity| self.nodes_query.contains(*entity))
     }
 
     /// Returns an [`Iterator`] of [`Node`] entities over all of `entity`s descendants within the current UI tree.
@@ -131,7 +131,7 @@ impl<'w, 's> UiTree<'w, 's> {
     pub fn iter_descendants(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
         self.children_query
             .iter_descendants(entity)
-            .filter(|entity| !self.ghost_nodes_query.contains(*entity))
+            .filter(|entity| self.nodes_query.contains(*entity))
     }
 
     /// Returns an [`Iterator`] of [`Node`] entities over all of `entity`s descendants within the current UI tree.
@@ -143,7 +143,7 @@ impl<'w, 's> UiTree<'w, 's> {
     ) -> impl Iterator<Item = Entity> + 's {
         self.children_query
             .iter_descendants_depth_first(entity)
-            .filter(|entity| !self.ghost_nodes_query.contains(*entity))
+            .filter(|entity| self.nodes_query.contains(*entity))
     }
 
     /// Returns an [`Iterator`] of [`Node`] entities over the leaves of the UI tree underneath this `entity`.
