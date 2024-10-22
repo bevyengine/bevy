@@ -40,9 +40,7 @@ use crate::{
     GltfError, GltfLoaderSettings,
 };
 
-use super::{
-    GltfAssetLabel, GltfExtras, GltfMaterial, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
-};
+use super::{GltfAssetLabel, GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras};
 
 /// A [`Scene`] in a [`glTF`](gltf::Gltf)
 pub struct GltfScene;
@@ -268,12 +266,7 @@ impl GltfScene {
                         if !root_load_context.has_labeled_asset(&material_label)
                             && !load_context.has_labeled_asset(&material_label)
                         {
-                            GltfMaterial::load_material(
-                                &material,
-                                load_context,
-                                document,
-                                is_scale_inverted,
-                            );
+                            material.load_material(load_context, document, is_scale_inverted);
                         }
 
                         let primitive_label = GltfAssetLabel::Primitive {

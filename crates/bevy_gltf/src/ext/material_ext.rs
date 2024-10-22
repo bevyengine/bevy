@@ -1,8 +1,9 @@
 use bevy_asset::{Handle, LoadContext};
+use bevy_color::{Color, LinearRgba};
 use bevy_image::Image;
 use bevy_math::Affine2;
-use bevy_pbr::UvChannel;
-use bevy_render::alpha::AlphaMode;
+use bevy_pbr::{StandardMaterial, UvChannel};
+use bevy_render::{alpha::AlphaMode, render_resource::Face};
 use bevy_utils::tracing::warn;
 
 use crate::GltfAssetLabel;
@@ -17,6 +18,14 @@ use super::JsonTextureInfoExt;
 
 /// [`Material`](gltf::Material) extension
 pub trait MaterialExt {
+    /// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
+    fn load_material(
+        &self,
+        load_context: &mut LoadContext,
+        document: &gltf::Document,
+        is_scale_inverted: bool,
+    ) -> Handle<StandardMaterial>;
+
     /// Returns the label for the `material`.
     fn to_label(&self, is_scale_inverted: bool) -> GltfAssetLabel;
 
@@ -83,6 +92,214 @@ pub trait MaterialExt {
 }
 
 impl MaterialExt for gltf::Material<'_> {
+    /// Loads a glTF material as a bevy [`StandardMaterial`] and returns it.
+    fn load_material(
+        &self,
+        load_context: &mut LoadContext,
+        document: &gltf::Document,
+        is_scale_inverted: bool,
+    ) -> Handle<StandardMaterial> {
+        let material_label = self.material_label(is_scale_inverted);
+        load_context.labeled_asset_scope(material_label, |load_context| {
+            let pbr = self.pbr_metallic_roughness();
+
+            // TODO: handle missing label handle errors here?
+            let color = pbr.base_color_factor();
+            let uv_transform = pbr
+                .base_color_texture()
+                .and_then(|info| {
+                    info.texture_transform()
+                        .map(|transform| transform.convert_texture_transform_to_affine2())
+                })
+                .unwrap_or_default();
+            let (base_color_channel, base_color_texture) = self.extract_channel_and_texture(
+                load_context,
+                pbr.base_color_texture(),
+                "base color",
+                None,
+            );
+
+            let (normal_map_channel, normal_map_texture) = self.extract_channel_and_texture(
+                load_context,
+                self.normal_texture(),
+                "normal map",
+                None,
+            );
+
+            let (metallic_roughness_channel, metallic_roughness_texture) = self
+                .extract_channel_and_texture(
+                    load_context,
+                    pbr.metallic_roughness_texture(),
+                    "metallic/roughness",
+                    None,
+                );
+
+            // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+            let (occlusion_channel, occlusion_texture) = self.extract_channel_and_texture(
+                load_context,
+                self.occlusion_texture(),
+                "occlusion",
+                None,
+            );
+
+            // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+            let emissive = self.emissive_factor();
+            let (emissive_channel, emissive_texture) = self.extract_channel_and_texture(
+                load_context,
+                self.emissive_texture(),
+                "emissive",
+                Some(uv_transform),
+            );
+
+            #[cfg(feature = "pbr_transmission_textures")]
+            let (
+                specular_transmission,
+                specular_transmission_channel,
+                specular_transmission_texture,
+            ) = if let Some(transmission) = self.transmission() {
+                let (specular_transmission_channel, transmission_texture) = self
+                    .extract_channel_and_texture(
+                        load_context,
+                        transmission.transmission_texture(),
+                        "specular/transmission",
+                        None,
+                    );
+                (
+                    transmission.transmission_factor(),
+                    specular_transmission_channel,
+                    transmission_texture,
+                )
+            } else {
+                (0.0, UvChannel::Uv0, None)
+            };
+
+            #[cfg(not(feature = "pbr_transmission_textures"))]
+            let specular_transmission = self
+                .transmission()
+                .map_or(0.0, |transmission| transmission.transmission_factor());
+
+            #[cfg(feature = "pbr_transmission_textures")]
+            let (
+                thickness,
+                thickness_channel,
+                thickness_texture,
+                attenuation_distance,
+                attenuation_color,
+            ) = if let Some(volume) = self.volume() {
+                let (thickness_channel, thickness_texture) = self.extract_channel_and_texture(
+                    load_context,
+                    volume.thickness_texture(),
+                    "thickness",
+                    None,
+                );
+                (
+                    volume.thickness_factor(),
+                    thickness_channel,
+                    thickness_texture,
+                    volume.attenuation_distance(),
+                    volume.attenuation_color(),
+                )
+            } else {
+                (0.0, UvChannel::Uv0, None, f32::INFINITY, [1.0, 1.0, 1.0])
+            };
+
+            #[cfg(not(feature = "pbr_transmission_textures"))]
+            let (thickness, attenuation_distance, attenuation_color) =
+                self.volume()
+                    .map_or((0.0, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
+                        (
+                            volume.thickness_factor(),
+                            volume.attenuation_distance(),
+                            volume.attenuation_color(),
+                        )
+                    });
+
+            let ior = self.ior().unwrap_or(1.5);
+
+            // Parse the `KHR_materials_clearcoat` extension data if necessary.
+            let clearcoat = self
+                .read_clearcoat_extension(load_context, document)
+                .unwrap_or_default();
+
+            // Parse the `KHR_materials_anisotropy` extension data if necessary.
+            let anisotropy = self
+                .read_anisotropy_extension(load_context, document)
+                .unwrap_or_default();
+
+            // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
+            let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
+            let emissive = base_emissive * self.emissive_strength().unwrap_or(1.0);
+
+            StandardMaterial {
+                base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
+                base_color_channel,
+                base_color_texture,
+                perceptual_roughness: pbr.roughness_factor(),
+                metallic: pbr.metallic_factor(),
+                metallic_roughness_channel,
+                metallic_roughness_texture,
+                normal_map_channel,
+                normal_map_texture,
+                double_sided: self.double_sided(),
+                cull_mode: if self.double_sided() {
+                    None
+                } else if is_scale_inverted {
+                    Some(Face::Front)
+                } else {
+                    Some(Face::Back)
+                },
+                occlusion_channel,
+                occlusion_texture,
+                emissive,
+                emissive_channel,
+                emissive_texture,
+                specular_transmission,
+                #[cfg(feature = "pbr_transmission_textures")]
+                specular_transmission_channel,
+                #[cfg(feature = "pbr_transmission_textures")]
+                specular_transmission_texture,
+                thickness,
+                #[cfg(feature = "pbr_transmission_textures")]
+                thickness_channel,
+                #[cfg(feature = "pbr_transmission_textures")]
+                thickness_texture,
+                ior,
+                attenuation_distance,
+                attenuation_color: Color::linear_rgb(
+                    attenuation_color[0],
+                    attenuation_color[1],
+                    attenuation_color[2],
+                ),
+                unlit: self.unlit(),
+                alpha_mode: MaterialExt::alpha_mode(self),
+                uv_transform,
+                clearcoat: clearcoat.clearcoat_factor.unwrap_or_default() as f32,
+                clearcoat_perceptual_roughness: clearcoat
+                    .clearcoat_roughness_factor
+                    .unwrap_or_default() as f32,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_channel: clearcoat.clearcoat_channel,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_texture: clearcoat.clearcoat_texture,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_roughness_channel: clearcoat.clearcoat_roughness_channel,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_roughness_texture: clearcoat.clearcoat_roughness_texture,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_normal_channel: clearcoat.clearcoat_normal_channel,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
+                anisotropy_strength: anisotropy.anisotropy_strength.unwrap_or_default() as f32,
+                anisotropy_rotation: anisotropy.anisotropy_rotation.unwrap_or_default() as f32,
+                #[cfg(feature = "pbr_anisotropy_texture")]
+                anisotropy_channel: anisotropy.anisotropy_channel,
+                #[cfg(feature = "pbr_anisotropy_texture")]
+                anisotropy_texture: anisotropy.anisotropy_texture,
+                ..Default::default()
+            }
+        })
+    }
+
     fn to_label(&self, is_scale_inverted: bool) -> GltfAssetLabel {
         if let Some(index) = self.index() {
             GltfAssetLabel::Material {

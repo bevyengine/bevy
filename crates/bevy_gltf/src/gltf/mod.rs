@@ -19,7 +19,7 @@ use crate::{ext::GltfExt, GltfError, GltfLoader, GltfLoaderSettings};
 pub use self::{
     asset_label::GltfAssetLabel,
     extras::GltfExtras,
-    material::{GltfMaterial, GltfMaterialExtras, GltfMaterialName},
+    material::{GltfMaterialExtras, GltfMaterialName},
     mesh::{GltfMesh, GltfMeshExtras},
     node::GltfNode,
     primitive::GltfPrimitive,
@@ -95,8 +95,7 @@ impl Gltf {
         )
         .await?;
 
-        let (materials, named_materials) =
-            GltfMaterial::load_materials(load_context, settings, &gltf)?;
+        let (materials, named_materials) = gltf.load_materials(load_context, settings)?;
 
         #[cfg(feature = "bevy_animation")]
         let (animations, named_animations, animation_roots) =

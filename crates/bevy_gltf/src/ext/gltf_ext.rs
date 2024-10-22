@@ -12,11 +12,12 @@ use bevy_math::{
     curve::{constant_curve, Interval, UnevenSampleAutoCurve},
     Mat4, Quat, Vec3, Vec4,
 };
+use bevy_pbr::StandardMaterial;
 use bevy_render::mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy_utils::{tracing::warn, HashMap, HashSet};
 use gltf::animation::util::ReadOutputs;
 
-use crate::{data_uri::DataUri, GltfAssetLabel, GltfError};
+use crate::{data_uri::DataUri, GltfAssetLabel, GltfError, GltfLoaderSettings};
 
 use super::{MaterialExt, NodeExt, SkinExt};
 
@@ -44,6 +45,20 @@ pub trait GltfExt {
             Vec<Handle<AnimationClip>>,
             HashMap<Box<str>, Handle<AnimationClip>>,
             HashSet<usize>,
+        ),
+        GltfError,
+    >;
+
+    #[allow(clippy::result_large_err)]
+    /// Loads all materials found on [`glTF`](gltf::Gltf).
+    fn load_materials(
+        &self,
+        load_context: &mut LoadContext<'_>,
+        settings: &GltfLoaderSettings,
+    ) -> Result<
+        (
+            Vec<Handle<StandardMaterial>>,
+            HashMap<Box<str>, Handle<StandardMaterial>>,
         ),
         GltfError,
     >;
@@ -327,6 +342,37 @@ impl GltfExt for gltf::Gltf {
         }
 
         Ok((animations, named_animations, animation_roots))
+    }
+
+    #[allow(clippy::result_large_err)]
+    fn load_materials(
+        &self,
+        load_context: &mut LoadContext<'_>,
+        settings: &GltfLoaderSettings,
+    ) -> Result<
+        (
+            Vec<Handle<StandardMaterial>>,
+            HashMap<Box<str>, Handle<StandardMaterial>>,
+        ),
+        GltfError,
+    > {
+        let mut materials = vec![];
+        let mut named_materials = HashMap::new();
+
+        // Only include materials in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_materials flag
+        if !settings.load_materials.is_empty() {
+            // NOTE: materials must be loaded after textures because image load() calls will
+            // happen before load_with_settings, preventing is_srgb from being set properly
+            for material in self.materials() {
+                let handle = material.load_material(load_context, &self.document, false);
+                if let Some(name) = material.name() {
+                    named_materials.insert(name.into(), handle.clone());
+                }
+                materials.push(handle);
+            }
+        }
+
+        Ok((materials, named_materials))
     }
 
     fn inverse_bind_poses(
