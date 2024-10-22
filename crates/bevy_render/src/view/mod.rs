@@ -15,7 +15,9 @@ use crate::{
     primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
-    render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
+    render_resource::{
+        DynamicArrayIndex, DynamicArrayUniformBuffer, ShaderType, Texture, TextureView,
+    },
     renderer::{RenderDevice, RenderQueue},
     texture::{
         BevyDefault, CachedTexture, ColorAttachment, DepthAttachment, GpuImage,
@@ -435,26 +437,25 @@ pub struct ViewUniform {
 
 #[derive(Resource)]
 pub struct ViewUniforms {
-    pub uniforms: DynamicUniformBuffer<ViewUniform>,
+    pub uniforms: DynamicArrayUniformBuffer<ViewUniform>,
 }
 
 impl FromWorld for ViewUniforms {
     fn from_world(world: &mut World) -> Self {
-        let mut uniforms = DynamicUniformBuffer::default();
-        uniforms.set_label(Some("view_uniforms_buffer"));
-
         let render_device = world.resource::<RenderDevice>();
-        if render_device.limits().max_storage_buffers_per_shader_stage > 0 {
-            uniforms.add_usages(BufferUsages::STORAGE);
-        }
+        // if render_device.limits().max_storage_buffers_per_shader_stage > 0 {
+        //     uniforms.add_usages(BufferUsages::STORAGE);
+        // }
 
-        Self { uniforms }
+        Self {
+            uniforms: DynamicArrayUniformBuffer::new(&render_device.limits()),
+        }
     }
 }
 
 #[derive(Component)]
 pub struct ViewUniformOffset {
-    pub offset: u32,
+    pub offset: DynamicArrayIndex,
 }
 
 #[derive(Component)]
@@ -744,14 +745,9 @@ pub fn prepare_view_uniforms(
 ) {
     let view_iter = views.iter();
     let view_count = view_iter.len();
-    let Some(mut writer) =
-        view_uniforms
-            .uniforms
-            .get_writer(view_count, &render_device, &render_queue)
-    else {
-        return;
-    };
+    view_uniforms.uniforms.clear();
     for (entity, extracted_camera, extracted_view, frustum, temporal_jitter, mip_bias) in &views {
+        let array_index = view_uniforms.uniforms.new_array();
         let viewport = extracted_view.viewport.as_vec4();
         let unjittered_projection = extracted_view.clip_from_view;
         let mut clip_from_view = unjittered_projection;
@@ -777,8 +773,9 @@ pub fn prepare_view_uniforms(
             .map(|frustum| frustum.half_spaces.map(|h| h.normal_d()))
             .unwrap_or([Vec4::ZERO; 6]);
 
-        let view_uniforms = ViewUniformOffset {
-            offset: writer.write(&ViewUniform {
+        view_uniforms.uniforms.push_element(
+            array_index,
+            ViewUniform {
                 clip_from_world,
                 unjittered_clip_from_world: unjittered_projection * view_from_world,
                 world_from_clip: world_from_view * view_from_clip,
@@ -794,11 +791,19 @@ pub fn prepare_view_uniforms(
                 frustum,
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
-            }),
+            },
+        );
+
+        let view_uniforms = ViewUniformOffset {
+            offset: array_index,
         };
 
         commands.entity(entity).insert(view_uniforms);
     }
+    view_uniforms.uniforms.finish_queueing();
+    view_uniforms
+        .uniforms
+        .write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Clone)]

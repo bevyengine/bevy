@@ -37,7 +37,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::BevyDefault as _,
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::{info_once, prelude::default};
@@ -333,7 +333,10 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             0,
             &view_bind_group.value,
             &[
-                view_uniform_offset.offset,
+                world
+                    .resource::<ViewUniforms>()
+                    .uniforms
+                    .get_array_offset(view_uniform_offset.offset),
                 view_lights_offset.offset,
                 view_fog_offset.offset,
                 **view_light_probes_offset,

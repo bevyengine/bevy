@@ -519,7 +519,7 @@ pub type DrawBoxShadows = (SetItemPipeline, SetBoxShadowViewBindGroup<0>, DrawBo
 
 pub struct SetBoxShadowViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetBoxShadowViewBindGroup<I> {
-    type Param = SRes<BoxShadowMeta>;
+    type Param = (SRes<BoxShadowMeta>, SRes<ViewUniforms>);
     type ViewQuery = Read<ViewUniformOffset>;
     type ItemQuery = ();
 
@@ -527,13 +527,17 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetBoxShadowViewBindGrou
         _item: &P,
         view_uniform: &'w ViewUniformOffset,
         _entity: Option<()>,
-        ui_meta: SystemParamItem<'w, '_, Self::Param>,
+        (ui_meta, view_uniforms): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(view_bind_group) = ui_meta.into_inner().view_bind_group.as_ref() else {
             return RenderCommandResult::Failure("view_bind_group not available");
         };
-        pass.set_bind_group(I, view_bind_group, &[view_uniform.offset]);
+        pass.set_bind_group(
+            I,
+            view_bind_group,
+            &[view_uniforms.uniforms.get_array_offset(view_uniform.offset)],
+        );
         RenderCommandResult::Success
     }
 }

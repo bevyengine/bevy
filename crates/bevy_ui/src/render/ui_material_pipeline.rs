@@ -261,7 +261,7 @@ pub type DrawUiMaterial<M> = (
 
 pub struct SetMatUiViewBindGroup<M: UiMaterial, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiViewBindGroup<M, I> {
-    type Param = SRes<UiMaterialMeta<M>>;
+    type Param = (SRes<UiMaterialMeta<M>>, SRes<ViewUniforms>);
     type ViewQuery = Read<ViewUniformOffset>;
     type ItemQuery = ();
 
@@ -269,13 +269,13 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P> for SetMatUiV
         _item: &P,
         view_uniform: &'w ViewUniformOffset,
         _entity: Option<()>,
-        ui_meta: SystemParamItem<'w, '_, Self::Param>,
+        (ui_meta, view_uniforms): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         pass.set_bind_group(
             I,
             ui_meta.into_inner().view_bind_group.as_ref().unwrap(),
-            &[view_uniform.offset],
+            &[view_uniforms.uniforms.get_array_offset(view_uniform.offset)],
         );
         RenderCommandResult::Success
     }

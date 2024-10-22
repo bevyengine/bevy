@@ -806,7 +806,7 @@ pub type DrawSprite = (
 
 pub struct SetSpriteViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I> {
-    type Param = ();
+    type Param = SRes<ViewUniforms>;
     type ViewQuery = (Read<ViewUniformOffset>, Read<SpriteViewBindGroup>);
     type ItemQuery = ();
 
@@ -814,10 +814,14 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
         _item: &P,
         (view_uniform, sprite_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
         _entity: Option<()>,
-        _param: SystemParamItem<'w, '_, Self::Param>,
+        view_uniforms: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(I, &sprite_view_bind_group.value, &[view_uniform.offset]);
+        pass.set_bind_group(
+            I,
+            &sprite_view_bind_group.value,
+            &[view_uniforms.uniforms.get_array_offset(view_uniform.offset)],
+        );
         RenderCommandResult::Success
     }
 }

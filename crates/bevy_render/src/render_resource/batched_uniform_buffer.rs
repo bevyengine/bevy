@@ -120,7 +120,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
 }
 
 #[inline]
-fn align_to_next(value: u64, alignment: u64) -> u64 {
+pub(crate) fn align_to_next(value: u64, alignment: u64) -> u64 {
     debug_assert!(alignment.is_power_of_two());
     ((value - 1) | (alignment - 1)) + 1
 }
@@ -131,7 +131,7 @@ fn align_to_next(value: u64, alignment: u64) -> u64 {
 // unclear if it is the correct long-term solution for encase.
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-struct MaxCapacityArray<T>(T, usize);
+pub(crate) struct MaxCapacityArray<T>(pub(crate) T, pub(crate) usize);
 
 impl<T> ShaderType for MaxCapacityArray<T>
 where

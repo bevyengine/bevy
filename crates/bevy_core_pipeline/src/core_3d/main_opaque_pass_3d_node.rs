@@ -10,7 +10,7 @@ use bevy_render::{
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset, ViewUniforms},
 };
 use bevy_utils::tracing::error;
 #[cfg(feature = "trace")]
@@ -120,7 +120,13 @@ impl ViewNode for MainOpaquePass3dNode {
                     render_pass.set_bind_group(
                         0,
                         &skybox_bind_group.0,
-                        &[view_uniform_offset.offset, skybox_bind_group.1],
+                        &[
+                            world
+                                .resource::<ViewUniforms>()
+                                .uniforms
+                                .get_array_offset(view_uniform_offset.offset),
+                            skybox_bind_group.1,
+                        ],
                     );
                     render_pass.draw(0..3, 0..1);
                 }

@@ -38,7 +38,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::{BevyDefault as _, GpuImage, Image},
-    view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset, ViewUniforms},
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
@@ -460,7 +460,10 @@ impl ViewNode for VolumetricFogNode {
                 0,
                 &view_bind_group.value,
                 &[
-                    view_uniform_offset.offset,
+                    world
+                        .resource::<ViewUniforms>()
+                        .uniforms
+                        .get_array_offset(view_uniform_offset.offset),
                     view_lights_offset.offset,
                     view_fog_offset.offset,
                     **view_light_probes_offset,
@@ -560,7 +563,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
             label: Some("volumetric lighting pipeline".into()),
             layout: vec![mesh_view_layout.clone(), volumetric_view_bind_group_layout],
             push_constant_ranges: vec![],
-multiview: None,
+            multiview: None,
             vertex: VertexState {
                 shader: VOLUMETRIC_FOG_HANDLE,
                 shader_defs: shader_defs.clone(),

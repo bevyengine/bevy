@@ -649,7 +649,7 @@ pub type DrawUiTextureSlices = (
 
 pub struct SetSlicerViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSlicerViewBindGroup<I> {
-    type Param = SRes<UiTextureSliceMeta>;
+    type Param = (SRes<UiTextureSliceMeta>, SRes<ViewUniforms>);
     type ViewQuery = Read<ViewUniformOffset>;
     type ItemQuery = ();
 
@@ -657,13 +657,17 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSlicerViewBindGroup<I
         _item: &P,
         view_uniform: &'w ViewUniformOffset,
         _entity: Option<()>,
-        ui_meta: SystemParamItem<'w, '_, Self::Param>,
+        (ui_meta, view_uniforms): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(view_bind_group) = ui_meta.into_inner().view_bind_group.as_ref() else {
             return RenderCommandResult::Failure("view_bind_group not available");
         };
-        pass.set_bind_group(I, view_bind_group, &[view_uniform.offset]);
+        pass.set_bind_group(
+            I,
+            view_bind_group,
+            &[view_uniforms.uniforms.get_array_offset(view_uniform.offset)],
+        );
         RenderCommandResult::Success
     }
 }

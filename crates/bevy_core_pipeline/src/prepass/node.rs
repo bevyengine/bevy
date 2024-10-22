@@ -6,7 +6,7 @@ use bevy_render::{
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewUniformOffset},
+    view::{ViewDepthTexture, ViewUniformOffset, ViewUniforms},
 };
 use bevy_utils::tracing::error;
 #[cfg(feature = "trace")]
@@ -162,7 +162,13 @@ impl ViewNode for PrepassNode {
                     render_pass.set_bind_group(
                         0,
                         &skybox_prepass_bind_group.0,
-                        &[view_uniform_offset.offset, view_prev_uniform_offset.offset],
+                        &[
+                            world
+                                .resource::<ViewUniforms>()
+                                .uniforms
+                                .get_array_offset(view_uniform_offset.offset),
+                            view_prev_uniform_offset.offset,
+                        ],
                     );
                     render_pass.draw(0..3, 0..1);
                 }
