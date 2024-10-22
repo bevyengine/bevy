@@ -1,3 +1,5 @@
+#[cfg(feature = "bevy_animation")]
+mod animation_ext;
 mod extras_ext;
 mod gltf_ext;
 #[cfg(any(
