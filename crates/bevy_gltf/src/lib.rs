@@ -91,11 +91,11 @@
 //! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
 
 mod asset_label;
+mod assets;
 mod components;
 mod data_uri;
 mod error;
 mod ext;
-mod gltf;
 mod gltf_tree_iterator;
 mod image_or_path;
 mod loader;
@@ -112,11 +112,11 @@ use bevy_utils::HashMap;
 
 pub use self::{
     asset_label::GltfAssetLabel,
+    assets::*,
     components::{
         GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras, GltfSceneExtras,
     },
     error::GltfError,
-    gltf::*,
     loader::{GltfLoader, GltfLoaderSettings},
 };
 
