@@ -4,8 +4,8 @@ use bevy::{
     animation::{AnimationTarget, AnimationTargetId},
     color::palettes::css::{LIGHT_GRAY, WHITE},
     prelude::*,
-    utils::hashbrown::HashSet,
 };
+use std::collections::HashSet;
 
 // IDs of the mask groups we define for the running fox model.
 //

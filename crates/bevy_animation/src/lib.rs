@@ -49,9 +49,8 @@ use bevy_reflect::{
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{
-    hashbrown::HashMap,
     tracing::{trace, warn},
-    NoOpHash, TypeIdMap,
+    HashMap, NoOpHash, TypeIdMap,
 };
 use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};

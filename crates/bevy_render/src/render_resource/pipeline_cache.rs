@@ -733,7 +733,7 @@ impl PipelineCache {
 
                 // TODO: Expose this somehow
                 let compilation_options = PipelineCompilationOptions {
-                    constants: &std::collections::HashMap::new(),
+                    constants: &std::collections::HashMap::default(),
                     zero_initialize_workgroup_memory: false,
                     vertex_pulling_transform: Default::default(),
                 };
@@ -815,7 +815,7 @@ impl PipelineCache {
                     entry_point: &descriptor.entry_point,
                     // TODO: Expose this somehow
                     compilation_options: PipelineCompilationOptions {
-                        constants: &std::collections::HashMap::new(),
+                        constants: &std::collections::HashMap::default(),
                         zero_initialize_workgroup_memory: false,
                         vertex_pulling_transform: Default::default(),
                     },

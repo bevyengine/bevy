@@ -30,7 +30,7 @@ use crate::{
 ///
 /// ```
 /// use bevy_reflect::{PartialReflect, Set};
-/// use bevy_utils::HashSet;
+/// use std::collections::HashSet;
 ///
 ///
 /// let foo: &mut dyn Set = &mut HashSet::<u32>::new();
@@ -431,7 +431,7 @@ pub fn set_partial_eq<M: Set>(a: &M, b: &dyn PartialReflect) -> Option<bool> {
 ///
 /// # Example
 /// ```
-/// # use bevy_utils::HashSet;
+/// # use std::collections::HashSet;
 /// use bevy_reflect::Reflect;
 ///
 /// let mut my_set = HashSet::new();
