@@ -75,9 +75,9 @@ impl SceneExt for gltf::Scene<'_> {
         world.entity_mut(world_root_id).add_children(&nodes);
 
         if let Some(extras) = self.extras().get() {
-            world.entity_mut(world_root_id).insert(GltfSceneExtras {
-                value: extras.value,
-            });
+            world
+                .entity_mut(world_root_id)
+                .insert(GltfSceneExtras::from(extras));
         }
 
         #[cfg(feature = "bevy_animation")]

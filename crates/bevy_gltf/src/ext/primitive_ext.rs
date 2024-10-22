@@ -272,15 +272,11 @@ impl PrimitiveExt for gltf::Primitive<'_> {
         }
 
         if let Some(extras) = mesh.extras().get() {
-            mesh_entity.insert(GltfMeshExtras {
-                value: extras.value,
-            });
+            mesh_entity.insert(GltfMeshExtras::from(extras));
         }
 
         if let Some(extras) = material.extras().get() {
-            mesh_entity.insert(GltfMaterialExtras {
-                value: extras.value,
-            });
+            mesh_entity.insert(GltfMaterialExtras::from(extras));
         }
 
         if let Some(name) = material.name() {
