@@ -36,7 +36,7 @@ use bevy_utils::HashMap;
 use bevy_utils::HashSet;
 
 use crate::{
-    ext::{MaterialExt, MeshExt, NodeExt, SceneExt},
+    ext::{MaterialExt, NodeExt, PrimitiveExt, SceneExt},
     GltfError, GltfLoaderSettings,
 };
 
@@ -329,7 +329,7 @@ impl GltfScene {
                             mesh_entity.insert(GltfMaterialName(String::from(name)));
                         }
 
-                        mesh_entity.insert(mesh.primitive_name(&primitive));
+                        mesh_entity.insert(primitive.primitive_name(&mesh));
                         // Mark for adding skinned mesh
                         if let Some(skin) = gltf_node.skin() {
                             entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());

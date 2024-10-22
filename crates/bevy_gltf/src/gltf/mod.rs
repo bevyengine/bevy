@@ -101,12 +101,11 @@ impl Gltf {
         let (animations, named_animations, animation_roots) =
             gltf.load_animations(load_context, &buffer_data)?;
 
-        let (meshes, named_meshes) = GltfMesh::load_meshes(
+        let (meshes, named_meshes) = gltf.load_meshes(
             loader,
             load_context,
             settings,
             file_name,
-            &gltf,
             &buffer_data,
             &materials,
         )?;

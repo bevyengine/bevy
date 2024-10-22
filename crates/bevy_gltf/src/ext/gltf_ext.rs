@@ -1,3 +1,6 @@
+use gltf::animation::util::ReadOutputs;
+
+#[cfg(feature = "bevy_animation")]
 use bevy_animation::{
     gltf_curves::{
         CubicKeyframeCurve, CubicRotationCurve, SteppedKeyframeCurve, WideCubicKeyframeCurve,
@@ -15,11 +18,12 @@ use bevy_math::{
 use bevy_pbr::StandardMaterial;
 use bevy_render::mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy_utils::{tracing::warn, HashMap, HashSet};
-use gltf::animation::util::ReadOutputs;
 
-use crate::{data_uri::DataUri, GltfAssetLabel, GltfError, GltfLoaderSettings};
+use crate::{
+    data_uri::DataUri, GltfAssetLabel, GltfError, GltfLoader, GltfLoaderSettings, GltfMesh,
+};
 
-use super::{MaterialExt, NodeExt, SkinExt};
+use super::{ExtrasExt, MaterialExt, MeshExt, NodeExt, SkinExt};
 
 const VALID_MIME_TYPES: &[&str] = &["application/octet-stream", "application/gltf-buffer"];
 
@@ -62,6 +66,18 @@ pub trait GltfExt {
         ),
         GltfError,
     >;
+
+    #[allow(clippy::result_large_err, clippy::too_many_arguments)]
+    /// Load all meshes of a [`glTF`](gltf::Gltf)
+    fn load_meshes(
+        &self,
+        loader: &GltfLoader,
+        load_context: &mut LoadContext,
+        settings: &GltfLoaderSettings,
+        file_name: &str,
+        buffer_data: &[Vec<u8>],
+        materials: &[Handle<StandardMaterial>],
+    ) -> Result<(Vec<Handle<GltfMesh>>, HashMap<Box<str>, Handle<GltfMesh>>), GltfError>;
 
     /// Load [`SkinnedMeshInverseBindposes`] for all [`Skin`](gltf::Skin)
     /// in [`glTF`](gltf::Gltf).
@@ -373,6 +389,45 @@ impl GltfExt for gltf::Gltf {
         }
 
         Ok((materials, named_materials))
+    }
+
+    #[allow(clippy::result_large_err, clippy::too_many_arguments)]
+    /// Load all meshes of a [`glTF`](gltf::Gltf)
+    fn load_meshes(
+        &self,
+        loader: &GltfLoader,
+        load_context: &mut LoadContext,
+        settings: &GltfLoaderSettings,
+        file_name: &str,
+        buffer_data: &[Vec<u8>],
+        materials: &[Handle<StandardMaterial>],
+    ) -> Result<(Vec<Handle<GltfMesh>>, HashMap<Box<str>, Handle<GltfMesh>>), GltfError> {
+        let (meshes_on_skinned_nodes, meshes_on_non_skinned_nodes) = self.load_meshes_on_nodes();
+
+        let mut meshes = vec![];
+        let mut named_meshes = HashMap::default();
+        for gltf_mesh in self.meshes() {
+            let primitives = gltf_mesh.load_primitives(
+                load_context,
+                loader,
+                settings,
+                file_name,
+                buffer_data,
+                &meshes_on_skinned_nodes,
+                &meshes_on_non_skinned_nodes,
+                materials,
+            )?;
+
+            let mesh = GltfMesh::new(&gltf_mesh, primitives, gltf_mesh.extras().get());
+
+            let handle = load_context.add_labeled_asset(mesh.asset_label().to_string(), mesh);
+            if let Some(name) = gltf_mesh.name() {
+                named_meshes.insert(name.into(), handle.clone());
+            }
+            meshes.push(handle);
+        }
+
+        Ok((meshes, named_meshes))
     }
 
     fn inverse_bind_poses(

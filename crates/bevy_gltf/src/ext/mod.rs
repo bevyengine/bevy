@@ -9,6 +9,7 @@ mod material_ext;
 mod mesh_ext;
 mod mode_ext;
 mod node_ext;
+mod primitive_ext;
 mod scene_ext;
 mod skin_ext;
 mod texture_ext;
@@ -17,8 +18,8 @@ mod texture_transform_ext;
 
 pub use self::{
     extras_ext::ExtrasExt, gltf_ext::GltfExt, material_ext::MaterialExt, mesh_ext::MeshExt,
-    mode_ext::ModeExt, node_ext::NodeExt, scene_ext::SceneExt, skin_ext::SkinExt,
-    texture_ext::TextureExt, texture_info_ext::TextureInfoExt,
+    mode_ext::ModeExt, node_ext::NodeExt, primitive_ext::PrimitiveExt, scene_ext::SceneExt,
+    skin_ext::SkinExt, texture_ext::TextureExt, texture_info_ext::TextureInfoExt,
     texture_transform_ext::TextureTransformExt,
 };
 
