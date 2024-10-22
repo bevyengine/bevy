@@ -794,7 +794,7 @@ pub fn prepare_view_uniforms(
             },
         );
     }
-    view_uniforms.uniforms.finish_queueing();
+    view_uniforms.uniforms.finish_queuing();
     view_uniforms
         .uniforms
         .write_buffer(&render_device, &render_queue);
