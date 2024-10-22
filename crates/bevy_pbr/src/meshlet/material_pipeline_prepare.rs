@@ -15,7 +15,7 @@ use bevy_render::{
     mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts},
     render_asset::RenderAssets,
     render_resource::*,
-    view::ExtractedView,
+    view::{ExtractedView, ViewUniforms},
 };
 use bevy_utils::{HashMap, HashSet};
 use core::hash::Hash;
