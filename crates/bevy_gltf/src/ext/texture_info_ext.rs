@@ -1,10 +1,10 @@
-pub trait TexInfoExt {
+pub trait TextureInfoExt {
     fn texture(&self) -> gltf::texture::Texture;
     fn texture_transform(&self) -> Option<gltf::texture::TextureTransform>;
     fn tex_coord(&self) -> u32;
 }
 
-impl TexInfoExt for gltf::texture::Info<'_> {
+impl TextureInfoExt for gltf::texture::Info<'_> {
     fn texture(&self) -> gltf::texture::Texture {
         self.texture()
     }
@@ -18,7 +18,7 @@ impl TexInfoExt for gltf::texture::Info<'_> {
     }
 }
 
-impl TexInfoExt for gltf::material::NormalTexture<'_> {
+impl TextureInfoExt for gltf::material::NormalTexture<'_> {
     fn texture(&self) -> gltf::texture::Texture {
         self.texture()
     }
@@ -32,7 +32,7 @@ impl TexInfoExt for gltf::material::NormalTexture<'_> {
     }
 }
 
-impl TexInfoExt for gltf::material::OcclusionTexture<'_> {
+impl TextureInfoExt for gltf::material::OcclusionTexture<'_> {
     fn texture(&self) -> gltf::texture::Texture {
         self.texture()
     }
