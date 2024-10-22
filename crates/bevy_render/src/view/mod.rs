@@ -15,9 +15,7 @@ use crate::{
     primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
-    render_resource::{
-        DynamicArrayIndex, DynamicArrayUniformBuffer, ShaderType, Texture, TextureView,
-    },
+    render_resource::{DynamicArrayUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{
         BevyDefault, CachedTexture, ColorAttachment, DepthAttachment, GpuImage,
@@ -40,7 +38,7 @@ use core::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 use wgpu::{
-    BufferUsages, Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
+    Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
@@ -455,7 +453,7 @@ impl FromWorld for ViewUniforms {
 
 #[derive(Component)]
 pub struct ViewUniformOffset {
-    pub offset: DynamicArrayIndex,
+    pub offset: u32,
 }
 
 #[derive(Component)]
@@ -743,11 +741,13 @@ pub fn prepare_view_uniforms(
         Option<&MipBias>,
     )>,
 ) {
-    let view_iter = views.iter();
-    let view_count = view_iter.len();
+    // let view_iter = views.iter();
+    // let view_count = view_iter.len();
     view_uniforms.uniforms.clear();
+    let mut offsets = vec![];
     for (entity, extracted_camera, extracted_view, frustum, temporal_jitter, mip_bias) in &views {
         let array_index = view_uniforms.uniforms.new_array();
+        offsets.push((entity, array_index));
         let viewport = extracted_view.viewport.as_vec4();
         let unjittered_projection = extracted_view.clip_from_view;
         let mut clip_from_view = unjittered_projection;
@@ -793,17 +793,18 @@ pub fn prepare_view_uniforms(
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
             },
         );
-
-        let view_uniforms = ViewUniformOffset {
-            offset: array_index,
-        };
-
-        commands.entity(entity).insert(view_uniforms);
     }
     view_uniforms.uniforms.finish_queueing();
     view_uniforms
         .uniforms
         .write_buffer(&render_device, &render_queue);
+    for (entity, array_index) in offsets {
+        let view_uniforms = ViewUniformOffset {
+            offset: view_uniforms.uniforms.get_array_offset(array_index),
+        };
+
+        commands.entity(entity).insert(view_uniforms);
+    }
 }
 
 #[derive(Clone)]

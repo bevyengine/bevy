@@ -449,14 +449,7 @@ impl ViewNode for DepthOfFieldNode {
                 .begin_render_pass(&render_pass_descriptor);
             render_pass.set_pipeline(render_pipeline);
             // Set the per-view bind group.
-            render_pass.set_bind_group(
-                0,
-                &view_bind_group,
-                &[world
-                    .resource::<ViewUniforms>()
-                    .uniforms
-                    .get_array_offset(view_uniform_offset.offset)],
-            );
+            render_pass.set_bind_group(0, &view_bind_group, &[view_uniform_offset.offset]);
             // Set the global bind group shared among all invocations of the shader.
             render_pass.set_bind_group(
                 1,

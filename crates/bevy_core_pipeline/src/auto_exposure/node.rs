@@ -57,7 +57,6 @@ impl Node for AutoExposureNode {
 
         let view_uniforms_resource = world.resource::<ViewUniforms>();
         let view_uniforms = &view_uniforms_resource.uniforms;
-        let view_uniforms_buffer = view_uniforms.binding();
 
         let globals_buffer = world.resource::<GlobalsBuffer>();
 
@@ -110,7 +109,7 @@ impl Node for AutoExposureNode {
                 &compensation_curve.extents,
                 resources.histogram.as_entire_buffer_binding(),
                 &auto_exposure_buffers.state,
-                view_uniforms_buffer.unwrap(),
+                view_uniforms.binding().unwrap(),
             )),
         );
 
@@ -122,11 +121,7 @@ impl Node for AutoExposureNode {
                     timestamp_writes: None,
                 });
 
-        compute_pass.set_bind_group(
-            0,
-            &compute_bind_group,
-            &[view_uniforms.get_array_offset(view_uniform_offset.offset)],
-        );
+        compute_pass.set_bind_group(0, &compute_bind_group, &[view_uniform_offset.offset]);
         compute_pass.set_pipeline(histogram_pipeline);
         compute_pass.dispatch_workgroups(
             view.viewport.z.div_ceil(16),

@@ -643,7 +643,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             }),
             layout: vec![self.view_layout.clone(), self.mesh_layout.clone()],
             push_constant_ranges: vec![],
-            multiview: None,
+multiview: None,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -747,7 +747,7 @@ pub fn prepare_mesh2d_view_bind_groups(
 
 pub struct SetMesh2dViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I> {
-    type Param = SRes<ViewUniforms>;
+    type Param = ();
     type ViewQuery = (Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>);
     type ItemQuery = ();
 
@@ -756,14 +756,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
         _item: &P,
         (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
         _view: Option<()>,
-        view_uniforms: SystemParamItem<'w, '_, Self::Param>,
+        _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(
-            I,
-            &mesh2d_view_bind_group.value,
-            &[view_uniforms.uniforms.get_array_offset(view_uniform.offset)],
-        );
+        pass.set_bind_group(I, &mesh2d_view_bind_group.value, &[view_uniform.offset]);
 
         RenderCommandResult::Success
     }

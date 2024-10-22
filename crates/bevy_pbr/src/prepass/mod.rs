@@ -570,7 +570,7 @@ where
                 alpha_to_coverage_enabled: false,
             },
             push_constant_ranges: vec![],
-            multiview: None,
+multiview: None,
             label: Some("prepass_pipeline".into()),
         };
 
@@ -931,7 +931,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
 
 pub struct SetPrepassViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<I> {
-    type Param = (SRes<PrepassViewBindGroup>, SRes<ViewUniforms>);
+    type Param = SRes<PrepassViewBindGroup>;
     type ViewQuery = (
         Read<ViewUniformOffset>,
         Has<MotionVectorPrepass>,
@@ -948,28 +948,27 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
             Option<&'_ PreviousViewUniformOffset>,
         ),
         _entity: Option<()>,
-        (prepass_view_bind_group, view_uniforms): SystemParamItem<'w, '_, Self::Param>,
+        prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let prepass_view_bind_group = prepass_view_bind_group.into_inner();
-
-        let view_uniform_offset = view_uniforms
-            .uniforms
-            .get_array_offset(view_uniform_offset.offset);
 
         match previous_view_uniform_offset {
             Some(previous_view_uniform_offset) if has_motion_vector_prepass => {
                 pass.set_bind_group(
                     I,
                     prepass_view_bind_group.motion_vectors.as_ref().unwrap(),
-                    &[view_uniform_offset, previous_view_uniform_offset.offset],
+                    &[
+                        view_uniform_offset.offset,
+                        previous_view_uniform_offset.offset,
+                    ],
                 );
             }
             _ => {
                 pass.set_bind_group(
                     I,
                     prepass_view_bind_group.no_motion_vectors.as_ref().unwrap(),
-                    &[view_uniform_offset],
+                    &[view_uniform_offset.offset],
                 );
             }
         }

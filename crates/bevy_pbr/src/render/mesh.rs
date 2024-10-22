@@ -35,7 +35,7 @@ use bevy_render::{
     texture::{BevyDefault, DefaultImageSampler, ImageSampler, TextureFormatPixelInfo},
     view::{
         prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
-        ViewUniforms, ViewVisibility, VisibilityRange,
+        ViewVisibility, VisibilityRange,
     },
     Extract,
 };
@@ -2187,7 +2187,7 @@ pub fn prepare_mesh_bind_group(
 
 pub struct SetMeshViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> {
-    type Param = SRes<ViewUniforms>;
+    type Param = ();
     type ViewQuery = (
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
@@ -2214,11 +2214,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             maybe_oit_layers_count_offset,
         ): ROQueryItem<'w, Self::ViewQuery>,
         _entity: Option<()>,
-        view_uniforms: SystemParamItem<'w, '_, Self::Param>,
+        _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let mut offsets: SmallVec<[u32; 8]> = smallvec![
-            view_uniforms.uniforms.get_array_offset(view_uniform.offset),
+            view_uniform.offset,
             view_lights.offset,
             view_fog.offset,
             **view_light_probes,

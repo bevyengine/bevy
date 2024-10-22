@@ -24,7 +24,7 @@ use bevy_render::{
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderContext, RenderDevice},
     texture::BevyDefault,
-    view::{ExtractedView, ViewTarget, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSet,
 };
 
@@ -218,10 +218,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             0,
             &mesh_view_bind_group.value,
             &[
-                world
-                    .resource::<ViewUniforms>()
-                    .uniforms
-                    .get_array_offset(view_uniform_offset.offset),
+                view_uniform_offset.offset,
                 view_lights_offset.offset,
                 view_fog_offset.offset,
                 **view_light_probes_offset,

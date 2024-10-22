@@ -236,10 +236,6 @@ impl ViewNode for SsaoNode {
         (camera, pipeline_id, bind_groups, view_uniform_offset): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_uniform_offset = world
-            .resource::<ViewUniforms>()
-            .uniforms
-            .get_array_offset(view_uniform_offset.offset);
         let pipelines = world.resource::<SsaoPipelines>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let (
@@ -272,7 +268,7 @@ impl ViewNode for SsaoNode {
             preprocess_depth_pass.set_bind_group(
                 1,
                 &bind_groups.common_bind_group,
-                &[view_uniform_offset],
+                &[view_uniform_offset.offset],
             );
             preprocess_depth_pass.dispatch_workgroups(
                 camera_size.x.div_ceil(16),
@@ -291,7 +287,11 @@ impl ViewNode for SsaoNode {
                     });
             ssao_pass.set_pipeline(ssao_pipeline);
             ssao_pass.set_bind_group(0, &bind_groups.ssao_bind_group, &[]);
-            ssao_pass.set_bind_group(1, &bind_groups.common_bind_group, &[view_uniform_offset]);
+            ssao_pass.set_bind_group(
+                1,
+                &bind_groups.common_bind_group,
+                &[view_uniform_offset.offset],
+            );
             ssao_pass.dispatch_workgroups(camera_size.x.div_ceil(8), camera_size.y.div_ceil(8), 1);
         }
 
@@ -308,7 +308,7 @@ impl ViewNode for SsaoNode {
             spatial_denoise_pass.set_bind_group(
                 1,
                 &bind_groups.common_bind_group,
-                &[view_uniform_offset],
+                &[view_uniform_offset.offset],
             );
             spatial_denoise_pass.dispatch_workgroups(
                 camera_size.x.div_ceil(8),

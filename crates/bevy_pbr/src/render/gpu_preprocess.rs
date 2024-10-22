@@ -228,12 +228,7 @@ impl Node for GpuPreprocessNode {
 
             let mut dynamic_offsets: SmallVec<[u32; 1]> = smallvec![];
             if gpu_culling {
-                dynamic_offsets.push(
-                    world
-                        .resource::<ViewUniforms>()
-                        .uniforms
-                        .get_array_offset(view_uniform_offset.offset),
-                );
+                dynamic_offsets.push(view_uniform_offset.offset);
             }
             compute_pass.set_bind_group(0, &bind_group.0, &dynamic_offsets);
 

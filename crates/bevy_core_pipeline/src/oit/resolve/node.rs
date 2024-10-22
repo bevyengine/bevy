@@ -4,7 +4,7 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
     render_resource::{BindGroupEntries, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset, ViewUniforms},
+    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 
 use super::{OitResolveBindGroup, OitResolvePipeline, OitResolvePipelineId};
@@ -67,14 +67,7 @@ impl ViewNode for OitResolveNode {
             }
 
             render_pass.set_render_pipeline(pipeline);
-            render_pass.set_bind_group(
-                0,
-                bind_group,
-                &[world
-                    .resource::<ViewUniforms>()
-                    .uniforms
-                    .get_array_offset(view_uniform.offset)],
-            );
+            render_pass.set_bind_group(0, bind_group, &[view_uniform.offset]);
             render_pass.set_bind_group(1, &depth_bind_group, &[]);
 
             render_pass.draw(0..3, 0..1);
