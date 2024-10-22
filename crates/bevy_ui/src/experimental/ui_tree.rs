@@ -176,6 +176,12 @@ impl<'w, 's> UiTree<'w, 's> {
         })
     }
 
+    /// Returns the index of a [`Node`] among its siblings, or [`None`] if it does not have a parent.
+    pub fn child_index(&'s self, entity: Entity) -> Option<usize> {
+        self.parent(entity)
+            .and_then(|parent| self.iter_children(parent).position(|child| child == entity))
+    }
+
     /// Iterates the [`GhostNode`]s between this entity and its UI children.
     pub fn iter_ghost_nodes(&'s self, entity: Entity) -> Box<dyn Iterator<Item = Entity> + 's> {
         Box::new(
@@ -377,6 +383,12 @@ mod tests {
 
         let result: Vec<_> = a_query.iter_many(ui_tree.iter_children(n1)).collect();
         assert_eq!([&A(5), &A(4), &A(8), &A(10)], result.as_slice());
+
+        assert_eq!(None, ui_tree.child_index(n1));
+        assert_eq!(Some(0), ui_tree.child_index(n5));
+        assert_eq!(Some(1), ui_tree.child_index(n4));
+        assert_eq!(Some(2), ui_tree.child_index(n8));
+        assert_eq!(Some(3), ui_tree.child_index(n10));
 
         let result: Vec<_> = a_query.iter_many(ui_tree.iter_descendants(n1)).collect();
         assert_eq!([&A(4), &A(5), &A(8), &A(10), &A(11)], result.as_slice());
