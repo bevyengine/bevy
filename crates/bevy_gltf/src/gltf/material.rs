@@ -11,6 +11,9 @@ use crate::{
     GltfError, GltfLoaderSettings,
 };
 
+#[cfg(feature = "pbr_transmission_textures")]
+use bevy_pbr::UvChannel;
+
 /// A Pbr Material defined in a [`glTF`](gltf::Gltf).
 #[derive(Debug, Clone)]
 pub struct GltfMaterial;
