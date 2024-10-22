@@ -170,7 +170,6 @@ impl FromWorld for MeshletPipelines {
                     label: Some("meshlet_visibility_buffer_software_raster_pipeline".into()),
                     layout: vec![visibility_buffer_raster_layout.clone()],
                     push_constant_ranges: vec![],
-                    multiview: None,
                     shader: MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
                     shader_defs: vec![
                         "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
@@ -193,7 +192,6 @@ impl FromWorld for MeshletPipelines {
                     ),
                     layout: vec![visibility_buffer_raster_layout.clone()],
                     push_constant_ranges: vec![],
-                    multiview: None,
                     shader: MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
                     shader_defs: vec![
                         "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
@@ -216,7 +214,6 @@ impl FromWorld for MeshletPipelines {
                     ),
                     layout: vec![visibility_buffer_raster_layout.clone()],
                     push_constant_ranges: vec![],
-                    multiview: None,
                     shader: MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
                     shader_defs: vec![
                         "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
@@ -239,6 +236,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::VERTEX,
                         range: 0..4,
                     }],
+                    multiview: None,
                     vertex: VertexState {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
                         shader_defs: vec![
@@ -285,6 +283,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::VERTEX,
                         range: 0..4,
                     }],
+                    multiview: None,
                     vertex: VertexState {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
                         shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
@@ -326,6 +325,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::VERTEX,
                         range: 0..4,
                     }],
+                    multiview: None,
                     vertex: VertexState {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
                         shader_defs: vec![
@@ -368,6 +368,7 @@ impl FromWorld for MeshletPipelines {
                     stages: ShaderStages::FRAGMENT,
                     range: 0..4,
                 }],
+                multiview: None,
                 vertex: fullscreen_shader_vertex_state(),
                 primitive: PrimitiveState::default(),
                 depth_stencil: Some(DepthStencilState {
@@ -394,6 +395,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::FRAGMENT,
                         range: 0..4,
                     }],
+                    multiview: None,
                     vertex: fullscreen_shader_vertex_state(),
                     primitive: PrimitiveState::default(),
                     depth_stencil: Some(DepthStencilState {
@@ -421,6 +423,7 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::FRAGMENT,
                         range: 0..4,
                     }],
+                    multiview: None,
                     vertex: fullscreen_shader_vertex_state(),
                     primitive: PrimitiveState::default(),
                     depth_stencil: Some(DepthStencilState {
@@ -445,7 +448,6 @@ impl FromWorld for MeshletPipelines {
                     label: Some("meshlet_remap_1d_to_2d_dispatch_pipeline".into()),
                     layout: vec![layout],
                     push_constant_ranges: vec![],
-                    multiview: None,
                     shader: MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE,
                     shader_defs: vec![],
                     entry_point: "remap_dispatch".into(),
