@@ -609,7 +609,7 @@ impl World {
     /// - Pass an [`Entity`] to receive a single [`EntityRef`].
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityRef>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityRef`]s.
-    /// - Pass a reference to a [`EntityHashSet`] to receive an
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashSet) to receive an
     ///   [`EntityHashMap<EntityRef>`](crate::entity::EntityHashMap).
     ///
     /// # Panics
@@ -677,7 +677,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`]
+    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
     ///
     /// ```
     /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
@@ -724,7 +724,7 @@ impl World {
     ///      such as adding or removing components, or despawning the entity.
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
-    /// - Pass a reference to a [`EntityHashSet`] to receive an
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
     ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
     ///
     /// In order to perform structural changes on the returned entity reference,
@@ -806,7 +806,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`]
+    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
     ///
     /// ```
     /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
@@ -989,7 +989,7 @@ impl World {
     /// - Pass an [`Entity`] to receive a single [`EntityRef`].
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityRef>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityRef`]s.
-    /// - Pass a reference to a [`EntityHashSet`] to receive an
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
     ///   [`EntityHashMap<EntityRef>`](crate::entity::EntityHashMap).
     ///
     /// # Errors
@@ -1082,7 +1082,7 @@ impl World {
     ///      such as adding or removing components, or despawning the entity.
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
-    /// - Pass a reference to a [`EntityHashSet`] to receive an
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
     ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
     ///
     /// In order to perform structural changes on the returned entity reference,
