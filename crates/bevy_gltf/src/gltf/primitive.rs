@@ -3,7 +3,9 @@ use bevy_pbr::StandardMaterial;
 use bevy_reflect::TypePath;
 use bevy_render::mesh::Mesh;
 
-use super::{GltfAssetLabel, GltfExtras};
+use crate::GltfExtras;
+
+use super::GltfAssetLabel;
 
 /// Part of a [`GltfMesh`](super::GltfMesh) that consists of a [`Mesh`], an optional [`StandardMaterial`] and [`GltfExtras`].
 ///

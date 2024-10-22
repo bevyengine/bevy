@@ -90,6 +90,7 @@
 //!
 //! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
 
+mod components;
 mod data_uri;
 mod error;
 mod ext;
@@ -109,6 +110,9 @@ use bevy_render::{
 use bevy_utils::HashMap;
 
 pub use self::{
+    components::{
+        GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras, GltfSceneExtras,
+    },
     error::GltfError,
     gltf::*,
     loader::{GltfLoader, GltfLoaderSettings},

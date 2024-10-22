@@ -1,8 +1,9 @@
 use bevy_asset::Asset;
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
+use bevy_reflect::TypePath;
 
-use super::{GltfAssetLabel, GltfExtras, GltfPrimitive};
+use crate::GltfExtras;
+
+use super::{GltfAssetLabel, GltfPrimitive};
 
 /// A glTF mesh, which may consist of multiple [`GltfPrimitives`](GltfPrimitive)
 /// and an optional [`GltfExtras`].
@@ -43,14 +44,4 @@ impl GltfMesh {
     pub fn asset_label(&self) -> GltfAssetLabel {
         GltfAssetLabel::Mesh(self.index)
     }
-}
-
-/// Additional untyped data that can be present on most glTF types at the mesh level.
-///
-/// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
-#[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(Component, Default, Debug)]
-pub struct GltfMeshExtras {
-    /// Content of the extra data.
-    pub value: String,
 }
