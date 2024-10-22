@@ -508,16 +508,16 @@ mod tests {
         let mut system_state = SystemState::<UiTree>::new(world);
         let ui_tree = system_state.get(world);
 
-        assert_eq!(true, ui_tree.is_root(n1));
-        assert_eq!(false, ui_tree.is_root(n2));
-        assert_eq!(false, ui_tree.is_root(n3));
-        assert_eq!(true, ui_tree.is_root(n4));
-        assert_eq!(true, ui_tree.is_root(n5));
+        assert!(ui_tree.is_root(n1));
+        assert!(!ui_tree.is_root(n2));
+        assert!(!ui_tree.is_root(n3));
+        assert!(ui_tree.is_root(n4));
+        assert!(ui_tree.is_root(n5));
 
-        assert_eq!(false, ui_tree.is_leaf(n1));
-        assert_eq!(true, ui_tree.is_leaf(n2));
-        assert_eq!(true, ui_tree.is_leaf(n3));
-        assert_eq!(false, ui_tree.is_leaf(n4));
-        assert_eq!(true, ui_tree.is_leaf(n5));
+        assert!(!ui_tree.is_leaf(n1));
+        assert!(ui_tree.is_leaf(n2));
+        assert!(ui_tree.is_leaf(n3));
+        assert!(!ui_tree.is_leaf(n4));
+        assert!(ui_tree.is_leaf(n5));
     }
 }
