@@ -23,7 +23,7 @@ pub use self::{
     mesh::{GltfMesh, GltfMeshExtras},
     node::GltfNode,
     primitive::GltfPrimitive,
-    scene::{GltfScene, GltfSceneExtras},
+    scene::GltfSceneExtras,
     skin::GltfSkin,
     texture::GltfTexture,
 };
@@ -117,10 +117,9 @@ impl Gltf {
             &animation_roots,
         )?;
 
-        let (scenes, named_scenes) = GltfScene::load_scenes(
+        let (scenes, named_scenes) = gltf.load_scenes(
             load_context,
             settings,
-            &gltf,
             #[cfg(feature = "bevy_animation")]
             &animation_roots,
         )?;

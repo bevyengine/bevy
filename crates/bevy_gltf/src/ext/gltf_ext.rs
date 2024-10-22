@@ -6,6 +6,7 @@ use bevy_core::Name;
 use bevy_math::Mat4;
 use bevy_pbr::StandardMaterial;
 use bevy_render::mesh::skinning::SkinnedMeshInverseBindposes;
+use bevy_scene::Scene;
 use bevy_utils::{HashMap, HashSet};
 
 #[cfg(feature = "bevy_animation")]
@@ -15,7 +16,7 @@ use crate::{
     GltfLoaderSettings, GltfMesh, GltfNode,
 };
 
-use super::{ExtrasExt, MaterialExt, MeshExt, NodeExt, SkinExt};
+use super::{ExtrasExt, MaterialExt, MeshExt, NodeExt, SceneExt, SkinExt};
 
 const VALID_MIME_TYPES: &[&str] = &["application/octet-stream", "application/gltf-buffer"];
 
@@ -77,6 +78,15 @@ pub trait GltfExt {
         load_context: &mut LoadContext,
         #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     ) -> Result<(Vec<Handle<GltfNode>>, HashMap<Box<str>, Handle<GltfNode>>), GltfError>;
+
+    #[allow(clippy::result_large_err)]
+    /// Load [`Scenes`](Scene) of a [`glTF`](gltf::Gltf)
+    fn load_scenes(
+        &self,
+        load_context: &mut LoadContext,
+        settings: &GltfLoaderSettings,
+        #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
+    ) -> Result<(Vec<Handle<Scene>>, HashMap<Box<str>, Handle<Scene>>), GltfError>;
 
     /// Load [`SkinnedMeshInverseBindposes`] for all [`Skin`](gltf::Skin)
     /// in [`glTF`](gltf::Gltf).
@@ -279,6 +289,36 @@ impl GltfExt for gltf::Gltf {
             .collect();
 
         Ok((nodes, named_nodes))
+    }
+
+    #[allow(clippy::result_large_err)]
+    /// Load [`Scenes`](Scene) of a [`glTF`](gltf::Gltf)
+    fn load_scenes(
+        &self,
+        load_context: &mut LoadContext,
+        settings: &GltfLoaderSettings,
+        #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
+    ) -> Result<(Vec<Handle<Scene>>, HashMap<Box<str>, Handle<Scene>>), GltfError> {
+        let mut scenes = vec![];
+        let mut named_scenes = HashMap::default();
+        let mut active_camera_found = false;
+
+        for scene in self.scenes() {
+            let scene_handle = scene.load_scene(
+                load_context,
+                settings,
+                self,
+                #[cfg(feature = "bevy_animation")]
+                animation_roots,
+                &mut active_camera_found,
+            )?;
+
+            if let Some(name) = scene.name() {
+                named_scenes.insert(name.into(), scene_handle.clone());
+            }
+            scenes.push(scene_handle);
+        }
+        Ok((scenes, named_scenes))
     }
 
     fn inverse_bind_poses(
