@@ -498,6 +498,7 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
                 })],
             }),
             push_constant_ranges: vec![],
+            multiview: None,
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Stencil8,
@@ -557,6 +558,7 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
                 })],
             }),
             push_constant_ranges: vec![],
+            multiview: None,
             primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Stencil8,
@@ -604,6 +606,7 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
                 })],
             }),
             push_constant_ranges: vec![],
+            multiview: None,
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),

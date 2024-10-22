@@ -175,6 +175,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                     material_pipeline.material_layout.clone(),
                 ],
                 push_constant_ranges: vec![],
+multiview: None,
                 vertex: VertexState {
                     shader: MESHLET_MESH_MATERIAL_SHADER_HANDLE,
                     shader_defs: shader_defs.clone(),
@@ -328,6 +329,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
                     prepass_pipeline.material_layout.clone(),
                 ],
                 push_constant_ranges: vec![],
+multiview: None,
                 vertex: VertexState {
                     shader: MESHLET_MESH_MATERIAL_SHADER_HANDLE,
                     shader_defs: shader_defs.clone(),

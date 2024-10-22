@@ -570,6 +570,7 @@ where
                 alpha_to_coverage_enabled: false,
             },
             push_constant_ranges: vec![],
+multiview: None,
             label: Some("prepass_pipeline".into()),
         };
 

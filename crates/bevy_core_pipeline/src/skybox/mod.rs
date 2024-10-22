@@ -190,6 +190,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             label: Some("skybox_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: Vec::new(),
+            multiview: None,
             vertex: VertexState {
                 shader: SKYBOX_SHADER_HANDLE,
                 shader_defs: Vec::new(),

@@ -219,6 +219,7 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("ui_texture_slice_pipeline".into()),
+            multiview: None,
         }
     }
 }

@@ -216,6 +216,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 self.mesh_pipeline.mesh_layouts.model_only.clone(),
             ],
             push_constant_ranges: vec![],
+            multiview: None,
             vertex: VertexState {
                 shader: self.shader_handle.clone(),
                 shader_defs: vec![],

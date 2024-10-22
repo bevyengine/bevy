@@ -190,6 +190,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
             }),
             layout: vec![self.view_layout.clone()],
             push_constant_ranges: Vec::new(),
+            multiview: None,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
