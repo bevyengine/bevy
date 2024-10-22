@@ -4,6 +4,7 @@ mod render_pass;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
+use crate::experimental::UiChildren;
 use crate::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, DefaultUiCamera, Outline,
     ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples, UiImage, UiScale,
@@ -16,7 +17,6 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::Parent;
 use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::sync_world::MainEntity;
@@ -405,11 +405,11 @@ pub fn extract_uinode_borders(
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
             AnyOf<(&BorderColor, &Outline)>,
-            Option<&Parent>,
         )>,
     >,
     parent_clip_query: Extract<Query<&CalculatedClip>>,
     mapping: Extract<Query<RenderEntity>>,
+    ui_children: UiChildren,
 ) {
     let image = AssetId::<Image>::default();
 
@@ -421,7 +421,6 @@ pub fn extract_uinode_borders(
         maybe_clip,
         maybe_camera,
         (maybe_border_color, maybe_outline),
-        maybe_parent,
     ) in &uinode_query
     {
         let Some(camera_entity) = maybe_camera
@@ -475,8 +474,9 @@ pub fn extract_uinode_borders(
 
         if let Some(outline) = maybe_outline {
             let outline_size = uinode.outlined_node_size();
-            let parent_clip =
-                maybe_parent.and_then(|parent| parent_clip_query.get(parent.get()).ok());
+            let parent_clip = ui_children
+                .get_parent(entity)
+                .and_then(|parent| parent_clip_query.get(parent).ok());
 
             extracted_uinodes.uinodes.insert(
                 commands.spawn(TemporaryRenderEntity).id(),
