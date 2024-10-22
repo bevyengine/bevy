@@ -144,10 +144,10 @@ pub(crate) struct MeshAttributeData {
 /// proportionate to the areas of the triangles as [discussed
 /// here](https://iquilezles.org/articles/normals/).
 ///
-/// Question: Why double the area? Because the area of a triangle A is
-/// determined by a cross product like so:
+/// Question: Why double the area? Because the area of a triangle _A_ is
+/// determined by this equation:
 ///
-/// _A = |(b - a) x (c - a)| / 2
+/// _A = |(b - a) x (c - a)| / 2_
 ///
 /// By computing _2 A_ we avoid a division operation, and when calculating the
 /// the sum of these vectors which are then normalized, a constant multiple has
