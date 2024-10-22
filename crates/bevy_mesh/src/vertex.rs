@@ -138,6 +138,25 @@ pub(crate) struct MeshAttributeData {
     pub(crate) values: VertexAttributeValues,
 }
 
+/// Compute a vector whose direction is the normal of the triangle formed by
+/// points a, b, c, and whose magnitude is double the area of the triangle. This
+/// is useful for computing smooth normals where the contributing normals are
+/// proportionate to the areas of the triangles as [discussed
+/// here](https://iquilezles.org/articles/normals/).
+///
+/// Question: Why double the area? Because the area of a triangle A is
+/// determined by a cross product like so:
+///
+/// _A = |(b - a) x (c - a)| / 2
+///
+/// By computing _2 A_ we avoid a division operation, and when calculating the
+/// the sum of these vectors which are then normalized, a constant multiple has
+/// no effect.
+pub(crate) fn face_area_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
+    let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
+    (b - a).cross(c - a).into()
+}
+
 pub(crate) fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
     (b - a).cross(c - a).normalize().into()
