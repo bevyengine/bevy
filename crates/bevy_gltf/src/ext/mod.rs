@@ -17,12 +17,13 @@ mod skin_ext;
 mod texture_ext;
 mod texture_info_ext;
 mod texture_transform_ext;
+mod wrapping_mode_ext;
 
 pub use self::{
     extras_ext::ExtrasExt, gltf_ext::GltfExt, material_ext::MaterialExt, mesh_ext::MeshExt,
     mode_ext::ModeExt, node_ext::NodeExt, primitive_ext::PrimitiveExt, scene_ext::SceneExt,
     skin_ext::SkinExt, texture_ext::TextureExt, texture_info_ext::TextureInfoExt,
-    texture_transform_ext::TextureTransformExt,
+    texture_transform_ext::TextureTransformExt, wrapping_mode_ext::WrappingModeExt,
 };
 
 #[cfg(any(

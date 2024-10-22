@@ -95,6 +95,7 @@ mod error;
 mod ext;
 mod gltf;
 mod gltf_tree_iterator;
+mod image_or_path;
 mod loader;
 mod vertex_attributes;
 

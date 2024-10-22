@@ -3,10 +3,15 @@ use bevy_animation::AnimationClip;
 use bevy_asset::{Handle, LoadContext};
 #[cfg(feature = "bevy_animation")]
 use bevy_core::Name;
+use bevy_image::Image;
 use bevy_math::Mat4;
 use bevy_pbr::StandardMaterial;
 use bevy_render::mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy_scene::Scene;
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_tasks::IoTaskPool;
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_utils::tracing::warn;
 use bevy_utils::{HashMap, HashSet};
 
 #[cfg(feature = "bevy_animation")]
@@ -16,7 +21,7 @@ use crate::{
     GltfLoaderSettings, GltfMesh, GltfNode, GltfSkin,
 };
 
-use super::{ExtrasExt, MaterialExt, MeshExt, NodeExt, SceneExt, SkinExt};
+use super::{ExtrasExt, MaterialExt, MeshExt, NodeExt, SceneExt, SkinExt, TextureExt};
 
 const VALID_MIME_TYPES: &[&str] = &["application/octet-stream", "application/gltf-buffer"];
 
@@ -96,6 +101,16 @@ pub trait GltfExt {
         buffer_data: &[Vec<u8>],
     ) -> Result<(Vec<Handle<GltfSkin>>, HashMap<Box<str>, Handle<GltfSkin>>), GltfError>;
 
+    /// Load all texture of a [`glTF`](gltf::Gltf)
+    async fn load_textures<'a>(
+        &self,
+        loader: &GltfLoader,
+        load_context: &mut LoadContext<'a>,
+        settings: &GltfLoaderSettings,
+        buffer_data: &[Vec<u8>],
+        used_textures: &HashSet<usize>,
+    ) -> Result<Vec<Handle<Image>>, GltfError>;
+
     /// Load [`SkinnedMeshInverseBindposes`] for all [`Skin`](gltf::Skin)
     /// in [`glTF`](gltf::Gltf).
     fn inverse_bind_poses(
@@ -113,6 +128,25 @@ pub trait GltfExt {
 
     #[cfg(feature = "bevy_animation")]
     fn load_animation_paths(&self) -> HashMap<usize, (usize, Vec<Name>)>;
+
+    async fn singlethreaded_texture_load(
+        &self,
+        load_context: &mut LoadContext<'_>,
+        loader: &GltfLoader,
+        settings: &GltfLoaderSettings,
+        buffer_data: &[Vec<u8>],
+        used_textures: &HashSet<usize>,
+    ) -> Result<Vec<Handle<Image>>, GltfError>;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn multithreaded_texture_load(
+        &self,
+        load_context: &mut LoadContext<'_>,
+        loader: &GltfLoader,
+        settings: &GltfLoaderSettings,
+        buffer_data: &[Vec<u8>],
+        used_textures: &HashSet<usize>,
+    ) -> Vec<Handle<Image>>;
 }
 
 impl GltfExt for gltf::Gltf {
@@ -356,6 +390,46 @@ impl GltfExt for gltf::Gltf {
 
         Ok((skins, named_skins))
     }
+    /// Load all texture of a [`glTF`](gltf::Gltf)
+    async fn load_textures<'a>(
+        &self,
+        loader: &GltfLoader,
+        load_context: &mut LoadContext<'a>,
+        settings: &GltfLoaderSettings,
+        buffer_data: &[Vec<u8>],
+        used_textures: &HashSet<usize>,
+    ) -> Result<Vec<Handle<Image>>, GltfError> {
+        #[cfg(target_arch = "wasm32")]
+        let textures = self
+            .singlethreaded_texture_load(load_context, loader, settings, buffer_data, used_textures)
+            .await;
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let textures = {
+            if self.textures().len() == 1 {
+                self.singlethreaded_texture_load(
+                    load_context,
+                    loader,
+                    settings,
+                    buffer_data,
+                    used_textures,
+                )
+                .await
+            } else {
+                Ok(self
+                    .multithreaded_texture_load(
+                        load_context,
+                        loader,
+                        settings,
+                        buffer_data,
+                        used_textures,
+                    )
+                    .await)
+            }
+        };
+
+        textures
+    }
 
     fn inverse_bind_poses(
         &self,
@@ -447,5 +521,69 @@ impl GltfExt for gltf::Gltf {
             }
         }
         paths
+    }
+
+    async fn singlethreaded_texture_load(
+        &self,
+        load_context: &mut LoadContext<'_>,
+        loader: &GltfLoader,
+        settings: &GltfLoaderSettings,
+        buffer_data: &[Vec<u8>],
+        used_textures: &HashSet<usize>,
+    ) -> Result<Vec<Handle<Image>>, GltfError> {
+        let mut textures = vec![];
+        for texture in self.textures() {
+            let parent_path = load_context.path().parent().unwrap();
+            let image = texture
+                .load_texture(
+                    buffer_data,
+                    used_textures,
+                    parent_path,
+                    loader.supported_compressed_formats,
+                    settings.load_materials,
+                )
+                .await?;
+            textures.push(image.process_loaded_texture(load_context));
+        }
+        Ok(textures)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn multithreaded_texture_load(
+        &self,
+        load_context: &mut LoadContext<'_>,
+        loader: &GltfLoader,
+        settings: &GltfLoaderSettings,
+        buffer_data: &[Vec<u8>],
+        used_textures: &HashSet<usize>,
+    ) -> Vec<Handle<Image>> {
+        IoTaskPool::get()
+            .scope(|scope| {
+                self.textures().for_each(|gltf_texture| {
+                    let parent_path = load_context.path().parent().unwrap();
+                    let linear_textures = &used_textures;
+                    let buffer_data = &buffer_data;
+                    scope.spawn(async move {
+                        gltf_texture
+                            .load_texture(
+                                buffer_data,
+                                linear_textures,
+                                parent_path,
+                                loader.supported_compressed_formats,
+                                settings.load_materials,
+                            )
+                            .await
+                    });
+                });
+            })
+            .into_iter()
+            .flat_map(|result| match result {
+                Ok(image) => Some(image.process_loaded_texture(load_context)),
+                Err(err) => {
+                    warn!("Error loading glTF texture: {}", err);
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
     }
 }

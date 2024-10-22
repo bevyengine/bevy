@@ -6,7 +6,6 @@ mod node;
 mod primitive;
 mod scene;
 mod skin;
-mod texture;
 
 use bevy_asset::{Asset, Handle, LoadContext};
 use bevy_pbr::StandardMaterial;
@@ -25,7 +24,6 @@ pub use self::{
     primitive::GltfPrimitive,
     scene::GltfSceneExtras,
     skin::GltfSkin,
-    texture::GltfTexture,
 };
 #[cfg(feature = "bevy_animation")]
 pub use bevy_animation::AnimationClip;
@@ -85,15 +83,15 @@ impl Gltf {
         // In theory we could store a mapping between texture.index() and handle to use
         // later in the loader when looking up handles for materials. However this would mean
         // that the material's load context would no longer track those images as dependencies.
-        let _textures = GltfTexture::load_textures(
-            loader,
-            load_context,
-            settings,
-            &gltf,
-            &buffer_data,
-            &textures_used_by_materials,
-        )
-        .await?;
+        let _textures = gltf
+            .load_textures(
+                loader,
+                load_context,
+                settings,
+                &buffer_data,
+                &textures_used_by_materials,
+            )
+            .await?;
 
         let (materials, named_materials) = gltf.load_materials(load_context, settings)?;
 
