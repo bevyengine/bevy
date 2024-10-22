@@ -6,7 +6,11 @@
     globals::Globals,
 }
 
-@group(0) @binding(0) var<uniform> view: View;
+#ifdef MULTIVIEW
+@group(0) @binding(0) var<storage> view: array<View>;
+#else 
+@group(0) @binding(0) var<uniform> view: array<View, 1>;
+#endif
 @group(0) @binding(1) var<uniform> lights: types::Lights;
 #ifdef NO_CUBE_ARRAY_TEXTURES_SUPPORT
 @group(0) @binding(2) var point_shadow_textures: texture_depth_cube;

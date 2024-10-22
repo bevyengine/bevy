@@ -34,9 +34,15 @@ fn fragment(
     in: VertexOutput,
     @builtin(front_facing) is_front: bool,
 #endif
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
 ) -> FragmentOutput {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
 #ifdef MESHLET_MESH_MATERIAL_PASS
-    let in = resolve_vertex_output(frag_coord);
+    let in = resolve_vertex_output(view_index, frag_coord);
     let is_front = true;
 #endif
 
@@ -47,27 +53,27 @@ fn fragment(
 #endif
 
     // generate a PbrInput struct from the StandardMaterial bindings
-    var pbr_input = pbr_input_from_standard_material(in, is_front);
+    var pbr_input = pbr_input_from_standard_material(view_index, in, is_front);
 
     // alpha discard
     pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
 
 #ifdef PREPASS_PIPELINE
     // write the gbuffer, lighting pass id, and optionally normal and motion_vector textures
-    let out = deferred_output(in, pbr_input);
+    let out = deferred_output(view_index, in, pbr_input);
 #else
     // in forward mode, we calculate the lit color immediately, and then apply some post-lighting effects here.
     // in deferred mode the lit color and these effects will be calculated in the deferred lighting shader
     var out: FragmentOutput;
     if (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
-        out.color = apply_pbr_lighting(pbr_input);
+        out.color = apply_pbr_lighting(view_index, pbr_input);
     } else {
         out.color = pbr_input.material.base_color;
     }
 
     // apply in-shader post processing (fog, alpha-premultiply, and also tonemapping, debanding if the camera is non-hdr)
     // note this does not include fullscreen postprocessing effects like bloom.
-    out.color = main_pass_post_lighting_processing(pbr_input, out.color);
+    out.color = main_pass_post_lighting_processing(view_index, pbr_input, out.color);
 #endif
 
 #ifdef OIT_ENABLED

@@ -17,9 +17,18 @@ struct VertexOutput {
 };
 
 @vertex
-fn vertex(vertex: Vertex) -> VertexOutput {
+fn vertex(
+    vertex: Vertex,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> VertexOutput {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
     var out: VertexOutput;
     out.clip_position = mesh_position_local_to_clip(
+        view_index,
         get_world_from_local(vertex.instance_index),
         vec4<f32>(vertex.position, 1.0),
     );

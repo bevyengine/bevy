@@ -30,32 +30,32 @@
 // -----------------
 
 /// Convert a view space position to world space
-fn position_view_to_world(view_pos: vec3<f32>) -> vec3<f32> {
-    let world_pos = view_bindings::view.world_from_view * vec4(view_pos, 1.0);
+fn position_view_to_world(view_index: i32, view_pos: vec3<f32>) -> vec3<f32> {
+    let world_pos = view_bindings::view[view_index].world_from_view * vec4(view_pos, 1.0);
     return world_pos.xyz;
 }
 
 /// Convert a clip space position to world space
-fn position_clip_to_world(clip_pos: vec4<f32>) -> vec3<f32> {
-    let world_pos = view_bindings::view.world_from_clip * clip_pos;
+fn position_clip_to_world(view_index: i32, clip_pos: vec4<f32>) -> vec3<f32> {
+    let world_pos = view_bindings::view[view_index].world_from_clip * clip_pos;
     return world_pos.xyz;
 }
 
 /// Convert a ndc space position to world space
-fn position_ndc_to_world(ndc_pos: vec3<f32>) -> vec3<f32> {
-    let world_pos = view_bindings::view.world_from_clip * vec4(ndc_pos, 1.0);
+fn position_ndc_to_world(view_index: i32, ndc_pos: vec3<f32>) -> vec3<f32> {
+    let world_pos = view_bindings::view[view_index].world_from_clip * vec4(ndc_pos, 1.0);
     return world_pos.xyz / world_pos.w;
 }
 
 /// Convert a view space direction to world space
-fn direction_view_to_world(view_dir: vec3<f32>) -> vec3<f32> {
-    let world_dir = view_bindings::view.world_from_view * vec4(view_dir, 0.0);
+fn direction_view_to_world(view_index: i32, view_dir: vec3<f32>) -> vec3<f32> {
+    let world_dir = view_bindings::view[view_index].world_from_view * vec4(view_dir, 0.0);
     return world_dir.xyz;
 }
 
 /// Convert a clip space direction to world space
-fn direction_clip_to_world(clip_dir: vec4<f32>) -> vec3<f32> {
-    let world_dir = view_bindings::view.world_from_clip * clip_dir;
+fn direction_clip_to_world(view_index: i32, clip_dir: vec4<f32>) -> vec3<f32> {
+    let world_dir = view_bindings::view[view_index].world_from_clip * clip_dir;
     return world_dir.xyz;
 }
 
@@ -64,32 +64,32 @@ fn direction_clip_to_world(clip_dir: vec4<f32>) -> vec3<f32> {
 // -----------------
 
 /// Convert a world space position to view space
-fn position_world_to_view(world_pos: vec3<f32>) -> vec3<f32> {
-    let view_pos = view_bindings::view.view_from_world * vec4(world_pos, 1.0);
+fn position_world_to_view(view_index: i32, world_pos: vec3<f32>) -> vec3<f32> {
+    let view_pos = view_bindings::view[view_index].view_from_world * vec4(world_pos, 1.0);
     return view_pos.xyz;
 }
 
 /// Convert a clip space position to view space
-fn position_clip_to_view(clip_pos: vec4<f32>) -> vec3<f32> {
-    let view_pos = view_bindings::view.view_from_clip * clip_pos;
+fn position_clip_to_view(view_index: i32, clip_pos: vec4<f32>) -> vec3<f32> {
+    let view_pos = view_bindings::view[view_index].view_from_clip * clip_pos;
     return view_pos.xyz;
 }
 
 /// Convert a ndc space position to view space
-fn position_ndc_to_view(ndc_pos: vec3<f32>) -> vec3<f32> {
-    let view_pos = view_bindings::view.view_from_clip * vec4(ndc_pos, 1.0);
+fn position_ndc_to_view(view_index: i32, ndc_pos: vec3<f32>) -> vec3<f32> {
+    let view_pos = view_bindings::view[view_index].view_from_clip * vec4(ndc_pos, 1.0);
     return view_pos.xyz / view_pos.w;
 }
 
 /// Convert a world space direction to view space
-fn direction_world_to_view(world_dir: vec3<f32>) -> vec3<f32> {
-    let view_dir = view_bindings::view.view_from_world * vec4(world_dir, 0.0);
+fn direction_world_to_view(view_index: i32, world_dir: vec3<f32>) -> vec3<f32> {
+    let view_dir = view_bindings::view[view_index].view_from_world * vec4(world_dir, 0.0);
     return view_dir.xyz;
 }
 
 /// Convert a clip space direction to view space
-fn direction_clip_to_view(clip_dir: vec4<f32>) -> vec3<f32> {
-    let view_dir = view_bindings::view.view_from_clip * clip_dir;
+fn direction_clip_to_view(view_index: i32, clip_dir: vec4<f32>) -> vec3<f32> {
+    let view_dir = view_bindings::view[view_index].view_from_clip * clip_dir;
     return view_dir.xyz;
 }
 
@@ -98,26 +98,26 @@ fn direction_clip_to_view(clip_dir: vec4<f32>) -> vec3<f32> {
 // -----------------
 
 /// Convert a world space position to clip space
-fn position_world_to_clip(world_pos: vec3<f32>) -> vec4<f32> {
-    let clip_pos = view_bindings::view.clip_from_world * vec4(world_pos, 1.0);
+fn position_world_to_clip(view_index: i32, world_pos: vec3<f32>) -> vec4<f32> {
+    let clip_pos = view_bindings::view[view_index].clip_from_world * vec4(world_pos, 1.0);
     return clip_pos;
 }
 
 /// Convert a view space position to clip space
-fn position_view_to_clip(view_pos: vec3<f32>) -> vec4<f32> {
-    let clip_pos = view_bindings::view.clip_from_view * vec4(view_pos, 1.0);
+fn position_view_to_clip(view_index: i32, view_pos: vec3<f32>) -> vec4<f32> {
+    let clip_pos = view_bindings::view[view_index].clip_from_view * vec4(view_pos, 1.0);
     return clip_pos;
 }
 
 /// Convert a world space direction to clip space
-fn direction_world_to_clip(world_dir: vec3<f32>) -> vec4<f32> {
-    let clip_dir = view_bindings::view.clip_from_world * vec4(world_dir, 0.0);
+fn direction_world_to_clip(view_index: i32, world_dir: vec3<f32>) -> vec4<f32> {
+    let clip_dir = view_bindings::view[view_index].clip_from_world * vec4(world_dir, 0.0);
     return clip_dir;
 }
 
 /// Convert a view space direction to clip space
-fn direction_view_to_clip(view_dir: vec3<f32>) -> vec4<f32> {
-    let clip_dir = view_bindings::view.clip_from_view * vec4(view_dir, 0.0);
+fn direction_view_to_clip(view_index: i32, view_dir: vec3<f32>) -> vec4<f32> {
+    let clip_dir = view_bindings::view[view_index].clip_from_view * vec4(view_dir, 0.0);
     return clip_dir;
 }
 
@@ -126,14 +126,14 @@ fn direction_view_to_clip(view_dir: vec3<f32>) -> vec4<f32> {
 // -----------------
 
 /// Convert a world space position to ndc space
-fn position_world_to_ndc(world_pos: vec3<f32>) -> vec3<f32> {
-    let ndc_pos = view_bindings::view.clip_from_world * vec4(world_pos, 1.0);
+fn position_world_to_ndc(view_index: i32, world_pos: vec3<f32>) -> vec3<f32> {
+    let ndc_pos = view_bindings::view[view_index].clip_from_world * vec4(world_pos, 1.0);
     return ndc_pos.xyz / ndc_pos.w;
 }
 
 /// Convert a view space position to ndc space
-fn position_view_to_ndc(view_pos: vec3<f32>) -> vec3<f32> {
-    let ndc_pos = view_bindings::view.clip_from_view * vec4(view_pos, 1.0);
+fn position_view_to_ndc(view_index: i32, view_pos: vec3<f32>) -> vec3<f32> {
+    let ndc_pos = view_bindings::view[view_index].clip_from_view * vec4(view_pos, 1.0);
     return ndc_pos.xyz / ndc_pos.w;
 }
 
@@ -142,32 +142,32 @@ fn position_view_to_ndc(view_pos: vec3<f32>) -> vec3<f32> {
 // -----------------
 
 /// Retrieve the perspective camera near clipping plane
-fn perspective_camera_near() -> f32 {
-    return view_bindings::view.clip_from_view[3][2];
+fn perspective_camera_near(view_index: i32) -> f32 {
+    return view_bindings::view[view_index].clip_from_view[3][2];
 }
 
 /// Convert ndc depth to linear view z. 
 /// Note: Depth values in front of the camera will be negative as -z is forward
-fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
+fn depth_ndc_to_view_z(view_index: i32, ndc_depth: f32) -> f32 {
 #ifdef VIEW_PROJECTION_PERSPECTIVE
-    return -perspective_camera_near() / ndc_depth;
+    return -perspective_camera_near(view_index) / ndc_depth;
 #else ifdef VIEW_PROJECTION_ORTHOGRAPHIC
-    return -(view_bindings::view.clip_from_view[3][2] - ndc_depth) / view_bindings::view.clip_from_view[2][2];
+    return -(view_bindings::view[view_index].clip_from_view[3][2] - ndc_depth) / view_bindings::view[view_index].clip_from_view[2][2];
 #else
-    let view_pos = view_bindings::view.view_from_clip * vec4(0.0, 0.0, ndc_depth, 1.0);
+    let view_pos = view_bindings::view[view_index].view_from_clip * vec4(0.0, 0.0, ndc_depth, 1.0);
     return view_pos.z / view_pos.w;
 #endif
 }
 
 /// Convert linear view z to ndc depth. 
 /// Note: View z input should be negative for values in front of the camera as -z is forward
-fn view_z_to_depth_ndc(view_z: f32) -> f32 {
+fn view_z_to_depth_ndc(view_index: i32, view_z: f32) -> f32 {
 #ifdef VIEW_PROJECTION_PERSPECTIVE
-    return -perspective_camera_near() / view_z;
+    return -perspective_camera_near(view_index) / view_z;
 #else ifdef VIEW_PROJECTION_ORTHOGRAPHIC
-    return view_bindings::view.clip_from_view[3][2] + view_z * view_bindings::view.clip_from_view[2][2];
+    return view_bindings::view[view_index].clip_from_view[3][2] + view_z * view_bindings::view[view_index].clip_from_view[2][2];
 #else
-    let ndc_pos = view_bindings::view.clip_from_view * vec4(0.0, 0.0, view_z, 1.0);
+    let ndc_pos = view_bindings::view[view_index].clip_from_view * vec4(0.0, 0.0, view_z, 1.0);
     return ndc_pos.z / ndc_pos.w;
 #endif
 }
@@ -188,17 +188,17 @@ fn uv_to_ndc(uv: vec2<f32>) -> vec2<f32> {
 
 /// returns the (0.0, 0.0) .. (1.0, 1.0) position within the viewport for the current render target
 /// [0 .. render target viewport size] eg. [(0.0, 0.0) .. (1280.0, 720.0)] to [(0.0, 0.0) .. (1.0, 1.0)]
-fn frag_coord_to_uv(frag_coord: vec2<f32>) -> vec2<f32> {
-    return (frag_coord - view_bindings::view.viewport.xy) / view_bindings::view.viewport.zw;
+fn frag_coord_to_uv(view_index: i32, frag_coord: vec2<f32>) -> vec2<f32> {
+    return (frag_coord - view_bindings::view[view_index].viewport.xy) / view_bindings::view[view_index].viewport.zw;
 }
 
 /// Convert frag coord to ndc
-fn frag_coord_to_ndc(frag_coord: vec4<f32>) -> vec3<f32> {
-    return vec3(uv_to_ndc(frag_coord_to_uv(frag_coord.xy)), frag_coord.z);
+fn frag_coord_to_ndc(view_index: i32, frag_coord: vec4<f32>) -> vec3<f32> {
+    return vec3(uv_to_ndc(frag_coord_to_uv(view_index, frag_coord.xy)), frag_coord.z);
 }
 
 /// Convert ndc space xy coordinate [-1.0 .. 1.0] to [0 .. render target
 /// viewport size]
-fn ndc_to_frag_coord(ndc: vec2<f32>) -> vec2<f32> {
-    return ndc_to_uv(ndc) * view_bindings::view.viewport.zw;
+fn ndc_to_frag_coord(view_index: i32, ndc: vec2<f32>) -> vec2<f32> {
+    return ndc_to_uv(ndc) * view_bindings::view[view_index].viewport.zw;
 }

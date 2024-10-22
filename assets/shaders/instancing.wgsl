@@ -15,7 +15,15 @@ struct VertexOutput {
 };
 
 @vertex
-fn vertex(vertex: Vertex) -> VertexOutput {
+fn vertex(
+    vertex: Vertex,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> VertexOutput {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
     let position = vertex.position * vertex.i_pos_scale.w + vertex.i_pos_scale.xyz;
     var out: VertexOutput;
     // NOTE: Passing 0 as the instance_index to get_world_from_local() is a hack
@@ -23,6 +31,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     // index in the Mesh array. This index could be passed in via another
     // uniform instead but it's unnecessary for the example.
     out.clip_position = mesh_position_local_to_clip(
+        view_index,
         get_world_from_local(0u),
         vec4<f32>(position, 1.0)
     );

@@ -27,13 +27,21 @@ struct VertexOutput {
 };
 
 @vertex
-fn vertex(vertex: Vertex) -> VertexOutput {
+fn vertex(
+    vertex: Vertex,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> VertexOutput {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
     var out: VertexOutput;
     // This is how bevy computes the world position
     // The vertex.instance_index is very important. Esepecially if you are using batching and gpu preprocessing
     var world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
     out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4(vertex.position, 1.0));
-    out.clip_position = position_world_to_clip(out.world_position.xyz);
+    out.clip_position = position_world_to_clip(view_index, out.world_position.xyz);
 
     // We just use the raw vertex color
     out.color = vertex.color.rgb;
