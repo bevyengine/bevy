@@ -191,7 +191,7 @@ impl<'w, 's> UiTree<'w, 's> {
         )
     }
 
-    /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if children has been added/removed or if the order has changed.
+    /// Given an entity in the UI tree, check if its parent has changed, e.g if children has been added/removed or if the order has changed.
     pub fn children_is_changed(&'s self, entity: Entity) -> bool {
         self.changed_children_query.contains(entity)
             || self
@@ -202,6 +202,15 @@ impl<'w, 's> UiTree<'w, 's> {
     /// Returns `true` if the given entity is either a [`Node`] or a [`GhostNode`].
     pub fn is_ui_entity(&'s self, entity: Entity) -> bool {
         self.ui_children_query.contains(entity)
+    }
+
+    /// Returns `true` if the given entity is a root in the UI tree.
+    ///
+    /// A [`Node`] is a root node if it has no parent, or if all ancestors are ghost nodes.
+    ///
+    /// A [`GhostNode`] is a root node if it has no parent.
+    pub fn is_root(&'s self, entity: Entity) -> bool {
+        self.parent(entity).is_none()
     }
 }
 
