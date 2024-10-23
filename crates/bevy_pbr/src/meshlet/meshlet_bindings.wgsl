@@ -51,15 +51,17 @@ struct DrawIndirectArgs {
 const CENTIMETERS_PER_METER = 100.0;
 
 #ifdef MESHLET_FILL_CLUSTER_BUFFERS_PASS
-var<push_constant> cluster_count: u32;
-@group(0) @binding(0) var<storage, read> meshlet_instance_meshlet_counts_prefix_sum: array<u32>; // Per entity instance
+var<push_constant> scene_instance_count: u32;
+@group(0) @binding(0) var<storage, read> meshlet_instance_meshlet_counts: array<u32>; // Per entity instance
 @group(0) @binding(1) var<storage, read> meshlet_instance_meshlet_slice_starts: array<u32>; // Per entity instance
 @group(0) @binding(2) var<storage, read_write> meshlet_cluster_instance_ids: array<u32>; // Per cluster
 @group(0) @binding(3) var<storage, read_write> meshlet_cluster_meshlet_ids: array<u32>; // Per cluster
+@group(0) @binding(4) var<storage, read_write> meshlet_global_cluster_count: atomic<u32>; // Single object shared between all workgroups
 #endif
 
 #ifdef MESHLET_CULLING_PASS
-var<push_constant> meshlet_raster_cluster_rightmost_slot: u32;
+struct Constants { scene_cluster_count: u32, meshlet_raster_cluster_rightmost_slot: u32 }
+var<push_constant> constants: Constants;
 @group(0) @binding(0) var<storage, read> meshlet_cluster_meshlet_ids: array<u32>; // Per cluster
 @group(0) @binding(1) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSpheres>; // Per meshlet
 @group(0) @binding(2) var<storage, read> meshlet_simplification_errors: array<u32>; // Per meshlet
@@ -67,9 +69,9 @@ var<push_constant> meshlet_raster_cluster_rightmost_slot: u32;
 @group(0) @binding(4) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 @group(0) @binding(5) var<storage, read> meshlet_view_instance_visibility: array<u32>; // 1 bit per entity instance, packed as a bitmask
 @group(0) @binding(6) var<storage, read_write> meshlet_second_pass_candidates: array<atomic<u32>>; // 1 bit per cluster , packed as a bitmask
-@group(0) @binding(7) var<storage, read_write> meshlet_software_raster_indirect_args: DispatchIndirectArgs; // Single object shared between all workgroups/clusters/triangles
-@group(0) @binding(8) var<storage, read_write> meshlet_hardware_raster_indirect_args: DrawIndirectArgs; // Single object shared between all workgroups/clusters/triangles
-@group(0) @binding(9) var<storage, read_write> meshlet_raster_clusters: array<u32>; // Single object shared between all workgroups/clusters/triangles
+@group(0) @binding(7) var<storage, read_write> meshlet_software_raster_indirect_args: DispatchIndirectArgs; // Single object shared between all workgroups
+@group(0) @binding(8) var<storage, read_write> meshlet_hardware_raster_indirect_args: DrawIndirectArgs; // Single object shared between all workgroups
+@group(0) @binding(9) var<storage, read_write> meshlet_raster_clusters: array<u32>; // Single object shared between all workgroups
 @group(0) @binding(10) var depth_pyramid: texture_2d<f32>; // From the end of the last frame for the first culling pass, and from the first raster pass for the second culling pass
 @group(0) @binding(11) var<uniform> view: View;
 @group(0) @binding(12) var<uniform> previous_view: PreviousViewUniforms;
@@ -95,7 +97,7 @@ fn cluster_is_second_pass_candidate(cluster_id: u32) -> bool {
 @group(0) @binding(3) var<storage, read> meshlet_vertex_positions: array<u32>; // Many per meshlet
 @group(0) @binding(4) var<storage, read> meshlet_cluster_instance_ids: array<u32>; // Per cluster
 @group(0) @binding(5) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
-@group(0) @binding(6) var<storage, read> meshlet_raster_clusters: array<u32>; // Single object shared between all workgroups/clusters/triangles
+@group(0) @binding(6) var<storage, read> meshlet_raster_clusters: array<u32>; // Single object shared between all workgroups
 @group(0) @binding(7) var<storage, read> meshlet_software_raster_cluster_count: u32;
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
 @group(0) @binding(8) var<storage, read_write> meshlet_visibility_buffer: array<atomic<u64>>; // Per pixel
