@@ -248,7 +248,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                             }
                         }
                     }
-                    return None;
+                    None
                 })
                 .collect();
             let added: HashSet<_> = extracted_assets.iter().map(|(id, _)| *id).collect();
