@@ -144,7 +144,7 @@
 //! a pointer hovers or clicks an entity. These simple events are then used to generate more complex
 //! events for dragging and dropping.
 //!
-//! Because it is completely agnostic to the the earlier stages of the pipeline, you can easily
+//! Because it is completely agnostic to the earlier stages of the pipeline, you can easily
 //! extend the plugin with arbitrary backends and input methods, yet still use all the high level
 //! features.
 
@@ -156,6 +156,8 @@ pub mod backend;
 pub mod events;
 pub mod focus;
 pub mod input;
+#[cfg(feature = "bevy_mesh")]
+pub mod mesh_picking;
 pub mod pointer;
 
 use bevy_app::prelude::*;
@@ -166,6 +168,12 @@ use bevy_reflect::prelude::*;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[cfg(feature = "bevy_mesh")]
+    #[doc(hidden)]
+    pub use crate::mesh_picking::{
+        ray_cast::{MeshRayCast, RayCastBackfaces, RayCastSettings, RayCastVisibility},
+        MeshPickingBackend, MeshPickingBackendSettings, RayCastPickable,
+    };
     #[doc(hidden)]
     pub use crate::{
         events::*, input::PointerInputPlugin, pointer::PointerButton, DefaultPickingPlugins,
@@ -274,6 +282,8 @@ impl Plugin for DefaultPickingPlugins {
             PickingPlugin::default(),
             InteractionPlugin,
         ));
+        #[cfg(feature = "bevy_mesh")]
+        app.add_plugins(mesh_picking::MeshPickingBackend);
     }
 }
 

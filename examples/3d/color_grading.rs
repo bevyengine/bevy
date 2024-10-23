@@ -138,15 +138,12 @@ fn setup(
 fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &ColorGrading) {
     // Spawn the parent node that contains all the buttons.
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                flex_direction: FlexDirection::Column,
-                position_type: PositionType::Absolute,
-                row_gap: Val::Px(6.0),
-                left: Val::Px(12.0),
-                bottom: Val::Px(12.0),
-                ..default()
-            },
+        .spawn(Node {
+            flex_direction: FlexDirection::Column,
+            position_type: PositionType::Absolute,
+            row_gap: Val::Px(6.0),
+            left: Val::Px(12.0),
+            bottom: Val::Px(12.0),
             ..default()
         })
         .with_children(|parent| {
@@ -172,36 +169,28 @@ fn add_buttons_for_global_controls(
     font: &Handle<Font>,
 ) {
     // Add the parent node for the row.
-    parent
-        .spawn(NodeBundle {
-            style: Style::default(),
+    parent.spawn(Node::default()).with_children(|parent| {
+        // Add some placeholder text to fill this column.
+        parent.spawn(Node {
+            width: Val::Px(125.0),
             ..default()
-        })
-        .with_children(|parent| {
-            // Add some placeholder text to fill this column.
-            parent.spawn(NodeBundle {
-                style: Style {
-                    width: Val::Px(125.0),
-                    ..default()
-                },
-                ..default()
-            });
-
-            // Add each global color grading option button.
-            for option in [
-                SelectedGlobalColorGradingOption::Exposure,
-                SelectedGlobalColorGradingOption::Temperature,
-                SelectedGlobalColorGradingOption::Tint,
-                SelectedGlobalColorGradingOption::Hue,
-            ] {
-                add_button_for_value(
-                    parent,
-                    SelectedColorGradingOption::Global(option),
-                    color_grading,
-                    font,
-                );
-            }
         });
+
+        // Add each global color grading option button.
+        for option in [
+            SelectedGlobalColorGradingOption::Exposure,
+            SelectedGlobalColorGradingOption::Temperature,
+            SelectedGlobalColorGradingOption::Tint,
+            SelectedGlobalColorGradingOption::Hue,
+        ] {
+            add_button_for_value(
+                parent,
+                SelectedColorGradingOption::Global(option),
+                color_grading,
+                font,
+            );
+        }
+    });
 }
 
 /// Adds the buttons that control color grading for individual sections
@@ -214,16 +203,13 @@ fn add_buttons_for_section(
 ) {
     // Spawn the row container.
     parent
-        .spawn(NodeBundle {
-            style: Style {
-                align_items: AlignItems::Center,
-                ..default()
-            },
+        .spawn(Node {
+            align_items: AlignItems::Center,
             ..default()
         })
         .with_children(|parent| {
             // Spawn the label ("Highlights", etc.)
-            add_text(parent, &section.to_string(), font, Color::WHITE).insert(Style {
+            add_text(parent, &section.to_string(), font, Color::WHITE).insert(Node {
                 width: Val::Px(125.0),
                 ..default()
             });
@@ -255,8 +241,9 @@ fn add_button_for_value(
 ) {
     // Add the button node.
     parent
-        .spawn(ButtonBundle {
-            style: Style {
+        .spawn((
+            Button,
+            Node {
                 border: UiRect::all(Val::Px(1.0)),
                 width: Val::Px(200.0),
                 justify_content: JustifyContent::Center,
@@ -265,11 +252,10 @@ fn add_button_for_value(
                 margin: UiRect::right(Val::Px(12.0)),
                 ..default()
             },
-            border_color: BorderColor(Color::WHITE),
-            border_radius: BorderRadius::MAX,
-            background_color: Color::BLACK.into(),
-            ..default()
-        })
+            BorderColor(Color::WHITE),
+            BorderRadius::MAX,
+            BackgroundColor(Color::BLACK),
+        ))
         .insert(ColorGradingOptionWidget {
             widget_type: ColorGradingOptionWidgetType::Button,
             option,
@@ -286,11 +272,8 @@ fn add_button_for_value(
             });
 
             // Add a spacer.
-            parent.spawn(NodeBundle {
-                style: Style {
-                    flex_grow: 1.0,
-                    ..default()
-                },
+            parent.spawn(Node {
+                flex_grow: 1.0,
                 ..default()
             });
 
@@ -316,11 +299,11 @@ fn add_help_text(
 ) {
     commands.spawn((
         Text::new(create_help_text(currently_selected_option)),
-        TextStyle {
+        TextFont {
             font: font.clone(),
             ..default()
         },
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             left: Val::Px(12.0),
             top: Val::Px(12.0),
@@ -339,12 +322,12 @@ fn add_text<'a>(
 ) -> EntityCommands<'a> {
     parent.spawn((
         Text::new(label),
-        TextStyle {
+        TextFont {
             font: font.clone(),
             font_size: 15.0,
-            color,
             ..default()
         },
+        TextColor(color),
     ))
 }
 
@@ -560,13 +543,13 @@ fn update_ui_state(
         &ColorGradingOptionWidget,
     )>,
     button_text: Query<(Entity, &ColorGradingOptionWidget), (With<Text>, Without<HelpText>)>,
-    help_text: Query<Entity, With<HelpText>>,
-    mut writer: UiTextWriter,
-    cameras: Query<Ref<ColorGrading>>,
+    help_text: Single<Entity, With<HelpText>>,
+    mut writer: TextUiWriter,
+    cameras: Single<Ref<ColorGrading>>,
     currently_selected_option: Res<SelectedColorGradingOption>,
 ) {
     // Exit early if the UI didn't change
-    if !currently_selected_option.is_changed() && !cameras.single().is_changed() {
+    if !currently_selected_option.is_changed() && !cameras.is_changed() {
         return;
     }
 
@@ -581,12 +564,7 @@ fn update_ui_state(
         }
     }
 
-    let value_label = cameras.iter().next().map(|color_grading| {
-        format!(
-            "{:.3}",
-            currently_selected_option.get(color_grading.as_ref())
-        )
-    });
+    let value_label = format!("{:.3}", currently_selected_option.get(cameras.as_ref()));
 
     // Update the buttons.
     for (entity, widget) in button_text.iter() {
@@ -598,24 +576,22 @@ fn update_ui_state(
             Color::WHITE
         };
 
-        writer.for_each_style(entity, |mut style| {
-            style.color = color;
+        writer.for_each_color(entity, |mut text_color| {
+            text_color.0 = color;
         });
 
         // Update the displayed value, if this is the currently-selected option.
         if widget.widget_type == ColorGradingOptionWidgetType::Value
             && *currently_selected_option == widget.option
         {
-            if let Some(ref value_label) = value_label {
-                writer.for_each_text(entity, |mut text| {
-                    text.clone_from(value_label);
-                });
-            }
+            writer.for_each_text(entity, |mut text| {
+                text.clone_from(&value_label);
+            });
         }
     }
 
     // Update the help text.
-    *writer.text(help_text.single(), 0) = create_help_text(&currently_selected_option);
+    *writer.text(*help_text, 0) = create_help_text(&currently_selected_option);
 }
 
 /// Creates the help text at the top left of the window.
@@ -626,7 +602,7 @@ fn create_help_text(currently_selected_option: &SelectedColorGradingOption) -> S
 /// Processes keyboard input to change the value of the currently-selected color
 /// grading option.
 fn adjust_color_grading_option(
-    mut cameras: Query<&mut ColorGrading>,
+    mut color_grading: Single<&mut ColorGrading>,
     input: Res<ButtonInput<KeyCode>>,
     currently_selected_option: Res<SelectedColorGradingOption>,
 ) {
@@ -639,8 +615,7 @@ fn adjust_color_grading_option(
     }
 
     if delta != 0.0 {
-        let mut color_grading = cameras.single_mut();
-        let new_value = currently_selected_option.get(&color_grading) + delta;
+        let new_value = currently_selected_option.get(color_grading.as_ref()) + delta;
         currently_selected_option.set(&mut color_grading, new_value);
     }
 }

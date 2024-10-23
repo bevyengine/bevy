@@ -10,7 +10,9 @@ use bevy_ecs::{
     query::Has,
     system::{Local, Query, Res, ResMut, Resource, SystemState},
 };
-use bevy_render::{render_resource::StorageBuffer, view::RenderLayers, MainWorld};
+use bevy_render::{
+    render_resource::StorageBuffer, sync_world::MainEntity, view::RenderLayers, MainWorld,
+};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
 use core::ops::{DerefMut, Range};
@@ -23,8 +25,8 @@ pub struct InstanceManager {
     /// Amount of clusters in the scene.
     pub scene_cluster_count: u32,
 
-    /// Per-instance [`Entity`], [`RenderLayers`], and [`NotShadowCaster`].
-    pub instances: Vec<(Entity, RenderLayers, bool)>,
+    /// Per-instance [`MainEntity`], [`RenderLayers`], and [`NotShadowCaster`].
+    pub instances: Vec<(MainEntity, RenderLayers, bool)>,
     /// Per-instance [`MeshUniform`].
     pub instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
     /// Per-instance material ID.
@@ -82,7 +84,7 @@ impl InstanceManager {
     #[allow(clippy::too_many_arguments)]
     pub fn add_instance(
         &mut self,
-        instance: Entity,
+        instance: MainEntity,
         meshlets_slice: Range<u32>,
         transform: &GlobalTransform,
         previous_transform: Option<&PreviousGlobalTransform>,
@@ -231,7 +233,7 @@ pub fn extract_meshlet_mesh_entities(
 
         // Add the instance's data to the instance manager
         instance_manager.add_instance(
-            instance,
+            instance.into(),
             meshlets_slice,
             transform,
             previous_transform,

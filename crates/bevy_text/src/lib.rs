@@ -64,9 +64,12 @@ pub use text_access::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
+    #[allow(deprecated)]
+    pub use crate::Text2dBundle;
+    #[doc(hidden)]
     pub use crate::{
-        Font, JustifyText, LineBreak, Text2d, TextError, TextLayout, TextReader2d, TextSpan,
-        TextStyle, TextWriter2d,
+        Font, JustifyText, LineBreak, Text2d, Text2dReader, Text2dWriter, TextColor, TextError,
+        TextFont, TextLayout, TextSpan,
     };
 }
 
@@ -111,6 +114,8 @@ impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
             .register_type::<Text2d>()
+            .register_type::<TextFont>()
+            .register_type::<TextColor>()
             .register_type::<TextSpan>()
             .register_type::<TextBounds>()
             .init_asset_loader::<FontLoader>()

@@ -7,7 +7,10 @@ homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
-readme = "README.md"
+
+[features]
+default = ["http"]
+http = ["dep:async-io", "dep:smol-hyper"]
 
 [dependencies]
 # bevy
@@ -31,8 +34,8 @@ async-channel = "2"
 
 # dependencies that will not compile on wasm
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-async-io = "2"
-smol-hyper = "0.1"
+async-io = { version = "2", optional = true }
+smol-hyper = { version = "0.1", optional = true }
 
 [lints]
 workspace = true

@@ -16,7 +16,7 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-    let text_style = TextStyle {
+    let text_font = TextFont {
         font_size: 10.0,
         ..default()
     };
@@ -64,10 +64,8 @@ fn setup(mut commands: Commands) {
             commands
                 .spawn((
                     Text2d(format!("{:?}", function)),
-                    TextStyle {
-                        color,
-                        ..text_style.clone()
-                    },
+                    text_font.clone(),
+                    TextColor(color),
                     Transform::from_xyz(
                         i as f32 * 113.0 - 1280.0 / 2.0 + 25.0,
                         -100.0 - ((j as f32 * 250.0) - 300.0),
@@ -90,7 +88,7 @@ fn setup(mut commands: Commands) {
     }
     commands.spawn((
         Text::default(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -112,7 +110,7 @@ fn display_curves(
     let duration = 2.5;
     let time_margin = 0.5;
 
-    let now = ((time.elapsed_seconds() % (duration + time_margin * 2.0) - time_margin) / duration)
+    let now = ((time.elapsed_secs() % (duration + time_margin * 2.0) - time_margin) / duration)
         .clamp(0.0, 1.0);
 
     ui_text.0 = format!("Progress: {:.2}", now);

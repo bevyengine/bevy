@@ -73,11 +73,11 @@ pub struct Meshlet {
     pub triangle_count: u8,
     /// Unused.
     pub padding: u16,
-    /// Number of bits used to to store the X channel of vertex positions within this meshlet.
+    /// Number of bits used to store the X channel of vertex positions within this meshlet.
     pub bits_per_vertex_position_channel_x: u8,
-    /// Number of bits used to to store the Y channel of vertex positions within this meshlet.
+    /// Number of bits used to store the Y channel of vertex positions within this meshlet.
     pub bits_per_vertex_position_channel_y: u8,
-    /// Number of bits used to to store the Z channel of vertex positions within this meshlet.
+    /// Number of bits used to store the Z channel of vertex positions within this meshlet.
     pub bits_per_vertex_position_channel_z: u8,
     /// Power of 2 factor used to quantize vertex positions within this meshlet.
     pub vertex_position_quantization_factor: u8,

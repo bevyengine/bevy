@@ -133,10 +133,10 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     // Buttons
 
     commands
-        .spawn(SpatialBundle {
-            transform: Transform::from_xyz(BUTTONS_X, BUTTONS_Y, 0.),
-            ..default()
-        })
+        .spawn((
+            Transform::from_xyz(BUTTONS_X, BUTTONS_Y, 0.),
+            Visibility::default(),
+        ))
         .with_children(|parent| {
             parent.spawn(GamepadButtonBundle::new(
                 GamepadButton::North,
@@ -189,10 +189,10 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
     // D-Pad
 
     commands
-        .spawn(SpatialBundle {
-            transform: Transform::from_xyz(-BUTTONS_X, BUTTONS_Y, 0.),
-            ..default()
-        })
+        .spawn((
+            Transform::from_xyz(-BUTTONS_X, BUTTONS_Y, 0.),
+            Visibility::default(),
+        ))
         .with_children(|parent| {
             parent.spawn(GamepadButtonBundle::new(
                 GamepadButton::DPadUp,
@@ -276,10 +276,7 @@ fn setup_sticks(
 
     let mut spawn_stick = |x_pos, y_pos, x_axis, y_axis, button| {
         commands
-            .spawn(SpatialBundle {
-                transform: Transform::from_xyz(x_pos, y_pos, 0.),
-                ..default()
-            })
+            .spawn((Transform::from_xyz(x_pos, y_pos, 0.), Visibility::default()))
             .with_children(|parent| {
                 // full extent
                 parent.spawn(Sprite::from_color(
@@ -297,7 +294,7 @@ fn setup_sticks(
                     Transform::from_xyz(dead_mid, dead_mid, 3.),
                 ));
                 // text
-                let style = TextStyle {
+                let style = TextFont {
                     font_size: 13.,
                     ..default()
                 };
@@ -362,7 +359,7 @@ fn setup_triggers(
                 parent.spawn((
                     Transform::from_xyz(0., 0., 1.),
                     Text(format!("{:.3}", 0.)),
-                    TextStyle {
+                    TextFont {
                         font_size: 13.,
                         ..default()
                     },
@@ -380,7 +377,7 @@ fn setup_connected(mut commands: Commands) {
     commands
         .spawn((
             Text::new("Connected Gamepads:\n"),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.),
                 left: Val::Px(12.),
@@ -424,7 +421,7 @@ fn update_axes(
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
     text_query: Query<(Entity, &TextWithAxes)>,
-    mut writer: TextWriter2d,
+    mut writer: Text2dWriter,
 ) {
     for axis_event in axis_events.read() {
         let axis_type = axis_event.axis;
@@ -451,8 +448,8 @@ fn update_axes(
 fn update_connected(
     mut connected: EventReader<GamepadConnectionEvent>,
     gamepads: Query<(Entity, &Gamepad)>,
-    query: Query<Entity, With<ConnectedGamepadsText>>,
-    mut writer: UiTextWriter,
+    text: Single<Entity, With<ConnectedGamepadsText>>,
+    mut writer: TextUiWriter,
 ) {
     if connected.is_empty() {
         return;
@@ -465,7 +462,7 @@ fn update_connected(
         .collect::<Vec<_>>()
         .join("\n");
 
-    *writer.text(query.single(), 2) = if !formatted.is_empty() {
+    *writer.text(*text, 1) = if !formatted.is_empty() {
         formatted
     } else {
         "None".to_string()

@@ -109,7 +109,7 @@ fn setup(
             Press 'A' to toggle drawing of the light gizmos\n\
             Press 'C' to cycle between the light gizmos coloring modes",
             ),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
@@ -125,7 +125,7 @@ fn setup(
             .spawn((
                 Text::new("Gizmo color mode: "),
                 GizmoColorText,
-                Style {
+                Node {
                     position_type: PositionType::Absolute,
                     bottom: Val::Px(12.0),
                     left: Val::Px(12.0),
@@ -136,18 +136,16 @@ fn setup(
     }
 }
 
-fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>) {
-    let mut transform = query.single_mut();
-
-    transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_seconds() / 2.));
+fn rotate_camera(mut transform: Single<&mut Transform, With<Camera>>, time: Res<Time>) {
+    transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_secs() / 2.));
 }
 
 fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    color_text_query: Query<Entity, With<GizmoColorText>>,
-    mut writer: UiTextWriter,
+    color_text_query: Single<Entity, With<GizmoColorText>>,
+    mut writer: TextUiWriter,
 ) {
     if keyboard.just_pressed(KeyCode::KeyD) {
         for (_, config, _) in config_store.iter_mut() {
@@ -157,11 +155,11 @@ fn update_config(
 
     let (config, light_config) = config_store.config_mut::<LightGizmoConfigGroup>();
     if keyboard.pressed(KeyCode::ArrowRight) {
-        config.line_width += 5. * time.delta_seconds();
+        config.line_width += 5. * time.delta_secs();
         config.line_width = config.line_width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        config.line_width -= 5. * time.delta_seconds();
+        config.line_width -= 5. * time.delta_secs();
         config.line_width = config.line_width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::KeyA) {
@@ -174,6 +172,6 @@ fn update_config(
             LightGizmoColor::MatchLightColor => LightGizmoColor::ByLightType,
             LightGizmoColor::ByLightType => LightGizmoColor::Manual(GRAY.into()),
         };
-        *writer.text(color_text_query.single(), 1) = gizmo_color_text(light_config);
+        *writer.text(*color_text_query, 1) = gizmo_color_text(light_config);
     }
 }

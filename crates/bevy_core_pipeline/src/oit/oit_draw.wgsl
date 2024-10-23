@@ -4,7 +4,13 @@
 
 #ifdef OIT_ENABLED
 // Add the fragment to the oit buffer
-fn oit_draw(position: vec4f, color: vec4f) -> vec4f {
+fn oit_draw(position: vec4f, color: vec4f) {
+    // Don't add fully transparent fragments to the list
+    // because we don't want to have to sort them in the resolve pass
+    // TODO should this be comparing with < espilon ?
+    if color.a == 0.0 {
+        return;
+    }
     // get the index of the current fragment relative to the screen size
     let screen_index = i32(floor(position.x) + floor(position.y) * view.viewport.z);
     // get the size of the buffer.
@@ -19,7 +25,7 @@ fn oit_draw(position: vec4f, color: vec4f) -> vec4f {
         // accidentally increase the index above the maximum value
         atomicStore(&oit_layer_ids[screen_index], oit_layers_count);
         // TODO for tail blending we should return the color here
-        discard;
+        return;
     }
 
     // get the layer_index from the screen
@@ -27,7 +33,6 @@ fn oit_draw(position: vec4f, color: vec4f) -> vec4f {
     let rgb9e5_color = bevy_pbr::rgb9e5::vec3_to_rgb9e5_(color.rgb);
     let depth_alpha = pack_24bit_depth_8bit_alpha(position.z, color.a);
     oit_layers[layer_index] = vec2(rgb9e5_color, depth_alpha);
-    discard;
 }
 #endif // OIT_ENABLED
 

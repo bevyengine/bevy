@@ -32,7 +32,7 @@ use core::{any::TypeId, ptr::NonNull};
 ///
 /// Each bundle represents a static set of [`Component`] types.
 /// Currently, bundles can only contain one of each [`Component`], and will
-/// panic once initialised if this is not met.
+/// panic once initialized if this is not met.
 ///
 /// ## Insertion
 ///
@@ -461,10 +461,9 @@ impl BundleInfo {
     }
 
     /// Returns an iterator over the [ID](ComponentId) of each component explicitly defined in this bundle (ex: this excludes Required Components).
-
     /// To iterate all components contributed by this bundle (including Required Components), see [`BundleInfo::iter_contributed_components`]
     #[inline]
-    pub fn iter_explicit_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn iter_explicit_components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.explicit_components().iter().copied()
     }
 
@@ -472,7 +471,7 @@ impl BundleInfo {
     ///
     /// To iterate only components explicitly defined in this bundle, see [`BundleInfo::iter_explicit_components`]
     #[inline]
-    pub fn iter_contributed_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn iter_contributed_components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.component_ids.iter().copied()
     }
 

@@ -59,7 +59,7 @@ pub struct OneHundredThings([Handle<Gltf>; 100]);
 ///
 /// For sync only the easiest implementation is
 /// [`Arc<()>`] and use [`Arc::strong_count`] for completion.
-/// [`Arc<Atomic*>`] is a more robust alternative.
+/// [`Arc<Atomic>`] is a more robust alternative.
 #[derive(Debug, Resource, Deref)]
 pub struct AssetBarrier(Arc<AssetBarrierInner>);
 
@@ -168,29 +168,17 @@ fn setup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn setup_ui(mut commands: Commands) {
     // Display the result of async loading.
-    commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::End,
 
-                ..default()
-            },
+    commands.spawn((
+        LoadingText,
+        Text::new("Loading...".to_owned()),
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(12.0),
+            top: Val::Px(12.0),
             ..default()
-        })
-        .with_children(|b| {
-            b.spawn((
-                Text::new("Loading...".to_owned()),
-                TextStyle {
-                    font_size: 53.0,
-                    color: Color::BLACK,
-                    ..Default::default()
-                },
-                TextLayout::new_with_justify(JustifyText::Right),
-                LoadingText,
-            ));
-        });
+        },
+    ));
 }
 
 fn setup_scene(

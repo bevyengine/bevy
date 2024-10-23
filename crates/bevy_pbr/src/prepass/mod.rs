@@ -26,7 +26,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
+    view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -39,6 +39,7 @@ use crate::meshlet::{
 };
 use crate::*;
 
+use bevy_render::view::RenderVisibleEntities;
 use core::{hash::Hash, marker::PhantomData};
 
 pub const PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(921124473254008983);
@@ -428,6 +429,10 @@ where
             shader_defs.push("DEFERRED_PREPASS".into());
         }
 
+        if key.mesh_key.contains(MeshPipelineKey::LIGHTMAPPED) {
+            shader_defs.push("LIGHTMAP".into());
+        }
+
         if layout.0.contains(Mesh::ATTRIBUTE_COLOR) {
             shader_defs.push("VERTEX_COLORS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(7));
@@ -580,18 +585,18 @@ where
 // Extract the render phases for the prepass
 pub fn extract_camera_previous_view_data(
     mut commands: Commands,
-    cameras_3d: Extract<Query<(&RenderEntity, &Camera, Option<&PreviousViewData>), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(RenderEntity, &Camera, Option<&PreviousViewData>), With<Camera3d>>>,
 ) {
     for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
+        let mut entity = commands
+            .get_entity(entity)
+            .expect("Camera entity wasn't synced.");
         if camera.is_active {
-            let entity = entity.id();
-            let mut entity = commands
-                .get_entity(entity)
-                .expect("Camera entity wasn't synced.");
-
             if let Some(previous_view_data) = maybe_previous_view_data {
                 entity.insert(previous_view_data.clone());
             }
+        } else {
+            entity.remove::<PreviousViewData>();
         }
     }
 }
@@ -697,7 +702,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     views: Query<
         (
             Entity,
-            &VisibleEntities,
+            &RenderVisibleEntities,
             &Msaa,
             Option<&DepthPrepass>,
             Option<&NormalPrepass>,
@@ -767,7 +772,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
         }
 
-        for visible_entity in visible_entities.iter::<With<Mesh3d>>() {
+        for (render_entity, visible_entity) in visible_entities.iter::<With<Mesh3d>>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
@@ -873,7 +878,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 asset_id: mesh_instance.mesh_asset_id.into(),
                                 material_bind_group_id: material.get_bind_group_id().0,
                             },
-                            *visible_entity,
+                            (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     } else if let Some(opaque_phase) = opaque_phase.as_mut() {
@@ -884,7 +889,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 asset_id: mesh_instance.mesh_asset_id.into(),
                                 material_bind_group_id: material.get_bind_group_id().0,
                             },
-                            *visible_entity,
+                            (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     }
@@ -900,7 +905,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         };
                         alpha_mask_deferred_phase.as_mut().unwrap().add(
                             bin_key,
-                            *visible_entity,
+                            (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
@@ -912,7 +917,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         };
                         alpha_mask_phase.add(
                             bin_key,
-                            *visible_entity,
+                            (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     }

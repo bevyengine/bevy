@@ -49,7 +49,7 @@ impl MeshletMesh {
     ///
     /// # Vertex precision
     ///
-    /// `vertex_position_quantization_factor` is the amount of precision to to use when quantizing vertex positions.
+    /// `vertex_position_quantization_factor` is the amount of precision to use when quantizing vertex positions.
     ///
     /// Vertices are snapped to the nearest (1/2^x)th of a centimeter, where x = `vertex_position_quantization_factor`.
     /// E.g. if x = 4, then vertices are snapped to the nearest 1/2^4 = 1/16th of a centimeter.
@@ -301,7 +301,7 @@ fn find_connected_meshlets(
     connected_meshlets_per_meshlet
 }
 
-// METIS manual: http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/manual.pdf
+// METIS manual: https://github.com/KarypisLab/METIS/blob/e0f1b88b8efcb24ffa0ec55eabb78fbe61e58ae7/manual/manual.pdf
 fn group_meshlets(
     connected_meshlets_per_meshlet: &[Vec<(usize, usize)>],
     simplification_queue: &[usize],

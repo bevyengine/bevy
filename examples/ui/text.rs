@@ -32,7 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("hello\nbevy!"),
-        TextStyle {
+        TextFont {
             // This font is loaded and will be used instead of the default font.
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 67.0,
@@ -41,7 +41,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Set the justification of the Text
         TextLayout::new_with_justify(JustifyText::Center),
         // Set the style of the Node itself.
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
             right: Val::Px(5.0),
@@ -55,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             // Create a Text with multiple child spans.
             Text::new("FPS: "),
-            TextStyle {
+            TextFont {
                 // This font is loaded and will be used instead of the default font.
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 42.0,
@@ -65,20 +65,24 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_child((
             TextSpan::default(),
             if cfg!(feature = "default_font") {
-                TextStyle {
-                    font_size: 33.0,
-                    color: GOLD.into(),
-                    // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
-                    ..default()
-                }
+                (
+                    TextFont {
+                        font_size: 33.0,
+                        // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
+                        ..default()
+                    },
+                    TextColor(GOLD.into()),
+                )
             } else {
-                // "default_font" feature is unavailable, load a font to use instead.
-                TextStyle {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                    font_size: 33.0,
-                    color: GOLD.into(),
-                    ..default()
-                }
+                (
+                    // "default_font" feature is unavailable, load a font to use instead.
+                    TextFont {
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font_size: 33.0,
+                        ..Default::default()
+                    },
+                    TextColor(GOLD.into()),
+                )
             },
             FpsText,
         ));
@@ -88,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Here we are able to call the `From` method instead of creating a new `TextSection`.
         // This will use the default font (a minimal subset of FiraMono) and apply the default styling.
         Text::new("From an &str into a Text with the default font!"),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
             left: Val::Px(15.0),
@@ -99,11 +103,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     #[cfg(not(feature = "default_font"))]
     commands.spawn((
         Text::new("Default font disabled"),
-        TextStyle {
+        TextFont {
             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
             ..default()
         },
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
             left: Val::Px(15.0),
@@ -112,12 +116,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn text_color_system(time: Res<Time>, mut query: Query<&mut TextStyle, With<ColorText>>) {
-    for mut style in &mut query {
-        let seconds = time.elapsed_seconds();
+fn text_color_system(time: Res<Time>, mut query: Query<&mut TextColor, With<ColorText>>) {
+    for mut text_color in &mut query {
+        let seconds = time.elapsed_secs();
 
         // Update the color of the ColorText span.
-        style.color = Color::srgb(
+        text_color.0 = Color::srgb(
             ops::sin(1.25 * seconds) / 2.0 + 0.5,
             ops::sin(0.75 * seconds) / 2.0 + 0.5,
             ops::sin(0.50 * seconds) / 2.0 + 0.5,

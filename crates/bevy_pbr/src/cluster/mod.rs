@@ -526,11 +526,15 @@ pub(crate) fn clusterable_object_order(
 /// Extracts clusters from the main world from the render world.
 pub fn extract_clusters(
     mut commands: Commands,
-    views: Extract<Query<(&RenderEntity, &Clusters, &Camera)>>,
-    mapper: Extract<Query<&RenderEntity>>,
+    views: Extract<Query<(RenderEntity, &Clusters, &Camera)>>,
+    mapper: Extract<Query<RenderEntity>>,
 ) {
     for (entity, clusters, camera) in &views {
+        let mut entity_commands = commands
+            .get_entity(entity)
+            .expect("Clusters entity wasn't synced.");
         if !camera.is_active {
+            entity_commands.remove::<(ExtractedClusterableObjects, ExtractedClusterConfig)>();
             continue;
         }
 
@@ -548,23 +552,20 @@ pub fn extract_clusters(
             for clusterable_entity in &cluster_objects.entities {
                 if let Ok(entity) = mapper.get(*clusterable_entity) {
                     data.push(ExtractedClusterableObjectElement::ClusterableObjectEntity(
-                        entity.id(),
+                        entity,
                     ));
                 }
             }
         }
 
-        commands
-            .get_entity(entity.id())
-            .expect("Clusters entity wasn't synced.")
-            .insert((
-                ExtractedClusterableObjects { data },
-                ExtractedClusterConfig {
-                    near: clusters.near,
-                    far: clusters.far,
-                    dimensions: clusters.dimensions,
-                },
-            ));
+        entity_commands.insert((
+            ExtractedClusterableObjects { data },
+            ExtractedClusterConfig {
+                near: clusters.near,
+                far: clusters.far,
+                dimensions: clusters.dimensions,
+            },
+        ));
     }
 }
 

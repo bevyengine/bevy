@@ -422,13 +422,13 @@ impl Plugin for PbrPlugin {
             app.add_plugins(DeferredPbrLightingPlugin);
         }
 
-        // Initialize the default material.
+        // Initialize the default material handle.
         app.world_mut()
             .resource_mut::<Assets<StandardMaterial>>()
             .insert(
                 &Handle::<StandardMaterial>::default(),
                 StandardMaterial {
-                    base_color: Color::WHITE,
+                    base_color: Color::srgb(1.0, 0.0, 0.5),
                     ..Default::default()
                 },
             );
@@ -439,14 +439,7 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
-            .add_systems(
-                ExtractSchedule,
-                (
-                    extract_clusters,
-                    extract_lights,
-                    extract_default_materials.after(clear_material_instances::<StandardMaterial>),
-                ),
-            )
+            .add_systems(ExtractSchedule, (extract_clusters, extract_lights))
             .add_systems(
                 Render,
                 (
@@ -462,6 +455,7 @@ impl Plugin for PbrPlugin {
         render_app
             .world_mut()
             .add_observer(remove_light_view_entities);
+        render_app.world_mut().add_observer(extracted_light_removed);
 
         let shadow_pass_node = ShadowPassNode::new(render_app.world_mut());
         let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
