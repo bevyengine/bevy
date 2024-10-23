@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![expect(dead_code, reason = "Many fields are unused/unread as they are just for benchmarking purposes.")]
 
 use criterion::criterion_main;
 
