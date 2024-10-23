@@ -62,10 +62,8 @@ pub fn ktx2_buffer_to_image(
                 #[cfg(feature = "ruzstd")]
                 SupercompressionScheme::Zstandard => {
                     let mut cursor = std::io::Cursor::new(_level_data);
-                    let mut decoder = match ruzstd::StreamingDecoder::new(&mut cursor) {
-                        Ok(it) => it,
-                        Err(err) => return Err(TextureError::SuperDecompressionError(err.to_string())),
-                    };
+                    let mut decoder = ruzstd::StreamingDecoder::new(&mut cursor)
+                        .map_err(|err| TextureError::SuperDecompressionError(err.to_string()))?;
                     let mut decompressed = Vec::new();
                     match decoder.read_to_end(&mut decompressed) {
                         Ok(_) => Ok(decompressed),
