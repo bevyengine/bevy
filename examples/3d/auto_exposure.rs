@@ -116,7 +116,7 @@ fn setup(
 
     commands.spawn((
         UiImage {
-            texture: metering_mask,
+            image: metering_mask,
             ..default()
         },
         Node {
