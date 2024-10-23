@@ -66,13 +66,13 @@ impl<M: Material<P>, P: MaterialPipeline> Plugin for MaterialPlugin<M, P> {
 }
 
 fn clear_material_instances<M: Material<P>, P: MaterialPipeline>(
-    mut material_instances: ResMut<RenderMaterialInstances<M, P>>,
+    mut material_instances: ResMut<MaterialInstances<M, P>>,
 ) {
     material_instances.clear();
 }
 
 fn extract_materials<M: Material<P>, P: MaterialPipeline>(
-    mut material_instances: ResMut<RenderMaterialInstances<M, P>>,
+    mut material_instances: ResMut<MaterialInstances<M, P>>,
     materials: Extract<Query<(&MainEntity, &ViewVisibility, &MaterialComponent<M, P>)>>,
 ) {
     for (main_entity, view_visibility, material) in &materials {
@@ -84,13 +84,13 @@ fn extract_materials<M: Material<P>, P: MaterialPipeline>(
 
 /// Stores all extracted instances of a [`Material`] in the render world.
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterialInstances<M: Material<P>, P: MaterialPipeline> {
+pub struct MaterialInstances<M: Material<P>, P: MaterialPipeline> {
     #[deref]
     pub instances: MainEntityHashMap<AssetId<M>>,
     _data: PhantomData<fn(P)>,
 }
 
-impl<M: Material<P>, P: MaterialPipeline> Default for RenderMaterialInstances<M, P> {
+impl<M: Material<P>, P: MaterialPipeline> Default for MaterialInstances<M, P> {
     fn default() -> Self {
         Self {
             instances: Default::default(),

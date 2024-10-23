@@ -4,8 +4,7 @@ use bevy_render::{render_asset::RenderAssets, sync_world::MainEntity};
 
 use crate::{
     material::{
-        MaterialBindGroup, MaterialLayout, MaterialProperties, MaterialShaders,
-        RenderMaterialInstances,
+        MaterialBindGroup, MaterialInstances, MaterialLayout, MaterialProperties, MaterialShaders,
     },
     material_pipeline::MaterialPipeline,
     prelude::Material,
@@ -38,7 +37,7 @@ impl<'w, M: Material<P>, P: MaterialPipeline> MaterialData<'w, M, P> {
 
     pub fn iter<'a>(
         &'a self,
-        instances: &'a RenderMaterialInstances<M, P>,
+        instances: &'a MaterialInstances<M, P>,
     ) -> impl Iterator<Item = PreparedMaterialInstance<M, P>> + 'a {
         instances
             .iter()

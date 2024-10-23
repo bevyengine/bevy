@@ -5,8 +5,8 @@ use bevy_render::render_asset::RenderAssets;
 use core::hash::Hash;
 
 use crate::material::{
-    Material, MaterialBindGroup, MaterialLayout, MaterialProperties, MaterialShaders,
-    RenderMaterialInstances,
+    Material, MaterialBindGroup, MaterialInstances, MaterialLayout, MaterialProperties,
+    MaterialShaders,
 };
 
 pub trait MaterialPipeline: TypePath + Sized + 'static {
