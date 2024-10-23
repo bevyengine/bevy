@@ -75,11 +75,7 @@ pub fn insert_commands(criterion: &mut Criterion) {
     group.bench_function("insert", |bencher| {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
-        let mut entities = Vec::new();
-        for _ in 0..entity_count {
-            entities.push(world.spawn_empty().id());
-        }
-
+        let entities = make_entities(&mut world, entity_count);
         bencher.iter(|| {
             let mut commands = Commands::new(&mut command_queue, &world);
             for entity in &entities {
@@ -93,17 +89,10 @@ pub fn insert_commands(criterion: &mut Criterion) {
     group.bench_function("insert_or_spawn_batch", |bencher| {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
-        let mut entities = Vec::new();
-        for _ in 0..entity_count {
-            entities.push(world.spawn_empty().id());
-        }
-
+        let entities = make_entities(&mut world, entity_count);
         bencher.iter(|| {
             let mut commands = Commands::new(&mut command_queue, &world);
-            let mut values = Vec::with_capacity(entity_count);
-            for entity in &entities {
-                values.push((*entity, (Matrix::default(), Vec3::default())));
-            }
+            let values = make_values(&entities);
             commands.insert_or_spawn_batch(values);
             command_queue.apply(&mut world);
         });
@@ -111,23 +100,31 @@ pub fn insert_commands(criterion: &mut Criterion) {
     group.bench_function("insert_batch", |bencher| {
         let mut world = World::default();
         let mut command_queue = CommandQueue::default();
-        let mut entities = Vec::new();
-        for _ in 0..entity_count {
-            entities.push(world.spawn_empty().id());
-        }
-
+        let entities = make_entities(&mut world, entity_count);
         bencher.iter(|| {
             let mut commands = Commands::new(&mut command_queue, &world);
-            let mut values = Vec::with_capacity(entity_count);
-            for entity in &entities {
-                values.push((*entity, (Matrix::default(), Vec3::default())));
-            }
+            let values = make_values(&entities);
             commands.insert_batch(values);
             command_queue.apply(&mut world);
         });
     });
 
     group.finish();
+}
+
+fn make_entities(world: &mut World, entity_count: usize) -> Vec<bevy_ecs::entity::Entity> {
+    core::iter::repeat_with(|| world.spawn_empty().id())
+        .take(entity_count)
+        .collect()
+}
+
+type Value = (bevy_ecs::entity::Entity, (Matrix, Vec3));
+
+fn make_values(entities: &[bevy_ecs::entity::Entity]) -> Vec<Value> {
+    entities
+        .iter()
+        .map(|entity| (*entity, (Matrix::default(), Vec3::default())))
+        .collect()
 }
 
 struct FakeCommandA;

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use criterion::criterion_main;
 
 mod components;

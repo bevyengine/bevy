@@ -6,7 +6,7 @@ macro_rules! create_entities {
             #[derive(Component)]
             struct $variants(f32);
             for _ in 0..5 {
-                $world.spawn($variants(0.0));
+                $world.spawn($variants(0.));
             }
         )*
     };
@@ -37,17 +37,17 @@ impl<'w> Benchmark<'w> {
         let mut world = World::new();
         for _ in 0..5 {
             world.spawn((
-                Data::<0>(1.0),
-                Data::<1>(1.0),
-                Data::<2>(1.0),
-                Data::<3>(1.0),
-                Data::<4>(1.0),
-                Data::<5>(1.0),
-                Data::<6>(1.0),
-                Data::<7>(1.0),
-                Data::<8>(1.0),
-                Data::<9>(1.0),
-                Data::<10>(1.0),
+                Data::<0>(1.),
+                Data::<1>(1.),
+                Data::<2>(1.),
+                Data::<3>(1.),
+                Data::<4>(1.),
+                Data::<5>(1.),
+                Data::<6>(1.),
+                Data::<7>(1.),
+                Data::<8>(1.),
+                Data::<9>(1.),
+                Data::<10>(1.),
             ));
         }
 
@@ -68,17 +68,17 @@ impl<'w> Benchmark<'w> {
     #[inline(never)]
     pub fn run(&mut self) {
         self.1.iter_mut(&mut self.0).for_each(|mut data| {
-            data.0 .0 *= 2.0;
-            data.1 .0 *= 2.0;
-            data.2 .0 *= 2.0;
-            data.3 .0 *= 2.0;
-            data.4 .0 *= 2.0;
-            data.5 .0 *= 2.0;
-            data.6 .0 *= 2.0;
-            data.7 .0 *= 2.0;
-            data.8 .0 *= 2.0;
-            data.9 .0 *= 2.0;
-            data.10 .0 *= 2.0;
+            data.0 .0 *= 2.;
+            data.1 .0 *= 2.;
+            data.2 .0 *= 2.;
+            data.3 .0 *= 2.;
+            data.4 .0 *= 2.;
+            data.5 .0 *= 2.;
+            data.6 .0 *= 2.;
+            data.7 .0 *= 2.;
+            data.8 .0 *= 2.;
+            data.9 .0 *= 2.;
+            data.10 .0 *= 2.;
         });
     }
 }

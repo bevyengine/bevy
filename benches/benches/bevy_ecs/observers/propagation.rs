@@ -113,7 +113,7 @@ fn add_listeners_to_hierarchy<const DENSITY: usize, const N: usize>(
     }
     let mut rng = deterministic_rand();
     for e in nodes.iter() {
-        if rng.gen_bool(DENSITY as f64 / 100.0) {
+        if rng.gen_bool(DENSITY as f64 / 100.) {
             world.entity_mut(*e).observe(empty_listener::<N>);
         }
     }

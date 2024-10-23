@@ -19,7 +19,7 @@ const WARM_UP_TIME: Duration = Duration::from_millis(500);
 const MEASUREMENT_TIME: Duration = Duration::from_secs(4);
 
 // log10 scaling
-const SIZES: [usize; 5] = [100_usize, 316, 1000, 3162, 10000];
+const SIZES: [usize; 5] = [100_usize, 316, 1000, 3162, 10_000];
 
 fn list_apply<M, LBase, LPatch, F1, F2, F3>(
     group: &mut BenchmarkGroup<M>,
