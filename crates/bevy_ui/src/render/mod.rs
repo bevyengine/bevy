@@ -40,7 +40,7 @@ use bevy_render::{
     ExtractSchedule, Render,
 };
 use bevy_sprite::TextureAtlasLayout;
-use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
+use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents};
 
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
@@ -316,14 +316,13 @@ pub fn extract_uinode_images(
                 Option<&CalculatedClip>,
                 Option<&TargetCamera>,
                 &UiImage,
-                Option<&TextureAtlas>,
             ),
             Without<ImageScaleMode>,
         >,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
-    for (entity, uinode, transform, view_visibility, clip, camera, image, atlas) in &uinode_query {
+    for (entity, uinode, transform, view_visibility, clip, camera, image) in &uinode_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -336,12 +335,14 @@ pub fn extract_uinode_images(
         // Skip invisible images
         if !view_visibility.get()
             || image.color.is_fully_transparent()
-            || image.texture.id() == TRANSPARENT_IMAGE_HANDLE.id()
+            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
             continue;
         }
 
-        let atlas_rect = atlas
+        let atlas_rect = image
+            .texture_atlas
+            .as_ref()
             .and_then(|s| s.texture_rect(&texture_atlases))
             .map(|r| r.as_rect());
 
@@ -375,7 +376,7 @@ pub fn extract_uinode_images(
                 color: image.color.into(),
                 rect,
                 clip: clip.map(|clip| clip.clip),
-                image: image.texture.id(),
+                image: image.image.id(),
                 camera_entity: render_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling,
