@@ -50,8 +50,7 @@ impl fmt::Debug for UiSurface {
 
 impl Default for UiSurface {
     fn default() -> Self {
-        let mut taffy: TaffyTree<NodeMeasure> = TaffyTree::new();
-        taffy.disable_rounding();
+        let taffy: TaffyTree<NodeMeasure> = TaffyTree::new();
         Self {
             entity_to_taffy: Default::default(),
             camera_entity_to_taffy: Default::default(),
