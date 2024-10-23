@@ -5,8 +5,8 @@ mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
 use crate::{
-    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, DefaultUiCamera, Outline,
-    ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples, UiImage, UiScale,
+    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, DefaultUiCamera, Display, Node,
+    Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples, UiImage, UiScale,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -399,6 +399,7 @@ pub fn extract_uinode_borders(
     uinode_query: Extract<
         Query<(
             Entity,
+            &Node,
             &ComputedNode,
             &GlobalTransform,
             &ViewVisibility,
@@ -415,7 +416,8 @@ pub fn extract_uinode_borders(
 
     for (
         entity,
-        uinode,
+        node,
+        computed_node,
         global_transform,
         view_visibility,
         maybe_clip,
@@ -444,15 +446,15 @@ pub fn extract_uinode_borders(
         }
 
         // don't extract border if no border or the node is zero-sized (a zero sized node can still have an outline).
-        if !uinode.is_empty() && uinode.border() != BorderRect::ZERO {
+        if !computed_node.is_empty() && computed_node.border() != BorderRect::ZERO {
             if let Some(border_color) = maybe_border_color {
                 extracted_uinodes.uinodes.insert(
                     commands.spawn(TemporaryRenderEntity).id(),
                     ExtractedUiNode {
-                        stack_index: uinode.stack_index,
+                        stack_index: computed_node.stack_index,
                         color: border_color.0.into(),
                         rect: Rect {
-                            max: uinode.size(),
+                            max: computed_node.size(),
                             ..Default::default()
                         },
                         image,
@@ -463,8 +465,8 @@ pub fn extract_uinode_borders(
                             transform: global_transform.compute_matrix(),
                             flip_x: false,
                             flip_y: false,
-                            border: uinode.border(),
-                            border_radius: uinode.border_radius(),
+                            border: computed_node.border(),
+                            border_radius: computed_node.border_radius(),
                             node_type: NodeType::Border,
                         },
                         main_entity: entity.into(),
@@ -474,34 +476,36 @@ pub fn extract_uinode_borders(
         }
 
         if let Some(outline) = maybe_outline {
-            let outline_size = uinode.outlined_node_size();
-            let parent_clip =
-                maybe_parent.and_then(|parent| parent_clip_query.get(parent.get()).ok());
+            if node.display != Display::None && 0. <= computed_node.outline_width() {
+                let outline_size = computed_node.outlined_node_size();
+                let parent_clip =
+                    maybe_parent.and_then(|parent| parent_clip_query.get(parent.get()).ok());
 
-            extracted_uinodes.uinodes.insert(
-                commands.spawn(TemporaryRenderEntity).id(),
-                ExtractedUiNode {
-                    stack_index: uinode.stack_index,
-                    color: outline.color.into(),
-                    rect: Rect {
-                        max: outline_size,
-                        ..Default::default()
+                extracted_uinodes.uinodes.insert(
+                    commands.spawn(TemporaryRenderEntity).id(),
+                    ExtractedUiNode {
+                        stack_index: computed_node.stack_index,
+                        color: outline.color.into(),
+                        rect: Rect {
+                            max: outline_size,
+                            ..Default::default()
+                        },
+                        image,
+                        clip: parent_clip.map(|clip| clip.clip),
+                        camera_entity: render_camera_entity,
+                        item: ExtractedUiItem::Node {
+                            transform: global_transform.compute_matrix(),
+                            atlas_scaling: None,
+                            flip_x: false,
+                            flip_y: false,
+                            border: BorderRect::square(computed_node.outline_width()),
+                            border_radius: computed_node.outline_radius(),
+                            node_type: NodeType::Border,
+                        },
+                        main_entity: entity.into(),
                     },
-                    image,
-                    clip: parent_clip.map(|clip| clip.clip),
-                    camera_entity: render_camera_entity,
-                    item: ExtractedUiItem::Node {
-                        transform: global_transform.compute_matrix(),
-                        atlas_scaling: None,
-                        flip_x: false,
-                        flip_y: false,
-                        border: BorderRect::square(uinode.outline_width()),
-                        border_radius: uinode.outline_radius(),
-                        node_type: NodeType::Border,
-                    },
-                    main_entity: entity.into(),
-                },
-            );
+                );
+            }
         }
     }
 }
