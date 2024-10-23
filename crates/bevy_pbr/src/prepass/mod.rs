@@ -216,7 +216,7 @@ pub fn update_previous_view_data(
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct PreviousGlobalTransform(pub Affine3A);
 
 #[cfg(not(feature = "meshlet"))]

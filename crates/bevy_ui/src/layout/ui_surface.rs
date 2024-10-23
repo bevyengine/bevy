@@ -10,6 +10,7 @@ use bevy_math::UVec2;
 use bevy_utils::default;
 
 use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
+use bevy_text::CosmicFontSystem;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootNodePair {
@@ -199,7 +200,7 @@ impl UiSurface {
         camera: Entity,
         render_target_resolution: UVec2,
         buffer_query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
-        font_system: &'a mut bevy_text::cosmic_text::FontSystem,
+        font_system: &'a mut CosmicFontSystem,
     ) {
         let Some(camera_root_nodes) = self.camera_roots.get(&camera) else {
             return;

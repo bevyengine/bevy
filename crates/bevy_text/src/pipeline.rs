@@ -2,6 +2,7 @@ use alloc::sync::Arc;
 
 use bevy_asset::{AssetId, Assets};
 use bevy_color::Color;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -26,7 +27,7 @@ use crate::{
 /// The font system is used to retrieve fonts and their information, including glyph outlines.
 ///
 /// This resource is updated by the [`TextPipeline`] resource.
-#[derive(Resource)]
+#[derive(Resource, Deref, DerefMut)]
 pub struct CosmicFontSystem(pub cosmic_text::FontSystem);
 
 impl Default for CosmicFontSystem {
@@ -422,13 +423,13 @@ impl TextMeasureInfo {
         &mut self,
         bounds: TextBounds,
         computed: &mut ComputedTextBlock,
-        font_system: &mut cosmic_text::FontSystem,
+        font_system: &mut CosmicFontSystem,
     ) -> Vec2 {
         // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'
         // whenever a canonical state is required.
         computed
             .buffer
-            .set_size(font_system, bounds.width, bounds.height);
+            .set_size(&mut font_system.0, bounds.width, bounds.height);
         buffer_dimensions(&computed.buffer)
     }
 }
