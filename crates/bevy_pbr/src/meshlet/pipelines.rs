@@ -84,7 +84,7 @@ impl FromWorld for MeshletPipelines {
                 layout: vec![cull_layout.clone()],
                 push_constant_ranges: vec![PushConstantRange {
                     stages: ShaderStages::COMPUTE,
-                    range: 0..4,
+                    range: 0..8,
                 }],
                 shader: MESHLET_CULLING_SHADER_HANDLE,
                 shader_defs: vec![
@@ -99,7 +99,7 @@ impl FromWorld for MeshletPipelines {
                 layout: vec![cull_layout],
                 push_constant_ranges: vec![PushConstantRange {
                     stages: ShaderStages::COMPUTE,
-                    range: 0..4,
+                    range: 0..8,
                 }],
                 shader: MESHLET_CULLING_SHADER_HANDLE,
                 shader_defs: vec![
@@ -249,7 +249,7 @@ impl FromWorld for MeshletPipelines {
                         topology: PrimitiveTopology::TriangleList,
                         strip_index_format: None,
                         front_face: FrontFace::Ccw,
-                        cull_mode: None,
+                        cull_mode: Some(Face::Back),
                         unclipped_depth: false,
                         polygon_mode: PolygonMode::Fill,
                         conservative: false,
@@ -292,7 +292,7 @@ impl FromWorld for MeshletPipelines {
                         topology: PrimitiveTopology::TriangleList,
                         strip_index_format: None,
                         front_face: FrontFace::Ccw,
-                        cull_mode: None,
+                        cull_mode: Some(Face::Back),
                         unclipped_depth: false,
                         polygon_mode: PolygonMode::Fill,
                         conservative: false,
@@ -336,7 +336,7 @@ impl FromWorld for MeshletPipelines {
                         topology: PrimitiveTopology::TriangleList,
                         strip_index_format: None,
                         front_face: FrontFace::Ccw,
-                        cull_mode: None,
+                        cull_mode: Some(Face::Back),
                         unclipped_depth: false,
                         polygon_mode: PolygonMode::Fill,
                         conservative: false,
@@ -441,7 +441,10 @@ impl FromWorld for MeshletPipelines {
                 pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                     label: Some("meshlet_remap_1d_to_2d_dispatch_pipeline".into()),
                     layout: vec![layout],
-                    push_constant_ranges: vec![],
+                    push_constant_ranges: vec![PushConstantRange {
+                        stages: ShaderStages::COMPUTE,
+                        range: 0..4,
+                    }],
                     shader: MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE,
                     shader_defs: vec![],
                     entry_point: "remap_dispatch".into(),
