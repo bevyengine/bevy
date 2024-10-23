@@ -20,7 +20,7 @@ pub struct Benchmark<'w>(World, QueryState<(&'w Velocity, &'w mut Position)>);
 
 fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut, i: u16) {
     if i & 1 << B != 0 {
-        entity.insert(Data::<B>(1.0));
+        entity.insert(Data::<B>(1.));
     }
 }
 

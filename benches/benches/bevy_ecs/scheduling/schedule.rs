@@ -38,13 +38,13 @@ pub fn schedule(c: &mut Criterion) {
     group.bench_function("base", |b| {
         let mut world = World::default();
 
-        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0))));
+        world.spawn_batch((0..10_000).map(|_| (A(0.), B(0.))));
 
-        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0))));
+        world.spawn_batch((0..10_000).map(|_| (A(0.), B(0.), C(0.))));
 
-        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0), D(0.0))));
+        world.spawn_batch((0..10_000).map(|_| (A(0.), B(0.), C(0.), D(0.))));
 
-        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
+        world.spawn_batch((0..10_000).map(|_| (A(0.), B(0.), C(0.), E(0.))));
 
         let mut schedule = Schedule::default();
         schedule.add_systems((ab, cd, ce));

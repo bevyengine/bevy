@@ -14,23 +14,32 @@ struct SimpleMesh {
 }
 
 fn mesh_creation(vertices_per_side: u32) -> SimpleMesh {
-    let mut positions = Vec::new();
-    let mut normals = Vec::new();
-    for p in 0..vertices_per_side.pow(2) {
-        let xz = ptoxznorm(p, vertices_per_side);
-        positions.push([xz.0 - 0.5, 0.0, xz.1 - 0.5]);
-        normals.push([0.0, 1.0, 0.0]);
-    }
+    let vertices_squared = vertices_per_side.pow(2);
+    let positions = (0..vertices_squared)
+        .map(|p| {
+            let xz = ptoxznorm(p, vertices_per_side);
+            [xz.0 - 0.5, 0., xz.1 - 0.5]
+        })
+        .collect();
 
-    let mut indices = vec![];
-    for p in 0..vertices_per_side.pow(2) {
-        if p % (vertices_per_side) != vertices_per_side - 1
-            && p / (vertices_per_side) != vertices_per_side - 1
-        {
-            indices.extend_from_slice(&[p, p + 1, p + vertices_per_side]);
-            indices.extend_from_slice(&[p + vertices_per_side, p + 1, p + vertices_per_side + 1]);
-        }
-    }
+    let normals = std::iter::repeat([0., 1., 0.])
+        .take(vertices_squared as usize)
+        .collect();
+
+    let indices = (0..vertices_squared)
+        .filter(|&p| {
+            p % vertices_per_side != vertices_per_side - 1
+                && p / vertices_per_side != vertices_per_side - 1
+        })
+        .flat_map(|p| {
+            [
+                [p, p + 1, p + vertices_per_side],
+                [p + vertices_per_side, p + 1, p + vertices_per_side + 1],
+            ]
+            .into_iter()
+            .flatten()
+        })
+        .collect();
 
     SimpleMesh {
         positions,
@@ -45,7 +54,7 @@ fn ray_mesh_intersection(c: &mut Criterion) {
 
     for vertices_per_side in [10_u32, 100, 1000] {
         group.bench_function(format!("{}_vertices", vertices_per_side.pow(2)), |b| {
-            let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::NEG_Y);
+            let ray = Ray3d::new(Vec3::Y, Dir3::NEG_Y);
             let mesh_to_world = Mat4::IDENTITY;
             let mesh = mesh_creation(vertices_per_side);
 
@@ -69,7 +78,7 @@ fn ray_mesh_intersection_no_cull(c: &mut Criterion) {
 
     for vertices_per_side in [10_u32, 100, 1000] {
         group.bench_function(format!("{}_vertices", vertices_per_side.pow(2)), |b| {
-            let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::NEG_Y);
+            let ray = Ray3d::new(Vec3::Y, Dir3::NEG_Y);
             let mesh_to_world = Mat4::IDENTITY;
             let mesh = mesh_creation(vertices_per_side);
 
@@ -93,7 +102,7 @@ fn ray_mesh_intersection_no_intersection(c: &mut Criterion) {
 
     for vertices_per_side in [10_u32, 100, 1000] {
         group.bench_function(format!("{}_vertices", (vertices_per_side).pow(2)), |b| {
-            let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::X);
+            let ray = Ray3d::new(Vec3::Y, Dir3::X);
             let mesh_to_world = Mat4::IDENTITY;
             let mesh = mesh_creation(vertices_per_side);
 
