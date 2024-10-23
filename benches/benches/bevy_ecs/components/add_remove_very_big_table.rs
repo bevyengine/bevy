@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use bevy_ecs::prelude::*;
 use glam::*;
 
