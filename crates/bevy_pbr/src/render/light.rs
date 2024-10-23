@@ -379,6 +379,10 @@ pub fn extract_lights(
     ) in &directional_lights
     {
         if !view_visibility.get() {
+            commands
+                .get_entity(entity)
+                .expect("Light entity wasn't synced.")
+                .remove::<(ExtractedDirectionalLight, RenderCascadesVisibleEntities)>();
             continue;
         }
 
@@ -470,6 +474,16 @@ pub(crate) fn add_light_view_entities(
 ) {
     if let Some(mut v) = commands.get_entity(trigger.entity()) {
         v.insert(LightViewEntities::default());
+    }
+}
+
+/// Removes [`LightViewEntities`] when light is removed. See [`add_light_view_entities`].
+pub(crate) fn extracted_light_removed(
+    trigger: Trigger<OnRemove, (ExtractedDirectionalLight, ExtractedPointLight)>,
+    mut commands: Commands,
+) {
+    if let Some(mut v) = commands.get_entity(trigger.entity()) {
+        v.remove::<LightViewEntities>();
     }
 }
 
@@ -735,8 +749,7 @@ pub fn prepare_lights(
     let point_light_count = point_lights
         .iter()
         .filter(|light| light.1.spot_light_angles.is_none())
-        .count()
-        .min(max_texture_cubes);
+        .count();
 
     let point_light_volumetric_enabled_count = point_lights
         .iter()
@@ -1046,7 +1059,7 @@ pub fn prepare_lights(
         for &(light_entity, light, (point_light_frusta, _)) in point_lights
             .iter()
             // Lights are sorted, shadow enabled lights are first
-            .take(point_light_count)
+            .take(point_light_count.min(max_texture_cubes))
         {
             let Ok(mut light_view_entities) = light_view_entities.get_mut(light_entity) else {
                 continue;

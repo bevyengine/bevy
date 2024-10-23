@@ -22,8 +22,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Top-level grid (app frame)
     commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 // Use the CSS Grid algorithm for laying out this node
                 display: Display::Grid,
                 // Make node fill the entirety of its parent (in this case the window)
@@ -49,16 +48,15 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|builder| {
             // Header
             builder
-                .spawn((
-                    Node::default(),
-                    Style {
+                .spawn(
+                    Node {
                         display: Display::Grid,
                         // Make this node span two grid columns so that it takes up the entire top tow
                         grid_column: GridPlacement::span(2),
                         padding: UiRect::all(Val::Px(6.0)),
                         ..default()
                     },
-                ))
+                )
                 .with_children(|builder| {
                     spawn_nested_text_bundle(builder, font.clone(), "Bevy CSS Grid Layout Example");
                 });
@@ -66,8 +64,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             // Main content grid (auto placed in row 2, column 1)
             builder
                 .spawn((
-                    Node::default(),
-                    Style {
+                    Node {
                         // Make the height of the node fill its parent
                         height: Val::Percent(100.0),
                         // Make the grid have a 1:1 aspect ratio meaning it will scale as an exact square
@@ -117,8 +114,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             // Right side bar (auto placed in row 2, column 2)
             builder
                 .spawn((
-                    Node::default(),
-                    Style {
+                    Node {
                         display: Display::Grid,
                         // Align content towards the start (top) in the vertical axis
                         align_items: AlignItems::Start,
@@ -154,8 +150,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             // Footer / status bar
             builder.spawn((
-                Node::default(),
-                Style {
+                Node {
                     // Make this node span two grid column so that it takes up the entire bottom row
                     grid_column: GridPlacement::span(2),
                     ..default()
@@ -165,9 +160,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             // Modal (absolutely positioned on top of content - currently hidden: to view it, change its visibility)
             builder.spawn((
-                Node::default(),
-                Visibility::Hidden,
-                Style {
+                Node {
                     position_type: PositionType::Absolute,
                     margin: UiRect {
                         top: Val::Px(100.),
@@ -180,19 +173,19 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     max_width: Val::Px(600.),
                     ..default()
                 },
+                Visibility::Hidden,
                 BackgroundColor(Color::WHITE.with_alpha(0.8)),
             ));
         });
 }
 
-/// Create a coloured rectangle node. The node has size as it is assumed that it will be
+/// Create a colored rectangle node. The node has size as it is assumed that it will be
 /// spawned as a child of a Grid container with `AlignItems::Stretch` and `JustifyItems::Stretch`
 /// which will allow it to take its size from the size of the grid area it occupies.
 fn item_rect(builder: &mut ChildBuilder, color: Srgba) {
     builder
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 display: Display::Grid,
                 padding: UiRect::all(Val::Px(3.0)),
                 ..default()

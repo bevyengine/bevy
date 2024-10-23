@@ -41,7 +41,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Set the justification of the Text
         TextLayout::new_with_justify(JustifyText::Center),
         // Set the style of the Node itself.
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
             right: Val::Px(5.0),
@@ -92,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Here we are able to call the `From` method instead of creating a new `TextSection`.
         // This will use the default font (a minimal subset of FiraMono) and apply the default styling.
         Text::new("From an &str into a Text with the default font!"),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
             left: Val::Px(15.0),
@@ -107,7 +107,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
             ..default()
         },
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
             left: Val::Px(15.0),

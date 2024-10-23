@@ -62,7 +62,7 @@ fn setup(
             Press 'U' or 'I' to cycle through line styles for straight or round gizmos\n\
             Press 'J' or 'K' to cycle through line joins for straight or round gizmos",
         ),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -254,7 +254,7 @@ fn update_config(
 
     if keyboard.just_pressed(KeyCode::KeyB) {
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
-        // We can change this behaviour in the configuration of AabbGizmoGroup
+        // We can change this behavior in the configuration of AabbGizmoGroup
         config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
     }
 }

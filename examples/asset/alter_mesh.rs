@@ -138,7 +138,7 @@ fn spawn_text(mut commands: Commands) {
             "Space: swap meshes by mutating a Handle<Mesh>\n\
             Return: mutate the mesh itself, changing all copies of it",
         ),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),
@@ -212,7 +212,7 @@ fn alter_mesh(
             position[2] *= scale_factor;
         }
 
-        // Flip the local value to reverse the behaviour next time the key is pressed.
+        // Flip the local value to reverse the behavior next time the key is pressed.
         *is_mesh_scaled = !*is_mesh_scaled;
     }
 }

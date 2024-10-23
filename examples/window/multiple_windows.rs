@@ -47,7 +47,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .id();
 
-    let style = Style {
+    let node = Node {
         position_type: PositionType::Absolute,
         top: Val::Px(12.0),
         left: Val::Px(12.0),
@@ -56,14 +56,14 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn((
         Text::new("First window"),
-        style.clone(),
+        node.clone(),
         // Since we are using multiple cameras, we need to specify which camera UI should be rendered to
         TargetCamera(first_window_camera),
     ));
 
     commands.spawn((
         Text::new("Second window"),
-        style,
+        node,
         TargetCamera(second_window_camera),
     ));
 }

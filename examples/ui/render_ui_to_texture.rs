@@ -65,8 +65,7 @@ fn setup(
 
     commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 // Cover the whole image
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),

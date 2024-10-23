@@ -122,7 +122,7 @@ impl ComputedStates for IsPaused {
 // Lastly, we have our tutorial, which actually has a more complex derivation.
 //
 // Like `IsPaused`, the tutorial has a few fully distinct possible states, so we want to represent them
-// as an Enum. However - in this case they are all dependant on multiple states: the root [`TutorialState`],
+// as an Enum. However - in this case they are all dependent on multiple states: the root [`TutorialState`],
 // and both [`InGame`] and [`IsPaused`] - which are in turn derived from [`AppState`].
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum Tutorial {
@@ -336,24 +336,21 @@ mod ui {
 
     pub fn setup_menu(mut commands: Commands, tutorial_state: Res<State<TutorialState>>) {
         let button_entity = commands
-            .spawn((
-                Node::default(),
-                Style {
-                    // center button
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(10.),
-                    ..default()
-                },
-            ))
+            .spawn(Node {
+                // center button
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(10.),
+                ..default()
+            })
             .with_children(|parent| {
                 parent
                     .spawn((
                         Button,
-                        Style {
+                        Node {
                             width: Val::Px(200.),
                             height: Val::Px(65.),
                             // horizontally center child text
@@ -379,7 +376,7 @@ mod ui {
                 parent
                     .spawn((
                         Button,
-                        Style {
+                        Node {
                             width: Val::Px(200.),
                             height: Val::Px(65.),
                             // horizontally center child text
@@ -459,8 +456,7 @@ mod ui {
         commands
             .spawn((
                 StateScoped(IsPaused::Paused),
-                Node::default(),
-                Style {
+                Node {
                     // center button
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
@@ -475,8 +471,7 @@ mod ui {
             .with_children(|parent| {
                 parent
                     .spawn((
-                        Node::default(),
-                        Style {
+                        Node {
                             width: Val::Px(400.),
                             height: Val::Px(400.),
                             // horizontally center child text
@@ -505,8 +500,7 @@ mod ui {
         commands
             .spawn((
                 StateScoped(TurboMode),
-                Node::default(),
-                Style {
+                Node {
                     // center button
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
@@ -545,8 +539,7 @@ mod ui {
         commands
             .spawn((
                 StateScoped(Tutorial::MovementInstructions),
-                Node::default(),
-                Style {
+                Node {
                     // center button
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
@@ -600,8 +593,7 @@ mod ui {
         commands
             .spawn((
                 StateScoped(Tutorial::PauseInstructions),
-                Node::default(),
-                Style {
+                Node {
                     // center button
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),

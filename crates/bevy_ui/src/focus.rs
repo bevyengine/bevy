@@ -1,5 +1,6 @@
 use crate::{
-    CalculatedClip, DefaultUiCamera, Node, ResolvedBorderRadius, TargetCamera, UiScale, UiStack,
+    CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, TargetCamera, UiScale,
+    UiStack,
 };
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -74,7 +75,7 @@ impl Default for Interaction {
 ///
 /// It can be used alongside [`Interaction`] to get the position of the press.
 ///
-/// The component is updated when it is in the same entity with [`Node`].
+/// The component is updated when it is in the same entity with [`Node`](crate::Node).
 #[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
@@ -135,7 +136,7 @@ pub struct State {
 #[query_data(mutable)]
 pub struct NodeQuery {
     entity: Entity,
-    node: &'static Node,
+    node: &'static ComputedNode,
     global_transform: &'static GlobalTransform,
     interaction: Option<&'static mut Interaction>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,

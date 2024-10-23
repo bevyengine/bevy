@@ -530,7 +530,11 @@ pub fn extract_clusters(
     mapper: Extract<Query<RenderEntity>>,
 ) {
     for (entity, clusters, camera) in &views {
+        let mut entity_commands = commands
+            .get_entity(entity)
+            .expect("Clusters entity wasn't synced.");
         if !camera.is_active {
+            entity_commands.remove::<(ExtractedClusterableObjects, ExtractedClusterConfig)>();
             continue;
         }
 
@@ -554,17 +558,14 @@ pub fn extract_clusters(
             }
         }
 
-        commands
-            .get_entity(entity)
-            .expect("Clusters entity wasn't synced.")
-            .insert((
-                ExtractedClusterableObjects { data },
-                ExtractedClusterConfig {
-                    near: clusters.near,
-                    far: clusters.far,
-                    dimensions: clusters.dimensions,
-                },
-            ));
+        entity_commands.insert((
+            ExtractedClusterableObjects { data },
+            ExtractedClusterConfig {
+                near: clusters.near,
+                far: clusters.far,
+                dimensions: clusters.dimensions,
+            },
+        ));
     }
 }
 

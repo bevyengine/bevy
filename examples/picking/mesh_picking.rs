@@ -149,7 +149,7 @@ fn setup(
     // Instructions
     commands.spawn((
         Text::new("Hover over the shapes to pick them"),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),

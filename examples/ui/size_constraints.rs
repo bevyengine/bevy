@@ -53,8 +53,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
@@ -65,20 +64,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_children(|parent| {
             parent
-                .spawn((
-                    Node::default(),
-                    Style {
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
-                ))
+                .spawn(Node {
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                })
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Size Constraints Example"),
                         text_font.clone(),
-                        Style {
+                        Node {
                             margin: UiRect::bottom(Val::Px(25.)),
                             ..Default::default()
                         },
@@ -88,8 +84,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                     parent
                         .spawn((
-                            Node::default(),
-                            Style {
+                            Node {
                                 flex_direction: FlexDirection::Column,
                                 align_items: AlignItems::Stretch,
                                 padding: UiRect::all(Val::Px(10.)),
@@ -115,8 +110,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn spawn_bar(parent: &mut ChildBuilder) {
     parent
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 flex_basis: Val::Percent(100.0),
                 align_self: AlignSelf::Stretch,
                 padding: UiRect::all(Val::Px(10.)),
@@ -127,8 +121,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
         .with_children(|parent| {
             parent
                 .spawn((
-                    Node::default(),
-                    Style {
+                    Node {
                         align_items: AlignItems::Stretch,
                         width: Val::Percent(100.),
                         height: Val::Px(100.),
@@ -157,8 +150,7 @@ fn spawn_button_row(
 
     parent
         .spawn((
-            Node::default(),
-            Style {
+            Node {
                 flex_direction: FlexDirection::Column,
                 padding: UiRect::all(Val::Px(2.)),
                 align_items: AlignItems::Stretch,
@@ -168,28 +160,22 @@ fn spawn_button_row(
         ))
         .with_children(|parent| {
             parent
-                .spawn((
-                    Node::default(),
-                    Style {
-                        flex_direction: FlexDirection::Row,
-                        justify_content: JustifyContent::End,
-                        padding: UiRect::all(Val::Px(2.)),
-                        ..default()
-                    },
-                ))
+                .spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::End,
+                    padding: UiRect::all(Val::Px(2.)),
+                    ..default()
+                })
                 .with_children(|parent| {
                     // spawn row label
                     parent
-                        .spawn((
-                            Node::default(),
-                            Style {
-                                min_width: Val::Px(200.),
-                                max_width: Val::Px(200.),
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                ..default()
-                            },
-                        ))
+                        .spawn((Node {
+                            min_width: Val::Px(200.),
+                            max_width: Val::Px(200.),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },))
                         .with_child((Text::new(label), text_style.clone()));
 
                     // spawn row buttons
@@ -228,7 +214,7 @@ fn spawn_button(
     parent
         .spawn((
             Button,
-            Style {
+            Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 border: UiRect::all(Val::Px(2.)),
@@ -246,8 +232,7 @@ fn spawn_button(
         .with_children(|parent| {
             parent
                 .spawn((
-                    Node::default(),
-                    Style {
+                    Node {
                         width: Val::Px(100.),
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -276,7 +261,7 @@ fn update_buttons(
         (Entity, &Interaction, &Constraint, &ButtonValue),
         Changed<Interaction>,
     >,
-    mut bar_style: Single<&mut Style, With<Bar>>,
+    mut bar_node: Single<&mut Node, With<Bar>>,
     mut text_query: Query<&mut TextColor>,
     children_query: Query<&Children>,
     mut button_activated_event: EventWriter<ButtonActivatedEvent>,
@@ -287,16 +272,16 @@ fn update_buttons(
                 button_activated_event.send(ButtonActivatedEvent(button_id));
                 match constraint {
                     Constraint::FlexBasis => {
-                        bar_style.flex_basis = value.0;
+                        bar_node.flex_basis = value.0;
                     }
                     Constraint::Width => {
-                        bar_style.width = value.0;
+                        bar_node.width = value.0;
                     }
                     Constraint::MinWidth => {
-                        bar_style.min_width = value.0;
+                        bar_node.min_width = value.0;
                     }
                     Constraint::MaxWidth => {
-                        bar_style.max_width = value.0;
+                        bar_node.max_width = value.0;
                     }
                 }
             }

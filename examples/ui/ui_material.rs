@@ -1,6 +1,6 @@
 //! Demonstrates the use of [`UiMaterials`](UiMaterial) and how to change material values
 
-use bevy::{color::palettes::css::RED, prelude::*, reflect::TypePath, render::render_resource::*};
+use bevy::{prelude::*, reflect::TypePath, render::render_resource::*};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/custom_ui_material.wgsl";
@@ -23,16 +23,13 @@ fn setup(
     commands.spawn(Camera2d);
 
     commands
-        .spawn((
-            Node::default(),
-            Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-        ))
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        })
         .with_children(|parent| {
             let banner_scale_factor = 0.5;
             parent.spawn((
@@ -42,14 +39,13 @@ fn setup(
                     color_texture: asset_server.load("branding/banner.png"),
                     border_color: LinearRgba::WHITE.to_f32_array().into(),
                 })),
-                Style {
+                Node {
                     position_type: PositionType::Absolute,
                     width: Val::Px(905.0 * banner_scale_factor),
                     height: Val::Px(363.0 * banner_scale_factor),
                     border: UiRect::all(Val::Px(10.)),
                     ..default()
                 },
-                BackgroundColor(RED.into()),
             ));
         });
 }

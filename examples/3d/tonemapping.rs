@@ -83,7 +83,7 @@ fn setup(
     // ui
     commands.spawn((
         Text::default(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -178,7 +178,7 @@ fn setup_image_viewer_scene(
         },
         TextColor(Color::BLACK),
         TextLayout::new_with_justify(JustifyText::Center),
-        Style {
+        Node {
             align_self: AlignSelf::Center,
             margin: UiRect::all(Val::Auto),
             ..default()

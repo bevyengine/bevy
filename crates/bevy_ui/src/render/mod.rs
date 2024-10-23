@@ -5,7 +5,7 @@ mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
 use crate::{
-    BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Node, Outline,
+    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, DefaultUiCamera, Outline,
     ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples, UiImage, UiScale,
 };
 use bevy_app::prelude::*;
@@ -16,6 +16,7 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
+use bevy_hierarchy::Parent;
 use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::sync_world::MainEntity;
@@ -245,7 +246,7 @@ pub fn extract_uinode_background_colors(
     uinode_query: Extract<
         Query<(
             Entity,
-            &Node,
+            &ComputedNode,
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
@@ -309,7 +310,7 @@ pub fn extract_uinode_images(
         Query<
             (
                 Entity,
-                &Node,
+                &ComputedNode,
                 &GlobalTransform,
                 &ViewVisibility,
                 Option<&CalculatedClip>,
@@ -398,14 +399,16 @@ pub fn extract_uinode_borders(
     uinode_query: Extract<
         Query<(
             Entity,
-            &Node,
+            &ComputedNode,
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
             AnyOf<(&BorderColor, &Outline)>,
+            Option<&Parent>,
         )>,
     >,
+    parent_clip_query: Extract<Query<&CalculatedClip>>,
     mapping: Extract<Query<RenderEntity>>,
 ) {
     let image = AssetId::<Image>::default();
@@ -418,6 +421,7 @@ pub fn extract_uinode_borders(
         maybe_clip,
         maybe_camera,
         (maybe_border_color, maybe_outline),
+        maybe_parent,
     ) in &uinode_query
     {
         let Some(camera_entity) = maybe_camera
@@ -471,6 +475,9 @@ pub fn extract_uinode_borders(
 
         if let Some(outline) = maybe_outline {
             let outline_size = uinode.outlined_node_size();
+            let parent_clip =
+                maybe_parent.and_then(|parent| parent_clip_query.get(parent.get()).ok());
+
             extracted_uinodes.uinodes.insert(
                 commands.spawn(TemporaryRenderEntity).id(),
                 ExtractedUiNode {
@@ -481,7 +488,7 @@ pub fn extract_uinode_borders(
                         ..Default::default()
                     },
                     image,
-                    clip: maybe_clip.map(|clip| clip.clip),
+                    clip: parent_clip.map(|clip| clip.clip),
                     camera_entity: render_camera_entity,
                     item: ExtractedUiItem::Node {
                         transform: global_transform.compute_matrix(),
@@ -537,6 +544,10 @@ pub fn extract_default_ui_camera_view(
     for (entity, camera, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
         if !camera.is_active {
+            commands
+                .get_entity(entity)
+                .expect("Camera entity wasn't synced.")
+                .remove::<(DefaultCameraView, UiAntiAlias, UiBoxShadowSamples)>();
             continue;
         }
 
@@ -613,7 +624,7 @@ pub fn extract_text_sections(
     uinode_query: Extract<
         Query<(
             Entity,
-            &Node,
+            &ComputedNode,
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
@@ -764,6 +775,8 @@ struct UiVertex {
     pub border: [f32; 4],
     /// Size of the UI node.
     pub size: [f32; 2],
+    /// Position relative to the center of the UI node.
+    pub point: [f32; 2],
 }
 
 #[derive(Resource)]
@@ -994,6 +1007,7 @@ pub fn prepare_uinodes(
                             // Specify the corners of the node
                             let positions = QUAD_VERTEX_POSITIONS
                                 .map(|pos| (*transform * (pos * rect_size).extend(1.)).xyz());
+                            let points = QUAD_VERTEX_POSITIONS.map(|pos| pos.xy() * rect_size.xy());
 
                             // Calculate the effect of clipping
                             // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
@@ -1025,6 +1039,13 @@ pub fn prepare_uinodes(
                                 positions[1] + positions_diff[1].extend(0.),
                                 positions[2] + positions_diff[2].extend(0.),
                                 positions[3] + positions_diff[3].extend(0.),
+                            ];
+
+                            let points = [
+                                points[0] + positions_diff[0],
+                                points[1] + positions_diff[1],
+                                points[2] + positions_diff[2],
+                                points[3] + positions_diff[3],
                             ];
 
                             let transformed_rect_size = transform.transform_vector3(rect_size);
@@ -1109,6 +1130,7 @@ pub fn prepare_uinodes(
                                     ],
                                     border: [border.left, border.top, border.right, border.bottom],
                                     size: rect_size.xy().into(),
+                                    point: points[i].into(),
                                 });
                             }
 
@@ -1211,6 +1233,7 @@ pub fn prepare_uinodes(
                                         radius: [0.0; 4],
                                         border: [0.0; 4],
                                         size: size.into(),
+                                        point: [0.0; 2],
                                     });
                                 }
 

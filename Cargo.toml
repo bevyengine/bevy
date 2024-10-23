@@ -1213,7 +1213,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/8443bbdee0bf517e6c297dede7f6a46ab712ee4c/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/8483db58832542383820c3f44e4730e566910be7/bunny.meshlet_mesh",
   ],
 ]
 
@@ -3327,11 +3327,11 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
-name = "minimising"
-path = "tests/window/minimising.rs"
+name = "minimizing"
+path = "tests/window/minimizing.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.minimising]
+[package.metadata.example.minimizing]
 hidden = true
 
 [[example]]
@@ -3843,4 +3843,12 @@ path = "examples/testbed/2d.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.testbed_2d]
+hidden = true
+
+[[example]]
+name = "testbed_3d"
+path = "examples/testbed/3d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_3d]
 hidden = true

@@ -169,7 +169,7 @@ fn setup(
 
     commands.spawn((Text::new("Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors"),
             text_style.clone(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -180,7 +180,7 @@ fn setup(
     commands.spawn((
         Text::default(),
         text_style,
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             right: Val::Px(12.0),
@@ -192,8 +192,7 @@ fn setup(
     let mut label = |entity: Entity, label: &str| {
         commands
             .spawn((
-                Node::default(),
-                Style {
+                Node {
                     position_type: PositionType::Absolute,
                     ..default()
                 },
@@ -203,7 +202,7 @@ fn setup(
                 parent.spawn((
                     Text::new(label),
                     label_text_style.clone(),
-                    Style {
+                    Node {
                         position_type: PositionType::Absolute,
                         bottom: Val::ZERO,
                         ..default()
@@ -253,9 +252,9 @@ fn example_control_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
     camera: Single<(&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
-    mut labels: Query<(&mut Style, &ExampleLabel)>,
+    mut labels: Query<(&mut Node, &ExampleLabel)>,
     mut display: Single<&mut Text, With<ExampleDisplay>>,
-    labelled: Query<&GlobalTransform>,
+    labeled: Query<&GlobalTransform>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
@@ -308,15 +307,15 @@ fn example_control_system(
 
     camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(rotation));
 
-    for (mut style, label) in &mut labels {
-        let world_position = labelled.get(label.entity).unwrap().translation() + Vec3::Y;
+    for (mut node, label) in &mut labels {
+        let world_position = labeled.get(label.entity).unwrap().translation() + Vec3::Y;
 
         let viewport_position = camera
             .world_to_viewport(camera_global_transform, world_position)
             .unwrap();
 
-        style.top = Val::Px(viewport_position.y);
-        style.left = Val::Px(viewport_position.x);
+        node.top = Val::Px(viewport_position.y);
+        node.left = Val::Px(viewport_position.x);
     }
 
     display.0 = format!(

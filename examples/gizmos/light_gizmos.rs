@@ -109,7 +109,7 @@ fn setup(
             Press 'A' to toggle drawing of the light gizmos\n\
             Press 'C' to cycle between the light gizmos coloring modes",
             ),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
@@ -125,7 +125,7 @@ fn setup(
             .spawn((
                 Text::new("Gizmo color mode: "),
                 GizmoColorText,
-                Style {
+                Node {
                     position_type: PositionType::Absolute,
                     bottom: Val::Px(12.0),
                     left: Val::Px(12.0),
