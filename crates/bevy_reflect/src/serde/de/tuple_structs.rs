@@ -7,30 +7,19 @@ use serde::de::{DeserializeSeed, SeqAccess, Visitor};
 
 use super::{registration_utils::try_get_registration, TypedReflectDeserializer};
 
+use super::ReflectDeserializerProcessor;
+
 /// A [`Visitor`] for deserializing [`TupleStruct`] values.
 ///
 /// [`TupleStruct`]: crate::TupleStruct
-pub(super) struct TupleStructVisitor<'a> {
-    tuple_struct_info: &'static TupleStructInfo,
-    registration: &'a TypeRegistration,
-    registry: &'a TypeRegistry,
+pub(super) struct TupleStructVisitor<'a, P> {
+    pub tuple_struct_info: &'static TupleStructInfo,
+    pub registration: &'a TypeRegistration,
+    pub registry: &'a TypeRegistry,
+    pub processor: Option<&'a mut P>,
 }
 
-impl<'a> TupleStructVisitor<'a> {
-    pub fn new(
-        tuple_struct_info: &'static TupleStructInfo,
-        registration: &'a TypeRegistration,
-        registry: &'a TypeRegistry,
-    ) -> Self {
-        Self {
-            tuple_struct_info,
-            registration,
-            registry,
-        }
-    }
-}
-
-impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for TupleStructVisitor<'_, P> {
     type Value = DynamicTupleStruct;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -46,6 +35,7 @@ impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
             self.tuple_struct_info,
             self.registration,
             self.registry,
+            self.processor,
         )
         .map(DynamicTupleStruct::from)
     }
@@ -71,7 +61,7 @@ impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
             self.registry,
         )?;
         let reflect_deserializer =
-            TypedReflectDeserializer::new_internal(registration, self.registry);
+            TypedReflectDeserializer::new_internal(registration, self.registry, self.processor);
         let value = reflect_deserializer.deserialize(deserializer)?;
 
         tuple.insert_boxed(value.into_partial_reflect());

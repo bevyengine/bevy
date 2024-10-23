@@ -4,30 +4,19 @@ use crate::{
 use core::{fmt, fmt::Formatter};
 use serde::de::{SeqAccess, Visitor};
 
+use super::ReflectDeserializerProcessor;
+
 /// A [`Visitor`] for deserializing [`Tuple`] values.
 ///
 /// [`Tuple`]: crate::Tuple
-pub(super) struct TupleVisitor<'a> {
-    tuple_info: &'static TupleInfo,
-    registration: &'a TypeRegistration,
-    registry: &'a TypeRegistry,
+pub(super) struct TupleVisitor<'a, P> {
+    pub tuple_info: &'static TupleInfo,
+    pub registration: &'a TypeRegistration,
+    pub registry: &'a TypeRegistry,
+    pub processor: Option<&'a mut P>,
 }
 
-impl<'a> TupleVisitor<'a> {
-    pub fn new(
-        tuple_info: &'static TupleInfo,
-        registration: &'a TypeRegistration,
-        registry: &'a TypeRegistry,
-    ) -> Self {
-        Self {
-            tuple_info,
-            registration,
-            registry,
-        }
-    }
-}
-
-impl<'a, 'de> Visitor<'de> for TupleVisitor<'a> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for TupleVisitor<'_, P> {
     type Value = DynamicTuple;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -38,6 +27,12 @@ impl<'a, 'de> Visitor<'de> for TupleVisitor<'a> {
     where
         V: SeqAccess<'de>,
     {
-        visit_tuple(&mut seq, self.tuple_info, self.registration, self.registry)
+        visit_tuple(
+            &mut seq,
+            self.tuple_info,
+            self.registration,
+            self.registry,
+            self.processor,
+        )
     }
 }
