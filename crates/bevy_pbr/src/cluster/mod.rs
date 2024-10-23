@@ -34,7 +34,7 @@ mod assign;
 mod test;
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
-pub const MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS: usize = 256;
+pub const MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS: usize = 204;
 
 // NOTE: Clustered-forward rendering requires 3 storage buffer bindings so check that
 // at least that many are supported using this constant and SupportedBindingType::from_device()
@@ -811,8 +811,8 @@ impl ViewClusterBuffers {
 }
 
 // NOTE: With uniform buffer max binding size as 16384 bytes
-// that means we can fit 256 clusterable objects in one uniform
-// buffer, which means the count can be at most 256 so it
+// that means we can fit 204 clusterable objects in one uniform
+// buffer, which means the count can be at most 204 so it
 // needs 9 bits.
 // The array of indices can also use u8 and that means the
 // offset in to the array of indices needs to be able to address
