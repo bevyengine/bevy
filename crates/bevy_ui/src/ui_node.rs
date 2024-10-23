@@ -1,4 +1,4 @@
-use crate::{UiRect, Val};
+use crate::{widget::UiImageSize, ContentSize, FocusPolicy, UiRect, Val};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -7,25 +7,20 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
     texture::{Image, TRANSPARENT_IMAGE_HANDLE},
+    view::Visibility,
 };
 use bevy_sprite::BorderRect;
+use bevy_transform::components::Transform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
 use derive_more::derive::{Display, Error, From};
 use smallvec::SmallVec;
 
-/// Base component for a UI node, which also provides the computed size of the node.
-///
-/// # See also
-///
-/// - [`node_bundles`](crate::node_bundles) for the list of built-in bundles that set up UI node
-/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition)
-///   to obtain the cursor position relative to this node
-/// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
+/// Provides the computed size and layout properties of the node.
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug)]
-pub struct Node {
+pub struct ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub(crate) stack_index: u32,
@@ -58,9 +53,14 @@ pub struct Node {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) border_radius: ResolvedBorderRadius,
+    /// Resolved padding values in logical pixels
+    /// Padding updates bypass change detection.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub(crate) padding: BorderRect,
 }
 
-impl Node {
+impl ComputedNode {
     /// The calculated node size as width and height in logical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
@@ -175,9 +175,28 @@ impl Node {
             bottom_right: clamp_corner(self.border_radius.bottom_left, s, b.xw()),
         }
     }
+
+    /// Returns the thickness of the node's padding on each edge in logical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
+    pub fn padding(&self) -> BorderRect {
+        self.padding
+    }
+
+    /// Returns the combined inset on each edge including both padding and border thickness in logical pixels.
+    #[inline]
+    pub fn content_inset(&self) -> BorderRect {
+        BorderRect {
+            left: self.border.left + self.padding.left,
+            right: self.border.right + self.padding.right,
+            top: self.border.top + self.padding.top,
+            bottom: self.border.bottom + self.padding.bottom,
+        }
+    }
 }
 
-impl Node {
+impl ComputedNode {
     pub const DEFAULT: Self = Self {
         stack_index: 0,
         calculated_size: Vec2::ZERO,
@@ -186,10 +205,11 @@ impl Node {
         unrounded_size: Vec2::ZERO,
         border_radius: ResolvedBorderRadius::ZERO,
         border: BorderRect::ZERO,
+        padding: BorderRect::ZERO,
     };
 }
 
-impl Default for Node {
+impl Default for ComputedNode {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -199,7 +219,7 @@ impl Default for Node {
 ///
 /// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount.
 /// `ScrollPosition` may be updated by the layout system when a layout change makes a previously valid `ScrollPosition` invalid.
-/// Changing this does nothing on a `Node` without a `Style` setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
+/// Changing this does nothing on a `Node` without setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct ScrollPosition {
@@ -237,7 +257,9 @@ impl From<&Vec2> for ScrollPosition {
     }
 }
 
-/// Describes the style of a UI container node
+/// The base component for UI entities. It describes UI layout and style properties.
+///
+/// When defining new types of UI entities, require [`Node`] to make them behave like UI nodes.
 ///
 /// Nodes can be laid out using either Flexbox or CSS Grid Layout.
 ///
@@ -254,15 +276,32 @@ impl From<&Vec2> for ScrollPosition {
 /// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
 /// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
+///
+/// # See also
+///
+/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition) to obtain the cursor position relative to this node
+/// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[require(
+    ComputedNode,
+    BackgroundColor,
+    BorderColor,
+    BorderRadius,
+    ContentSize,
+    FocusPolicy,
+    ScrollPosition,
+    Transform,
+    Visibility,
+    ZIndex
+)]
 #[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct Style {
+pub struct Node {
     /// Which layout algorithm to use when laying out this node's contents:
     ///   - [`Display::Flex`]: Use the Flexbox layout algorithm
     ///   - [`Display::Grid`]: Use the CSS Grid layout algorithm
@@ -282,6 +321,11 @@ pub struct Style {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow>
     pub overflow: Overflow,
+
+    /// How the bounds of clipped content should be determined
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-clip-margin>
+    pub overflow_clip_margin: OverflowClipMargin,
 
     /// The horizontal position of the left edge of the node.
     ///  - For relatively positioned nodes, this is relative to the node's position as computed during regular layout.
@@ -402,8 +446,8 @@ pub struct Style {
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Val};
-    /// let style = Style {
+    /// # use bevy_ui::{Node, UiRect, Val};
+    /// let node = Node {
     ///     margin: UiRect {
     ///         left: Val::Percent(10.),
     ///         right: Val::Percent(10.),
@@ -424,8 +468,8 @@ pub struct Style {
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Val};
-    /// let style = Style {
+    /// # use bevy_ui::{Node, UiRect, Val};
+    /// let node = Node {
     ///     padding: UiRect {
     ///         left: Val::Percent(1.),
     ///         right: Val::Percent(2.),
@@ -530,7 +574,7 @@ pub struct Style {
     pub grid_column: GridPlacement,
 }
 
-impl Style {
+impl Node {
     pub const DEFAULT: Self = Self {
         display: Display::DEFAULT,
         position_type: PositionType::DEFAULT,
@@ -560,6 +604,7 @@ impl Style {
         max_height: Val::Auto,
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
+        overflow_clip_margin: OverflowClipMargin::DEFAULT,
         row_gap: Val::ZERO,
         column_gap: Val::ZERO,
         grid_auto_flow: GridAutoFlow::DEFAULT,
@@ -572,7 +617,7 @@ impl Style {
     };
 }
 
-impl Default for Style {
+impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -834,7 +879,7 @@ impl Default for JustifyContent {
 
 /// Defines the layout model used by this node.
 ///
-/// Part of the [`Style`] component.
+/// Part of the [`Node`] component.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
 #[reflect(Default, PartialEq)]
 #[cfg_attr(
@@ -852,7 +897,7 @@ pub enum Display {
     /// Use no layout, don't render this node and its children.
     ///
     /// If you want to hide a node and its children,
-    /// but keep its layout in place, set its [`Visibility`](bevy_render::view::Visibility) component instead.
+    /// but keep its layout in place, set its [`Visibility`] component instead.
     None,
 }
 
@@ -1015,6 +1060,78 @@ impl Default for OverflowAxis {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+/// The bounds of the visible area when a UI node is clipped.
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct OverflowClipMargin {
+    /// Visible unclipped area
+    pub visual_box: OverflowClipBox,
+    /// Width of the margin on each edge of the visual box in logical pixels.
+    /// The width of the margin will be zero if a negative value is set.
+    pub margin: f32,
+}
+
+impl OverflowClipMargin {
+    pub const DEFAULT: Self = Self {
+        visual_box: OverflowClipBox::ContentBox,
+        margin: 0.,
+    };
+
+    /// Clip any content that overflows outside the content box
+    pub const fn content_box() -> Self {
+        Self {
+            visual_box: OverflowClipBox::ContentBox,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// Clip any content that overflows outside the padding box
+    pub const fn padding_box() -> Self {
+        Self {
+            visual_box: OverflowClipBox::PaddingBox,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// Clip any content that overflows outside the border box
+    pub const fn border_box() -> Self {
+        Self {
+            visual_box: OverflowClipBox::BorderBox,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// Add a margin on each edge of the visual box in logical pixels.
+    /// The width of the margin will be zero if a negative value is set.
+    pub const fn with_margin(mut self, margin: f32) -> Self {
+        self.margin = margin;
+        self
+    }
+}
+
+/// Used to determine the bounds of the visible area when a UI node is clipped.
+#[derive(Default, Copy, Clone, PartialEq, Eq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum OverflowClipBox {
+    /// Clip any content that overflows outside the content box
+    #[default]
+    ContentBox,
+    /// Clip any content that overflows outside the padding box
+    PaddingBox,
+    /// Clip any content that overflows outside the border box
+    BorderBox,
 }
 
 /// The strategy used to position this node
@@ -1852,22 +1969,19 @@ impl Default for BorderColor {
 /// The [`Outline`] component adds an outline outside the edge of a UI node.
 /// Outlines do not take up space in the layout.
 ///
-/// To add an [`Outline`] to a ui node you can spawn a `(NodeBundle, Outline)` tuple bundle:
+/// To add an [`Outline`] to a ui node you can spawn a `(Node, Outline)` tuple bundle:
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
 /// # use bevy_color::palettes::basic::{RED, BLUE};
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
-///         NodeBundle {
-///             style: Style {
-///                 width: Val::Px(100.),
-///                 height: Val::Px(100.),
-///                 ..Default::default()
-///             },
-///             background_color: BLUE.into(),
+///         Node {
+///             width: Val::Px(100.),
+///             height: Val::Px(100.),
 ///             ..Default::default()
 ///         },
+///         BackgroundColor(BLUE.into()),
 ///         Outline::new(Val::Px(10.), Val::ZERO, RED.into())
 ///     ));
 /// }
@@ -1929,6 +2043,7 @@ impl Outline {
 /// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
+#[require(Node, UiImageSize)]
 pub struct UiImage {
     /// The tint color used to draw the image.
     ///
@@ -2046,7 +2161,6 @@ pub struct CalculatedClip {
 /// appear in the UI hierarchy. In such a case, the last node to be added to its parent
 /// will appear in front of its siblings.
 ///
-
 /// Nodes without this component will be treated as if they had a value of [`ZIndex(0)`].
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq)]
@@ -2071,32 +2185,29 @@ pub struct GlobalZIndex(pub i32);
 /// dimension, either width or height.
 ///
 /// # Example
-/// ```
+/// ```rust
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
 /// # use bevy_color::palettes::basic::{BLUE};
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
-///         NodeBundle {
-///             style: Style {
-///                 width: Val::Px(100.),
-///                 height: Val::Px(100.),
-///                 border: UiRect::all(Val::Px(2.)),
-///                 ..Default::default()
-///             },
-///             background_color: BLUE.into(),
-///             border_radius: BorderRadius::new(
-///                 // top left
-///                 Val::Px(10.),
-///                 // top right
-///                 Val::Px(20.),
-///                 // bottom right
-///                 Val::Px(30.),
-///                 // bottom left
-///                 Val::Px(40.),
-///             ),
+///         Node {
+///             width: Val::Px(100.),
+///             height: Val::Px(100.),
+///             border: UiRect::all(Val::Px(2.)),
 ///             ..Default::default()
 ///         },
+///         BackgroundColor(BLUE.into()),
+///         BorderRadius::new(
+///             // top left
+///             Val::Px(10.),
+///             // top right
+///             Val::Px(20.),
+///             // bottom right
+///             Val::Px(30.),
+///             // bottom left
+///             Val::Px(40.),
+///         ),
 ///     ));
 /// }
 /// ```
@@ -2520,7 +2631,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 /// Marker for controlling whether Ui is rendered with or without anti-aliasing
 /// in a camera. By default, Ui is always anti-aliased.
 ///
-/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextStyle`](bevy_text::TextStyle) component.
+/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextFont`](bevy_text::TextFont) component.
 ///
 /// ```
 /// use bevy_core_pipeline::prelude::*;

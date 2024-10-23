@@ -1,3 +1,4 @@
+#![expect(deprecated)]
 use bevy_ecs::prelude::Bundle;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
@@ -16,6 +17,12 @@ use crate::view::{InheritedVisibility, ViewVisibility, Visibility};
 ///
 /// [`Component`]: bevy_ecs::component::Component
 #[derive(Bundle, Clone, Debug, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Transform` and `Visibility` components instead.
+        Inserting `Transform` will now also insert a `GlobalTransform` automatically.
+        Inserting 'Visibility' will now also insert `InheritedVisibility` and `ViewVisibility` automatically."
+)]
 pub struct SpatialBundle {
     /// The visibility of the entity.
     pub visibility: Visibility,

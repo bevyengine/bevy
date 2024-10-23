@@ -54,12 +54,9 @@ fn read_stream(receiver: Res<StreamReceiver>, mut events: EventWriter<StreamEven
 }
 
 fn spawn_text(mut commands: Commands, mut reader: EventReader<StreamEvent>) {
-    let text_style = TextStyle::default();
-
     for (per_frame, event) in reader.read().enumerate() {
         commands.spawn((
             Text2d::new(event.0.to_string()),
-            text_style.clone(),
             TextLayout::new_with_justify(JustifyText::Center),
             Transform::from_xyz(per_frame as f32 * 100.0, 300.0, 0.0),
         ));
@@ -72,7 +69,7 @@ fn move_text(
     time: Res<Time>,
 ) {
     for (entity, mut position) in &mut texts {
-        position.translation -= Vec3::new(0.0, 100.0 * time.delta_seconds(), 0.0);
+        position.translation -= Vec3::new(0.0, 100.0 * time.delta_secs(), 0.0);
         if position.translation.y < -300.0 {
             commands.entity(entity).despawn();
         }

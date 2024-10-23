@@ -31,7 +31,7 @@ use bevy::{
         },
         renderer::{RenderDevice, RenderQueue},
         texture::BevyDefault as _,
-        view::{self, ExtractedView, VisibilitySystems, VisibleEntities},
+        view::{self, ExtractedView, RenderVisibleEntities, VisibilitySystems},
         Render, RenderApp, RenderSet,
     },
 };
@@ -198,18 +198,16 @@ fn main() {
 fn setup(mut commands: Commands) {
     // Spawn a single entity that has custom rendering. It'll be extracted into
     // the render world via [`ExtractComponent`].
-    commands
-        .spawn(SpatialBundle {
-            visibility: Visibility::Visible,
-            transform: Transform::IDENTITY,
-            ..default()
-        })
+    commands.spawn((
+        Visibility::default(),
+        Transform::default(),
         // This `Aabb` is necessary for the visibility checks to work.
-        .insert(Aabb {
+        Aabb {
             center: Vec3A::ZERO,
             half_extents: Vec3A::splat(0.5),
-        })
-        .insert(CustomRenderedEntity);
+        },
+        CustomRenderedEntity,
+    ));
 
     // Spawn the camera.
     commands.spawn((
@@ -234,7 +232,7 @@ fn queue_custom_phase_item(
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     mut specialized_render_pipelines: ResMut<SpecializedRenderPipelines<CustomPhasePipeline>>,
-    views: Query<(Entity, &VisibleEntities, &Msaa), With<ExtractedView>>,
+    views: Query<(Entity, &RenderVisibleEntities, &Msaa), With<ExtractedView>>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
         .read()

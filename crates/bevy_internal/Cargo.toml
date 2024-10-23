@@ -45,7 +45,6 @@ zlib = ["bevy_image/zlib"]
 zstd = ["bevy_image/zstd"]
 
 # Image format support (PNG enabled by default)
-avif = ["bevy_image/avif"]
 bmp = ["bevy_image/bmp"]
 ff = ["bevy_image/ff"]
 gif = ["bevy_image/gif"]
@@ -214,9 +213,10 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote"]
 
-# Provides a picking functionality
+# Provides picking functionality
 bevy_picking = [
   "dep:bevy_picking",
+  "bevy_picking/bevy_mesh",
   "bevy_ui?/bevy_picking",
   "bevy_sprite?/bevy_picking",
 ]
@@ -239,6 +239,9 @@ reflect_functions = [
 
 # Enable winit custom cursor support
 custom_cursor = ["bevy_winit/custom_cursor"]
+
+# Experimental support for nodes that are ignored for UI layouting
+ghost_nodes = ["bevy_ui/ghost_nodes"]
 
 [dependencies]
 # bevy

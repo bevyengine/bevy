@@ -40,7 +40,7 @@ fn animate(mut sprites: Query<&mut Sprite>, mut state: ResMut<AnimationState>, t
     if state.current >= state.max || state.current <= state.min {
         state.speed = -state.speed;
     };
-    state.current += state.speed * time.delta_seconds();
+    state.current += state.speed * time.delta_secs();
     for mut sprite in &mut sprites {
         sprite.custom_size = Some(Vec2::splat(state.current));
     }

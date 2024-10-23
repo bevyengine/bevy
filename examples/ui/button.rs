@@ -55,20 +55,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
     commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
             ..default()
         })
         .with_children(|parent| {
             parent
-                .spawn(ButtonBundle {
-                    style: Style {
+                .spawn((
+                    Button,
+                    Node {
                         width: Val::Px(150.0),
                         height: Val::Px(65.0),
                         border: UiRect::all(Val::Px(5.0)),
@@ -78,19 +76,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    border_color: BorderColor(Color::BLACK),
-                    border_radius: BorderRadius::MAX,
-                    background_color: NORMAL_BUTTON.into(),
-                    ..default()
-                })
+                    BorderColor(Color::BLACK),
+                    BorderRadius::MAX,
+                    BackgroundColor(NORMAL_BUTTON),
+                ))
                 .with_child((
                     Text::new("Button"),
-                    TextStyle {
+                    TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 33.0,
-                        color: Color::srgb(0.9, 0.9, 0.9),
                         ..default()
                     },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
                 ));
         });
 }

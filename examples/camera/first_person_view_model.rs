@@ -108,10 +108,8 @@ fn spawn_view_model(
         .spawn((
             Player,
             CameraSensitivity::default(),
-            SpatialBundle {
-                transform: Transform::from_xyz(0.0, 1.0, 0.0),
-                ..default()
-            },
+            Transform::from_xyz(0.0, 1.0, 0.0),
+            Visibility::default(),
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -194,13 +192,10 @@ fn spawn_lights(mut commands: Commands) {
 
 fn spawn_text(mut commands: Commands) {
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            },
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         })
         .with_child(Text::new(concat!(

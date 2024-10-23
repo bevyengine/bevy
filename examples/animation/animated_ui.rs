@@ -40,7 +40,7 @@ fn main() {
 }
 
 impl AnimatableProperty for FontSizeProperty {
-    type Component = TextStyle;
+    type Component = TextFont;
 
     type Property = f32;
 
@@ -50,12 +50,12 @@ impl AnimatableProperty for FontSizeProperty {
 }
 
 impl AnimatableProperty for TextColorProperty {
-    type Component = TextStyle;
+    type Component = TextColor;
 
     type Property = Srgba;
 
     fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-        match component.color {
+        match component.0 {
             Color::Srgba(ref mut color) => Some(color),
             _ => None,
         }
@@ -150,9 +150,9 @@ fn setup(
     // contains the `AnimationPlayer`, as well as a child node that contains the
     // text to be animated.
     commands
-        .spawn(NodeBundle {
+        .spawn((
             // Cover the whole screen, and center contents.
-            style: Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(0.0),
                 left: Val::Px(0.0),
@@ -162,22 +162,21 @@ fn setup(
                 align_items: AlignItems::Center,
                 ..default()
             },
-            ..default()
-        })
-        .insert(animation_player)
-        .insert(AnimationGraphHandle(animation_graph))
+            animation_player,
+            AnimationGraphHandle(animation_graph),
+        ))
         .with_children(|builder| {
             // Build the text node.
             let player = builder.parent_entity();
             builder
                 .spawn((
                     Text::new("Bevy"),
-                    TextStyle {
+                    TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 24.0,
-                        color: Color::Srgba(Srgba::RED),
                         ..default()
                     },
+                    TextColor(Color::Srgba(Srgba::RED)),
                     TextLayout::new_with_justify(JustifyText::Center),
                 ))
                 // Mark as an animation target.

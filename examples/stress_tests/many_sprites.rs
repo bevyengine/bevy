@@ -104,11 +104,10 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
 }
 
 // System for rotating and translating the camera
-fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
-    let mut camera_transform = camera_query.single_mut();
-    camera_transform.rotate_z(time.delta_seconds() * 0.5);
-    *camera_transform = *camera_transform
-        * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
+fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<Camera>>) {
+    camera_transform.rotate_z(time.delta_secs() * 0.5);
+    **camera_transform = **camera_transform
+        * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_secs());
 }
 
 #[derive(Deref, DerefMut)]

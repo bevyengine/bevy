@@ -29,8 +29,6 @@ pub const SAMPLER_ASSET_INDEX: u64 = 1;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ImageFormat {
-    #[cfg(feature = "avif")]
-    Avif,
     #[cfg(feature = "basis-universal")]
     Basis,
     #[cfg(feature = "bmp")]
@@ -78,152 +76,9 @@ macro_rules! feature_gate {
 }
 
 impl ImageFormat {
-    /// Number of image formats, used for computing other constants.
-    const COUNT: usize = {
-        let mut count = 0;
-        #[cfg(feature = "avif")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "basis-universal")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "bmp")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "dds")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "ff")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "gif")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "exr")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "hdr")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "ico")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "jpeg")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "ktx2")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "pnm")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "png")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "qoi")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "tga")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "tiff")]
-        {
-            count += 1;
-        }
-        #[cfg(feature = "webp")]
-        {
-            count += 1;
-        }
-        count
-    };
-
-    /// Full list of supported formats.
-    pub const SUPPORTED: &'static [ImageFormat] = &[
-        #[cfg(feature = "avif")]
-        ImageFormat::Avif,
-        #[cfg(feature = "basis-universal")]
-        ImageFormat::Basis,
-        #[cfg(feature = "bmp")]
-        ImageFormat::Bmp,
-        #[cfg(feature = "dds")]
-        ImageFormat::Dds,
-        #[cfg(feature = "ff")]
-        ImageFormat::Farbfeld,
-        #[cfg(feature = "gif")]
-        ImageFormat::Gif,
-        #[cfg(feature = "exr")]
-        ImageFormat::OpenExr,
-        #[cfg(feature = "hdr")]
-        ImageFormat::Hdr,
-        #[cfg(feature = "ico")]
-        ImageFormat::Ico,
-        #[cfg(feature = "jpeg")]
-        ImageFormat::Jpeg,
-        #[cfg(feature = "ktx2")]
-        ImageFormat::Ktx2,
-        #[cfg(feature = "png")]
-        ImageFormat::Png,
-        #[cfg(feature = "pnm")]
-        ImageFormat::Pnm,
-        #[cfg(feature = "qoi")]
-        ImageFormat::Qoi,
-        #[cfg(feature = "tga")]
-        ImageFormat::Tga,
-        #[cfg(feature = "tiff")]
-        ImageFormat::Tiff,
-        #[cfg(feature = "webp")]
-        ImageFormat::WebP,
-    ];
-
-    /// Total count of file extensions, for computing supported file extensions list.
-    const COUNT_FILE_EXTENSIONS: usize = {
-        let mut count = 0;
-        let mut idx = 0;
-        while idx < ImageFormat::COUNT {
-            count += ImageFormat::SUPPORTED[idx].to_file_extensions().len();
-            idx += 1;
-        }
-        count
-    };
-
-    /// Gets the list of file extensions for all formats.
-    pub const SUPPORTED_FILE_EXTENSIONS: &'static [&'static str] = &{
-        let mut exts = [""; ImageFormat::COUNT_FILE_EXTENSIONS];
-        let mut ext_idx = 0;
-        let mut fmt_idx = 0;
-        while fmt_idx < ImageFormat::COUNT {
-            let mut off = 0;
-            let fmt_exts = ImageFormat::SUPPORTED[fmt_idx].to_file_extensions();
-            while off < fmt_exts.len() {
-                exts[ext_idx] = fmt_exts[off];
-                off += 1;
-                ext_idx += 1;
-            }
-            fmt_idx += 1;
-        }
-        exts
-    };
-
     /// Gets the file extensions for a given format.
     pub const fn to_file_extensions(&self) -> &'static [&'static str] {
         match self {
-            #[cfg(feature = "avif")]
-            ImageFormat::Avif => &["avif"],
             #[cfg(feature = "basis-universal")]
             ImageFormat::Basis => &["basis"],
             #[cfg(feature = "bmp")]
@@ -267,8 +122,6 @@ impl ImageFormat {
     /// If a format doesn't have any dedicated MIME types, this list will be empty.
     pub const fn to_mime_types(&self) -> &'static [&'static str] {
         match self {
-            #[cfg(feature = "avif")]
-            ImageFormat::Avif => &["image/avif"],
             #[cfg(feature = "basis-universal")]
             ImageFormat::Basis => &["image/basis", "image/x-basis"],
             #[cfg(feature = "bmp")]
@@ -313,9 +166,9 @@ impl ImageFormat {
     }
 
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
+        #[allow(unreachable_code)]
         Some(match mime_type.to_ascii_lowercase().as_str() {
             // note: farbfeld does not have a MIME type
-            "image/avif" => feature_gate!("avif", Avif),
             "image/basis" | "image/x-basis" => feature_gate!("basis-universal", Basis),
             "image/bmp" | "image/x-bmp" => feature_gate!("bmp", Bmp),
             "image/vnd-ms.dds" => feature_gate!("dds", Dds),
@@ -339,8 +192,8 @@ impl ImageFormat {
     }
 
     pub fn from_extension(extension: &str) -> Option<Self> {
+        #[allow(unreachable_code)]
         Some(match extension.to_ascii_lowercase().as_str() {
-            "avif" => feature_gate!("avif", Avif),
             "basis" => feature_gate!("basis-universal", Basis),
             "bmp" => feature_gate!("bmp", Bmp),
             "dds" => feature_gate!("dds", Dds),
@@ -362,9 +215,8 @@ impl ImageFormat {
     }
 
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
+        #[allow(unreachable_code)]
         Some(match self {
-            #[cfg(feature = "avif")]
-            ImageFormat::Avif => image::ImageFormat::Avif,
             #[cfg(feature = "bmp")]
             ImageFormat::Bmp => image::ImageFormat::Bmp,
             #[cfg(feature = "dds")]
@@ -404,8 +256,8 @@ impl ImageFormat {
     }
 
     pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
+        #[allow(unreachable_code)]
         Some(match format {
-            image::ImageFormat::Avif => feature_gate!("avif", Avif),
             image::ImageFormat::Bmp => feature_gate!("bmp", Bmp),
             image::ImageFormat::Dds => feature_gate!("dds", Dds),
             image::ImageFormat::Farbfeld => feature_gate!("ff", Farbfeld),
@@ -1047,6 +899,7 @@ impl Image {
             ImageFormat::Ktx2 => {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
+            #[allow(unreachable_patterns)]
             _ => {
                 let image_crate_format = format
                     .as_image_crate_format()
@@ -1155,7 +1008,7 @@ impl Image {
     /// If you are working with a 32-bit integer [`TextureFormat`], the value will be
     /// inaccurate (as `f32` does not have enough bits to represent it exactly).
     ///
-    /// Single channel (R) formats are assumed to represent greyscale, so the value
+    /// Single channel (R) formats are assumed to represent grayscale, so the value
     /// will be copied to all three RGB channels in the resulting [`Color`].
     ///
     /// Other [`TextureFormat`]s are unsupported, such as:

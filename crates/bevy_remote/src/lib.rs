@@ -315,6 +315,7 @@ use serde_json::Value;
 use std::sync::RwLock;
 
 pub mod builtin_methods;
+#[cfg(feature = "http")]
 pub mod http;
 
 const CHANNEL_SIZE: usize = 16;

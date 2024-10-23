@@ -116,11 +116,11 @@ fn build_ui(
         let schedule = schedules.get(*label).unwrap();
         text_spans.push((
             TextSpan(format!("{label:?}\n")),
-            TextStyle {
+            TextFont {
                 font: asset_server.load(FONT_BOLD),
-                color: FONT_COLOR,
                 ..default()
             },
+            TextColor(FONT_COLOR),
         ));
 
         // grab the list of systems in the schedule, in the order the
@@ -144,19 +144,15 @@ fn build_ui(
             // Add a text section for displaying the cursor for this system
             text_spans.push((
                 TextSpan::new("   "),
-                TextStyle {
-                    color: FONT_COLOR,
-                    ..default()
-                },
+                TextFont::default(),
+                TextColor(FONT_COLOR),
             ));
 
             // add the name of the system to the ui
             text_spans.push((
                 TextSpan(format!("{}\n", system.name())),
-                TextStyle {
-                    color: FONT_COLOR,
-                    ..default()
-                },
+                TextFont::default(),
+                TextColor(FONT_COLOR),
             ));
         }
     }
@@ -169,7 +165,7 @@ fn build_ui(
         .spawn((
             Text::default(),
             SteppingUi,
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: state.ui_top,
                 left: state.ui_left,
@@ -196,12 +192,12 @@ fn build_stepping_hint(mut commands: Commands) {
     // stepping description box
     commands.spawn((
         Text::new(hint_text),
-        TextStyle {
+        TextFont {
             font_size: 15.0,
-            color: FONT_COLOR,
             ..default()
         },
-        Style {
+        TextColor(FONT_COLOR),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
             left: Val::Px(5.0),
@@ -243,15 +239,11 @@ fn update_ui(
     mut commands: Commands,
     state: Res<State>,
     stepping: Res<Stepping>,
-    ui: Query<(Entity, &Visibility), With<SteppingUi>>,
-    mut writer: UiTextWriter,
+    ui: Single<(Entity, &Visibility), With<SteppingUi>>,
+    mut writer: TextUiWriter,
 ) {
-    if ui.is_empty() {
-        return;
-    }
-
     // ensure the UI is only visible when stepping is enabled
-    let (ui, vis) = ui.single();
+    let (ui, vis) = *ui;
     match (vis, stepping.is_enabled()) {
         (Visibility::Hidden, true) => {
             commands.entity(ui).insert(Visibility::Inherited);
