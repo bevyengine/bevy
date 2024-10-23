@@ -6,6 +6,7 @@ use core::hash::Hash;
 
 use crate::material::{
     Material, MaterialBindGroup, MaterialLayout, MaterialProperties, MaterialShaders,
+    RenderMaterialInstances,
 };
 
 pub trait MaterialPipeline: TypePath + Sized + 'static {
@@ -14,12 +15,4 @@ pub trait MaterialPipeline: TypePath + Sized + 'static {
     type PipelineInfo<'a, M: Material<Self>>;
 
     fn material_plugin<M: Material<Self>>() -> impl Plugin;
-}
-
-#[derive(SystemParam)]
-pub struct MaterialData<'w, M: Material<P>, P: MaterialPipeline> {
-    pub layout: Res<'w, MaterialLayout<M>>,
-    pub shaders: Res<'w, MaterialShaders<M, P>>,
-    pub bind_group: Res<'w, RenderAssets<MaterialBindGroup<M>>>,
-    pub properties: Res<'w, RenderAssets<MaterialProperties<M, P>>>,
 }

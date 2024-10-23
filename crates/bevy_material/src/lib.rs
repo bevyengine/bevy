@@ -1,5 +1,6 @@
 pub mod component;
 pub mod material;
+pub mod material_data;
 pub mod material_pipeline;
 
 pub mod prelude {
