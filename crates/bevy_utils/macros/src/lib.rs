@@ -163,15 +163,15 @@ impl Parse for AllTuples {
 pub fn all_tuples(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as AllTuples);
     let len = 1 + input.end - input.start;
-    let mut ident_tuples = Vec::with_capacity(len);
-    for i in 0..=len {
-        let idents = input
-            .idents
-            .iter()
-            .map(|ident| format_ident!("{}{}", ident, i));
-        ident_tuples.push(to_ident_tuple(idents, input.idents.len()));
-    }
-
+    let ident_tuples = (0..=len)
+        .map(|i| {
+            let idents = input
+                .idents
+                .iter()
+                .map(|ident| format_ident!("{}{}", ident, i));
+            to_ident_tuple(idents, input.idents.len())
+        })
+        .collect::<Vec<_>>();
     let macro_ident = &input.macro_ident;
     let invocations = (input.start..=input.end).map(|i| {
         let ident_tuples = choose_ident_tuples(&input, &ident_tuples, i);
@@ -305,14 +305,15 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
 pub fn all_tuples_with_size(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as AllTuples);
     let len = 1 + input.end - input.start;
-    let mut ident_tuples = Vec::with_capacity(len);
-    for i in 0..=len {
-        let idents = input
-            .idents
-            .iter()
-            .map(|ident| format_ident!("{}{}", ident, i));
-        ident_tuples.push(to_ident_tuple(idents, input.idents.len()));
-    }
+    let ident_tuples = (0..=len)
+        .map(|i| {
+            let idents = input
+                .idents
+                .iter()
+                .map(|ident| format_ident!("{}{}", ident, i));
+            to_ident_tuple(idents, input.idents.len())
+        })
+        .collect::<Vec<_>>();
     let macro_ident = &input.macro_ident;
     let invocations = (input.start..=input.end).map(|i| {
         let ident_tuples = &ident_tuples[..i];
