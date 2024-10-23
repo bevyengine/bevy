@@ -4,7 +4,7 @@ use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
 
-use crate::{material::Material, renderer::MaterialPipeline};
+use crate::{material::Material, material_pipeline::MaterialPipeline};
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]

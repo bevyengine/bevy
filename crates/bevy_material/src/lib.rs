@@ -1,6 +1,6 @@
 pub mod component;
 pub mod material;
-pub mod renderer;
+pub mod material_pipeline;
 
 pub mod prelude {
     pub use super::material::{Material, MaterialPlugin};
@@ -8,12 +8,12 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
-    use bevy_app::App;
+    use bevy_app::{App, Plugin};
     use bevy_reflect::Reflect;
 
     use crate::component::MaterialComponent;
+    use crate::material_pipeline::MaterialPipeline;
     use crate::material_trait_alias;
-    use crate::renderer::MaterialPipeline;
 
     #[derive(Reflect)]
     pub struct TestPipeline;
@@ -27,6 +27,8 @@ mod tests {
         type ShaderKey = ();
         type PipelineInfo<'a, M: TestMaterial> = ();
 
-        fn material_plugin<M: TestMaterial>(app: &mut App) {}
+        fn material_plugin<M: TestMaterial>() -> impl Plugin {
+            |_: &mut App| {}
+        }
     }
 }
