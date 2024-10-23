@@ -437,17 +437,15 @@ pub fn extract_uinode_borders(
             continue;
         };
 
-        // Skip invisible borders
-        if !view_visibility.get()
-            || maybe_border_color.is_some_and(|border_color| border_color.0.is_fully_transparent())
-                && maybe_outline.is_some_and(|outline| outline.color.is_fully_transparent())
-        {
+        // Skip invisible borders and removed nodes
+        if !view_visibility.get() || node.display == Display::None {
             continue;
         }
 
-        // don't extract border if no border or the node is zero-sized (a zero sized node can still have an outline).
-        if !computed_node.is_empty() && computed_node.border() != BorderRect::ZERO {
-            if let Some(border_color) = maybe_border_color {
+        // Don't extract borders with zero width along all edges
+        if computed_node.border() != BorderRect::ZERO {
+            if let Some(border_color) = maybe_border_color.filter(|bc| !bc.0.is_fully_transparent())
+            {
                 extracted_uinodes.uinodes.insert(
                     commands.spawn(TemporaryRenderEntity).id(),
                     ExtractedUiNode {
@@ -475,37 +473,40 @@ pub fn extract_uinode_borders(
             }
         }
 
-        if let Some(outline) = maybe_outline {
-            if node.display != Display::None && 0. <= computed_node.outline_width() {
-                let outline_size = computed_node.outlined_node_size();
-                let parent_clip =
-                    maybe_parent.and_then(|parent| parent_clip_query.get(parent.get()).ok());
+        if computed_node.outline_width() <= 0. {
+            continue;
+        }
 
-                extracted_uinodes.uinodes.insert(
-                    commands.spawn(TemporaryRenderEntity).id(),
-                    ExtractedUiNode {
-                        stack_index: computed_node.stack_index,
-                        color: outline.color.into(),
-                        rect: Rect {
-                            max: outline_size,
-                            ..Default::default()
-                        },
-                        image,
-                        clip: parent_clip.map(|clip| clip.clip),
-                        camera_entity: render_camera_entity,
-                        item: ExtractedUiItem::Node {
-                            transform: global_transform.compute_matrix(),
-                            atlas_scaling: None,
-                            flip_x: false,
-                            flip_y: false,
-                            border: BorderRect::square(computed_node.outline_width()),
-                            border_radius: computed_node.outline_radius(),
-                            node_type: NodeType::Border,
-                        },
-                        main_entity: entity.into(),
+        if let Some(outline) = maybe_outline.filter(|outline| !outline.color.is_fully_transparent())
+        {
+            let outline_size = computed_node.outlined_node_size();
+            let parent_clip =
+                maybe_parent.and_then(|parent| parent_clip_query.get(parent.get()).ok());
+
+            extracted_uinodes.uinodes.insert(
+                commands.spawn(TemporaryRenderEntity).id(),
+                ExtractedUiNode {
+                    stack_index: computed_node.stack_index,
+                    color: outline.color.into(),
+                    rect: Rect {
+                        max: outline_size,
+                        ..Default::default()
                     },
-                );
-            }
+                    image,
+                    clip: parent_clip.map(|clip| clip.clip),
+                    camera_entity: render_camera_entity,
+                    item: ExtractedUiItem::Node {
+                        transform: global_transform.compute_matrix(),
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: BorderRect::square(computed_node.outline_width()),
+                        border_radius: computed_node.outline_radius(),
+                        node_type: NodeType::Border,
+                    },
+                    main_entity: entity.into(),
+                },
+            );
         }
     }
 }
