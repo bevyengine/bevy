@@ -28,7 +28,7 @@ use bevy_reflect::Reflect;
 use bevy_render::extract_instances::ExtractedInstances;
 use bevy_render::mesh::Mesh;
 use bevy_render::render_asset::ChangedAssets;
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
+use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet, RenderEntity};
 use bevy_render::view::{RenderVisibleEntities, VisibleEntities};
 use bevy_render::{
     camera::TemporalJitter,
@@ -306,6 +306,7 @@ where
                     (
                         specialize_pipelines::<M>
                             .in_set(RenderSet::PrepareAssets)
+                            .after(prepare_assets::<PreparedMaterial<M>>)
                             .after(prepare_assets::<RenderMesh>),
                         update_mesh_material_instances::<M>.in_set(RenderSet::PrepareAssets),
                         queue_shadows::<M>
@@ -418,7 +419,7 @@ pub fn maintain_material_entity_map<M: Material>(
 
 #[derive(Resource)]
 pub struct EntitiesToSpecialize<M: Material> {
-    entities: EntityHashSet,
+    entities: MainEntityHashSet,
     marker: PhantomData<M>,
 }
 
@@ -699,7 +700,7 @@ fn extract_mesh_materials<M: Material>(
         if view_visibility.get() {
             material_instances.insert(entity.into(), material.id());
             if needs_specialization {
-                entities_to_specialize.entities.insert(entity);
+                entities_to_specialize.entities.insert(entity.into());
             }
         }
     }
@@ -844,24 +845,7 @@ fn update_mesh_material_instances<M: Material>(
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material_meshes<M: Material>(
     specialized_pipeline_cache: Res<SpecializedPipelineCache<M>>,
-    (
-        opaque_draw_functions,
-        alpha_mask_draw_functions,
-        transmissive_draw_functions,
-        transparent_draw_functions,
-    ): (
-        Res<DrawFunctions<Opaque3d>>,
-        Res<DrawFunctions<AlphaMask3d>>,
-        Res<DrawFunctions<Transmissive3d>>,
-        Res<DrawFunctions<Transparent3d>>,
-    ),
-    material_pipeline: Res<MaterialPipeline<M>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
     render_mesh_instances: Res<RenderMeshInstances>,
-    render_material_instances: Res<RenderMaterialInstances<M>>,
-    render_lightmaps: Res<RenderLightmaps>,
-    render_visibility_ranges: Res<RenderVisibilityRanges>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
@@ -891,9 +875,6 @@ pub fn queue_material_meshes<M: Material>(
 
         let rangefinder = view.rangefinder3d();
         for (render_entity, visible_entity) in visible_entities.iter::<With<Mesh3d>>() {
-            let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
-                continue;
-            };
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
                 no_mesh_instance += 1;
@@ -1207,7 +1188,7 @@ fn specialize_pipelines<M: Material>(
         Res<ViewSortedRenderPhases<Transparent3d>>,
     ),
     views: Query<(Entity, &MainEntity, &RenderVisibleEntities, &Msaa)>,
-    mut specialized: Local<Vec<Entity>>,
+    mut specialized: Local<Vec<MainEntity>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -1226,15 +1207,16 @@ fn specialize_pipelines<M: Material>(
             continue;
         };
 
-        for (render_entity, visible_entity) in visible_entities.iter::<With<Mesh3d>>() {
-            if entities_to_specialize.entities.contains(render_entity) {
+        for (_, visible_entity) in visible_entities.iter::<With<Mesh3d>>() {
+            if entities_to_specialize.entities.contains(visible_entity) {
                 let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                     no_material_asset_id += 1;
                     continue;
                 };
                 let Some(mesh_instance) =
-                    render_mesh_instances.render_mesh_queue_data(*main_entity)
+                    render_mesh_instances.render_mesh_queue_data(*visible_entity)
                 else {
+                    no_mesh_instance += 1;
                     continue;
                 };
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
@@ -1245,7 +1227,7 @@ fn specialize_pipelines<M: Material>(
                     no_material += 1;
                     continue;
                 };
-                let Some(view_key) = view_key_cache.get(&view_entity).copied() else {
+                let Some(view_key) = view_key_cache.get(&main_entity.id()).copied() else {
                     no_view_key += 1;
                     continue;
                 };
@@ -1289,7 +1271,7 @@ fn specialize_pipelines<M: Material>(
                 };
 
                 // println!("Inserting due to view change {view_entity:?} {visible_entity:?}");
-                specialized.push(*render_entity);
+                specialized.push(*visible_entity);
                 specialized_pipeline_cache.insert(
                     (view_entity, *visible_entity),
                     // SpecializedPipeline {

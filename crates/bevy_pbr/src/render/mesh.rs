@@ -147,6 +147,16 @@ impl Plugin for MeshRenderPlugin {
             .init_resource::<AssetEntityMap<Mesh>>()
             .init_resource::<ViewKeyCache>()
             .add_systems(
+                First,
+                |
+                    mut commands: Commands,
+                    needs_q: Query<Entity, With<NeedsSpecialization>>| {
+                    for entity in needs_q.iter() {
+                        commands.entity(entity).remove::<NeedsSpecialization>();
+                    }
+                }
+            )
+            .add_systems(
                 PostUpdate,
                 (
                     check_views_need_specialization,
