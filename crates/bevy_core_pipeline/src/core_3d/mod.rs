@@ -238,14 +238,6 @@ pub struct Opaque3dBinKey {
     /// Normally, this is the ID of the mesh, but for non-mesh items it might be
     /// the ID of another type of asset.
     pub asset_id: UntypedAssetId,
-
-    /// The ID of a bind group specific to the material.
-    ///
-    /// In the case of PBR, this is the `MaterialBindGroupId`.
-    pub material_bind_group_id: Option<BindGroupId>,
-
-    /// The lightmap, if present.
-    pub lightmap_image: Option<AssetId<Image>>,
 }
 
 impl PhaseItem for Opaque3d {

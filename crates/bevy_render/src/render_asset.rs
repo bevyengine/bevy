@@ -17,6 +17,7 @@ use bevy_utils::{
 };
 use core::marker::PhantomData;
 use derive_more::derive::{Display, Error};
+use bevy_derive::{Deref, DerefMut};
 
 #[derive(Debug, Error, Display)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
@@ -99,6 +100,7 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
+                .init_resource::<ChangedAssets<A::SourceAsset>>()
                 .add_systems(ExtractSchedule, extract_render_asset::<A>);
             AFTER::register_system(
                 render_app,
@@ -203,10 +205,20 @@ impl<A: RenderAsset> FromWorld for CachedExtractRenderAssetSystemState<A> {
     }
 }
 
+#[derive(Resource, Deref, DerefMut)]
+pub struct ChangedAssets<A: Asset>(HashSet<AssetId<A>>);
+
+impl<A: Asset> Default for ChangedAssets<A> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
 /// This system extracts all created or modified assets of the corresponding [`RenderAsset::SourceAsset`] type
 /// into the "render world".
 pub(crate) fn extract_render_asset<A: RenderAsset>(
     mut commands: Commands,
+    mut assets_that_changed: ResMut<ChangedAssets<A::SourceAsset>>,
     mut main_world: ResMut<MainWorld>,
 ) {
     main_world.resource_scope(
@@ -232,6 +244,8 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                     }
                 }
             }
+
+            assets_that_changed.0 = changed_assets.clone();
 
             let mut extracted_assets = Vec::new();
             let mut added = HashSet::new();

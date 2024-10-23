@@ -1,7 +1,5 @@
-use core::mem::{self, size_of};
-
 use allocator::MeshAllocator;
-use bevy_asset::{load_internal_asset, AssetId};
+use bevy_asset::{load_internal_asset, Asset, AssetEvent, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -43,9 +41,15 @@ use bevy_render::{
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{
     tracing::{error, warn},
-    Entry, HashMap, Parallel,
+    Entry, HashMap, HashSet, Parallel,
 };
+use core::mem::{self, size_of};
+use std::sync::mpsc;
+use std::sync::mpsc::{Receiver, Sender};
 
+use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
+use crate::environment_map::EnvironmentMapLight;
+use crate::irradiance_volume::IrradianceVolume;
 use crate::{
     render::{
         morph::{
@@ -56,13 +60,20 @@ use crate::{
     },
     *,
 };
+use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
+use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
+use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
+use bevy_render::camera::TemporalJitter;
+use bevy_render::extract_resource::ExtractResource;
+use bevy_render::render_asset::{ChangedAssets, RenderAsset};
+use bevy_render::render_phase::DrawFunctionId;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
+use bevy_render::view::{Msaa, VisibleEntities};
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{smallvec, SmallVec};
 use static_assertions::const_assert_eq;
-
-use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 
 /// Provides support for rendering 3D meshes.
 #[derive(Default)]
@@ -131,19 +142,49 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, MORPH_HANDLE, "morph.wgsl", Shader::from_wgsl);
 
-        app.add_systems(
-            PostUpdate,
-            (no_automatic_skin_batching, no_automatic_morph_batching),
-        )
-        .add_plugins((
-            BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::default(),
-            BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::default(),
-            SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::default(),
-            SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::default(),
-        ));
+        app.add_plugins(ExtractResourcePlugin::<ViewKeyCache>::default())
+            .init_resource::<ChangedAssets<Mesh>>()
+            .init_resource::<AssetEntityMap<Mesh>>()
+            .init_resource::<ViewKeyCache>()
+            .add_systems(
+                PostUpdate,
+                (
+                    check_views_need_specialization,
+                    maintain_changed_assets::<Mesh>,
+                    no_automatic_skin_batching,
+                    no_automatic_morph_batching,
+                ),
+            )
+            .add_observer(
+                |e: Trigger<OnAdd, Mesh3d>,
+                 query: Query<&Mesh3d>,
+                 mut asset_entity_map: ResMut<AssetEntityMap<Mesh>>| {
+                    let mesh = query.get(e.entity()).unwrap();
+                    asset_entity_map.entry(mesh.id())
+                        .or_default()
+                        .insert(e.entity());
+                },
+            )
+            .add_observer(
+                |e: Trigger<OnRemove, Mesh3d>,
+                 query: Query<&Mesh3d>,
+                 mut asset_entity_map: ResMut<AssetEntityMap<Mesh>>| {
+                    let mesh = query.get(e.entity()).unwrap();
+                    asset_entity_map
+                        .entry(mesh.id())
+                        .or_default()
+                        .remove(&e.entity());
+                },
+            )
+            .add_plugins((
+                BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::default(),
+                BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::default(),
+                BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::default(),
+                BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::default(),
+                BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::default(),
+                SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::default(),
+                SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::default(),
+            ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -260,6 +301,152 @@ impl Plugin for MeshRenderPlugin {
             Shader::from_wgsl_with_defs,
             mesh_bindings_shader_defs
         );
+    }
+}
+
+#[derive(Default, Resource, Deref, DerefMut, ExtractResource, Clone)]
+pub struct ViewKeyCache(EntityHashMap<MeshPipelineKey>);
+
+#[derive(Default, Resource, Deref, DerefMut)]
+pub struct DirtyViews(EntityHashSet);
+
+pub fn check_views_need_specialization(
+    mut commands: Commands,
+    mut view_key_cache: ResMut<ViewKeyCache>,
+    views: Query<
+        (
+            Entity,
+            &VisibleEntities,
+            &Camera,
+            &Msaa,
+            Option<&Tonemapping>,
+            Option<&DebandDither>,
+            Option<&ShadowFilteringMethod>,
+            Has<ScreenSpaceAmbientOcclusionSettings>,
+            (
+                Has<NormalPrepass>,
+                Has<DepthPrepass>,
+                Has<MotionVectorPrepass>,
+                Has<DeferredPrepass>,
+            ),
+            Option<&Camera3d>,
+            Has<TemporalJitter>,
+            Option<&Projection>,
+            (
+                Has<RenderViewLightProbes<EnvironmentMapLight>>,
+                Has<RenderViewLightProbes<IrradianceVolume>>,
+            ),
+        ),
+        With<Camera3d>,
+    >,
+) {
+    for (
+        view_entity,
+        visible_entities,
+        camera,
+        msaa,
+        tonemapping,
+        dither,
+        shadow_filter_method,
+        ssao,
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
+        camera_3d,
+        temporal_jitter,
+        projection,
+        (has_environment_maps, has_irradiance_volumes),
+    ) in &views
+    {
+        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
+            | MeshPipelineKey::from_hdr(camera.hdr);
+
+        if normal_prepass {
+            view_key |= MeshPipelineKey::NORMAL_PREPASS;
+        }
+
+        if depth_prepass {
+            view_key |= MeshPipelineKey::DEPTH_PREPASS;
+        }
+
+        if motion_vector_prepass {
+            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+        }
+
+        if deferred_prepass {
+            view_key |= MeshPipelineKey::DEFERRED_PREPASS;
+        }
+
+        if temporal_jitter {
+            view_key |= MeshPipelineKey::TEMPORAL_JITTER;
+        }
+
+        if has_environment_maps {
+            view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        if has_irradiance_volumes {
+            view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
+        }
+
+        if let Some(projection) = projection {
+            view_key |= match projection {
+                Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
+                Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
+            };
+        }
+
+        match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
+            ShadowFilteringMethod::Hardware2x2 => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
+            }
+            ShadowFilteringMethod::Gaussian => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_GAUSSIAN;
+            }
+            ShadowFilteringMethod::Temporal => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL;
+            }
+        }
+
+        if !camera.hdr {
+            if let Some(tonemapping) = tonemapping {
+                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+                view_key |= tonemapping_pipeline_key(*tonemapping);
+            }
+            if let Some(DebandDither::Enabled) = dither {
+                view_key |= MeshPipelineKey::DEBAND_DITHER;
+            }
+        }
+        if ssao {
+            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+        }
+        if let Some(camera_3d) = camera_3d {
+            view_key |= screen_space_specular_transmission_pipeline_key(
+                camera_3d.screen_space_specular_transmission_quality,
+            );
+        }
+
+        if let Some(current_key) = view_key_cache.get_mut(&view_entity) {
+            if *current_key != view_key {
+                dbg!(view_entity);
+                dbg!(view_key);
+                *current_key = view_key;
+                let batch = visible_entities
+                    .iter::<With<Mesh3d>>()
+                    .copied()
+                    .map(|entity| (entity, NeedsSpecialization))
+                    .collect::<Vec<_>>();
+                commands.insert_or_spawn_batch(batch);
+            }
+        } else {
+            view_key_cache.insert(view_entity, view_key);
+            dbg!(view_entity);
+            dbg!(view_key);
+            let batch = visible_entities
+                .iter::<With<Mesh3d>>()
+                .copied()
+                .map(|entity| (entity, NeedsSpecialization))
+                .collect::<Vec<_>>();
+            commands.insert_or_spawn_batch(batch);
+        }
     }
 }
 
@@ -511,6 +698,9 @@ pub struct RenderMeshInstanceShared {
     pub material_bind_group_id: AtomicMaterialBindGroupId,
     /// Various flags.
     pub flags: RenderMeshInstanceFlags,
+    pub render_phase_type: RenderPhaseType,
+    pub depth_bias: f32,
+    pub draw_function_id: DrawFunctionId,
 }
 
 /// Information that is gathered during the parallel portion of mesh extraction
@@ -593,7 +783,10 @@ impl RenderMeshInstanceShared {
         RenderMeshInstanceShared {
             mesh_asset_id: mesh.id(),
             flags: mesh_instance_flags,
+            render_phase_type: RenderPhaseType::Opaque,
+            depth_bias: 0.0,
             material_bind_group_id: AtomicMaterialBindGroupId::default(),
+            draw_function_id: DrawFunctionId::INVALID,
         }
     }
 
@@ -856,6 +1049,49 @@ pub struct RenderMeshQueueData<'a> {
     /// The translation of the mesh instance.
     pub translation: Vec3,
 }
+
+pub fn maintain_changed_assets<A: Asset>(
+    mut events: EventReader<AssetEvent<A>>,
+    mut changed_assets: ResMut<ChangedAssets<A>>,
+    mut asset_entity_map: ResMut<AssetEntityMap<A>>,
+) {
+    changed_assets.clear();
+    let mut removed = HashSet::new();
+
+    for event in events.read() {
+        #[allow(clippy::match_same_arms)]
+        match event {
+            AssetEvent::Added { id } | AssetEvent::Modified { id } => {
+                changed_assets.insert(*id);
+                removed.remove(id);
+            }
+            AssetEvent::Removed { id } => {
+                changed_assets.remove(id);
+                removed.insert(id);
+            }
+            AssetEvent::Unused { .. } => {}
+            AssetEvent::LoadedWithDependencies { .. } => {
+                // TODO: handle this
+            }
+        }
+    }
+
+    for asset in removed.drain() {
+        asset_entity_map.remove(asset);
+    }
+}
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct AssetEntityMap<A: Asset>(HashMap<AssetId<A>, EntityHashSet>);
+
+impl<A: Asset> Default for AssetEntityMap<A> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+#[derive(Component)]
+pub struct NeedsSpecialization;
 
 /// A [`SystemSet`] that encompasses both [`extract_meshes_for_cpu_building`]
 /// and [`extract_meshes_for_gpu_building`].
