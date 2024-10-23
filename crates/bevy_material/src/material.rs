@@ -34,31 +34,6 @@ pub trait Material<P: MaterialPipeline>: BaseMaterial {
     fn specialize(info: P::PipelineInfo<'_, Self>) -> Result<(), SpecializeMaterialError>;
 }
 
-pub struct BaseMaterialPlugin<M: BaseMaterial>(PhantomData<fn(M)>);
-
-impl<M: BaseMaterial> Default for BaseMaterialPlugin<M> {
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<M: BaseMaterial> Plugin for BaseMaterialPlugin<M> {
-    fn build(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(ExtractSchedule, clear_material_instances::<M>);
-        }
-
-        app.init_asset::<M>()
-            .add_plugins(RenderAssetPlugin::<MaterialBindGroup<M>>::default());
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<MaterialLayout<M>>();
-        }
-    }
-}
-
 pub struct MaterialPlugin<M: Material<P>, P: MaterialPipeline>(PhantomData<fn(M, P)>);
 
 impl<M: Material<P>, P: MaterialPipeline> Default for MaterialPlugin<M, P> {
@@ -70,28 +45,35 @@ impl<M: Material<P>, P: MaterialPipeline> Default for MaterialPlugin<M, P> {
 impl<M: Material<P>, P: MaterialPipeline> Plugin for MaterialPlugin<M, P> {
     fn build(&self, app: &mut App) {
         app.register_type::<MaterialComponent<M, P>>()
+            .init_asset::<M>()
             .add_plugins((
-                BaseMaterialPlugin::<M>::default(),
+                RenderAssetPlugin::<MaterialBindGroup<M>>::default(),
                 RenderAssetPlugin::<MaterialProperties<M, P>>::default(),
             ))
             .init_resource::<MaterialShaders<M, P>>()
             .add_systems(
                 ExtractSchedule,
-                extract_materials::<M, P>.after(clear_material_instances::<M>),
+                (clear_material_instances::<M, P>, extract_materials::<M, P>).chain(),
             )
             .add_plugins(P::material_plugin::<M>());
     }
+
+    fn finish(&self, app: &mut App) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.init_resource::<MaterialLayout<M>>();
+        }
+    }
 }
 
-fn clear_material_instances<M: BaseMaterial>(
-    mut material_instances: ResMut<RenderMaterialInstances<M>>,
+fn clear_material_instances<M: Material<P>, P: MaterialPipeline>(
+    mut material_instances: ResMut<RenderMaterialInstances<M, P>>,
 ) {
     material_instances.clear();
 }
 
-fn extract_materials<M: Material<R>, R: MaterialPipeline>(
-    mut material_instances: ResMut<RenderMaterialInstances<M>>,
-    materials: Extract<Query<(&MainEntity, &ViewVisibility, &MaterialComponent<M, R>)>>,
+fn extract_materials<M: Material<P>, P: MaterialPipeline>(
+    mut material_instances: ResMut<RenderMaterialInstances<M, P>>,
+    materials: Extract<Query<(&MainEntity, &ViewVisibility, &MaterialComponent<M, P>)>>,
 ) {
     for (main_entity, view_visibility, material) in &materials {
         if view_visibility.get() {
@@ -110,11 +92,18 @@ macro_rules! material_trait_alias {
 
 /// Stores all extracted instances of a [`Material`] in the render world.
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderMaterialInstances<M: BaseMaterial>(#[deref] pub MainEntityHashMap<AssetId<M>>);
+pub struct RenderMaterialInstances<M: Material<P>, P: MaterialPipeline> {
+    #[deref]
+    pub instances: MainEntityHashMap<AssetId<M>>,
+    _data: PhantomData<fn(P)>,
+}
 
-impl<M: BaseMaterial> Default for RenderMaterialInstances<M> {
+impl<M: Material<P>, P: MaterialPipeline> Default for RenderMaterialInstances<M, P> {
     fn default() -> Self {
-        Self(Default::default())
+        Self {
+            instances: Default::default(),
+            _data: PhantomData,
+        }
     }
 }
 
