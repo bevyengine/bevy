@@ -27,7 +27,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::Parent;
 use bevy_input::keyboard::KeyboardInput;
-use bevy_window::Window;
+use bevy_window::PrimaryWindow;
 
 /// Resource representing which entity has keyboard focus, if any. Keyboard events will be
 /// dispatched to the current focus entity, or to the primary window if no entity has focus.
@@ -115,10 +115,12 @@ impl Plugin for InputDispatchPlugin {
     }
 }
 
+/// System whcich dispatches keyboard input events to the focused entity, or to the primary window
+/// if no entity has focus.
 fn dispatch_keyboard_input(
     mut key_events: EventReader<KeyboardInput>,
     focus: Res<KeyboardFocus>,
-    windows: Query<Entity, With<Window>>,
+    windows: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
 ) {
     // If an element has keyboard focus, then dispatch the key event to that element.
@@ -127,11 +129,10 @@ fn dispatch_keyboard_input(
             commands.trigger_targets(FocusKeyboardInput(ev.clone()), focus_elt);
         }
     } else {
-        // If no element has keyboard focus, then dispatch the key event to the main window.
-        // TODO: How to determine which window is the main window?
-        // For now, just dispatch to all windows.
-        for ev in key_events.read() {
-            for window in windows.iter() {
+        // If no element has keyboard focus, then dispatch the key event to the primary window.
+        // There should be only one primary window.
+        if let Ok(window) = windows.get_single() {
+            for ev in key_events.read() {
                 commands.trigger_targets(FocusKeyboardInput(ev.clone()), window);
             }
         }
