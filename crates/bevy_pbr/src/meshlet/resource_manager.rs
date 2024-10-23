@@ -342,9 +342,6 @@ pub fn prepare_meshlet_per_frame_resources(
         &render_queue,
     );
 
-    // Early submission for GPU data uploads to start while the render graph records commands
-    render_queue.submit([]);
-
     let needed_buffer_size = 4 * instance_manager.scene_cluster_count as u64;
     match &mut resource_manager.cluster_instance_ids {
         Some(buffer) if buffer.size() >= needed_buffer_size => buffer.clone(),
