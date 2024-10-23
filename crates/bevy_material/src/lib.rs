@@ -1,3 +1,4 @@
+pub mod component;
 pub mod material;
 pub mod renderer;
 
@@ -10,32 +11,22 @@ mod tests {
     use bevy_app::App;
     use bevy_reflect::Reflect;
 
-    use crate::{prelude::Material, renderer::Renderer};
+    use crate::component::MaterialComponent;
+    use crate::material_trait_alias;
+    use crate::renderer::MaterialPipeline;
 
     #[derive(Reflect)]
-    pub struct TestRenderer;
+    pub struct TestPipeline;
 
-    impl Renderer for TestRenderer {
+    type TestMeshMaterial<M> = MaterialComponent<M, TestPipeline>;
+
+    material_trait_alias!(TestMaterial, TestPipeline);
+
+    impl MaterialPipeline for TestPipeline {
         type MaterialProperties = ();
         type ShaderKey = ();
-        type PipelineInfo<'a, M: Material<Self>> = ();
-        type QueueParam = ();
-        type SourceComponent<M: Material<Self>> = ();
+        type PipelineInfo<'a, M: TestMaterial> = ();
 
-        fn source_asset_id<M: Material<Self>>(
-            source: &Self::SourceComponent<M>,
-        ) -> bevy_asset::AssetId<M> {
-            todo!()
-        }
-
-        fn material_plugin<M: Material<Self>>(app: &mut App) {}
-
-        fn queue_one<M: Material<Self>>(
-            material: &M::Data,
-            queuing_info: &Self::MaterialProperties,
-            param: &mut bevy_ecs::system::SystemParamItem<Self::QueueParam>,
-        ) -> Result<(), crate::renderer::QueueError> {
-            todo!()
-        }
+        fn material_plugin<M: TestMaterial>(app: &mut App) {}
     }
 }

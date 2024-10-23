@@ -18,44 +18,37 @@ use bevy_render::{
     Extract, ExtractSchedule, RenderApp,
 };
 
-use crate::renderer::Renderer;
+use crate::component::MaterialComponent;
+use crate::renderer::MaterialPipeline;
 
-pub enum SpecializeMaterialPipelineError {}
+pub enum SpecializeMaterialError {}
 
 pub trait BaseMaterial: Asset + AsBindGroup + Clone + Sized {}
 
 impl<T: Asset + AsBindGroup + Clone + Sized> BaseMaterial for T {}
 
-pub trait Material<R: Renderer>: BaseMaterial {
-    fn properties(&self) -> R::MaterialProperties;
-    fn shaders(key: R::ShaderKey) -> Option<AssetPath<'static>>;
-    fn specialize(info: R::PipelineInfo<'_, Self>) -> Result<(), SpecializeMaterialPipelineError>;
+pub trait Material<P: MaterialPipeline>: BaseMaterial {
+    fn properties(&self) -> P::MaterialProperties;
+    fn shaders(key: P::ShaderKey) -> Option<AssetPath<'static>>;
+    fn specialize(info: P::PipelineInfo<'_, Self>) -> Result<(), SpecializeMaterialError>;
 }
 
-pub struct MaterialPlugin<M: Material<R>, R: Renderer>(PhantomData<fn(M, R)>);
+pub struct BaseMaterialPlugin<M: BaseMaterial>(PhantomData<fn(M)>);
 
-impl<M: Material<R>, R: Renderer> Plugin for MaterialPlugin<M, R> {
+impl<M: BaseMaterial> Default for BaseMaterialPlugin<M> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<M: BaseMaterial> Plugin for BaseMaterialPlugin<M> {
     fn build(&self, app: &mut App) {
-        let has_any_resource_plugin = app.world().get_resource::<AnyMaterialPlugin<M>>().is_some();
-
-        app.add_plugins(R::material_plugin::<M>);
-
-        if !has_any_resource_plugin {
-            if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-                render_app.add_systems(ExtractSchedule, clear_material_instances::<M>);
-            }
-
-            app.init_asset::<M>()
-                .register_type::<R::SourceComponent<M>>()
-                .add_plugins(RenderAssetPlugin::<MaterialBindGroup<M>>::default())
-                .init_resource::<AnyMaterialPlugin<M>>();
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_systems(ExtractSchedule, clear_material_instances::<M>);
         }
 
-        app.add_plugins(RenderAssetPlugin::<PreparedMaterialProperties<M, R>>::default());
-        app.add_systems(
-            ExtractSchedule,
-            extract_materials::<M, R>.after(clear_material_instances::<M>),
-        );
+        app.init_asset::<M>()
+            .add_plugins(RenderAssetPlugin::<MaterialBindGroup<M>>::default());
     }
 
     fn finish(&self, app: &mut App) {
@@ -65,33 +58,43 @@ impl<M: Material<R>, R: Renderer> Plugin for MaterialPlugin<M, R> {
     }
 }
 
+pub struct MaterialPlugin<M: Material<P>, P: MaterialPipeline>(PhantomData<fn(M, P)>);
+
+impl<M: Material<P>, P: MaterialPipeline> Default for MaterialPlugin<M, P> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<M: Material<P>, P: MaterialPipeline> Plugin for MaterialPlugin<M, P> {
+    fn build(&self, app: &mut App) {
+        app.register_type::<MaterialComponent<M, P>>()
+            .add_plugins((
+                BaseMaterialPlugin::<M>::default(),
+                RenderAssetPlugin::<PreparedMaterialProperties<M, P>>::default(),
+                P::material_plugin::<M>,
+            ))
+            .add_systems(
+                ExtractSchedule,
+                extract_materials::<M, P>.after(clear_material_instances::<M>),
+            );
+    }
+}
+
 fn clear_material_instances<M: BaseMaterial>(
     mut material_instances: ResMut<RenderMaterialInstances<M>>,
 ) {
     material_instances.clear();
 }
 
-fn extract_materials<M: Material<R>, R: Renderer>(
+fn extract_materials<M: Material<R>, R: MaterialPipeline>(
     mut material_instances: ResMut<RenderMaterialInstances<M>>,
-    materials: Extract<Query<(&MainEntity, &ViewVisibility, &R::SourceComponent<M>)>>,
+    materials: Extract<Query<(&MainEntity, &ViewVisibility, &MaterialComponent<M, R>)>>,
 ) {
     for (main_entity, view_visibility, material) in &materials {
         if view_visibility.get() {
-            material_instances.insert(*main_entity, R::source_asset_id(material));
+            material_instances.insert(*main_entity, material.id());
         }
-    }
-}
-
-fn queue_materials<M: Material<R>, R: Renderer>() {}
-
-#[derive(Resource)]
-pub struct AnyMaterialPlugin<M: BaseMaterial> {
-    _data: PhantomData<M>,
-}
-
-impl<M: BaseMaterial> Default for AnyMaterialPlugin<M> {
-    fn default() -> Self {
-        Self { _data: PhantomData }
     }
 }
 
@@ -138,13 +141,13 @@ impl<M: BaseMaterial> RenderAsset for MaterialBindGroup<M> {
 }
 
 #[derive(Deref)]
-struct PreparedMaterialProperties<M: Material<R>, R: Renderer> {
+pub struct PreparedMaterialProperties<M: Material<R>, R: MaterialPipeline> {
     #[deref]
-    properties: R::MaterialProperties,
+    pub properties: R::MaterialProperties,
     _data: PhantomData<M>,
 }
 
-impl<M: Material<R>, R: Renderer> PreparedMaterialProperties<M, R> {
+impl<M: Material<R>, R: MaterialPipeline> PreparedMaterialProperties<M, R> {
     pub fn new(material: &M) -> Self {
         Self {
             properties: material.properties(),
@@ -153,7 +156,7 @@ impl<M: Material<R>, R: Renderer> PreparedMaterialProperties<M, R> {
     }
 }
 
-impl<M: Material<R>, R: Renderer> RenderAsset for PreparedMaterialProperties<M, R> {
+impl<M: Material<P>, P: MaterialPipeline> RenderAsset for PreparedMaterialProperties<M, P> {
     type SourceAsset = M;
 
     type Param = ();
@@ -169,7 +172,7 @@ impl<M: Material<R>, R: Renderer> RenderAsset for PreparedMaterialProperties<M, 
 #[derive(Resource, Deref)]
 pub struct MaterialLayout<M: BaseMaterial> {
     #[deref]
-    layout: BindGroupLayout,
+    pub layout: BindGroupLayout,
     _data: PhantomData<M>,
 }
 
@@ -182,3 +185,6 @@ impl<M: BaseMaterial> FromWorld for MaterialLayout<M> {
         }
     }
 }
+
+//TODO: material pipelines resource, specializer?
+//TODO
