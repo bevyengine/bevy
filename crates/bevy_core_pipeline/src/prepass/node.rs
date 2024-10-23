@@ -37,6 +37,7 @@ impl ViewNode for PrepassNode {
         Option<&'static SkyboxPrepassBindGroup>,
         Option<&'static PreviousViewUniformOffset>,
     );
+    type ViewFilter = ();
 
     fn run<'w>(
         &self,

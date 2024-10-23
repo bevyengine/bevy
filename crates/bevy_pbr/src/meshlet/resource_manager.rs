@@ -5,6 +5,7 @@ use bevy_core_pipeline::{
     core_3d::Camera3d,
     prepass::{PreviousViewData, PreviousViewUniforms},
 };
+use bevy_ecs::prelude::With;
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
@@ -12,6 +13,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_math::{UVec2, Vec4Swizzles};
+use bevy_render::camera::ExtractedCamera;
 use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
@@ -303,12 +305,15 @@ fn upload_storage_buffer<T: ShaderSize + bytemuck::NoUninit>(
 pub fn prepare_meshlet_per_frame_resources(
     mut resource_manager: ResMut<ResourceManager>,
     mut instance_manager: ResMut<InstanceManager>,
-    views: Query<(
-        Entity,
-        &ExtractedView,
-        Option<&RenderLayers>,
-        AnyOf<(&Camera3d, &ShadowView)>,
-    )>,
+    views: Query<
+        (
+            Entity,
+            &ExtractedView,
+            Option<&RenderLayers>,
+            AnyOf<(&Camera3d, &ShadowView)>,
+        ),
+        With<ExtractedCamera>,
+    >,
     mut texture_cache: ResMut<TextureCache>,
     render_queue: Res<RenderQueue>,
     render_device: Res<RenderDevice>,

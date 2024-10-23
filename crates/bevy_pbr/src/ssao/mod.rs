@@ -17,6 +17,8 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::extract_component::ExtractComponentPlugin;
+use bevy_render::render_component::{RenderComponent, RenderComponentPlugin};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
@@ -30,7 +32,6 @@ use bevy_render::{
         *,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
-    sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -74,7 +75,10 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
 
         app.register_type::<ScreenSpaceAmbientOcclusion>();
 
-        app.add_plugins(SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default());
+        app.add_plugins((
+            ExtractComponentPlugin::<ScreenSpaceAmbientOcclusion>::default(),
+            RenderComponentPlugin::<UseScreenSpaceAmbientOcclusion>::default(),
+        ));
     }
 
     fn finish(&self, app: &mut App) {
@@ -185,6 +189,9 @@ impl Default for ScreenSpaceAmbientOcclusion {
     }
 }
 
+#[derive(Component, RenderComponent)]
+pub struct UseScreenSpaceAmbientOcclusion;
+
 #[deprecated(since = "0.15.0", note = "Renamed to `ScreenSpaceAmbientOcclusion`")]
 pub type ScreenSpaceAmbientOcclusionSettings = ScreenSpaceAmbientOcclusion;
 
@@ -228,6 +235,7 @@ impl ViewNode for SsaoNode {
         &'static SsaoBindGroups,
         &'static ViewUniformOffset,
     );
+    type ViewFilter = ();
 
     fn run(
         &self,
@@ -521,12 +529,17 @@ fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<
-            (RenderEntity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
-            (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
+            (RenderEntity, &Camera, &Msaa),
+            (
+                With<Camera3d>,
+                With<DepthPrepass>,
+                With<NormalPrepass>,
+                With<ScreenSpaceAmbientOcclusion>,
+            ),
         >,
     >,
 ) {
-    for (entity, camera, ssao_settings, msaa) in &cameras {
+    for (entity, camera, msaa) in &cameras {
         if *msaa != Msaa::Off {
             error!(
                 "SSAO is being used which requires Msaa::Off, but Msaa is currently set to Msaa::{:?}",
@@ -534,13 +547,10 @@ fn extract_ssao_settings(
             );
             return;
         }
-        let mut entity_commands = commands
-            .get_entity(entity)
-            .expect("SSAO entity wasn't synced.");
         if camera.is_active {
-            entity_commands.insert(ssao_settings.clone());
-        } else {
-            entity_commands.remove::<ScreenSpaceAmbientOcclusion>();
+            commands
+                .entity(entity)
+                .insert(UseScreenSpaceAmbientOcclusion);
         }
     }
 }
@@ -558,7 +568,10 @@ fn prepare_ssao_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion)>,
+    views: Query<
+        (Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion),
+        With<UseScreenSpaceAmbientOcclusion>,
+    >,
 ) {
     for (entity, camera, ssao_settings) in &views {
         let Some(physical_viewport_size) = camera.physical_viewport_size else {

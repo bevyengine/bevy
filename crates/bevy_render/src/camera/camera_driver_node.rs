@@ -1,21 +1,23 @@
+use crate::camera::CameraActive;
 use crate::{
     camera::{ClearColor, ExtractedCamera, NormalizedRenderTarget, SortedCameras},
     render_graph::{Node, NodeRunError, RenderGraphContext},
     renderer::RenderContext,
     view::ExtractedWindows,
 };
+use bevy_ecs::query::With;
 use bevy_ecs::{prelude::QueryState, world::World};
 use bevy_utils::HashSet;
 use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp};
 
 pub struct CameraDriverNode {
-    cameras: QueryState<&'static ExtractedCamera>,
+    cameras: QueryState<&'static ExtractedCamera, With<CameraActive>>,
 }
 
 impl CameraDriverNode {
     pub fn new(world: &mut World) -> Self {
         Self {
-            cameras: world.query(),
+            cameras: world.query_filtered(),
         }
     }
 }

@@ -46,6 +46,7 @@ use bevy_ecs::{
 };
 use bevy_math::{vec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::camera::CameraActive;
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -695,7 +696,10 @@ fn prepare_smaa_textures(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
-    view_targets: Query<(Entity, &ExtractedCamera), (With<ExtractedView>, With<Smaa>)>,
+    view_targets: Query<
+        (Entity, &ExtractedCamera),
+        (With<ExtractedView>, With<Smaa>, With<CameraActive>),
+    >,
 ) {
     for (entity, camera) in &view_targets {
         let Some(texture_size) = camera.physical_target_size else {
@@ -834,6 +838,7 @@ impl ViewNode for SmaaNode {
         Read<SmaaTextures>,
         Read<SmaaBindGroups>,
     );
+    type ViewFilter = ();
 
     fn run<'w>(
         &self,

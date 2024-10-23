@@ -29,6 +29,8 @@ impl ViewNode for MotionBlurNode {
         &'static MotionBlur,
         &'static Msaa,
     );
+    type ViewFilter = ();
+
     fn run(
         &self,
         _graph: &mut RenderGraphContext,

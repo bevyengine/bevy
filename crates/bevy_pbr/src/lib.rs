@@ -116,6 +116,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
+use bevy_render::render_component::RenderComponentPlugin;
 use bevy_render::{
     alpha::AlphaMode,
     camera::{
@@ -350,6 +351,10 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<DirectionalLight>::default(),
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),
+            ))
+            .add_plugins((
+                RenderComponentPlugin::<UseClustering>::default(),
+                RenderComponentPlugin::<VisibleLight>::default(),
             ))
             .configure_sets(
                 PostUpdate,

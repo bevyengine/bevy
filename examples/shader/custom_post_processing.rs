@@ -132,6 +132,7 @@ impl ViewNode for PostProcessNode {
         // we need to get the index of the one that is associated with the current view.
         &'static DynamicUniformIndex<PostProcessSettings>,
     );
+    type ViewFilter = ();
 
     // Runs the node logic
     // This is where you encode draw commands.

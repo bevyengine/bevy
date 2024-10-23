@@ -34,6 +34,7 @@ use bevy_asset::UntypedAssetId;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::render_component::RenderComponent;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_phase::{
@@ -72,7 +73,7 @@ pub struct MotionVectorPrepass;
 #[reflect(Component, Default)]
 pub struct DeferredPrepass;
 
-#[derive(Component, ShaderType, Clone)]
+#[derive(Component, RenderComponent, ShaderType, Clone)]
 pub struct PreviousViewData {
     pub view_from_world: Mat4,
     pub clip_from_world: Mat4,

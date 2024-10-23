@@ -8,6 +8,7 @@ pub use settings::{
     Bloom, BloomCompositeMode, BloomPrefilter, BloomPrefilterSettings, BloomSettings,
 };
 
+use crate::bloom::settings::UseBloom;
 use crate::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
@@ -16,6 +17,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::{ops, UVec2};
+use bevy_render::render_component::RenderComponentPlugin;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -53,6 +55,7 @@ impl Plugin for BloomPlugin {
         app.add_plugins((
             ExtractComponentPlugin::<Bloom>::default(),
             UniformComponentPlugin::<BloomUniforms>::default(),
+            RenderComponentPlugin::<UseBloom>::default(),
         ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -107,6 +110,7 @@ impl ViewNode for BloomNode {
         &'static UpsamplingPipelineIds,
         &'static BloomDownsamplingPipelineIds,
     );
+    type ViewFilter = With<UseBloom>;
 
     // Atypically for a post-processing effect, we do not need to
     // use a secondary texture normally provided by view_target.post_process_write(),
@@ -327,7 +331,7 @@ fn prepare_bloom_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera, &Bloom)>,
+    views: Query<(Entity, &ExtractedCamera, &Bloom), With<UseBloom>>,
 ) {
     for (entity, camera, bloom) in &views {
         if let Some(UVec2 {

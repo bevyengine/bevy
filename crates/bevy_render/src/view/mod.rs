@@ -5,6 +5,7 @@ use bevy_asset::{load_internal_asset, Handle};
 pub use visibility::*;
 pub use window::*;
 
+use crate::camera::CameraActive;
 use crate::{
     camera::{
         CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
@@ -815,7 +816,7 @@ pub fn prepare_view_attachments(
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<GpuImage>>,
     manual_texture_views: Res<ManualTextureViews>,
-    cameras: Query<&ExtractedCamera>,
+    cameras: Query<&ExtractedCamera, With<CameraActive>>,
     mut view_target_attachments: ResMut<ViewTargetAttachments>,
 ) {
     for camera in cameras.iter() {

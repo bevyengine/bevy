@@ -31,6 +31,7 @@ pub mod mesh;
 pub mod pipelined_rendering;
 pub mod primitives;
 pub mod render_asset;
+pub mod render_component;
 pub mod render_graph;
 pub mod render_phase;
 pub mod render_resource;
