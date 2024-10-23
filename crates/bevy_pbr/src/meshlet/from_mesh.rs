@@ -301,7 +301,7 @@ fn find_connected_meshlets(
     connected_meshlets_per_meshlet
 }
 
-// METIS manual: http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/manual.pdf
+// METIS manual: https://github.com/KarypisLab/METIS/blob/e0f1b88b8efcb24ffa0ec55eabb78fbe61e58ae7/manual/manual.pdf
 fn group_meshlets(
     connected_meshlets_per_meshlet: &[Vec<(usize, usize)>],
     simplification_queue: &[usize],
