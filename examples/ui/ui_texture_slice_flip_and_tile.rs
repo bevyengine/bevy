@@ -58,7 +58,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ] {
                 parent.spawn((
                     UiImage {
-                        texture: image.clone(),
+                        image: image.clone(),
                         flip_x,
                         flip_y,
                         ..default()

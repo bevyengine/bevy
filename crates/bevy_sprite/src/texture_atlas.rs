@@ -1,5 +1,4 @@
 use bevy_asset::{Asset, AssetId, Assets, Handle};
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{URect, UVec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
@@ -152,7 +151,7 @@ impl TextureAtlasLayout {
     }
 }
 
-/// Component used to draw a specific section of a texture.
+/// An index into a [`TextureAtlasLayout`], which corresponds to a specific section of a texture.
 ///
 /// It stores a handle to [`TextureAtlasLayout`] and the index of the current section of the atlas.
 /// The texture atlas contains various *sections* of a given texture, allowing users to have a single
@@ -164,8 +163,8 @@ impl TextureAtlasLayout {
 /// - [`animated sprite sheet example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
 /// - [`sprite animation event example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_animation.rs)
 /// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
-#[derive(Component, Default, Debug, Clone, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[derive(Default, Debug, Clone, Reflect)]
+#[reflect(Default, Debug)]
 pub struct TextureAtlas {
     /// Texture atlas layout handle
     pub layout: Handle<TextureAtlasLayout>,
