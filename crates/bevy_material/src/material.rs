@@ -82,14 +82,6 @@ fn extract_materials<M: Material<P>, P: MaterialPipeline>(
     }
 }
 
-#[macro_export]
-macro_rules! material_trait_alias {
-    ($name: ident, $renderer: ident) => {
-        pub trait $name: $crate::material::Material<$renderer> {}
-        impl<T: $crate::material::Material<$renderer>> $name for T {}
-    };
-}
-
 /// Stores all extracted instances of a [`Material`] in the render world.
 #[derive(Resource, Deref, DerefMut)]
 pub struct RenderMaterialInstances<M: Material<P>, P: MaterialPipeline> {

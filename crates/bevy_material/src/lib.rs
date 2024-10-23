@@ -14,21 +14,19 @@ mod tests {
 
     use crate::component::MaterialComponent;
     use crate::material_pipeline::MaterialPipeline;
-    use crate::material_trait_alias;
+    use crate::prelude::Material;
 
     #[derive(Reflect)]
     pub struct TestPipeline;
 
-    type TestMeshMaterial<M> = MaterialComponent<M, TestPipeline>;
-
-    material_trait_alias!(TestMaterial, TestPipeline);
+    type TestMaterial<M> = MaterialComponent<M, TestPipeline>;
 
     impl MaterialPipeline for TestPipeline {
         type MaterialProperties = ();
         type ShaderKey = ();
-        type PipelineInfo<'a, M: TestMaterial> = ();
+        type PipelineInfo<'a, M: Material<Self>> = ();
 
-        fn material_plugin<M: TestMaterial>() -> impl Plugin {
+        fn material_plugin<M: Material<Self>>() -> impl Plugin {
             |_: &mut App| {}
         }
     }
