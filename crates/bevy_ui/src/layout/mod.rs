@@ -351,12 +351,10 @@ with UI components as a child of an entity without UI components, your UI layout
 
             absolute_location += layout_location;
 
-            let rounded_size = approx_round_layout_coords(absolute_location + layout_size)
-                - approx_round_layout_coords(absolute_location);
+            let rounded_size = (absolute_location + layout_size) - (absolute_location);
 
             let rounded_location =
-                approx_round_layout_coords(layout_location - parent_scroll_position)
-                    + 0.5 * (rounded_size - parent_size);
+                (layout_location - parent_scroll_position) + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
             if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
@@ -423,10 +421,9 @@ with UI components as a child of an entity without UI components, your UI layout
                 })
                 .unwrap_or_default();
 
-            let round_content_size = approx_round_layout_coords(
+            let round_content_size =
                 Vec2::new(layout.content_size.width, layout.content_size.height)
-                    * inverse_target_scale_factor,
-            );
+                    * inverse_target_scale_factor;
             let max_possible_offset = (round_content_size - rounded_size).max(Vec2::ZERO);
             let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
 
@@ -454,27 +451,6 @@ with UI components as a child of an entity without UI components, your UI layout
     }
 }
 
-#[inline]
-/// Round `value` to the nearest whole integer, with ties (values with a fractional part equal to 0.5) rounded towards positive infinity.
-fn approx_round_ties_up(value: f32) -> f32 {
-    (value + 0.5).floor()
-}
-
-#[inline]
-/// Rounds layout coordinates by rounding ties upwards.
-///
-/// Rounding ties up avoids gaining a pixel when rounding bounds that span from negative to positive.
-///
-/// Example: The width between bounds of -50.5 and 49.5 before rounding is 100, using:
-/// - `f32::round`: width becomes 101 (rounds to -51 and 50).
-/// - `round_ties_up`: width is 100 (rounds to -50 and 50).
-fn approx_round_layout_coords(value: Vec2) -> Vec2 {
-    Vec2 {
-        x: approx_round_ties_up(value.x),
-        y: approx_round_ties_up(value.y),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use taffy::TraversePartialTree;
@@ -493,7 +469,7 @@ mod tests {
     use bevy_hierarchy::{
         despawn_with_children_recursive, BuildChildren, ChildBuild, Children, Parent,
     };
-    use bevy_math::{vec2, Rect, UVec2, Vec2};
+    use bevy_math::{Rect, UVec2, Vec2};
     use bevy_render::{
         camera::{ManualTextureViews, OrthographicProjection},
         prelude::Camera,
@@ -510,20 +486,9 @@ mod tests {
     };
 
     use crate::{
-        layout::{approx_round_layout_coords, ui_surface::UiSurface},
-        prelude::*,
-        ui_layout_system,
-        update::update_target_camera_system,
-        ContentSize, LayoutContext,
+        layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
+        update::update_target_camera_system, ContentSize, LayoutContext,
     };
-
-    #[test]
-    fn round_layout_coords_must_round_ties_up() {
-        assert_eq!(
-            approx_round_layout_coords(vec2(-50.5, 49.5)),
-            vec2(-50., 50.)
-        );
-    }
 
     // these window dimensions are easy to convert to and from percentage values
     const WINDOW_WIDTH: f32 = 1000.;
