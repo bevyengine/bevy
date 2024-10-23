@@ -44,18 +44,18 @@ pub fn ktx2_buffer_to_image(
 
     // Handle supercompression
     let mut levels = if let Some(supercompression_scheme) = supercompression_scheme {
-        ktx2.levels().enumerate().filter_map(|(_level, _level_data)| {
+        ktx2.levels().enumerate().map(|(_level, _level_data)| {
             match supercompression_scheme {
                 #[cfg(feature = "flate2")]
                 SupercompressionScheme::ZLIB => {
                     let mut decoder = flate2::bufread::ZlibDecoder::new(_level_data);
                     let mut decompressed = Vec::new();
                     match decoder.read_to_end(&mut decompressed) {
-                        Ok(_) => Some(Ok(decompressed)),
+                        Ok(_) => Ok(decompressed),
                         Err(err) => {
-                            return Some(Err(TextureError::SuperDecompressionError(format!(
+                            Err(TextureError::SuperDecompressionError(format!(
                                 "Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",
-                            ))));
+                            )))
                         }
                     }
                 }
@@ -64,22 +64,22 @@ pub fn ktx2_buffer_to_image(
                     let mut cursor = std::io::Cursor::new(_level_data);
                     let mut decoder = match ruzstd::StreamingDecoder::new(&mut cursor) {
                         Ok(it) => it,
-                        Err(err) => return Some(Err(TextureError::SuperDecompressionError(err.to_string()))),
+                        Err(err) => return Err(TextureError::SuperDecompressionError(err.to_string())),
                     };
                     let mut decompressed = Vec::new();
                     match decoder.read_to_end(&mut decompressed) {
-                        Ok(_) => Some(Ok(decompressed)),
+                        Ok(_) => Ok(decompressed),
                         Err(err) => {
-                            return Some(Err(TextureError::SuperDecompressionError(format!(
+                            Err(TextureError::SuperDecompressionError(format!(
                                 "Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",
-                            ))));
+                            )))
                         }
                     }
                 }
                 _ => {
-                    return Some(Err(TextureError::SuperDecompressionError(format!(
+                    Err(TextureError::SuperDecompressionError(format!(
                         "Unsupported supercompression scheme: {supercompression_scheme:?}",
-                    ))));
+                    )))
                 }
             }
         }).collect::<Result<Vec<_>, _>>()? // Collect results and propagate errors
