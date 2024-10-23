@@ -96,9 +96,8 @@ fn change_window_size(
     }
 }
 
-fn sync_dimensions(dim: Res<Dimensions>, mut windows: Query<&mut Window>) {
+fn sync_dimensions(dim: Res<Dimensions>, mut window: Single<&mut Window>) {
     if dim.is_changed() {
-        let mut window = windows.single_mut();
         window.resolution.set(dim.width as f32, dim.height as f32);
     }
 }

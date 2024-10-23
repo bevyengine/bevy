@@ -83,7 +83,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
     commands.spawn((
         app_status.create_help_text(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -128,7 +128,7 @@ fn animate_light(
     mut lights: Query<&mut Transform, Or<(With<DirectionalLight>, With<PointLight>)>>,
     time: Res<Time>,
 ) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_secs();
     for mut transform in lights.iter_mut() {
         transform.translation = vec3(ops::cos(now), 1.0, ops::sin(now)) * vec3(3.0, 4.0, 3.0);
         transform.look_at(Vec3::ZERO, Vec3::Y);

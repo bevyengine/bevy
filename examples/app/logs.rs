@@ -21,7 +21,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
     commands.spawn((
         Text::new("Press P to panic"),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),

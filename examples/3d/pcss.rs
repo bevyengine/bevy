@@ -209,10 +209,7 @@ fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
 /// Spawns all the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
     commands
-        .spawn(NodeBundle {
-            style: widgets::main_ui_style(),
-            ..default()
-        })
+        .spawn(widgets::main_ui_node())
         .with_children(|parent| {
             widgets::spawn_option_buttons(
                 parent,
@@ -258,7 +255,7 @@ fn update_radio_buttons(
         Or<(With<RadioButton>, With<RadioButtonText>)>,
     >,
     app_status: Res<AppStatus>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     for (entity, image, has_text, sender) in widgets.iter_mut() {
         let selected = match **sender {

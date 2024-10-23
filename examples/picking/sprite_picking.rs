@@ -16,7 +16,7 @@ fn move_sprite(
     time: Res<Time>,
     mut sprite: Query<&mut Transform, (Without<Sprite>, With<Children>)>,
 ) {
-    let t = time.elapsed_seconds() * 0.1;
+    let t = time.elapsed_secs() * 0.1;
     for mut transform in &mut sprite {
         let new = Vec2 {
             x: 50.0 * ops::sin(t),
@@ -35,7 +35,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let sprite_size = Vec2::splat(len / 2.0);
 
     commands
-        .spawn(SpatialBundle::default())
+        .spawn((Transform::default(), Visibility::default()))
         .with_children(|commands| {
             for (anchor_index, anchor) in [
                 Anchor::TopLeft,

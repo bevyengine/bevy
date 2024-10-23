@@ -1019,7 +1019,7 @@ pub fn extract_cameras(
     mut commands: Commands,
     query: Extract<
         Query<(
-            &RenderEntity,
+            RenderEntity,
             &Camera,
             &CameraRenderGraph,
             &GlobalTransform,
@@ -1054,8 +1054,18 @@ pub fn extract_cameras(
     ) in query.iter()
     {
         if !camera.is_active {
+            commands.entity(render_entity).remove::<(
+                ExtractedCamera,
+                ExtractedView,
+                RenderVisibleEntities,
+                TemporalJitter,
+                RenderLayers,
+                Projection,
+                GpuCulling,
+            )>();
             continue;
         }
+
         let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
         if let (
@@ -1096,7 +1106,7 @@ pub fn extract_cameras(
                     })
                     .collect(),
             };
-            let mut commands = commands.entity(render_entity.id());
+            let mut commands = commands.entity(render_entity);
             commands.insert((
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),

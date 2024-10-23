@@ -15,7 +15,7 @@ use bevy_render::{
     view::{RenderLayers, VisibilitySystems},
 };
 use bevy_transform::{prelude::GlobalTransform, TransformSystem};
-use bevy_ui::{DefaultUiCamera, Display, Node, Style, TargetCamera, UiScale};
+use bevy_ui::{ComputedNode, DefaultUiCamera, Display, Node, TargetCamera, UiScale};
 use bevy_utils::{default, warn_once};
 use bevy_window::{PrimaryWindow, Window, WindowRef};
 
@@ -37,7 +37,7 @@ struct LayoutRect {
 }
 
 impl LayoutRect {
-    fn new(trans: &GlobalTransform, node: &Node, scale: f32) -> Self {
+    fn new(trans: &GlobalTransform, node: &ComputedNode, scale: f32) -> Self {
         let mut this = Self {
             pos: trans.translation().xy() * scale,
             size: node.size() * scale,
@@ -123,8 +123,8 @@ fn outline_nodes(outline: &OutlineParam, draw: &mut InsetGizmo, this_entity: Ent
         return;
     };
 
-    for (entity, trans, node, style, children) in outline.nodes.iter_many(to_iter) {
-        if style.is_none() || style.is_some_and(|s| matches!(s.display, Display::None)) {
+    for (entity, trans, node, computed_node, children) in outline.nodes.iter_many(to_iter) {
+        if matches!(node.display, Display::None) {
             continue;
         }
 
@@ -133,7 +133,7 @@ fn outline_nodes(outline: &OutlineParam, draw: &mut InsetGizmo, this_entity: Ent
                 continue;
             }
         }
-        let rect = LayoutRect::new(trans, node, scale);
+        let rect = LayoutRect::new(trans, computed_node, scale);
         outline_node(entity, rect, draw);
         if children.is_some() {
             outline_nodes(outline, draw, entity, scale);
@@ -146,7 +146,7 @@ type NodesQuery = (
     Entity,
     &'static GlobalTransform,
     &'static Node,
-    Option<&'static Style>,
+    &'static ComputedNode,
     Option<&'static Children>,
 );
 
@@ -178,7 +178,7 @@ fn outline_roots(
         (
             Entity,
             &GlobalTransform,
-            &Node,
+            &ComputedNode,
             Option<&ViewVisibility>,
             Option<&TargetCamera>,
         ),

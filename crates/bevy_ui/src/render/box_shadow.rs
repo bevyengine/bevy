@@ -1,7 +1,7 @@
 use core::{hash::Hash, ops::Range};
 
 use crate::{
-    BoxShadow, CalculatedClip, DefaultUiCamera, Node, RenderUiSystem, ResolvedBorderRadius,
+    BoxShadow, CalculatedClip, ComputedNode, DefaultUiCamera, RenderUiSystem, ResolvedBorderRadius,
     TargetCamera, TransparentUi, UiBoxShadowSamples, UiScale, Val,
 };
 use bevy_app::prelude::*;
@@ -239,7 +239,7 @@ pub fn extract_shadows(
     box_shadow_query: Extract<
         Query<(
             Entity,
-            &Node,
+            &ComputedNode,
             &GlobalTransform,
             &ViewVisibility,
             &BoxShadow,
@@ -247,7 +247,7 @@ pub fn extract_shadows(
             Option<&TargetCamera>,
         )>,
     >,
-    mapping: Extract<Query<&RenderEntity>>,
+    mapping: Extract<Query<RenderEntity>>,
 ) {
     for (entity, uinode, transform, view_visibility, box_shadow, clip, camera) in &box_shadow_query
     {
@@ -256,7 +256,7 @@ pub fn extract_shadows(
             continue;
         };
 
-        let Ok(&camera_entity) = mapping.get(camera_entity) else {
+        let Ok(camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -266,7 +266,7 @@ pub fn extract_shadows(
         }
 
         let ui_logical_viewport_size = camera_query
-            .get(camera_entity.id())
+            .get(camera_entity)
             .ok()
             .and_then(|(_, c)| c.logical_viewport_size())
             .unwrap_or(Vec2::ZERO)
@@ -321,7 +321,7 @@ pub fn extract_shadows(
                     max: shadow_size + 6. * blur_radius,
                 },
                 clip: clip.map(|clip| clip.clip),
-                camera_entity: camera_entity.id(),
+                camera_entity,
                 radius,
                 blur_radius,
                 size: shadow_size,
@@ -356,7 +356,7 @@ pub fn queue_shadows(
             &ui_slicer_pipeline,
             UiTextureSlicePipelineKey {
                 hdr: view.hdr,
-                samples: shadow_samples.map(|samples| samples.0).unwrap_or_default(),
+                samples: shadow_samples.copied().unwrap_or_default().0,
             },
         );
 

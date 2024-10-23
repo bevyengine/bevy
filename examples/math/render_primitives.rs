@@ -332,12 +332,12 @@ pub struct HeaderNode;
 
 fn update_active_cameras(
     state: Res<State<CameraActive>>,
-    mut camera_2d: Query<(Entity, &mut Camera), With<Camera2d>>,
-    mut camera_3d: Query<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
+    camera_2d: Single<(Entity, &mut Camera), With<Camera2d>>,
+    camera_3d: Single<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
     mut text: Query<&mut TargetCamera, With<HeaderNode>>,
 ) {
-    let (entity_2d, mut cam_2d) = camera_2d.single_mut();
-    let (entity_3d, mut cam_3d) = camera_3d.single_mut();
+    let (entity_2d, mut cam_2d) = camera_2d.into_inner();
+    let (entity_3d, mut cam_3d) = camera_3d.into_inner();
     let is_camera_2d_active = matches!(*state.get(), CameraActive::Dim2);
 
     cam_2d.is_active = is_camera_2d_active;
@@ -370,12 +370,9 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
     commands
         .spawn((
             HeaderNode,
-            NodeBundle {
-                style: Style {
-                    justify_self: JustifySelf::Center,
-                    top: Val::Px(5.0),
-                    ..Default::default()
-                },
+            Node {
+                justify_self: JustifySelf::Center,
+                top: Val::Px(5.0),
                 ..Default::default()
             },
             TargetCamera(active_camera),
@@ -408,7 +405,7 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
 fn update_text(
     primitive_state: Res<State<PrimitiveSelected>>,
     header: Query<Entity, With<HeaderText>>,
-    mut writer: UiTextWriter,
+    mut writer: TextUiWriter,
 ) {
     let new_text = format!("{text}", text = primitive_state.get());
     header.iter().for_each(|header_text| {
@@ -440,7 +437,7 @@ fn in_mode(active: CameraActive) -> impl Fn(Res<State<CameraActive>>) -> bool {
 
 fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time: Res<Time>) {
     const POSITION: Vec2 = Vec2::new(-LEFT_RIGHT_OFFSET_2D, 0.0);
-    let angle = time.elapsed_seconds();
+    let angle = time.elapsed_secs();
     let isometry = Isometry2d::new(POSITION, Rot2::radians(angle));
     let color = Color::WHITE;
 
@@ -605,7 +602,7 @@ fn rotate_primitive_2d_meshes(
     >,
     time: Res<Time>,
 ) {
-    let rotation_2d = Quat::from_mat3(&Mat3::from_angle(time.elapsed_seconds()));
+    let rotation_2d = Quat::from_mat3(&Mat3::from_angle(time.elapsed_secs()));
     primitives_2d
         .iter_mut()
         .filter(|(_, vis)| vis.get())
@@ -624,9 +621,9 @@ fn rotate_primitive_3d_meshes(
     let rotation_3d = Quat::from_rotation_arc(
         Vec3::Z,
         Vec3::new(
-            ops::sin(time.elapsed_seconds()),
-            ops::cos(time.elapsed_seconds()),
-            ops::sin(time.elapsed_seconds()) * 0.5,
+            ops::sin(time.elapsed_secs()),
+            ops::cos(time.elapsed_secs()),
+            ops::sin(time.elapsed_secs()) * 0.5,
         )
         .try_normalize()
         .unwrap_or(Vec3::Z),
@@ -644,9 +641,9 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
     let rotation = Quat::from_rotation_arc(
         Vec3::Z,
         Vec3::new(
-            ops::sin(time.elapsed_seconds()),
-            ops::cos(time.elapsed_seconds()),
-            ops::sin(time.elapsed_seconds()) * 0.5,
+            ops::sin(time.elapsed_secs()),
+            ops::cos(time.elapsed_secs()),
+            ops::sin(time.elapsed_secs()) * 0.5,
         )
         .try_normalize()
         .unwrap_or(Vec3::Z),

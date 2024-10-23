@@ -3,7 +3,7 @@
 use bevy::{
     prelude::*,
     render::{
-        camera::{RenderTarget, ScalingMode},
+        camera::RenderTarget,
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
@@ -136,7 +136,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 /// Rotates entities to demonstrate grid snapping.
 fn rotate(time: Res<Time>, mut transforms: Query<&mut Transform, With<Rotate>>) {
     for mut transform in &mut transforms {
-        let dt = time.delta_seconds();
+        let dt = time.delta_secs();
         transform.rotate_z(dt);
     }
 }
@@ -144,12 +144,11 @@ fn rotate(time: Res<Time>, mut transforms: Query<&mut Transform, With<Rotate>>) 
 /// Scales camera projection to fit the window (integer multiples only).
 fn fit_canvas(
     mut resize_events: EventReader<WindowResized>,
-    mut projections: Query<&mut OrthographicProjection, With<OuterCamera>>,
+    mut projection: Single<&mut OrthographicProjection, With<OuterCamera>>,
 ) {
     for event in resize_events.read() {
         let h_scale = event.width / RES_WIDTH as f32;
         let v_scale = event.height / RES_HEIGHT as f32;
-        let mut projection = projections.single_mut();
-        projection.scaling_mode = ScalingMode::WindowSize(h_scale.min(v_scale).round());
+        projection.scale = 1. / h_scale.min(v_scale).round();
     }
 }

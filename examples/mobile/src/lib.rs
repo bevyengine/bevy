@@ -38,25 +38,22 @@ fn main() {
 }
 
 fn touch_camera(
-    windows: Query<&Window>,
+    window: Single<&Window>,
     mut touches: EventReader<TouchInput>,
-    mut camera: Query<&mut Transform, With<Camera3d>>,
+    mut camera_transform: Single<&mut Transform, With<Camera3d>>,
     mut last_position: Local<Option<Vec2>>,
     mut rotations: EventReader<RotationGesture>,
 ) {
-    let window = windows.single();
-
     for touch in touches.read() {
         if touch.phase == TouchPhase::Started {
             *last_position = None;
         }
         if let Some(last_position) = *last_position {
-            let mut transform = camera.single_mut();
-            *transform = Transform::from_xyz(
-                transform.translation.x
+            **camera_transform = Transform::from_xyz(
+                camera_transform.translation.x
                     + (touch.position.x - last_position.x) / window.width() * 5.0,
-                transform.translation.y,
-                transform.translation.z
+                camera_transform.translation.y,
+                camera_transform.translation.z
                     + (touch.position.y - last_position.y) / window.height() * 5.0,
             )
             .looking_at(Vec3::ZERO, Vec3::Y);
@@ -65,9 +62,8 @@ fn touch_camera(
     }
     // Rotation gestures only work on iOS
     for rotation in rotations.read() {
-        let mut transform = camera.single_mut();
-        let forward = transform.forward();
-        transform.rotate_axis(forward, rotation.0 / 10.0);
+        let forward = camera_transform.forward();
+        camera_transform.rotate_axis(forward, rotation.0 / 10.0);
     }
 }
 
@@ -118,8 +114,9 @@ fn setup_scene(
 
     // Test ui
     commands
-        .spawn(ButtonBundle {
-            style: Style {
+        .spawn((
+            Button,
+            Node {
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 position_type: PositionType::Absolute,
@@ -128,15 +125,14 @@ fn setup_scene(
                 bottom: Val::Px(50.0),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_child((
             Text::new("Test Button"),
-            TextStyle {
+            TextFont {
                 font_size: 30.0,
-                color: Color::BLACK,
                 ..default()
             },
+            TextColor::BLACK,
             TextLayout::new_with_justify(JustifyText::Center),
         ));
 }

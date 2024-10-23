@@ -63,14 +63,11 @@ fn setup(
     // ui camera
     commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
             ..default()
         })
         .with_children(|parent| {
@@ -81,18 +78,16 @@ fn setup(
             ] {
                 parent
                     .spawn((
-                        ButtonBundle {
-                            style: Style {
-                                width: Val::Px(w),
-                                height: Val::Px(h),
-                                // horizontally center child text
-                                justify_content: JustifyContent::Center,
-                                // vertically center child text
-                                align_items: AlignItems::Center,
-                                margin: UiRect::all(Val::Px(20.0)),
-                                ..default()
-                            },
-                            image: texture_handle.clone().into(),
+                        Button,
+                        UiImage::new(texture_handle.clone()),
+                        Node {
+                            width: Val::Px(w),
+                            height: Val::Px(h),
+                            // horizontally center child text
+                            justify_content: JustifyContent::Center,
+                            // vertically center child text
+                            align_items: AlignItems::Center,
+                            margin: UiRect::all(Val::Px(20.0)),
                             ..default()
                         },
                         ImageScaleMode::Sliced(slicer.clone()),
@@ -104,12 +99,12 @@ fn setup(
                     .with_children(|parent| {
                         parent.spawn((
                             Text::new("Button"),
-                            TextStyle {
+                            TextFont {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 33.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
                                 ..default()
                             },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
                     });
             }

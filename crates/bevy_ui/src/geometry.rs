@@ -8,9 +8,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Represents the possible value types for layout properties.
 ///
-/// This enum allows specifying values for various [`Style`](crate::Style) properties in different units,
+/// This enum allows specifying values for various [`Node`](crate::Node) properties in different units,
 /// such as logical pixels, percentages, or automatically determined values.
-
 #[derive(Copy, Clone, Debug, Reflect)]
 #[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
@@ -19,7 +18,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     reflect(Serialize, Deserialize)
 )]
 pub enum Val {
-    /// Automatically determine the value based on the context and other [`Style`](crate::Style) properties.
+    /// Automatically determine the value based on the context and other [`Node`](crate::Node) properties.
     Auto,
     /// Set this value in logical pixels.
     Px(f32),
@@ -28,7 +27,7 @@ pub enum Val {
     /// If the UI node has no parent, the percentage is calculated based on the window's length
     /// along the corresponding axis.
     ///
-    /// The chosen axis depends on the [`Style`](crate::Style) field set:
+    /// The chosen axis depends on the [`Node`](crate::Node) field set:
     /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
     /// * For `gap`, `min_size`, `size`, and `max_size`:
     ///   - `width` is relative to the parent's width.
@@ -204,7 +203,7 @@ impl Val {
 /// A type which is commonly used to define margins, paddings and borders.
 ///
 /// # Examples
-
+///
 /// ## Margin
 ///
 /// A margin is used to create space around UI elements, outside of any defined borders.
@@ -244,7 +243,6 @@ impl Val {
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(

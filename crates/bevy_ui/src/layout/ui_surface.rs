@@ -7,11 +7,10 @@ use bevy_ecs::{
     prelude::Resource,
 };
 use bevy_math::UVec2;
-use bevy_utils::{default, tracing::warn};
+use bevy_utils::default;
 
-use crate::{
-    layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, NodeMeasure, Style,
-};
+use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
+use bevy_text::CosmicFontSystem;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootNodePair {
@@ -33,6 +32,8 @@ pub struct UiSurface {
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<EntityHashMap<taffy::NodeId>>();
+    _assert_send_sync::<EntityHashMap<EntityHashMap<taffy::NodeId>>>();
+    _assert_send_sync::<EntityHashMap<Vec<RootNodePair>>>();
     _assert_send_sync::<TaffyTree<NodeMeasure>>();
     _assert_send_sync::<UiSurface>();
 }
@@ -41,7 +42,9 @@ impl fmt::Debug for UiSurface {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("UiSurface")
             .field("entity_to_taffy", &self.entity_to_taffy)
+            .field("camera_entity_to_taffy", &self.camera_entity_to_taffy)
             .field("camera_roots", &self.camera_roots)
+            .field("taffy_children_scratch", &self.taffy_children_scratch)
             .finish()
     }
 }
@@ -67,7 +70,7 @@ impl UiSurface {
         &mut self,
         layout_context: &LayoutContext,
         entity: Entity,
-        style: &Style,
+        node: &Node,
         mut new_node_context: Option<NodeMeasure>,
     ) {
         let taffy = &mut self.taffy;
@@ -77,14 +80,11 @@ impl UiSurface {
             added = true;
             if let Some(measure) = new_node_context.take() {
                 taffy
-                    .new_leaf_with_context(
-                        convert::from_style(layout_context, style, true),
-                        measure,
-                    )
+                    .new_leaf_with_context(convert::from_node(node, layout_context, true), measure)
                     .unwrap()
             } else {
                 taffy
-                    .new_leaf(convert::from_style(layout_context, style, false))
+                    .new_leaf(convert::from_node(node, layout_context, false))
                     .unwrap()
             }
         });
@@ -102,7 +102,7 @@ impl UiSurface {
             taffy
                 .set_style(
                     taffy_node_id,
-                    convert::from_style(layout_context, style, has_measure),
+                    convert::from_node(node, layout_context, has_measure),
                 )
                 .unwrap();
         }
@@ -199,10 +199,8 @@ impl UiSurface {
         &mut self,
         camera: Entity,
         render_target_resolution: UVec2,
-        #[cfg(feature = "bevy_text")] buffer_query: &'a mut bevy_ecs::prelude::Query<
-            &mut bevy_text::ComputedTextBlock,
-        >,
-        #[cfg(feature = "bevy_text")] font_system: &'a mut bevy_text::cosmic_text::FontSystem,
+        buffer_query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
+        font_system: &'a mut CosmicFontSystem,
     ) {
         let Some(camera_root_nodes) = self.camera_roots.get(&camera) else {
             return;
@@ -225,7 +223,6 @@ impl UiSurface {
                      -> taffy::Size<f32> {
                         context
                             .map(|ctx| {
-                                #[cfg(feature = "bevy_text")]
                                 let buffer = get_text_buffer(
                                     crate::widget::TextMeasure::needs_buffer(
                                         known_dimensions.height,
@@ -240,12 +237,8 @@ impl UiSurface {
                                         height: known_dimensions.height,
                                         available_width: available_space.width,
                                         available_height: available_space.height,
-                                        #[cfg(feature = "bevy_text")]
                                         font_system,
-                                        #[cfg(feature = "bevy_text")]
                                         buffer,
-                                        #[cfg(not(feature = "bevy_text"))]
-                                        font_system: core::marker::PhantomData,
                                     },
                                     style,
                                 );
@@ -289,16 +282,11 @@ impl UiSurface {
                 .layout(*taffy_node)
                 .map_err(LayoutError::TaffyError)
         } else {
-            warn!(
-                "Styled child ({entity}) in a non-UI entity hierarchy. You are using an entity \
-with UI components as a child of an entity without UI components, your UI layout may be broken."
-            );
             Err(LayoutError::InvalidHierarchy)
         }
     }
 }
 
-#[cfg(feature = "bevy_text")]
 fn get_text_buffer<'a>(
     needs_buffer: bool,
     ctx: &mut NodeMeasure,
@@ -315,4 +303,394 @@ fn get_text_buffer<'a>(
         return None;
     };
     Some(computed.into_inner())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{ContentSize, FixedMeasure};
+    use bevy_math::Vec2;
+    use taffy::TraversePartialTree;
+
+    /// Checks if the parent of the `user_root_node` in a `RootNodePair`
+    /// is correctly assigned as the `implicit_viewport_node`.
+    fn is_root_node_pair_valid(
+        taffy_tree: &TaffyTree<NodeMeasure>,
+        root_node_pair: &RootNodePair,
+    ) -> bool {
+        taffy_tree.parent(root_node_pair.user_root_node)
+            == Some(root_node_pair.implicit_viewport_node)
+    }
+
+    /// Tries to get the root node pair for a given root node entity with the specified camera entity
+    fn get_root_node_pair_exact(
+        ui_surface: &UiSurface,
+        root_node_entity: Entity,
+        camera_entity: Entity,
+    ) -> Option<&RootNodePair> {
+        let root_node_pairs = ui_surface.camera_roots.get(&camera_entity)?;
+        let root_node_taffy = ui_surface.entity_to_taffy.get(&root_node_entity)?;
+        root_node_pairs
+            .iter()
+            .find(|&root_node_pair| root_node_pair.user_root_node == *root_node_taffy)
+    }
+
+    #[test]
+    fn test_initialization() {
+        let ui_surface = UiSurface::default();
+        assert!(ui_surface.entity_to_taffy.is_empty());
+        assert!(ui_surface.camera_entity_to_taffy.is_empty());
+        assert!(ui_surface.camera_roots.is_empty());
+        assert_eq!(ui_surface.taffy.total_node_count(), 0);
+    }
+
+    #[test]
+    fn test_upsert() {
+        let mut ui_surface = UiSurface::default();
+        let camera_entity = Entity::from_raw(0);
+        let root_node_entity = Entity::from_raw(1);
+        let node = Node::default();
+
+        // standard upsert
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+
+        // should be inserted into taffy
+        assert_eq!(ui_surface.taffy.total_node_count(), 1);
+        assert!(ui_surface.entity_to_taffy.contains_key(&root_node_entity));
+
+        // test duplicate insert 1
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+
+        // node count should not have increased
+        assert_eq!(ui_surface.taffy.total_node_count(), 1);
+
+        // assign root node to camera
+        ui_surface.set_camera_children(camera_entity, vec![root_node_entity].into_iter());
+
+        // each root node will create 2 taffy nodes
+        assert_eq!(ui_surface.taffy.total_node_count(), 2);
+
+        // root node pair should now exist
+        let root_node_pair = get_root_node_pair_exact(&ui_surface, root_node_entity, camera_entity)
+            .expect("expected root node pair");
+        assert!(is_root_node_pair_valid(&ui_surface.taffy, root_node_pair));
+
+        // test duplicate insert 2
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+
+        // node count should not have increased
+        assert_eq!(ui_surface.taffy.total_node_count(), 2);
+
+        // root node pair should be unaffected
+        let root_node_pair = get_root_node_pair_exact(&ui_surface, root_node_entity, camera_entity)
+            .expect("expected root node pair");
+        assert!(is_root_node_pair_valid(&ui_surface.taffy, root_node_pair));
+    }
+
+    #[test]
+    fn test_get_root_node_pair_exact() {
+        /// Attempts to find the camera entity that holds a reference to the given root node entity
+        fn get_associated_camera_entity(
+            ui_surface: &UiSurface,
+            root_node_entity: Entity,
+        ) -> Option<Entity> {
+            for (&camera_entity, root_node_map) in ui_surface.camera_entity_to_taffy.iter() {
+                if root_node_map.contains_key(&root_node_entity) {
+                    return Some(camera_entity);
+                }
+            }
+            None
+        }
+
+        /// Attempts to find the root node pair corresponding to the given root node entity
+        fn get_root_node_pair(
+            ui_surface: &UiSurface,
+            root_node_entity: Entity,
+        ) -> Option<&RootNodePair> {
+            let camera_entity = get_associated_camera_entity(ui_surface, root_node_entity)?;
+            get_root_node_pair_exact(ui_surface, root_node_entity, camera_entity)
+        }
+
+        let mut ui_surface = UiSurface::default();
+        let camera_entity = Entity::from_raw(0);
+        let root_node_entity = Entity::from_raw(1);
+        let node = Node::default();
+
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+
+        // assign root node to camera
+        ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
+
+        assert_eq!(
+            get_associated_camera_entity(&ui_surface, root_node_entity),
+            Some(camera_entity)
+        );
+        assert_eq!(
+            get_associated_camera_entity(&ui_surface, Entity::from_raw(2)),
+            None
+        );
+
+        let root_node_pair = get_root_node_pair(&ui_surface, root_node_entity);
+        assert!(root_node_pair.is_some());
+        assert_eq!(
+            Some(root_node_pair.unwrap().user_root_node).as_ref(),
+            ui_surface.entity_to_taffy.get(&root_node_entity)
+        );
+
+        assert_eq!(
+            get_root_node_pair_exact(&ui_surface, root_node_entity, camera_entity),
+            root_node_pair
+        );
+    }
+
+    #[allow(unreachable_code)]
+    #[test]
+    fn test_remove_camera_entities() {
+        let mut ui_surface = UiSurface::default();
+        let camera_entity = Entity::from_raw(0);
+        let root_node_entity = Entity::from_raw(1);
+        let node = Node::default();
+
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+
+        // assign root node to camera
+        ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
+
+        assert!(ui_surface
+            .camera_entity_to_taffy
+            .contains_key(&camera_entity));
+        assert!(ui_surface
+            .camera_entity_to_taffy
+            .get(&camera_entity)
+            .unwrap()
+            .contains_key(&root_node_entity));
+        assert!(ui_surface.camera_roots.contains_key(&camera_entity));
+        let root_node_pair = get_root_node_pair_exact(&ui_surface, root_node_entity, camera_entity)
+            .expect("expected root node pair");
+        assert!(ui_surface
+            .camera_roots
+            .get(&camera_entity)
+            .unwrap()
+            .contains(root_node_pair));
+
+        ui_surface.remove_camera_entities([camera_entity]);
+
+        // should not affect `entity_to_taffy`
+        assert!(ui_surface.entity_to_taffy.contains_key(&root_node_entity));
+
+        // `camera_roots` and `camera_entity_to_taffy` should no longer contain entries for `camera_entity`
+        assert!(!ui_surface
+            .camera_entity_to_taffy
+            .contains_key(&camera_entity));
+
+        return; // TODO: can't pass the test if we continue - not implemented (remove allow(unreachable_code))
+
+        assert!(!ui_surface.camera_roots.contains_key(&camera_entity));
+
+        // root node pair should be removed
+        let root_node_pair = get_root_node_pair_exact(&ui_surface, root_node_entity, camera_entity);
+        assert_eq!(root_node_pair, None);
+    }
+
+    #[allow(unreachable_code)]
+    #[test]
+    fn test_remove_entities() {
+        let mut ui_surface = UiSurface::default();
+        let camera_entity = Entity::from_raw(0);
+        let root_node_entity = Entity::from_raw(1);
+        let node = Node::default();
+
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+
+        ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
+
+        assert!(ui_surface.entity_to_taffy.contains_key(&root_node_entity));
+        assert!(ui_surface
+            .camera_entity_to_taffy
+            .get(&camera_entity)
+            .unwrap()
+            .contains_key(&root_node_entity));
+        let root_node_pair =
+            get_root_node_pair_exact(&ui_surface, root_node_entity, camera_entity).unwrap();
+        assert!(ui_surface
+            .camera_roots
+            .get(&camera_entity)
+            .unwrap()
+            .contains(root_node_pair));
+
+        ui_surface.remove_entities([root_node_entity]);
+        assert!(!ui_surface.entity_to_taffy.contains_key(&root_node_entity));
+
+        return; // TODO: can't pass the test if we continue - not implemented (remove allow(unreachable_code))
+
+        assert!(!ui_surface
+            .camera_entity_to_taffy
+            .get(&camera_entity)
+            .unwrap()
+            .contains_key(&root_node_entity));
+        assert!(!ui_surface
+            .camera_entity_to_taffy
+            .get(&camera_entity)
+            .unwrap()
+            .contains_key(&root_node_entity));
+        assert!(ui_surface
+            .camera_roots
+            .get(&camera_entity)
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn test_try_update_measure() {
+        let mut ui_surface = UiSurface::default();
+        let root_node_entity = Entity::from_raw(1);
+        let node = Node::default();
+
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+        let mut content_size = ContentSize::default();
+        content_size.set(NodeMeasure::Fixed(FixedMeasure { size: Vec2::ONE }));
+        let measure_func = content_size.measure.take().unwrap();
+        assert!(ui_surface
+            .update_node_context(root_node_entity, measure_func)
+            .is_some());
+    }
+
+    #[test]
+    fn test_update_children() {
+        let mut ui_surface = UiSurface::default();
+        let root_node_entity = Entity::from_raw(1);
+        let child_entity = Entity::from_raw(2);
+        let node = Node::default();
+
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, child_entity, &node, None);
+
+        ui_surface.update_children(root_node_entity, vec![child_entity].into_iter());
+
+        let parent_node = *ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
+        let child_node = *ui_surface.entity_to_taffy.get(&child_entity).unwrap();
+        assert_eq!(ui_surface.taffy.parent(child_node), Some(parent_node));
+    }
+
+    #[allow(unreachable_code)]
+    #[test]
+    fn test_set_camera_children() {
+        let mut ui_surface = UiSurface::default();
+        let camera_entity = Entity::from_raw(0);
+        let root_node_entity = Entity::from_raw(1);
+        let child_entity = Entity::from_raw(2);
+        let node = Node::default();
+
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, child_entity, &node, None);
+
+        let root_taffy_node = *ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
+        let child_taffy = *ui_surface.entity_to_taffy.get(&child_entity).unwrap();
+
+        // set up the relationship manually
+        ui_surface
+            .taffy
+            .add_child(root_taffy_node, child_taffy)
+            .unwrap();
+
+        ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
+
+        assert!(
+            ui_surface
+                .camera_entity_to_taffy
+                .get(&camera_entity)
+                .unwrap()
+                .contains_key(&root_node_entity),
+            "root node not associated with camera"
+        );
+        assert!(
+            !ui_surface
+                .camera_entity_to_taffy
+                .get(&camera_entity)
+                .unwrap()
+                .contains_key(&child_entity),
+            "child of root node should not be associated with camera"
+        );
+
+        let _root_node_pair =
+            get_root_node_pair_exact(&ui_surface, root_node_entity, camera_entity)
+                .expect("expected root node pair");
+
+        assert_eq!(ui_surface.taffy.parent(child_taffy), Some(root_taffy_node));
+        let root_taffy_children = ui_surface.taffy.children(root_taffy_node).unwrap();
+        assert!(
+            root_taffy_children.contains(&child_taffy),
+            "root node is not a parent of child node"
+        );
+        assert_eq!(
+            ui_surface.taffy.child_count(root_taffy_node),
+            1,
+            "expected root node child count to be 1"
+        );
+
+        // clear camera's root nodes
+        ui_surface.set_camera_children(camera_entity, Vec::<Entity>::new().into_iter());
+
+        return; // TODO: can't pass the test if we continue - not implemented (remove allow(unreachable_code))
+
+        assert!(
+            !ui_surface
+                .camera_entity_to_taffy
+                .get(&camera_entity)
+                .unwrap()
+                .contains_key(&root_node_entity),
+            "root node should have been unassociated with camera"
+        );
+        assert!(
+            !ui_surface
+                .camera_entity_to_taffy
+                .get(&camera_entity)
+                .unwrap()
+                .contains_key(&child_entity),
+            "child of root node should not be associated with camera"
+        );
+
+        let root_taffy_children = ui_surface.taffy.children(root_taffy_node).unwrap();
+        assert!(
+            root_taffy_children.contains(&child_taffy),
+            "root node is not a parent of child node"
+        );
+        assert_eq!(
+            ui_surface.taffy.child_count(root_taffy_node),
+            1,
+            "expected root node child count to be 1"
+        );
+
+        // re-associate root node with camera
+        ui_surface.set_camera_children(camera_entity, vec![root_node_entity].into_iter());
+
+        assert!(
+            ui_surface
+                .camera_entity_to_taffy
+                .get(&camera_entity)
+                .unwrap()
+                .contains_key(&root_node_entity),
+            "root node should have been re-associated with camera"
+        );
+        assert!(
+            !ui_surface
+                .camera_entity_to_taffy
+                .get(&camera_entity)
+                .unwrap()
+                .contains_key(&child_entity),
+            "child of root node should not be associated with camera"
+        );
+
+        let child_taffy = ui_surface.entity_to_taffy.get(&child_entity).unwrap();
+        let root_taffy_children = ui_surface.taffy.children(root_taffy_node).unwrap();
+        assert!(
+            root_taffy_children.contains(child_taffy),
+            "root node is not a parent of child node"
+        );
+        assert_eq!(
+            ui_surface.taffy.child_count(root_taffy_node),
+            1,
+            "expected root node child count to be 1"
+        );
+    }
 }

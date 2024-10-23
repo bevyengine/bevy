@@ -49,6 +49,9 @@ default = ["bevy_ui_picking_backend"]
 serialize = ["serde", "smallvec/serde", "bevy_math/serialize"]
 bevy_ui_picking_backend = ["bevy_picking"]
 
+# Experimental features
+ghost_nodes = []
+
 [lints]
 workspace = true
 

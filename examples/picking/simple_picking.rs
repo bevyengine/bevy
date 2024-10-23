@@ -20,7 +20,7 @@ fn setup(
     commands
         .spawn((
             Text::new("Click Me to get a box"),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Percent(12.0),
                 left: Val::Percent(12.0),
@@ -42,15 +42,15 @@ fn setup(
             },
         )
         .observe(
-            |evt: Trigger<Pointer<Out>>, mut texts: Query<&mut TextStyle>| {
-                let mut style = texts.get_mut(evt.entity()).unwrap();
-                style.color = Color::WHITE;
+            |evt: Trigger<Pointer<Out>>, mut texts: Query<&mut TextColor>| {
+                let mut color = texts.get_mut(evt.entity()).unwrap();
+                color.0 = Color::WHITE;
             },
         )
         .observe(
-            |evt: Trigger<Pointer<Over>>, mut texts: Query<&mut TextStyle>| {
-                let mut style = texts.get_mut(evt.entity()).unwrap();
-                style.color = CYAN_400.into();
+            |evt: Trigger<Pointer<Over>>, mut texts: Query<&mut TextColor>| {
+                let mut color = texts.get_mut(evt.entity()).unwrap();
+                color.0 = CYAN_400.into();
             },
         );
     // circular base

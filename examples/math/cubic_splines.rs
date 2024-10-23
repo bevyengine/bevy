@@ -75,18 +75,15 @@ fn setup(mut commands: Commands) {
         C: Toggle cyclic curve construction";
     let spline_mode_text = format!("Spline: {spline_mode}");
     let cycling_mode_text = format!("{cycling_mode}");
-    let style = TextStyle::default();
+    let style = TextFont::default();
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(20.0),
-                ..default()
-            },
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(20.0),
             ..default()
         })
         .with_children(|parent| {

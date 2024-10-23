@@ -70,7 +70,7 @@ fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
         for i in 0..(config.line_count / SYSTEM_COUNT) {
             let angle = i as f32 / (config.line_count / SYSTEM_COUNT) as f32 * TAU;
 
-            let vector = Vec2::from(ops::sin_cos(angle)).extend(ops::sin(time.elapsed_seconds()));
+            let vector = Vec2::from(ops::sin_cos(angle)).extend(ops::sin(time.elapsed_secs()));
             let start_color = LinearRgba::rgb(vector.x, vector.z, 0.5);
             let end_color = LinearRgba::rgb(-vector.z, -vector.y, 0.5);
 
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands) {
 
     commands.spawn((
         Text::default(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -98,9 +98,7 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
-    let mut text = query.single_mut();
-
+fn ui_system(mut text: Single<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
     let Some(fps) = diag
         .get(&FrameTimeDiagnosticsPlugin::FPS)
         .and_then(Diagnostic::smoothed)
@@ -108,7 +106,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
         return;
     };
 
-    **text = format!(
+    text.0 = format!(
         "Line count: {}\n\
         FPS: {:.0}\n\n\
         Controls:\n\

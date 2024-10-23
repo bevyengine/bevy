@@ -72,7 +72,7 @@ jobs:
         run: cargo run -p ci -- lints
 
   miri:
-    # Explicity use macOS 14 to take advantage of M1 chip.
+    # Explicitly use macOS 14 to take advantage of M1 chip.
     runs-on: macos-14
     timeout-minutes: 60
     steps:
@@ -243,7 +243,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.25.0
+        uses: crate-ci/typos@v1.26.0
       - name: Typos info
         if: failure()
         run: |
@@ -253,9 +253,8 @@ jobs:
           echo 'if you use VSCode, you can also install `Typos Spell Checker'
           echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tekumara.typos-vscode'
 
-
   run-examples-macos-metal:
-    # Explicity use macOS 14 to take advantage of M1 chip.
+    # Explicitly use macOS 14 to take advantage of M1 chip.
     runs-on: macos-14
     timeout-minutes: 30
     steps:
@@ -288,6 +287,10 @@ jobs:
         with:
           name: example-traces-macos
           path: traces
+      - name: Save PR number
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          echo ${{ github.event.number }} > ./screenshots/PR
       - name: save screenshots
         uses: actions/upload-artifact@v4
         with:
@@ -298,7 +301,7 @@ jobs:
         with:
           name: example-run-macos
           path: example-run/
-
+        
   check-doc:
     runs-on: ubuntu-latest
     timeout-minutes: 30

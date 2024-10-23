@@ -216,7 +216,7 @@ pub fn update_previous_view_data(
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct PreviousGlobalTransform(pub Affine3A);
 
 #[cfg(not(feature = "meshlet"))]
@@ -429,6 +429,10 @@ where
             shader_defs.push("DEFERRED_PREPASS".into());
         }
 
+        if key.mesh_key.contains(MeshPipelineKey::LIGHTMAPPED) {
+            shader_defs.push("LIGHTMAP".into());
+        }
+
         if layout.0.contains(Mesh::ATTRIBUTE_COLOR) {
             shader_defs.push("VERTEX_COLORS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(7));
@@ -581,18 +585,18 @@ where
 // Extract the render phases for the prepass
 pub fn extract_camera_previous_view_data(
     mut commands: Commands,
-    cameras_3d: Extract<Query<(&RenderEntity, &Camera, Option<&PreviousViewData>), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(RenderEntity, &Camera, Option<&PreviousViewData>), With<Camera3d>>>,
 ) {
     for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
+        let mut entity = commands
+            .get_entity(entity)
+            .expect("Camera entity wasn't synced.");
         if camera.is_active {
-            let entity = entity.id();
-            let mut entity = commands
-                .get_entity(entity)
-                .expect("Camera entity wasn't synced.");
-
             if let Some(previous_view_data) = maybe_previous_view_data {
                 entity.insert(previous_view_data.clone());
             }
+        } else {
+            entity.remove::<PreviousViewData>();
         }
     }
 }
