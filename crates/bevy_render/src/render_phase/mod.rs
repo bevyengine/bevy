@@ -62,6 +62,7 @@ use core::{
     slice::SliceIndex,
 };
 use smallvec::SmallVec;
+use bevy_utils::tracing::warn;
 
 /// Stores the rendering instructions for a single phase that uses bins in all
 /// views.
@@ -418,6 +419,9 @@ where
                 // Fetch the draw function.
                 let Some(draw_function) = draw_functions.get_mut(binned_phase_item.draw_function())
                 else {
+                    warn!(
+                        "No draw function found for phase item",
+                    );
                     continue;
                 };
 

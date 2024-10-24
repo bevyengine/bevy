@@ -308,7 +308,8 @@ where
                             .in_set(RenderSet::PrepareAssets)
                             .after(prepare_assets::<PreparedMaterial<M>>)
                             .after(prepare_assets::<RenderMesh>),
-                        update_mesh_material_instances::<M>.in_set(RenderSet::PrepareAssets),
+                        update_mesh_material_instances::<M>.in_set(RenderSet::PrepareAssets)
+                            .after(specialize_pipelines::<M>),
                         queue_shadows::<M>
                             .in_set(RenderSet::QueueMeshes)
                             .after(specialize_pipelines::<M>),
@@ -854,9 +855,6 @@ pub fn queue_material_meshes<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    let mut no_mesh_instance = 0;
-    let mut invalid_draw_function_id = 0;
-    let mut no_cached_pipeline = 0;
     for (view_entity, view, visible_entities) in &views {
         let (
             Some(opaque_phase),
@@ -877,16 +875,12 @@ pub fn queue_material_meshes<M: Material>(
         for (render_entity, visible_entity) in visible_entities.iter::<With<Mesh3d>>() {
             let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
             else {
-                no_mesh_instance += 1;
                 continue;
             };
             if mesh_instance.draw_function_id == DrawFunctionId::INVALID {
-                invalid_draw_function_id += 1;
             }
             let Some(pipeline) = specialized_pipeline_cache.get(&(view_entity, *visible_entity))
             else {
-                no_cached_pipeline += 1;
-
                 continue;
             };
 
@@ -1158,9 +1152,6 @@ pub fn check_entity_needs_specialization<M: Material>(
         }
     }
 
-    if !need_specialization.is_empty() {
-        dbg!(need_specialization.len());
-    }
     commands.insert_or_spawn_batch(
         need_specialization
             .into_iter()
@@ -1192,11 +1183,6 @@ fn specialize_pipelines<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    let mut no_material_asset_id = 0;
-    let mut no_mesh_instance = 0;
-    let mut no_mesh = 0;
-    let mut no_material = 0;
-    let mut no_view_key = 0;
     specialized.clear();
     for (view_entity, main_entity, visible_entities, msaa) in &views {
         if !opaque_3d_phases.contains_key(&view_entity)
@@ -1210,25 +1196,20 @@ fn specialize_pipelines<M: Material>(
         for (_, visible_entity) in visible_entities.iter::<With<Mesh3d>>() {
             if entities_to_specialize.entities.contains(visible_entity) {
                 let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
-                    no_material_asset_id += 1;
                     continue;
                 };
                 let Some(mesh_instance) =
                     render_mesh_instances.render_mesh_queue_data(*visible_entity)
                 else {
-                    no_mesh_instance += 1;
                     continue;
                 };
                 let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
-                    no_mesh += 1;
                     continue;
                 };
                 let Some(material) = render_materials.get(*material_asset_id) else {
-                    no_material += 1;
                     continue;
                 };
                 let Some(view_key) = view_key_cache.get(&main_entity.id()).copied() else {
-                    no_view_key += 1;
                     continue;
                 };
 
@@ -1286,20 +1267,5 @@ fn specialize_pipelines<M: Material>(
     }
     for entity in specialized.iter() {
         entities_to_specialize.entities.remove(entity);
-    }
-    if no_material_asset_id > 0 {
-        dbg!(no_material_asset_id);
-    }
-    if no_mesh_instance > 0 {
-        dbg!(no_mesh_instance);
-    }
-    if no_mesh > 0 {
-        dbg!(no_mesh);
-    }
-    if no_material > 0 {
-        dbg!(no_material);
-    }
-    if no_view_key > 0 {
-        dbg!(no_view_key);
     }
 }

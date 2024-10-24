@@ -74,6 +74,7 @@ use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{smallvec, SmallVec};
 use static_assertions::const_assert_eq;
+use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
 
 /// Provides support for rendering 3D meshes.
 #[derive(Default)]
@@ -346,6 +347,7 @@ pub fn check_views_need_specialization(
                 Has<RenderViewLightProbes<EnvironmentMapLight>>,
                 Has<RenderViewLightProbes<IrradianceVolume>>,
             ),
+            Has<OrderIndependentTransparencySettings>,
         ),
         With<Camera3d>,
     >,
@@ -364,6 +366,7 @@ pub fn check_views_need_specialization(
         temporal_jitter,
         projection,
         (has_environment_maps, has_irradiance_volumes),
+        has_oit,
     ) in &views
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
@@ -395,6 +398,10 @@ pub fn check_views_need_specialization(
 
         if has_irradiance_volumes {
             view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
+        }
+
+        if has_oit {
+            view_key |= MeshPipelineKey::OIT_ENABLED;
         }
 
         if let Some(projection) = projection {
@@ -436,8 +443,6 @@ pub fn check_views_need_specialization(
 
         if let Some(current_key) = view_key_cache.get_mut(&view_entity) {
             if *current_key != view_key {
-                dbg!(view_entity);
-                dbg!(view_key);
                 *current_key = view_key;
                 let batch = visible_entities
                     .iter::<With<Mesh3d>>()
@@ -448,8 +453,6 @@ pub fn check_views_need_specialization(
             }
         } else {
             view_key_cache.insert(view_entity, view_key);
-            dbg!(view_entity);
-            dbg!(view_key);
             let batch = visible_entities
                 .iter::<With<Mesh3d>>()
                 .copied()
