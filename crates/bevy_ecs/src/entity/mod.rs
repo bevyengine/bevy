@@ -59,6 +59,8 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
 use core::{fmt, hash::Hash, mem, num::NonZero, sync::atomic::Ordering};
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
@@ -955,6 +957,36 @@ impl Entities {
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
+
+    /// Sets the source code location from which this entity has last been spawned
+    /// or despawned.
+    #[cfg(feature = "track_change_detection")]
+    #[inline]
+    pub(crate) fn set_spawned_despawned_by(&mut self, index: u32, caller: &'static Location) {
+        let meta = self
+            .meta
+            .get_mut(index as usize)
+            .expect("Entity index invalid");
+        meta.spawned_despawned_by = caller;
+    }
+
+    /// Returns the source code location from which this entity has last been spawned
+    /// or despawned. Returns `None` if this entity has never existed.
+    /// In a removal hook or observer, this points to the despawn.
+    #[cfg(feature = "track_change_detection")]
+    pub fn get_entity_spawned_despawned_by(
+        &self,
+        entity: Entity,
+    ) -> Option<&'static Location<'static>> {
+        if let Some(meta) = self.meta.get(entity.index() as usize) {
+            if meta.spawned_despawned_by == EntityMeta::EMPTY.spawned_despawned_by {
+                return None;
+            }
+            Some(meta.spawned_despawned_by)
+        } else {
+            None
+        }
+    }
 }
 
 // This type is repr(C) to ensure that the layout and values within it can be safe to fully fill
@@ -969,6 +1001,9 @@ struct EntityMeta {
     pub generation: NonZero<u32>,
     /// The current location of the [`Entity`]
     pub location: EntityLocation,
+    /// Location of the last spawn or despawn of this entity
+    #[cfg(feature = "track_change_detection")]
+    spawned_despawned_by: &'static Location<'static>,
 }
 
 impl EntityMeta {
@@ -976,6 +1011,8 @@ impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: NonZero::<u32>::MIN,
         location: EntityLocation::INVALID,
+        #[cfg(feature = "track_change_detection")]
+        spawned_despawned_by: Location::caller(),
     };
 }
 
