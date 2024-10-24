@@ -49,11 +49,20 @@ fn sample_noise(uv: vec2<f32>, time: f32) -> vec3<f32> {
 }
 
 @fragment
-fn fragment(in: VertexOutput, @builtin(front_facing) is_front: bool) -> FragmentOutput {
+fn fragment(
+    in: VertexOutput, 
+    @builtin(front_facing) is_front: bool,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> FragmentOutput {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
     // Create the PBR input.
-    var pbr_input = pbr_input_from_standard_material(in, is_front);
+    var pbr_input = pbr_input_from_standard_material(view_index, in, is_front);
     // Bump the normal.
     pbr_input.N = sample_noise(in.uv, globals.time);
     // Send the rest to the deferred shader.
-    return deferred_output(in, pbr_input);
+    return deferred_output(view_index, in, pbr_input);
 }

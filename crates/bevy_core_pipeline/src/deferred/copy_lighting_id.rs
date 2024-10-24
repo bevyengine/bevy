@@ -160,6 +160,7 @@ impl FromWorld for CopyDeferredLightingIdPipeline {
                     }),
                     multisample: MultisampleState::default(),
                     push_constant_ranges: vec![],
+                    multiview: None,
                 });
 
         Self {

@@ -158,6 +158,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             },
             label: Some("LineGizmo Pipeline".into()),
             push_constant_ranges: vec![],
+            multiview: None,
         }
     }
 }
@@ -256,6 +257,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             },
             label: Some("LineJointGizmo Pipeline".into()),
             push_constant_ranges: vec![],
+            multiview: None,
         }
     }
 }

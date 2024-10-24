@@ -32,7 +32,15 @@ fn morph_vertex(vertex_in: Vertex) -> Vertex {
 #endif
 
 @vertex
-fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
+fn vertex(
+    vertex_no_morph: Vertex,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> VertexOutput {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
     var out: VertexOutput;
 
 #ifdef MORPH_TARGETS
@@ -64,7 +72,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
 #ifdef VERTEX_POSITIONS
     out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4<f32>(vertex.position, 1.0));
-    out.position = position_world_to_clip(out.world_position.xyz);
+    out.position = position_world_to_clip(view_index, out.world_position.xyz);
 #endif
 
 #ifdef VERTEX_UVS_A

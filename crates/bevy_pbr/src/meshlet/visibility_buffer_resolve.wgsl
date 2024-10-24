@@ -39,12 +39,12 @@ struct PartialDerivatives {
 }
 
 // https://github.com/ConfettiFX/The-Forge/blob/9d43e69141a9cd0ce2ce2d2db5122234d3a2d5b5/Common_3/Renderer/VisibilityBuffer2/Shaders/FSL/vb_shading_utilities.h.fsl#L90-L150
-fn compute_partial_derivatives(vertex_world_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, half_screen_size: vec2<f32>) -> PartialDerivatives {
+fn compute_partial_derivatives(view_index: i32, vertex_world_positions: array<vec4<f32>, 3>, ndc_uv: vec2<f32>, half_screen_size: vec2<f32>) -> PartialDerivatives {
     var result: PartialDerivatives;
 
-    let vertex_clip_position_0 = position_world_to_clip(vertex_world_positions[0].xyz);
-    let vertex_clip_position_1 = position_world_to_clip(vertex_world_positions[1].xyz);
-    let vertex_clip_position_2 = position_world_to_clip(vertex_world_positions[2].xyz);
+    let vertex_clip_position_0 = position_world_to_clip(view_index, vertex_world_positions[0].xyz);
+    let vertex_clip_position_1 = position_world_to_clip(view_index, vertex_world_positions[1].xyz);
+    let vertex_clip_position_2 = position_world_to_clip(view_index, vertex_world_positions[2].xyz);
 
     let inv_w = 1.0 / vec3(vertex_clip_position_0.w, vertex_clip_position_1.w, vertex_clip_position_2.w);
     let ndc_0 = vertex_clip_position_0.xy * inv_w[0];
@@ -102,7 +102,7 @@ struct VertexOutput {
 }
 
 /// Load the visibility buffer texture and resolve it into a VertexOutput.
-fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
+fn resolve_vertex_output(view_index: i32, frag_coord: vec4<f32>) -> VertexOutput {
     let frag_coord_1d = u32(frag_coord.y) * u32(view.viewport.z) + u32(frag_coord.x);
     let packed_ids = u32(meshlet_visibility_buffer[frag_coord_1d]); // TODO: Might be faster to load the correct u32 directly
     let cluster_id = packed_ids >> 7u;
@@ -124,8 +124,9 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let world_position_1 = mesh_position_local_to_world(world_from_local, vec4(vertex_1.position, 1.0));
     let world_position_2 = mesh_position_local_to_world(world_from_local, vec4(vertex_2.position, 1.0));
 
-    let frag_coord_ndc = frag_coord_to_ndc(frag_coord).xy;
+    let frag_coord_ndc = frag_coord_to_ndc(view_index, frag_coord).xy;
     let partial_derivatives = compute_partial_derivatives(
+        view_index, 
         array(world_position_0, world_position_1, world_position_2),
         frag_coord_ndc,
         view.viewport.zw / 2.0,

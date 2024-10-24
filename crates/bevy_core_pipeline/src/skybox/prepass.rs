@@ -85,6 +85,7 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
             label: Some("skybox_prepass_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: vec![],
+            multiview: None,
             vertex: crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state(),
             primitive: default(),
             depth_stencil: Some(DepthStencilState {

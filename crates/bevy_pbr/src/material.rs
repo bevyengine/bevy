@@ -24,7 +24,6 @@ use bevy_ecs::{
 };
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     camera::TemporalJitter,
@@ -37,6 +36,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility},
     Extract,
 };
+use bevy_render::{sync_world::MainEntityHashMap, view::ViewUniforms};
 use bevy_utils::tracing::error;
 use core::{
     hash::Hash,
@@ -583,6 +583,7 @@ pub fn queue_material_meshes<M: Material>(
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
+    view_uniforms: Res<ViewUniforms>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
@@ -652,7 +653,10 @@ pub fn queue_material_meshes<M: Material>(
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+            | MeshPipelineKey::from_hdr(view.hdr)
+            | MeshPipelineKey::from_max_view_count(
+                view_uniforms.uniforms.current_max_capacity() as _
+            );
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;

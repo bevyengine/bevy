@@ -791,6 +791,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
             label: Some("depth of field pipeline".into()),
             layout,
             push_constant_ranges: vec![],
+            multiview: None,
             vertex: fullscreen_shader_vertex_state(),
             primitive: default(),
             depth_stencil: None,

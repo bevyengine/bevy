@@ -104,7 +104,15 @@ fn henyey_greenstein(neg_LdotV: f32) -> f32 {
 }
 
 @fragment
-fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
+fn fragment(
+    @builtin(position) position: vec4<f32>,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> @location(0) vec4<f32> {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
     // Unpack the `volumetric_fog` settings.
     let uvw_from_world = volumetric_fog.uvw_from_world;
     let fog_color = volumetric_fog.fog_color;
@@ -129,11 +137,12 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let frag_coord = position;
     let ndc_end_depth_from_buffer = textureLoad(depth_texture, vec2<i32>(frag_coord.xy), 0);
     let view_end_depth_from_buffer = -position_ndc_to_view(
-        frag_coord_to_ndc(vec4(position.xy, ndc_end_depth_from_buffer, 1.0))).z;
+        view_index,
+        frag_coord_to_ndc(view_index, vec4(position.xy, ndc_end_depth_from_buffer, 1.0))).z;
 
     // Calculate the start position of the ray. Since we're only rendering front
     // faces of the AABB, this is the current fragment's depth.
-    let view_start_pos = position_ndc_to_view(frag_coord_to_ndc(frag_coord));
+    let view_start_pos = position_ndc_to_view(view_index, frag_coord_to_ndc(view_index, frag_coord));
 
     // Calculate the end position of the ray. This requires us to raytrace the
     // three back faces of the AABB to find the one that our ray intersects.
@@ -169,7 +178,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     end_depth_view = min(end_depth_view, view_end_depth_from_buffer);
 
     // We assume world and view have the same scale here.
-    let start_depth_view = -depth_ndc_to_view_z(frag_coord.z);
+    let start_depth_view = -depth_ndc_to_view_z(view_index, frag_coord.z);
     let ray_length_view = abs(end_depth_view - start_depth_view);
     let inv_step_count = 1.0 / f32(step_count);
     let step_size_world = ray_length_view * inv_step_count;
@@ -178,10 +187,10 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
     // Calculate the ray origin (`Ro`) and the ray direction (`Rd`) in NDC,
     // view, and world coordinates.
-    let Rd_ndc = vec3(frag_coord_to_ndc(position).xy, 1.0);
-    let Rd_view = normalize(position_ndc_to_view(Rd_ndc));
-    var Ro_world = position_view_to_world(view_start_pos.xyz);
-    let Rd_world = normalize(position_ndc_to_world(Rd_ndc) - view.world_position);
+    let Rd_ndc = vec3(frag_coord_to_ndc(view_index, position).xy, 1.0);
+    let Rd_view = normalize(position_ndc_to_view(view_index, Rd_ndc));
+    var Ro_world = position_view_to_world(view_index, view_start_pos.xyz);
+    let Rd_world = normalize(position_ndc_to_world(view_index, Rd_ndc) - view.world_position);
 
     // Offset by jitter.
     let jitter = interleaved_gradient_noise(position.xy, globals.frame_count) * jitter_strength;
@@ -308,7 +317,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     // Point lights and Spot lights
     let view_z = view_start_pos.z;
     let is_orthographic = view.clip_from_view[3].w == 1.0;
-    let cluster_index = clustering::fragment_cluster_index(frag_coord.xy, view_z, is_orthographic);
+    let cluster_index = clustering::fragment_cluster_index(view_index, frag_coord.xy, view_z, is_orthographic);
     let offset_and_counts = clustering::unpack_offset_and_counts(cluster_index);
     let spot_light_start_index = offset_and_counts[0] + offset_and_counts[1];
     for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {

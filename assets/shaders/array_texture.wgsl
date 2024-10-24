@@ -14,7 +14,13 @@
 fn fragment(
     @builtin(front_facing) is_front: bool,
     mesh: VertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
 ) -> @location(0) vec4<f32> {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
     let layer = i32(mesh.world_position.x) & 0x3;
 
     // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
@@ -52,7 +58,7 @@ fn fragment(
     );
 #endif
 
-    pbr_input.V = fns::calculate_view(mesh.world_position, pbr_input.is_orthographic);
+    pbr_input.V = fns::calculate_view(view_index, mesh.world_position, pbr_input.is_orthographic);
 
-    return tone_mapping(fns::apply_pbr_lighting(pbr_input), view.color_grading);
+    return tone_mapping(fns::apply_pbr_lighting(view_index, pbr_input), view.color_grading);
 }

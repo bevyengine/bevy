@@ -8,6 +8,7 @@ use crate::{
 use alloc::borrow::Cow;
 use alloc::sync::Arc;
 use bevy_asset::Handle;
+use core::num::NonZeroU32;
 use core::ops::Deref;
 use wgpu::{
     ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState, PushConstantRange,
@@ -108,6 +109,8 @@ pub struct RenderPipelineDescriptor {
     pub multisample: MultisampleState,
     /// The compiled fragment stage, its entry point, and the color targets.
     pub fragment: Option<FragmentState>,
+    /// If the pipeline will be used with a multiview render pass, this indicates how many array layers the attachments will have.
+    pub multiview: Option<NonZeroU32>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

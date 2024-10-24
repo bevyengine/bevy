@@ -56,12 +56,12 @@
 // * `P_world`: The current position in world space.
 //
 // [1]: https://lettier.github.io/3d-game-shaders-for-beginners/screen-space-reflection.html
-fn evaluate_ssr(R_world: vec3<f32>, P_world: vec3<f32>) -> vec4<f32> {
+fn evaluate_ssr(view_index: i32, R_world: vec3<f32>, P_world: vec3<f32>) -> vec4<f32> {
     let depth_size = vec2<f32>(textureDimensions(depth_prepass_texture));
 
     var raymarch = depth_ray_march_new_from_depth(depth_size);
-    depth_ray_march_from_cs(&raymarch, position_world_to_ndc(P_world));
-    depth_ray_march_to_ws_dir(&raymarch, normalize(R_world));
+    depth_ray_march_from_cs(&raymarch, position_world_to_ndc(view_index, P_world));
+    depth_ray_march_to_ws_dir(view_index: i32, &raymarch, normalize(R_world));
     raymarch.linear_steps = ssr_settings.linear_steps;
     raymarch.bisection_steps = ssr_settings.bisection_steps;
     raymarch.use_secant = ssr_settings.use_secant != 0u;
@@ -69,7 +69,7 @@ fn evaluate_ssr(R_world: vec3<f32>, P_world: vec3<f32>) -> vec4<f32> {
     raymarch.jitter = 1.0;  // Disable jitter for now.
     raymarch.march_behind_surfaces = false;
 
-    let raymarch_result = depth_ray_march_march(&raymarch);
+    let raymarch_result = depth_ray_march_march(view_index, &raymarch);
     if (raymarch_result.hit) {
         return vec4(
             textureSampleLevel(color_texture, color_sampler, raymarch_result.hit_uv, 0.0).rgb,
@@ -81,7 +81,15 @@ fn evaluate_ssr(R_world: vec3<f32>, P_world: vec3<f32>) -> vec4<f32> {
 }
 
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn fragment(
+    in: FullscreenVertexOutput,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32,
+#endif
+) -> @location(0) vec4<f32> {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
     // Sample the depth.
     var frag_coord = in.position;
     frag_coord.z = prepass_utils::prepass_depth(in.position, 0u);
@@ -108,7 +116,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let R = reflect(-V, N);
 
     // Do the raymarching.
-    let ssr_specular = evaluate_ssr(R, world_position);
+    let ssr_specular = evaluate_ssr(view_index, R, world_position);
     var indirect_light = ssr_specular.rgb;
     specular_occlusion *= ssr_specular.a;
 

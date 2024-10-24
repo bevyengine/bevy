@@ -73,6 +73,7 @@ fn prepare_view_upscaling_pipelines(
             texture_format: view_target.out_texture_format(),
             blend_state,
             samples: 1,
+            multiview: None,
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
 

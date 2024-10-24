@@ -74,12 +74,15 @@ use crate::{
     upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::load_internal_asset;
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_render::prelude::Shader;
 use oit::OrderIndependentTransparencyPlugin;
 
 #[derive(Default)]
 pub struct CorePipelinePlugin;
+
+pub const INPUT_TEXTURE_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(265983090182644148677656280932187082600);
 
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
@@ -87,6 +90,12 @@ impl Plugin for CorePipelinePlugin {
             app,
             FULLSCREEN_SHADER_HANDLE,
             "fullscreen_vertex_shader/fullscreen.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            INPUT_TEXTURE_SHADER_HANDLE,
+            "input_texture.wgsl",
             Shader::from_wgsl
         );
 

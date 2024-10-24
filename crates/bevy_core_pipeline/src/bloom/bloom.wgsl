@@ -1,3 +1,5 @@
+#import bevy_core_pipeline::input_texture::in_texture as input_texture
+
 // Bloom works by creating an intermediate texture with a bunch of mip levels, each half the size of the previous.
 // You then downsample each mip (starting with the original texture) to the lower resolution mip under it, going in order.
 // You then upsample each mip (starting from the smallest mip) and blend with the higher resolution mip above it (ending on the original texture).
@@ -13,7 +15,6 @@ struct BloomUniforms {
     uv_offset: f32
 };
 
-@group(0) @binding(0) var input_texture: texture_2d<f32>;
 @group(0) @binding(1) var s: sampler;
 
 @group(0) @binding(2) var<uniform> uniforms: BloomUniforms;
@@ -50,7 +51,22 @@ fn karis_average(color: vec3<f32>) -> f32 {
 }
 
 // [COD] slide 153
-fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
+fn sample_input_13_tap(view_index: i32, uv: vec2<f32>) -> vec3<f32> {
+#ifdef MULTIVIEW
+    let a = textureSample(input_texture, s, uv, view_index, vec2<i32>(-2, 2)).rgb;
+    let b = textureSample(input_texture, s, uv, view_index, vec2<i32>(0, 2)).rgb;
+    let c = textureSample(input_texture, s, uv, view_index, vec2<i32>(2, 2)).rgb;
+    let d = textureSample(input_texture, s, uv, view_index, vec2<i32>(-2, 0)).rgb;
+    let e = textureSample(input_texture, s, uv, view_index).rgb;
+    let f = textureSample(input_texture, s, uv, view_index, vec2<i32>(2, 0)).rgb;
+    let g = textureSample(input_texture, s, uv, view_index, vec2<i32>(-2, -2)).rgb;
+    let h = textureSample(input_texture, s, uv, view_index, vec2<i32>(0, -2)).rgb;
+    let i = textureSample(input_texture, s, uv, view_index, vec2<i32>(2, -2)).rgb;
+    let j = textureSample(input_texture, s, uv, view_index, vec2<i32>(-1, 1)).rgb;
+    let k = textureSample(input_texture, s, uv, view_index, vec2<i32>(1, 1)).rgb;
+    let l = textureSample(input_texture, s, uv, view_index, vec2<i32>(-1, -1)).rgb;
+    let m = textureSample(input_texture, s, uv, view_index, vec2<i32>(1, -1)).rgb;
+#else
     let a = textureSample(input_texture, s, uv, vec2<i32>(-2, 2)).rgb;
     let b = textureSample(input_texture, s, uv, vec2<i32>(0, 2)).rgb;
     let c = textureSample(input_texture, s, uv, vec2<i32>(2, 2)).rgb;
@@ -64,6 +80,7 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     let k = textureSample(input_texture, s, uv, vec2<i32>(1, 1)).rgb;
     let l = textureSample(input_texture, s, uv, vec2<i32>(-1, -1)).rgb;
     let m = textureSample(input_texture, s, uv, vec2<i32>(1, -1)).rgb;
+#endif
 
 #ifdef FIRST_DOWNSAMPLE
     // [COD] slide 168
@@ -94,11 +111,23 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
 }
 
 // [COD] slide 162
-fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
+fn sample_input_3x3_tent(view_index: i32, uv: vec2<f32>) -> vec3<f32> {
     // UV offsets configured from uniforms.
     let x = uniforms.uv_offset / uniforms.aspect;
     let y = uniforms.uv_offset;
+#ifdef MULTIVIEW
+    let a = textureSample(input_texture, s, vec2<f32>(uv.x - x, uv.y + y), view_index).rgb;
+    let b = textureSample(input_texture, s, vec2<f32>(uv.x, uv.y + y), view_index).rgb;
+    let c = textureSample(input_texture, s, vec2<f32>(uv.x + x, uv.y + y), view_index).rgb;
 
+    let d = textureSample(input_texture, s, vec2<f32>(uv.x - x, uv.y), view_index).rgb;
+    let e = textureSample(input_texture, s, vec2<f32>(uv.x, uv.y), view_index).rgb;
+    let f = textureSample(input_texture, s, vec2<f32>(uv.x + x, uv.y), view_index).rgb;
+
+    let g = textureSample(input_texture, s, vec2<f32>(uv.x - x, uv.y - y), view_index).rgb;
+    let h = textureSample(input_texture, s, vec2<f32>(uv.x, uv.y - y), view_index).rgb;
+    let i = textureSample(input_texture, s, vec2<f32>(uv.x + x, uv.y - y), view_index).rgb;
+#else
     let a = textureSample(input_texture, s, vec2<f32>(uv.x - x, uv.y + y)).rgb;
     let b = textureSample(input_texture, s, vec2<f32>(uv.x, uv.y + y)).rgb;
     let c = textureSample(input_texture, s, vec2<f32>(uv.x + x, uv.y + y)).rgb;
@@ -110,6 +139,7 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
     let g = textureSample(input_texture, s, vec2<f32>(uv.x - x, uv.y - y)).rgb;
     let h = textureSample(input_texture, s, vec2<f32>(uv.x, uv.y - y)).rgb;
     let i = textureSample(input_texture, s, vec2<f32>(uv.x + x, uv.y - y)).rgb;
+#endif
 
     var sample = e * 0.25;
     sample += (b + d + f + h) * 0.125;
@@ -120,9 +150,17 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
 
 #ifdef FIRST_DOWNSAMPLE
 @fragment
-fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32> {
+fn downsample_first(
+    @location(0) output_uv: vec2<f32>,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32
+#endif
+) -> @location(0) vec4<f32> {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
     let sample_uv = uniforms.viewport.xy + output_uv * uniforms.viewport.zw;
-    var sample = sample_input_13_tap(sample_uv);
+    var sample = sample_input_13_tap(view_index, sample_uv);
     // Lower bound of 0.0001 is to avoid propagating multiplying by 0.0 through the
     // downscaling and upscaling which would result in black boxes.
     // The upper bound is to prevent NaNs.
@@ -138,11 +176,27 @@ fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32>
 #endif
 
 @fragment
-fn downsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-    return vec4<f32>(sample_input_13_tap(uv), 1.0);
+fn downsample(
+    @location(0) uv: vec2<f32>,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32
+#endif
+) -> @location(0) vec4<f32> {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
+    return vec4<f32>(sample_input_13_tap(view_index, uv), 1.0);
 }
 
 @fragment
-fn upsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-    return vec4<f32>(sample_input_3x3_tent(uv), 1.0);
+fn upsample(
+    @location(0) uv: vec2<f32>,
+#ifdef MULTIVIEW
+    @builtin(view_index) view_index: i32
+#endif
+) -> @location(0) vec4<f32> {
+#ifndef MULTIVIEW
+    let view_index = 0i;
+#endif
+    return vec4<f32>(sample_input_3x3_tent(view_index, uv), 1.0);
 }

@@ -208,6 +208,7 @@ fn specialize_oit_resolve_pipeline(
         depth_stencil: None,
         multisample: MultisampleState::default(),
         push_constant_ranges: vec![],
+        multiview: None,
     }
 }
 

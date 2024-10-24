@@ -121,6 +121,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("ui_pipeline".into()),
+            multiview: None,
         }
     }
 }
