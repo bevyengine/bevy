@@ -47,6 +47,7 @@ bitflags = "2.3"
 radsort = "0.1"
 nonmax = "0.5"
 serde = { version = "1", features = ["derive"], optional = true }
+crossbeam-channel = "0.5"
 
 [lints]
 workspace = true

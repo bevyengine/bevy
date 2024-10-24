@@ -18,6 +18,7 @@ extern crate core;
 pub mod alpha;
 pub mod batching;
 pub mod camera;
+pub mod changed_assets;
 pub mod diagnostic;
 pub mod extract_component;
 pub mod extract_instances;

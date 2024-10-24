@@ -1,7 +1,9 @@
-use bevy_app::Plugin;
+use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetId, Handle};
+use crossbeam_channel::{Receiver, Sender};
 
-use crate::Material2dBindGroupId;
+use crate::{tonemapping_pipeline_key, Material2dBindGroupId, RenderPhase2dType};
+use bevy_core_pipeline::tonemapping::DebandDither;
 use bevy_core_pipeline::{
     core_2d::{AlphaMask2d, Camera2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT},
     tonemapping::{
@@ -9,6 +11,7 @@ use bevy_core_pipeline::{
     },
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -16,6 +19,13 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Vec4};
+use bevy_render::camera::Camera;
+use bevy_render::changed_assets::ChangedAssetsPlugin;
+use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
+use bevy_render::mesh::Mesh3d;
+use bevy_render::render_phase::DrawFunctionId;
+use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
+use bevy_render::view::{Msaa, VisibleEntities};
 use bevy_render::{
     batching::{
         gpu_preprocessing::IndirectParameters,
@@ -90,8 +100,20 @@ impl Plugin for Mesh2dRenderPlugin {
         );
         load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
 
+        let (entity_specialized_sender, entity_specialized_receiver) =
+            create_entity_specialized_channel();
+
+        app.add_plugins((
+            ExtractResourcePlugin::<View2dKeyCache>::default(),
+            ChangedAssetsPlugin::<Mesh, Mesh2d>::default(),
+        ))
+        .insert_resource(entity_specialized_receiver)
+        .init_resource::<View2dKeyCache>()
+        .add_systems(PostUpdate, check_views2d_need_specialization);
+
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .insert_resource(entity_specialized_sender)
                 .init_resource::<RenderMesh2dInstances>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
                 .add_systems(ExtractSchedule, extract_mesh2d)
@@ -150,6 +172,57 @@ impl Plugin for Mesh2dRenderPlugin {
     }
 }
 
+#[derive(Default, Resource, Deref, DerefMut, ExtractResource, Clone)]
+pub struct View2dKeyCache(EntityHashMap<Mesh2dPipelineKey>);
+
+pub fn check_views2d_need_specialization(
+    mut commands: Commands,
+    mut view_key_cache: ResMut<View2dKeyCache>,
+    views: Query<(
+        Entity,
+        &Camera,
+        &VisibleEntities,
+        &Msaa,
+        Option<&Tonemapping>,
+        Option<&DebandDither>,
+    )>,
+) {
+    for (view_entity, camera, visible_entities, msaa, tonemapping, dither) in &views {
+        let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
+            | Mesh2dPipelineKey::from_hdr(camera.hdr);
+
+        if !camera.hdr {
+            if let Some(tonemapping) = tonemapping {
+                view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
+                view_key |= tonemapping_pipeline_key(*tonemapping);
+            }
+            if let Some(DebandDither::Enabled) = dither {
+                view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
+            }
+        }
+
+        if let Some(current_key) = view_key_cache.get_mut(&view_entity) {
+            if *current_key != view_key {
+                *current_key = view_key;
+                let batch = visible_entities
+                    .iter::<With<Mesh3d>>()
+                    .copied()
+                    .map(|entity| (entity, NeedsSpecialization2d))
+                    .collect::<Vec<_>>();
+                commands.insert_or_spawn_batch(batch);
+            }
+        } else {
+            view_key_cache.insert(view_entity, view_key);
+            let batch = visible_entities
+                .iter::<With<Mesh3d>>()
+                .copied()
+                .map(|entity| (entity, NeedsSpecialization2d))
+                .collect::<Vec<_>>();
+            commands.insert_or_spawn_batch(batch);
+        }
+    }
+}
+
 #[derive(Component)]
 pub struct Mesh2dTransforms {
     pub world_from_local: Affine3,
@@ -196,6 +269,35 @@ pub struct RenderMesh2dInstance {
     pub mesh_asset_id: AssetId<Mesh>,
     pub material_bind_group_id: Material2dBindGroupId,
     pub automatic_batching: bool,
+    pub render_phase_type: RenderPhase2dType,
+    pub depth_bias: f32,
+    pub draw_function_id: DrawFunctionId,
+}
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct EntitySpecialized2dSender(Sender<Vec<MainEntity>>);
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct EntitySpecialized2dReceiver(Receiver<Vec<MainEntity>>);
+
+pub fn create_entity_specialized_channel(
+) -> (EntitySpecialized2dSender, EntitySpecialized2dReceiver) {
+    let (s, r) = crossbeam_channel::unbounded::<Vec<MainEntity>>();
+    (EntitySpecialized2dSender(s), EntitySpecialized2dReceiver(r))
+}
+
+pub fn apply_entity_specialized(
+    mut commands: Commands,
+    entity_specialized_receiver: Res<EntitySpecialized2dReceiver>,
+) {
+    while let Ok(entities) = entity_specialized_receiver.try_recv() {
+        for entity in entities {
+            // FIXME - batch component removal?
+            commands
+                .entity(entity.id())
+                .remove::<NeedsSpecialization2d>();
+        }
+    }
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
@@ -203,6 +305,9 @@ pub struct RenderMesh2dInstances(MainEntityHashMap<RenderMesh2dInstance>);
 
 #[derive(Component)]
 pub struct Mesh2dMarker;
+
+#[derive(Component)]
+pub struct NeedsSpecialization2d;
 
 pub fn extract_mesh2d(
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
@@ -232,6 +337,9 @@ pub fn extract_mesh2d(
                 mesh_asset_id: handle.0.id(),
                 material_bind_group_id: Material2dBindGroupId::default(),
                 automatic_batching: !no_automatic_batching,
+                render_phase_type: RenderPhase2dType::Opaque,
+                depth_bias: 0.0,
+                draw_function_id: DrawFunctionId::INVALID,
             },
         );
     }

@@ -59,12 +59,14 @@ use crate::{
     *,
 };
 use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
 use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
 use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_render::camera::TemporalJitter;
+use bevy_render::changed_assets::{ChangedAssets, ChangedAssetsPlugin};
 use bevy_render::extract_resource::ExtractResource;
-use bevy_render::render_asset::{ChangedAssets, RenderAsset};
+use bevy_render::render_asset::RenderAsset;
 use bevy_render::render_phase::DrawFunctionId;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::{Msaa, VisibleEntities};
@@ -73,7 +75,6 @@ use crossbeam_channel::{Receiver, Sender};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{smallvec, SmallVec};
 use static_assertions::const_assert_eq;
-use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
 
 /// Provides support for rendering 3D meshes.
 #[derive(Default)]
@@ -145,50 +146,30 @@ impl Plugin for MeshRenderPlugin {
         let (entity_specialized_sender, entity_specialized_receiver) =
             create_entity_specialized_channel();
 
-        app.add_plugins(ExtractResourcePlugin::<ViewKeyCache>::default())
-            .insert_resource(entity_specialized_receiver)
-            .init_resource::<ChangedAssets<Mesh>>()
-            .init_resource::<AssetEntityMap<Mesh>>()
-            .init_resource::<ViewKeyCache>()
-            .add_systems(
-                PostUpdate,
-                (
-                    check_views_need_specialization,
-                    maintain_changed_assets::<Mesh>,
-                    no_automatic_skin_batching,
-                    no_automatic_morph_batching,
-                ),
-            )
-            .add_observer(
-                |e: Trigger<OnAdd, Mesh3d>,
-                 query: Query<&Mesh3d>,
-                 mut asset_entity_map: ResMut<AssetEntityMap<Mesh>>| {
-                    let mesh = query.get(e.entity()).unwrap();
-                    asset_entity_map.entry(mesh.id())
-                        .or_default()
-                        .insert(e.entity());
-                },
-            )
-            .add_observer(
-                |e: Trigger<OnRemove, Mesh3d>,
-                 query: Query<&Mesh3d>,
-                 mut asset_entity_map: ResMut<AssetEntityMap<Mesh>>| {
-                    let mesh = query.get(e.entity()).unwrap();
-                    asset_entity_map
-                        .entry(mesh.id())
-                        .or_default()
-                        .remove(&e.entity());
-                },
-            )
-            .add_plugins((
-                BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::default(),
-                BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::default(),
-                BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::default(),
-                BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::default(),
-                BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::default(),
-                SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::default(),
-                SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::default(),
-            ));
+        app.add_plugins((
+            ExtractResourcePlugin::<ViewKeyCache>::default(),
+            ChangedAssetsPlugin::<Mesh, Mesh3d>::default(),
+        ))
+        .insert_resource(entity_specialized_receiver)
+        .init_resource::<ViewKeyCache>()
+        .add_systems(
+            PostUpdate,
+            (
+                check_views_need_specialization,
+                no_automatic_skin_batching,
+                no_automatic_morph_batching,
+            ),
+        )
+
+        .add_plugins((
+            BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::default(),
+            BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::default(),
+            SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::default(),
+            SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::default(),
+        ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -311,9 +292,6 @@ impl Plugin for MeshRenderPlugin {
 
 #[derive(Default, Resource, Deref, DerefMut, ExtractResource, Clone)]
 pub struct ViewKeyCache(EntityHashMap<MeshPipelineKey>);
-
-#[derive(Default, Resource, Deref, DerefMut)]
-pub struct DirtyViews(EntityHashSet);
 
 pub fn check_views_need_specialization(
     mut commands: Commands,
@@ -1078,46 +1056,6 @@ pub struct RenderMeshQueueData<'a> {
     pub shared: &'a RenderMeshInstanceShared,
     /// The translation of the mesh instance.
     pub translation: Vec3,
-}
-
-pub fn maintain_changed_assets<A: Asset>(
-    mut events: EventReader<AssetEvent<A>>,
-    mut changed_assets: ResMut<ChangedAssets<A>>,
-    mut asset_entity_map: ResMut<AssetEntityMap<A>>,
-) {
-    changed_assets.clear();
-    let mut removed = HashSet::new();
-
-    for event in events.read() {
-        #[allow(clippy::match_same_arms)]
-        match event {
-            AssetEvent::Added { id } | AssetEvent::Modified { id } => {
-                changed_assets.insert(*id);
-                removed.remove(id);
-            }
-            AssetEvent::Removed { id } => {
-                changed_assets.remove(id);
-                removed.insert(id);
-            }
-            AssetEvent::Unused { .. } => {}
-            AssetEvent::LoadedWithDependencies { .. } => {
-                // TODO: handle this
-            }
-        }
-    }
-
-    for asset in removed.drain() {
-        asset_entity_map.remove(asset);
-    }
-}
-
-#[derive(Resource, Deref, DerefMut)]
-pub struct AssetEntityMap<A: Asset>(HashMap<AssetId<A>, EntityHashSet>);
-
-impl<A: Asset> Default for AssetEntityMap<A> {
-    fn default() -> Self {
-        Self(Default::default())
-    }
 }
 
 #[derive(Component)]

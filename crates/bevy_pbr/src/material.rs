@@ -27,7 +27,6 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::extract_instances::ExtractedInstances;
 use bevy_render::mesh::Mesh;
-use bevy_render::render_asset::ChangedAssets;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet, RenderEntity};
 use bevy_render::view::{RenderVisibleEntities, VisibleEntities};
 use bevy_render::{
@@ -41,7 +40,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility},
     Extract,
 };
-use bevy_utils::tracing::error;
+use bevy_utils::tracing::{error, warn};
 use bevy_utils::{HashMap, HashSet};
 use core::{
     hash::Hash,
@@ -49,6 +48,7 @@ use core::{
     num::NonZero,
     sync::atomic::{AtomicU32, Ordering},
 };
+use bevy_render::changed_assets::{AssetEntityMap, ChangedAssets};
 
 /// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
@@ -299,7 +299,7 @@ where
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .init_resource::<SpecializedPipelineCache<M>>()
+                .init_resource::<SpecializedMaterialPipelineCache<M>>()
                 .add_systems(ExtractSchedule, extract_mesh_materials::<M>)
                 .add_systems(
                     Render,
@@ -645,12 +645,12 @@ pub const fn screen_space_specular_transmission_pipeline_key(
 }
 
 #[derive(Resource)]
-pub struct SpecializedPipelineCache<M: Material> {
+pub struct SpecializedMaterialPipelineCache<M: Material> {
     map: HashMap<(Entity, MainEntity), CachedRenderPipelineId>,
     marker: PhantomData<M>,
 }
 
-impl<M: Material> Default for SpecializedPipelineCache<M> {
+impl<M: Material> Default for SpecializedMaterialPipelineCache<M> {
     fn default() -> Self {
         Self {
             map: Default::default(),
@@ -659,7 +659,7 @@ impl<M: Material> Default for SpecializedPipelineCache<M> {
     }
 }
 
-impl<M: Material> SpecializedPipelineCache<M> {
+impl<M: Material> SpecializedMaterialPipelineCache<M> {
     #[inline]
     pub fn get(&self, key: &(Entity, MainEntity)) -> Option<CachedRenderPipelineId> {
         self.map.get(key).copied()
@@ -721,7 +721,6 @@ fn update_mesh_material_instances<M: Material>(
     let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial<M>>();
     let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
-    let mut updated = 0;
     match render_mesh_instances.as_mut() {
         RenderMeshInstances::CpuBuilding(render_mesh_instances) => {
             for (entity, render_mesh_instance) in render_mesh_instances.iter_mut() {
@@ -771,7 +770,6 @@ fn update_mesh_material_instances<M: Material>(
                     RenderPhaseType::Transparent => draw_transparent_pbr,
                 };
 
-                updated += 1;
                 render_mesh_instance
                     .material_bind_group_id
                     .set(material_bind_group_id);
@@ -828,7 +826,6 @@ fn update_mesh_material_instances<M: Material>(
                     RenderPhaseType::Transparent => draw_transparent_pbr,
                 };
 
-                updated += 1;
                 render_mesh_instance
                     .material_bind_group_id
                     .set(material_bind_group_id);
@@ -845,7 +842,7 @@ fn update_mesh_material_instances<M: Material>(
 /// them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as appropriate.
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material_meshes<M: Material>(
-    specialized_pipeline_cache: Res<SpecializedPipelineCache<M>>,
+    specialized_pipeline_cache: Res<SpecializedMaterialPipelineCache<M>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
@@ -878,6 +875,7 @@ pub fn queue_material_meshes<M: Material>(
                 continue;
             };
             if mesh_instance.draw_function_id == DrawFunctionId::INVALID {
+                continue;
             }
             let Some(pipeline) = specialized_pipeline_cache.get(&(view_entity, *visible_entity))
             else {
@@ -1172,7 +1170,7 @@ fn specialize_pipelines<M: Material>(
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    mut specialized_pipeline_cache: ResMut<SpecializedPipelineCache<M>>,
+    mut specialized_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
     (opaque_3d_phases, alpha_mask_3d_phases, transmissive_3d_phases, transparent_3d_phases): (
         Res<ViewBinnedRenderPhases<Opaque3d>>,
         Res<ViewBinnedRenderPhases<AlphaMask3d>>,
@@ -1185,7 +1183,7 @@ fn specialize_pipelines<M: Material>(
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     specialized.clear();
-    for (view_entity, main_entity, visible_entities, msaa) in &views {
+    for (view_entity, main_view_entity, visible_entities, msaa) in &views {
         if !opaque_3d_phases.contains_key(&view_entity)
             || !alpha_mask_3d_phases.contains_key(&view_entity)
             || !transparent_3d_phases.contains_key(&view_entity)
@@ -1210,7 +1208,7 @@ fn specialize_pipelines<M: Material>(
                 let Some(material) = render_materials.get(*material_asset_id) else {
                     continue;
                 };
-                let Some(view_key) = view_key_cache.get(&main_entity.id()).copied() else {
+                let Some(view_key) = view_key_cache.get(&main_view_entity.id()).copied() else {
                     continue;
                 };
 
@@ -1252,16 +1250,10 @@ fn specialize_pipelines<M: Material>(
                     }
                 };
 
-                // println!("Inserting due to view change {view_entity:?} {visible_entity:?}");
                 specialized.push(*visible_entity);
                 specialized_pipeline_cache.insert(
                     (view_entity, *visible_entity),
-                    // SpecializedPipeline {
                     pipeline_id,
-                    //     view_key,
-                    //     mesh_key,
-                    //     material_key: material.key.clone(),
-                    // },
                 );
             }
         }
