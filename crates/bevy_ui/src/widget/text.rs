@@ -102,7 +102,7 @@ pub struct TextBundle {}
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags)]
+#[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
 pub struct Text(pub String);
 
 impl Text {

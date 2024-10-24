@@ -288,7 +288,6 @@ impl From<&Vec2> for ScrollPosition {
     BackgroundColor,
     BorderColor,
     BorderRadius,
-    ContentSize,
     FocusPolicy,
     ScrollPosition,
     Transform,
@@ -2043,7 +2042,7 @@ impl Outline {
 /// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(Node, UiImageSize)]
+#[require(Node, UiImageSize, ContentSize)]
 pub struct UiImage {
     /// The tint color used to draw the image.
     ///
