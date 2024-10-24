@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlasLayout;
+use bevy_sprite::{ImageScaleMode, TextureAtlasLayout};
 use bevy_window::{PrimaryWindow, Window};
 use taffy::{MaybeMath, MaybeResolve};
 
@@ -87,7 +87,11 @@ impl Measure for ImageMeasure {
     }
 }
 
-type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
+type UpdateImageFilter = (
+    With<Node>,
+    Without<crate::prelude::Text>,
+    Without<ImageScaleMode>,
+);
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
