@@ -158,19 +158,19 @@ pub enum CustomCursorCacheKey {
 #[derive(Debug, Clone, Default, Resource)]
 pub struct CustomCursorCache(pub HashMap<CustomCursorCacheKey, winit::window::CustomCursor>);
 
-#[cfg(feature = "custom_cursor")]
 /// A source for a cursor. Consumed by the winit event loop.
 #[derive(Debug)]
 pub enum CursorSource {
+    #[cfg(feature = "custom_cursor")]
     /// A custom cursor was identified to be cached, no reason to recreate it.
     CustomCached(CustomCursorCacheKey),
+    #[cfg(feature = "custom_cursor")]
     /// A custom cursor was not cached, so it needs to be created by the winit event loop.
     Custom((CustomCursorCacheKey, winit::window::CustomCursorSource)),
     /// A system cursor was requested.
     System(winit::window::CursorIcon),
 }
 
-#[cfg(feature = "custom_cursor")]
 /// Component that indicates what cursor should be used for a window. Inserted
 /// automatically after changing `CursorIcon` and consumed by the winit event
 /// loop.
@@ -560,6 +560,8 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 self.run_app_update();
                 #[cfg(feature = "custom_cursor")]
                 self.update_cursors(event_loop);
+                #[cfg(not(feature = "custom_cursor"))]
+                self.update_cursors();
                 self.ran_update_since_last_redraw = true;
             } else {
                 self.redraw_requested = true;
@@ -787,15 +789,23 @@ impl<T: Event> WinitAppRunnerState<T> {
             .send_batch(buffered_events);
     }
 
-    #[cfg(feature = "custom_cursor")]
-    fn update_cursors(&mut self, event_loop: &ActiveEventLoop) {
+    fn update_cursors(&mut self, #[cfg(feature = "custom_cursor")] event_loop: &ActiveEventLoop) {
+        #[cfg(feature = "custom_cursor")]
         let mut windows_state: SystemState<(
             NonSendMut<WinitWindows>,
             ResMut<CustomCursorCache>,
             Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
         )> = SystemState::new(self.world_mut());
+        #[cfg(feature = "custom_cursor")]
         let (winit_windows, mut cursor_cache, mut windows) =
             windows_state.get_mut(self.world_mut());
+        #[cfg(not(feature = "custom_cursor"))]
+        let mut windows_state: SystemState<(
+            NonSendMut<WinitWindows>,
+            Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
+        )> = SystemState::new(self.world_mut());
+        #[cfg(not(feature = "custom_cursor"))]
+        let (winit_windows, mut windows) = windows_state.get_mut(self.world_mut());
 
         for (entity, mut pending_cursor) in windows.iter_mut() {
             let Some(winit_window) = winit_windows.get_window(entity) else {
@@ -806,6 +816,7 @@ impl<T: Event> WinitAppRunnerState<T> {
             };
 
             let final_cursor: winit::window::Cursor = match pending_cursor {
+                #[cfg(feature = "custom_cursor")]
                 CursorSource::CustomCached(cache_key) => {
                     let Some(cached_cursor) = cursor_cache.0.get(&cache_key) else {
                         error!("Cursor should have been cached, but was not found");
@@ -813,6 +824,7 @@ impl<T: Event> WinitAppRunnerState<T> {
                     };
                     cached_cursor.clone().into()
                 }
+                #[cfg(feature = "custom_cursor")]
                 CursorSource::Custom((cache_key, cursor)) => {
                     let custom_cursor = event_loop.create_custom_cursor(cursor);
                     cursor_cache.0.insert(cache_key, custom_cursor.clone());

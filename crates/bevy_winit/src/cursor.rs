@@ -2,11 +2,18 @@
 
 use crate::{
     converters::convert_system_cursor_icon,
-    state::{CursorSource, CustomCursorCache, CustomCursorCacheKey, PendingCursor},
+    state::{CursorSource, PendingCursor},
+};
+#[cfg(feature = "custom_cursor")]
+use crate::{
+    state::{CustomCursorCache, CustomCursorCacheKey},
     WinitCustomCursor,
 };
 use bevy_app::{App, Last, Plugin};
+#[cfg(feature = "custom_cursor")]
 use bevy_asset::{Assets, Handle};
+#[cfg(feature = "custom_cursor")]
+use bevy_ecs::system::Res;
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
@@ -14,21 +21,27 @@ use bevy_ecs::{
     observer::Trigger,
     query::With,
     reflect::ReflectComponent,
-    system::{Commands, Local, Query, Res},
+    system::{Commands, Local, Query},
     world::{OnRemove, Ref},
 };
+#[cfg(feature = "custom_cursor")]
 use bevy_image::Image;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_utils::{tracing::warn, HashSet};
+#[cfg(feature = "custom_cursor")]
+use bevy_utils::tracing::warn;
+use bevy_utils::HashSet;
 use bevy_window::{SystemCursorIcon, Window};
+#[cfg(feature = "custom_cursor")]
 use wgpu_types::TextureFormat;
 
 pub(crate) struct CursorPlugin;
 
 impl Plugin for CursorPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "custom_cursor")]
+        app.init_resource::<CustomCursorCache>();
+
         app.register_type::<CursorIcon>()
-            .init_resource::<CustomCursorCache>()
             .add_systems(Last, update_cursors);
 
         app.add_observer(on_remove_cursor_icon);
@@ -39,6 +52,7 @@ impl Plugin for CursorPlugin {
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
 #[reflect(Component, Debug, Default, PartialEq)]
 pub enum CursorIcon {
+    #[cfg(feature = "custom_cursor")]
     /// Custom cursor image.
     Custom(CustomCursor),
     /// System provided cursor icon.
@@ -57,12 +71,14 @@ impl From<SystemCursorIcon> for CursorIcon {
     }
 }
 
+#[cfg(feature = "custom_cursor")]
 impl From<CustomCursor> for CursorIcon {
     fn from(cursor: CustomCursor) -> Self {
         CursorIcon::Custom(cursor)
     }
 }
 
+#[cfg(feature = "custom_cursor")]
 /// Custom cursor image data.
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
 pub enum CustomCursor {
@@ -90,8 +106,8 @@ pub enum CustomCursor {
 fn update_cursors(
     mut commands: Commands,
     windows: Query<(Entity, Ref<CursorIcon>), With<Window>>,
-    cursor_cache: Res<CustomCursorCache>,
-    images: Res<Assets<Image>>,
+    #[cfg(feature = "custom_cursor")] cursor_cache: Res<CustomCursorCache>,
+    #[cfg(feature = "custom_cursor")] images: Res<Assets<Image>>,
     mut queue: Local<HashSet<Entity>>,
 ) {
     for (entity, cursor) in windows.iter() {
@@ -100,6 +116,7 @@ fn update_cursors(
         }
 
         let cursor_source = match cursor.as_ref() {
+            #[cfg(feature = "custom_cursor")]
             CursorIcon::Custom(CustomCursor::Image { handle, hotspot }) => {
                 let cache_key = CustomCursorCacheKey::Asset(handle.id());
 
@@ -170,6 +187,7 @@ fn on_remove_cursor_icon(trigger: Trigger<OnRemove, CursorIcon>, mut commands: C
         ))));
 }
 
+#[cfg(feature = "custom_cursor")]
 /// Returns the image data as a `Vec<u8>`.
 /// Only supports rgba8 and rgba32float formats.
 fn image_to_rgba_pixels(image: &Image) -> Option<Vec<u8>> {
