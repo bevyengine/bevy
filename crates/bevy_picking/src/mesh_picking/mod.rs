@@ -21,7 +21,7 @@ use bevy_reflect::prelude::*;
 use bevy_render::{prelude::*, view::RenderLayers};
 use ray_cast::{MeshRayCast, RayCastSettings, RayCastVisibility, SimplifiedMesh};
 
-/// Runtime settings for the [`MeshPickingBackend`].
+/// Runtime settings for the [`MeshPickingBackendPlugin`].
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
 pub struct MeshPickingBackendSettings {
@@ -49,7 +49,7 @@ impl Default for MeshPickingBackendSettings {
     }
 }
 
-/// An optional component that marks cameras and target entities that should be used in the [`MeshPickingBackend`].
+/// An optional component that marks cameras and target entities that should be used in the [`MeshPickingBackendPlugin`].
 /// Only needed if [`MeshPickingBackendSettings::require_markers`] is set to `true`, and ignored otherwise.
 #[derive(Debug, Clone, Default, Component, Reflect)]
 #[reflect(Component, Default)]
