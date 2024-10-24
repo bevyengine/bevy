@@ -77,20 +77,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             margin: UiRect::all(Val::Px(20.0)),
                             ..default()
                         },
-                        UiImage::new(image.clone()),
-                        ImageScaleMode::Sliced(slicer.clone()),
+                        UiImage::new(image.clone())
+                            .with_scale_mode(ImageScaleMode::Sliced(slicer.clone())),
                     ))
-                    .with_children(|parent| {
-                        parent.spawn((
-                            Text::new("Button"),
-                            TextFont {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 33.0,
-                                ..default()
-                            },
-                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                        ));
-                    });
+                    .with_child((
+                        Text::new("Button"),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 33.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    ));
             }
         });
 }

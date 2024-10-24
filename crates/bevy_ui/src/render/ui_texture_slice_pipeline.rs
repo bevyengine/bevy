@@ -256,20 +256,21 @@ pub fn extract_ui_texture_slices(
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
             &UiImage,
-            &ImageScaleMode,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
-    for (entity, uinode, transform, view_visibility, clip, camera, image, image_scale_mode) in
-        &slicers_query
-    {
+    for (entity, uinode, transform, view_visibility, clip, camera, image) in &slicers_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
 
         let Ok(camera_entity) = mapping.get(camera_entity) else {
+            continue;
+        };
+
+        let Some(ref image_scale_mode) = image.scale_mode else {
             continue;
         };
 
