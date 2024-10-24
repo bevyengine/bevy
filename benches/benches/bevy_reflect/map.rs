@@ -18,7 +18,7 @@ criterion_main!(benches);
 
 const WARM_UP_TIME: Duration = Duration::from_millis(500);
 const MEASUREMENT_TIME: Duration = Duration::from_secs(4);
-const SIZES: [usize; 5] = [100, 316, 1000, 3162, 10000];
+const SIZES: [usize; 5] = [100, 316, 1000, 3162, 10_000];
 
 /// Generic benchmark for applying one `Map` to another.
 ///
@@ -231,14 +231,8 @@ fn dynamic_map_get(criterion: &mut Criterion) {
             BenchmarkId::new("64_byte_keys", size),
             &size,
             |bencher, &size| {
-                let mut map = DynamicMap::default();
-                let mut keys = Vec::with_capacity(size);
-                for i in 0..size as u64 {
-                    let key = u64_to_n_byte_key(i, 64);
-                    map.insert(key.clone(), i);
-                    keys.push(key);
-                }
-
+                let keys: Vec<_> = (0..size as u64).map(|i| u64_to_n_byte_key(i, 64)).collect();
+                let map = DynamicMap::from_iter(keys.clone().into_iter().enumerate());
                 bencher.iter(|| {
                     for key in keys.iter().take(size) {
                         let key = black_box(key);
@@ -281,11 +275,7 @@ fn dynamic_map_insert(criterion: &mut Criterion) {
             BenchmarkId::new("64_byte_keys", size),
             &size,
             |bencher, &size| {
-                let mut keys = Vec::with_capacity(size);
-                for i in 0..size {
-                    let key = u64_to_n_byte_key(i as u64, 64);
-                    keys.push(key);
-                }
+                let keys: Vec<_> = (0..size).map(|i| u64_to_n_byte_key(i as u64, 64)).collect();
 
                 bencher.iter_batched(
                     || (DynamicMap::default(), keys.clone()),

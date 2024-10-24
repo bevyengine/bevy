@@ -89,89 +89,89 @@ fn setup(parallel: bool, setup: impl FnOnce(&mut Schedule)) -> (World, Schedule)
 fn add_archetypes(world: &mut World, count: u16) {
     for i in 0..count {
         let mut e = world.spawn();
-        e.insert(A::<0>(1.0));
-        e.insert(A::<1>(1.0));
-        e.insert(A::<2>(1.0));
-        e.insert(A::<3>(1.0));
-        e.insert(A::<4>(1.0));
-        e.insert(A::<5>(1.0));
-        e.insert(A::<6>(1.0));
-        e.insert(A::<7>(1.0));
-        e.insert(A::<8>(1.0));
-        e.insert(A::<9>(1.0));
-        e.insert(A::<10>(1.0));
-        e.insert(A::<11>(1.0));
-        e.insert(A::<12>(1.0));
+        e.insert(A::<0>(1.));
+        e.insert(A::<1>(1.));
+        e.insert(A::<2>(1.));
+        e.insert(A::<3>(1.));
+        e.insert(A::<4>(1.));
+        e.insert(A::<5>(1.));
+        e.insert(A::<6>(1.));
+        e.insert(A::<7>(1.));
+        e.insert(A::<8>(1.));
+        e.insert(A::<9>(1.));
+        e.insert(A::<10>(1.));
+        e.insert(A::<11>(1.));
+        e.insert(A::<12>(1.));
         if i & 1 << 1 != 0 {
-            e.insert(A::<13>(1.0));
+            e.insert(A::<13>(1.));
         }
         if i & 1 << 2 != 0 {
-            e.insert(A::<14>(1.0));
+            e.insert(A::<14>(1.));
         }
         if i & 1 << 3 != 0 {
-            e.insert(A::<15>(1.0));
+            e.insert(A::<15>(1.));
         }
         if i & 1 << 4 != 0 {
-            e.insert(A::<16>(1.0));
+            e.insert(A::<16>(1.));
         }
         if i & 1 << 5 != 0 {
-            e.insert(A::<18>(1.0));
+            e.insert(A::<18>(1.));
         }
         if i & 1 << 6 != 0 {
-            e.insert(A::<19>(1.0));
+            e.insert(A::<19>(1.));
         }
         if i & 1 << 7 != 0 {
-            e.insert(A::<20>(1.0));
+            e.insert(A::<20>(1.));
         }
         if i & 1 << 8 != 0 {
-            e.insert(A::<21>(1.0));
+            e.insert(A::<21>(1.));
         }
         if i & 1 << 9 != 0 {
-            e.insert(A::<22>(1.0));
+            e.insert(A::<22>(1.));
         }
         if i & 1 << 10 != 0 {
-            e.insert(A::<23>(1.0));
+            e.insert(A::<23>(1.));
         }
         if i & 1 << 11 != 0 {
-            e.insert(A::<24>(1.0));
+            e.insert(A::<24>(1.));
         }
         if i & 1 << 12 != 0 {
-            e.insert(A::<25>(1.0));
+            e.insert(A::<25>(1.));
         }
         if i & 1 << 13 != 0 {
-            e.insert(A::<26>(1.0));
+            e.insert(A::<26>(1.));
         }
         if i & 1 << 14 != 0 {
-            e.insert(A::<27>(1.0));
+            e.insert(A::<27>(1.));
         }
         if i & 1 << 15 != 0 {
-            e.insert(A::<28>(1.0));
+            e.insert(A::<28>(1.));
         }
     }
 }
 
 fn empty_archetypes(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("empty_archetypes");
-    for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10000] {
+    for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10_000] {
         let (mut world, mut schedule) = setup(true, |schedule| {
             schedule.add_systems(iter);
         });
         add_archetypes(&mut world, archetype_count);
         world.clear_entities();
         let mut e = world.spawn();
-        e.insert(A::<0>(1.0));
-        e.insert(A::<1>(1.0));
-        e.insert(A::<2>(1.0));
-        e.insert(A::<3>(1.0));
-        e.insert(A::<4>(1.0));
-        e.insert(A::<5>(1.0));
-        e.insert(A::<6>(1.0));
-        e.insert(A::<7>(1.0));
-        e.insert(A::<8>(1.0));
-        e.insert(A::<9>(1.0));
-        e.insert(A::<10>(1.0));
-        e.insert(A::<11>(1.0));
-        e.insert(A::<12>(1.0));
+        e.insert(A::<0>(1.));
+        e.insert(A::<1>(1.));
+        e.insert(A::<2>(1.));
+        e.insert(A::<3>(1.));
+        e.insert(A::<4>(1.));
+        e.insert(A::<5>(1.));
+        e.insert(A::<6>(1.));
+        e.insert(A::<7>(1.));
+        e.insert(A::<8>(1.));
+        e.insert(A::<9>(1.));
+        e.insert(A::<10>(1.));
+        e.insert(A::<11>(1.));
+        e.insert(A::<12>(1.));
         schedule.run(&mut world);
         group.bench_with_input(
             BenchmarkId::new("iter", archetype_count),
@@ -183,26 +183,26 @@ fn empty_archetypes(criterion: &mut Criterion) {
             },
         );
     }
-    for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10000] {
+    for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10_000] {
         let (mut world, mut schedule) = setup(true, |schedule| {
             schedule.add_systems(for_each);
         });
         add_archetypes(&mut world, archetype_count);
         world.clear_entities();
         let mut e = world.spawn();
-        e.insert(A::<0>(1.0));
-        e.insert(A::<1>(1.0));
-        e.insert(A::<2>(1.0));
-        e.insert(A::<3>(1.0));
-        e.insert(A::<4>(1.0));
-        e.insert(A::<5>(1.0));
-        e.insert(A::<6>(1.0));
-        e.insert(A::<7>(1.0));
-        e.insert(A::<8>(1.0));
-        e.insert(A::<9>(1.0));
-        e.insert(A::<10>(1.0));
-        e.insert(A::<11>(1.0));
-        e.insert(A::<12>(1.0));
+        e.insert(A::<0>(1.));
+        e.insert(A::<1>(1.));
+        e.insert(A::<2>(1.));
+        e.insert(A::<3>(1.));
+        e.insert(A::<4>(1.));
+        e.insert(A::<5>(1.));
+        e.insert(A::<6>(1.));
+        e.insert(A::<7>(1.));
+        e.insert(A::<8>(1.));
+        e.insert(A::<9>(1.));
+        e.insert(A::<10>(1.));
+        e.insert(A::<11>(1.));
+        e.insert(A::<12>(1.));
         schedule.run(&mut world);
         group.bench_with_input(
             BenchmarkId::new("for_each", archetype_count),
@@ -214,26 +214,26 @@ fn empty_archetypes(criterion: &mut Criterion) {
             },
         );
     }
-    for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10000] {
+    for archetype_count in [10, 100, 500, 1000, 2000, 5000, 10_000] {
         let (mut world, mut schedule) = setup(true, |schedule| {
             schedule.add_systems(par_for_each);
         });
         add_archetypes(&mut world, archetype_count);
         world.clear_entities();
         let mut e = world.spawn();
-        e.insert(A::<0>(1.0));
-        e.insert(A::<1>(1.0));
-        e.insert(A::<2>(1.0));
-        e.insert(A::<3>(1.0));
-        e.insert(A::<4>(1.0));
-        e.insert(A::<5>(1.0));
-        e.insert(A::<6>(1.0));
-        e.insert(A::<7>(1.0));
-        e.insert(A::<8>(1.0));
-        e.insert(A::<9>(1.0));
-        e.insert(A::<10>(1.0));
-        e.insert(A::<11>(1.0));
-        e.insert(A::<12>(1.0));
+        e.insert(A::<0>(1.));
+        e.insert(A::<1>(1.));
+        e.insert(A::<2>(1.));
+        e.insert(A::<3>(1.));
+        e.insert(A::<4>(1.));
+        e.insert(A::<5>(1.));
+        e.insert(A::<6>(1.));
+        e.insert(A::<7>(1.));
+        e.insert(A::<8>(1.));
+        e.insert(A::<9>(1.));
+        e.insert(A::<10>(1.));
+        e.insert(A::<11>(1.));
+        e.insert(A::<12>(1.));
         schedule.run(&mut world);
         group.bench_with_input(
             BenchmarkId::new("par_for_each", archetype_count),

@@ -22,21 +22,13 @@ pub struct Benchmark(World, Vec<Entity>);
 impl Benchmark {
     pub fn new() -> Self {
         let mut world = World::default();
-        let mut entities = Vec::with_capacity(10_000);
-        for _ in 0..10_000 {
-            entities.push(
-                world
-                    .spawn((
-                        A(Mat4::from_scale(Vec3::ONE)),
-                        B(Mat4::from_scale(Vec3::ONE)),
-                        C(Mat4::from_scale(Vec3::ONE)),
-                        D(Mat4::from_scale(Vec3::ONE)),
-                        E(Mat4::from_scale(Vec3::ONE)),
-                    ))
-                    .id(),
-            );
-        }
-
+        let entities = super::make_entities(&mut world, (
+            A(Mat4::from_scale(Vec3::ONE)),
+            B(Mat4::from_scale(Vec3::ONE)),
+            C(Mat4::from_scale(Vec3::ONE)),
+            D(Mat4::from_scale(Vec3::ONE)),
+            E(Mat4::from_scale(Vec3::ONE)),
+        ));
         Self(world, entities)
     }
 

@@ -24,14 +24,14 @@ where
 fn bench_overhead(c: &mut Criterion) {
     fn noop(_: &mut usize) {}
 
-    let mut v = (0..10000).collect::<Vec<usize>>();
+    let mut v = (0..10_000).collect::<Vec<usize>>();
     c.bench_function("overhead_iter", |b| {
         b.iter(|| {
             v.iter_mut().for_each(noop);
         });
     });
 
-    let mut v = (0..10000).collect::<Vec<usize>>();
+    let mut v = (0..10_000).collect::<Vec<usize>>();
     let mut group = c.benchmark_group("overhead_par_iter");
     for thread_count in &[1, 2, 4, 8, 16, 32] {
         let pool = TaskPoolBuilder::new().num_threads(*thread_count).build();
@@ -56,17 +56,17 @@ fn bench_for_each(c: &mut Criterion) {
         }
     }
 
-    let mut v = (0..10000).collect::<Vec<usize>>();
+    let mut v = (0..10_000).collect::<Vec<usize>>();
     c.bench_function("for_each_iter", |b| {
         b.iter(|| {
             v.iter_mut().for_each(|x| {
-                busy_work(10000);
+                busy_work(10_000);
                 *x *= *x;
             });
         });
     });
 
-    let mut v = (0..10000).collect::<Vec<usize>>();
+    let mut v = (0..10_000).collect::<Vec<usize>>();
     let mut group = c.benchmark_group("for_each_par_iter");
     for thread_count in &[1, 2, 4, 8, 16, 32] {
         let pool = TaskPoolBuilder::new().num_threads(*thread_count).build();
@@ -76,7 +76,7 @@ fn bench_for_each(c: &mut Criterion) {
             |b, _| {
                 b.iter(|| {
                     ParChunksMut(v.chunks_mut(100)).for_each(&pool, |x| {
-                        busy_work(10000);
+                        busy_work(10_000);
                         *x *= *x;
                     });
                 });
@@ -94,7 +94,7 @@ fn bench_many_maps(c: &mut Criterion) {
         x
     }
 
-    let v = (0..10000).collect::<Vec<usize>>();
+    let v = (0..10_000).collect::<Vec<usize>>();
     c.bench_function("many_maps_iter", |b| {
         b.iter(|| {
             v.iter()
@@ -112,7 +112,7 @@ fn bench_many_maps(c: &mut Criterion) {
         });
     });
 
-    let v = (0..10000).collect::<Vec<usize>>();
+    let v = (0..10_000).collect::<Vec<usize>>();
     let mut group = c.benchmark_group("many_maps_par_iter");
     for thread_count in &[1, 2, 4, 8, 16, 32] {
         let pool = TaskPoolBuilder::new().num_threads(*thread_count).build();
