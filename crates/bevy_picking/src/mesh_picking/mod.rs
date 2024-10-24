@@ -57,9 +57,9 @@ pub struct RayCastPickable;
 
 /// Adds the mesh picking backend to your app.
 #[derive(Clone, Default)]
-pub struct MeshPickingBackend;
+pub struct MeshPickingBackendPlugin;
 
-impl Plugin for MeshPickingBackend {
+impl Plugin for MeshPickingBackendPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MeshPickingBackendSettings>()
             .register_type::<(RayCastPickable, MeshPickingBackendSettings, SimplifiedMesh)>()

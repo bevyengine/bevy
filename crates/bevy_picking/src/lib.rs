@@ -172,7 +172,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{MeshRayCast, RayCastBackfaces, RayCastSettings, RayCastVisibility},
-        MeshPickingBackend, MeshPickingBackendSettings, RayCastPickable,
+        MeshPickingBackendPlugin, MeshPickingBackendSettings, RayCastPickable,
     };
     #[doc(hidden)]
     pub use crate::{
@@ -283,7 +283,7 @@ impl Plugin for DefaultPickingPlugins {
             InteractionPlugin,
         ));
         #[cfg(feature = "bevy_mesh")]
-        app.add_plugins(mesh_picking::MeshPickingBackend);
+        app.add_plugins(mesh_picking::MeshPickingBackendPlugin);
     }
 }
 
