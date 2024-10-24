@@ -25,6 +25,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::changed_assets::{AssetEntityMap, ChangedAssets};
 use bevy_render::extract_instances::ExtractedInstances;
 use bevy_render::mesh::Mesh;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet, RenderEntity};
@@ -48,7 +49,6 @@ use core::{
     num::NonZero,
     sync::atomic::{AtomicU32, Ordering},
 };
-use bevy_render::changed_assets::{AssetEntityMap, ChangedAssets};
 
 /// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
@@ -308,7 +308,8 @@ where
                             .in_set(RenderSet::PrepareAssets)
                             .after(prepare_assets::<PreparedMaterial<M>>)
                             .after(prepare_assets::<RenderMesh>),
-                        update_mesh_material_instances::<M>.in_set(RenderSet::PrepareAssets)
+                        update_mesh_material_instances::<M>
+                            .in_set(RenderSet::PrepareAssets)
                             .after(specialize_pipelines::<M>),
                         queue_shadows::<M>
                             .in_set(RenderSet::QueueMeshes)
@@ -1251,10 +1252,7 @@ fn specialize_pipelines<M: Material>(
                 };
 
                 specialized.push(*visible_entity);
-                specialized_pipeline_cache.insert(
-                    (view_entity, *visible_entity),
-                    pipeline_id,
-                );
+                specialized_pipeline_cache.insert((view_entity, *visible_entity), pipeline_id);
             }
         }
     }
@@ -1264,7 +1262,7 @@ fn specialize_pipelines<M: Material>(
             Ok(_) => {}
             Err(err) => {
                 error!("{}", err);
-            },
+            }
         }
     }
 }

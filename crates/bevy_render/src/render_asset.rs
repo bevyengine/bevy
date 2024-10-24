@@ -4,6 +4,7 @@ use crate::{
 use bevy_app::{App, Plugin, SubApp};
 pub use bevy_asset::RenderAssetUsages;
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
     schedule::SystemConfigs,
@@ -17,7 +18,6 @@ use bevy_utils::{
 };
 use core::marker::PhantomData;
 use derive_more::derive::{Display, Error};
-use bevy_derive::{Deref, DerefMut};
 
 #[derive(Debug, Error, Display)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {

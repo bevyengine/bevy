@@ -160,7 +160,6 @@ impl Plugin for MeshRenderPlugin {
                 no_automatic_morph_batching,
             ),
         )
-
         .add_plugins((
             BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::default(),
             BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::default(),
