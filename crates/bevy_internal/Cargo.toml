@@ -135,9 +135,7 @@ pbr_anisotropy_texture = [
 ]
 
 # Percentage-closer soft shadows
-pbr_pcss = [
-  "bevy_pbr?/pbr_pcss",
-]
+pbr_pcss = ["bevy_pbr?/pbr_pcss"]
 
 # Optimise for WebGL2
 webgl = [
