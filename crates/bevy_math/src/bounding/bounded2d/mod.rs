@@ -2,6 +2,7 @@ mod primitive_impls;
 
 use super::{BoundingVolume, IntersectsVolume};
 use crate::{
+    ops,
     prelude::{Mat2, Rot2, Vec2},
     FloatPow, Isometry2d,
 };
@@ -296,12 +297,12 @@ mod aabb2d_tests {
             min: Vec2::new(-1., -1.),
             max: Vec2::new(1., 1.),
         };
-        assert!((aabb.visible_area() - 4.).abs() < f32::EPSILON);
+        assert!(ops::abs(aabb.visible_area() - 4.) < f32::EPSILON);
         let aabb = Aabb2d {
             min: Vec2::new(0., 0.),
             max: Vec2::new(1., 0.5),
         };
-        assert!((aabb.visible_area() - 0.5).abs() < f32::EPSILON);
+        assert!(ops::abs(aabb.visible_area() - 0.5) < f32::EPSILON);
     }
 
     #[test]
@@ -488,7 +489,7 @@ impl BoundingCircle {
             }
         }
 
-        BoundingCircle::new(isometry * center, radius_squared.sqrt())
+        BoundingCircle::new(isometry * center, ops::sqrt(radius_squared))
     }
 
     /// Get the radius of the bounding circle
@@ -539,7 +540,7 @@ impl BoundingVolume for BoundingCircle {
     #[inline(always)]
     fn contains(&self, other: &Self) -> bool {
         let diff = self.radius() - other.radius();
-        self.center.distance_squared(other.center) <= diff.squared().copysign(diff)
+        self.center.distance_squared(other.center) <= ops::copysign(diff.squared(), diff)
     }
 
     #[inline(always)]
@@ -614,14 +615,14 @@ mod bounding_circle_tests {
     use super::BoundingCircle;
     use crate::{
         bounding::{BoundingVolume, IntersectsVolume},
-        Vec2,
+        ops, Vec2,
     };
 
     #[test]
     fn area() {
         let circle = BoundingCircle::new(Vec2::ONE, 5.);
         // Since this number is messy we check it with a higher threshold
-        assert!((circle.visible_area() - 78.5398).abs() < 0.001);
+        assert!(ops::abs(circle.visible_area() - 78.5398) < 0.001);
     }
 
     #[test]
@@ -647,7 +648,7 @@ mod bounding_circle_tests {
         let b = BoundingCircle::new(Vec2::new(1., -4.), 1.);
         let merged = a.merge(&b);
         assert!((merged.center - Vec2::new(1., 0.5)).length() < f32::EPSILON);
-        assert!((merged.radius() - 5.5).abs() < f32::EPSILON);
+        assert!(ops::abs(merged.radius() - 5.5) < f32::EPSILON);
         assert!(merged.contains(&a));
         assert!(merged.contains(&b));
         assert!(!a.contains(&merged));
@@ -679,7 +680,7 @@ mod bounding_circle_tests {
     fn grow() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
         let padded = a.grow(1.25);
-        assert!((padded.radius() - 6.25).abs() < f32::EPSILON);
+        assert!(ops::abs(padded.radius() - 6.25) < f32::EPSILON);
         assert!(padded.contains(&a));
         assert!(!a.contains(&padded));
     }
@@ -688,7 +689,7 @@ mod bounding_circle_tests {
     fn shrink() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
         let shrunk = a.shrink(0.5);
-        assert!((shrunk.radius() - 4.5).abs() < f32::EPSILON);
+        assert!(ops::abs(shrunk.radius() - 4.5) < f32::EPSILON);
         assert!(a.contains(&shrunk));
         assert!(!shrunk.contains(&a));
     }
@@ -697,7 +698,7 @@ mod bounding_circle_tests {
     fn scale_around_center() {
         let a = BoundingCircle::new(Vec2::ONE, 5.);
         let scaled = a.scale_around_center(2.);
-        assert!((scaled.radius() - 10.).abs() < f32::EPSILON);
+        assert!(ops::abs(scaled.radius() - 10.) < f32::EPSILON);
         assert!(!a.contains(&scaled));
         assert!(scaled.contains(&a));
     }
