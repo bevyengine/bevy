@@ -87,7 +87,8 @@ fn setup(
                                 index: idx,
                                 layout: atlas_layout_handle.clone(),
                             },
-                        ),
+                        )
+                        .with_scale_mode(ImageScaleMode::Sliced(slicer.clone())),
                         Node {
                             width: Val::Px(w),
                             height: Val::Px(h),
@@ -98,7 +99,6 @@ fn setup(
                             margin: UiRect::all(Val::Px(20.0)),
                             ..default()
                         },
-                        ImageScaleMode::Sliced(slicer.clone()),
                     ))
                     .with_children(|parent| {
                         parent.spawn((
