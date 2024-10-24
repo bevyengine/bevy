@@ -40,7 +40,7 @@ use bevy_render::{
     ExtractSchedule, Render,
 };
 use bevy_sprite::TextureAtlasLayout;
-use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents};
+use bevy_sprite::{BorderRect, SpriteAssetEvents};
 
 use crate::{Display, Node};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
