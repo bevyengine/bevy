@@ -40,7 +40,7 @@ pub use measurement::*;
 pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
-use widget::UiImageSize;
+use widget::{UiImage, UiImageSize};
 
 /// The UI prelude.
 ///
