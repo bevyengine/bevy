@@ -160,7 +160,7 @@ pub mod input;
 pub mod mesh_picking;
 pub mod pointer;
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, PluginGroupBuilder};
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 
@@ -275,15 +275,19 @@ pub enum PickSet {
 #[derive(Default)]
 pub struct DefaultPickingPlugins;
 
-impl Plugin for DefaultPickingPlugins {
-    fn build(&self, app: &mut App) {
-        app.add_plugins((
-            input::PointerInputPlugin::default(),
-            PickingPlugin::default(),
-            InteractionPlugin,
-        ));
+impl PluginGroup for DefaultPickingPlugins {
+    fn build(self) -> PluginGroupBuilder {
+        let mut group = PluginGroupBuilder::start::<Self>()
+            .add(input::PointerInputPlugin::default())
+            .add(PickingPlugin::default())
+            .add(InteractionPlugin);
+
         #[cfg(feature = "bevy_mesh")]
-        app.add_plugins(mesh_picking::MeshPickingBackendPlugin);
+        {
+            group = group.add(mesh_picking::MeshPickingBackendPlugin);
+        };
+
+        group
     }
 }
 
