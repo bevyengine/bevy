@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use super::TaskPool;
 
 /// Provides functions for mapping read-only slices across a provided [`TaskPool`].
@@ -36,7 +38,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     fn par_chunk_map<F, R>(&self, task_pool: &TaskPool, chunk_size: usize, f: F) -> Vec<R>
     where
         F: Fn(usize, &[T]) -> R + Send + Sync,
-        R: Send + 'static,
+        R: crate::MaybeSync + Send + 'static,
     {
         let slice = self.as_ref();
         let f = &f;
@@ -83,7 +85,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     fn par_splat_map<F, R>(&self, task_pool: &TaskPool, max_tasks: Option<usize>, f: F) -> Vec<R>
     where
         F: Fn(usize, &[T]) -> R + Send + Sync,
-        R: Send + 'static,
+        R: crate::MaybeSync + Send + 'static,
     {
         let slice = self.as_ref();
         let chunk_size = core::cmp::max(
@@ -139,7 +141,7 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     fn par_chunk_map_mut<F, R>(&mut self, task_pool: &TaskPool, chunk_size: usize, f: F) -> Vec<R>
     where
         F: Fn(usize, &mut [T]) -> R + Send + Sync,
-        R: Send + 'static,
+        R: crate::MaybeSync + Send + 'static,
     {
         let slice = self.as_mut();
         let f = &f;
@@ -194,7 +196,7 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     ) -> Vec<R>
     where
         F: Fn(usize, &mut [T]) -> R + Send + Sync,
-        R: Send + 'static,
+        R: crate::MaybeSync + Send + 'static,
     {
         let mut slice = self.as_mut();
         let chunk_size = core::cmp::max(
