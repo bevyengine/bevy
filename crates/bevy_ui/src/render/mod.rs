@@ -308,18 +308,15 @@ pub fn extract_uinode_images(
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
-        Query<
-            (
-                Entity,
-                &ComputedNode,
-                &GlobalTransform,
-                &ViewVisibility,
-                Option<&CalculatedClip>,
-                Option<&TargetCamera>,
-                &UiImage,
-            ),
-            Without<ImageScaleMode>,
-        >,
+        Query<(
+            Entity,
+            &ComputedNode,
+            &GlobalTransform,
+            &ViewVisibility,
+            Option<&CalculatedClip>,
+            Option<&TargetCamera>,
+            &UiImage,
+        )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
@@ -337,6 +334,7 @@ pub fn extract_uinode_images(
         if !view_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+            || image.scale_mode.is_some()
         {
             continue;
         }

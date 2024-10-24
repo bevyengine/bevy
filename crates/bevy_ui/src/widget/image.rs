@@ -106,6 +106,10 @@ pub fn update_image_content_size_system(
         * ui_scale.0;
 
     for (mut content_size, image, mut image_size) in &mut query {
+        if image.scale_mode.is_some() {
+            continue;
+        }
+
         if let Some(size) = match &image.texture_atlas {
             Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
             None => textures.get(&image.image).map(Image::size),
