@@ -694,7 +694,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # Fallible
     /// This command can fail if any of the entities do not exist. It will [`panic`]/[`warn`]/[`log`]/[`ignore`]
-    /// according the `Commands` instance's current setting.
+    /// according to the `Commands` instance's current setting.
     ///
     /// [`panic`]: Self::panic_on_error
     /// [`warn`]: Self::warn_on_error
@@ -724,7 +724,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// # Fallible
     /// This command can fail if any of the entities do not exist. It will [`panic`]/[`warn`]/[`log`]/[`ignore`]
-    /// according the `Commands` instance's current setting.
+    /// according to the `Commands` instance's current setting.
     ///
     /// [`panic`]: Self::panic_on_error
     /// [`warn`]: Self::warn_on_error
@@ -1197,7 +1197,7 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
 ///
 /// # Fallible
 ///
-/// Due to their deferred nature, an entity you're trying change with an `EntityCommand` can be
+/// Due to their deferred nature, an entity you're trying to change with an `EntityCommand` can be
 /// despawned by the time the command is executed. Use the following commands to set how you
 /// would like subsequent commands to respond if the entity is missing:
 /// - [`ignore_if_missing`](Self::ignore_if_missing)
