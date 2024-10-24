@@ -97,7 +97,7 @@ pub fn update_image_content_size_system(
     textures: Res<Assets<Image>>,
 
     atlases: Res<Assets<TextureAtlasLayout>>,
-    mut query: Query<(&mut ContentSize, &UiImage, &mut UiImageSize), UpdateImageFilter>,
+    mut query: Query<(&mut ContentSize, Ref<UiImage>, &mut UiImageSize), UpdateImageFilter>,
 ) {
     let combined_scale_factor = windows
         .get_single()
@@ -107,6 +107,10 @@ pub fn update_image_content_size_system(
 
     for (mut content_size, image, mut image_size) in &mut query {
         if image.scale_mode.is_some() {
+            if image.is_changed() {
+                // Mutably derefs, marking the `ContentSize` as changed ensuring `ui_layout_system` will remove the node's measure func if present.
+                content_size.measure = None;
+            }
             continue;
         }
 
