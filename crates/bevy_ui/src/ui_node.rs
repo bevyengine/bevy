@@ -9,7 +9,7 @@ use bevy_render::{
     texture::{Image, TRANSPARENT_IMAGE_HANDLE},
     view::Visibility,
 };
-use bevy_sprite::{BorderRect, TextureAtlas};
+use bevy_sprite::{BorderRect, ImageScaleMode, TextureAtlas};
 use bevy_transform::components::Transform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
@@ -2066,6 +2066,8 @@ pub struct UiImage {
     /// When used with a [`TextureAtlas`], the rect
     /// is offset by the atlas's minimal (top-left) corner position.
     pub rect: Option<Rect>,
+    /// Controls how the image is altered when scaled.
+    pub scale_mode: Option<ImageScaleMode>,
 }
 
 impl Default for UiImage {
@@ -2087,6 +2089,7 @@ impl Default for UiImage {
             flip_x: false,
             flip_y: false,
             rect: None,
+            scale_mode: None,
         }
     }
 }
@@ -2112,6 +2115,7 @@ impl UiImage {
             flip_y: false,
             texture_atlas: None,
             rect: None,
+            scale_mode: None,
         }
     }
 
@@ -2148,6 +2152,12 @@ impl UiImage {
     #[must_use]
     pub const fn with_rect(mut self, rect: Rect) -> Self {
         self.rect = Some(rect);
+        self
+    }
+
+    #[must_use]
+    pub const fn with_scale_mode(mut self, scale_mode: ImageScaleMode) -> Self {
+        self.scale_mode = Some(scale_mode);
         self
     }
 }
