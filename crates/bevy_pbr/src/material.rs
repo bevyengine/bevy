@@ -1161,7 +1161,8 @@ pub fn check_entity_needs_specialization<M: Material>(
 
 #[allow(clippy::too_many_arguments)]
 fn specialize_pipelines<M: Material>(
-    mut entities_to_specialize: ResMut<EntitiesToSpecialize<M>>,
+    entities_to_specialize: Res<EntitiesToSpecialize<M>>,
+    entity_specialized_sender: Res<EntitySpecializedSender>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_mesh_instances: Res<RenderMeshInstances>,
@@ -1265,7 +1266,13 @@ fn specialize_pipelines<M: Material>(
             }
         }
     }
-    for entity in specialized.iter() {
-        entities_to_specialize.entities.remove(entity);
+
+    if !specialized.is_empty() {
+        match entity_specialized_sender.try_send(specialized.clone()) {
+            Ok(_) => {}
+            Err(err) => {
+                error!("{}", err);
+            },
+        }
     }
 }

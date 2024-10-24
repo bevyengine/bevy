@@ -73,6 +73,7 @@ radsort = "0.1"
 smallvec = "1.6"
 nonmax = "0.5"
 static_assertions = "1"
+crossbeam-channel = "0.5"
 
 [lints]
 workspace = true

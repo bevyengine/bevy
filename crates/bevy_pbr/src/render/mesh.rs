@@ -44,8 +44,6 @@ use bevy_utils::{
     Entry, HashMap, HashSet, Parallel,
 };
 use core::mem::{self, size_of};
-use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, Sender};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 use crate::environment_map::EnvironmentMapLight;
@@ -71,6 +69,7 @@ use bevy_render::render_phase::DrawFunctionId;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::{Msaa, VisibleEntities};
 use bytemuck::{Pod, Zeroable};
+use crossbeam_channel::{Receiver, Sender};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{smallvec, SmallVec};
 use static_assertions::const_assert_eq;
@@ -143,20 +142,14 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, MORPH_HANDLE, "morph.wgsl", Shader::from_wgsl);
 
+        let (entity_specialized_sender, entity_specialized_receiver) =
+            create_entity_specialized_channel();
+
         app.add_plugins(ExtractResourcePlugin::<ViewKeyCache>::default())
+            .insert_resource(entity_specialized_receiver)
             .init_resource::<ChangedAssets<Mesh>>()
             .init_resource::<AssetEntityMap<Mesh>>()
             .init_resource::<ViewKeyCache>()
-            .add_systems(
-                First,
-                |
-                    mut commands: Commands,
-                    needs_q: Query<Entity, With<NeedsSpecialization>>| {
-                    for entity in needs_q.iter() {
-                        commands.entity(entity).remove::<NeedsSpecialization>();
-                    }
-                }
-            )
             .add_systems(
                 PostUpdate,
                 (
@@ -199,6 +192,7 @@ impl Plugin for MeshRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .insert_resource(entity_specialized_sender)
                 .init_resource::<MeshBindGroups>()
                 .init_resource::<SkinUniforms>()
                 .init_resource::<SkinIndices>()
@@ -810,6 +804,29 @@ impl RenderMeshInstanceShared {
         self.flags
             .contains(RenderMeshInstanceFlags::AUTOMATIC_BATCHING)
             && self.material_bind_group_id.get().is_some()
+    }
+}
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct EntitySpecializedSender(Sender<Vec<MainEntity>>);
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct EntitySpecializedReceiver(Receiver<Vec<MainEntity>>);
+
+pub fn create_entity_specialized_channel() -> (EntitySpecializedSender, EntitySpecializedReceiver) {
+    let (s, r) = crossbeam_channel::unbounded::<Vec<MainEntity>>();
+    (EntitySpecializedSender(s), EntitySpecializedReceiver(r))
+}
+
+pub fn apply_entity_specialized(
+    mut commands: Commands,
+    entity_specialized_receiver: Res<EntitySpecializedReceiver>,
+) {
+    while let Ok(entities) = entity_specialized_receiver.try_recv() {
+        for entity in entities {
+            // FIXME - batch component removal?
+            commands.entity(entity.id()).remove::<NeedsSpecialization>();
+        }
     }
 }
 
