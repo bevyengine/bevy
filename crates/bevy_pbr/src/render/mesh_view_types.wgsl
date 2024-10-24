@@ -159,3 +159,9 @@ struct EnvironmentMapUniform {
     // Transformation matrix for the environment cubemaps in world space.
     transform: mat4x4<f32>,
 };
+
+// Shader version of the order independent transparency settings component.
+struct OrderIndependentTransparencySettings {
+  layers_count: i32,
+  alpha_threshold: f32,
+};

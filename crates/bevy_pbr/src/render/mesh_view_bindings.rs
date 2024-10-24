@@ -375,7 +375,10 @@ fn layout_entries(
                 // oit_layer_ids,
                 (32, storage_buffer_sized(false, None)),
                 // oit_layer_count
-                (33, uniform_buffer::<i32>(true)),
+                (
+                    33,
+                    uniform_buffer::<OrderIndependentTransparencySettings>(true),
+                ),
             ));
         }
     }
@@ -690,16 +693,16 @@ pub fn prepare_mesh_view_bind_groups(
                 if let (
                     Some(oit_layers_binding),
                     Some(oit_layer_ids_binding),
-                    Some(oit_layers_count_uniforms_binding),
+                    Some(oit_settings_binding),
                 ) = (
                     oit_buffers.layers.binding(),
                     oit_buffers.layer_ids.binding(),
-                    oit_buffers.layers_count_uniforms.binding(),
+                    oit_buffers.settings.binding(),
                 ) {
                     entries = entries.extend_with_indices((
                         (31, oit_layers_binding.clone()),
                         (32, oit_layer_ids_binding.clone()),
-                        (33, oit_layers_count_uniforms_binding.clone()),
+                        (33, oit_settings_binding.clone()),
                     ));
                 }
             }
