@@ -135,7 +135,7 @@ impl Plugin for SpritePlugin {
             );
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
-        app.add_plugins(picking_backend::SpritePickingBackend);
+        app.add_plugins(picking_backend::SpritePickingBackendPlugin);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

@@ -48,6 +48,17 @@ use core::any::TypeId;
 /// #   impl Plugin for WebCompatibilityPlugin { fn build(&self, _: &mut App) {} }
 /// # }
 /// #
+/// # mod audio {
+/// #   use bevy_app::*;
+/// #   #[derive(Default)]
+/// #   pub struct AudioPlugins;
+/// #   impl PluginGroup for AudioPlugins {
+/// #     fn build(self) -> PluginGroupBuilder {
+/// #       PluginGroupBuilder::start::<Self>()
+/// #     }
+/// #   }
+/// # }
+/// #
 /// # mod internal {
 /// #   use bevy_app::*;
 /// #   #[derive(Default)]
@@ -75,6 +86,10 @@ use core::any::TypeId;
 ///         // generation, in which case you must wrap it in `#[custom()]`.
 ///         #[custom(cfg(target_arch = "wasm32"))]
 ///         web:::WebCompatibilityPlugin,
+///         // You can nest `PluginGroup`s within other `PluginGroup`s, you just need the
+///         // `#[plugin_group]` attribute.
+///         #[plugin_group]
+///         audio:::AudioPlugins,
 ///         // You can hide plugins from documentation. Due to macro limitations, hidden plugins
 ///         // must be last.
 ///         #[doc(hidden)]
@@ -96,6 +111,14 @@ macro_rules! plugin_group {
             ),*
             $(
                 $(,)?$(
+                    #[plugin_group]
+                    $(#[cfg(feature = $plugin_group_feature:literal)])?
+                    $(#[custom($plugin_group_meta:meta)])*
+                    $($plugin_group_path:ident::)* : $plugin_group_name:ident
+                ),+
+            )?
+            $(
+                $(,)?$(
                     #[doc(hidden)]
                     $(#[cfg(feature = $hidden_plugin_feature:literal)])?
                     $(#[custom($hidden_plugin_meta:meta)])*
@@ -113,6 +136,10 @@ macro_rules! plugin_group {
             " - [`", stringify!($plugin_name), "`](" $(, stringify!($plugin_path), "::")*, stringify!($plugin_name), ")"
             $(, " - with feature `", $plugin_feature, "`")?
         )])*
+       $($(#[doc = concat!(
+            " - [`", stringify!($plugin_group_name), "`](" $(, stringify!($plugin_group_path), "::")*, stringify!($plugin_group_name), ")"
+            $(, " - with feature `", $plugin_group_feature, "`")?
+        )]),+)?
         $(
             ///
             $(#[doc = $post_doc])+
@@ -135,6 +162,18 @@ macro_rules! plugin_group {
                         group = group.add(<$($plugin_path::)*$plugin_name>::default());
                     }
                 )*
+                $($(
+                    $(#[cfg(feature = $plugin_group_feature)])?
+                    $(#[$plugin_group_meta])*
+                    {
+                        const _: () = {
+                            const fn check_default<T: Default>() {}
+                            check_default::<$($plugin_group_path::)*$plugin_group_name>();
+                        };
+
+                        group = group.add_group(<$($plugin_group_path::)*$plugin_group_name>::default());
+                    }
+                )+)?
                 $($(
                     $(#[cfg(feature = $hidden_plugin_feature)])?
                     $(#[$hidden_plugin_meta])*
