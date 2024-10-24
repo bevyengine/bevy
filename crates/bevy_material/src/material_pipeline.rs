@@ -1,13 +1,8 @@
 use bevy_app::Plugin;
-use bevy_ecs::system::{Res, SystemParam};
 use bevy_reflect::TypePath;
-use bevy_render::render_asset::RenderAssets;
 use core::hash::Hash;
 
-use crate::material::{
-    Material, MaterialBindGroup, MaterialInstances, MaterialLayout, MaterialProperties,
-    MaterialShaders,
-};
+use crate::material::Material;
 
 pub trait MaterialPipeline: TypePath + Sized + 'static {
     type MaterialProperties: Send + Sync + 'static;
