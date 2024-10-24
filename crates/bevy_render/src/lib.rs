@@ -66,6 +66,9 @@ pub mod prelude {
         ExtractSchedule,
     };
 }
+pub mod util {
+    pub use image;
+}
 
 use batching::gpu_preprocessing::BatchingPlugin;
 use bevy_ecs::schedule::ScheduleBuildSettings;
