@@ -212,7 +212,7 @@ impl render_graph::Node for ComputeNode {
                         ..default()
                     });
 
-            pass.set_bind_group(0, Some(&bind_group.0), &[]);
+            pass.set_bind_group(0, &bind_group.0, &[]);
             pass.set_pipeline(init_pipeline);
             pass.dispatch_workgroups(BUFFER_LEN as u32, 1, 1);
         }
