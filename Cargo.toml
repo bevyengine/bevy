@@ -3772,6 +3772,19 @@ wasm = true
 required-features = ["bevy_sprite_picking_backend"]
 
 [[example]]
+name = "picking_interaction"
+path = "examples/picking/interaction.rs"
+doc-scrape-examples = true
+required-features = ["bevy_sprite_picking_backend"]
+
+[package.metadata.example.picking_interaction]
+name = "Picking Interaction"
+description = "Demonstrates how to use the PickingInteraction component without events or observers."
+category = "Picking"
+wasm = true
+required-features = ["bevy_sprite_picking_backend"]
+
+[[example]]
 name = "animation_masks"
 path = "examples/animation/animation_masks.rs"
 doc-scrape-examples = true
