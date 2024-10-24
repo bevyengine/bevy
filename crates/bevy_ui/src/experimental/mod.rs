@@ -12,6 +12,6 @@
 //! Be careful when using these features, especially in concert with third-party crates,
 //! as they may not be fully supported, functional or stable.
 
-mod ghost_hierarchy;
+mod ui_tree;
 
-pub use ghost_hierarchy::*;
+pub use ui_tree::*;
