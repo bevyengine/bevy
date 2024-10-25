@@ -1592,6 +1592,14 @@ impl<const N: usize> Polygon<N> {
     }
 }
 
+impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
+    fn from(val: ConvexPolygon<N>) -> Self {
+        Polygon {
+            vertices: val.vertices,
+        }
+    }
+}
+
 /// A convex polygon with `N` vertices.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -1603,7 +1611,7 @@ impl<const N: usize> Polygon<N> {
 pub struct ConvexPolygon<const N: usize> {
     /// The vertices of the [`ConvexPolygon`].
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
-    pub vertices: [Vec2; N],
+    vertices: [Vec2; N],
 }
 impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
 
@@ -1650,6 +1658,20 @@ impl<const N: usize> ConvexPolygon<N> {
     #[inline(always)]
     pub fn new_unchecked(vertices: [Vec2; N]) -> Self {
         Self { vertices }
+    }
+
+    /// Get the vertices of this polygon
+    #[inline(always)]
+    pub fn vertices(&self) -> &[Vec2; N] {
+        &self.vertices
+    }
+}
+
+impl<const N: usize> TryFrom<Polygon<N>> for ConvexPolygon<N> {
+    type Error = ConvexPolygonError;
+
+    fn try_from(val: Polygon<N>) -> Result<Self, Self::Error> {
+        ConvexPolygon::new(val.vertices)
     }
 }
 

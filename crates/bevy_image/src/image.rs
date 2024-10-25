@@ -29,8 +29,6 @@ pub const SAMPLER_ASSET_INDEX: u64 = 1;
 
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ImageFormat {
-    #[cfg(feature = "avif")]
-    Avif,
     #[cfg(feature = "basis-universal")]
     Basis,
     #[cfg(feature = "bmp")]
@@ -81,8 +79,6 @@ impl ImageFormat {
     /// Gets the file extensions for a given format.
     pub const fn to_file_extensions(&self) -> &'static [&'static str] {
         match self {
-            #[cfg(feature = "avif")]
-            ImageFormat::Avif => &["avif"],
             #[cfg(feature = "basis-universal")]
             ImageFormat::Basis => &["basis"],
             #[cfg(feature = "bmp")]
@@ -126,8 +122,6 @@ impl ImageFormat {
     /// If a format doesn't have any dedicated MIME types, this list will be empty.
     pub const fn to_mime_types(&self) -> &'static [&'static str] {
         match self {
-            #[cfg(feature = "avif")]
-            ImageFormat::Avif => &["image/avif"],
             #[cfg(feature = "basis-universal")]
             ImageFormat::Basis => &["image/basis", "image/x-basis"],
             #[cfg(feature = "bmp")]
@@ -172,9 +166,9 @@ impl ImageFormat {
     }
 
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
+        #[allow(unreachable_code)]
         Some(match mime_type.to_ascii_lowercase().as_str() {
             // note: farbfeld does not have a MIME type
-            "image/avif" => feature_gate!("avif", Avif),
             "image/basis" | "image/x-basis" => feature_gate!("basis-universal", Basis),
             "image/bmp" | "image/x-bmp" => feature_gate!("bmp", Bmp),
             "image/vnd-ms.dds" => feature_gate!("dds", Dds),
@@ -198,8 +192,8 @@ impl ImageFormat {
     }
 
     pub fn from_extension(extension: &str) -> Option<Self> {
+        #[allow(unreachable_code)]
         Some(match extension.to_ascii_lowercase().as_str() {
-            "avif" => feature_gate!("avif", Avif),
             "basis" => feature_gate!("basis-universal", Basis),
             "bmp" => feature_gate!("bmp", Bmp),
             "dds" => feature_gate!("dds", Dds),
@@ -221,9 +215,8 @@ impl ImageFormat {
     }
 
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
+        #[allow(unreachable_code)]
         Some(match self {
-            #[cfg(feature = "avif")]
-            ImageFormat::Avif => image::ImageFormat::Avif,
             #[cfg(feature = "bmp")]
             ImageFormat::Bmp => image::ImageFormat::Bmp,
             #[cfg(feature = "dds")]
@@ -263,8 +256,8 @@ impl ImageFormat {
     }
 
     pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
+        #[allow(unreachable_code)]
         Some(match format {
-            image::ImageFormat::Avif => feature_gate!("avif", Avif),
             image::ImageFormat::Bmp => feature_gate!("bmp", Bmp),
             image::ImageFormat::Dds => feature_gate!("dds", Dds),
             image::ImageFormat::Farbfeld => feature_gate!("ff", Farbfeld),
@@ -906,6 +899,7 @@ impl Image {
             ImageFormat::Ktx2 => {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
+            #[allow(unreachable_patterns)]
             _ => {
                 let image_crate_format = format
                     .as_image_crate_format()

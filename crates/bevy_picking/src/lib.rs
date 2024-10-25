@@ -144,7 +144,7 @@
 //! a pointer hovers or clicks an entity. These simple events are then used to generate more complex
 //! events for dragging and dropping.
 //!
-//! Because it is completely agnostic to the the earlier stages of the pipeline, you can easily
+//! Because it is completely agnostic to the earlier stages of the pipeline, you can easily
 //! extend the plugin with arbitrary backends and input methods, yet still use all the high level
 //! features.
 

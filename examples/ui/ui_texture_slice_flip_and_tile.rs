@@ -28,7 +28,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let slicer = TextureSlicer {
         // `numbered_slices.png` is 48 pixels square. `BorderRect::square(16.)` insets the slicing line from each edge by 16 pixels, resulting in nine slices that are each 16 pixels square.
         border: BorderRect::square(16.),
-        // With `SliceScaleMode::Tile` the side and center slices are tiled to to fill the side and center sections of the target.
+        // With `SliceScaleMode::Tile` the side and center slices are tiled to fill the side and center sections of the target.
         // And with a `stretch_value` of `1.` the tiles will have the same size as the corresponding slices in the source image.
         center_scale_mode: SliceScaleMode::Tile { stretch_value: 1. },
         sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1. },
@@ -39,17 +39,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::Center,
-                align_content: AlignContent::Center,
-                flex_wrap: FlexWrap::Wrap,
-                column_gap: Val::Px(10.),
-                row_gap: Val::Px(10.),
-                ..default()
-            },
+        .spawn(Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            justify_content: JustifyContent::Center,
+            align_content: AlignContent::Center,
+            flex_wrap: FlexWrap::Wrap,
+            column_gap: Val::Px(10.),
+            row_gap: Val::Px(10.),
             ..default()
         })
         .with_children(|parent| {
@@ -60,19 +57,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ([160., 160.], true, true),
             ] {
                 parent.spawn((
-                    NodeBundle {
-                        style: Style {
-                            width: Val::Px(width),
-                            height: Val::Px(height),
-                            ..default()
-                        },
-                        ..Default::default()
-                    },
                     UiImage {
-                        texture: image.clone(),
+                        image: image.clone(),
                         flip_x,
                         flip_y,
-                        ..Default::default()
+                        ..default()
+                    },
+                    Node {
+                        width: Val::Px(width),
+                        height: Val::Px(height),
+                        ..default()
                     },
                     ImageScaleMode::Sliced(slicer.clone()),
                 ));

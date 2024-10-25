@@ -77,16 +77,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
     let font_size = 33.;
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                display: Display::Flex,
-                justify_content: JustifyContent::SpaceBetween,
-                width: Val::Percent(100.),
-                position_type: PositionType::Absolute,
-                top: Val::Px(0.),
-                padding: UiRect::all(Val::Px(20.0)),
-                ..default()
-            },
+        .spawn(Node {
+            display: Display::Flex,
+            justify_content: JustifyContent::SpaceBetween,
+            width: Val::Percent(100.),
+            position_type: PositionType::Absolute,
+            top: Val::Px(0.),
+            padding: UiRect::all(Val::Px(20.0)),
             ..default()
         })
         .with_children(|builder| {
@@ -135,7 +132,7 @@ fn move_real_time_sprites(
         // move roughly half the screen in a `Real` second
         // when the time is scaled the speed is going to change
         // and the sprite will stay still the time is paused
-        transform.translation.x = get_sprite_translation_x(time.elapsed_seconds());
+        transform.translation.x = get_sprite_translation_x(time.elapsed_secs());
     }
 }
 
@@ -152,7 +149,7 @@ fn move_virtual_time_sprites(
         // when time is scaled using `Time<Virtual>::set_relative_speed` it's going
         // to move at a different pace and the sprite will stay still when time is
         // `Time<Virtual>::is_paused()`
-        transform.translation.x = get_sprite_translation_x(time.elapsed_seconds());
+        transform.translation.x = get_sprite_translation_x(time.elapsed_secs());
     }
 }
 
@@ -184,8 +181,8 @@ fn update_real_time_info_text(time: Res<Time<Real>>, mut query: Query<&mut Text,
     for mut text in &mut query {
         **text = format!(
             "REAL TIME\nElapsed: {:.1}\nDelta: {:.5}\n",
-            time.elapsed_seconds(),
-            time.delta_seconds(),
+            time.elapsed_secs(),
+            time.delta_secs(),
         );
     }
 }
@@ -198,8 +195,8 @@ fn update_virtual_time_info_text(
     for mut text in &mut query {
         **text = format!(
             "VIRTUAL TIME\nElapsed: {:.1}\nDelta: {:.5}\nSpeed: {:.2}",
-            time.elapsed_seconds(),
-            time.delta_seconds(),
+            time.elapsed_secs(),
+            time.delta_secs(),
             time.relative_speed()
         );
     }

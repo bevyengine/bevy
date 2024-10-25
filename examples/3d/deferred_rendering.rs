@@ -190,7 +190,7 @@ fn setup(
     // Example instructions
     commands.spawn((
         Text::default(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -211,7 +211,7 @@ fn animate_light_direction(
         return;
     }
     for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() * PI / 5.0);
+        transform.rotate_y(time.delta_secs() * PI / 5.0);
     }
 }
 
@@ -266,9 +266,9 @@ fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>, pause: Res<P
         return;
     }
     for (mut transform, spin) in query.iter_mut() {
-        transform.rotate_local_y(spin.speed * time.delta_seconds());
-        transform.rotate_local_x(spin.speed * time.delta_seconds());
-        transform.rotate_local_z(-spin.speed * time.delta_seconds());
+        transform.rotate_local_y(spin.speed * time.delta_secs());
+        transform.rotate_local_x(spin.speed * time.delta_secs());
+        transform.rotate_local_z(-spin.speed * time.delta_secs());
     }
 }
 

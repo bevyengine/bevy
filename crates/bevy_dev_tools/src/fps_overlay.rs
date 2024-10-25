@@ -16,9 +16,8 @@ use bevy_hierarchy::{BuildChildren, ChildBuild};
 use bevy_render::view::Visibility;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
 use bevy_ui::{
-    node_bundles::NodeBundle,
     widget::{Text, TextUiWriter},
-    GlobalZIndex, PositionType, Style,
+    GlobalZIndex, Node, PositionType,
 };
 use bevy_utils::default;
 
@@ -89,15 +88,12 @@ struct FpsText;
 fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    // We need to make sure the overlay doesn't affect the position of other UI nodes
-                    position_type: PositionType::Absolute,
-                    ..default()
-                },
-                // Render overlay on top of everything
+            Node {
+                // We need to make sure the overlay doesn't affect the position of other UI nodes
+                position_type: PositionType::Absolute,
                 ..default()
             },
+            // Render overlay on top of everything
             GlobalZIndex(FPS_OVERLAY_ZINDEX),
         ))
         .with_children(|p| {

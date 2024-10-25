@@ -149,7 +149,7 @@ fn setup(
     // Instructions
     commands.spawn((
         Text::new("Hover over the shapes to pick them"),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -232,6 +232,6 @@ fn on_mesh_hover(
 /// Rotates the shapes.
 fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
     for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() / 2.);
+        transform.rotate_y(time.delta_secs() / 2.);
     }
 }

@@ -19,7 +19,7 @@
 //!
 //! The more sophisticated way is to update the player's position based on the time that has passed:
 //! ```no_run
-//! transform.translation += velocity * time.delta_seconds();
+//! transform.translation += velocity * time.delta_secs();
 //! ```
 //! This way, velocity represents a speed in units per second, and the player will move at the same speed
 //! regardless of the frame rate.
@@ -145,13 +145,10 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// Spawn a bit of UI text to explain how to move the player.
 fn spawn_text(mut commands: Commands) {
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            },
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         })
         .with_child((
@@ -217,7 +214,7 @@ fn advance_physics(
     ) in query.iter_mut()
     {
         previous_physical_translation.0 = current_physical_translation.0;
-        current_physical_translation.0 += velocity.0 * fixed_time.delta_seconds();
+        current_physical_translation.0 += velocity.0 * fixed_time.delta_secs();
 
         // Reset the input accumulator, as we are currently consuming all input that happened since the last fixed timestep.
         input.0 = Vec2::ZERO;

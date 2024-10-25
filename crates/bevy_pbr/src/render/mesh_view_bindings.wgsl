@@ -14,14 +14,18 @@
 @group(0) @binding(2) var point_shadow_textures: texture_depth_cube_array;
 #endif
 @group(0) @binding(3) var point_shadow_textures_comparison_sampler: sampler_comparison;
+#ifdef PCSS_SAMPLERS_AVAILABLE
 @group(0) @binding(4) var point_shadow_textures_linear_sampler: sampler;
+#endif  // PCSS_SAMPLERS_AVAILABLE
 #ifdef NO_ARRAY_TEXTURES_SUPPORT
 @group(0) @binding(5) var directional_shadow_textures: texture_depth_2d;
 #else
 @group(0) @binding(5) var directional_shadow_textures: texture_depth_2d_array;
 #endif
 @group(0) @binding(6) var directional_shadow_textures_comparison_sampler: sampler_comparison;
+#ifdef PCSS_SAMPLERS_AVAILABLE
 @group(0) @binding(7) var directional_shadow_textures_linear_sampler: sampler;
+#endif  // PCSS_SAMPLERS_AVAILABLE
 
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 @group(0) @binding(8) var<storage> clusterable_objects: types::ClusterableObjects;

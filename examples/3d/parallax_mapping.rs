@@ -152,9 +152,9 @@ fn update_parallax_layers(
 
 fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>) {
     for (mut transform, spin) in query.iter_mut() {
-        transform.rotate_local_y(spin.speed * time.delta_seconds());
-        transform.rotate_local_x(spin.speed * time.delta_seconds());
-        transform.rotate_local_z(-spin.speed * time.delta_seconds());
+        transform.rotate_local_y(spin.speed * time.delta_secs());
+        transform.rotate_local_x(spin.speed * time.delta_secs());
+        transform.rotate_local_z(-spin.speed * time.delta_secs());
     }
 }
 
@@ -298,7 +298,7 @@ fn setup(
     commands
         .spawn((
             Text::default(),
-            Style {
+            Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),

@@ -1,4 +1,4 @@
-use crate::{UiRect, Val};
+use crate::{widget::UiImageSize, ContentSize, FocusPolicy, UiRect, Val};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -7,25 +7,20 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
     texture::{Image, TRANSPARENT_IMAGE_HANDLE},
+    view::Visibility,
 };
-use bevy_sprite::BorderRect;
+use bevy_sprite::{BorderRect, TextureAtlas};
+use bevy_transform::components::Transform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
 use derive_more::derive::{Display, Error, From};
 use smallvec::SmallVec;
 
-/// Base component for a UI node, which also provides the computed size of the node.
-///
-/// # See also
-///
-/// - [`node_bundles`](crate::node_bundles) for the list of built-in bundles that set up UI node
-/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition)
-///   to obtain the cursor position relative to this node
-/// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
+/// Provides the computed size and layout properties of the node.
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug)]
-pub struct Node {
+pub struct ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub(crate) stack_index: u32,
@@ -65,7 +60,7 @@ pub struct Node {
     pub(crate) padding: BorderRect,
 }
 
-impl Node {
+impl ComputedNode {
     /// The calculated node size as width and height in logical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
@@ -201,7 +196,7 @@ impl Node {
     }
 }
 
-impl Node {
+impl ComputedNode {
     pub const DEFAULT: Self = Self {
         stack_index: 0,
         calculated_size: Vec2::ZERO,
@@ -214,7 +209,7 @@ impl Node {
     };
 }
 
-impl Default for Node {
+impl Default for ComputedNode {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -224,7 +219,7 @@ impl Default for Node {
 ///
 /// Updating the values of `ScrollPosition` will reposition the children of the node by the offset amount.
 /// `ScrollPosition` may be updated by the layout system when a layout change makes a previously valid `ScrollPosition` invalid.
-/// Changing this does nothing on a `Node` without a `Style` setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
+/// Changing this does nothing on a `Node` without setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct ScrollPosition {
@@ -262,7 +257,9 @@ impl From<&Vec2> for ScrollPosition {
     }
 }
 
-/// Describes the style of a UI container node
+/// The base component for UI entities. It describes UI layout and style properties.
+///
+/// When defining new types of UI entities, require [`Node`] to make them behave like UI nodes.
 ///
 /// Nodes can be laid out using either Flexbox or CSS Grid Layout.
 ///
@@ -279,15 +276,32 @@ impl From<&Vec2> for ScrollPosition {
 /// - [MDN: Basic Concepts of Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout/Basic_Concepts_of_Grid_Layout)
 /// - [A Complete Guide To CSS Grid](https://css-tricks.com/snippets/css/complete-guide-grid/) by CSS Tricks. This is detailed guide with illustrations and comprehensive written explanation of the different CSS Grid properties and how they work.
 /// - [CSS Grid Garden](https://cssgridgarden.com/). An interactive tutorial/game that teaches the essential parts of CSS Grid in a fun engaging way.
+///
+/// # See also
+///
+/// - [`RelativeCursorPosition`](crate::RelativeCursorPosition) to obtain the cursor position relative to this node
+/// - [`Interaction`](crate::Interaction) to obtain the interaction state of this node
 
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[require(
+    ComputedNode,
+    BackgroundColor,
+    BorderColor,
+    BorderRadius,
+    ContentSize,
+    FocusPolicy,
+    ScrollPosition,
+    Transform,
+    Visibility,
+    ZIndex
+)]
 #[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct Style {
+pub struct Node {
     /// Which layout algorithm to use when laying out this node's contents:
     ///   - [`Display::Flex`]: Use the Flexbox layout algorithm
     ///   - [`Display::Grid`]: Use the CSS Grid layout algorithm
@@ -432,8 +446,8 @@ pub struct Style {
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Val};
-    /// let style = Style {
+    /// # use bevy_ui::{Node, UiRect, Val};
+    /// let node = Node {
     ///     margin: UiRect {
     ///         left: Val::Percent(10.),
     ///         right: Val::Percent(10.),
@@ -454,8 +468,8 @@ pub struct Style {
     ///
     /// # Example
     /// ```
-    /// # use bevy_ui::{Style, UiRect, Val};
-    /// let style = Style {
+    /// # use bevy_ui::{Node, UiRect, Val};
+    /// let node = Node {
     ///     padding: UiRect {
     ///         left: Val::Percent(1.),
     ///         right: Val::Percent(2.),
@@ -560,7 +574,7 @@ pub struct Style {
     pub grid_column: GridPlacement,
 }
 
-impl Style {
+impl Node {
     pub const DEFAULT: Self = Self {
         display: Display::DEFAULT,
         position_type: PositionType::DEFAULT,
@@ -603,7 +617,7 @@ impl Style {
     };
 }
 
-impl Default for Style {
+impl Default for Node {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -865,7 +879,7 @@ impl Default for JustifyContent {
 
 /// Defines the layout model used by this node.
 ///
-/// Part of the [`Style`] component.
+/// Part of the [`Node`] component.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
 #[reflect(Default, PartialEq)]
 #[cfg_attr(
@@ -883,7 +897,7 @@ pub enum Display {
     /// Use no layout, don't render this node and its children.
     ///
     /// If you want to hide a node and its children,
-    /// but keep its layout in place, set its [`Visibility`](bevy_render::view::Visibility) component instead.
+    /// but keep its layout in place, set its [`Visibility`] component instead.
     None,
 }
 
@@ -1955,22 +1969,19 @@ impl Default for BorderColor {
 /// The [`Outline`] component adds an outline outside the edge of a UI node.
 /// Outlines do not take up space in the layout.
 ///
-/// To add an [`Outline`] to a ui node you can spawn a `(NodeBundle, Outline)` tuple bundle:
+/// To add an [`Outline`] to a ui node you can spawn a `(Node, Outline)` tuple bundle:
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
 /// # use bevy_color::palettes::basic::{RED, BLUE};
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
-///         NodeBundle {
-///             style: Style {
-///                 width: Val::Px(100.),
-///                 height: Val::Px(100.),
-///                 ..Default::default()
-///             },
-///             background_color: BLUE.into(),
+///         Node {
+///             width: Val::Px(100.),
+///             height: Val::Px(100.),
 ///             ..Default::default()
 ///         },
+///         BackgroundColor(BLUE.into()),
 ///         Outline::new(Val::Px(10.), Val::ZERO, RED.into())
 ///     ));
 /// }
@@ -2032,6 +2043,7 @@ impl Outline {
 /// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
+#[require(Node, UiImageSize)]
 pub struct UiImage {
     /// The tint color used to draw the image.
     ///
@@ -2041,15 +2053,17 @@ pub struct UiImage {
     /// Handle to the texture.
     ///
     /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
-    pub texture: Handle<Image>,
+    pub image: Handle<Image>,
+    /// The (optional) texture atlas used to render the image
+    pub texture_atlas: Option<TextureAtlas>,
     /// Whether the image should be flipped along its x-axis
     pub flip_x: bool,
     /// Whether the image should be flipped along its y-axis
     pub flip_y: bool,
     /// An optional rectangle representing the region of the image to render, instead of rendering
-    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`](bevy_sprite::TextureAtlas).
+    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`].
     ///
-    /// When used with a [`TextureAtlas`](bevy_sprite::TextureAtlas), the rect
+    /// When used with a [`TextureAtlas`], the rect
     /// is offset by the atlas's minimal (top-left) corner position.
     pub rect: Option<Rect>,
 }
@@ -2067,8 +2081,9 @@ impl Default for UiImage {
             // This should be white because the tint is multiplied with the image,
             // so if you set an actual image with default tint you'd want its original colors
             color: Color::WHITE,
+            texture_atlas: None,
             // This texture needs to be transparent by default, to avoid covering the background color
-            texture: TRANSPARENT_IMAGE_HANDLE,
+            image: TRANSPARENT_IMAGE_HANDLE,
             flip_x: false,
             flip_y: false,
             rect: None,
@@ -2080,7 +2095,7 @@ impl UiImage {
     /// Create a new [`UiImage`] with the given texture.
     pub fn new(texture: Handle<Image>) -> Self {
         Self {
-            texture,
+            image: texture,
             color: Color::WHITE,
             ..Default::default()
         }
@@ -2091,11 +2106,21 @@ impl UiImage {
     /// This is primarily useful for debugging / mocking the extents of your image.
     pub fn solid_color(color: Color) -> Self {
         Self {
-            texture: Handle::default(),
+            image: Handle::default(),
             color,
             flip_x: false,
             flip_y: false,
+            texture_atlas: None,
             rect: None,
+        }
+    }
+
+    /// Create a [`UiImage`] from an image, with an associated texture atlas
+    pub fn from_atlas_image(image: Handle<Image>, atlas: TextureAtlas) -> Self {
+        Self {
+            image,
+            texture_atlas: Some(atlas),
+            ..Default::default()
         }
     }
 
@@ -2173,32 +2198,29 @@ pub struct GlobalZIndex(pub i32);
 /// dimension, either width or height.
 ///
 /// # Example
-/// ```
+/// ```rust
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ui::prelude::*;
 /// # use bevy_color::palettes::basic::{BLUE};
 /// fn setup_ui(mut commands: Commands) {
 ///     commands.spawn((
-///         NodeBundle {
-///             style: Style {
-///                 width: Val::Px(100.),
-///                 height: Val::Px(100.),
-///                 border: UiRect::all(Val::Px(2.)),
-///                 ..Default::default()
-///             },
-///             background_color: BLUE.into(),
-///             border_radius: BorderRadius::new(
-///                 // top left
-///                 Val::Px(10.),
-///                 // top right
-///                 Val::Px(20.),
-///                 // bottom right
-///                 Val::Px(30.),
-///                 // bottom left
-///                 Val::Px(40.),
-///             ),
+///         Node {
+///             width: Val::Px(100.),
+///             height: Val::Px(100.),
+///             border: UiRect::all(Val::Px(2.)),
 ///             ..Default::default()
 ///         },
+///         BackgroundColor(BLUE.into()),
+///         BorderRadius::new(
+///             // top left
+///             Val::Px(10.),
+///             // top right
+///             Val::Px(20.),
+///             // bottom right
+///             Val::Px(30.),
+///             // bottom left
+///             Val::Px(40.),
+///         ),
 ///     ));
 /// }
 /// ```

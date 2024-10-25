@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
-use bevy_sprite::{TextureAtlas, TextureAtlasLayout};
+use bevy_sprite::TextureAtlasLayout;
 use bevy_window::{PrimaryWindow, Window};
 use taffy::{MaybeMath, MaybeResolve};
 
@@ -87,10 +87,7 @@ impl Measure for ImageMeasure {
     }
 }
 
-#[cfg(feature = "bevy_text")]
 type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
-#[cfg(not(feature = "bevy_text"))]
-type UpdateImageFilter = With<Node>;
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
@@ -100,15 +97,7 @@ pub fn update_image_content_size_system(
     textures: Res<Assets<Image>>,
 
     atlases: Res<Assets<TextureAtlasLayout>>,
-    mut query: Query<
-        (
-            &mut ContentSize,
-            &UiImage,
-            &mut UiImageSize,
-            Option<&TextureAtlas>,
-        ),
-        UpdateImageFilter,
-    >,
+    mut query: Query<(&mut ContentSize, &UiImage, &mut UiImageSize), UpdateImageFilter>,
 ) {
     let combined_scale_factor = windows
         .get_single()
@@ -116,10 +105,10 @@ pub fn update_image_content_size_system(
         .unwrap_or(1.)
         * ui_scale.0;
 
-    for (mut content_size, image, mut image_size, atlas_image) in &mut query {
-        if let Some(size) = match atlas_image {
+    for (mut content_size, image, mut image_size) in &mut query {
+        if let Some(size) = match &image.texture_atlas {
             Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
-            None => textures.get(&image.texture).map(Image::size),
+            None => textures.get(&image.image).map(Image::size),
         } {
             // Update only if size or scale factor has changed to avoid needless layout calculations
             if size != image_size.size

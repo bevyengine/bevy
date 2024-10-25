@@ -118,7 +118,7 @@ fn setup_pyramid_scene(
 fn setup_instructions(mut commands: Commands) {
     commands.spawn((
         Text::default(),
-        Style {
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -133,8 +133,8 @@ fn update_system(
     time: Res<Time>,
     keycode: Res<ButtonInput<KeyCode>>,
 ) {
-    let now = time.elapsed_seconds();
-    let delta = time.delta_seconds();
+    let now = time.elapsed_secs();
+    let delta = time.delta_secs();
 
     let (mut fog, mut transform) = camera.into_inner();
 

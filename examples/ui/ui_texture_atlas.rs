@@ -33,31 +33,24 @@ fn setup(
 
     // root node
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                row_gap: Val::Px(text_font.font_size * 2.),
-                ..default()
-            },
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            row_gap: Val::Px(text_font.font_size * 2.),
             ..default()
         })
         .with_children(|parent| {
             parent.spawn((
-                ImageBundle {
-                    style: Style {
-                        width: Val::Px(256.),
-                        height: Val::Px(256.),
-                        ..default()
-                    },
-                    image: UiImage::new(texture_handle),
-                    background_color: BackgroundColor(ANTIQUE_WHITE.into()),
+                UiImage::from_atlas_image(texture_handle, TextureAtlas::from(texture_atlas_handle)),
+                Node {
+                    width: Val::Px(256.),
+                    height: Val::Px(256.),
                     ..default()
                 },
-                TextureAtlas::from(texture_atlas_handle),
+                BackgroundColor(ANTIQUE_WHITE.into()),
                 Outline::new(Val::Px(8.0), Val::ZERO, CRIMSON.into()),
             ));
             parent
@@ -71,13 +64,12 @@ fn setup(
         });
 }
 
-fn increment_atlas_index(
-    mut atlas_images: Query<&mut TextureAtlas>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-) {
+fn increment_atlas_index(mut ui_images: Query<&mut UiImage>, keyboard: Res<ButtonInput<KeyCode>>) {
     if keyboard.just_pressed(KeyCode::Space) {
-        for mut atlas_image in &mut atlas_images {
-            atlas_image.index = (atlas_image.index + 1) % 6;
+        for mut ui_image in &mut ui_images {
+            if let Some(atlas) = &mut ui_image.texture_atlas {
+                atlas.index = (atlas.index + 1) % 6;
+            }
         }
     }
 }

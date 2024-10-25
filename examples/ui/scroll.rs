@@ -30,26 +30,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // root node
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::SpaceBetween,
-                flex_direction: FlexDirection::Column,
-                ..default()
-            },
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            justify_content: JustifyContent::SpaceBetween,
+            flex_direction: FlexDirection::Column,
             ..default()
         })
         .insert(PickingBehavior::IGNORE)
         .with_children(|parent| {
             // horizontal scroll example
             parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.),
-                        flex_direction: FlexDirection::Column,
-                        ..default()
-                    },
+                .spawn(Node {
+                    width: Val::Percent(100.),
+                    flex_direction: FlexDirection::Column,
                     ..default()
                 })
                 .with_children(|parent| {
@@ -66,17 +60,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                     // horizontal scroll container
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
+                        .spawn((
+                            Node {
                                 width: Val::Percent(80.),
                                 margin: UiRect::all(Val::Px(10.)),
                                 flex_direction: FlexDirection::Row,
                                 overflow: Overflow::scroll_x(), // n.b.
                                 ..default()
                             },
-                            background_color: Color::srgb(0.10, 0.10, 0.10).into(),
-                            ..default()
-                        })
+                            BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                        ))
                         .with_children(|parent| {
                             for i in 0..100 {
                                 parent.spawn((Text(format!("Item {i}")),
@@ -88,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     Label,
                                     AccessibilityNode(NodeBuilder::new(Role::ListItem)),
                                 ))
-                                .insert(Style {
+                                .insert(Node {
                                     min_width: Val::Px(200.),
                                     align_content: AlignContent::Center,
                                     ..default()
@@ -111,27 +104,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             // container for all other examples
             parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
-                        flex_direction: FlexDirection::Row,
-                        justify_content: JustifyContent::SpaceBetween,
-                        ..default()
-                    },
+                .spawn(Node {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::SpaceBetween,
                     ..default()
                 })
                 .with_children(|parent| {
                     // vertical scroll example
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
-                                flex_direction: FlexDirection::Column,
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                width: Val::Px(200.),
-                                ..default()
-                            },
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            width: Val::Px(200.),
                             ..default()
                         })
                         .with_children(|parent| {
@@ -147,27 +134,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ));
                             // Scrolling list
                             parent
-                                .spawn(NodeBundle {
-                                    style: Style {
+                                .spawn((
+                                    Node {
                                         flex_direction: FlexDirection::Column,
                                         align_self: AlignSelf::Stretch,
                                         height: Val::Percent(50.),
                                         overflow: Overflow::scroll_y(), // n.b.
                                         ..default()
                                     },
-                                    background_color: Color::srgb(0.10, 0.10, 0.10).into(),
-                                    ..default()
-                                })
+                                    BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                                ))
                                 .with_children(|parent| {
                                     // List items
                                     for i in 0..25 {
                                         parent
-                                            .spawn(NodeBundle {
-                                                style: Style {
-                                                    min_height: Val::Px(LINE_HEIGHT),
-                                                    max_height: Val::Px(LINE_HEIGHT),
-                                                    ..default()
-                                                },
+                                            .spawn(Node {
+                                                min_height: Val::Px(LINE_HEIGHT),
+                                                max_height: Val::Px(LINE_HEIGHT),
                                                 ..default()
                                             })
                                             .insert(PickingBehavior {
@@ -199,14 +182,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                     // Bidirectional scroll example
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
-                                flex_direction: FlexDirection::Column,
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                width: Val::Px(200.),
-                                ..default()
-                            },
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            width: Val::Px(200.),
                             ..default()
                         })
                         .with_children(|parent| {
@@ -222,26 +202,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ));
                             // Scrolling list
                             parent
-                                .spawn(NodeBundle {
-                                    style: Style {
+                                .spawn((
+                                    Node {
                                         flex_direction: FlexDirection::Column,
                                         align_self: AlignSelf::Stretch,
                                         height: Val::Percent(50.),
                                         overflow: Overflow::scroll(), // n.b.
                                         ..default()
                                     },
-                                    background_color: Color::srgb(0.10, 0.10, 0.10).into(),
-                                    ..default()
-                                })
+                                    BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                                ))
                                 .with_children(|parent| {
                                     // Rows in each column
                                     for oi in 0..10 {
                                         parent
-                                            .spawn(NodeBundle {
-                                                style: Style {
-                                                    flex_direction: FlexDirection::Row,
-                                                    ..default()
-                                                },
+                                            .spawn(Node {
+                                                flex_direction: FlexDirection::Row,
                                                 ..default()
                                             })
                                             .insert(PickingBehavior::IGNORE)
@@ -274,14 +250,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                     // Nested scrolls example
                     parent
-                        .spawn(NodeBundle {
-                            style: Style {
-                                flex_direction: FlexDirection::Column,
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                width: Val::Px(200.),
-                                ..default()
-                            },
+                        .spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            width: Val::Px(200.),
                             ..default()
                         })
                         .with_children(|parent| {
@@ -297,8 +270,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ));
                             // Outer, horizontal scrolling container
                             parent
-                                .spawn(NodeBundle {
-                                    style: Style {
+                                .spawn((
+                                    Node {
                                         column_gap: Val::Px(20.),
                                         flex_direction: FlexDirection::Row,
                                         align_self: AlignSelf::Stretch,
@@ -306,24 +279,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         overflow: Overflow::scroll_x(), // n.b.
                                         ..default()
                                     },
-                                    background_color: Color::srgb(0.10, 0.10, 0.10).into(),
-                                    ..default()
-                                })
+                                    BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
+                                ))
                                 .with_children(|parent| {
                                     // Inner, scrolling columns
                                     for oi in 0..30 {
                                         parent
-                                            .spawn(NodeBundle {
-                                                style: Style {
+                                            .spawn((
+                                                Node {
                                                     flex_direction: FlexDirection::Column,
                                                     align_self: AlignSelf::Stretch,
                                                     overflow: Overflow::scroll_y(),
                                                     ..default()
                                                 },
-                                                background_color: Color::srgb(0.05, 0.05, 0.05)
-                                                    .into(),
-                                                ..default()
-                                            })
+                                                BackgroundColor(Color::srgb(0.05, 0.05, 0.05)),
+                                            ))
                                             .insert(PickingBehavior {
                                                 should_block_lower: false,
                                                 ..default()

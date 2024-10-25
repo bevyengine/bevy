@@ -247,9 +247,6 @@ trace_tracy_memory = [
 # Tracing support
 trace = ["bevy_internal/trace"]
 
-# AVIF image format support
-avif = ["bevy_internal/avif"]
-
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
 
@@ -405,6 +402,9 @@ pbr_multi_layer_material_textures = [
 # Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_anisotropy_texture = ["bevy_internal/pbr_anisotropy_texture"]
 
+# Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs
+pbr_pcss = ["bevy_internal/pbr_pcss"]
+
 # Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
 
@@ -443,6 +443,9 @@ reflect_functions = ["bevy_internal/reflect_functions"]
 
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
+
+# Experimental support for nodes that are ignored for UI layouting
+ghost_nodes = ["bevy_internal/ghost_nodes"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
@@ -1213,7 +1216,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/8443bbdee0bf517e6c297dede7f6a46ab712ee4c/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/8483db58832542383820c3f44e4730e566910be7/bunny.meshlet_mesh",
   ],
 ]
 
@@ -3081,6 +3084,7 @@ wasm = true
 name = "ghost_nodes"
 path = "examples/ui/ghost_nodes.rs"
 doc-scrape-examples = true
+required-features = ["ghost_nodes"]
 
 [package.metadata.example.ghost_nodes]
 name = "Ghost Nodes"
@@ -3326,11 +3330,11 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
-name = "minimising"
-path = "tests/window/minimising.rs"
+name = "minimizing"
+path = "tests/window/minimizing.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.minimising]
+[package.metadata.example.minimizing]
 hidden = true
 
 [[example]]
@@ -3785,6 +3789,7 @@ wasm = true
 name = "pcss"
 path = "examples/3d/pcss.rs"
 doc-scrape-examples = true
+required-features = ["pbr_pcss"]
 
 [package.metadata.example.pcss]
 name = "Percentage-closer soft shadows"
@@ -3834,3 +3839,20 @@ name = "Monitor info"
 description = "Displays information about available monitors (displays)."
 category = "Window"
 wasm = false
+
+# Testbed
+[[example]]
+name = "testbed_2d"
+path = "examples/testbed/2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_2d]
+hidden = true
+
+[[example]]
+name = "testbed_3d"
+path = "examples/testbed/3d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_3d]
+hidden = true
