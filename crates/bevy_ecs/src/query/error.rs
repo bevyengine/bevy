@@ -10,7 +10,7 @@ pub enum QueryEntityError<'w> {
     ///
     /// Either it does not have a requested component, or it has a component which the query filters out.
     QueryDoesNotMatch(Entity, UnsafeWorldCell<'w>),
-    /// The given [`Entity`] does not exist. If the `track_change_detection` feature is enabled, the error message includes the source code location from which the entity was despawned (if it was).
+    /// The given [`Entity`] does not exist.
     NoSuchEntity(Entity, UnsafeWorldCell<'w>),
     /// The [`Entity`] was requested mutably more than once.
     ///
@@ -43,7 +43,7 @@ impl<'w> core::fmt::Display for QueryEntityError<'w> {
                 }
                 #[cfg(not(feature = "track_change_detection"))]
                 {
-                    write!(f, "The entity {entity} does not exist")
+                    write!(f, "The entity {entity} does not exist (enable `track_change_detection` feature for more details)")
                 }
             }
             Self::AliasedMutability(entity) => write!(
@@ -75,7 +75,7 @@ impl<'w> core::fmt::Debug for QueryEntityError<'w> {
                 }
                 #[cfg(not(feature = "track_change_detection"))]
                 {
-                    write!(f, "NoSuchEntity({entity})",)
+                    write!(f, "NoSuchEntity({entity} (enable `track_change_detection` feature for more details))",)
                 }
             }
             Self::AliasedMutability(entity) => write!(f, "AliasedMutability({entity})"),
