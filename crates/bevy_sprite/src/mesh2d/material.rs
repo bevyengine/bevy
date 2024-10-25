@@ -361,6 +361,7 @@ fn extract_mesh_materials_2d<M: Material2d>(
     >,
 ) {
     material_instances.clear();
+    entities_to_specialize.entities.clear();
 
     for (entity, view_visibility, material, needs_specialization) in &query {
         if view_visibility.get() {

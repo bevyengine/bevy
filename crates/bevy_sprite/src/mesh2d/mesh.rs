@@ -109,7 +109,7 @@ impl Plugin for Mesh2dRenderPlugin {
         ))
         .insert_resource(entity_specialized_receiver)
         .init_resource::<View2dKeyCache>()
-        .add_systems(PostUpdate, check_views2d_need_specialization);
+        .add_systems(PostUpdate, (apply_entity_specialized2d, check_views2d_need_specialization));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -286,7 +286,7 @@ pub fn create_entity_specialized_channel(
     (EntitySpecialized2dSender(s), EntitySpecialized2dReceiver(r))
 }
 
-pub fn apply_entity_specialized(
+pub fn apply_entity_specialized2d(
     mut commands: Commands,
     entity_specialized_receiver: Res<EntitySpecialized2dReceiver>,
 ) {

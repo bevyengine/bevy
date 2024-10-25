@@ -154,6 +154,7 @@ impl Plugin for MeshRenderPlugin {
         .add_systems(
             PostUpdate,
             (
+                apply_entity_specialized,
                 check_views_need_specialization,
                 no_automatic_skin_batching,
                 no_automatic_morph_batching,

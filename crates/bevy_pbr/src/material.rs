@@ -41,7 +41,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility},
     Extract,
 };
-use bevy_utils::tracing::{error, warn};
+use bevy_utils::tracing::{error, info, info_span, warn};
 use bevy_utils::{HashMap, HashSet};
 use core::{
     hash::Hash,
@@ -697,6 +697,7 @@ fn extract_mesh_materials<M: Material>(
     >,
 ) {
     material_instances.clear();
+    entities_to_specialize.entities.clear();
 
     for (entity, view_visibility, material, needs_specialization) in &query {
         if view_visibility.get() {
@@ -1147,6 +1148,11 @@ fn specialize_pipelines<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
+    #[cfg(feature = "trace")]
+    let _specialize_pipelines_span = {
+        let entities_to_specialize = entities_to_specialize.entities.len();
+        info_span!("specialize_pipelines", entities_to_specialize).entered()
+    };
     specialized.clear();
     for (view_entity, main_view_entity, visible_entities, msaa) in &views {
         if !opaque_3d_phases.contains_key(&view_entity)
