@@ -39,7 +39,7 @@ pub enum EntityFetchError<'w> {
 impl<'w> core::error::Error for EntityFetchError<'w> {}
 
 impl<'w> core::fmt::Display for EntityFetchError<'w> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match *self {
             Self::NoSuchEntity(entity, world) => {
                 write!(
