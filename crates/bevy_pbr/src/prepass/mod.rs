@@ -385,6 +385,8 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
+        // For directional light shadow map views, use unclipped depth via either the native GPU feature,
+        // or emulated by setting depth in the fragment shader for GPUs that don't support it natively.
         let emulate_unclipped_depth = key
             .mesh_key
             .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
@@ -399,6 +401,10 @@ where
             // https://github.com/bevyengine/bevy/pull/8877
             shader_defs.push("PREPASS_FRAGMENT".into());
         }
+        let unclipped_depth = key
+            .mesh_key
+            .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
+            && self.depth_clip_control_supported;
 
         if layout.0.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());
@@ -539,11 +545,6 @@ where
         } else {
             PREPASS_SHADER_HANDLE
         };
-
-        let unclipped_depth = key
-            .mesh_key
-            .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
-            && self.depth_clip_control_supported;
 
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
