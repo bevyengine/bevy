@@ -278,8 +278,8 @@ impl<'w> EntityRef<'w> {
     /// Returns the source code location from which this entity has last been spawned or despawned.
     /// In a removal hook or observer, this points to the despawn.
     #[cfg(feature = "track_change_detection")]
-    pub fn get_spawned_despawned_by(&self) -> &'static Location<'static> {
-        self.0.get_spawned_despawned_by()
+    pub fn spawned_despawned_by(&self) -> &'static Location<'static> {
+        self.0.spawned_despawned_by()
     }
 }
 
@@ -803,8 +803,8 @@ impl<'w> EntityMut<'w> {
     /// Returns the source code location from which this entity has last been spawned or despawned.
     /// In a removal hook or observer, this points to the despawn.
     #[cfg(feature = "track_change_detection")]
-    pub fn get_spawned_despawned_by(&self) -> &'static Location<'static> {
-        self.0.get_spawned_despawned_by()
+    pub fn spawned_despawned_by(&self) -> &'static Location<'static> {
+        self.0.spawned_despawned_by()
     }
 }
 
@@ -1932,7 +1932,7 @@ impl<'w> EntityWorldMut<'w> {
     /// Returns the source code location from which this entity has last been spawned or despawned.
     /// In a removal hook or observer, this points to the despawn.
     #[cfg(feature = "track_change_detection")]
-    pub fn get_spawned_despawned_by(&self) -> &'static Location<'static> {
+    pub fn spawned_despawned_by(&self) -> &'static Location<'static> {
         self.world()
             .entities()
             .get_entity_spawned_despawned_by(self.entity)
@@ -2496,8 +2496,8 @@ impl<'w> FilteredEntityRef<'w> {
     /// Returns the source code location from which this entity has last been spawned or despawned.
     /// In a removal hook or observer, this points to the despawn.
     #[cfg(feature = "track_change_detection")]
-    pub fn get_spawned_despawned_by(&self) -> &'static Location<'static> {
-        self.entity.get_spawned_despawned_by()
+    pub fn spawned_despawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_despawned_by()
     }
 }
 
@@ -2807,8 +2807,8 @@ impl<'w> FilteredEntityMut<'w> {
     /// Returns the source code location from which this entity has last been spawned or despawned.
     /// In a removal hook or observer, this points to the despawn.
     #[cfg(feature = "track_change_detection")]
-    pub fn get_spawned_despawned_by(&self) -> &'static Location<'static> {
-        self.entity.get_spawned_despawned_by()
+    pub fn spawned_despawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_despawned_by()
     }
 }
 
@@ -2956,8 +2956,8 @@ where
     /// Returns the source code location from which this entity has last been spawned or despawned.
     /// In a removal hook or observer, this points to the despawn.
     #[cfg(feature = "track_change_detection")]
-    pub fn get_spawned_despawned_by(&self) -> &'static Location<'static> {
-        self.entity.get_spawned_despawned_by()
+    pub fn spawned_despawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_despawned_by()
     }
 }
 
@@ -3071,8 +3071,8 @@ where
     /// Returns the source code location from which this entity has last been spawned or despawned.
     /// In a removal hook or observer, this points to the despawn.
     #[cfg(feature = "track_change_detection")]
-    pub fn get_spawned_despawned_by(&self) -> &'static Location<'static> {
-        self.entity.get_spawned_despawned_by()
+    pub fn spawned_despawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_despawned_by()
     }
 }
 
