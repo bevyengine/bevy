@@ -1112,11 +1112,13 @@ where
     fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
         // BTreeMap doesn't have a `drain` function, so one must be faked by popping one at a time.
         // See https://github.com/rust-lang/rust/issues/81074
-        core::iter::from_fn(|| self.pop_first())
-            .map(|(key, value)| {
+        let mut tree = Self::new();
+        core::mem::swap(self, &mut tree);
+        tree.into_iter()
+            .map(|(k, v)| {
                 (
-                    Box::new(key) as Box<dyn PartialReflect>,
-                    Box::new(value) as Box<dyn PartialReflect>,
+                    Box::new(k) as Box<dyn PartialReflect>,
+                    Box::new(v) as Box<dyn PartialReflect>,
                 )
             })
             .collect()
