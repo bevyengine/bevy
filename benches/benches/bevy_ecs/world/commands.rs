@@ -1,5 +1,6 @@
 use bevy_ecs::{
     component::Component,
+    entity::Entity,
     system::Commands,
     world::{Command, CommandQueue, World},
 };
@@ -112,15 +113,15 @@ pub fn insert_commands(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn make_entities(world: &mut World, entity_count: usize) -> Vec<bevy_ecs::entity::Entity> {
+fn make_entities(world: &mut World, entity_count: usize) -> Vec<Entity> {
     core::iter::repeat_with(|| world.spawn_empty().id())
         .take(entity_count)
         .collect()
 }
 
-type Value = (bevy_ecs::entity::Entity, (Matrix, Vec3));
+type Value = (Entity, (Matrix, Vec3));
 
-fn make_values(entities: &[bevy_ecs::entity::Entity]) -> Vec<Value> {
+fn make_values(entities: &[Entity]) -> Vec<Value> {
     entities
         .iter()
         .map(|entity| (*entity, (Matrix::default(), Vec3::default())))
