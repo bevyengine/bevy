@@ -61,7 +61,7 @@ struct VertexOutput {
 #endif
 
 #ifdef DEPTH_CLAMP_ORTHO
-    @location(6) clip_position_unclamped: vec4<f32>,
+    @location(6) clip_z_unclamped: f32,
 #endif // DEPTH_CLAMP_ORTHO
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
     @location(7) instance_index: u32,
