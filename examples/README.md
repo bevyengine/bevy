@@ -505,6 +505,7 @@ Example | Description
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
 [Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
+[Layout Rounding Debug](../examples/ui/layout_rounding_debug.rs) | An example for debugging layout rounding errors
 [Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow Clip Margin](../examples/ui/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
 [Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
