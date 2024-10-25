@@ -1088,7 +1088,7 @@ mod tests {
             .collect::<Vec<Entity>>();
 
         for r in [2, 3, 5, 7, 11, 13, 17, 19, 21, 23, 29, 31].map(|n| (n as f32).recip()) {
-            let mut s = r;
+            let mut s = 1. - r;
             while s <= 5. {
                 world.resource_mut::<UiScale>().0 = s;
                 ui_schedule.run(&mut world);
