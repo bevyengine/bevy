@@ -318,7 +318,7 @@ impl PickingPlugin {
         state.is_focus_enabled && state.is_enabled
     }
 
-    /// Wheather or not window entities should receive pick events.
+    /// Whether or not window entities should receive pick events.
     pub fn window_picking_should_run(state: Res<Self>) -> bool {
         state.is_window_picking_enabled && state.is_enabled
     }

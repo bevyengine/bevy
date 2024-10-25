@@ -71,7 +71,7 @@ pub struct Pointer<E: Debug + Clone + Reflect> {
     pub event: E,
 }
 
-/// A traversal query (eg it implements [`Traversal`]) intended for use with [`Poiner`] events.
+/// A traversal query (eg it implements [`Traversal`]) intended for use with [`Pointer`] events.
 ///
 /// This will always traverse to the parent, if the entity being visited has one. Otherwise, it
 /// propagates to the pointer's window and stops there.
@@ -100,7 +100,7 @@ where
             }
         }
 
-        return None;
+        None
     }
 }
 

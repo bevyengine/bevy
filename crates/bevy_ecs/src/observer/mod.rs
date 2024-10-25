@@ -614,8 +614,8 @@ mod tests {
     #[derive(Component)]
     struct Parent(Entity);
 
-    impl Traversal for &'_ Parent {
-        fn traverse(item: Self::Item<'_>) -> Option<Entity> {
+    impl<D> Traversal<D> for &'_ Parent {
+        fn traverse(item: Self::Item<'_>, _: &D) -> Option<Entity> {
             Some(item.0)
         }
     }

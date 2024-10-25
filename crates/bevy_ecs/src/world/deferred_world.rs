@@ -544,7 +544,7 @@ impl<'w> DeferredWorld<'w> {
                 .get_entity(entity)
                 .ok()
                 .and_then(|entity| entity.get_components::<T>())
-                .and_then(|item| T::traverse(item, &data))
+                .and_then(|item| T::traverse(item, data))
             {
                 entity = traverse_to;
             } else {
