@@ -26,13 +26,13 @@ fn setup(mut commands: Commands) {
                 display: Display::Grid,
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
-                grid_template_rows: vec![RepeatedGridTrack::fr(7, 1.)],
+                grid_template_rows: vec![RepeatedGridTrack::fr(10, 1.)],
                 ..Default::default()
             },
             BackgroundColor(Color::WHITE),
         ))
         .with_children(|commands| {
-            for i in 2..9 {
+            for i in 2..12 {
                 commands
                     .spawn(Node {
                         display: Display::Grid,
@@ -43,7 +43,7 @@ fn setup(mut commands: Commands) {
                         for _ in 0..i {
                             commands.spawn((
                                 Node {
-                                    border: UiRect::all(Val::Px(10.)),
+                                    border: UiRect::all(Val::Px(5.)),
                                     ..Default::default()
                                 },
                                 BackgroundColor(MAROON.into()),
