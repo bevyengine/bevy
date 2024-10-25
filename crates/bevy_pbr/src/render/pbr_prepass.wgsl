@@ -32,9 +32,9 @@ fn fragment(
 
     var out: prepass_io::FragmentOutput;
 
-#ifdef DEPTH_CLAMP_ORTHO
-    out.frag_depth = in.unclamped_clip_depth;
-#endif // DEPTH_CLAMP_ORTHO
+#ifdef UNCLIPPED_DEPTH_ORTHO
+    out.frag_depth = in.unclipped_depth;
+#endif // UNCLIPPED_DEPTH_ORTHO
 
 #ifdef NORMAL_PREPASS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit

@@ -1495,7 +1495,7 @@ pub fn queue_shadows<M: Material>(
                     .expect("Failed to get spot light visible entities"),
             };
             let mut light_key = MeshPipelineKey::DEPTH_PREPASS;
-            light_key.set(MeshPipelineKey::DEPTH_CLAMP_ORTHO, is_directional_light);
+            light_key.set(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO, is_directional_light);
 
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued

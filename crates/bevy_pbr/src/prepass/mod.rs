@@ -350,10 +350,12 @@ where
         let mut unclipped_depth = false;
 
         // Remove depth clamp in fragment shader if GPU supports it natively
-        if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO)
+        if key
+            .mesh_key
+            .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
             && self.depth_clip_control_supported
         {
-            key.mesh_key.remove(MeshPipelineKey::DEPTH_CLAMP_ORTHO);
+            key.mesh_key.remove(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO);
             unclipped_depth = true;
         }
 
@@ -394,8 +396,11 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
-        if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO) {
-            shader_defs.push("DEPTH_CLAMP_ORTHO".into());
+        if key
+            .mesh_key
+            .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
+        {
+            shader_defs.push("UNCLIPPED_DEPTH_ORTHO".into());
             // PERF: This line forces the "prepass fragment shader" to always run in
             // common scenarios like "directional light calculation". Doing so resolves
             // a pretty nasty depth clamping bug, but it also feels a bit excessive.
@@ -506,7 +511,9 @@ where
         // is enabled or the material uses alpha cutoff values and doesn't rely on the standard
         // prepass shader or we are clamping the orthographic depth in the fragment shader.
         let fragment_required = !targets.is_empty()
-            || key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO)
+            || key
+                .mesh_key
+                .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
             || (key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
                 && self.prepass_material_fragment_shader.is_some());
 
