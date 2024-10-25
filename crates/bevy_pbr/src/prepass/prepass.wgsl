@@ -77,7 +77,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4<f32>(vertex.position, 1.0));
     out.position = position_world_to_clip(out.world_position.xyz);
 #ifdef DEPTH_CLAMP_ORTHO
-    out.clip_z_unclamped = out.position.z;
+    out.unclamped_clip_depth = out.position.z;
     out.position.z = min(out.position.z, 1.0);
 #endif // DEPTH_CLAMP_ORTHO
 
@@ -174,7 +174,7 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
 #endif
 
 #ifdef DEPTH_CLAMP_ORTHO
-    out.frag_depth = in.clip_z_unclamped;
+    out.frag_depth = in.unclamped_clip_depth;
 #endif // DEPTH_CLAMP_ORTHO
 
 #ifdef MOTION_VECTOR_PREPASS
