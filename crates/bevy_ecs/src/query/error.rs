@@ -26,30 +26,22 @@ impl<'w> core::fmt::Display for QueryEntityError<'w> {
             Self::QueryDoesNotMatch(entity, world) => {
                 write!(
                     f,
-                    "The query does not match the entity {entity}, which has components "
+                    "The query does not match entity {entity}, which has components "
                 )?;
                 format_archetype(f, world, entity)
             }
-            Self::NoSuchEntity(entity, _world) => {
-                #[cfg(feature = "track_change_detection")]
-                {
-                    if let Some(location) =
-                        _world.entities().get_entity_spawned_despawned_by(entity)
-                    {
-                        write!(f, "The entity {entity} was despawned by {location}",)
-                    } else {
-                        write!(f, "The entity {entity} was never spawned",)
-                    }
-                }
-                #[cfg(not(feature = "track_change_detection"))]
-                {
-                    write!(f, "The entity {entity} does not exist (enable `track_change_detection` feature for more details)")
-                }
+            Self::NoSuchEntity(entity, world) => {
+                write!(
+                    f,
+                    "Entity {entity} {}",
+                    world
+                        .entities()
+                        .entity_does_not_exist_error_message_helper(entity)
+                )
             }
-            Self::AliasedMutability(entity) => write!(
-                f,
-                "The entity {entity} was requested mutably more than once"
-            ),
+            Self::AliasedMutability(entity) => {
+                write!(f, "Entity {entity} was requested mutably more than once")
+            }
         }
     }
 }
@@ -62,21 +54,14 @@ impl<'w> core::fmt::Debug for QueryEntityError<'w> {
                 format_archetype(f, world, entity)?;
                 write!(f, ")")
             }
-            Self::NoSuchEntity(entity, _world) => {
-                #[cfg(feature = "track_change_detection")]
-                {
-                    if let Some(location) =
-                        _world.entities().get_entity_spawned_despawned_by(entity)
-                    {
-                        write!(f, "NoSuchEntity({entity} despawned by {location})")
-                    } else {
-                        write!(f, "NoSuchEntity({entity} never spawned)",)
-                    }
-                }
-                #[cfg(not(feature = "track_change_detection"))]
-                {
-                    write!(f, "NoSuchEntity({entity} (enable `track_change_detection` feature for more details))",)
-                }
+            Self::NoSuchEntity(entity, world) => {
+                write!(
+                    f,
+                    "NoSuchEntity({entity} {})",
+                    world
+                        .entities()
+                        .entity_does_not_exist_error_message_helper(entity)
+                )
             }
             Self::AliasedMutability(entity) => write!(f, "AliasedMutability({entity})"),
         }

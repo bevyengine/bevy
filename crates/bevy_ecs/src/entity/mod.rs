@@ -970,6 +970,22 @@ impl Entities {
             None
         }
     }
+
+    /// Constructs a message explaining why an entity does not exists, if known. Used to create error messages.
+    pub(crate) fn entity_does_not_exist_error_message_helper(&self, _entity: Entity) -> String {
+        #[cfg(feature = "track_change_detection")]
+        {
+            if let Some(location) = self.get_entity_spawned_despawned_by(_entity) {
+                format!("was despawned by {location}",)
+            } else {
+                format!("was never spawned",)
+            }
+        }
+        #[cfg(not(feature = "track_change_detection"))]
+        {
+            "does not exist (enable `track_change_detection` feature for more details)".to_owned()
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]

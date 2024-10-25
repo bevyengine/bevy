@@ -508,15 +508,20 @@ impl<'w, 's> Commands<'w, 's> {
         #[inline(never)]
         #[cold]
         #[track_caller]
-        fn panic_no_entity(entity: Entity) -> ! {
+        fn panic_no_entity(entities: &Entities, entity: Entity) -> ! {
             panic!(
-                "Attempting to create an EntityCommands for entity {entity:?}, which doesn't exist.",
+                "Attempting to create an EntityCommands for entity {entity:?}, which {}",
+                entities.entity_does_not_exist_error_message_helper(entity)
             );
         }
 
-        match self.get_entity(entity) {
-            Some(entity) => entity,
-            None => panic_no_entity(entity),
+        if self.get_entity(entity).is_some() {
+            EntityCommands {
+                entity,
+                commands: self.reborrow(),
+            }
+        } else {
+            panic_no_entity(self.entities, entity)
         }
     }
 
@@ -1393,8 +1398,8 @@ impl<'a> EntityCommands<'a> {
     ) -> &mut Self {
         let caller = Location::caller();
         // SAFETY: same invariants as parent call
-        self.queue(unsafe {insert_by_id(component_id, value, move |entity| {
-            panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>());
+        self.queue(unsafe {insert_by_id(component_id, value, move |world, entity| {
+            panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_message_helper(entity));
         })})
     }
 
@@ -1412,7 +1417,7 @@ impl<'a> EntityCommands<'a> {
         value: T,
     ) -> &mut Self {
         // SAFETY: same invariants as parent call
-        self.queue(unsafe { insert_by_id(component_id, value, |_| {}) })
+        self.queue(unsafe { insert_by_id(component_id, value, |_, _| {}) })
     }
 
     /// Tries to add a [`Bundle`] of components to the entity.
@@ -2096,7 +2101,7 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
                 caller,
             );
         } else {
-            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {entity:?}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_message_helper(entity));
         }
     }
 }
@@ -2115,7 +2120,7 @@ fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityC
                 caller,
             );
         } else {
-            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for {entity:?}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), world.entities().entity_does_not_exist_error_message_helper(entity) );
         }
     }
 }
@@ -2147,7 +2152,7 @@ fn try_insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
 unsafe fn insert_by_id<T: Send + 'static>(
     component_id: ComponentId,
     value: T,
-    on_none_entity: impl FnOnce(Entity) + Send + 'static,
+    on_none_entity: impl FnOnce(&mut World, Entity) + Send + 'static,
 ) -> impl EntityCommand {
     move |entity: Entity, world: &mut World| {
         if let Ok(mut entity) = world.get_entity_mut(entity) {
@@ -2158,7 +2163,7 @@ unsafe fn insert_by_id<T: Send + 'static>(
                 entity.insert_by_id(component_id, ptr);
             });
         } else {
-            on_none_entity(entity);
+            on_none_entity(world, entity);
         }
     }
 }
