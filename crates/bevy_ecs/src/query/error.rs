@@ -10,7 +10,7 @@ pub enum QueryEntityError<'w> {
     ///
     /// Either it does not have a requested component, or it has a component which the query filters out.
     QueryDoesNotMatch(Entity, UnsafeWorldCell<'w>),
-    /// The given [`Entity`] does not exist.
+    /// The given [`Entity`] does not exist. If the `track_change_detection` feature is enabled, the error message includes the source code location from which the entity was despawned (if it was).
     NoSuchEntity(Entity, UnsafeWorldCell<'w>),
     /// The [`Entity`] was requested mutably more than once.
     ///
