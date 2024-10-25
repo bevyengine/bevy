@@ -219,7 +219,7 @@ impl Plugin for UiPlugin {
         build_text_interop(app);
 
         #[cfg(feature = "bevy_ui_picking_backend")]
-        app.add_plugins(picking_backend::UiPickingBackendPlugin);
+        app.add_plugins(picking_backend::UiPickingPlugin);
 
         if !self.enable_rendering {
             return;
