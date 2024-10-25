@@ -302,10 +302,7 @@ impl FromWorld for MeshletPipelines {
                     }],
                     vertex: VertexState {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
-                        shader_defs: vec![
-                            "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
-                            "DEPTH_CLAMP_ORTHO".into(),
-                        ],
+                        shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
                         entry_point: "vertex".into(),
                         buffers: vec![],
                     },
@@ -322,10 +319,7 @@ impl FromWorld for MeshletPipelines {
                     multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
-                        shader_defs: vec![
-                            "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
-                            "DEPTH_CLAMP_ORTHO".into(),
-                        ],
+                        shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
                         entry_point: "fragment".into(),
                         targets: vec![Some(ColorTargetState {
                             format: TextureFormat::R8Uint,
