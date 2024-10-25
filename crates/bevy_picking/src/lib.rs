@@ -172,7 +172,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{MeshRayCast, RayCastBackfaces, RayCastSettings, RayCastVisibility},
-        MeshPickingPlugin, MeshPickingBackendSettings, RayCastPickable,
+        MeshPickingBackendSettings, MeshPickingPlugin, RayCastPickable,
     };
     #[doc(hidden)]
     pub use crate::{
@@ -277,6 +277,13 @@ pub struct DefaultPickingPlugins;
 
 impl PluginGroup for DefaultPickingPlugins {
     fn build(self) -> PluginGroupBuilder {
+        #[cfg_attr(
+            not(feature = "bevy_mesh"),
+            expect(
+                unused_mut,
+                reason = "Group is not mutated when `bevy_mesh` is not enabled."
+            )
+        )]
         let mut group = PluginGroupBuilder::start::<Self>()
             .add(input::PointerInputPlugin::default())
             .add(PickingPlugin::default())
