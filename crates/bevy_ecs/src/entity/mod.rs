@@ -975,7 +975,7 @@ impl Entities {
             if let Some(location) = self.get_entity_spawned_despawned_by(_entity) {
                 format!("was despawned by {location}",)
             } else {
-                format!("was never spawned",)
+                "was never spawned".to_owned()
             }
         }
         #[cfg(not(feature = "track_change_detection"))]
