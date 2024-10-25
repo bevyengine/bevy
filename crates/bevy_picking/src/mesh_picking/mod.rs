@@ -21,7 +21,7 @@ use bevy_reflect::prelude::*;
 use bevy_render::{prelude::*, view::RenderLayers};
 use ray_cast::{MeshRayCast, RayCastSettings, RayCastVisibility, SimplifiedMesh};
 
-/// Runtime settings for the [`MeshPickingBackendPlugin`].
+/// Runtime settings for the [`MeshPickingPlugin`].
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
 pub struct MeshPickingBackendSettings {
@@ -49,7 +49,7 @@ impl Default for MeshPickingBackendSettings {
     }
 }
 
-/// An optional component that marks cameras and target entities that should be used in the [`MeshPickingBackendPlugin`].
+/// An optional component that marks cameras and target entities that should be used in the [`MeshPickingPlugin`].
 /// Only needed if [`MeshPickingBackendSettings::require_markers`] is set to `true`, and ignored otherwise.
 #[derive(Debug, Clone, Default, Component, Reflect)]
 #[reflect(Component, Default)]
@@ -57,9 +57,9 @@ pub struct RayCastPickable;
 
 /// Adds the mesh picking backend to your app.
 #[derive(Clone, Default)]
-pub struct MeshPickingBackendPlugin;
+pub struct MeshPickingPlugin;
 
-impl Plugin for MeshPickingBackendPlugin {
+impl Plugin for MeshPickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MeshPickingBackendSettings>()
             .register_type::<(RayCastPickable, MeshPickingBackendSettings, SimplifiedMesh)>()
