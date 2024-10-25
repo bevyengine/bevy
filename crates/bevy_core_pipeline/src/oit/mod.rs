@@ -49,7 +49,7 @@ pub struct OrderIndependentTransparencySettings {
     /// The more layers you use the more memory it will use but it will also give better results.
     /// 8 is generally recommended, going above 32 is probably not worth it in the vast majority of cases
     pub layer_count: i32,
-    /// Controls the threshold from which fragments will be added to the blending layers.
+    /// Threshold for which fragments will be added to the blending layers.
     /// This can be tweaked to optimize quality / layers count. Higher values will
     /// allow lower number of layers and a better performance, compromising quality.
     pub alpha_threshold: f32,
