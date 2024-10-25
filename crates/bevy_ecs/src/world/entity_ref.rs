@@ -275,11 +275,10 @@ impl<'w> EntityRef<'w> {
         unsafe { self.0.get_components::<Q>() }
     }
 
-    /// Returns the source code location from which this entity has last been spawned or despawned.
-    /// In a removal hook or observer, this points to the despawn.
+    /// Returns the source code location from which this entity has been spawned.
     #[cfg(feature = "track_change_detection")]
-    pub fn spawned_despawned_by(&self) -> &'static Location<'static> {
-        self.0.spawned_despawned_by()
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.0.spawned_by()
     }
 }
 
@@ -800,11 +799,10 @@ impl<'w> EntityMut<'w> {
         unsafe { component_ids.fetch_mut(self.0) }
     }
 
-    /// Returns the source code location from which this entity has last been spawned or despawned.
-    /// In a removal hook or observer, this points to the despawn.
+    /// Returns the source code location from which this entity has been spawned.
     #[cfg(feature = "track_change_detection")]
-    pub fn spawned_despawned_by(&self) -> &'static Location<'static> {
-        self.0.spawned_despawned_by()
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.0.spawned_by()
     }
 }
 
@@ -1695,17 +1693,6 @@ impl<'w> EntityWorldMut<'w> {
         #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) {
         let world = self.world;
-
-        #[cfg(feature = "track_change_detection")]
-        {
-            // SAFETY: No structural changes
-            unsafe {
-                world
-                    .entities_mut()
-                    .set_spawned_despawned_by(self.entity.index(), caller);
-            }
-        }
-
         let archetype = &world.archetypes[self.location.archetype_id];
 
         // SAFETY: Archetype cannot be mutably aliased by DeferredWorld
@@ -1792,6 +1779,16 @@ impl<'w> EntityWorldMut<'w> {
                 .set_entity_table_row(moved_location.archetype_row, table_row);
         }
         world.flush();
+
+        #[cfg(feature = "track_change_detection")]
+        {
+            // SAFETY: No structural changes
+            unsafe {
+                world
+                    .entities_mut()
+                    .set_spawned_despawned_by(self.entity.index(), caller);
+            }
+        }
     }
 
     /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush`]
@@ -1929,10 +1926,9 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Returns the source code location from which this entity has last been spawned or despawned.
-    /// In a removal hook or observer, this points to the despawn.
+    /// Returns the source code location from which this entity has last been spawned.
     #[cfg(feature = "track_change_detection")]
-    pub fn spawned_despawned_by(&self) -> &'static Location<'static> {
+    pub fn spawned_by(&self) -> &'static Location<'static> {
         self.world()
             .entities()
             .get_entity_spawned_despawned_by(self.entity)
@@ -2493,11 +2489,10 @@ impl<'w> FilteredEntityRef<'w> {
             .flatten()
     }
 
-    /// Returns the source code location from which this entity has last been spawned or despawned.
-    /// In a removal hook or observer, this points to the despawn.
+    /// Returns the source code location from which this entity has been spawned.
     #[cfg(feature = "track_change_detection")]
-    pub fn spawned_despawned_by(&self) -> &'static Location<'static> {
-        self.entity.spawned_despawned_by()
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
     }
 }
 
@@ -2804,11 +2799,10 @@ impl<'w> FilteredEntityMut<'w> {
             .flatten()
     }
 
-    /// Returns the source code location from which this entity has last been spawned or despawned.
-    /// In a removal hook or observer, this points to the despawn.
+    /// Returns the source code location from which this entity has last been spawned.
     #[cfg(feature = "track_change_detection")]
-    pub fn spawned_despawned_by(&self) -> &'static Location<'static> {
-        self.entity.spawned_despawned_by()
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
     }
 }
 
@@ -2953,11 +2947,10 @@ where
         }
     }
 
-    /// Returns the source code location from which this entity has last been spawned or despawned.
-    /// In a removal hook or observer, this points to the despawn.
+    /// Returns the source code location from which this entity has been spawned.
     #[cfg(feature = "track_change_detection")]
-    pub fn spawned_despawned_by(&self) -> &'static Location<'static> {
-        self.entity.spawned_despawned_by()
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
     }
 }
 
@@ -3068,11 +3061,10 @@ where
         }
     }
 
-    /// Returns the source code location from which this entity has last been spawned or despawned.
-    /// In a removal hook or observer, this points to the despawn.
+    /// Returns the source code location from which this entity has been spawned.
     #[cfg(feature = "track_change_detection")]
-    pub fn spawned_despawned_by(&self) -> &'static Location<'static> {
-        self.entity.spawned_despawned_by()
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
     }
 }
 
@@ -4567,7 +4559,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "track_change_detection")]
-    fn update_despawned_by_before_hooks() {
+    fn update_despawned_by_after_observers() {
         let mut world = World::new();
 
         #[derive(Component)]
@@ -4606,6 +4598,13 @@ mod tests {
         }
         let despawner = caller_despawn(&mut world, entity);
 
-        assert_eq!(despawner, *TRACKED.get().unwrap());
+        assert_eq!(spawner, *TRACKED.get().unwrap());
+        assert_eq!(
+            despawner,
+            world
+                .entities()
+                .get_entity_spawned_despawned_by(entity)
+                .unwrap()
+        );
     }
 }

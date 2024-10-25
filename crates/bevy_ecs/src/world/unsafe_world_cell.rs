@@ -997,10 +997,9 @@ impl<'w> UnsafeEntityCell<'w> {
         }
     }
 
-    /// Returns the source code location from which this entity has last been spawned
-    /// or despawned.
+    /// Returns the source code location from which this entity has been spawned.
     #[cfg(feature = "track_change_detection")]
-    pub fn spawned_despawned_by(self) -> &'static Location<'static> {
+    pub fn spawned_by(self) -> &'static Location<'static> {
         self.world()
             .entities()
             .get_entity_spawned_despawned_by(self.entity)
