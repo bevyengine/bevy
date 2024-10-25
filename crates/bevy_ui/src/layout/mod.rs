@@ -290,7 +290,7 @@ with UI components as a child of an entity without UI components, your UI layout
     for (camera_id, mut camera) in camera_layout_info.drain() {
         let inverse_target_scale_factor = camera.scale_factor.recip();
 
-        ui_surface.compute_camera_layout(camera_id, camera.size, text_buffers, &mut font_system.0);
+        ui_surface.compute_camera_layout(camera_id, camera.size, text_buffers, &mut font_system);
 
         for root in &camera.root_nodes {
             update_uinode_geometry_recursive(
@@ -1196,7 +1196,7 @@ mod tests {
                 params.camera_entity,
                 UVec2::new(800, 600),
                 &mut computed_text_block_query,
-                &mut font_system.0,
+                &mut font_system,
             );
         }
 
