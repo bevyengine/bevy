@@ -39,7 +39,7 @@
 
 use core::fmt::Debug;
 
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_hierarchy::Parent;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
@@ -60,6 +60,8 @@ use crate::{
 #[derive(Clone, PartialEq, Debug, Reflect, Component)]
 #[reflect(Component, Debug)]
 pub struct Pointer<E: Debug + Clone + Reflect> {
+    /// The original target of this picking event, before bubling
+    pub target: Entity,
     /// The pointer that triggered this event
     pub pointer_id: PointerId,
     /// The location of the pointer during this event
@@ -97,8 +99,9 @@ impl<E: Debug + Clone + Reflect> core::ops::Deref for Pointer<E> {
 
 impl<E: Debug + Clone + Reflect> Pointer<E> {
     /// Construct a new `Pointer<E>` event.
-    pub fn new(id: PointerId, location: Location, event: E) -> Self {
+    pub fn new(target: Entity, id: PointerId, location: Location, event: E) -> Self {
         Self {
+            target,
             pointer_id: id,
             pointer_location: location,
             event,
@@ -260,6 +263,25 @@ pub struct PointerState {
     pub dragging_over: HashMap<Entity, HitData>,
 }
 
+/// A helper system param for accessing the picking event writers.
+#[derive(SystemParam)]
+pub struct PickingEventWriters<'w> {
+    cancel_events: EventWriter<'w, Pointer<Cancel>>,
+    click_events: EventWriter<'w, Pointer<Click>>,
+    down_events: EventWriter<'w, Pointer<Down>>,
+    drag_drop_events: EventWriter<'w, Pointer<DragDrop>>,
+    drag_end_events: EventWriter<'w, Pointer<DragEnd>>,
+    drag_enter_events: EventWriter<'w, Pointer<DragEnter>>,
+    drag_events: EventWriter<'w, Pointer<Drag>>,
+    drag_leave_events: EventWriter<'w, Pointer<DragLeave>>,
+    drag_over_events: EventWriter<'w, Pointer<DragOver>>,
+    drag_start_events: EventWriter<'w, Pointer<DragStart>>,
+    move_events: EventWriter<'w, Pointer<Move>>,
+    out_events: EventWriter<'w, Pointer<Out>>,
+    over_events: EventWriter<'w, Pointer<Over>>,
+    up_events: EventWriter<'w, Pointer<Up>>,
+}
+
 /// Dispatches interaction events to the target entities.
 ///
 /// Within a single frame, events are dispatched in the following order:
@@ -298,6 +320,7 @@ pub fn pointer_events(
     mut pointer_state: Local<HashMap<(PointerId, PointerButton), PointerState>>,
     // Output
     mut commands: Commands,
+    mut event_writers: PickingEventWriters,
 ) {
     // Setup utilities
     let now = Instant::now();
@@ -337,26 +360,30 @@ pub fn pointer_events(
                     .filter(|&&drag_target| hovered_entity != drag_target)
                 {
                     state.dragging_over.insert(hovered_entity, hit.clone());
-                    commands.trigger_targets(
-                        Pointer::new(
-                            pointer_id,
-                            location.clone(),
-                            DragEnter {
-                                button,
-                                dragged: *drag_target,
-                                hit: hit.clone(),
-                            },
-                        ),
+                    let drag_enter_event = Pointer::new(
                         hovered_entity,
+                        pointer_id,
+                        location.clone(),
+                        DragEnter {
+                            button,
+                            dragged: *drag_target,
+                            hit: hit.clone(),
+                        },
                     );
+                    commands.trigger_targets(drag_enter_event.clone(), hovered_entity);
+                    event_writers.drag_enter_events.send(drag_enter_event);
                 }
             }
 
             // Always send Over events
-            commands.trigger_targets(
-                Pointer::new(pointer_id, location.clone(), Over { hit: hit.clone() }),
+            let over_event = Pointer::new(
                 hovered_entity,
+                pointer_id,
+                location.clone(),
+                Over { hit: hit.clone() },
             );
+            commands.trigger_targets(over_event.clone(), hovered_entity);
+            event_writers.over_events.send(over_event);
         }
     }
 
@@ -381,7 +408,8 @@ pub fn pointer_events(
                             .iter()
                             .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.clone())))
                         {
-                            let event = Pointer::new(
+                            let down_event = Pointer::new(
+                                hovered_entity,
                                 pointer_id,
                                 location.clone(),
                                 Down {
@@ -389,7 +417,8 @@ pub fn pointer_events(
                                     hit: hit.clone(),
                                 },
                             );
-                            commands.trigger_targets(event, hovered_entity);
+                            commands.trigger_targets(down_event.clone(), hovered_entity);
+                            event_writers.down_events.send(down_event);
                             // Also insert the press into the state
                             state
                                 .pressing
@@ -406,76 +435,76 @@ pub fn pointer_events(
                             // If this pointer previously pressed the hovered entity, emit a Click event
                             if let Some((_, press_instant, _)) = state.pressing.get(&hovered_entity)
                             {
-                                commands.trigger_targets(
-                                    Pointer::new(
-                                        pointer_id,
-                                        location.clone(),
-                                        Click {
-                                            button,
-                                            hit: hit.clone(),
-                                            duration: now - *press_instant,
-                                        },
-                                    ),
+                                let click_event = Pointer::new(
                                     hovered_entity,
-                                );
-                            }
-                            // Always send the Up event
-                            commands.trigger_targets(
-                                Pointer::new(
                                     pointer_id,
                                     location.clone(),
-                                    Up {
+                                    Click {
                                         button,
                                         hit: hit.clone(),
+                                        duration: now - *press_instant,
                                     },
-                                ),
+                                );
+                                commands.trigger_targets(click_event.clone(), hovered_entity);
+                                event_writers.click_events.send(click_event);
+                            }
+                            // Always send the Up event
+                            let up_event = Pointer::new(
                                 hovered_entity,
+                                pointer_id,
+                                location.clone(),
+                                Up {
+                                    button,
+                                    hit: hit.clone(),
+                                },
                             );
+                            commands.trigger_targets(up_event.clone(), hovered_entity);
+                            event_writers.up_events.send(up_event);
                         }
 
                         // Then emit the drop events.
                         for (drag_target, drag) in state.dragging.drain() {
                             // Emit DragDrop
                             for (dragged_over, hit) in state.dragging_over.iter() {
-                                commands.trigger_targets(
-                                    Pointer::new(
-                                        pointer_id,
-                                        location.clone(),
-                                        DragDrop {
-                                            button,
-                                            dropped: drag_target,
-                                            hit: hit.clone(),
-                                        },
-                                    ),
+                                let drag_drop_event = Pointer::new(
                                     *dragged_over,
-                                );
-                            }
-                            // Emit DragEnd
-                            commands.trigger_targets(
-                                Pointer::new(
                                     pointer_id,
                                     location.clone(),
-                                    DragEnd {
+                                    DragDrop {
                                         button,
-                                        distance: drag.latest_pos - drag.start_pos,
+                                        dropped: drag_target,
+                                        hit: hit.clone(),
                                     },
-                                ),
+                                );
+                                commands.trigger_targets(drag_drop_event.clone(), *dragged_over);
+                                event_writers.drag_drop_events.send(drag_drop_event);
+                            }
+                            // Emit DragEnd
+                            let drag_end_event = Pointer::new(
                                 drag_target,
+                                pointer_id,
+                                location.clone(),
+                                DragEnd {
+                                    button,
+                                    distance: drag.latest_pos - drag.start_pos,
+                                },
                             );
+                            commands.trigger_targets(drag_end_event.clone(), drag_target);
+                            event_writers.drag_end_events.send(drag_end_event);
                             // Emit DragLeave
                             for (dragged_over, hit) in state.dragging_over.iter() {
-                                commands.trigger_targets(
-                                    Pointer::new(
-                                        pointer_id,
-                                        location.clone(),
-                                        DragLeave {
-                                            button,
-                                            dragged: drag_target,
-                                            hit: hit.clone(),
-                                        },
-                                    ),
+                                let drag_leave_event = Pointer::new(
                                     *dragged_over,
+                                    pointer_id,
+                                    location.clone(),
+                                    DragLeave {
+                                        button,
+                                        dragged: drag_target,
+                                        hit: hit.clone(),
+                                    },
                                 );
+                                commands.trigger_targets(drag_leave_event.clone(), *dragged_over);
+                                event_writers.drag_leave_events.send(drag_leave_event);
                             }
                         }
 
@@ -504,29 +533,36 @@ pub fn pointer_events(
                                 latest_pos: location.position,
                             },
                         );
-                        commands.trigger_targets(
-                            Pointer::new(
-                                pointer_id,
-                                location.clone(),
-                                DragStart {
-                                    button,
-                                    hit: hit.clone(),
-                                },
-                            ),
+                        let drag_start_event = Pointer::new(
                             *press_target,
+                            pointer_id,
+                            location.clone(),
+                            DragStart {
+                                button,
+                                hit: hit.clone(),
+                            },
                         );
+                        commands.trigger_targets(drag_start_event.clone(), *press_target);
+                        event_writers.drag_start_events.send(drag_start_event);
                     }
 
                     // Emit Drag events to the entities we are dragging
                     for (drag_target, drag) in state.dragging.iter_mut() {
-                        let drag_event = Drag {
-                            button,
-                            distance: location.position - drag.start_pos,
-                            delta: location.position - drag.latest_pos,
-                        };
+                        let drag_event = Pointer::new(
+                            *drag_target,
+                            pointer_id,
+                            location.clone(),
+                            Drag {
+                                button,
+                                distance: location.position - drag.start_pos,
+                                delta: location.position - drag.latest_pos,
+                            },
+                        );
+                        commands.trigger_targets(drag_event.clone(), *drag_target);
+                        event_writers.drag_events.send(drag_event);
+
+                        // Update drag position
                         drag.latest_pos = location.position;
-                        let event = Pointer::new(pointer_id, location.clone(), drag_event);
-                        commands.trigger_targets(event, *drag_target);
 
                         // Emit corresponding DragOver to the hovered entities
                         for (hovered_entity, hit) in hover_map
@@ -535,18 +571,18 @@ pub fn pointer_events(
                             .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.to_owned())))
                             .filter(|(hovered_entity, _)| *hovered_entity != *drag_target)
                         {
-                            commands.trigger_targets(
-                                Pointer::new(
-                                    pointer_id,
-                                    location.clone(),
-                                    DragOver {
-                                        button,
-                                        dragged: *drag_target,
-                                        hit: hit.clone(),
-                                    },
-                                ),
+                            let drag_over_event = Pointer::new(
                                 hovered_entity,
+                                pointer_id,
+                                location.clone(),
+                                DragOver {
+                                    button,
+                                    dragged: *drag_target,
+                                    hit: hit.clone(),
+                                },
                             );
+                            commands.trigger_targets(drag_over_event.clone(), hovered_entity);
+                            event_writers.drag_over_events.send(drag_over_event);
                         }
                     }
                 }
@@ -557,17 +593,17 @@ pub fn pointer_events(
                     .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.to_owned())))
                 {
                     // Emit Move events to the entities we are hovering
-                    commands.trigger_targets(
-                        Pointer::new(
-                            pointer_id,
-                            location.clone(),
-                            Move {
-                                hit: hit.clone(),
-                                delta,
-                            },
-                        ),
+                    let move_event = Pointer::new(
                         hovered_entity,
+                        pointer_id,
+                        location.clone(),
+                        Move {
+                            hit: hit.clone(),
+                            delta,
+                        },
                     );
+                    commands.trigger_targets(move_event.clone(), hovered_entity);
+                    event_writers.move_events.send(move_event);
                 }
             }
             // Canceled
@@ -578,10 +614,10 @@ pub fn pointer_events(
                     .iter()
                     .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.to_owned())))
                 {
-                    commands.trigger_targets(
-                        Pointer::new(pointer_id, location.clone(), Cancel { hit }),
-                        hovered_entity,
-                    );
+                    let cancel_event =
+                        Pointer::new(hovered_entity, pointer_id, location.clone(), Cancel { hit });
+                    commands.trigger_targets(cancel_event.clone(), hovered_entity);
+                    event_writers.cancel_events.send(cancel_event);
                 }
                 // Clear the local state for the canceled pointer
                 for button in PointerButton::iter() {
@@ -615,28 +651,32 @@ pub fn pointer_events(
             };
 
             // Always send Out events
-            commands.trigger_targets(
-                Pointer::new(pointer_id, location.clone(), Out { hit: hit.clone() }),
+            let out_event = Pointer::new(
                 hovered_entity,
+                pointer_id,
+                location.clone(),
+                Out { hit: hit.clone() },
             );
+            commands.trigger_targets(out_event.clone(), hovered_entity);
+            event_writers.out_events.send(out_event);
 
             // Possibly send DragLeave events
             for button in PointerButton::iter() {
                 let state = pointer_state.entry((pointer_id, button)).or_default();
                 state.dragging_over.remove(&hovered_entity);
                 for drag_target in state.dragging.keys() {
-                    commands.trigger_targets(
-                        Pointer::new(
-                            pointer_id,
-                            location.clone(),
-                            DragLeave {
-                                button,
-                                dragged: *drag_target,
-                                hit: hit.clone(),
-                            },
-                        ),
+                    let drag_leave_event = Pointer::new(
                         hovered_entity,
+                        pointer_id,
+                        location.clone(),
+                        DragLeave {
+                            button,
+                            dragged: *drag_target,
+                            hit: hit.clone(),
+                        },
                     );
+                    commands.trigger_targets(drag_leave_event.clone(), hovered_entity);
+                    event_writers.drag_leave_events.send(drag_leave_event);
                 }
             }
         }
