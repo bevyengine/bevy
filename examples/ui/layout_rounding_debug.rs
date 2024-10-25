@@ -1,5 +1,5 @@
 //! Spawns a simple grid layout with nodes laid out covering a white background useful for catching layout rounding errors.
-//! Any white lines seen are gaps in the layout are caused by coordinate rounding errors.
+//! Any white lines seen are gaps in the layout are caused by coordinate rounding bugs.
 
 use bevy::{
     color::palettes::css::{DARK_BLUE, MAROON},
