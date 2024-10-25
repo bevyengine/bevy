@@ -3,7 +3,7 @@
 //! By default, all meshes are pickable. Picking can be disabled for individual entities
 //! by adding [`PickingBehavior::IGNORE`].
 //!
-//! If you want mesh picking to be entirely opt-in, you can set [`MeshPickingBackendSettings::require_markers`]
+//! If you want mesh picking to be entirely opt-in, you can set [`MeshPickingSettings::require_markers`]
 //! to `true` and add a [`RayCastPickable`] component to the desired camera and target entities.
 
 use std::f32::consts::PI;
