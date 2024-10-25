@@ -6,6 +6,7 @@ use rand_chacha::ChaCha8Rng;
 criterion_group!(benches, entity_set_build_and_lookup,);
 criterion_main!(benches);
 
+// Evenly spaced on a log scale
 const SIZES: [usize; 5] = [100, 316, 1000, 3162, 10_000];
 
 fn make_entity(rng: &mut impl Rng, size: usize) -> Entity {

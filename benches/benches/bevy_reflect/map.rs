@@ -18,6 +18,8 @@ criterion_main!(benches);
 
 const WARM_UP_TIME: Duration = Duration::from_millis(500);
 const MEASUREMENT_TIME: Duration = Duration::from_secs(4);
+
+// Evenly spaced on a log scale
 const SIZES: [usize; 5] = [100, 316, 1000, 3162, 10_000];
 
 /// Generic benchmark for applying one `Map` to another.
