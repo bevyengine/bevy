@@ -26,7 +26,7 @@ fn mesh_creation(vertices_per_side: u32) -> SimpleMesh {
         .take(vertices_squared as usize)
         .collect();
 
-    let mut indices = Vec::with_capacity(6 * (vertices_squared - vertices_per_side));
+    let mut indices = Vec::with_capacity((6 * (vertices_squared - vertices_per_side)) as usize);
     for p in 0..vertices_per_side.pow(2) {
         if p % (vertices_per_side) != vertices_per_side - 1
             && p / (vertices_per_side) != vertices_per_side - 1
