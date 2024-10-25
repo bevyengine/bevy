@@ -348,12 +348,6 @@ where
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
 
-        // No need for emulated unclipped depth fragment shader if GPU supports unclipped depth natively
-        let unclipped_depth = key
-            .mesh_key
-            .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
-            && self.depth_clip_control_supported;
-
         // Let the shader code know that it's running in a prepass pipeline.
         // (PBR code will use this to detect that it's running in deferred mode,
         // since that's the only time it gets called from a prepass pipeline.)
@@ -545,6 +539,11 @@ where
         } else {
             PREPASS_SHADER_HANDLE
         };
+
+        let unclipped_depth = key
+            .mesh_key
+            .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
+            && self.depth_clip_control_supported;
 
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
