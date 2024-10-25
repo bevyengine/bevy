@@ -60,9 +60,9 @@ struct VertexOutput {
     @location(5) previous_world_position: vec4<f32>,
 #endif
 
-#ifdef UNCLIPPED_DEPTH_ORTHO
+#ifdef UNCLIPPED_DEPTH_ORTHO_EMULATION
     @location(6) unclipped_depth: f32,
-#endif // UNCLIPPED_DEPTH_ORTHO
+#endif // UNCLIPPED_DEPTH_ORTHO_EMULATION
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
     @location(7) instance_index: u32,
 #endif
@@ -87,8 +87,8 @@ struct FragmentOutput {
     @location(3) deferred_lighting_pass_id: u32,
 #endif
 
-#ifdef UNCLIPPED_DEPTH_ORTHO
+#ifdef UNCLIPPED_DEPTH_ORTHO_EMULATION
     @builtin(frag_depth) frag_depth: f32,
-#endif // UNCLIPPED_DEPTH_ORTHO
+#endif // UNCLIPPED_DEPTH_ORTHO_EMULATION
 }
 #endif //PREPASS_FRAGMENT

@@ -76,10 +76,10 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
     out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4<f32>(vertex.position, 1.0));
     out.position = position_world_to_clip(out.world_position.xyz);
-#ifdef UNCLIPPED_DEPTH_ORTHO
+#ifdef UNCLIPPED_DEPTH_ORTHO_EMULATION
     out.unclipped_depth = out.position.z;
     out.position.z = min(out.position.z, 1.0); // Clamp depth to avoid clipping
-#endif // UNCLIPPED_DEPTH_ORTHO
+#endif // UNCLIPPED_DEPTH_ORTHO_EMULATION
 
 #ifdef VERTEX_UVS_A
     out.uv = vertex.uv;
@@ -173,9 +173,9 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
     out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
 #endif
 
-#ifdef UNCLIPPED_DEPTH_ORTHO
+#ifdef UNCLIPPED_DEPTH_ORTHO_EMULATION
     out.frag_depth = in.unclipped_depth;
-#endif // UNCLIPPED_DEPTH_ORTHO
+#endif // UNCLIPPED_DEPTH_ORTHO_EMULATION
 
 #ifdef MOTION_VECTOR_PREPASS
     let clip_position_t = view.unjittered_clip_from_world * in.world_position;

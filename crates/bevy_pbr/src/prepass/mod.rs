@@ -334,7 +334,7 @@ where
 
     fn specialize(
         &self,
-        mut key: Self::Key,
+        key: Self::Key,
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut bind_group_layouts = vec![if key
@@ -347,17 +347,12 @@ where
         }];
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
-        let mut unclipped_depth = false;
 
-        // Remove depth clamp in fragment shader if GPU supports it natively
-        if key
+        // No need for emulated unclipped depth fragment shader if GPU supports unclipped depth natively
+        let unclipped_depth = key
             .mesh_key
             .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
-            && self.depth_clip_control_supported
-        {
-            key.mesh_key.remove(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO);
-            unclipped_depth = true;
-        }
+            && self.depth_clip_control_supported;
 
         // Let the shader code know that it's running in a prepass pipeline.
         // (PBR code will use this to detect that it's running in deferred mode,
@@ -396,11 +391,12 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
-        if key
+        let emulate_unclipped_depth = key
             .mesh_key
             .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
-        {
-            shader_defs.push("UNCLIPPED_DEPTH_ORTHO".into());
+            && !self.depth_clip_control_supported;
+        if emulate_unclipped_depth {
+            shader_defs.push("UNCLIPPED_DEPTH_ORTHO_EMULATION".into());
             // PERF: This line forces the "prepass fragment shader" to always run in
             // common scenarios like "directional light calculation". Doing so resolves
             // a pretty nasty depth clamping bug, but it also feels a bit excessive.
@@ -508,12 +504,10 @@ where
         }
 
         // The fragment shader is only used when the normal prepass or motion vectors prepass
-        // is enabled or the material uses alpha cutoff values and doesn't rely on the standard
-        // prepass shader or we are clamping the orthographic depth in the fragment shader.
+        // is enabled, the material uses alpha cutoff values and doesn't rely on the standard
+        // prepass shader, or we are emulating unclipped depth in the fragment shader.
         let fragment_required = !targets.is_empty()
-            || key
-                .mesh_key
-                .contains(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO)
+            || emulate_unclipped_depth
             || (key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
                 && self.prepass_material_fragment_shader.is_some());
 
