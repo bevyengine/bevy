@@ -140,6 +140,7 @@ impl MeshletPlugin {
         WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX
             | WgpuFeatures::SHADER_INT64
             | WgpuFeatures::SUBGROUP
+            | WgpuFeatures::DEPTH_CLIP_CONTROL
             | WgpuFeatures::PUSH_CONSTANTS
     }
 }

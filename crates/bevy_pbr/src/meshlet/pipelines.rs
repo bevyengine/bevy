@@ -34,10 +34,9 @@ pub struct MeshletPipelines {
     downsample_depth_second_shadow_view: CachedComputePipelineId,
     visibility_buffer_software_raster: CachedComputePipelineId,
     visibility_buffer_software_raster_depth_only: CachedComputePipelineId,
-    visibility_buffer_software_raster_depth_only_clamp_ortho: CachedComputePipelineId,
     visibility_buffer_hardware_raster: CachedRenderPipelineId,
     visibility_buffer_hardware_raster_depth_only: CachedRenderPipelineId,
-    visibility_buffer_hardware_raster_depth_only_clamp_ortho: CachedRenderPipelineId,
+    visibility_buffer_hardware_raster_depth_only_unclipped: CachedRenderPipelineId,
     resolve_depth: CachedRenderPipelineId,
     resolve_depth_shadow_view: CachedRenderPipelineId,
     resolve_material_depth: CachedRenderPipelineId,
@@ -206,28 +205,6 @@ impl FromWorld for MeshletPipelines {
                 },
             ),
 
-            visibility_buffer_software_raster_depth_only_clamp_ortho: pipeline_cache
-                .queue_compute_pipeline(ComputePipelineDescriptor {
-                    label: Some(
-                        "meshlet_visibility_buffer_software_raster_depth_only_clamp_ortho_pipeline"
-                            .into(),
-                    ),
-                    layout: vec![visibility_buffer_raster_layout.clone()],
-                    push_constant_ranges: vec![],
-                    shader: MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
-                    shader_defs: vec![
-                        "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
-                        "DEPTH_CLAMP_ORTHO".into(),
-                        if remap_1d_to_2d_dispatch_layout.is_some() {
-                            "MESHLET_2D_DISPATCH"
-                        } else {
-                            ""
-                        }
-                        .into(),
-                    ],
-                    entry_point: "rasterize_cluster".into(),
-                }),
-
             visibility_buffer_hardware_raster: pipeline_cache.queue_render_pipeline(
                 RenderPipelineDescriptor {
                     label: Some("meshlet_visibility_buffer_hardware_raster_pipeline".into()),
@@ -312,10 +289,10 @@ impl FromWorld for MeshletPipelines {
                 },
             ),
 
-            visibility_buffer_hardware_raster_depth_only_clamp_ortho: pipeline_cache
+            visibility_buffer_hardware_raster_depth_only_unclipped: pipeline_cache
                 .queue_render_pipeline(RenderPipelineDescriptor {
                     label: Some(
-                        "meshlet_visibility_buffer_hardware_raster_depth_only_clamp_ortho_pipeline"
+                        "meshlet_visibility_buffer_hardware_raster_depth_only_unclipped_pipeline"
                             .into(),
                     ),
                     layout: vec![visibility_buffer_raster_layout],
@@ -337,7 +314,7 @@ impl FromWorld for MeshletPipelines {
                         strip_index_format: None,
                         front_face: FrontFace::Ccw,
                         cull_mode: Some(Face::Back),
-                        unclipped_depth: false,
+                        unclipped_depth: true,
                         polygon_mode: PolygonMode::Fill,
                         conservative: false,
                     },
@@ -467,7 +444,6 @@ impl MeshletPipelines {
         &ComputePipeline,
         &ComputePipeline,
         &ComputePipeline,
-        &ComputePipeline,
         &RenderPipeline,
         &RenderPipeline,
         &RenderPipeline,
@@ -489,14 +465,11 @@ impl MeshletPipelines {
             pipeline_cache.get_compute_pipeline(pipeline.visibility_buffer_software_raster)?,
             pipeline_cache
                 .get_compute_pipeline(pipeline.visibility_buffer_software_raster_depth_only)?,
-            pipeline_cache.get_compute_pipeline(
-                pipeline.visibility_buffer_software_raster_depth_only_clamp_ortho,
-            )?,
             pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_hardware_raster)?,
             pipeline_cache
                 .get_render_pipeline(pipeline.visibility_buffer_hardware_raster_depth_only)?,
             pipeline_cache.get_render_pipeline(
-                pipeline.visibility_buffer_hardware_raster_depth_only_clamp_ortho,
+                pipeline.visibility_buffer_hardware_raster_depth_only_unclipped,
             )?,
             pipeline_cache.get_render_pipeline(pipeline.resolve_depth)?,
             pipeline_cache.get_render_pipeline(pipeline.resolve_depth_shadow_view)?,
