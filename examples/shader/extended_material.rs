@@ -32,7 +32,7 @@ fn setup(
         MeshMaterial3d(materials.add(ExtendedMaterial {
             base: StandardMaterial {
                 base_color: RED.into(),
-                // can be used in forward or deferred mode.
+                // can be used in forward or deferred mode
                 opaque_render_method: OpaqueRendererMethod::Auto,
                 // in deferred mode, only the PbrInput can be modified (uvs, color and other material properties),
                 // in forward mode, the output can also be modified after lighting is applied.
