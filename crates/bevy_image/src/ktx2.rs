@@ -50,14 +50,10 @@ pub fn ktx2_buffer_to_image(
                 SupercompressionScheme::ZLIB => {
                     let mut decoder = flate2::bufread::ZlibDecoder::new(_level_data);
                     let mut decompressed = Vec::new();
-                    match decoder.read_to_end(&mut decompressed) {
-                        Ok(_) => Ok(decompressed),
-                        Err(err) => {
-                            Err(TextureError::SuperDecompressionError(format!(
-                                "Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",
-                            )))
-                        }
-                    }
+                    decoder.read_to_end(&mut decompressed).map_err(|err| TextureError::SuperDecompressionError(format!(
+                        "Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",
+                    )))?;
+                    Ok(decompressed)
                 }
                 #[cfg(feature = "ruzstd")]
                 SupercompressionScheme::Zstandard => {
@@ -65,14 +61,10 @@ pub fn ktx2_buffer_to_image(
                     let mut decoder = ruzstd::StreamingDecoder::new(&mut cursor)
                         .map_err(|err| TextureError::SuperDecompressionError(err.to_string()))?;
                     let mut decompressed = Vec::new();
-                    match decoder.read_to_end(&mut decompressed) {
-                        Ok(_) => Ok(decompressed),
-                        Err(err) => {
-                            Err(TextureError::SuperDecompressionError(format!(
-                                "Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",
-                            )))
-                        }
-                    }
+                    decoder.read_to_end(&mut decompressed).map_err(|err| TextureError::SuperDecompressionError(format!(
+                        "Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",
+                    )))?;
+                    Ok(decompressed)
                 }
                 _ => {
                     Err(TextureError::SuperDecompressionError(format!(
