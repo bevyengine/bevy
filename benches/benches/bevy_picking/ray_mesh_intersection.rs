@@ -26,20 +26,15 @@ fn mesh_creation(vertices_per_side: u32) -> SimpleMesh {
         .take(vertices_squared as usize)
         .collect();
 
-    let indices = (0..vertices_squared)
-        .filter(|&p| {
-            p % vertices_per_side != vertices_per_side - 1
-                && p / vertices_per_side != vertices_per_side - 1
-        })
-        .flat_map(|p| {
-            [
-                [p, p + 1, p + vertices_per_side],
-                [p + vertices_per_side, p + 1, p + vertices_per_side + 1],
-            ]
-            .into_iter()
-            .flatten()
-        })
-        .collect();
+    let mut indices = Vec::with_capacity(6 * (vertices_squared - vertices_per_side));
+    for p in 0..vertices_per_side.pow(2) {
+        if p % (vertices_per_side) != vertices_per_side - 1
+            && p / (vertices_per_side) != vertices_per_side - 1
+        {
+            indices.extend_from_slice(&[p, p + 1, p + vertices_per_side]);
+            indices.extend_from_slice(&[p + vertices_per_side, p + 1, p + vertices_per_side + 1]);
+        }
+    }
 
     SimpleMesh {
         positions,
