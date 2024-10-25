@@ -27,10 +27,10 @@ pub fn observe_simple(criterion: &mut Criterion) {
 
     group.bench_function("trigger_targets_simple/10000_entity", |bencher| {
         let mut world = World::new();
-        let mut entities = vec![];
-        for _ in 0..10_000 {
-            entities.push(world.spawn_empty().observe(empty_listener_base).id());
-        }
+        let mut entities =
+            core::iter::repeat_with(|| world.spawn_empty().observe(empty_listener_base).id())
+                .take(10_000)
+                .collect();
         entities.shuffle(&mut deterministic_rand());
         bencher.iter(|| {
             send_base_event(&mut world, &entities);
