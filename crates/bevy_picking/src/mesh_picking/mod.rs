@@ -3,7 +3,7 @@
 //! By default, all meshes are pickable. Picking can be disabled for individual entities
 //! by adding [`PickingBehavior::IGNORE`].
 //!
-//! To make mesh picking entirely opt-in, set [`MeshPickingBackendSettings::require_markers`]
+//! To make mesh picking entirely opt-in, set [`MeshPickingSettings::require_markers`]
 //! to `true` and add a [`RayCastPickable`] component to the desired camera and target entities.
 //!
 //! To manually perform mesh ray casts independent of picking, use the [`MeshRayCast`] system parameter.
@@ -24,7 +24,7 @@ use ray_cast::{MeshRayCast, RayCastSettings, RayCastVisibility, SimplifiedMesh};
 /// Runtime settings for the [`MeshPickingPlugin`].
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
-pub struct MeshPickingBackendSettings {
+pub struct MeshPickingSettings {
     /// When set to `true` ray casting will only happen between cameras and entities marked with
     /// [`RayCastPickable`]. `false` by default.
     ///
@@ -40,7 +40,7 @@ pub struct MeshPickingBackendSettings {
     pub ray_cast_visibility: RayCastVisibility,
 }
 
-impl Default for MeshPickingBackendSettings {
+impl Default for MeshPickingSettings {
     fn default() -> Self {
         Self {
             require_markers: false,
@@ -50,7 +50,7 @@ impl Default for MeshPickingBackendSettings {
 }
 
 /// An optional component that marks cameras and target entities that should be used in the [`MeshPickingPlugin`].
-/// Only needed if [`MeshPickingBackendSettings::require_markers`] is set to `true`, and ignored otherwise.
+/// Only needed if [`MeshPickingSettings::require_markers`] is set to `true`, and ignored otherwise.
 #[derive(Debug, Clone, Default, Component, Reflect)]
 #[reflect(Component, Default)]
 pub struct RayCastPickable;
@@ -61,16 +61,16 @@ pub struct MeshPickingPlugin;
 
 impl Plugin for MeshPickingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<MeshPickingBackendSettings>()
-            .register_type::<(RayCastPickable, MeshPickingBackendSettings, SimplifiedMesh)>()
+        app.init_resource::<MeshPickingSettings>()
+            .register_type::<(RayCastPickable, MeshPickingSettings, SimplifiedMesh)>()
             .add_systems(PreUpdate, update_hits.in_set(PickSet::Backend));
     }
 }
 
-/// Casts rays into the scene using [`MeshPickingBackendSettings`] and sends [`PointerHits`] events.
+/// Casts rays into the scene using [`MeshPickingSettings`] and sends [`PointerHits`] events.
 #[allow(clippy::too_many_arguments)]
 pub fn update_hits(
-    backend_settings: Res<MeshPickingBackendSettings>,
+    backend_settings: Res<MeshPickingSettings>,
     ray_map: Res<RayMap>,
     picking_cameras: Query<(&Camera, Option<&RayCastPickable>, Option<&RenderLayers>)>,
     pickables: Query<&PickingBehavior>,
