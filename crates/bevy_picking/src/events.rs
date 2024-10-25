@@ -60,7 +60,7 @@ use crate::{
 #[derive(Clone, PartialEq, Debug, Reflect, Component)]
 #[reflect(Component, Debug)]
 pub struct Pointer<E: Debug + Clone + Reflect> {
-    /// The original target of this picking event, before bubling
+    /// The original target of this picking event, before bubbling
     pub target: Entity,
     /// The pointer that triggered this event
     pub pointer_id: PointerId,
