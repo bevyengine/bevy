@@ -1,5 +1,5 @@
 use allocator::MeshAllocator;
-use bevy_asset::{load_internal_asset, Asset, AssetEvent, AssetId};
+use bevy_asset::{load_internal_asset, AssetEvent, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -66,7 +66,6 @@ use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_render::camera::TemporalJitter;
 use bevy_render::changed_assets::{ChangedAssets, ChangedAssetsPlugin};
 use bevy_render::extract_resource::ExtractResource;
-use bevy_render::render_asset::RenderAsset;
 use bevy_render::render_phase::DrawFunctionId;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::{Msaa, VisibleEntities};
@@ -682,9 +681,14 @@ pub struct RenderMeshInstanceShared {
     pub material_bind_group_id: AtomicMaterialBindGroupId,
     /// Various flags.
     pub flags: RenderMeshInstanceFlags,
+    /// The render phase for this mesh will be queued in.
     pub render_phase_type: RenderPhaseType,
+    /// The depth bias to use for this instance.
     pub depth_bias: f32,
+    /// The draw function used in the phase.
     pub draw_function_id: DrawFunctionId,
+    /// An optional lightmap image.
+    pub lightmap_image: Option<AssetId<Image>>,
 }
 
 /// Information that is gathered during the parallel portion of mesh extraction
@@ -771,6 +775,7 @@ impl RenderMeshInstanceShared {
             depth_bias: 0.0,
             material_bind_group_id: AtomicMaterialBindGroupId::default(),
             draw_function_id: DrawFunctionId::INVALID,
+            lightmap_image: None,
         }
     }
 

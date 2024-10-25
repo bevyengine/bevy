@@ -716,123 +716,84 @@ fn update_mesh_material_instances<M: Material>(
     transmissive_draw_functions: Res<DrawFunctions<Transmissive3d>>,
     transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    render_lightmaps: Res<RenderLightmaps>,
 ) {
     let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
     let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
     let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial<M>>();
     let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
+    let update_mesh_material_instance = move |entity: &MainEntity, render_mesh_instance: &mut RenderMeshInstanceShared| {
+        let Some(asset_id) = render_material_instances.get(entity) else {
+            return;
+        };
+        let Some(material) = render_materials.get(*asset_id) else {
+             return;
+        };
+        let material_bind_group_id = material.get_bind_group_id();
+        let depth_bias = material.properties.depth_bias;
+        let forward = match material.properties.render_method {
+            OpaqueRendererMethod::Forward => true,
+            OpaqueRendererMethod::Deferred => false,
+            OpaqueRendererMethod::Auto => unreachable!(),
+        };
+        let render_phase_type = match material.properties.alpha_mode {
+            AlphaMode::Opaque => {
+                if material.properties.reads_view_transmission_texture {
+                    RenderPhaseType::Transmissive
+                } else if forward {
+                    RenderPhaseType::Opaque
+                } else {
+                    panic!("Invalid opaque configuration");
+                }
+            }
+            AlphaMode::Mask(_) => {
+                if material.properties.reads_view_transmission_texture {
+                    RenderPhaseType::Transmissive
+                } else if forward {
+                    RenderPhaseType::AlphaMask
+                } else {
+                    panic!("Invalid alpha mask configuration");
+                }
+            }
+            AlphaMode::Blend
+            | AlphaMode::Premultiplied
+            | AlphaMode::Add
+            | AlphaMode::Multiply
+            | AlphaMode::AlphaToCoverage => RenderPhaseType::Transparent,
+        };
+        let draw_function_id = match render_phase_type {
+            RenderPhaseType::Opaque => draw_opaque_pbr,
+            RenderPhaseType::AlphaMask => draw_alpha_mask_pbr,
+            RenderPhaseType::Transmissive => draw_transmissive_pbr,
+            RenderPhaseType::Transparent => draw_transparent_pbr,
+        };
+
+        let lightmap_image = render_lightmaps
+            .render_lightmaps
+            .get(entity)
+            .map(|lightmap| lightmap.image);
+
+        render_mesh_instance
+            .material_bind_group_id
+            .set(material_bind_group_id);
+        render_mesh_instance.depth_bias = depth_bias;
+        render_mesh_instance.render_phase_type = render_phase_type;
+        render_mesh_instance.draw_function_id = draw_function_id;
+        render_mesh_instance.lightmap_image = lightmap_image;
+    };
+
     match render_mesh_instances.as_mut() {
         RenderMeshInstances::CpuBuilding(render_mesh_instances) => {
             for (entity, render_mesh_instance) in render_mesh_instances.iter_mut() {
-                let Some(asset_id) = render_material_instances.get(entity) else {
-                    continue;
-                };
-                let Some(material) = render_materials.get(*asset_id) else {
-                    // dbg!("No material");
-                    continue;
-                };
-                let material_bind_group_id = material.get_bind_group_id();
-                let depth_bias = material.properties.depth_bias;
-                let forward = match material.properties.render_method {
-                    OpaqueRendererMethod::Forward => true,
-                    OpaqueRendererMethod::Deferred => false,
-                    OpaqueRendererMethod::Auto => unreachable!(),
-                };
-                let render_phase_type = match material.properties.alpha_mode {
-                    AlphaMode::Opaque => {
-                        if material.properties.reads_view_transmission_texture {
-                            RenderPhaseType::Transmissive
-                        } else if forward {
-                            RenderPhaseType::Opaque
-                        } else {
-                            panic!("Invalid opaque configuration");
-                        }
-                    }
-                    AlphaMode::Mask(_) => {
-                        if material.properties.reads_view_transmission_texture {
-                            RenderPhaseType::Transmissive
-                        } else if forward {
-                            RenderPhaseType::AlphaMask
-                        } else {
-                            panic!("Invalid alpha mask configuration");
-                        }
-                    }
-                    AlphaMode::Blend
-                    | AlphaMode::Premultiplied
-                    | AlphaMode::Add
-                    | AlphaMode::Multiply
-                    | AlphaMode::AlphaToCoverage => RenderPhaseType::Transparent,
-                };
-                let draw_function_id = match render_phase_type {
-                    RenderPhaseType::Opaque => draw_opaque_pbr,
-                    RenderPhaseType::AlphaMask => draw_alpha_mask_pbr,
-                    RenderPhaseType::Transmissive => draw_transmissive_pbr,
-                    RenderPhaseType::Transparent => draw_transparent_pbr,
-                };
-
-                render_mesh_instance
-                    .material_bind_group_id
-                    .set(material_bind_group_id);
-                render_mesh_instance.depth_bias = depth_bias;
-                render_mesh_instance.render_phase_type = render_phase_type;
-                render_mesh_instance.draw_function_id = draw_function_id;
+                let render_mesh_instance = &mut render_mesh_instance.shared;
+                update_mesh_material_instance(entity, render_mesh_instance);
             }
         }
         RenderMeshInstances::GpuBuilding(render_mesh_instances) => {
             for (entity, render_mesh_instance) in render_mesh_instances.iter_mut() {
-                let Some(asset_id) = render_material_instances.get(entity) else {
-                    continue;
-                };
-                let Some(material) = render_materials.get(*asset_id) else {
-                    // dbg!("No material");
-                    continue;
-                };
-                let material_bind_group_id = material.get_bind_group_id();
-                let depth_bias = material.properties.depth_bias;
-                let forward = match material.properties.render_method {
-                    OpaqueRendererMethod::Forward => true,
-                    OpaqueRendererMethod::Deferred => false,
-                    OpaqueRendererMethod::Auto => unreachable!(),
-                };
-                let render_phase_type = match material.properties.alpha_mode {
-                    AlphaMode::Opaque => {
-                        if material.properties.reads_view_transmission_texture {
-                            RenderPhaseType::Transmissive
-                        } else if forward {
-                            RenderPhaseType::Opaque
-                        } else {
-                            panic!("Invalid opaque configuration");
-                        }
-                    }
-                    AlphaMode::Mask(_) => {
-                        if material.properties.reads_view_transmission_texture {
-                            RenderPhaseType::Transmissive
-                        } else if forward {
-                            RenderPhaseType::AlphaMask
-                        } else {
-                            panic!("Invalid alpha mask configuration");
-                        }
-                    }
-                    AlphaMode::Blend
-                    | AlphaMode::Premultiplied
-                    | AlphaMode::Add
-                    | AlphaMode::Multiply
-                    | AlphaMode::AlphaToCoverage => RenderPhaseType::Transparent,
-                };
-                let draw_function_id = match render_phase_type {
-                    RenderPhaseType::Opaque => draw_opaque_pbr,
-                    RenderPhaseType::AlphaMask => draw_alpha_mask_pbr,
-                    RenderPhaseType::Transmissive => draw_transmissive_pbr,
-                    RenderPhaseType::Transparent => draw_transparent_pbr,
-                };
-
-                render_mesh_instance
-                    .material_bind_group_id
-                    .set(material_bind_group_id);
-                render_mesh_instance.depth_bias = depth_bias;
-                render_mesh_instance.render_phase_type = render_phase_type;
-                render_mesh_instance.draw_function_id = draw_function_id;
+                let render_mesh_instance = &mut render_mesh_instance.shared;
+                update_mesh_material_instance(entity, render_mesh_instance);
             }
         }
     }
@@ -889,6 +850,8 @@ pub fn queue_material_meshes<M: Material>(
                         draw_function: mesh_instance.draw_function_id,
                         pipeline,
                         asset_id: mesh_instance.mesh_asset_id.into(),
+                        material_bind_group_id: mesh_instance.material_bind_group_id.get().0,
+                        lightmap_image: None,
                     };
                     opaque_phase.add(
                         bin_key,
@@ -901,6 +864,7 @@ pub fn queue_material_meshes<M: Material>(
                         draw_function: mesh_instance.draw_function_id,
                         pipeline,
                         asset_id: mesh_instance.mesh_asset_id.into(),
+                        material_bind_group_id: mesh_instance.material_bind_group_id.get().0,
                     };
                     alpha_mask_phase.add(
                         bin_key,

@@ -877,6 +877,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 draw_function: opaque_draw_deferred,
                                 pipeline: pipeline_id,
                                 asset_id: mesh_instance.mesh_asset_id.into(),
+                                material_bind_group_id: mesh_instance.material_bind_group_id.get().0,
                             },
                             (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
@@ -887,6 +888,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 draw_function: opaque_draw_prepass,
                                 pipeline: pipeline_id,
                                 asset_id: mesh_instance.mesh_asset_id.into(),
+                                material_bind_group_id: mesh_instance.material_bind_group_id.get().0,
                             },
                             (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
@@ -900,6 +902,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             pipeline: pipeline_id,
                             draw_function: alpha_mask_draw_deferred,
                             asset_id: mesh_instance.mesh_asset_id.into(),
+                            material_bind_group_id: mesh_instance.material_bind_group_id.get().0,
                         };
                         alpha_mask_deferred_phase.as_mut().unwrap().add(
                             bin_key,
@@ -911,6 +914,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             pipeline: pipeline_id,
                             draw_function: alpha_mask_draw_prepass,
                             asset_id: mesh_instance.mesh_asset_id.into(),
+                            material_bind_group_id: mesh_instance.material_bind_group_id.get().0,
                         };
                         alpha_mask_phase.add(
                             bin_key,

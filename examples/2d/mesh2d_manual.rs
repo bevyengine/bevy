@@ -35,6 +35,8 @@ use bevy::{
     },
 };
 use std::f32::consts::PI;
+use bevy::sprite::RenderPhase2dType;
+use bevy_render::render_phase::DrawFunctionId;
 
 fn main() {
     App::new()
@@ -352,6 +354,9 @@ pub fn extract_colored_mesh2d(
                 transforms,
                 material_bind_group_id: Material2dBindGroupId::default(),
                 automatic_batching: false,
+                render_phase_type: RenderPhase2dType::Opaque,
+                depth_bias: 0.0,
+                draw_function_id: DrawFunctionId::INVALID,
             },
         );
     }

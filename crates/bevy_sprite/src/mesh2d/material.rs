@@ -384,7 +384,6 @@ fn update_mesh_material2d_instances<M: Material2d>(
     let draw_alpha_mask_2d = alpha_mask_draw_functions.read().id::<DrawMaterial2d<M>>();
     let draw_transparent_2d = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
 
-    let mut updated = 0;
     for (entity, render_mesh_instance) in render_mesh_instances.iter_mut() {
         let Some(asset_id) = render_material_instances.get(entity) else {
             continue;
@@ -405,7 +404,6 @@ fn update_mesh_material2d_instances<M: Material2d>(
             RenderPhase2dType::Transparent => draw_transparent_2d,
         };
 
-        updated += 1;
         render_mesh_instance.material_bind_group_id = material_bind_group_id;
         render_mesh_instance.depth_bias = depth_bias;
         render_mesh_instance.render_phase_type = render_phase_type;
@@ -708,6 +706,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         pipeline,
                         draw_function: mesh_instance.draw_function_id,
                         asset_id: mesh_instance.mesh_asset_id.into(),
+                        material_bind_group_id: mesh_instance.material_bind_group_id.0,
                     };
                     opaque_phase.add(
                         bin_key,
@@ -720,6 +719,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         pipeline,
                         draw_function: mesh_instance.draw_function_id,
                         asset_id: mesh_instance.mesh_asset_id.into(),
+                        material_bind_group_id: mesh_instance.material_bind_group_id.0,
                     };
                     alpha_mask_phase.add(
                         bin_key,
