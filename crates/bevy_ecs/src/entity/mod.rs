@@ -950,7 +950,7 @@ impl Entities {
             .meta
             .get_mut(index as usize)
             .expect("Entity index invalid");
-        meta.spawned_despawned_by = caller;
+        meta.spawned_despawned_by = Some(caller);
     }
 
     /// Returns the source code location from which this entity has last been spawned
@@ -962,10 +962,7 @@ impl Entities {
         entity: Entity,
     ) -> Option<&'static Location<'static>> {
         if let Some(meta) = self.meta.get(entity.index() as usize) {
-            if meta.spawned_despawned_by == EntityMeta::EMPTY.spawned_despawned_by {
-                return None;
-            }
-            Some(meta.spawned_despawned_by)
+            meta.spawned_despawned_by
         } else {
             None
         }
@@ -996,7 +993,7 @@ struct EntityMeta {
     pub location: EntityLocation,
     /// Location of the last spawn or despawn of this entity
     #[cfg(feature = "track_change_detection")]
-    spawned_despawned_by: &'static Location<'static>,
+    spawned_despawned_by: Option<&'static Location<'static>>,
 }
 
 impl EntityMeta {
@@ -1005,7 +1002,7 @@ impl EntityMeta {
         generation: NonZero::<u32>::MIN,
         location: EntityLocation::INVALID,
         #[cfg(feature = "track_change_detection")]
-        spawned_despawned_by: Location::caller(),
+        spawned_despawned_by: None,
     };
 }
 
