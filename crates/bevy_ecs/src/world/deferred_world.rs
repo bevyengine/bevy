@@ -526,7 +526,7 @@ impl<'w> DeferredWorld<'w> {
         data: &mut E,
         mut propagate: bool,
     ) where
-        T: Traversal,
+        T: Traversal<E>,
     {
         loop {
             Observers::invoke::<_>(
@@ -544,7 +544,7 @@ impl<'w> DeferredWorld<'w> {
                 .get_entity(entity)
                 .ok()
                 .and_then(|entity| entity.get_components::<T>())
-                .and_then(T::traverse)
+                .and_then(|item| T::traverse(item, &data))
             {
                 entity = traverse_to;
             } else {

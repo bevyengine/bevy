@@ -159,6 +159,7 @@ pub mod input;
 #[cfg(feature = "bevy_mesh")]
 pub mod mesh_picking;
 pub mod pointer;
+pub mod window;
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
@@ -301,6 +302,8 @@ pub struct PickingPlugin {
     pub is_input_enabled: bool,
     /// Enables and disables updating interaction states of entities.
     pub is_focus_enabled: bool,
+    /// Enables or disables picking for window entities.
+    pub is_window_picking_enabled: bool,
 }
 
 impl PickingPlugin {
@@ -308,10 +311,16 @@ impl PickingPlugin {
     pub fn input_should_run(state: Res<Self>) -> bool {
         state.is_input_enabled && state.is_enabled
     }
+
     /// Whether or not systems updating entities' [`PickingInteraction`](focus::PickingInteraction)
     /// component should be running.
     pub fn focus_should_run(state: Res<Self>) -> bool {
         state.is_focus_enabled && state.is_enabled
+    }
+
+    /// Wheather or not window entities should receive pick events.
+    pub fn window_picking_should_run(state: Res<Self>) -> bool {
+        state.is_window_picking_enabled && state.is_enabled
     }
 }
 
@@ -321,6 +330,7 @@ impl Default for PickingPlugin {
             is_enabled: true,
             is_input_enabled: true,
             is_focus_enabled: true,
+            is_window_picking_enabled: true,
         }
     }
 }
@@ -344,6 +354,12 @@ impl Plugin for PickingPlugin {
                     backend::ray::RayMap::repopulate.after(pointer::PointerInput::receive),
                 )
                     .in_set(PickSet::ProcessInput),
+            )
+            .add_systems(
+                PreUpdate,
+                window::update_window_hits
+                    .run_if(Self::window_picking_should_run)
+                    .in_set(PickSet::Backend),
             )
             .configure_sets(
                 First,

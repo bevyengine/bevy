@@ -13,16 +13,20 @@ use crate::{entity::Entity, query::ReadOnlyQueryData};
 /// for documenting possible looping behavior, and consumers of those implementations are responsible for
 /// avoiding infinite loops in their code.
 ///
+/// Traversials may be parameterized with additional data. For example, in observer event propagation, the
+/// parameter `D` is the event type given in `Trigger<E>`. This allows traversal to differ depending on event
+/// data.
+///
 /// [specify the direction]: crate::event::Event::Traversal
 /// [event propagation]: crate::observer::Trigger::propagate
 /// [observers]: crate::observer::Observer
-pub trait Traversal: ReadOnlyQueryData {
+pub trait Traversal<D: ?Sized>: ReadOnlyQueryData {
     /// Returns the next entity to visit.
-    fn traverse(item: Self::Item<'_>) -> Option<Entity>;
+    fn traverse(item: Self::Item<'_>, data: &D) -> Option<Entity>;
 }
 
-impl Traversal for () {
-    fn traverse(_: Self::Item<'_>) -> Option<Entity> {
+impl<D> Traversal<D> for () {
+    fn traverse(_: Self::Item<'_>, _data: &D) -> Option<Entity> {
         None
     }
 }

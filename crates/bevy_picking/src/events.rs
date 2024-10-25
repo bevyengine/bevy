@@ -39,11 +39,13 @@
 
 use core::fmt::Debug;
 
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, query::QueryData, traversal::Traversal};
 use bevy_hierarchy::Parent;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
+use bevy_render::camera::NormalizedRenderTarget;
 use bevy_utils::{tracing::debug, Duration, HashMap, Instant};
+use bevy_window::Window;
 
 use crate::{
     backend::{prelude::PointerLocation, HitData},
@@ -69,11 +71,44 @@ pub struct Pointer<E: Debug + Clone + Reflect> {
     pub event: E,
 }
 
+/// A traversal query (eg it implements [`Traversal`]) intended for use with [`Poiner`] events.
+///
+/// This will always traverse to the parent, if the entity being visited has one. Otherwise, it
+/// propagates to the pointer's window and stops there.
+#[derive(QueryData)]
+pub struct PointerTraversal {
+    parent: Option<&'static Parent>,
+    window: Option<&'static Window>,
+}
+
+impl<E> Traversal<Pointer<E>> for PointerTraversal
+where
+    E: Debug + Clone + Reflect,
+{
+    fn traverse(item: Self::Item<'_>, pointer: &Pointer<E>) -> Option<Entity> {
+        let PointerTraversalItem { parent, window } = item;
+
+        // Send event to parent, if it has one.
+        if let Some(parent) = parent {
+            return Some(parent.get());
+        };
+
+        // Otherwise, send it to the window entity (unless this is a window entity).
+        if window.is_none() {
+            if let NormalizedRenderTarget::Window(window_ref) = pointer.pointer_location.target {
+                return Some(window_ref.entity());
+            }
+        }
+
+        return None;
+    }
+}
+
 impl<E> Event for Pointer<E>
 where
     E: Debug + Clone + Reflect,
 {
-    type Traversal = &'static Parent;
+    type Traversal = PointerTraversal;
 
     const AUTO_PROPAGATE: bool = true;
 }
