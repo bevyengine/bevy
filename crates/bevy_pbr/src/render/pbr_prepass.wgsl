@@ -33,7 +33,7 @@ fn fragment(
     var out: prepass_io::FragmentOutput;
 
 #ifdef DEPTH_CLAMP_ORTHO
-    out.frag_depth = in.clip_position_unclamped.z;
+    out.frag_depth = in.clip_z_unclamped;
 #endif // DEPTH_CLAMP_ORTHO
 
 #ifdef NORMAL_PREPASS

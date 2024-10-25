@@ -251,6 +251,7 @@ pub struct PrepassPipeline<M: Material> {
     pub deferred_material_vertex_shader: Option<Handle<Shader>>,
     pub deferred_material_fragment_shader: Option<Handle<Shader>>,
     pub material_pipeline: MaterialPipeline<M>,
+    pub depth_clip_control_supported: bool,
     _marker: PhantomData<M>,
 }
 
@@ -289,6 +290,10 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
 
         let mesh_pipeline = world.resource::<MeshPipeline>();
 
+        let depth_clip_control_supported = render_device
+            .features()
+            .contains(WgpuFeatures::DEPTH_CLIP_CONTROL);
+
         PrepassPipeline {
             view_layout_motion_vectors,
             view_layout_no_motion_vectors,
@@ -315,6 +320,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
             },
             material_layout: M::bind_group_layout(render_device),
             material_pipeline: world.resource::<MaterialPipeline<M>>().clone(),
+            depth_clip_control_supported,
             _marker: PhantomData,
         }
     }
@@ -328,7 +334,7 @@ where
 
     fn specialize(
         &self,
-        key: Self::Key,
+        mut key: Self::Key,
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut bind_group_layouts = vec![if key
@@ -341,6 +347,15 @@ where
         }];
         let mut shader_defs = Vec::new();
         let mut vertex_attributes = Vec::new();
+        let mut unclipped_depth = false;
+
+        // Remove depth clamp in fragment shader if GPU supports it natively
+        if key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO)
+            && self.depth_clip_control_supported
+        {
+            key.mesh_key.remove(MeshPipelineKey::DEPTH_CLAMP_ORTHO);
+            unclipped_depth = true;
+        }
 
         // Let the shader code know that it's running in a prepass pipeline.
         // (PBR code will use this to detect that it's running in deferred mode,
@@ -489,7 +504,7 @@ where
 
         // The fragment shader is only used when the normal prepass or motion vectors prepass
         // is enabled or the material uses alpha cutoff values and doesn't rely on the standard
-        // prepass shader or we are clamping the orthographic depth.
+        // prepass shader or we are clamping the orthographic depth in the fragment shader.
         let fragment_required = !targets.is_empty()
             || key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO)
             || (key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
@@ -544,7 +559,7 @@ where
                 strip_index_format: None,
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
-                unclipped_depth: false,
+                unclipped_depth,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
             },
