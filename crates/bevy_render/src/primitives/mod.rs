@@ -96,6 +96,8 @@ impl Aabb {
         self.center + self.half_extents
     }
 
+    /// Check if the point is at the front side of the plane.
+    /// Referenced from: [AABB Plane intersection](https://gdbooks.gitbooks.io/3dcollisions/content/Chapter2/static_aabb_plane.html)
     #[inline]
     pub fn is_forward_plane(
         &self,
@@ -119,7 +121,7 @@ impl Aabb {
         let r = half_extents_x_world * p_normal.x.abs()
             + half_extents_y_world * p_normal.y.abs()
             + half_extents_z_world * p_normal.z.abs();
-        let signed_distance = p_normal.dot(aabb_center_world) - p_distance;
+        let signed_distance = p_normal.dot(aabb_center_world) + p_distance;
         signed_distance > r
     }
 }
@@ -326,6 +328,8 @@ impl Frustum {
         true
     }
 
+    /// Check if the frustum contains the Axis-Aligned Bounding Box (AABB).
+    /// Referenced from: [Frustum Culling](https://learnopengl.com/Guest-Articles/2021/Scene/Frustum-Culling)
     #[inline]
     pub fn contains_aabb(&self, aabb: &Aabb, world_from_local: &Affine3A) -> bool {
         for half_space in &self.half_spaces {
@@ -363,6 +367,10 @@ pub struct CascadesFrusta {
 
 #[cfg(test)]
 mod tests {
+    use bevy_transform::components::GlobalTransform;
+
+    use crate::camera::{CameraProjection, PerspectiveProjection};
+
     use super::*;
 
     // A big, offset frustum
@@ -539,5 +547,46 @@ mod tests {
             .unwrap(),
             Aabb::from_min_max(Vec3::new(-1.0, -5.0, 0.0), Vec3::new(2.0, 0.0, 1.0))
         );
+    }
+
+    // A frustum with an offset for testing the [`Frustum::contains_aabb`] algorithm.
+    fn contains_aabb_test_frustum() -> Frustum {
+        let proj = PerspectiveProjection {
+            fov: 90.0_f32.to_radians(),
+            aspect_ratio: 1.0,
+            near: 1.0,
+            far: 100.0,
+        };
+        proj.compute_frustum(&GlobalTransform::from_translation(Vec3::new(2.0, 2.0, 0.0)))
+    }
+
+    #[test]
+    fn aabb_inside_frustum() {
+        let frustum = contains_aabb_test_frustum();
+        let aabb = Aabb {
+            center: Vec3A::new(2.0, 2.0, -50.5),
+            half_extents: Vec3A::new(0.99, 0.99, 49.49),
+        };
+        assert!(frustum.contains_aabb(&aabb, &Affine3A::IDENTITY));
+    }
+
+    #[test]
+    fn aabb_intersect_frustum() {
+        let frustum = contains_aabb_test_frustum();
+        let aabb = Aabb {
+            center: Vec3A::new(2.0, 2.0, -50.5),
+            half_extents: Vec3A::new(0.99, 0.99, 49.51),
+        };
+        assert!(!frustum.contains_aabb(&aabb, &Affine3A::IDENTITY));
+    }
+
+    #[test]
+    fn aabb_outside_frustum() {
+        let frustum = contains_aabb_test_frustum();
+        let aabb = Aabb {
+            center: Vec3A::new(0.0, 0.0, 0.0),
+            half_extents: Vec3A::new(0.99, 0.99, 0.99),
+        };
+        assert!(!frustum.contains_aabb(&aabb, &Affine3A::IDENTITY));
     }
 }
