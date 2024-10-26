@@ -1292,7 +1292,7 @@ impl World {
 
         #[cfg(feature = "track_change_detection")]
         self.entities
-            .set_spawned_despawned_by(entity.index(), Location::caller());
+            .set_spawned_or_despawned_by(entity.index(), Location::caller());
 
         // SAFETY: entity and location are valid, as they were just created above
         unsafe { EntityWorldMut::new(self, entity, entity_location) }
@@ -1315,7 +1315,7 @@ impl World {
 
         #[cfg(feature = "track_change_detection")]
         self.entities
-            .set_spawned_despawned_by(entity.index(), caller);
+            .set_spawned_or_despawned_by(entity.index(), caller);
 
         EntityWorldMut::new(self, entity, location)
     }

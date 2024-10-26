@@ -1786,7 +1786,7 @@ impl<'w> EntityWorldMut<'w> {
             unsafe {
                 world
                     .entities_mut()
-                    .set_spawned_despawned_by(self.entity.index(), caller);
+                    .set_spawned_or_despawned_by(self.entity.index(), caller);
             }
         }
     }
@@ -1931,7 +1931,7 @@ impl<'w> EntityWorldMut<'w> {
     pub fn spawned_by(&self) -> &'static Location<'static> {
         self.world()
             .entities()
-            .get_entity_spawned_despawned_by(self.entity)
+            .entity_get_spawned_or_despawned_by(self.entity)
             .unwrap()
     }
 }
@@ -4571,7 +4571,7 @@ mod tests {
             TRACKED.get_or_init(|| {
                 world
                     .entities
-                    .get_entity_spawned_despawned_by(entity)
+                    .entity_get_spawned_or_despawned_by(entity)
                     .unwrap()
             });
         }
@@ -4587,7 +4587,7 @@ mod tests {
             spawner,
             world
                 .entities()
-                .get_entity_spawned_despawned_by(entity)
+                .entity_get_spawned_or_despawned_by(entity)
                 .unwrap()
         );
 
@@ -4603,7 +4603,7 @@ mod tests {
             despawner,
             world
                 .entities()
-                .get_entity_spawned_despawned_by(entity)
+                .entity_get_spawned_or_despawned_by(entity)
                 .unwrap()
         );
     }

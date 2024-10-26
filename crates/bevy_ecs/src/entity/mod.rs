@@ -945,24 +945,24 @@ impl Entities {
     /// or despawned.
     #[cfg(feature = "track_change_detection")]
     #[inline]
-    pub(crate) fn set_spawned_despawned_by(&mut self, index: u32, caller: &'static Location) {
+    pub(crate) fn set_spawned_or_despawned_by(&mut self, index: u32, caller: &'static Location) {
         let meta = self
             .meta
             .get_mut(index as usize)
             .expect("Entity index invalid");
-        meta.spawned_despawned_by = Some(caller);
+        meta.spawned_or_despawned_by = Some(caller);
     }
 
     /// Returns the source code location from which this entity has last been spawned
     /// or despawned. Returns `None` if this entity has never existed.
     /// In a removal hook or observer, this points to the despawn.
     #[cfg(feature = "track_change_detection")]
-    pub fn get_entity_spawned_despawned_by(
+    pub fn entity_get_spawned_or_despawned_by(
         &self,
         entity: Entity,
     ) -> Option<&'static Location<'static>> {
         if let Some(meta) = self.meta.get(entity.index() as usize) {
-            meta.spawned_despawned_by
+            meta.spawned_or_despawned_by
         } else {
             None
         }
@@ -972,7 +972,7 @@ impl Entities {
     pub(crate) fn entity_does_not_exist_error_message_helper(&self, _entity: Entity) -> String {
         #[cfg(feature = "track_change_detection")]
         {
-            if let Some(location) = self.get_entity_spawned_despawned_by(_entity) {
+            if let Some(location) = self.entity_get_spawned_or_despawned_by(_entity) {
                 format!("was despawned by {location}",)
             } else {
                 "was never spawned".to_owned()
@@ -993,7 +993,7 @@ struct EntityMeta {
     pub location: EntityLocation,
     /// Location of the last spawn or despawn of this entity
     #[cfg(feature = "track_change_detection")]
-    spawned_despawned_by: Option<&'static Location<'static>>,
+    spawned_or_despawned_by: Option<&'static Location<'static>>,
 }
 
 impl EntityMeta {
@@ -1002,7 +1002,7 @@ impl EntityMeta {
         generation: NonZero::<u32>::MIN,
         location: EntityLocation::INVALID,
         #[cfg(feature = "track_change_detection")]
-        spawned_despawned_by: None,
+        spawned_or_despawned_by: None,
     };
 }
 
