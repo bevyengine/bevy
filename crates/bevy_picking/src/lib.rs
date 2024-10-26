@@ -284,17 +284,10 @@ impl PluginGroup for DefaultPickingPlugins {
                 reason = "Group is not mutated when `bevy_mesh` is not enabled."
             )
         )]
-        let mut group = PluginGroupBuilder::start::<Self>()
+        PluginGroupBuilder::start::<Self>()
             .add(input::PointerInputPlugin::default())
             .add(PickingPlugin::default())
-            .add(InteractionPlugin);
-
-        #[cfg(feature = "bevy_mesh")]
-        {
-            group = group.add(mesh_picking::MeshPickingPlugin);
-        };
-
-        group
+            .add(InteractionPlugin)
     }
 }
 
