@@ -1216,7 +1216,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/8483db58832542383820c3f44e4730e566910be7/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/defbd9b32072624d40d57de7d345c66a9edf5d0b/bunny.meshlet_mesh",
   ],
 ]
 
