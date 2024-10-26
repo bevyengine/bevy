@@ -47,7 +47,7 @@ impl<'w> core::fmt::Display for EntityFetchError<'w> {
                     "Entity {entity} {}",
                     world
                         .entities()
-                        .entity_does_not_exist_error_message_helper(entity)
+                        .entity_does_not_exist_error_details_message(entity)
                 )
             }
             Self::AliasedMutability(entity) => {
@@ -66,7 +66,7 @@ impl<'w> core::fmt::Debug for EntityFetchError<'w> {
                     "NoSuchEntity({entity} {})",
                     world
                         .entities()
-                        .entity_does_not_exist_error_message_helper(entity)
+                        .entity_does_not_exist_error_details_message(entity)
                 )
             }
             Self::AliasedMutability(entity) => write!(f, "AliasedMutability({entity})"),

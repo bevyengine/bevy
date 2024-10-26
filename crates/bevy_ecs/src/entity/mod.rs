@@ -955,21 +955,18 @@ impl Entities {
 
     /// Returns the source code location from which this entity has last been spawned
     /// or despawned. Returns `None` if this entity has never existed.
-    /// In a removal hook or observer, this points to the despawn.
     #[cfg(feature = "track_change_detection")]
     pub fn entity_get_spawned_or_despawned_by(
         &self,
         entity: Entity,
     ) -> Option<&'static Location<'static>> {
-        if let Some(meta) = self.meta.get(entity.index() as usize) {
-            meta.spawned_or_despawned_by
-        } else {
-            None
-        }
+        self.meta
+            .get(entity.index() as usize)
+            .and_then(|meta| meta.spawned_or_despawned_by)
     }
 
-    /// Constructs a message explaining why an entity does not exists, if known. Used to create error messages.
-    pub(crate) fn entity_does_not_exist_error_message_helper(&self, _entity: Entity) -> String {
+    /// Constructs a message explaining why an entity does not exists, if known.
+    pub(crate) fn entity_does_not_exist_error_details_message(&self, _entity: Entity) -> String {
         #[cfg(feature = "track_change_detection")]
         {
             if let Some(location) = self.entity_get_spawned_or_despawned_by(_entity) {
@@ -1006,7 +1003,7 @@ impl EntityMeta {
     };
 }
 
-/// Records where an entity's data is stored.
+/// A location of an entity in an archetype.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct EntityLocation {
     /// The ID of the [`Archetype`] the [`Entity`] belongs to.
