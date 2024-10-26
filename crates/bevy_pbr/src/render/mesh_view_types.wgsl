@@ -105,7 +105,7 @@ struct ClusterOffsetsAndCounts {
 };
 #else
 struct ClusterableObjects {
-    data: array<ClusterableObject, 256u>,
+    data: array<ClusterableObject, 204u>,
 };
 struct ClusterLightIndexLists {
     // each u32 contains 4 u8 indices into the ClusterableObjects array

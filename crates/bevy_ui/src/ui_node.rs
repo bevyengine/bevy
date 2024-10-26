@@ -9,7 +9,7 @@ use bevy_render::{
     texture::{Image, TRANSPARENT_IMAGE_HANDLE},
     view::Visibility,
 };
-use bevy_sprite::BorderRect;
+use bevy_sprite::{BorderRect, TextureAtlas};
 use bevy_transform::components::Transform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
@@ -2053,15 +2053,17 @@ pub struct UiImage {
     /// Handle to the texture.
     ///
     /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
-    pub texture: Handle<Image>,
+    pub image: Handle<Image>,
+    /// The (optional) texture atlas used to render the image
+    pub texture_atlas: Option<TextureAtlas>,
     /// Whether the image should be flipped along its x-axis
     pub flip_x: bool,
     /// Whether the image should be flipped along its y-axis
     pub flip_y: bool,
     /// An optional rectangle representing the region of the image to render, instead of rendering
-    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`](bevy_sprite::TextureAtlas).
+    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`].
     ///
-    /// When used with a [`TextureAtlas`](bevy_sprite::TextureAtlas), the rect
+    /// When used with a [`TextureAtlas`], the rect
     /// is offset by the atlas's minimal (top-left) corner position.
     pub rect: Option<Rect>,
 }
@@ -2079,8 +2081,9 @@ impl Default for UiImage {
             // This should be white because the tint is multiplied with the image,
             // so if you set an actual image with default tint you'd want its original colors
             color: Color::WHITE,
+            texture_atlas: None,
             // This texture needs to be transparent by default, to avoid covering the background color
-            texture: TRANSPARENT_IMAGE_HANDLE,
+            image: TRANSPARENT_IMAGE_HANDLE,
             flip_x: false,
             flip_y: false,
             rect: None,
@@ -2092,7 +2095,7 @@ impl UiImage {
     /// Create a new [`UiImage`] with the given texture.
     pub fn new(texture: Handle<Image>) -> Self {
         Self {
-            texture,
+            image: texture,
             color: Color::WHITE,
             ..Default::default()
         }
@@ -2103,11 +2106,21 @@ impl UiImage {
     /// This is primarily useful for debugging / mocking the extents of your image.
     pub fn solid_color(color: Color) -> Self {
         Self {
-            texture: Handle::default(),
+            image: Handle::default(),
             color,
             flip_x: false,
             flip_y: false,
+            texture_atlas: None,
             rect: None,
+        }
+    }
+
+    /// Create a [`UiImage`] from an image, with an associated texture atlas
+    pub fn from_atlas_image(image: Handle<Image>, atlas: TextureAtlas) -> Self {
+        Self {
+            image,
+            texture_atlas: Some(atlas),
+            ..Default::default()
         }
     }
 

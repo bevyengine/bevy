@@ -160,7 +160,7 @@ pub mod input;
 pub mod mesh_picking;
 pub mod pointer;
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, PluginGroupBuilder};
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 
@@ -172,7 +172,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{MeshRayCast, RayCastBackfaces, RayCastSettings, RayCastVisibility},
-        MeshPickingBackend, MeshPickingBackendSettings, RayCastPickable,
+        MeshPickingPlugin, MeshPickingSettings, RayCastPickable,
     };
     #[doc(hidden)]
     pub use crate::{
@@ -275,15 +275,26 @@ pub enum PickSet {
 #[derive(Default)]
 pub struct DefaultPickingPlugins;
 
-impl Plugin for DefaultPickingPlugins {
-    fn build(&self, app: &mut App) {
-        app.add_plugins((
-            input::PointerInputPlugin::default(),
-            PickingPlugin::default(),
-            InteractionPlugin,
-        ));
+impl PluginGroup for DefaultPickingPlugins {
+    fn build(self) -> PluginGroupBuilder {
+        #[cfg_attr(
+            not(feature = "bevy_mesh"),
+            expect(
+                unused_mut,
+                reason = "Group is not mutated when `bevy_mesh` is not enabled."
+            )
+        )]
+        let mut group = PluginGroupBuilder::start::<Self>()
+            .add(input::PointerInputPlugin::default())
+            .add(PickingPlugin::default())
+            .add(InteractionPlugin);
+
         #[cfg(feature = "bevy_mesh")]
-        app.add_plugins(mesh_picking::MeshPickingBackend);
+        {
+            group = group.add(mesh_picking::MeshPickingPlugin);
+        };
+
+        group
     }
 }
 
