@@ -918,14 +918,11 @@ impl AssetServer {
 
                 let mut handles = Vec::new();
                 match load_folder(source.id(), path.path(), asset_reader, &server, &mut handles).await {
-                    Ok(_) => server.send_asset_event(
-                        InternalAssetEvent::Loaded {
-                            id,
-                            loaded_asset: LoadedAsset::new_with_dependencies(
-                                LoadedFolder { handles }, None
-                            ).into()
-                        }
-                    ),
+                    Ok(_) => {
+                        let loaded_asset = LoadedAsset::new_with_dependencies(LoadedFolder { handles }, None).into();
+                        let event = InternalAssetEvent::Loaded { id, loaded_asset };
+                        server.send_asset_event(event)
+                    },
                     Err(err) => {
                         error!("Failed to load folder. {err}");
                         server.send_asset_event(InternalAssetEvent::Failed { id, error: err, path });
