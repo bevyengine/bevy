@@ -1,7 +1,6 @@
 use bevy_math::{bounding::Aabb3d, Dir3, Mat4, Ray3d, Vec3, Vec3A};
 use bevy_reflect::Reflect;
-use bevy_render::mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
-use bevy_utils::tracing::{error, warn};
+use bevy_render::mesh::{Indices, Mesh, PrimitiveTopology};
 
 use super::Backfaces;
 
@@ -37,77 +36,33 @@ pub(super) fn ray_intersection_over_mesh(
     backface_culling: Backfaces,
 ) -> Option<RayMeshHit> {
     if mesh.primitive_topology() != PrimitiveTopology::TriangleList {
-        // ray_mesh_intersection assumes vertices are laid out in a triangle list
-        return None;
+        return None; // ray_mesh_intersection assumes vertices are laid out in a triangle list
     }
-
-    // Get the vertex positions and normals from the mesh.
-    let vertex_positions: &Vec<[f32; 3]> = match mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
-        None => {
-            error!("Mesh does not contain vertex positions");
-            return None;
-        }
-        Some(vertex_values) => match &vertex_values {
-            VertexAttributeValues::Float32x3(positions) => positions,
-            _ => {
-                error!("Unexpected types in {:?}", Mesh::ATTRIBUTE_POSITION);
-                return None;
-            }
-        },
-    };
-    let vertex_normals: Option<&[[f32; 3]]> =
-        if let Some(normal_values) = mesh.attribute(Mesh::ATTRIBUTE_NORMAL) {
-            match &normal_values {
-                VertexAttributeValues::Float32x3(normals) => Some(normals),
-                _ => None,
-            }
-        } else {
-            None
-        };
-
-    if let Some(indices) = &mesh.indices() {
-        match indices {
-            Indices::U16(vertex_indices) => ray_mesh_intersection(
-                ray,
-                mesh_transform,
-                vertex_positions,
-                vertex_normals,
-                Some(vertex_indices),
-                backface_culling,
-            ),
-            Indices::U32(vertex_indices) => ray_mesh_intersection(
-                ray,
-                mesh_transform,
-                vertex_positions,
-                vertex_normals,
-                Some(vertex_indices),
-                backface_culling,
-            ),
-        }
-    } else {
-        ray_mesh_intersection(
-            ray,
-            mesh_transform,
-            vertex_positions,
-            vertex_normals,
-            None::<&[usize]>,
-            backface_culling,
-        )
-    }
+    // Vertex positions are required
+    let vertex_positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION)?.as_float3()?;
+    // Normals are optional
+    let vertex_normals = mesh
+        .attribute(Mesh::ATTRIBUTE_NORMAL)
+        .and_then(|normal_values| normal_values.as_float3());
+    ray_mesh_intersection(
+        ray,
+        mesh_transform,
+        vertex_positions,
+        vertex_normals,
+        mesh.indices(),
+        backface_culling,
+    )
 }
 
 /// Checks if a ray intersects a mesh, and returns the nearest intersection if one exists.
-pub fn ray_mesh_intersection<Index: Clone + Copy>(
+pub fn ray_mesh_intersection(
     ray: Ray3d,
     mesh_transform: &Mat4,
     vertex_positions: &[[f32; 3]],
     vertex_normals: Option<&[[f32; 3]]>,
-    indices: Option<&[Index]>,
+    indices: Option<&Indices>,
     backface_culling: Backfaces,
-) -> Option<RayMeshHit>
-where
-    usize: TryFrom<Index>,
-{
+) -> Option<RayMeshHit> {
     // The ray cast can hit the same mesh many times, so we need to track which hit is
     // closest to the camera, and record that.
     let mut closest_hit_distance = f32::MAX;
@@ -121,32 +76,34 @@ where
     );
 
     if let Some(indices) = indices {
-        // Make sure this chunk has 3 vertices to avoid a panic.
+        // The index list must be a multiple of three. If not, the mesh is malformed and the raycast
+        // result might be nonsensical.
         if indices.len() % 3 != 0 {
-            warn!("Index list not a multiple of 3");
             return None;
         }
 
-        // Now that we're in the vector of vertex indices, we want to look at the vertex
-        // positions for each triangle, so we'll take indices in chunks of three, where each
-        // chunk of three indices are references to the three vertices of a triangle.
-        for index_chunk in indices.chunks_exact(3) {
-            let [index1, index2, index3] = [
-                usize::try_from(index_chunk[0]).ok()?,
-                usize::try_from(index_chunk[1]).ok()?,
-                usize::try_from(index_chunk[2]).ok()?,
-            ];
-            let triangle_index = Some(index1);
+        // Iterate over chunks of three indices, representing the corners of a triangle.
+        let mut indices = indices.iter();
+        let mut next_triangle = || {
+            indices
+                .next()
+                .zip(indices.next())
+                .zip(indices.next())
+                .map(|((a, b), c)| [a, b, c])
+        };
+
+        while let Some(triangle) = next_triangle() {
+            let triangle_index = Some(triangle[0]);
             let tri_vertex_positions = [
-                Vec3A::from(vertex_positions[index1]),
-                Vec3A::from(vertex_positions[index2]),
-                Vec3A::from(vertex_positions[index3]),
+                Vec3A::from(vertex_positions[triangle[0]]),
+                Vec3A::from(vertex_positions[triangle[1]]),
+                Vec3A::from(vertex_positions[triangle[2]]),
             ];
             let tri_normals = vertex_normals.map(|normals| {
                 [
-                    Vec3A::from(normals[index1]),
-                    Vec3A::from(normals[index2]),
-                    Vec3A::from(normals[index3]),
+                    Vec3A::from(normals[triangle[0]]),
+                    Vec3A::from(normals[triangle[1]]),
+                    Vec3A::from(normals[triangle[2]]),
                 ]
             });
 

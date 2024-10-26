@@ -1,5 +1,6 @@
 use bevy_math::{Dir3, Mat4, Ray3d, Vec3};
 use bevy_picking::{mesh_picking::ray_cast, prelude::*};
+use bevy_render::mesh::Indices;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn ptoxznorm(p: u32, size: u32) -> (f32, f32) {
@@ -10,7 +11,7 @@ fn ptoxznorm(p: u32, size: u32) -> (f32, f32) {
 struct SimpleMesh {
     positions: Vec<[f32; 3]>,
     normals: Vec<[f32; 3]>,
-    indices: Vec<u32>,
+    indices: Indices,
 }
 
 fn mesh_creation(vertices_per_side: u32) -> SimpleMesh {
@@ -31,6 +32,7 @@ fn mesh_creation(vertices_per_side: u32) -> SimpleMesh {
             indices.extend_from_slice(&[p + vertices_per_side, p + 1, p + vertices_per_side + 1]);
         }
     }
+    let indices = Indices::U32(indices);
 
     SimpleMesh {
         positions,
