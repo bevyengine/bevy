@@ -16,7 +16,7 @@ pub struct RayMeshHit {
     /// The distance from the ray origin to the intersection point.
     pub distance: f32,
     /// The vertices of the triangle that was hit.
-    pub triangle: Option<[Vec3A; 3]>,
+    pub triangle: Option<[Vec3; 3]>,
     /// The index of the triangle that was hit.
     pub triangle_index: Option<usize>,
 }
@@ -40,6 +40,7 @@ pub(super) fn ray_intersection_over_mesh(
     }
     // Vertex positions are required
     let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION)?.as_float3()?;
+
     // Normals are optional
     let normals = mesh
         .attribute(Mesh::ATTRIBUTE_NORMAL)
@@ -85,23 +86,29 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
         }
 
         for triangle in indices.chunks_exact(3) {
-            let triangle_index = Some(triangle[0].try_into().ok()?);
-            let tri_vertex_positions = [
-                Vec3A::from(positions[triangle[0].try_into().ok()?]),
-                Vec3A::from(positions[triangle[1].try_into().ok()?]),
-                Vec3A::from(positions[triangle[2].try_into().ok()?]),
+            let [a, b, c] = [
+                triangle[0].try_into().ok()?,
+                triangle[1].try_into().ok()?,
+                triangle[2].try_into().ok()?,
             ];
-            let tri_normals = vertex_normals.and_then(|normals| {
-                Some([
-                    Vec3A::from(normals[triangle[0].try_into().ok()?]),
-                    Vec3A::from(normals[triangle[1].try_into().ok()?]),
-                    Vec3A::from(normals[triangle[2].try_into().ok()?]),
-                ])
+
+            let triangle_index = Some(a);
+            let tri_vertex_positions = &[
+                Vec3::from(positions[a]),
+                Vec3::from(positions[b]),
+                Vec3::from(positions[c]),
+            ];
+            let tri_normals = vertex_normals.map(|normals| {
+                [
+                    Vec3::from(normals[a]),
+                    Vec3::from(normals[b]),
+                    Vec3::from(normals[c]),
+                ]
             });
 
             let Some(hit) = triangle_intersection(
                 tri_vertex_positions,
-                tri_normals,
+                tri_normals.as_ref(),
                 closest_hit_distance,
                 &mesh_space_ray,
                 backface_culling,
@@ -118,9 +125,9 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
                     .length(),
                 triangle: hit.triangle.map(|tri| {
                     [
-                        mesh_transform.transform_point3a(tri[0]),
-                        mesh_transform.transform_point3a(tri[1]),
-                        mesh_transform.transform_point3a(tri[2]),
+                        mesh_transform.transform_point3(tri[0]),
+                        mesh_transform.transform_point3(tri[1]),
+                        mesh_transform.transform_point3(tri[2]),
                     ]
                 }),
                 triangle_index,
@@ -128,23 +135,23 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
             closest_hit_distance = hit.distance;
         }
     } else {
-        for (i, chunk) in positions.chunks_exact(3).enumerate() {
-            let &[a, b, c] = chunk else {
+        for (i, triangle) in positions.chunks_exact(3).enumerate() {
+            let &[a, b, c] = triangle else {
                 continue;
             };
             let triangle_index = Some(i);
-            let tri_vertex_positions = [Vec3A::from(a), Vec3A::from(b), Vec3A::from(c)];
+            let tri_vertex_positions = &[Vec3::from(a), Vec3::from(b), Vec3::from(c)];
             let tri_normals = vertex_normals.map(|normals| {
                 [
-                    Vec3A::from(normals[i]),
-                    Vec3A::from(normals[i + 1]),
-                    Vec3A::from(normals[i + 2]),
+                    Vec3::from(normals[i]),
+                    Vec3::from(normals[i + 1]),
+                    Vec3::from(normals[i + 2]),
                 ]
             });
 
             let Some(hit) = triangle_intersection(
                 tri_vertex_positions,
-                tri_normals,
+                tri_normals.as_ref(),
                 closest_hit_distance,
                 &mesh_space_ray,
                 backface_culling,
@@ -161,9 +168,9 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
                     .length(),
                 triangle: hit.triangle.map(|tri| {
                     [
-                        mesh_transform.transform_point3a(tri[0]),
-                        mesh_transform.transform_point3a(tri[1]),
-                        mesh_transform.transform_point3a(tri[2]),
+                        mesh_transform.transform_point3(tri[0]),
+                        mesh_transform.transform_point3(tri[1]),
+                        mesh_transform.transform_point3(tri[2]),
                     ]
                 }),
                 triangle_index,
@@ -175,15 +182,14 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
     closest_hit
 }
 
-#[inline(always)]
 fn triangle_intersection(
-    tri_vertices: [Vec3A; 3],
-    tri_normals: Option<[Vec3A; 3]>,
+    tri_vertices: &[Vec3; 3],
+    tri_normals: Option<&[Vec3; 3]>,
     max_distance: f32,
     ray: &Ray3d,
     backface_culling: Backfaces,
 ) -> Option<RayMeshHit> {
-    let hit = ray_triangle_intersection(ray, &tri_vertices, backface_culling)?;
+    let hit = ray_triangle_intersection(ray, tri_vertices, backface_culling)?;
 
     if hit.distance < 0.0 || hit.distance > max_distance {
         return None;
@@ -205,25 +211,24 @@ fn triangle_intersection(
 
     Some(RayMeshHit {
         point,
-        normal: normal.into(),
+        normal,
         barycentric_coords: barycentric,
         distance: hit.distance,
-        triangle: Some(tri_vertices),
+        triangle: Some(*tri_vertices),
         triangle_index: None,
     })
 }
 
 /// Takes a ray and triangle and computes the intersection.
-#[inline(always)]
 fn ray_triangle_intersection(
     ray: &Ray3d,
-    triangle: &[Vec3A; 3],
+    triangle: &[Vec3; 3],
     backface_culling: Backfaces,
 ) -> Option<RayTriangleHit> {
     // Source: https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/moller-trumbore-ray-triangle-intersection
-    let vector_v0_to_v1: Vec3A = triangle[1] - triangle[0];
-    let vector_v0_to_v2: Vec3A = triangle[2] - triangle[0];
-    let p_vec: Vec3A = (Vec3A::from(*ray.direction)).cross(vector_v0_to_v2);
+    let vector_v0_to_v1: Vec3 = triangle[1] - triangle[0];
+    let vector_v0_to_v2: Vec3 = triangle[2] - triangle[0];
+    let p_vec: Vec3 = ray.direction.cross(vector_v0_to_v2);
     let determinant: f32 = vector_v0_to_v1.dot(p_vec);
 
     match backface_culling {
@@ -245,14 +250,14 @@ fn ray_triangle_intersection(
 
     let determinant_inverse = 1.0 / determinant;
 
-    let t_vec = Vec3A::from(ray.origin) - triangle[0];
+    let t_vec = ray.origin - triangle[0];
     let u = t_vec.dot(p_vec) * determinant_inverse;
     if !(0.0..=1.0).contains(&u) {
         return None;
     }
 
     let q_vec = t_vec.cross(vector_v0_to_v1);
-    let v = Vec3A::from(*ray.direction).dot(q_vec) * determinant_inverse;
+    let v = (*ray.direction).dot(q_vec) * determinant_inverse;
     if v < 0.0 || u + v > 1.0 {
         return None;
     }
