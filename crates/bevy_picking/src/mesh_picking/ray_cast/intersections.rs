@@ -31,36 +31,38 @@ pub struct RayTriangleHit {
 /// Casts a ray on a mesh, and returns the intersection.
 pub(super) fn ray_intersection_over_mesh(
     mesh: &Mesh,
-    mesh_transform: &Mat4,
+    transform: &Mat4,
     ray: Ray3d,
-    backface_culling: Backfaces,
+    culling: Backfaces,
 ) -> Option<RayMeshHit> {
     if mesh.primitive_topology() != PrimitiveTopology::TriangleList {
         return None; // ray_mesh_intersection assumes vertices are laid out in a triangle list
     }
     // Vertex positions are required
-    let vertex_positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION)?.as_float3()?;
+    let positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION)?.as_float3()?;
     // Normals are optional
-    let vertex_normals = mesh
+    let normals = mesh
         .attribute(Mesh::ATTRIBUTE_NORMAL)
         .and_then(|normal_values| normal_values.as_float3());
-    ray_mesh_intersection(
-        ray,
-        mesh_transform,
-        vertex_positions,
-        vertex_normals,
-        mesh.indices(),
-        backface_culling,
-    )
+
+    match mesh.indices() {
+        Some(Indices::U16(indices)) => {
+            ray_mesh_intersection(ray, transform, positions, normals, Some(indices), culling)
+        }
+        Some(Indices::U32(indices)) => {
+            ray_mesh_intersection(ray, transform, positions, normals, Some(indices), culling)
+        }
+        None => ray_mesh_intersection::<usize>(ray, transform, positions, normals, None, culling),
+    }
 }
 
 /// Checks if a ray intersects a mesh, and returns the nearest intersection if one exists.
-pub fn ray_mesh_intersection(
+pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
     ray: Ray3d,
     mesh_transform: &Mat4,
-    vertex_positions: &[[f32; 3]],
+    positions: &[[f32; 3]],
     vertex_normals: Option<&[[f32; 3]]>,
-    indices: Option<&Indices>,
+    indices: Option<&[I]>,
     backface_culling: Backfaces,
 ) -> Option<RayMeshHit> {
     // The ray cast can hit the same mesh many times, so we need to track which hit is
@@ -82,29 +84,19 @@ pub fn ray_mesh_intersection(
             return None;
         }
 
-        // Iterate over chunks of three indices, representing the corners of a triangle.
-        let mut indices = indices.iter();
-        let mut next_triangle = || {
-            indices
-                .next()
-                .zip(indices.next())
-                .zip(indices.next())
-                .map(|((a, b), c)| [a, b, c])
-        };
-
-        while let Some(triangle) = next_triangle() {
-            let triangle_index = Some(triangle[0]);
+        for triangle in indices.chunks_exact(3) {
+            let triangle_index = Some(triangle[0].try_into().ok()?);
             let tri_vertex_positions = [
-                Vec3A::from(vertex_positions[triangle[0]]),
-                Vec3A::from(vertex_positions[triangle[1]]),
-                Vec3A::from(vertex_positions[triangle[2]]),
+                Vec3A::from(positions[triangle[0].try_into().ok()?]),
+                Vec3A::from(positions[triangle[1].try_into().ok()?]),
+                Vec3A::from(positions[triangle[2].try_into().ok()?]),
             ];
-            let tri_normals = vertex_normals.map(|normals| {
-                [
-                    Vec3A::from(normals[triangle[0]]),
-                    Vec3A::from(normals[triangle[1]]),
-                    Vec3A::from(normals[triangle[2]]),
-                ]
+            let tri_normals = vertex_normals.and_then(|normals| {
+                Some([
+                    Vec3A::from(normals[triangle[0].try_into().ok()?]),
+                    Vec3A::from(normals[triangle[1].try_into().ok()?]),
+                    Vec3A::from(normals[triangle[2].try_into().ok()?]),
+                ])
             });
 
             let Some(hit) = triangle_intersection(
@@ -136,7 +128,7 @@ pub fn ray_mesh_intersection(
             closest_hit_distance = hit.distance;
         }
     } else {
-        for (i, chunk) in vertex_positions.chunks_exact(3).enumerate() {
+        for (i, chunk) in positions.chunks_exact(3).enumerate() {
             let &[a, b, c] = chunk else {
                 continue;
             };

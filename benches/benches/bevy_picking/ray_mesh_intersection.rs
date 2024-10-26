@@ -11,7 +11,7 @@ fn ptoxznorm(p: u32, size: u32) -> (f32, f32) {
 struct SimpleMesh {
     positions: Vec<[f32; 3]>,
     normals: Vec<[f32; 3]>,
-    indices: Indices,
+    indices: Vec<u32>,
 }
 
 fn mesh_creation(vertices_per_side: u32) -> SimpleMesh {
@@ -32,7 +32,6 @@ fn mesh_creation(vertices_per_side: u32) -> SimpleMesh {
             indices.extend_from_slice(&[p + vertices_per_side, p + 1, p + vertices_per_side + 1]);
         }
     }
-    let indices = Indices::U32(indices);
 
     SimpleMesh {
         positions,
