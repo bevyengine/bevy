@@ -841,7 +841,7 @@ mod tests {
             Err(RenderGraphError::NodeInputSlotAlreadyOccupied {
                 node: TestLabel::C.intern(),
                 input_slot: 0,
-                occupied_by_node: TestLabel::A.intern(),
+                occupied_by_node: TestLabel::A.intern()
             }),
             "Adding to a slot that is already occupied should return an error"
         );
@@ -861,7 +861,7 @@ mod tests {
                 output_node: TestLabel::A.intern(),
                 output_index: 0,
                 input_node: TestLabel::B.intern(),
-                input_index: 0,
+                input_index: 0
             })),
             "Adding to a duplicate edge should return an error"
         );

@@ -37,15 +37,7 @@ impl ViewNode for MainOpaquePass3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (
-            view,
-            camera,
-            target,
-            depth,
-            skybox_pipeline,
-            skybox_bind_group,
-            view_uniform_offset,
-        ): QueryItem<'w, Self::ViewQuery>,
+        (view, camera, target, depth, skybox_pipeline, skybox_bind_group, view_uniform_offset): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let (Some(opaque_phases), Some(alpha_mask_phases)) = (

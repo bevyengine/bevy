@@ -105,13 +105,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ))
                 .id();
 
-            let messages = [
-                format!("JustifyContent::{justification:?}"),
-                format!("LineBreakOn::{linebreak:?}"),
-                "Line 1\nLine 2".to_string(),
-                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas auctor, nunc ac faucibus fringilla.".to_string(),
-                "pneumonoultramicroscopicsilicovolcanoconiosis".to_string()
-            ];
+            let messages = [format!("JustifyContent::{justification:?}"), format!("LineBreakOn::{linebreak:?}"), "Line 1\nLine 2".to_string(), "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas auctor, nunc ac faucibus fringilla.".to_string(), "pneumonoultramicroscopicsilicovolcanoconiosis".to_string()];
 
             for (j, message) in messages.into_iter().enumerate() {
                 commands.entity(column_id).with_child((

@@ -131,10 +131,7 @@ macro_rules! impl_cast_method {
         pub fn $name(&self) -> Result<&$info, VariantInfoError> {
             match self {
                 Self::$kind(info) => Ok(info),
-                _ => Err(VariantInfoError::TypeMismatch {
-                    expected: VariantType::$kind,
-                    received: self.variant_type(),
-                }),
+                _ => Err(VariantInfoError::TypeMismatch { expected: VariantType::$kind, received: self.variant_type() }),
             }
         }
     };

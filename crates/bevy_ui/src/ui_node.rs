@@ -2630,9 +2630,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
                 .iter()
                 .filter(|(_, c)| match c.target {
                     RenderTarget::Window(WindowRef::Primary) => true,
-                    RenderTarget::Window(WindowRef::Entity(w)) => {
-                        self.primary_window.get(w).is_ok()
-                    }
+                    RenderTarget::Window(WindowRef::Entity(w)) => self.primary_window.get(w).is_ok(),
                     _ => false,
                 })
                 .max_by_key(|(e, c)| (c.order, *e))

@@ -569,8 +569,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
         };
         let lifetimes: Vec<_> = generics.lifetimes().collect();
-        let generic_struct = quote!{ #struct_name <#(#lifetimes,)* #punctuated_generic_idents> };
-        let builder_impl = quote!{
+        let generic_struct = quote! { #struct_name <#(#lifetimes,)* #punctuated_generic_idents> };
+        let builder_impl = quote! {
             // SAFETY: This delegates to the `SystemParamBuilder` for tuples.
             unsafe impl<
                 #(#lifetimes,)*

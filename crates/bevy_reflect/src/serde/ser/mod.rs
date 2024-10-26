@@ -433,13 +433,7 @@ mod tests {
         let serializer = ReflectSerializer::new(&value, &registry);
         let error = ron::ser::to_string(&serializer).unwrap_err();
         #[cfg(feature = "debug_stack")]
-        assert_eq!(
-            error,
-            ron::Error::Message(
-                "type `core::ops::RangeInclusive<f32>` is not registered in the type registry (stack: `core::ops::RangeInclusive<f32>`)"
-                    .to_string(),
-            )
-        );
+        assert_eq!(error, ron::Error::Message("type `core::ops::RangeInclusive<f32>` is not registered in the type registry (stack: `core::ops::RangeInclusive<f32>`)".to_string(),));
         #[cfg(not(feature = "debug_stack"))]
         assert_eq!(
             error,
@@ -459,19 +453,9 @@ mod tests {
         let serializer = ReflectSerializer::new(&value, &registry);
         let error = ron::ser::to_string(&serializer).unwrap_err();
         #[cfg(feature = "debug_stack")]
-        assert_eq!(
-            error,
-            ron::Error::Message(
-                "type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` or `ReflectSerializeWithRegistry` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)".to_string()
-            )
-        );
+        assert_eq!(error, ron::Error::Message("type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` or `ReflectSerializeWithRegistry` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)".to_string()));
         #[cfg(not(feature = "debug_stack"))]
-        assert_eq!(
-            error,
-            ron::Error::Message(
-                "type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()
-            )
-        );
+        assert_eq!(error, ron::Error::Message("type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()));
     }
 
     #[cfg(feature = "functions")]
@@ -497,10 +481,7 @@ mod tests {
             let error = ron::ser::to_string(&serializer).unwrap_err();
 
             #[cfg(feature = "debug_stack")]
-            assert_eq!(
-                error,
-                ron::Error::Message("functions cannot be serialized (stack: `bevy_reflect::serde::ser::tests::functions::MyStruct`)".to_string())
-            );
+            assert_eq!(error, ron::Error::Message("functions cannot be serialized (stack: `bevy_reflect::serde::ser::tests::functions::MyStruct`)".to_string()));
 
             #[cfg(not(feature = "debug_stack"))]
             assert_eq!(
@@ -545,12 +526,7 @@ mod tests {
             let serializer = ReflectSerializer::new(&value, &registry);
 
             let error = ron::ser::to_string(&serializer).unwrap_err();
-            assert_eq!(
-                error,
-                ron::Error::Message(
-                    "type `core::ops::RangeInclusive<f32>` is not registered in the type registry (stack: `bevy_reflect::serde::ser::tests::debug_stack::Foo` -> `bevy_reflect::serde::ser::tests::debug_stack::Bar` -> `bevy_reflect::serde::ser::tests::debug_stack::Baz` -> `alloc::vec::Vec<core::ops::RangeInclusive<f32>>` -> `core::ops::RangeInclusive<f32>`)".to_string()
-                )
-            );
+            assert_eq!(error, ron::Error::Message("type `core::ops::RangeInclusive<f32>` is not registered in the type registry (stack: `bevy_reflect::serde::ser::tests::debug_stack::Foo` -> `bevy_reflect::serde::ser::tests::debug_stack::Bar` -> `bevy_reflect::serde::ser::tests::debug_stack::Baz` -> `alloc::vec::Vec<core::ops::RangeInclusive<f32>>` -> `core::ops::RangeInclusive<f32>`)".to_string()));
         }
     }
 }

@@ -95,7 +95,6 @@ pub fn update_image_content_size_system(
     windows: Query<&Window, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     textures: Res<Assets<Image>>,
-
     atlases: Res<Assets<TextureAtlasLayout>>,
     mut query: Query<(&mut ContentSize, &UiImage, &mut UiImageSize), UpdateImageFilter>,
 ) {

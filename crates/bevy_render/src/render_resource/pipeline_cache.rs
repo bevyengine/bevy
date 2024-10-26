@@ -685,17 +685,15 @@ impl PipelineCache {
                 };
 
                 let fragment_module = match &descriptor.fragment {
-                    Some(fragment) => {
-                        match shader_cache.get(
-                            &device,
-                            id,
-                            fragment.shader.id(),
-                            &fragment.shader_defs,
-                        ) {
-                            Ok(module) => Some(module),
-                            Err(err) => return Err(err),
-                        }
-                    }
+                    Some(fragment) => match shader_cache.get(
+                        &device,
+                        id,
+                        fragment.shader.id(),
+                        &fragment.shader_defs,
+                    ) {
+                        Ok(module) => Some(module),
+                        Err(err) => return Err(err),
+                    },
                     None => None,
                 };
 

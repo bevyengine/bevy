@@ -46,9 +46,7 @@ pub fn basis_buffer_to_image(
     let image_count = transcoder.image_count(buffer);
     let texture_type = transcoder.basis_texture_type(buffer);
     if texture_type == BasisTextureType::TextureTypeCubemapArray && image_count % 6 != 0 {
-        return Err(TextureError::InvalidData(format!(
-            "Basis file with cube map array texture with non-modulo 6 number of images: {image_count}",
-        )));
+        return Err(TextureError::InvalidData(format!("Basis file with cube map array texture with non-modulo 6 number of images: {image_count}",)));
     }
 
     let image0_mip_level_count = transcoder.image_level_count(buffer, 0);
@@ -58,39 +56,15 @@ pub fn basis_buffer_to_image(
                 && (image_info.m_orig_width != image0_info.m_orig_width
                     || image_info.m_orig_height != image0_info.m_orig_height)
             {
-                return Err(TextureError::UnsupportedTextureFormat(format!(
-                    "Basis file with multiple 2D textures with different sizes not supported. Image {} {}x{}, image 0 {}x{}",
-                    image_index,
-                    image_info.m_orig_width,
-                    image_info.m_orig_height,
-                    image0_info.m_orig_width,
-                    image0_info.m_orig_height,
-                )));
+                return Err(TextureError::UnsupportedTextureFormat(format!("Basis file with multiple 2D textures with different sizes not supported. Image {} {}x{}, image 0 {}x{}", image_index, image_info.m_orig_width, image_info.m_orig_height, image0_info.m_orig_width, image0_info.m_orig_height,)));
             }
         }
         let mip_level_count = transcoder.image_level_count(buffer, image_index);
         if mip_level_count != image0_mip_level_count {
-            return Err(TextureError::InvalidData(format!(
-                "Array or volume texture has inconsistent number of mip levels. Image {image_index} has {mip_level_count} but image 0 has {image0_mip_level_count}",
-            )));
+            return Err(TextureError::InvalidData(format!("Array or volume texture has inconsistent number of mip levels. Image {image_index} has {mip_level_count} but image 0 has {image0_mip_level_count}",)));
         }
         for level_index in 0..mip_level_count {
-            let mut data = transcoder
-                .transcode_image_level(
-                    buffer,
-                    transcode_format,
-                    TranscodeParameters {
-                        image_index,
-                        level_index,
-                        decode_flags: Some(DecodeFlags::HIGH_QUALITY),
-                        ..Default::default()
-                    },
-                )
-                .map_err(|error| {
-                    TextureError::TranscodeError(format!(
-                        "Failed to transcode mip level {level_index} from {basis_texture_format:?} to {transcode_format:?}: {error:?}",
-                    ))
-                })?;
+            let mut data = transcoder.transcode_image_level(buffer, transcode_format, TranscodeParameters { image_index, level_index, decode_flags: Some(DecodeFlags::HIGH_QUALITY), ..Default::default() }).map_err(|error| TextureError::TranscodeError(format!("Failed to transcode mip level {level_index} from {basis_texture_format:?} to {transcode_format:?}: {error:?}",)))?;
             transcoded.append(&mut data);
         }
     }

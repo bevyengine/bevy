@@ -225,7 +225,7 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                         let id = render_world.spawn(MainEntity(main_entity)).id();
                         render_entity.0 = id;
                     }
-                },
+                }
             }
         }
     });

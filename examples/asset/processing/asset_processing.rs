@@ -55,14 +55,7 @@ struct TextPlugin;
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "examples/asset/processing/", "e.txt");
-        app.init_asset::<CoolText>()
-            .init_asset::<Text>()
-            .register_asset_loader(CoolTextLoader)
-            .register_asset_loader(TextLoader)
-            .register_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>(
-                LoadTransformAndSave::new(CoolTextTransformer, CoolTextSaver),
-            )
-            .set_default_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>("cool.ron");
+        app.init_asset::<CoolText>().init_asset::<Text>().register_asset_loader(CoolTextLoader).register_asset_loader(TextLoader).register_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>(LoadTransformAndSave::new(CoolTextTransformer, CoolTextSaver)).set_default_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>("cool.ron");
     }
 }
 

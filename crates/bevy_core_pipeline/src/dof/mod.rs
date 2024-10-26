@@ -816,9 +816,7 @@ fn extract_depth_of_field_settings(
     mut query: Extract<Query<(RenderEntity, &DepthOfField, &Projection)>>,
 ) {
     if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
-        info_once!(
-            "Disabling depth of field on this platform because depth textures aren't supported correctly"
-        );
+        info_once!("Disabling depth of field on this platform because depth textures aren't supported correctly");
         return;
     }
 

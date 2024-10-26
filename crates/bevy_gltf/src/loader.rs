@@ -607,11 +607,7 @@ async fn load_gltf<'a, 'b, 'c>(
             for (semantic, accessor) in primitive.attributes() {
                 if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
                     if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
-                        warn!(
-                        "Ignoring attribute {:?} for skinned mesh {:?} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
-                        semantic,
-                        primitive_label
-                    );
+                        warn!("Ignoring attribute {:?} for skinned mesh {:?} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)", semantic, primitive_label);
                         continue;
                     } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
                         error!("Skinned mesh {:?} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
@@ -690,18 +686,13 @@ async fn load_gltf<'a, 'b, 'c>(
             } else if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_some()
                 && material_needs_tangents(&primitive.material())
             {
-                bevy_utils::tracing::debug!(
-                    "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
-                );
+                bevy_utils::tracing::debug!("Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name);
 
                 let generate_tangents_span = info_span!("generate_tangents", name = file_name);
 
                 generate_tangents_span.in_scope(|| {
                     if let Err(err) = mesh.generate_tangents() {
-                        warn!(
-                        "Failed to generate vertex tangents using the mikktspace algorithm: {:?}",
-                        err
-                    );
+                        warn!("Failed to generate vertex tangents using the mikktspace algorithm: {:?}", err);
                     }
                 });
             }
@@ -1328,7 +1319,8 @@ fn warn_on_differing_texture_transforms(
             .unwrap_or_else(|| "default".to_string());
         warn!(
             "Only texture transforms on base color textures are supported, but {material_name} ({material_index}) \
-            has a texture transform on {texture_name} (index {}), which will be ignored.", info.texture().index()
+            has a texture transform on {texture_name} (index {}), which will be ignored.",
+            info.texture().index()
         );
     }
 }

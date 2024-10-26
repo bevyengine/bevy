@@ -743,10 +743,7 @@ pub fn prepare_lights(
             .iter()
             .any(|(_, light)| light.cascade_shadow_config.bounds.len() > MAX_CASCADES_PER_LIGHT)
     {
-        warn!(
-            "The number of cascades configured for a directional light exceeds the supported limit of {}.",
-            MAX_CASCADES_PER_LIGHT
-        );
+        warn!("The number of cascades configured for a directional light exceeds the supported limit of {}.", MAX_CASCADES_PER_LIGHT);
         *max_cascades_per_light_warning_emitted = true;
     }
 
@@ -1173,8 +1170,13 @@ pub fn prepare_lights(
             let spot_world_from_view = spot_light_world_from_view(&light.transform);
             let spot_world_from_view = spot_world_from_view.into();
 
-            let angle = light.spot_light_angles.expect("lights should be sorted so that \
-                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
+            let angle = light
+                .spot_light_angles
+                .expect(
+                    "lights should be sorted so that \
+                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights",
+                )
+                .1;
             let spot_projection = spot_light_clip_from_view(angle, light.shadow_map_near_z);
 
             let depth_texture_view =

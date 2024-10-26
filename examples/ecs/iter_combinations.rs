@@ -100,7 +100,6 @@ fn generate_bodies(
                     emissive: LinearRgba::from(ORANGE_RED) * 2.,
                     ..default()
                 })),
-
                 mass: Mass(500.0),
                 ..default()
             },

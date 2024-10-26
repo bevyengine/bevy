@@ -152,9 +152,7 @@ pub(crate) fn play_gilrs_rumble(
                 if let ff::Error::FfNotSupported(_) = err {
                     debug!("Tried to rumble {gamepad:?}, but it doesn't support force feedback");
                 } else {
-                    warn!(
-                    "Tried to handle rumble request for {gamepad:?} but an error occurred: {err}"
-                    );
+                    warn!("Tried to handle rumble request for {gamepad:?} but an error occurred: {err}");
                 }
             }
             Err(RumbleError::GamepadNotFound) => {

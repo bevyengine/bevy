@@ -745,7 +745,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
         if access.access().has_component_write(id) {
-            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",core::any::type_name::<T>());
+            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.", core::any::type_name::<T>());
         }
         access.add_component_read(id);
     }
@@ -978,7 +978,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
         if access.access().has_component_write(id) {
-            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",core::any::type_name::<T>());
+            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.", core::any::type_name::<T>());
         }
         access.add_component_read(id);
     }

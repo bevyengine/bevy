@@ -28,9 +28,7 @@ fn static_type_cell(
         }
     } else {
         let cell_type = match property {
-            TypedProperty::TypePath => unreachable!(
-                "Cannot have a non-generic type path cell. Use string literals and core::concat instead."
-            ),
+            TypedProperty::TypePath => unreachable!("Cannot have a non-generic type path cell. Use string literals and core::concat instead."),
             TypedProperty::TypeInfo => quote!(NonGenericTypeInfoCell),
         };
 

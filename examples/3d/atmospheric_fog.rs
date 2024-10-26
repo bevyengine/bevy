@@ -85,14 +85,7 @@ fn setup_terrain_scene(
 }
 
 fn setup_instructions(mut commands: Commands) {
-    commands.spawn((Text::new("Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence."),
-        Node {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        })
-    );
+    commands.spawn((Text::new("Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence."), Node { position_type: PositionType::Absolute, bottom: Val::Px(12.0), left: Val::Px(12.0), ..default() }));
 }
 
 fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Single<&mut DistanceFog>) {

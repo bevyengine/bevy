@@ -1332,7 +1332,7 @@ impl Bundles {
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
         let id = *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let mut component_ids= Vec::new();
+            let mut component_ids = Vec::new();
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
             let bundle_info =
@@ -1460,13 +1460,7 @@ fn initialize_dynamic_bundle(
     component_ids: Vec<ComponentId>,
 ) -> (BundleId, Vec<StorageType>) {
     // Assert component existence
-    let storage_types = component_ids.iter().map(|&id| {
-        components.get_info(id).unwrap_or_else(|| {
-            panic!(
-                "init_dynamic_info called with component id {id:?} which doesn't exist in this world"
-            )
-        }).storage_type()
-    }).collect();
+    let storage_types = component_ids.iter().map(|&id| components.get_info(id).unwrap_or_else(|| panic!("init_dynamic_info called with component id {id:?} which doesn't exist in this world")).storage_type()).collect();
 
     let id = BundleId(bundle_infos.len());
     let bundle_info =

@@ -316,10 +316,7 @@ macro_rules! impl_cast_method {
         pub fn $name(&self) -> Result<&$info, TypeInfoError> {
             match self {
                 Self::$kind(info) => Ok(info),
-                _ => Err(TypeInfoError::KindMismatch {
-                    expected: ReflectKind::$kind,
-                    received: self.kind(),
-                }),
+                _ => Err(TypeInfoError::KindMismatch { expected: ReflectKind::$kind, received: self.kind() }),
             }
         }
     };

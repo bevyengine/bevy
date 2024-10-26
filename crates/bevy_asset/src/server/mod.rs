@@ -901,10 +901,7 @@ impl AssetServer {
         IoTaskPool::get()
             .spawn(async move {
                 let Ok(source) = server.get_source(path.source()) else {
-                    error!(
-                        "Failed to load {path}. AssetSource {:?} does not exist",
-                        path.source()
-                    );
+                    error!("Failed to load {path}. AssetSource {:?} does not exist", path.source());
                     return;
                 };
 
@@ -913,10 +910,7 @@ impl AssetServer {
                     AssetServerMode::Processed { .. } => match source.processed_reader() {
                         Ok(reader) => reader,
                         Err(_) => {
-                            error!(
-                                "Failed to load {path}. AssetSource {:?} does not have a processed AssetReader",
-                                path.source()
-                            );
+                            error!("Failed to load {path}. AssetSource {:?} does not have a processed AssetReader", path.source());
                             return;
                         }
                     },
@@ -924,18 +918,11 @@ impl AssetServer {
 
                 let mut handles = Vec::new();
                 match load_folder(source.id(), path.path(), asset_reader, &server, &mut handles).await {
-                    Ok(_) => server.send_asset_event(InternalAssetEvent::Loaded {
-                        id,
-                        loaded_asset: LoadedAsset::new_with_dependencies(
-                            LoadedFolder { handles },
-                            None,
-                        )
-                        .into(),
-                    }),
+                    Ok(_) => server.send_asset_event(InternalAssetEvent::Loaded { id, loaded_asset: LoadedAsset::new_with_dependencies(LoadedFolder { handles }, None).into() }),
                     Err(err) => {
                         error!("Failed to load folder. {err}");
                         server.send_asset_event(InternalAssetEvent::Failed { id, error: err, path });
-                    },
+                    }
                 }
             })
             .detach();

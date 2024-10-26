@@ -59,9 +59,7 @@ impl RenderGraphApp for SubApp {
         edges: impl IntoRenderNodeArray<N>,
     ) -> &mut Self {
         let sub_graph = sub_graph.intern();
-        let mut render_graph = self.world_mut().get_resource_mut::<RenderGraph>().expect(
-            "RenderGraph not found. Make sure you are using add_render_graph_edges on the RenderApp",
-        );
+        let mut render_graph = self.world_mut().get_resource_mut::<RenderGraph>().expect("RenderGraph not found. Make sure you are using add_render_graph_edges on the RenderApp");
         if let Some(graph) = render_graph.get_sub_graph_mut(sub_graph) {
             graph.add_node_edges(edges);
         } else {

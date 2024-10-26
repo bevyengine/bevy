@@ -107,9 +107,7 @@ fn update_cursors(
                     CursorSource::CustomCached(cache_key)
                 } else {
                     let Some(image) = images.get(handle) else {
-                        warn!(
-                            "Cursor image {handle:?} is not loaded yet and couldn't be used. Trying again next frame."
-                        );
+                        warn!("Cursor image {handle:?} is not loaded yet and couldn't be used. Trying again next frame.");
                         queue.insert(entity);
                         continue;
                     };

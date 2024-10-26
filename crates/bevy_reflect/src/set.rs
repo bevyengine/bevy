@@ -172,9 +172,7 @@ impl DynamicSet {
         value: &dyn PartialReflect,
     ) -> impl FnMut(&Box<dyn PartialReflect>) -> bool + '_ {
         |other| {
-            value
-                .reflect_partial_eq(&**other)
-                .expect("Underlying type does not reflect `PartialEq` and hence doesn't support equality checks")
+            value.reflect_partial_eq(&**other).expect("Underlying type does not reflect `PartialEq` and hence doesn't support equality checks")
         }
     }
 }

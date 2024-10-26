@@ -82,87 +82,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
 
     commands.spawn(Camera2d);
-    commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::SpaceEvenly,
-                ..Default::default()
-            },
-            BackgroundColor(Color::BLACK),
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                Text::new("Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left"),
-                text_font.clone(),
-                TextLayout::new_with_justify(JustifyText::Center),
-                Node {
-                    margin: UiRect::bottom(Val::Px(10.)),
-                    ..Default::default()
-                },
-            ));
+    commands.spawn((Node { width: Val::Percent(100.), height: Val::Percent(100.), flex_direction: FlexDirection::Column, align_items: AlignItems::Center, justify_content: JustifyContent::SpaceEvenly, ..Default::default() }, BackgroundColor(Color::BLACK))).with_children(|parent| {
+        parent.spawn((Text::new("Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left"), text_font.clone(), TextLayout::new_with_justify(JustifyText::Center), Node { margin: UiRect::bottom(Val::Px(10.)), ..Default::default() }));
 
-            parent
-                .spawn(Node {
-                    width: Val::Percent(100.),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    let mut target_ids = vec![];
-                    parent
-                        .spawn(Node {
-                            width: Val::Percent(50.),
-                            height: Val::Px(520.),
-                            justify_content: JustifyContent::Center,
-                            ..default()
-                        })
-                        .with_children(|parent| {
-                            target_ids = spawn_left_panel(parent, &palette);
-                        });
+        parent.spawn(Node { width: Val::Percent(100.), ..default() }).with_children(|parent| {
+            let mut target_ids = vec![];
+            parent.spawn(Node { width: Val::Percent(50.), height: Val::Px(520.), justify_content: JustifyContent::Center, ..default() }).with_children(|parent| {
+                target_ids = spawn_left_panel(parent, &palette);
+            });
 
-                    parent
-                        .spawn(Node {
-                            width: Val::Percent(50.),
-                            justify_content: JustifyContent::Center,
-                            ..default()
-                        })
-                        .with_children(|parent| {
-                            spawn_right_panel(parent, text_font, &palette, target_ids);
-                        });
-                });
-
-            parent
-                .spawn(Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Start,
-                    justify_content: JustifyContent::Start,
-                    column_gap: Val::Px(10.),
-                    ..default()
-                })
-                .with_children(|builder| {
-                    let text_font = TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    };
-
-                    builder.spawn((
-                        Text::new("Display::None\nVisibility::Hidden\nVisibility::Inherited"),
-                        text_font.clone(),
-                        TextColor(HIDDEN_COLOR),
-                        TextLayout::new_with_justify(JustifyText::Center),
-                    ));
-                    builder.spawn((
-                        Text::new("-\n-\n-"),
-                        text_font.clone(),
-                        TextColor(DARK_GRAY.into()),
-                        TextLayout::new_with_justify(JustifyText::Center),
-                    ));
-                    builder.spawn((Text::new("The UI Node and its descendants will not be visible and will not be allotted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible."), text_font));
-                });
+            parent.spawn(Node { width: Val::Percent(50.), justify_content: JustifyContent::Center, ..default() }).with_children(|parent| {
+                spawn_right_panel(parent, text_font, &palette, target_ids);
+            });
         });
+
+        parent.spawn(Node { flex_direction: FlexDirection::Row, align_items: AlignItems::Start, justify_content: JustifyContent::Start, column_gap: Val::Px(10.), ..default() }).with_children(|builder| {
+            let text_font = TextFont { font: asset_server.load("fonts/FiraSans-Bold.ttf"), ..default() };
+
+            builder.spawn((Text::new("Display::None\nVisibility::Hidden\nVisibility::Inherited"), text_font.clone(), TextColor(HIDDEN_COLOR), TextLayout::new_with_justify(JustifyText::Center)));
+            builder.spawn((Text::new("-\n-\n-"), text_font.clone(), TextColor(DARK_GRAY.into()), TextLayout::new_with_justify(JustifyText::Center)));
+            builder.spawn((Text::new("The UI Node and its descendants will not be visible and will not be allotted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible."), text_font));
+        });
+    });
 }
 
 fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Entity> {

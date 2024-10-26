@@ -263,9 +263,7 @@ impl ContainerAttributes {
         let ident = input.parse::<Ident>()?;
 
         if input.peek(token::Paren) {
-            return Err(syn::Error::new(ident.span(), format!(
-                "only [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",
-            )));
+            return Err(syn::Error::new(ident.span(), format!("only [{DEBUG_ATTR:?}, {PARTIAL_EQ_ATTR:?}, {HASH_ATTR:?}] may specify custom functions",)));
         }
 
         let ident_name = ident.to_string();

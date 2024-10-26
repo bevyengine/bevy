@@ -168,7 +168,7 @@ const _: () = {
             world: UnsafeWorldCell<'w>,
             change_tick: bevy_ecs::component::Tick,
         ) -> Self::Item<'w, 's> {
-            let(f0, f1) =  <(Deferred<'s, CommandQueue>, &'w Entities) as bevy_ecs::system::SystemParam>::get_param(&mut state.state, system_meta, world, change_tick);
+            let (f0, f1) = <(Deferred<'s, CommandQueue>, &'w Entities) as bevy_ecs::system::SystemParam>::get_param(&mut state.state, system_meta, world, change_tick);
             Commands {
                 queue: InternalQueue::CommandQueue(f0),
                 entities: f1,
@@ -438,9 +438,7 @@ impl<'w, 's> Commands<'w, 's> {
         #[cold]
         #[track_caller]
         fn panic_no_entity(entity: Entity) -> ! {
-            panic!(
-                "Attempting to create an EntityCommands for entity {entity:?}, which doesn't exist.",
-            );
+            panic!("Attempting to create an EntityCommands for entity {entity:?}, which doesn't exist.",);
         }
 
         match self.get_entity(entity) {
@@ -1264,9 +1262,11 @@ impl<'a> EntityCommands<'a> {
     ) -> &mut Self {
         let caller = Location::caller();
         // SAFETY: same invariants as parent call
-        self.queue(unsafe {insert_by_id(component_id, value, move |entity| {
-            panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>());
-        })})
+        self.queue(unsafe {
+            insert_by_id(component_id, value, move |entity| {
+                panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>());
+            })
+        })
     }
 
     /// Attempts to add a dynamic component to an entity.
@@ -1827,11 +1827,7 @@ where
             #[cfg(feature = "track_change_detection")]
             caller,
         ) {
-            error!(
-                "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
-                core::any::type_name::<B>(),
-                invalid_entities
-            );
+            error!("Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}", core::any::type_name::<B>(), invalid_entities);
         }
     }
 }

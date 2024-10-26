@@ -267,9 +267,7 @@ impl ClusterConfig {
             ClusterConfig::FixedZ {
                 total, z_slices, ..
             } => {
-                let aspect_ratio: f32 = AspectRatio::try_from_pixels(screen_size.x, screen_size.y)
-                    .expect("Failed to calculate aspect ratio for Cluster: screen dimensions must be positive, non-zero values")
-                    .ratio();
+                let aspect_ratio: f32 = AspectRatio::try_from_pixels(screen_size.x, screen_size.y).expect("Failed to calculate aspect ratio for Cluster: screen dimensions must be positive, non-zero values").ratio();
                 let mut z_slices = *z_slices;
                 if *total < z_slices {
                     warn!("ClusterConfig has more z-slices than total clusters!");

@@ -59,9 +59,7 @@ impl MeshletMeshManager {
         assets: &mut Assets<MeshletMesh>,
     ) -> Range<u32> {
         let queue_meshlet_mesh = |asset_id: &AssetId<MeshletMesh>| {
-            let meshlet_mesh = assets.remove_untracked(*asset_id).expect(
-                "MeshletMesh asset was already unloaded but is not registered with MeshletMeshManager",
-            );
+            let meshlet_mesh = assets.remove_untracked(*asset_id).expect("MeshletMesh asset was already unloaded but is not registered with MeshletMeshManager");
 
             let vertex_positions_slice = self
                 .vertex_positions

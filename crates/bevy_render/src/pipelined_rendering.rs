@@ -131,9 +131,7 @@ impl Plugin for PipelinedRenderingPlugin {
         let (app_to_render_sender, app_to_render_receiver) = async_channel::bounded::<SubApp>(1);
         let (render_to_app_sender, render_to_app_receiver) = async_channel::bounded::<SubApp>(1);
 
-        let mut render_app = app
-            .remove_sub_app(RenderApp)
-            .expect("Unable to get RenderApp. Another plugin may have removed the RenderApp before PipelinedRenderingPlugin");
+        let mut render_app = app.remove_sub_app(RenderApp).expect("Unable to get RenderApp. Another plugin may have removed the RenderApp before PipelinedRenderingPlugin");
 
         // clone main thread executor to render world
         let executor = app.world().get_resource::<MainThreadExecutor>().unwrap();

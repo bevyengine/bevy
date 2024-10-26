@@ -308,16 +308,10 @@ impl Plugin for RenderPlugin {
 
                         // SAFETY: Plugins should be set up on the main thread.
                         let surface = primary_window.and_then(|wrapper| unsafe {
-                            let maybe_handle = wrapper.0.lock().expect(
-                                "Couldn't get the window handle in time for renderer initialization",
-                            );
+                            let maybe_handle = wrapper.0.lock().expect("Couldn't get the window handle in time for renderer initialization");
                             if let Some(wrapper) = maybe_handle.as_ref() {
                                 let handle = wrapper.get_handle();
-                                Some(
-                                    instance
-                                        .create_surface(handle)
-                                        .expect("Failed to create wgpu surface"),
-                                )
+                                Some(instance.create_surface(handle).expect("Failed to create wgpu surface"))
                             } else {
                                 None
                             }

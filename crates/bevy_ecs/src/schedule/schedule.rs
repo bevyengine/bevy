@@ -1868,9 +1868,9 @@ impl ScheduleGraph {
         let n_ambiguities = ambiguities.len();
 
         let mut message = format!(
-                "{n_ambiguities} pairs of systems with conflicting data access have indeterminate execution order. \
+            "{n_ambiguities} pairs of systems with conflicting data access have indeterminate execution order. \
                 Consider adding `before`, `after`, or `ambiguous_with` relationships between these:\n",
-            );
+        );
 
         for (name_a, name_b, conflicts) in self.conflicts_to_string(ambiguities, components) {
             writeln!(message, " -- {name_a} and {name_b}").unwrap();

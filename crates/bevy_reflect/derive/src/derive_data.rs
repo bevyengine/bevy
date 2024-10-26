@@ -200,10 +200,7 @@ impl<'a> ReflectDerive<'a> {
                         ..
                     }) = &pair.value
                     else {
-                        return Err(syn::Error::new(
-                            pair.span(),
-                            format_args!("`#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"),
-                        ));
+                        return Err(syn::Error::new(pair.span(), format_args!("`#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` must be a string literal")));
                     };
 
                     custom_path = Some(syn::parse::Parser::parse_str(
@@ -217,10 +214,7 @@ impl<'a> ReflectDerive<'a> {
                         ..
                     }) = &pair.value
                     else {
-                        return Err(syn::Error::new(
-                            pair.span(),
-                            format_args!("`#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"),
-                        ));
+                        return Err(syn::Error::new(pair.span(), format_args!("`#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` must be a string literal")));
                     };
 
                     custom_type_name = Some(parse_str(&lit.value())?);
@@ -244,10 +238,7 @@ impl<'a> ReflectDerive<'a> {
                 path.segments.push(PathSegment::from(ident));
             }
             (None, Some(name)) => {
-                return Err(syn::Error::new(
-                    name.span(),
-                    format!("cannot use `#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` without a `#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` attribute."),
-                ));
+                return Err(syn::Error::new(name.span(), format!("cannot use `#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` without a `#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` attribute.")));
             }
             _ => (),
         }
@@ -264,10 +255,7 @@ impl<'a> ReflectDerive<'a> {
             && meta.type_path_attrs().should_auto_derive()
             && !meta.type_path().has_custom_path()
         {
-            return Err(syn::Error::new(
-                meta.type_path().span(),
-                format!("a #[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"] attribute must be specified when using {provenance}")
-            ));
+            return Err(syn::Error::new(meta.type_path().span(), format!("a #[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"] attribute must be specified when using {provenance}")));
         }
 
         #[cfg(feature = "documentation")]
