@@ -37,9 +37,7 @@ pub(super) fn ray_intersection_over_mesh(
     backface_culling: Backfaces,
 ) -> Option<RayMeshHit> {
     if mesh.primitive_topology() != PrimitiveTopology::TriangleList {
-        error!(
-            "Invalid intersection check: `TriangleList` is the only supported `PrimitiveTopology`"
-        );
+        // ray_mesh_intersection assumes vertices are laid out in a triangle list
         return None;
     }
 
