@@ -74,7 +74,9 @@ wgpu = { git = "https://github.com/gfx-rs/wgpu", branch = "trunk", default-featu
   "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
-naga = { git = "https://github.com/gfx-rs/wgpu", branch = "trunk", features = ["wgsl-in"] }
+naga = { git = "https://github.com/gfx-rs/wgpu", branch = "trunk", features = [
+  "wgsl-in",
+] }
 serde = { version = "1", features = ["derive"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = "1.2.0"
