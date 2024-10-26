@@ -921,7 +921,7 @@ impl AssetServer {
                     Ok(_) => {
                         let loaded_asset = LoadedAsset::new_with_dependencies(LoadedFolder { handles }, None).into();
                         let event = InternalAssetEvent::Loaded { id, loaded_asset };
-                        server.send_asset_event(event)
+                        server.send_asset_event(event);
                     },
                     Err(err) => {
                         error!("Failed to load folder. {err}");
