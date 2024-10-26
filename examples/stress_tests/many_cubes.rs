@@ -450,6 +450,17 @@ fn move_camera(
     camera_transform.rotate_x(delta);
 }
 
+fn update_materials(
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let mut color_rng = ChaCha8Rng::seed_from_u64(42);
+    let mut texture_rng = ChaCha8Rng::seed_from_u64(42);
+    for (_, material) in materials.iter_mut() {
+        material.base_color = Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen());
+        material.base_color_texture = None;
+    }
+}
+
 // System for printing the number of meshes on every tick of the timer
 fn print_mesh_count(
     time: Res<Time>,

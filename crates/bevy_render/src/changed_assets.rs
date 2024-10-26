@@ -19,7 +19,7 @@ pub struct ChangedAssetsPlugin<A, H> {
 impl<A, H> Plugin for ChangedAssetsPlugin<A, H>
 where
     A: Asset,
-    H: Component + Into<AssetId<A>> + Sync + Send + 'static,
+    H: Component,
     AssetId<A>: for<'a> From<&'a H>,
 {
     fn build(&self, app: &mut App) {
@@ -37,7 +37,7 @@ fn on_add_handle<A, H>(
     mut asset_entity_map: ResMut<AssetEntityMap<A>>,
 ) where
     A: Asset,
-    H: Component + Into<AssetId<A>> + Sync + Send + 'static,
+    H: Component,
     AssetId<A>: for<'a> From<&'a H>,
 {
     let handle = query.get(added.entity()).unwrap();
@@ -48,25 +48,25 @@ fn on_add_handle<A, H>(
 }
 
 fn on_remove_handle<A, H>(
-    added: Trigger<OnRemove, H>,
+    removed: Trigger<OnRemove, H>,
     query: Query<&H>,
     mut asset_entity_map: ResMut<AssetEntityMap<A>>,
 ) where
     A: Asset,
-    H: Component + Into<AssetId<A>> + Sync + Send + 'static,
+    H: Component,
     AssetId<A>: for<'a> From<&'a H>,
 {
-    let handle = query.get(added.entity()).unwrap();
+    let handle = query.get(removed.entity()).unwrap();
     asset_entity_map
         .entry(AssetId::<A>::from(handle))
         .or_default()
-        .remove(&added.entity());
+        .remove(&removed.entity());
 }
 
 impl<A, H> Default for ChangedAssetsPlugin<A, H>
 where
     A: Asset,
-    H: Component + Into<AssetId<A>> + Sync + Send + 'static,
+    H: Component,
     AssetId<A>: for<'a> From<&'a H>,
 {
     fn default() -> Self {
@@ -83,7 +83,7 @@ pub fn maintain_changed_assets<A, H>(
     mut asset_entity_map: ResMut<AssetEntityMap<A>>,
 ) where
     A: Asset,
-    H: Component + Into<AssetId<A>> + Sync + Send + 'static,
+    H: Component,
     AssetId<A>: for<'a> From<&'a H>,
 {
     changed_assets.clear();
