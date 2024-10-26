@@ -1002,7 +1002,7 @@ impl<'w> UnsafeEntityCell<'w> {
     pub fn spawned_by(self) -> &'static Location<'static> {
         self.world()
             .entities()
-            .entity_spawned_or_despawned_by(self.entity)
+            .entity_get_spawned_or_despawned_by(self.entity)
             .unwrap()
     }
 }
