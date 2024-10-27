@@ -303,7 +303,6 @@ with UI components as a child of an entity without UI components, your UI layout
                 inverse_target_scale_factor,
                 Vec2::ZERO,
                 Vec2::ZERO,
-                Vec2::ZERO,
             );
         }
 
@@ -329,7 +328,6 @@ with UI components as a child of an entity without UI components, your UI layout
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
-        mut absolute_location: Vec2,
     ) {
         if let Ok((
             mut node,
@@ -349,8 +347,6 @@ with UI components as a child of an entity without UI components, your UI layout
             let unrounded_size = inverse_target_scale_factor * unrounded_unscaled_size;
             let layout_location =
                 inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
-
-            absolute_location += layout_location;
 
             let rounded_location =
                 layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
@@ -443,7 +439,6 @@ with UI components as a child of an entity without UI components, your UI layout
                     inverse_target_scale_factor,
                     layout_size,
                     clamped_scroll_position,
-                    absolute_location,
                 );
             }
         }
