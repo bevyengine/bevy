@@ -351,15 +351,12 @@ with UI components as a child of an entity without UI components, your UI layout
 
             absolute_location += layout_location;
 
-            let rounded_size = (absolute_location + layout_size) - (absolute_location);
-
             let rounded_location =
-                (layout_location - parent_scroll_position) + 0.5 * (rounded_size - parent_size);
+                layout_location - parent_scroll_position + 0.5 * layout_size - parent_size;
 
             // only trigger change detection when the new values are different
-            if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
-                node.calculated_size = rounded_size;
-                node.unrounded_size = layout_size;
+            if node.calculated_size != layout_size {
+                node.calculated_size = layout_size;
             }
 
             let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
@@ -424,7 +421,7 @@ with UI components as a child of an entity without UI components, your UI layout
             let round_content_size =
                 Vec2::new(layout.content_size.width, layout.content_size.height)
                     * inverse_target_scale_factor;
-            let max_possible_offset = (round_content_size - rounded_size).max(Vec2::ZERO);
+            let max_possible_offset = (round_content_size - layout_size).max(Vec2::ZERO);
             let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
 
             if clamped_scroll_position != scroll_position {
@@ -442,7 +439,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     node_transform_query,
                     ui_children,
                     inverse_target_scale_factor,
-                    rounded_size,
+                    layout_size,
                     clamped_scroll_position,
                     absolute_location,
                 );
