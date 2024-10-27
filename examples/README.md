@@ -526,7 +526,6 @@ Example | Description
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
 [Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
-[layout_rounding_debug](../examples/ui/layout_rounding_debug.rs) | An example for debugging layout rounding errors
 
 ## Window
 

@@ -3101,17 +3101,6 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "layout_rounding_debug"
-path = "examples/ui/layout_rounding_debug.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.layout_rounding_debug]
-name = "layout_rounding_debug"
-description = "An example for debugging layout rounding errors"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
 name = "scroll"
 path = "examples/ui/scroll.rs"
 doc-scrape-examples = true
@@ -3862,4 +3851,13 @@ path = "examples/testbed/3d.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.testbed_3d]
+hidden = true
+
+
+[[example]]
+name = "testbed_ui_layout_rounding"
+path = "examples/testbed/ui_layout_rounding.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_ui_layout_rounding]
 hidden = true
