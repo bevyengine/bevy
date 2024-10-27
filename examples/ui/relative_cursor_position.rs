@@ -21,6 +21,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Camera {
             // Cursor position will take the viewport offset into account
             viewport: Some(Viewport {
+                physical_position: [100, 200].into(),
                 physical_size: [600, 600].into(),
                 ..default()
             }),
@@ -44,8 +45,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         width: Val::Px(250.),
                         height: Val::Px(250.),
                         margin: UiRect::bottom(Val::Px(15.)),
-                        align_content: AlignContent::Center,
-                        justify_content: JustifyContent::Center,
                         ..default()
                     },
                     BackgroundColor(Color::srgb(235., 35., 12.)),
