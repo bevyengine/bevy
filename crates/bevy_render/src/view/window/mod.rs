@@ -280,6 +280,7 @@ pub fn prepare_windows(
                 }
                 #[cfg(target_os = "linux")]
                 Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
+                    render_device.configure_surface(surface, &surface_data.configuration);
                     warn_once!(
                         "Couldn't get swap chain texture. This often happens with \
                         the NVIDIA drivers on Linux. It can be safely ignored."
