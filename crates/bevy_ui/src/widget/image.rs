@@ -1,12 +1,131 @@
-use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiImage, UiScale};
-use bevy_asset::Assets;
+use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiScale};
+use bevy_asset::{Assets, Handle};
+use bevy_color::Color;
 use bevy_ecs::prelude::*;
-use bevy_math::{UVec2, Vec2};
+use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlasLayout;
+use bevy_render::texture::{Image, TRANSPARENT_IMAGE_HANDLE};
+use bevy_sprite::{TextureAtlas, TextureAtlasLayout};
 use bevy_window::{PrimaryWindow, Window};
 use taffy::{MaybeMath, MaybeResolve};
+
+/// The 2D texture displayed for this UI node
+#[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Component, Default, Debug)]
+#[require(Node, UiImageSize)]
+pub struct UiImage {
+    /// The tint color used to draw the image.
+    ///
+    /// This is multiplied by the color of each pixel in the image.
+    /// The field value defaults to solid white, which will pass the image through unmodified.
+    pub color: Color,
+    /// Handle to the texture.
+    ///
+    /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
+    pub image: Handle<Image>,
+    /// The (optional) texture atlas used to render the image
+    pub texture_atlas: Option<TextureAtlas>,
+    /// Whether the image should be flipped along its x-axis
+    pub flip_x: bool,
+    /// Whether the image should be flipped along its y-axis
+    pub flip_y: bool,
+    /// An optional rectangle representing the region of the image to render, instead of rendering
+    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`].
+    ///
+    /// When used with a [`TextureAtlas`], the rect
+    /// is offset by the atlas's minimal (top-left) corner position.
+    pub rect: Option<Rect>,
+}
+
+impl Default for UiImage {
+    /// A transparent 1x1 image with a solid white tint.
+    ///
+    /// # Warning
+    ///
+    /// This will be invisible by default.
+    /// To set this to a visible image, you need to set the `texture` field to a valid image handle,
+    /// or use [`Handle<Image>`]'s default 1x1 solid white texture (as is done in [`UiImage::solid_color`]).
+    fn default() -> Self {
+        UiImage {
+            // This should be white because the tint is multiplied with the image,
+            // so if you set an actual image with default tint you'd want its original colors
+            color: Color::WHITE,
+            texture_atlas: None,
+            // This texture needs to be transparent by default, to avoid covering the background color
+            image: TRANSPARENT_IMAGE_HANDLE,
+            flip_x: false,
+            flip_y: false,
+            rect: None,
+        }
+    }
+}
+
+impl UiImage {
+    /// Create a new [`UiImage`] with the given texture.
+    pub fn new(texture: Handle<Image>) -> Self {
+        Self {
+            image: texture,
+            color: Color::WHITE,
+            ..Default::default()
+        }
+    }
+
+    /// Create a solid color [`UiImage`].
+    ///
+    /// This is primarily useful for debugging / mocking the extents of your image.
+    pub fn solid_color(color: Color) -> Self {
+        Self {
+            image: Handle::default(),
+            color,
+            flip_x: false,
+            flip_y: false,
+            texture_atlas: None,
+            rect: None,
+        }
+    }
+
+    /// Create a [`UiImage`] from an image, with an associated texture atlas
+    pub fn from_atlas_image(image: Handle<Image>, atlas: TextureAtlas) -> Self {
+        Self {
+            image,
+            texture_atlas: Some(atlas),
+            ..Default::default()
+        }
+    }
+
+    /// Set the color tint
+    #[must_use]
+    pub const fn with_color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+
+    /// Flip the image along its x-axis
+    #[must_use]
+    pub const fn with_flip_x(mut self) -> Self {
+        self.flip_x = true;
+        self
+    }
+
+    /// Flip the image along its y-axis
+    #[must_use]
+    pub const fn with_flip_y(mut self) -> Self {
+        self.flip_y = true;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_rect(mut self, rect: Rect) -> Self {
+        self.rect = Some(rect);
+        self
+    }
+}
+
+impl From<Handle<Image>> for UiImage {
+    fn from(texture: Handle<Image>) -> Self {
+        Self::new(texture)
+    }
+}
 
 /// The size of the image's texture
 ///
