@@ -40,7 +40,7 @@ pub use measurement::*;
 pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
-use widget::UiImageSize;
+use widget::{UiImage, UiImageSize};
 
 /// The UI prelude.
 ///
@@ -58,7 +58,7 @@ pub mod prelude {
             node_bundles::*,
             ui_material::*,
             ui_node::*,
-            widget::{Button, Label},
+            widget::{Button, Label, UiImage},
             Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
