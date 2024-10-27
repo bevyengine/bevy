@@ -315,9 +315,14 @@ pub fn all_tuples_with_size(input: TokenStream) -> TokenStream {
     }
     let macro_ident = &input.macro_ident;
     let invocations = (input.start..=input.end).map(|i| {
-        let ident_tuples = &ident_tuples[..i];
+        let ident_tuples = choose_ident_tuples(&input, &ident_tuples, i);
+        let attrs = if input.fake_variadic {
+            fake_variadic_attrs(len, i)
+        } else {
+            TokenStream2::default()
+        };
         quote! {
-            #macro_ident!(#i, #(#ident_tuples),*);
+            #macro_ident!(#i, #attrs #ident_tuples);
         }
     });
     TokenStream::from(quote! {
