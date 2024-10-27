@@ -1,4 +1,4 @@
-use crate::{ContentSize, FocusPolicy, UiRect, Val};
+use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
