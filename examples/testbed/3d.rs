@@ -138,10 +138,6 @@ mod light {
     }
 }
 
-#[cfg_attr(
-    all(feature = "bevy_ci_testing", target_os = "windows"),
-    expect(dead_code)
-)]
 mod bloom {
     use bevy::{
         core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
@@ -195,10 +191,6 @@ mod bloom {
     }
 }
 
-#[cfg_attr(
-    all(feature = "bevy_ci_testing", target_os = "windows"),
-    expect(dead_code)
-)]
 mod gltf {
     use bevy::prelude::*;
 
