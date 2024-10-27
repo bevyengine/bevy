@@ -1,17 +1,15 @@
-//! A simple scene to demonstrate picking events
+//! A simple scene to demonstrate picking events.
 
 use bevy::{color::palettes::tailwind::CYAN_400, prelude::*};
 
 fn main() {
-    let mut app = App::new();
-    app.add_plugins(DefaultPlugins);
-
-    app.add_systems(Startup, setup);
-
-    app.run();
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_systems(Startup, setup)
+        .run();
 }
 
-/// set up a simple 3D scene
+/// Set up a simple 3D scene.
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
