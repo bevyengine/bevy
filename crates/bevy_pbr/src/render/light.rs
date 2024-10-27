@@ -147,8 +147,10 @@ pub const MAX_CASCADES_PER_LIGHT: usize = 1;
 #[derive(Resource, Clone)]
 pub struct ShadowSamplers {
     pub point_light_comparison_sampler: Sampler,
+    #[cfg(feature = "pbr_pcss")]
     pub point_light_linear_sampler: Sampler,
     pub directional_light_comparison_sampler: Sampler,
+    #[cfg(feature = "pbr_pcss")]
     pub directional_light_linear_sampler: Sampler,
 }
 
@@ -172,6 +174,7 @@ impl FromWorld for ShadowSamplers {
                 compare: Some(CompareFunction::GreaterEqual),
                 ..base_sampler_descriptor
             }),
+            #[cfg(feature = "pbr_pcss")]
             point_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
             directional_light_comparison_sampler: render_device.create_sampler(
                 &SamplerDescriptor {
@@ -179,6 +182,7 @@ impl FromWorld for ShadowSamplers {
                     ..base_sampler_descriptor
                 },
             ),
+            #[cfg(feature = "pbr_pcss")]
             directional_light_linear_sampler: render_device
                 .create_sampler(&base_sampler_descriptor),
         }
