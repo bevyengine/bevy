@@ -1,4 +1,4 @@
-use crate::{widget::UiImageSize, ContentSize, FocusPolicy, UiRect, Val};
+use crate::{widget::UiImageSize, FocusPolicy, UiRect, Val};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -288,7 +288,6 @@ impl From<&Vec2> for ScrollPosition {
     BackgroundColor,
     BorderColor,
     BorderRadius,
-    ContentSize,
     FocusPolicy,
     ScrollPosition,
     Transform,
