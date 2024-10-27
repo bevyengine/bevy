@@ -6,7 +6,7 @@ use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     prelude::Resource,
 };
-use bevy_math::UVec2;
+use bevy_math::{UVec2, Vec2};
 use bevy_utils::default;
 
 use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
@@ -275,14 +275,23 @@ impl UiSurface {
 
     /// Get the layout geometry for the taffy node corresponding to the ui node [`Entity`].
     /// Does not compute the layout geometry, `compute_window_layouts` should be run before using this function.
-    pub fn get_layout(&self, entity: Entity) -> Result<&taffy::Layout, LayoutError> {
-        if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
-            self.taffy
-                .layout(*taffy_node)
-                .map_err(LayoutError::TaffyError)
-        } else {
-            Err(LayoutError::InvalidHierarchy)
-        }
+    pub fn get_layout(&mut self, entity: Entity) -> Result<(taffy::Layout, Vec2), LayoutError> {
+        let Some(taffy_node) = self.entity_to_taffy.get(&entity) else {
+            return Err(LayoutError::InvalidHierarchy);
+        };
+
+        let layout = self
+            .taffy
+            .layout(*taffy_node)
+            .cloned()
+            .map_err(LayoutError::TaffyError)?;
+
+        self.taffy.disable_rounding();
+        let taffy_size = self.taffy.layout(*taffy_node).unwrap().size;
+        let size = Vec2::new(taffy_size.width, taffy_size.height);
+        self.taffy.enable_rounding();
+
+        Ok((layout, size))
     }
 }
 

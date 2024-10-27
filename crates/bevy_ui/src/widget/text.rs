@@ -349,7 +349,10 @@ fn queue_text(
         TextBounds::UNBOUNDED
     } else {
         // `scale_factor` is already multiplied by `UiScale`
-        TextBounds::new(node.size().x * scale_factor, node.size().y * scale_factor)
+        TextBounds::new(
+            node.unrounded_size.x * scale_factor,
+            node.unrounded_size.y * scale_factor,
+        )
     };
 
     let text_layout_info = text_layout_info.into_inner();

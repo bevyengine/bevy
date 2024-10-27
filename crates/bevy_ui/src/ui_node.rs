@@ -39,6 +39,10 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) outline_offset: f32,
+    /// The unrounded size of the node as width and height in logical pixels.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub(crate) unrounded_size: Vec2,
     /// Resolved border values in logical pixels
     /// Border updates bypass change detection.
     ///
@@ -77,6 +81,13 @@ impl ComputedNode {
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub const fn stack_index(&self) -> u32 {
         self.stack_index
+    }
+
+    /// The calculated node size as width and height in logical pixels before rounding.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub const fn unrounded_size(&self) -> Vec2 {
+        self.unrounded_size
     }
 
     /// Returns the thickness of the UI node's outline in logical pixels.
@@ -191,6 +202,7 @@ impl ComputedNode {
         calculated_size: Vec2::ZERO,
         outline_width: 0.,
         outline_offset: 0.,
+        unrounded_size: Vec2::ZERO,
         border_radius: ResolvedBorderRadius::ZERO,
         border: BorderRect::ZERO,
         padding: BorderRect::ZERO,

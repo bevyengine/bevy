@@ -296,7 +296,7 @@ with UI components as a child of an entity without UI components, your UI layout
             update_uinode_geometry_recursive(
                 &mut commands,
                 *root,
-                &ui_surface,
+                &mut ui_surface,
                 None,
                 &mut node_transform_query,
                 &ui_children,
@@ -315,7 +315,7 @@ with UI components as a child of an entity without UI components, your UI layout
     fn update_uinode_geometry_recursive(
         commands: &mut Commands,
         entity: Entity,
-        ui_surface: &UiSurface,
+        ui_surface: &mut UiSurface,
         root_size: Option<Vec2>,
         node_transform_query: &mut Query<(
             &mut ComputedNode,
@@ -340,12 +340,13 @@ with UI components as a child of an entity without UI components, your UI layout
             maybe_scroll_position,
         )) = node_transform_query.get_mut(entity)
         {
-            let Ok(layout) = ui_surface.get_layout(entity) else {
+            let Ok((layout, unrounded_unscaled_size)) = ui_surface.get_layout(entity) else {
                 return;
             };
 
             let layout_size =
                 inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
+            let unrounded_size = inverse_target_scale_factor * unrounded_unscaled_size;
             let layout_location =
                 inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
 
@@ -355,8 +356,9 @@ with UI components as a child of an entity without UI components, your UI layout
                 layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
 
             // only trigger change detection when the new values are different
-            if node.calculated_size != layout_size {
+            if node.calculated_size != layout_size || node.unrounded_size != unrounded_size {
                 node.calculated_size = layout_size;
+                node.unrounded_size = unrounded_size;
             }
 
             let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
@@ -560,10 +562,10 @@ mod tests {
         world.entity_mut(ui_root).add_child(ui_child);
 
         ui_schedule.run(&mut world);
-        let ui_surface = world.resource::<UiSurface>();
+        let mut ui_surface = world.resource_mut::<UiSurface>();
 
         for ui_entity in [ui_root, ui_child] {
-            let layout = ui_surface.get_layout(ui_entity).unwrap();
+            let layout = ui_surface.get_layout(ui_entity).unwrap().0;
             assert_eq!(layout.size.width, WINDOW_WIDTH);
             assert_eq!(layout.size.height, WINDOW_HEIGHT);
         }
@@ -917,11 +919,12 @@ mod tests {
                 .get_single(world)
                 .expect("missing MovingUiNode");
             assert_eq!(expected_camera_entity, target_camera_entity);
-            let ui_surface = world.resource::<UiSurface>();
+            let mut ui_surface = world.resource_mut::<UiSurface>();
 
             let layout = ui_surface
                 .get_layout(ui_node_entity)
-                .expect("failed to get layout");
+                .expect("failed to get layout")
+                .0;
 
             // negative test for #12255
             assert_eq!(Vec2::new(layout.location.x, layout.location.y), new_pos);
@@ -1005,8 +1008,8 @@ mod tests {
 
         ui_schedule.run(&mut world);
 
-        let ui_surface = world.resource::<UiSurface>();
-        let layout = ui_surface.get_layout(ui_entity).unwrap();
+        let mut ui_surface = world.resource_mut::<UiSurface>();
+        let layout = ui_surface.get_layout(ui_entity).unwrap().0;
 
         // the node should takes its size from the fixed size measure func
         assert_eq!(layout.size.width, content_size.x);
@@ -1030,12 +1033,12 @@ mod tests {
 
         ui_schedule.run(&mut world);
 
-        let ui_surface = world.resource::<UiSurface>();
+        let mut ui_surface = world.resource_mut::<UiSurface>();
         let ui_node = ui_surface.entity_to_taffy[&ui_entity];
 
         // a node with a content size should have taffy context
         assert!(ui_surface.taffy.get_node_context(ui_node).is_some());
-        let layout = ui_surface.get_layout(ui_entity).unwrap();
+        let layout = ui_surface.get_layout(ui_entity).unwrap().0;
         assert_eq!(layout.size.width, content_size.x);
         assert_eq!(layout.size.height, content_size.y);
 
@@ -1043,12 +1046,12 @@ mod tests {
 
         ui_schedule.run(&mut world);
 
-        let ui_surface = world.resource::<UiSurface>();
+        let mut ui_surface = world.resource_mut::<UiSurface>();
         // a node without a content size should not have taffy context
         assert!(ui_surface.taffy.get_node_context(ui_node).is_none());
 
         // Without a content size, the node has no width or height constraints so the length of both dimensions is 0.
-        let layout = ui_surface.get_layout(ui_entity).unwrap();
+        let layout = ui_surface.get_layout(ui_entity).unwrap().0;
         assert_eq!(layout.size.width, 0.);
         assert_eq!(layout.size.height, 0.);
     }
