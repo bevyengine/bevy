@@ -352,7 +352,7 @@ with UI components as a child of an entity without UI components, your UI layout
             absolute_location += layout_location;
 
             let rounded_location =
-                layout_location - parent_scroll_position + 0.5 * layout_size - parent_size;
+                layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
 
             // only trigger change detection when the new values are different
             if node.calculated_size != layout_size {
