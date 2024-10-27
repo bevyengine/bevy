@@ -1,8 +1,6 @@
 //! Showcases the [`RelativeCursorPosition`] component, used to check the position of the cursor relative to a UI node.
 
-use bevy::{
-    prelude::*, ui::RelativeCursorPosition, winit::WinitSettings,
-};
+use bevy::{prelude::*, ui::RelativeCursorPosition, winit::WinitSettings};
 
 fn main() {
     App::new()
