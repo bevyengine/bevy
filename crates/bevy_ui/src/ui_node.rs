@@ -146,7 +146,7 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn border(&self) -> BorderRect {
+    pub const fn border(&self) -> BorderRect {
         self.border
     }
 
@@ -154,7 +154,7 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn border_radius(&self) -> ResolvedBorderRadius {
+    pub const fn border_radius(&self) -> ResolvedBorderRadius {
         self.border_radius
     }
 
