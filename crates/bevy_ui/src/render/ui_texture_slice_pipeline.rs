@@ -306,7 +306,7 @@ pub fn extract_ui_texture_slices(
                 color: image.color.into(),
                 rect: Rect {
                     min: Vec2::ZERO,
-                    max: uinode.calculated_size,
+                    max: uinode.size,
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: image.image.id(),
