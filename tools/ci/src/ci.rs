@@ -17,7 +17,11 @@ pub struct CI {
 
     /// parallelism of `cargo test`
     #[argh(option)]
-    test_threads: u8,
+    test_threads: Option<u8>,
+
+    /// sets `RUST_BUILD_JOBS`
+    #[argh(option)]
+    build_jobs: Option<u8>,
 }
 
 impl From<&CI> for Args {
@@ -36,7 +40,14 @@ impl CI {
     /// This is usually related to differing toolchains and configuration.
     pub fn run(self) {
         let sh = xshell::Shell::new().unwrap();
-        let prepared_commands = self.prepare(&sh);
+        let mut prepared_commands = self.prepare(&sh);
+
+        if let Some(build_jobs) = self.build_jobs {
+            prepared_commands = prepared_commands
+                .into_iter()
+                .map(|pc| pc.with_env_var("RUST_BUILD_JOBS", build_jobs.to_string().leak()))
+                .collect();
+        }
         let mut failures = vec![];
 
         for command in prepared_commands {

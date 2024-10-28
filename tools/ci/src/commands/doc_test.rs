@@ -14,12 +14,15 @@ impl Prepare for DocTestCommand {
             .then_some("--no-fail-fast")
             .unwrap_or_default();
 
-        let test_threads = args.test_threads.to_string();
+        let test_threads = args
+            .test_threads
+            .map(|test_threads| format!("--test-threads={test_threads}"))
+            .unwrap_or_default();
 
         vec![PreparedCommand::new::<Self>(
             cmd!(
                 sh,
-                "cargo test --workspace --doc {no_fail_fast} -- --test-threads={test_threads}"
+                "cargo test --workspace --doc {no_fail_fast} -- {test_threads}"
             ),
             "Please fix failing doc tests in output above.",
         )]

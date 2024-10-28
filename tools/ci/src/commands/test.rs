@@ -14,10 +14,15 @@ impl Prepare for TestCommand {
             .then_some("--no-fail-fast")
             .unwrap_or_default();
 
+        let test_threads = args
+            .test_threads
+            .map(|test_threads| format!("--test-threads={test_threads}"))
+            .unwrap_or_default();
+
         vec![PreparedCommand::new::<Self>(
             cmd!(
                 sh,
-                "cargo test --workspace --lib --bins --tests --benches {no_fail_fast}"
+                "cargo test --workspace --lib --bins --tests --benches {no_fail_fast} -- {test_threads}"
             ),
             "Please fix failing tests in output above.",
         )]
