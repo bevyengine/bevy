@@ -80,7 +80,8 @@ fn main() {
         ))
         .insert_resource(ClearColor(Color::srgb_u8(0, 0, 0)))
         .add_plugins(
-            DefaultPlugins
+            HeadlessPlugins
+                .set(ScheduleRunnerPlugin::run_once())
                 .set(ImagePlugin::default_nearest())
                 // Not strictly necessary, as the inclusion of ScheduleRunnerPlugin below
                 // replaces the bevy_winit app runner and so a window is never created.
@@ -88,8 +89,6 @@ fn main() {
                     primary_window: None,
                     ..default()
                 })
-                // WinitPlugin will panic in environments without a display server.
-                .disable::<WinitPlugin>(),
         )
         .add_plugins(ImageCopyPlugin)
         // headless frame capture
