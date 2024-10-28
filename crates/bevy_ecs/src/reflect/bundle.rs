@@ -190,8 +190,10 @@ impl<B: Bundle + Reflect + TypePath> FromType<B> for ReflectBundle {
                 entity.remove::<B>();
             },
             take: |entity| {
-                entity.take::<B>().map(|bundle| Box::new(bundle).into_reflect())
-            }
+                entity
+                    .take::<B>()
+                    .map(|bundle| Box::new(bundle).into_reflect())
+            },
         })
     }
 }
