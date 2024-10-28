@@ -277,24 +277,10 @@ pub struct DefaultPickingPlugins;
 
 impl PluginGroup for DefaultPickingPlugins {
     fn build(self) -> PluginGroupBuilder {
-        #[cfg_attr(
-            not(feature = "bevy_mesh"),
-            expect(
-                unused_mut,
-                reason = "Group is not mutated when `bevy_mesh` is not enabled."
-            )
-        )]
-        let mut group = PluginGroupBuilder::start::<Self>()
+        PluginGroupBuilder::start::<Self>()
             .add(input::PointerInputPlugin::default())
             .add(PickingPlugin::default())
-            .add(InteractionPlugin);
-
-        #[cfg(feature = "bevy_mesh")]
-        {
-            group = group.add(mesh_picking::MeshPickingPlugin);
-        };
-
-        group
+            .add(InteractionPlugin)
     }
 }
 
@@ -395,6 +381,20 @@ impl Plugin for InteractionPlugin {
 
         app.init_resource::<focus::HoverMap>()
             .init_resource::<focus::PreviousHoverMap>()
+            .add_event::<Pointer<Cancel>>()
+            .add_event::<Pointer<Click>>()
+            .add_event::<Pointer<Down>>()
+            .add_event::<Pointer<DragDrop>>()
+            .add_event::<Pointer<DragEnd>>()
+            .add_event::<Pointer<DragEnter>>()
+            .add_event::<Pointer<Drag>>()
+            .add_event::<Pointer<DragLeave>>()
+            .add_event::<Pointer<DragOver>>()
+            .add_event::<Pointer<DragStart>>()
+            .add_event::<Pointer<Move>>()
+            .add_event::<Pointer<Out>>()
+            .add_event::<Pointer<Over>>()
+            .add_event::<Pointer<Up>>()
             .add_systems(
                 PreUpdate,
                 (update_focus, pointer_events, update_interactions)

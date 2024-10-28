@@ -2030,8 +2030,8 @@ macro_rules! impl_tuple_query_data {
 }
 
 macro_rules! impl_anytuple_fetch {
-    ($(($name: ident, $state: ident)),*) => {
-
+    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
+        $(#[$meta])*
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
         /// SAFETY:
@@ -2153,6 +2153,7 @@ macro_rules! impl_anytuple_fetch {
             }
         }
 
+        $(#[$meta])*
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
         // SAFETY: defers to soundness of `$name: WorldQuery` impl
@@ -2160,6 +2161,7 @@ macro_rules! impl_anytuple_fetch {
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;
         }
 
+        $(#[$meta])*
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for AnyOf<($($name,)*)> {}
     };
@@ -2173,7 +2175,14 @@ all_tuples!(
     F,
     S
 );
-all_tuples!(impl_anytuple_fetch, 0, 15, F, S);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_anytuple_fetch,
+    0,
+    15,
+    F,
+    S
+);
 
 /// [`WorldQuery`] used to nullify queries by turning `Query<D>` into `Query<NopWorldQuery<D>>`
 ///
