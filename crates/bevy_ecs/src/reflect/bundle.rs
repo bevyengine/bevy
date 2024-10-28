@@ -35,7 +35,7 @@ pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::apply_or_insert()`].
     pub apply_or_insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::remove()`].
-    pub remove: fn(&mut EntityWorldMut),
+    pub remove: for<'a, 'w> fn(&'a mut EntityWorldMut<'w>) -> &'a mut EntityWorldMut<'w>,
 }
 
 impl ReflectBundleFns {
@@ -85,8 +85,8 @@ impl ReflectBundle {
     }
 
     /// Removes this [`Bundle`] type from the entity. Does nothing if it doesn't exist.
-    pub fn remove(&self, entity: &mut EntityWorldMut) {
-        (self.0.remove)(entity);
+    pub fn remove<'a, 'w>(&self, entity: &'a mut EntityWorldMut<'w>) -> &'a mut EntityWorldMut<'w> {
+        (self.0.remove)(entity)
     }
 
     /// Create a custom implementation of [`ReflectBundle`].
@@ -176,7 +176,7 @@ impl<B: Bundle + Reflect + TypePath> FromType<B> for ReflectBundle {
                 }
             },
             remove: |entity| {
-                entity.remove::<B>();
+                entity.remove::<B>()
             },
         })
     }
