@@ -359,7 +359,7 @@ pub enum AsBindGroupError {
     /// The bind group could not be generated. Try again next frame.
     #[display("The bind group could not be generated")]
     RetryNextUpdate,
-    #[display("At binding index{0}, the provided image sampler `{_1}` does not match the required sampler type(s) `{_2}`.")]
+    #[display("At binding index {_0}, the provided image sampler `{_1}` does not match the required sampler type(s) `{_2}`.")]
     InvalidSamplerType(u32, String, String),
 }
 
