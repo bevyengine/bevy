@@ -348,7 +348,8 @@ with UI components as a child of an entity without UI components, your UI layout
             let layout_location =
                 inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
 
-            let rounded_location =
+            // The position of the center of the node, stored in the node's transform
+            let node_center =
                 layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
 
             // only trigger change detection when the new values are different
@@ -395,8 +396,8 @@ with UI components as a child of an entity without UI components, your UI layout
                     .max(0.);
             }
 
-            if transform.translation.truncate() != rounded_location {
-                transform.translation = rounded_location.extend(0.);
+            if transform.translation.truncate() != node_center {
+                transform.translation = node_center.extend(0.);
             }
 
             let scroll_position: Vec2 = maybe_scroll_position
@@ -416,10 +417,9 @@ with UI components as a child of an entity without UI components, your UI layout
                 })
                 .unwrap_or_default();
 
-            let round_content_size =
-                Vec2::new(layout.content_size.width, layout.content_size.height)
-                    * inverse_target_scale_factor;
-            let max_possible_offset = (round_content_size - layout_size).max(Vec2::ZERO);
+            let content_size = Vec2::new(layout.content_size.width, layout.content_size.height)
+                * inverse_target_scale_factor;
+            let max_possible_offset = (content_size - layout_size).max(Vec2::ZERO);
             let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
 
             if clamped_scroll_position != scroll_position {
