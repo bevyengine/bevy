@@ -16,7 +16,7 @@ use crate::{
     system::{input::SystemInput, RunSystemWithInput, SystemId},
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, Command, CommandQueue,
-        EntityWorldMut, FailureMode, FromWorld, SpawnBatchIter, World,
+        EntityWorldMut, FailureHandlingMode, FromWorld, SpawnBatchIter, World,
     },
 };
 use bevy_ptr::OwningPtr;
@@ -77,7 +77,7 @@ pub use parallel_scope::*;
 pub struct Commands<'w, 's> {
     queue: InternalQueue<'s>,
     entities: &'w Entities,
-    pub(crate) failure_mode: FailureMode,
+    pub(crate) failure_handling_mode: FailureHandlingMode,
 }
 
 // SAFETY: All commands [`Command`] implement [`Send`]
@@ -173,7 +173,7 @@ const _: () = {
             Commands {
                 queue: InternalQueue::CommandQueue(f0),
                 entities: f1,
-                failure_mode: FailureMode::default(),
+                failure_handling_mode: FailureHandlingMode::default(),
             }
         }
     }
@@ -210,7 +210,7 @@ impl<'w, 's> Commands<'w, 's> {
         Self {
             queue: InternalQueue::CommandQueue(Deferred(queue)),
             entities,
-            failure_mode: FailureMode::default(),
+            failure_handling_mode: FailureHandlingMode::default(),
         }
     }
 
@@ -228,7 +228,7 @@ impl<'w, 's> Commands<'w, 's> {
         Self {
             queue: InternalQueue::RawCommandQueue(queue),
             entities,
-            failure_mode: FailureMode::default(),
+            failure_handling_mode: FailureHandlingMode::default(),
         }
     }
 
@@ -259,7 +259,7 @@ impl<'w, 's> Commands<'w, 's> {
                 }
             },
             entities: self.entities,
-            failure_mode: self.failure_mode,
+            failure_handling_mode: self.failure_handling_mode,
         }
     }
 
@@ -283,7 +283,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`warn_on_error`](Self::warn_on_error)
     /// - [`panic_on_error`](Self::panic_on_error)
     pub fn ignore_on_error(&mut self) -> &mut Self {
-        self.failure_mode = FailureMode::Ignore;
+        self.failure_handling_mode = FailureHandlingMode::Ignore;
         self
     }
 
@@ -298,7 +298,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`warn_on_error`](Self::warn_on_error)
     /// - [`panic_on_error`](Self::panic_on_error)
     pub fn log_on_error(&mut self) -> &mut Self {
-        self.failure_mode = FailureMode::Log;
+        self.failure_handling_mode = FailureHandlingMode::Log;
         self
     }
 
@@ -311,7 +311,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`log_on_error`](Self::log_on_error) (default)
     /// - [`panic_on_error`](Self::panic_on_error)
     pub fn warn_on_error(&mut self) -> &mut Self {
-        self.failure_mode = FailureMode::Warn;
+        self.failure_handling_mode = FailureHandlingMode::Warn;
         self
     }
 
@@ -324,7 +324,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`log_on_error`](Self::log_on_error) (default)
     /// - [`warn_on_error`](Self::warn_on_error)
     pub fn panic_on_error(&mut self) -> &mut Self {
-        self.failure_mode = FailureMode::Panic;
+        self.failure_handling_mode = FailureHandlingMode::Panic;
         self
     }
 
@@ -458,8 +458,8 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Returns the [`EntityCommands`] for the requested [`Entity`].
     ///
-    /// This method does not guarantee that `EntityCommands` will be successfully applied,
-    /// since another command in the queue may delete the entity before them.
+    /// This method does not guarantee that commands queued by the `EntityCommands`
+    /// will be successful, since the entity could be despawned before they are executed.
     ///
     /// # Fallible
     ///
@@ -503,11 +503,11 @@ impl<'w, 's> Commands<'w, 's> {
     #[track_caller]
     pub fn entity(&mut self, entity: Entity) -> EntityCommands {
         if !self.entities.contains(entity) {
-            match self.failure_mode {
-                FailureMode::Ignore => (),
-                FailureMode::Log => info!("Attempted to create an EntityCommands for Entity {entity:?}, which doesn't exist; returned invalid EntityCommands"),
-                FailureMode::Warn => warn!("Attempted to create an EntityCommands for Entity {entity:?}, which doesn't exist; returned invalid EntityCommands"),
-                FailureMode::Panic => panic!("Attempted to create an EntityCommands for Entity {entity:?}, which doesn't exist"),
+            match self.failure_handling_mode {
+                FailureHandlingMode::Ignore => (),
+                FailureHandlingMode::Log => info!("Attempted to create an EntityCommands for entity {entity}, which doesn't exist; returned invalid EntityCommands"),
+                FailureHandlingMode::Warn => warn!("Attempted to create an EntityCommands for entity {entity}, which doesn't exist; returned invalid EntityCommands"),
+                FailureHandlingMode::Panic => panic!("Attempted to create an EntityCommands for entity {entity}, which doesn't exist"),
             };
         }
         EntityCommands {
@@ -520,8 +520,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// Returns `None` if the entity does not exist.
     ///
-    /// This method does not guarantee that `EntityCommands` will be successfully applied,
-    /// since another command in the queue may delete the entity before them.
+    /// This method does not guarantee that commands queued by the `EntityCommands`
+    /// will be successful, since the entity could be despawned before they are executed.
     ///
     /// # Example
     ///
@@ -706,7 +706,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        self.queue(insert_batch(batch, self.failure_mode));
+        self.queue(insert_batch(batch, self.failure_handling_mode));
     }
 
     /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
@@ -736,7 +736,7 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        self.queue(insert_batch_if_new(batch, self.failure_mode));
+        self.queue(insert_batch_if_new(batch, self.failure_handling_mode));
     }
 
     /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
@@ -1162,7 +1162,7 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// footprint than `(Entity, Self)`.
     /// In most cases the provided implementation is sufficient.
     #[must_use = "commands do nothing unless applied to a `World`"]
-    fn with_entity(self, entity: Entity, failure_mode: FailureMode) -> impl Command
+    fn with_entity(self, entity: Entity, failure_handling_mode: FailureHandlingMode) -> impl Command
     where
         Self: Sized,
     {
@@ -1170,16 +1170,16 @@ pub trait EntityCommand<Marker = ()>: Send + 'static {
             if world.entities.contains(entity) {
                 self.apply(entity, world);
             } else {
-                match failure_mode {
-                    FailureMode::Ignore => (),
-                    FailureMode::Log => {
-                        info!("Could not execute EntityCommand because its Entity {entity:?} was missing");
+                match failure_handling_mode {
+                    FailureHandlingMode::Ignore => (),
+                    FailureHandlingMode::Log => {
+                        info!("Could not execute EntityCommand because its entity {entity} was missing");
                     }
-                    FailureMode::Warn => {
-                        warn!("Could not execute EntityCommand because its Entity {entity:?} was missing");
+                    FailureHandlingMode::Warn => {
+                        warn!("Could not execute EntityCommand because its entity {entity} was missing");
                     }
-                    FailureMode::Panic => {
-                        panic!("Could not execute EntityCommand because its Entity {entity:?} was missing");
+                    FailureHandlingMode::Panic => {
+                        panic!("Could not execute EntityCommand because its entity {entity} was missing");
                     }
                 };
             }
@@ -1237,7 +1237,8 @@ impl<'a> EntityCommands<'a> {
         }
     }
 
-    /// Sets the [`EntityCommands`] instance to ignore commands if the entity doesn't exist.
+    /// Sets the [`EntityCommands`] instance to ignore commands if the entity doesn't exist
+    /// when a command is executed.
     ///
     /// # See also:
     /// - [`log_if_missing`](Self::log_if_missing) (default)
@@ -1248,7 +1249,8 @@ impl<'a> EntityCommands<'a> {
         self
     }
 
-    /// Sets the [`EntityCommands`] instance to log if the entity doesn't exist when a command is executed.
+    /// Sets the [`EntityCommands`] instance to log if the entity doesn't exist
+    /// when a command is executed.
     ///
     /// This is the default setting.
     ///
@@ -1261,7 +1263,8 @@ impl<'a> EntityCommands<'a> {
         self
     }
 
-    /// Sets the [`EntityCommands`] instance to warn if the entity doesn't exist when a command is executed.
+    /// Sets the [`EntityCommands`] instance to warn if the entity doesn't exist
+    /// when a command is executed.
     ///
     /// # See also:
     /// - [`ignore_if_missing`](Self::ignore_if_missing)
@@ -1272,7 +1275,8 @@ impl<'a> EntityCommands<'a> {
         self
     }
 
-    /// Sets the [`EntityCommands`] instance to panic if the entity doesn't exist when a command is executed.
+    /// Sets the [`EntityCommands`] instance to panic if the entity doesn't exist
+    /// when a command is executed.
     ///
     /// # See also:
     /// - [`ignore_if_missing`](Self::ignore_if_missing)
@@ -1472,7 +1476,7 @@ impl<'a> EntityCommands<'a> {
     /// # Note
     ///
     /// [`Self::insert`] used to panic if the entity was missing, and this was the non-panicking version.
-    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::insert`]
+    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::insert`].
     ///
     /// # Example
     ///
@@ -1567,7 +1571,7 @@ impl<'a> EntityCommands<'a> {
     /// # Note
     ///
     /// [`Self::insert_if_new_and`] used to panic if the entity was missing, and this was the non-panicking version.
-    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::insert_if_new_and`]
+    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::insert_if_new_and`].
     ///
     /// # Example
     ///
@@ -1612,7 +1616,7 @@ impl<'a> EntityCommands<'a> {
     /// # Note
     ///
     /// [`Self::insert_if_new`] used to panic if the entity was missing, and this was the non-panicking version.
-    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::insert_if_new`]
+    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::insert_if_new`].
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
         self.queue(try_insert(bundle, InsertMode::Keep))
     }
@@ -1731,7 +1735,7 @@ impl<'a> EntityCommands<'a> {
     /// Despawns the entity.
     ///
     /// [`Self::despawn`] used to warn if the entity was missing, and this was the silent version.
-    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::despawn`]
+    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::despawn`].
     #[track_caller]
     pub fn try_despawn(&mut self) {
         self.queue(try_despawn());
@@ -1755,7 +1759,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     pub fn queue<M: 'static>(&mut self, command: impl EntityCommand<M>) -> &mut Self {
         self.commands
-            .queue(command.with_entity(self.entity, self.commands.failure_mode));
+            .queue(command.with_entity(self.entity, self.commands.failure_handling_mode));
         self
     }
 
@@ -1843,7 +1847,8 @@ pub struct EntityEntryCommands<'a, T> {
 }
 
 impl<'a, T: Component> EntityEntryCommands<'a, T> {
-    /// Sets the [`EntityEntryCommands`] instance to ignore commands if the entity doesn't exist.
+    /// Sets the [`EntityEntryCommands`] instance to ignore commands if the entity doesn't exist
+    /// when a command is executed.
     ///
     /// # See also:
     /// - [`log_if_missing`](Self::log_if_missing) (default)
@@ -1854,7 +1859,8 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         self
     }
 
-    /// Sets the [`EntityEntryCommands`] instance to log if the entity doesn't exist when a command is executed.
+    /// Sets the [`EntityEntryCommands`] instance to log if the entity doesn't exist
+    /// when a command is executed.
     ///
     /// This is the default setting.
     ///
@@ -1867,7 +1873,8 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         self
     }
 
-    /// Sets the [`EntityEntryCommands`] instance to warn if the entity doesn't exist when a command is executed.
+    /// Sets the [`EntityEntryCommands`] instance to warn if the entity doesn't exist
+    /// when a command is executed.
     ///
     /// # See also:
     /// - [`ignore_if_missing`](Self::ignore_if_missing)
@@ -1878,7 +1885,8 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
         self
     }
 
-    /// Sets the [`EntityEntryCommands`] instance to panic if the entity doesn't exist when a command is executed.
+    /// Sets the [`EntityEntryCommands`] instance to panic if the entity doesn't exist
+    /// when a command is executed.
     ///
     /// # See also:
     /// - [`ignore_if_missing`](Self::ignore_if_missing)
@@ -1913,7 +1921,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// [Insert](EntityCommands::insert) `default` into this entity, if `T` is not already present.
     ///
     /// [`Self::or_insert`] used to panic if the entity was missing, and this was the non-panicking version.
-    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::or_insert`]
+    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::or_insert`].
     ///
     /// See also [`or_insert_with`](Self::or_insert_with).
     #[track_caller]
@@ -1934,7 +1942,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// [Insert](EntityCommands::insert) the value returned from `default` into this entity, if `T` is not already present.
     ///
     /// [`Self::or_insert_with`] used to panic if the entity was missing, and this was the non-panicking version.
-    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::or_insert_with`]
+    /// `EntityCommands` no longer need to handle missing entities individually, so just use [`Self::or_insert_with`].
     ///
     /// See also [`or_insert`](Self::or_insert) and [`or_try_insert`](Self::or_try_insert).
     #[track_caller]
@@ -2045,11 +2053,12 @@ where
 }
 
 /// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of entities.
-/// If any entities do not exist in the world, this command will fail according to `failure_mode`.
+/// If any entities do not exist in the world, this command will fail according to
+/// `failure_handling_mode`.
 ///
 /// This is more efficient than inserting the bundles individually.
 #[track_caller]
-fn insert_batch<I, B>(batch: I, failure_mode: FailureMode) -> impl Command
+fn insert_batch<I, B>(batch: I, failure_handling_mode: FailureHandlingMode) -> impl Command
 where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
@@ -2060,7 +2069,7 @@ where
         world.insert_batch_with_caller(
             batch,
             InsertMode::Replace,
-            failure_mode,
+            failure_handling_mode,
             #[cfg(feature = "track_change_detection")]
             caller,
         );
@@ -2068,11 +2077,12 @@ where
 }
 
 /// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of entities.
-/// If any entities do not exist in the world, this command will fail according to `failure_mode`.
+/// If any entities do not exist in the world, this command will fail according to
+/// `failure_handling_mode`.
 ///
 /// This is more efficient than inserting the bundles individually.
 #[track_caller]
-fn insert_batch_if_new<I, B>(batch: I, failure_mode: FailureMode) -> impl Command
+fn insert_batch_if_new<I, B>(batch: I, failure_handling_mode: FailureHandlingMode) -> impl Command
 where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
@@ -2083,7 +2093,7 @@ where
         world.insert_batch_with_caller(
             batch,
             InsertMode::Keep,
-            failure_mode,
+            failure_handling_mode,
             #[cfg(feature = "track_change_detection")]
             caller,
         );

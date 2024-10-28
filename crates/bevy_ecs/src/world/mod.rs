@@ -2491,7 +2491,7 @@ impl World {
         self.insert_batch_with_caller(
             batch,
             InsertMode::Replace,
-            FailureMode::Panic,
+            FailureHandlingMode::Panic,
             #[cfg(feature = "track_change_detection")]
             Location::caller(),
         );
@@ -2522,7 +2522,7 @@ impl World {
         self.insert_batch_with_caller(
             batch,
             InsertMode::Keep,
-            FailureMode::Panic,
+            FailureHandlingMode::Panic,
             #[cfg(feature = "track_change_detection")]
             Location::caller(),
         );
@@ -2540,7 +2540,7 @@ impl World {
         &mut self,
         iter: I,
         insert_mode: InsertMode,
-        failure_mode: FailureMode,
+        failure_handling_mode: FailureHandlingMode,
         #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) where
         I: IntoIterator,
@@ -2561,20 +2561,20 @@ impl World {
         }
 
         let insert_batch_fail = |entity: Entity| {
-            match failure_mode {
-                FailureMode::Ignore => (),
-                FailureMode::Log => info!(
-                    "error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003",
+            match failure_handling_mode {
+                FailureHandlingMode::Ignore => (),
+                FailureHandlingMode::Log => info!(
+                    "error[B0003]: Could not insert a bundle (of type `{}`) for entity {} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003",
                     core::any::type_name::<B>(),
                     entity,
                 ),
-                FailureMode::Warn => warn!(
-                    "error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003",
+                FailureHandlingMode::Warn => warn!(
+                    "error[B0003]: Could not insert a bundle (of type `{}`) for entity {} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003",
                     core::any::type_name::<B>(),
                     entity,
                 ),
-                FailureMode::Panic => panic!(
-                    "error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003",
+                FailureHandlingMode::Panic => panic!(
+                    "error[B0003]: Could not insert a bundle (of type `{}`) for entity {} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003",
                     core::any::type_name::<B>(),
                     entity,
                 ),
@@ -3812,7 +3812,7 @@ impl<T: Default> FromWorld for T {
 
 /// How to respond if a function fails
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
-pub enum FailureMode {
+pub enum FailureHandlingMode {
     /// Do nothing
     Ignore,
     /// Send a benign message to the log
