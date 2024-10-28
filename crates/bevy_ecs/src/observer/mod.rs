@@ -247,6 +247,7 @@ pub struct Observers {
     on_insert: CachedObservers,
     on_replace: CachedObservers,
     on_remove: CachedObservers,
+    on_mutate: CachedObservers,
     // Map from trigger type to set of observers
     cache: HashMap<ComponentId, CachedObservers>,
 }
@@ -258,6 +259,7 @@ impl Observers {
             ON_INSERT => &mut self.on_insert,
             ON_REPLACE => &mut self.on_replace,
             ON_REMOVE => &mut self.on_remove,
+            ON_MUTATE => &mut self.on_mutate,
             _ => self.cache.entry(event_type).or_default(),
         }
     }
@@ -268,6 +270,7 @@ impl Observers {
             ON_INSERT => Some(&self.on_insert),
             ON_REPLACE => Some(&self.on_replace),
             ON_REMOVE => Some(&self.on_remove),
+            ON_MUTATE => Some(&self.on_mutate),
             _ => self.cache.get(&event_type),
         }
     }
@@ -342,6 +345,7 @@ impl Observers {
             ON_INSERT => Some(ArchetypeFlags::ON_INSERT_OBSERVER),
             ON_REPLACE => Some(ArchetypeFlags::ON_REPLACE_OBSERVER),
             ON_REMOVE => Some(ArchetypeFlags::ON_REMOVE_OBSERVER),
+            ON_MUTATE => Some(ArchetypeFlags::ON_MUTATE_OBSERVER),
             _ => None,
         }
     }
@@ -377,6 +381,14 @@ impl Observers {
             .contains_key(&component_id)
         {
             flags.insert(ArchetypeFlags::ON_REMOVE_OBSERVER);
+        }
+
+        if self
+            .on_mutate
+            .component_observers
+            .contains_key(&component_id)
+        {
+            flags.insert(ArchetypeFlags::ON_MUTATE_OBSERVER);
         }
     }
 }
@@ -565,6 +577,7 @@ impl World {
     }
 }
 
+// TODO GRACE: write tests here
 #[cfg(test)]
 mod tests {
     use alloc::vec;

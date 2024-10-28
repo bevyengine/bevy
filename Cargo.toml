@@ -3852,3 +3852,8 @@ doc-scrape-examples = true
 
 [package.metadata.example.testbed_3d]
 hidden = true
+
+[[example]]
+name = "playground"
+path = "examples/playground.rs"
+doc-scrape-examples = false

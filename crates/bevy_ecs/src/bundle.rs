@@ -18,7 +18,7 @@ use crate::{
     prelude::World,
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT, ON_REPLACE},
+    world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT, ON_MUTATE, ON_REPLACE},
 };
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::{all_tuples, HashMap, HashSet, TypeIdMap};
@@ -1093,6 +1093,13 @@ impl<'w> BundleInserter<'w> {
                             add_bundle.iter_inserted(),
                         );
                     }
+                    if new_archetype.has_mutate_observer() {
+                        deferred_world.trigger_observers(
+                            ON_MUTATE,
+                            entity,
+                            add_bundle.iter_inserted(),
+                        );
+                    }
                 }
                 InsertMode::Keep => {
                     // insert triggers only for new components if we're not replacing them (since
@@ -1105,6 +1112,13 @@ impl<'w> BundleInserter<'w> {
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
                             ON_INSERT,
+                            entity,
+                            add_bundle.iter_added(),
+                        );
+                    }
+                    if new_archetype.has_mutate_observer() {
+                        deferred_world.trigger_observers(
+                            ON_MUTATE,
                             entity,
                             add_bundle.iter_added(),
                         );
@@ -1245,6 +1259,13 @@ impl<'w> BundleSpawner<'w> {
             if archetype.has_insert_observer() {
                 deferred_world.trigger_observers(
                     ON_INSERT,
+                    entity,
+                    bundle_info.iter_contributed_components(),
+                );
+            }
+            if archetype.has_mutate_observer() {
+                deferred_world.trigger_observers(
+                    ON_MUTATE,
                     entity,
                     bundle_info.iter_contributed_components(),
                 );

@@ -352,6 +352,7 @@ bitflags::bitflags! {
         const ON_INSERT_OBSERVER = (1 << 5);
         const ON_REPLACE_OBSERVER = (1 << 6);
         const ON_REMOVE_OBSERVER = (1 << 7);
+        const ON_MUTATE_OBSERVER = (1 << 8);
     }
 }
 
@@ -696,6 +697,11 @@ impl Archetype {
     #[inline]
     pub fn has_remove_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_REMOVE_OBSERVER)
+    }
+
+    #[inline]
+    pub fn has_mutate_observer(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_MUTATE_OBSERVER)
     }
 }
 

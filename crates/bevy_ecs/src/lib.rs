@@ -64,7 +64,7 @@ pub mod prelude {
         },
         world::{
             Command, EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
-            FromWorld, OnAdd, OnInsert, OnRemove, OnReplace, World,
+            FromWorld, OnAdd, OnInsert, OnRemove, OnReplace, OnMutate, World,
         },
     };
 
