@@ -9,7 +9,7 @@ use notify_debouncer_full::{
     notify::{
         self,
         event::{AccessKind, AccessMode, CreateKind, ModifyKind, RemoveKind, RenameMode},
-        RecommendedWatcher, RecursiveMode, Watcher,
+        RecommendedWatcher, RecursiveMode,
     },
     DebounceEventResult, Debouncer, FileIdMap,
 };
