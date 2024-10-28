@@ -1642,7 +1642,13 @@ mod tests {
         assert_is_system(returning::<Option<()>>.map(drop));
         assert_is_system(returning::<&str>.map(u64::from_str).map(Result::unwrap));
         assert_is_system(static_system_param);
-        assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.map(bevy_utils::error));
+        assert_is_system(
+            exclusive_in_out::<(), Result<(), std::io::Error>>.map(|system| {
+                if let Err(err) = system {
+                    bevy_utils::tracing::error!("{err}");
+                }
+            }),
+        );
         assert_is_system(exclusive_with_state);
         assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
 

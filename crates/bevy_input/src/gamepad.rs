@@ -1362,7 +1362,7 @@ pub fn gamepad_connection_system(
                     continue;
                 };
                 gamepad.insert(Gamepad::new(info.clone()));
-                info!("Gamepad {:?} connected.", id);
+                info!("Gamepad {} connected.", id);
             }
             GamepadConnection::Disconnected => {
                 let Some(mut gamepad) = commands.get_entity(id) else {

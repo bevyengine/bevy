@@ -356,7 +356,7 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
 /// #
 /// fn print_cool_entity_system(query: Query<Entity, Or<(Changed<Color>, Changed<Node>)>>) {
 ///     for entity in &query {
-///         println!("Entity {:?} got a new style or color", entity);
+///         println!("Entity {} got a new style or color", entity);
 ///     }
 /// }
 /// # bevy_ecs::system::assert_is_system(print_cool_entity_system);

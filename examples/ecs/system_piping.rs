@@ -4,10 +4,7 @@
 use bevy::prelude::*;
 use std::num::ParseIntError;
 
-use bevy::{
-    log::LogPlugin,
-    utils::{dbg, error, info, tracing::Level, warn},
-};
+use bevy::{log::LogPlugin, utils::tracing::Level};
 
 fn main() {
     App::new()
@@ -22,10 +19,18 @@ fn main() {
             Update,
             (
                 parse_message_system.pipe(handler_system),
-                data_pipe_system.map(info),
-                parse_message_system.map(dbg),
-                warning_pipe_system.map(warn),
-                parse_error_message_system.map(error),
+                data_pipe_system.map(|system| bevy::utils::tracing::info!("{system}")),
+                parse_message_system.map(|system| bevy::utils::tracing::debug!("{system:?}")),
+                warning_pipe_system.map(|system| {
+                    if let Err(err) = system {
+                        bevy::utils::tracing::warn!("{err}");
+                    }
+                }),
+                parse_error_message_system.map(|system| {
+                    if let Err(err) = system {
+                        bevy::utils::tracing::error!("{err}");
+                    }
+                }),
                 parse_message_system.map(drop),
             ),
         )

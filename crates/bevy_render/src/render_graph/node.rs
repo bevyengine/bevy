@@ -230,7 +230,7 @@ pub struct NodeState {
 
 impl Debug for NodeState {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "{:?} ({:?})", self.label, self.type_name)
+        writeln!(f, "{:?} ({})", self.label, self.type_name)
     }
 }
 

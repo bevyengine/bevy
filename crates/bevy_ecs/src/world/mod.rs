@@ -1529,7 +1529,7 @@ impl World {
             true
         } else {
             if log_warning {
-                warn!("error[B0003]: {caller}: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
+                warn!("error[B0003]: {caller}: Could not despawn entity {} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
             }
             false
         }
@@ -2613,11 +2613,11 @@ impl World {
                             )
                         };
                     } else {
-                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), entity);
+                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), entity);
                     }
                 }
             } else {
-                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), first_entity);
+                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), first_entity);
             }
         }
     }

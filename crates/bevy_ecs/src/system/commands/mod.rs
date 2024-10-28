@@ -1567,7 +1567,7 @@ impl<'a> EntityCommands<'a> {
     ///     .spawn_empty()
     ///     // Closures with this signature implement `EntityCommand`.
     ///     .queue(|entity: EntityWorldMut| {
-    ///         println!("Executed an EntityCommand for {:?}", entity.id());
+    ///         println!("Executed an EntityCommand for {}", entity.id());
     ///     });
     /// # }
     /// # bevy_ecs::system::assert_is_system(my_system);
@@ -1967,7 +1967,7 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
                 caller,
             );
         } else {
-            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
         }
     }
 }
@@ -1986,7 +1986,7 @@ fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityC
                 caller,
             );
         } else {
-            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<T>(), entity);
         }
     }
 }

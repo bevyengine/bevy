@@ -196,7 +196,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// struct Explode;
 ///
 /// world.add_observer(|trigger: Trigger<Explode>, mut commands: Commands| {
-///     println!("Entity {:?} goes BOOM!", trigger.entity());
+///     println!("Entity {} goes BOOM!", trigger.entity());
 ///     commands.entity(trigger.entity()).despawn();
 /// });
 ///

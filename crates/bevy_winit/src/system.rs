@@ -61,11 +61,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
             continue;
         }
 
-        info!(
-            "Creating new window {:?} ({:?})",
-            window.title.as_str(),
-            entity
-        );
+        info!("Creating new window {} ({})", window.title.as_str(), entity);
 
         let winit_window = winit_windows.create_window(
             event_loop,
@@ -199,7 +195,7 @@ pub fn create_monitors(
             idx += 1;
             true
         } else {
-            info!("Monitor removed {:?}", entity);
+            info!("Monitor removed {}", entity);
             commands.entity(*entity).despawn();
             idx += 1;
             false
@@ -224,7 +220,7 @@ pub(crate) fn despawn_windows(
         closing_events.send(WindowClosing { window });
     }
     for window in closed.read() {
-        info!("Closing window {:?}", window);
+        info!("Closing window {}", window);
         // Guard to verify that the window is in fact actually gone,
         // rather than having the component added
         // and removed in the same frame.
@@ -380,7 +376,7 @@ pub(crate) fn changed_windows(
                 let position = PhysicalPosition::new(physical_position.x, physical_position.y);
 
                 if let Err(err) = winit_window.set_cursor_position(position) {
-                    error!("could not set cursor position: {:?}", err);
+                    error!("could not set cursor position: {}", err);
                 }
             }
         }
@@ -397,7 +393,7 @@ pub(crate) fn changed_windows(
             if let Err(err) = winit_window.set_cursor_hittest(window.cursor_options.hit_test) {
                 window.cursor_options.hit_test = cache.window.cursor_options.hit_test;
                 warn!(
-                    "Could not set cursor hit test for window {:?}: {:?}",
+                    "Could not set cursor hit test for window {}: {}",
                     window.title, err
                 );
             }
