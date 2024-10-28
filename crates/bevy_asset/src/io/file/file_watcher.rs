@@ -245,8 +245,7 @@ pub(crate) fn new_asset_event_debouncer(
             }
         },
     )?;
-    debouncer.watcher().watch(&root, RecursiveMode::Recursive)?;
-    debouncer.cache().add_root(&root, RecursiveMode::Recursive);
+    debouncer.watch(&root, RecursiveMode::Recursive)?;
     Ok(debouncer)
 }
 
