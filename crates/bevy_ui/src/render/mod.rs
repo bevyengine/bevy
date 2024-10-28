@@ -282,7 +282,7 @@ pub fn extract_uinode_background_colors(
                 color: background_color.0.into(),
                 rect: Rect {
                     min: Vec2::ZERO,
-                    max: uinode.calculated_size,
+                    max: uinode.size,
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
@@ -351,7 +351,7 @@ pub fn extract_uinode_images(
         let mut rect = match (atlas_rect, image.rect) {
             (None, None) => Rect {
                 min: Vec2::ZERO,
-                max: uinode.calculated_size,
+                max: uinode.size,
             },
             (None, Some(image_rect)) => image_rect,
             (Some(atlas_rect), None) => atlas_rect,

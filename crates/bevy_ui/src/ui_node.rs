@@ -25,7 +25,7 @@ pub struct ComputedNode {
     /// The size of the node as width and height in logical pixels
     ///
     /// automatically calculated by [`super::layout::ui_layout_system`]
-    pub(crate) calculated_size: Vec2,
+    pub(crate) size: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
     /// Outline updates bypass change detection.
@@ -63,7 +63,7 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub const fn size(&self) -> Vec2 {
-        self.calculated_size
+        self.size
     }
 
     /// Check if the node is empty.
@@ -197,7 +197,7 @@ impl ComputedNode {
 impl ComputedNode {
     pub const DEFAULT: Self = Self {
         stack_index: 0,
-        calculated_size: Vec2::ZERO,
+        size: Vec2::ZERO,
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
