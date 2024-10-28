@@ -34,8 +34,9 @@ use crate::{
     bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode},
     change_detection::{MutUntyped, TicksMut},
     component::{
-        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, RequiredComponents, RequiredComponentsError, Tick,
+        Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
+        ComponentInfo, ComponentTicks, Components, RequiredComponents, RequiredComponentsError,
+        Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
@@ -3259,6 +3260,35 @@ impl World {
             .register_info::<B>(&mut self.components, &mut self.storages);
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
+    }
+
+    /// Retrieves a mutable referene to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// use bevy_ecs::component::{ComponentId, ComponentCloneHandler};
+    /// use bevy_ecs::entity::EntityCloner;
+    ///
+    /// fn custom_clone_handler(
+    ///     _world: &mut World,
+    ///     component_id: ComponentId,
+    ///     _entity_cloner: &EntityCloner,
+    /// ) {
+    ///     // Custom cloning logic for component
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct ComponentA;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// let component_id = world.register_component::<ComponentA>();
+    ///
+    /// world.get_component_clone_handlers_mut()
+    ///      .set_component_handler(component_id, ComponentCloneHandler::Custom(custom_clone_handler))
+    /// ```
+    pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
+        self.components.get_component_clone_handlers_mut()
     }
 }
 

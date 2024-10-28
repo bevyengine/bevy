@@ -1,6 +1,10 @@
-use crate::components::{Children, Parent};
+use crate::{
+    components::{Children, Parent},
+    BuildChildren,
+};
 use bevy_ecs::{
-    entity::Entity,
+    component::{ComponentCloneHandler, ComponentId},
+    entity::{Entity, EntityCloneBuilder, EntityCloner},
     system::EntityCommands,
     world::{Command, EntityWorldMut, World},
 };
@@ -198,6 +202,50 @@ impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
     }
 }
 
+/// Trait that holds functions for cloning entities recursively down the hierarchy
+pub trait CloneEntityRecursiveExt {
+    /// Sets the option to recursively clone entities.
+    /// When set to true all children will be cloned with the same options as the parent.
+    fn recursive(&mut self, recursive: bool) -> &mut EntityCloneBuilder;
+}
+
+impl CloneEntityRecursiveExt for EntityCloneBuilder {
+    fn recursive(&mut self, recursive: bool) -> &mut EntityCloneBuilder {
+        if recursive {
+            self.override_component_clone_handler::<Children>(ComponentCloneHandler::Custom(
+                component_clone_children,
+            ))
+            .override_component_clone_handler::<Parent>(ComponentCloneHandler::Ignore)
+        } else {
+            self.override_component_clone_handler::<Children>(ComponentCloneHandler::Default)
+                .override_component_clone_handler::<Parent>(ComponentCloneHandler::Default)
+        }
+    }
+}
+
+/// Clone handler for the [`Children`] component. Allows to clone the entity recursively.
+fn component_clone_children(
+    world: &mut World,
+    _component_id: ComponentId,
+    entity_cloner: &EntityCloner,
+) {
+    let children = world
+        .get::<Children>(entity_cloner.get_source())
+        .expect("Source entity must have Children component")
+        .iter()
+        .cloned()
+        .collect::<Vec<_>>();
+    for child in children {
+        let child_clone = world.spawn_empty().id();
+        entity_cloner
+            .with_source_and_target(child, child_clone)
+            .clone_entity(world);
+        world
+            .entity_mut(child_clone)
+            .set_parent(entity_cloner.get_target());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
@@ -210,6 +258,7 @@ mod tests {
     use crate::{
         child_builder::{BuildChildren, ChildBuild},
         components::Children,
+        CloneEntityRecursiveExt,
     };
 
     #[derive(Component, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Debug)]
@@ -341,5 +390,67 @@ mod tests {
         assert_eq!(children.unwrap().len(), 2_usize);
         // The original child should be despawned.
         assert!(world.get_entity(child).is_err());
+    }
+
+    #[test]
+    fn clone_entity_recursive() {
+        #[derive(Component, PartialEq, Eq, Clone)]
+        struct Component1 {
+            field: usize,
+        }
+
+        let parent_component = Component1 { field: 10 };
+        let child1_component = Component1 { field: 20 };
+        let child1_1_component = Component1 { field: 30 };
+        let child2_component = Component1 { field: 21 };
+        let child2_1_component = Component1 { field: 31 };
+
+        let mut world = World::default();
+
+        let mut queue = CommandQueue::default();
+        let e_clone = {
+            let mut commands = Commands::new(&mut queue, &world);
+            let e = commands
+                .spawn(parent_component.clone())
+                .with_children(|children| {
+                    children
+                        .spawn(child1_component.clone())
+                        .with_children(|children| {
+                            children.spawn(child1_1_component.clone());
+                        });
+                    children
+                        .spawn(child2_component.clone())
+                        .with_children(|children| {
+                            children.spawn(child2_1_component.clone());
+                        });
+                })
+                .id();
+            let e_clone = commands
+                .clone_entity_with(e, |builder| {
+                    builder.recursive(true);
+                })
+                .id();
+            e_clone
+        };
+        queue.apply(&mut world);
+
+        assert!(world
+            .get::<Component1>(e_clone)
+            .is_some_and(|c| *c == parent_component));
+
+        let children = world.get::<Children>(e_clone).unwrap();
+        for (child, (component1, component2)) in children.iter().zip([
+            (child1_component, child1_1_component),
+            (child2_component, child2_1_component),
+        ]) {
+            assert!(world
+                .get::<Component1>(*child)
+                .is_some_and(|c| *c == component1));
+            for child2 in world.get::<Children>(*child).unwrap().iter() {
+                assert!(world
+                    .get::<Component1>(*child2)
+                    .is_some_and(|c| *c == component2));
+            }
+        }
     }
 }
