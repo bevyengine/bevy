@@ -1,9 +1,6 @@
 //! Showcases the [`RelativeCursorPosition`] component, used to check the position of the cursor relative to a UI node.
 
-use bevy::{
-    prelude::*, render::camera::Viewport, ui::RelativeCursorPosition, window::WindowResized,
-    winit::WinitSettings,
-};
+use bevy::{prelude::*, ui::RelativeCursorPosition, winit::WinitSettings};
 
 fn main() {
     App::new()
@@ -11,26 +8,12 @@ fn main() {
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (set_camera_viewports, relative_cursor_position_system),
-        )
+        .add_systems(Update, relative_cursor_position_system)
         .run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn((
-        Camera2d,
-        Camera {
-            // Cursor position will take the viewport offset into account
-            viewport: Some(Viewport {
-                physical_position: [100, 200].into(),
-                physical_size: [600, 600].into(),
-                ..default()
-            }),
-            ..default()
-        },
-    ));
+    commands.spawn((Camera2d, Camera::default()));
 
     commands
         .spawn(Node {
@@ -87,26 +70,4 @@ fn relative_cursor_position_system(
     } else {
         Color::srgb(0.9, 0.1, 0.1)
     };
-}
-
-fn set_camera_viewports(
-    windows: Query<&Window>,
-    mut resize_events: EventReader<WindowResized>,
-    mut query: Query<&mut Camera>,
-) {
-    // We need to dynamically resize the camera's viewports whenever the window size changes
-    // so then each camera always takes up half the screen.
-    // A resize_event is sent when the window is first created, allowing us to reuse this system for initial setup.
-    for resize_event in resize_events.read() {
-        let window = windows.get(resize_event.window).unwrap();
-        let size = window.physical_size() / 2;
-
-        for mut camera in &mut query {
-            camera.viewport = Some(Viewport {
-                physical_position: size,
-                physical_size: size,
-                ..default()
-            });
-        }
-    }
 }

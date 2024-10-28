@@ -340,12 +340,12 @@ impl Default for Camera {
             is_active: true,
             order: 0,
             viewport: None,
-            computed: Default::default(),
-            target: Default::default(),
-            output_mode: Default::default(),
+            computed: default(),
+            target: default(),
+            output_mode: default(),
             hdr: false,
             msaa_writeback: true,
-            clear_color: Default::default(),
+            clear_color: default(),
             sub_camera_view: None,
         }
     }
@@ -725,7 +725,7 @@ pub enum RenderTarget {
 
 impl Default for RenderTarget {
     fn default() -> Self {
-        Self::Window(Default::default())
+        Self::Window(default())
     }
 }
 
