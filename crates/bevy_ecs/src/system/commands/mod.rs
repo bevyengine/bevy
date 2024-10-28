@@ -287,7 +287,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     ///     // Create a clone of the first entity, but without ComponentB
     ///     let entity_clone = commands.clone_entity_with(entity, |builder| {
-    ///         builder.deny::<ComponentB>()
+    ///         builder.deny::<ComponentB>();
     ///     }).id();
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);

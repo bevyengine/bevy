@@ -1336,7 +1336,7 @@ impl Components {
         &self.component_clone_handlers
     }
 
-    /// Retrieves a mutable referene to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
+    /// Retrieves a mutable reference to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
     pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
         &mut self.component_clone_handlers
     }

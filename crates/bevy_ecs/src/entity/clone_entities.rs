@@ -8,7 +8,7 @@ use crate::{
     world::World,
 };
 
-/// A helper struct to clone an entity. Used internaly by [`EntityCloneBuilder::clone_entity`] and custom clone handlers.
+/// A helper struct to clone an entity. Used internally by [`EntityCloneBuilder::clone_entity`] and custom clone handlers.
 pub struct EntityCloner<'a> {
     source: Entity,
     target: Entity,
@@ -151,7 +151,7 @@ impl EntityCloneBuilder {
     }
 
     /// Disallow a component from being cloned.
-    /// If [`Self::allow`] was called beforehand, this will remove the copmonent from allowed list.
+    /// If [`Self::allow`] was called beforehand, this will remove the component from allowed list.
     pub fn deny<T: Component>(&mut self) -> &mut Self {
         self.ignored_components.insert(TypeId::of::<T>());
         self

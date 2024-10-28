@@ -3262,7 +3262,7 @@ impl World {
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
 
-    /// Retrieves a mutable referene to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
+    /// Retrieves a mutable reference to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
