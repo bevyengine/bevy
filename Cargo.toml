@@ -3857,12 +3857,10 @@ doc-scrape-examples = true
 [package.metadata.example.testbed_3d]
 hidden = true
 
-<<<<<<< HEAD
 [[example]]
 name = "playground"
 path = "examples/playground.rs"
 doc-scrape-examples = false
-=======
 
 [[example]]
 name = "testbed_ui_layout_rounding"
@@ -3871,4 +3869,3 @@ doc-scrape-examples = true
 
 [package.metadata.example.testbed_ui_layout_rounding]
 hidden = true
->>>>>>> main

@@ -335,7 +335,6 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
                     entity_ref
                         .get_change_ticks_by_id(*c)
                         .map(|ticks| {
-                            // println!("{:?}", ticks);
                             ticks.changed.get() >= system_meta.last_run.get()
                         }) // FIXME GRACE: get this_run
                         .unwrap_or(false)
