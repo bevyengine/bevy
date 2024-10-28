@@ -24,7 +24,6 @@ use bevy::{
         texture::{BevyDefault, TextureFormatPixelInfo},
         Extract, Render, RenderApp, RenderSet,
     },
-    winit::WinitPlugin,
 };
 use crossbeam_channel::{Receiver, Sender};
 use std::{
@@ -81,7 +80,6 @@ fn main() {
         .insert_resource(ClearColor(Color::srgb_u8(0, 0, 0)))
         .add_plugins(
             HeadlessPlugins
-                .set(ScheduleRunnerPlugin::run_once())
                 .set(ImagePlugin::default_nearest())
                 // Not strictly necessary, as the inclusion of ScheduleRunnerPlugin below
                 // replaces the bevy_winit app runner and so a window is never created.
