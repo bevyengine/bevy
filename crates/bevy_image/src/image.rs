@@ -612,7 +612,7 @@ impl From<wgpu::SamplerBorderColor> for ImageSamplerBorderColor {
     }
 }
 
-impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
+impl From<wgpu::SamplerDescriptor<'_>> for ImageSamplerDescriptor {
     fn from(value: wgpu::SamplerDescriptor) -> Self {
         ImageSamplerDescriptor {
             label: value.label.map(ToString::to_string),
@@ -1444,7 +1444,7 @@ pub enum ImageType<'a> {
     Format(ImageFormat),
 }
 
-impl<'a> ImageType<'a> {
+impl ImageType<'_> {
     pub fn to_image_format(&self) -> Result<ImageFormat, TextureError> {
         match self {
             ImageType::MimeType(mime_type) => ImageFormat::from_mime_type(mime_type)

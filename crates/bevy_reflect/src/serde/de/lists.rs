@@ -22,7 +22,7 @@ impl<'a> ListVisitor<'a> {
     }
 }
 
-impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
+impl<'de> Visitor<'de> for ListVisitor<'_> {
     type Value = DynamicList;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {

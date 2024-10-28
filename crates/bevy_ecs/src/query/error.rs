@@ -18,9 +18,9 @@ pub enum QueryEntityError<'w> {
     AliasedMutability(Entity),
 }
 
-impl<'w> core::error::Error for QueryEntityError<'w> {}
+impl core::error::Error for QueryEntityError<'_> {}
 
-impl<'w> core::fmt::Display for QueryEntityError<'w> {
+impl core::fmt::Display for QueryEntityError<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match *self {
             Self::QueryDoesNotMatch(entity, world) => {
@@ -39,7 +39,7 @@ impl<'w> core::fmt::Display for QueryEntityError<'w> {
     }
 }
 
-impl<'w> core::fmt::Debug for QueryEntityError<'w> {
+impl core::fmt::Debug for QueryEntityError<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match *self {
             Self::QueryDoesNotMatch(entity, world) => {
@@ -75,7 +75,7 @@ fn format_archetype(
     Ok(())
 }
 
-impl<'w> PartialEq for QueryEntityError<'w> {
+impl PartialEq for QueryEntityError<'_> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::QueryDoesNotMatch(e1, _), Self::QueryDoesNotMatch(e2, _)) if e1 == e2 => true,
@@ -86,7 +86,7 @@ impl<'w> PartialEq for QueryEntityError<'w> {
     }
 }
 
-impl<'w> Eq for QueryEntityError<'w> {}
+impl Eq for QueryEntityError<'_> {}
 
 /// An error that occurs when evaluating a [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState) as a single expected result via
 /// [`get_single`](crate::system::Query::get_single) or [`get_single_mut`](crate::system::Query::get_single_mut).

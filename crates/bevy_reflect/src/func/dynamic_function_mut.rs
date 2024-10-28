@@ -214,7 +214,7 @@ impl<'env> DynamicFunctionMut<'env> {
 /// This takes the format: `DynamicFunctionMut(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
 ///
 /// Names for arguments and the function itself are optional and will default to `_` if not provided.
-impl<'env> Debug for DynamicFunctionMut<'env> {
+impl Debug for DynamicFunctionMut<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let name = self.info.name().unwrap_or(&Cow::Borrowed("_"));
         write!(f, "DynamicFunctionMut(fn {name}(")?;

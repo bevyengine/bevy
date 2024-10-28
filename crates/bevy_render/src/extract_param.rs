@@ -134,7 +134,7 @@ where
     }
 }
 
-impl<'w, 's, P> DerefMut for Extract<'w, 's, P>
+impl<P> DerefMut for Extract<'_, '_, P>
 where
     P: ReadOnlySystemParam,
 {

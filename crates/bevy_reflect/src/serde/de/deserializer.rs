@@ -104,7 +104,7 @@ impl<'a> ReflectDeserializer<'a> {
     }
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
+impl<'de> DeserializeSeed<'de> for ReflectDeserializer<'_> {
     type Value = Box<dyn PartialReflect>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -115,7 +115,7 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
             registry: &'a TypeRegistry,
         }
 
-        impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
+        impl<'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'_> {
             type Value = Box<dyn PartialReflect>;
 
             fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -271,7 +271,7 @@ impl<'a> TypedReflectDeserializer<'a> {
     }
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
+impl<'de> DeserializeSeed<'de> for TypedReflectDeserializer<'_> {
     type Value = Box<dyn PartialReflect>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>

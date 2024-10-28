@@ -23,7 +23,7 @@ use futures_lite::Future;
 ///         // we cannot get the ticker from another thread
 ///         let not_thread_ticker = thread_executor.ticker();
 ///         assert!(not_thread_ticker.is_none());
-///         
+///
 ///         // but we can spawn tasks from another thread
 ///         thread_executor.spawn(async move {
 ///             count_clone.fetch_add(1, Ordering::Relaxed);
@@ -45,7 +45,7 @@ pub struct ThreadExecutor<'task> {
     thread_id: ThreadId,
 }
 
-impl<'task> Default for ThreadExecutor<'task> {
+impl Default for ThreadExecutor<'_> {
     fn default() -> Self {
         Self {
             executor: Executor::new(),

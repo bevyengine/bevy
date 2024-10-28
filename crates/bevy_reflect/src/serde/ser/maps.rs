@@ -13,7 +13,7 @@ impl<'a> MapSerializer<'a> {
     }
 }
 
-impl<'a> Serialize for MapSerializer<'a> {
+impl Serialize for MapSerializer<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

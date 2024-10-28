@@ -26,7 +26,7 @@ struct PlayerCounter<'w, 's> {
     count: ResMut<'w, PlayerCount>,
 }
 
-impl<'w, 's> PlayerCounter<'w, 's> {
+impl PlayerCounter<'_, '_> {
     fn count(&mut self) {
         self.count.0 = self.players.iter().len();
     }

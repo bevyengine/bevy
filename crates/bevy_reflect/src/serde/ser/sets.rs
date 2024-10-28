@@ -13,7 +13,7 @@ impl<'a> SetSerializer<'a> {
     }
 }
 
-impl<'a> Serialize for SetSerializer<'a> {
+impl Serialize for SetSerializer<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

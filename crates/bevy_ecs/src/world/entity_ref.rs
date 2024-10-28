@@ -2010,7 +2010,7 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     }
 }
 
-impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
+impl<'a, T: Component + Default> Entry<'_, 'a, T> {
     /// Ensures the entry has this component by inserting the default value if empty, and
     /// returns a mutable reference to this component in the entry.
     ///
@@ -2044,7 +2044,7 @@ pub struct OccupiedEntry<'w, 'a, T: Component> {
     _marker: PhantomData<T>,
 }
 
-impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
+impl<'a, T: Component> OccupiedEntry<'_, 'a, T> {
     /// Gets a reference to the component in the entry.
     ///
     /// # Examples

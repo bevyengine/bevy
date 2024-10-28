@@ -24,7 +24,7 @@ impl<'de> Deserialize<'de> for Name {
 
 struct EntityVisitor;
 
-impl<'de> Visitor<'de> for EntityVisitor {
+impl Visitor<'_> for EntityVisitor {
     type Value = Name;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -55,7 +55,7 @@ impl<'de> Deserialize<'de> for FrameCount {
 
 struct FrameVisitor;
 
-impl<'de> Visitor<'de> for FrameVisitor {
+impl Visitor<'_> for FrameVisitor {
     type Value = FrameCount;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {

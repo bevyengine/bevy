@@ -90,7 +90,7 @@ struct SerializableWithRegistry<'a, T: SerializeWithRegistry> {
     registry: &'a TypeRegistry,
 }
 
-impl<'a, T: SerializeWithRegistry> Serialize for SerializableWithRegistry<'a, T> {
+impl<T: SerializeWithRegistry> Serialize for SerializableWithRegistry<'_, T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

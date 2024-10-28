@@ -38,7 +38,7 @@ pub trait GizmoPrimitive3d<P: Primitive3d> {
 
 // direction 3d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Dir3> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Dir3> for Gizmos<'_, '_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -176,7 +176,7 @@ where
 
 // line 3d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Line3d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Line3d> for Gizmos<'_, '_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -211,7 +211,7 @@ where
 
 // segment 3d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Segment3d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Segment3d> for Gizmos<'_, '_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -239,8 +239,8 @@ where
 
 // polyline 3d
 
-impl<'w, 's, const N: usize, Config, Clear> GizmoPrimitive3d<Polyline3d<N>>
-    for Gizmos<'w, 's, Config, Clear>
+impl<const N: usize, Config, Clear> GizmoPrimitive3d<Polyline3d<N>>
+    for Gizmos<'_, '_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -267,7 +267,7 @@ where
 
 // boxed polyline 3d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<BoxedPolyline3d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<BoxedPolyline3d> for Gizmos<'_, '_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -301,7 +301,7 @@ where
 
 // triangle 3d
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Triangle3d> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Triangle3d> for Gizmos<'_, '_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -329,7 +329,7 @@ where
 
 // cuboid
 
-impl<'w, 's, Config, Clear> GizmoPrimitive3d<Cuboid> for Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoPrimitive3d<Cuboid> for Gizmos<'_, '_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -936,7 +936,7 @@ where
 
 // tetrahedron
 
-impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'w, 's, T> {
+impl<T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'_, '_, T> {
     type Output<'a>
         = ()
     where

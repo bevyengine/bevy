@@ -36,7 +36,7 @@ impl<'a, T: SparseSetIndex> FormattedBitSet<'a, T> {
     }
 }
 
-impl<'a, T: SparseSetIndex + Debug> Debug for FormattedBitSet<'a, T> {
+impl<T: SparseSetIndex + Debug> Debug for FormattedBitSet<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_list()
             .entries(self.bit_set.ones().map(T::get_sparse_set_index))

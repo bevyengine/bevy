@@ -394,7 +394,7 @@ impl<'a> Iterator for ArrayIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for ArrayIter<'a> {}
+impl ExactSizeIterator for ArrayIter<'_> {}
 
 /// Returns the `u64` hash of the given [array](Array).
 #[inline]

@@ -396,7 +396,7 @@ impl<'a, T: ?Sized> From<&'a mut T> for PtrMut<'a> {
     }
 }
 
-impl<'a> OwningPtr<'a> {
+impl OwningPtr<'_> {
     /// Consumes a value and creates an [`OwningPtr`] to it while ensuring a double drop does not happen.
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
@@ -407,7 +407,7 @@ impl<'a> OwningPtr<'a> {
     }
 }
 
-impl<'a, A: IsAligned> OwningPtr<'a, A> {
+impl<A: IsAligned> OwningPtr<'_, A> {
     /// Creates a new instance from a raw pointer.
     ///
     /// # Safety
@@ -473,7 +473,7 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     }
 }
 
-impl<'a> OwningPtr<'a, Unaligned> {
+impl OwningPtr<'_, Unaligned> {
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
     ///
     /// # Safety
@@ -509,13 +509,13 @@ impl<'a, T> ThinSlicePtr<'a, T> {
     }
 }
 
-impl<'a, T> Clone for ThinSlicePtr<'a, T> {
+impl<T> Clone for ThinSlicePtr<'_, T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<'a, T> Copy for ThinSlicePtr<'a, T> {}
+impl<T> Copy for ThinSlicePtr<'_, T> {}
 
 impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
     #[inline]
@@ -545,7 +545,7 @@ mod private {
     use core::cell::UnsafeCell;
 
     pub trait SealedUnsafeCell {}
-    impl<'a, T> SealedUnsafeCell for &'a UnsafeCell<T> {}
+    impl<T> SealedUnsafeCell for &UnsafeCell<T> {}
 }
 
 /// Extension trait for helper methods on [`UnsafeCell`]

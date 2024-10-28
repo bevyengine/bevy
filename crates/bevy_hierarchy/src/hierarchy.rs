@@ -176,7 +176,7 @@ fn despawn_descendants_inner<'v, 'w>(
     world
 }
 
-impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
+impl DespawnRecursiveExt for EntityWorldMut<'_> {
     /// Despawns the provided entity and its children.
     /// This will emit warnings for any entity that does not exist.
     fn despawn_recursive(self) {

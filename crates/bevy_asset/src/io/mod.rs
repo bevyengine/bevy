@@ -688,7 +688,7 @@ impl<'a> SliceReader<'a> {
     }
 }
 
-impl<'a> AsyncRead for SliceReader<'a> {
+impl AsyncRead for SliceReader<'_> {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -704,7 +704,7 @@ impl<'a> AsyncRead for SliceReader<'a> {
     }
 }
 
-impl<'a> AsyncSeekForward for SliceReader<'a> {
+impl AsyncSeekForward for SliceReader<'_> {
     fn poll_seek_forward(
         mut self: Pin<&mut Self>,
         _cx: &mut Context<'_>,

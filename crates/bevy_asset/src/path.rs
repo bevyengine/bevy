@@ -56,13 +56,13 @@ pub struct AssetPath<'a> {
     label: Option<CowArc<'a, str>>,
 }
 
-impl<'a> Debug for AssetPath<'a> {
+impl Debug for AssetPath<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         Display::fmt(self, f)
     }
 }
 
-impl<'a> Display for AssetPath<'a> {
+impl Display for AssetPath<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if let AssetSourceId::Name(name) = self.source() {
             write!(f, "{name}://")?;
@@ -565,7 +565,7 @@ impl<'a> From<AssetPath<'a>> for PathBuf {
     }
 }
 
-impl<'a> Serialize for AssetPath<'a> {
+impl Serialize for AssetPath<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -585,7 +585,7 @@ impl<'de> Deserialize<'de> for AssetPath<'static> {
 
 struct AssetPathVisitor;
 
-impl<'de> Visitor<'de> for AssetPathVisitor {
+impl Visitor<'_> for AssetPathVisitor {
     type Value = AssetPath<'static>;
 
     fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {

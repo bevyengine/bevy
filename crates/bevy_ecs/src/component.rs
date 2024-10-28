@@ -1494,7 +1494,7 @@ pub struct TickCells<'a> {
     pub changed: &'a UnsafeCell<Tick>,
 }
 
-impl<'a> TickCells<'a> {
+impl TickCells<'_> {
     /// # Safety
     /// All cells contained within must uphold the safety invariants of [`UnsafeCellDeref::read`].
     #[inline]

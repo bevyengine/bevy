@@ -64,7 +64,7 @@ pub struct EventWriter<'w, E: Event> {
     events: ResMut<'w, Events<E>>,
 }
 
-impl<'w, E: Event> EventWriter<'w, E> {
+impl<E: Event> EventWriter<'_, E> {
     /// Sends an `event`, which can later be read by [`EventReader`](super::EventReader)s.
     /// This method returns the [ID](`EventId`) of the sent `event`.
     ///
