@@ -1,4 +1,4 @@
-use crate::{Flag, Prepare, PreparedCommand};
+use crate::{args::Args, Prepare, PreparedCommand};
 use argh::FromArgs;
 use xshell::cmd;
 
@@ -8,9 +8,9 @@ use xshell::cmd;
 pub struct TestCommand {}
 
 impl Prepare for TestCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
-        let no_fail_fast = flags
-            .contains(Flag::KEEP_GOING)
+    fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
+        let no_fail_fast = args
+            .keep_going
             .then_some("--no-fail-fast")
             .unwrap_or_default();
 

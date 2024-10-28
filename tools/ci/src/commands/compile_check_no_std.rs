@@ -1,4 +1,4 @@
-use crate::{Flag, Prepare, PreparedCommand};
+use crate::{args::Args, Prepare, PreparedCommand};
 use argh::FromArgs;
 use xshell::cmd;
 
@@ -27,7 +27,7 @@ impl Default for CompileCheckNoStdCommand {
 }
 
 impl Prepare for CompileCheckNoStdCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {
+    fn prepare<'a>(&self, sh: &'a xshell::Shell, _args: Args) -> Vec<PreparedCommand<'a>> {
         let target = self.target.as_str();
         let mut commands = Vec::new();
 
