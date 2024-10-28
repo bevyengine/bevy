@@ -143,6 +143,12 @@ pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> t
             .collect::<Vec<_>>(),
         grid_row: node.grid_row.into(),
         grid_column: node.grid_column.into(),
+        // This setting excludes padding/border/margin when specifying size styles.
+        box_sizing: taffy::BoxSizing::BorderBox,
+        // Setting this item as false since display:table does not seem to be supported now.
+        item_is_table: false,
+        // Setting to Auto assuming we don't want any special legacy text align behaviour.
+        text_align: taffy::TextAlign::Auto,
     }
 }
 
