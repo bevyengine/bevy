@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.81.0"
+rust-version = "1.82.0"
 
 [workspace]
 exclude = [
@@ -3855,4 +3855,13 @@ path = "examples/testbed/3d.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.testbed_3d]
+hidden = true
+
+
+[[example]]
+name = "testbed_ui_layout_rounding"
+path = "examples/testbed/ui_layout_rounding.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_ui_layout_rounding]
 hidden = true

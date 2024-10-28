@@ -1,8 +1,8 @@
 use crate::{
     experimental::UiChildren,
     prelude::{Button, Label},
-    widget::TextUiReader,
-    ComputedNode, UiImage,
+    widget::{TextUiReader, UiImage},
+    ComputedNode,
 };
 use bevy_a11y::{
     accesskit::{NodeBuilder, Rect, Role},
@@ -53,8 +53,8 @@ fn calc_bounds(
                     let bounds = Rect::new(
                         translation.x.into(),
                         translation.y.into(),
-                        (translation.x + node.calculated_size.x).into(),
-                        (translation.y + node.calculated_size.y).into(),
+                        (translation.x + node.size.x).into(),
+                        (translation.y + node.size.y).into(),
                     );
                     accessible.set_bounds(bounds);
                 }
