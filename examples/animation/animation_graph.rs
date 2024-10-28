@@ -452,7 +452,7 @@ fn sync_weights(mut query: Query<(&mut AnimationPlayer, &ExampleAnimationWeights
             .zip(animation_weights.weights.iter())
         {
             // If the animation happens to be no longer active, restart it.
-            if !animation_player.animation_is_playing(animation_node_index.into()) {
+            if !animation_player.is_playing_animation(animation_node_index.into()) {
                 animation_player.play(animation_node_index.into());
             }
 

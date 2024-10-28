@@ -1162,16 +1162,34 @@ impl Mesh {
                 // If there aren't enough indices to make a triangle, then an empty vector will be
                 // returned.
                 let iterator = match indices {
-                    Indices::U16(vec) => FourIterators::Third(
-                        vec.as_slice()
-                            .windows(3)
-                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
-                    ),
-                    Indices::U32(vec) => FourIterators::Fourth(
-                        vec.as_slice()
-                            .windows(3)
-                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
-                    ),
+                    Indices::U16(vec) => {
+                        FourIterators::Third(vec.as_slice().windows(3).enumerate().flat_map(
+                            move |(i, indices)| {
+                                if i % 2 == 0 {
+                                    indices_to_triangle(vertices, indices)
+                                } else {
+                                    indices_to_triangle(
+                                        vertices,
+                                        &[indices[1], indices[0], indices[2]],
+                                    )
+                                }
+                            },
+                        ))
+                    }
+                    Indices::U32(vec) => {
+                        FourIterators::Fourth(vec.as_slice().windows(3).enumerate().flat_map(
+                            move |(i, indices)| {
+                                if i % 2 == 0 {
+                                    indices_to_triangle(vertices, indices)
+                                } else {
+                                    indices_to_triangle(
+                                        vertices,
+                                        &[indices[1], indices[0], indices[2]],
+                                    )
+                                }
+                            },
+                        ))
+                    }
                 };
 
                 return Ok(iterator);
@@ -1209,6 +1227,7 @@ mod tests {
     use super::Mesh;
     use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
     use bevy_asset::RenderAssetUsages;
+    use bevy_math::primitives::Triangle3d;
     use bevy_math::Vec3;
     use bevy_transform::components::Transform;
     use wgpu::PrimitiveTopology;
@@ -1397,5 +1416,82 @@ mod tests {
         assert_eq!(Vec3::new(1., 0., 1.).normalize().to_array(), normals[2]);
         // 3
         assert_eq!([1., 0., 0.], normals[3]);
+    }
+
+    #[test]
+    fn triangles_from_triangle_list() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[0., 0., 0.], [1., 0., 0.], [1., 1., 0.], [0., 1., 0.]],
+        );
+        mesh.insert_indices(Indices::U32(vec![0, 1, 2, 2, 3, 0]));
+        assert_eq!(
+            vec![
+                Triangle3d {
+                    vertices: [
+                        Vec3::new(0., 0., 0.),
+                        Vec3::new(1., 0., 0.),
+                        Vec3::new(1., 1., 0.),
+                    ]
+                },
+                Triangle3d {
+                    vertices: [
+                        Vec3::new(1., 1., 0.),
+                        Vec3::new(0., 1., 0.),
+                        Vec3::new(0., 0., 0.),
+                    ]
+                }
+            ],
+            mesh.triangles().unwrap().collect::<Vec<Triangle3d>>()
+        );
+    }
+
+    #[test]
+    fn triangles_from_triangle_strip() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleStrip,
+            RenderAssetUsages::default(),
+        );
+        // Triangles: (0, 1, 2), (2, 1, 3), (2, 3, 4), (4, 3, 5)
+        //
+        // 4 - 5
+        // | \ |
+        // 2 - 3
+        // | \ |
+        // 0 - 1
+        let positions: Vec<Vec3> = [
+            [0., 0., 0.],
+            [1., 0., 0.],
+            [0., 1., 0.],
+            [1., 1., 0.],
+            [0., 2., 0.],
+            [1., 2., 0.],
+        ]
+        .into_iter()
+        .map(Vec3::from_array)
+        .collect();
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions.clone());
+        mesh.insert_indices(Indices::U32(vec![0, 1, 2, 3, 4, 5]));
+        assert_eq!(
+            vec![
+                Triangle3d {
+                    vertices: [positions[0], positions[1], positions[2]]
+                },
+                Triangle3d {
+                    vertices: [positions[2], positions[1], positions[3]]
+                },
+                Triangle3d {
+                    vertices: [positions[2], positions[3], positions[4]]
+                },
+                Triangle3d {
+                    vertices: [positions[4], positions[3], positions[5]]
+                },
+            ],
+            mesh.triangles().unwrap().collect::<Vec<Triangle3d>>()
+        );
     }
 }

@@ -4,9 +4,11 @@ mod render_pass;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
+use crate::widget::UiImage;
 use crate::{
-    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, DefaultUiCamera, Outline,
-    ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples, UiImage, UiScale,
+    experimental::UiChildren, BackgroundColor, BorderColor, CalculatedClip, ComputedNode,
+    DefaultUiCamera, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples,
+    UiScale,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -39,8 +41,9 @@ use bevy_render::{
     ExtractSchedule, Render,
 };
 use bevy_sprite::TextureAtlasLayout;
-use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents, TextureAtlas};
+use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents};
 
+use crate::{Display, Node};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
@@ -315,14 +318,13 @@ pub fn extract_uinode_images(
                 Option<&CalculatedClip>,
                 Option<&TargetCamera>,
                 &UiImage,
-                Option<&TextureAtlas>,
             ),
             Without<ImageScaleMode>,
         >,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
-    for (entity, uinode, transform, view_visibility, clip, camera, image, atlas) in &uinode_query {
+    for (entity, uinode, transform, view_visibility, clip, camera, image) in &uinode_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -335,12 +337,14 @@ pub fn extract_uinode_images(
         // Skip invisible images
         if !view_visibility.get()
             || image.color.is_fully_transparent()
-            || image.texture.id() == TRANSPARENT_IMAGE_HANDLE.id()
+            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
             continue;
         }
 
-        let atlas_rect = atlas
+        let atlas_rect = image
+            .texture_atlas
+            .as_ref()
             .and_then(|s| s.texture_rect(&texture_atlases))
             .map(|r| r.as_rect());
 
@@ -374,7 +378,7 @@ pub fn extract_uinode_images(
                 color: image.color.into(),
                 rect,
                 clip: clip.map(|clip| clip.clip),
-                image: image.texture.id(),
+                image: image.image.id(),
                 camera_entity: render_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling,
@@ -398,6 +402,7 @@ pub fn extract_uinode_borders(
     uinode_query: Extract<
         Query<(
             Entity,
+            &Node,
             &ComputedNode,
             &GlobalTransform,
             &ViewVisibility,
@@ -406,13 +411,16 @@ pub fn extract_uinode_borders(
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
+    parent_clip_query: Extract<Query<&CalculatedClip>>,
     mapping: Extract<Query<RenderEntity>>,
+    ui_children: UiChildren,
 ) {
     let image = AssetId::<Image>::default();
 
     for (
         entity,
-        uinode,
+        node,
+        computed_node,
         global_transform,
         view_visibility,
         maybe_clip,
@@ -431,24 +439,22 @@ pub fn extract_uinode_borders(
             continue;
         };
 
-        // Skip invisible borders
-        if !view_visibility.get()
-            || maybe_border_color.is_some_and(|border_color| border_color.0.is_fully_transparent())
-                && maybe_outline.is_some_and(|outline| outline.color.is_fully_transparent())
-        {
+        // Skip invisible borders and removed nodes
+        if !view_visibility.get() || node.display == Display::None {
             continue;
         }
 
-        // don't extract border if no border or the node is zero-sized (a zero sized node can still have an outline).
-        if !uinode.is_empty() && uinode.border() != BorderRect::ZERO {
-            if let Some(border_color) = maybe_border_color {
+        // Don't extract borders with zero width along all edges
+        if computed_node.border() != BorderRect::ZERO {
+            if let Some(border_color) = maybe_border_color.filter(|bc| !bc.0.is_fully_transparent())
+            {
                 extracted_uinodes.uinodes.insert(
                     commands.spawn(TemporaryRenderEntity).id(),
                     ExtractedUiNode {
-                        stack_index: uinode.stack_index,
+                        stack_index: computed_node.stack_index,
                         color: border_color.0.into(),
                         rect: Rect {
-                            max: uinode.size(),
+                            max: computed_node.size(),
                             ..Default::default()
                         },
                         image,
@@ -459,8 +465,8 @@ pub fn extract_uinode_borders(
                             transform: global_transform.compute_matrix(),
                             flip_x: false,
                             flip_y: false,
-                            border: uinode.border(),
-                            border_radius: uinode.border_radius(),
+                            border: computed_node.border(),
+                            border_radius: computed_node.border_radius(),
                             node_type: NodeType::Border,
                         },
                         main_entity: entity.into(),
@@ -469,27 +475,36 @@ pub fn extract_uinode_borders(
             }
         }
 
-        if let Some(outline) = maybe_outline {
-            let outline_size = uinode.outlined_node_size();
+        if computed_node.outline_width() <= 0. {
+            continue;
+        }
+
+        if let Some(outline) = maybe_outline.filter(|outline| !outline.color.is_fully_transparent())
+        {
+            let outline_size = computed_node.outlined_node_size();
+            let parent_clip = ui_children
+                .get_parent(entity)
+                .and_then(|parent| parent_clip_query.get(parent).ok());
+
             extracted_uinodes.uinodes.insert(
                 commands.spawn(TemporaryRenderEntity).id(),
                 ExtractedUiNode {
-                    stack_index: uinode.stack_index,
+                    stack_index: computed_node.stack_index,
                     color: outline.color.into(),
                     rect: Rect {
                         max: outline_size,
                         ..Default::default()
                     },
                     image,
-                    clip: maybe_clip.map(|clip| clip.clip),
+                    clip: parent_clip.map(|clip| clip.clip),
                     camera_entity: render_camera_entity,
                     item: ExtractedUiItem::Node {
                         transform: global_transform.compute_matrix(),
                         atlas_scaling: None,
                         flip_x: false,
                         flip_y: false,
-                        border: BorderRect::square(uinode.outline_width()),
-                        border_radius: uinode.outline_radius(),
+                        border: BorderRect::square(computed_node.outline_width()),
+                        border_radius: computed_node.outline_radius(),
                         node_type: NodeType::Border,
                     },
                     main_entity: entity.into(),
@@ -768,6 +783,8 @@ struct UiVertex {
     pub border: [f32; 4],
     /// Size of the UI node.
     pub size: [f32; 2],
+    /// Position relative to the center of the UI node.
+    pub point: [f32; 2],
 }
 
 #[derive(Resource)]
@@ -998,6 +1015,7 @@ pub fn prepare_uinodes(
                             // Specify the corners of the node
                             let positions = QUAD_VERTEX_POSITIONS
                                 .map(|pos| (*transform * (pos * rect_size).extend(1.)).xyz());
+                            let points = QUAD_VERTEX_POSITIONS.map(|pos| pos.xy() * rect_size.xy());
 
                             // Calculate the effect of clipping
                             // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
@@ -1029,6 +1047,13 @@ pub fn prepare_uinodes(
                                 positions[1] + positions_diff[1].extend(0.),
                                 positions[2] + positions_diff[2].extend(0.),
                                 positions[3] + positions_diff[3].extend(0.),
+                            ];
+
+                            let points = [
+                                points[0] + positions_diff[0],
+                                points[1] + positions_diff[1],
+                                points[2] + positions_diff[2],
+                                points[3] + positions_diff[3],
                             ];
 
                             let transformed_rect_size = transform.transform_vector3(rect_size);
@@ -1113,6 +1138,7 @@ pub fn prepare_uinodes(
                                     ],
                                     border: [border.left, border.top, border.right, border.bottom],
                                     size: rect_size.xy().into(),
+                                    point: points[i].into(),
                                 });
                             }
 
@@ -1215,6 +1241,7 @@ pub fn prepare_uinodes(
                                         radius: [0.0; 4],
                                         border: [0.0; 4],
                                         size: size.into(),
+                                        point: [0.0; 2],
                                     });
                                 }
 

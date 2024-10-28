@@ -39,6 +39,7 @@ derive_more = { version = "1", default-features = false, features = [
   "from",
   "display",
 ] }
+either = "1.13"
 thread_local = "1"
 uuid = { version = "1.7", features = ["v4"] }
 smallvec = "1"

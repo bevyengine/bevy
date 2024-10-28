@@ -325,10 +325,8 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         for archetype_id in state.matched_archetypes() {
             let Some(archetype) = world.archetypes().get(archetype_id) else { continue; };
             if !archetype.has_mutate_observer() { continue; }
-            // println!("{:?}", archetype_id);
             let (writes, cant_write) = system_meta.component_access_set.combined_access().component_writes();
             let writes = if cant_write { vec![] } else { writes.collect() };
-            // println!("{:?}", writes);
             
             for archetype_entity in archetype.entities() {
                 let entity = archetype_entity.id();
@@ -353,30 +351,6 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
             }
         }
     }
-
-    // fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-        
-        
-
-    //     for archetype_id in state.matched_archetypes() {
-    //         let Some(archetype) = world.archetypes().get(archetype_id) else { continue; };
-    //         if !archetype.has_mutate_observer() { continue; }
-    //         let (writes, are_writes) = system_meta.archetype_component_access.component_writes();
-    //         if are_writes {
-    //             for comp in writes {
-                    
-    //             }
-    //         }
-    //         for archetype_entity in archetype.entities() {
-
-    //             let entity = archetype_entity.id();
-    //             for component in archetype.components() {
-                    
-    //             }
-    //         }
-    //     }
-    //     // world.commands().trigger_targets(OnMutate, targets);
-    // }
 }
 
 pub(crate) fn init_query_param<D: QueryData + 'static, F: QueryFilter + 'static>(
