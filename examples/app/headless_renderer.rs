@@ -25,6 +25,7 @@ use bevy::{
         Extract, Render, RenderApp, RenderSet,
     },
 };
+use bevy_render::RenderPlugin;
 use crossbeam_channel::{Receiver, Sender};
 use std::{
     ops::{Deref, DerefMut},
@@ -80,23 +81,18 @@ fn main() {
         .insert_resource(ClearColor(Color::srgb_u8(0, 0, 0)))
         .add_plugins(
             HeadlessPlugins
-                .set(ImagePlugin::default_nearest())
-                // Not strictly necessary, as the inclusion of ScheduleRunnerPlugin below
-                // replaces the bevy_winit app runner and so a window is never created.
-                .set(WindowPlugin {
-                    primary_window: None,
-                    ..default()
-                })
+                // ScheduleRunnerPlugin provides an alternative to the default bevy_winit app runner, which
+                // manages the loop without creating a window.
+                .set(ScheduleRunnerPlugin::run_loop(
+                    // Run 60 times per second.
+                    Duration::from_secs_f64(1.0 / 60.0),
+                )),
         )
+        .add_plugins(RenderPlugin::default())
+        .add_plugins(ImagePlugin::default_nearest())
         .add_plugins(ImageCopyPlugin)
         // headless frame capture
         .add_plugins(CaptureFramePlugin)
-        // ScheduleRunnerPlugin provides an alternative to the default bevy_winit app runner, which
-        // manages the loop without creating a window.
-        .add_plugins(ScheduleRunnerPlugin::run_loop(
-            // Run 60 times per second.
-            Duration::from_secs_f64(1.0 / 60.0),
-        ))
         .init_resource::<SceneController>()
         .add_systems(Startup, setup)
         .run();
