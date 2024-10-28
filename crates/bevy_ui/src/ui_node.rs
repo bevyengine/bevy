@@ -1,4 +1,4 @@
-use crate::{widget::UiImageSize, FocusPolicy, UiRect, Val};
+use crate::{widget::UiImageSize, ContentSize, FocusPolicy, UiRect, Val};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -2042,7 +2042,7 @@ impl Outline {
 /// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(Node, UiImageSize)]
+#[require(Node, UiImageSize, ContentSize)]
 pub struct UiImage {
     /// The tint color used to draw the image.
     ///
