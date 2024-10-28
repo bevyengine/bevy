@@ -359,8 +359,8 @@ with UI components as a child of an entity without UI components, your UI layout
                     + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
-            if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
-                node.calculated_size = rounded_size;
+            if node.size != rounded_size || node.unrounded_size != layout_size {
+                node.size = rounded_size;
                 node.unrounded_size = layout_size;
             }
 
@@ -374,12 +374,12 @@ with UI components as a child of an entity without UI components, your UI layout
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
             node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
 
-            let viewport_size = root_size.unwrap_or(node.calculated_size);
+            let viewport_size = root_size.unwrap_or(node.size);
 
             if let Some(border_radius) = maybe_border_radius {
                 // We don't trigger change detection for changes to border radius
                 node.bypass_change_detection().border_radius =
-                    border_radius.resolve(node.calculated_size, viewport_size);
+                    border_radius.resolve(node.size, viewport_size);
             }
 
             if let Some(outline) = maybe_outline {
@@ -1129,9 +1129,9 @@ mod tests {
                 ui_schedule.run(&mut world);
                 let width_sum: f32 = children
                     .iter()
-                    .map(|child| world.get::<ComputedNode>(*child).unwrap().calculated_size.x)
+                    .map(|child| world.get::<ComputedNode>(*child).unwrap().size.x)
                     .sum();
-                let parent_width = world.get::<ComputedNode>(parent).unwrap().calculated_size.x;
+                let parent_width = world.get::<ComputedNode>(parent).unwrap().size.x;
                 assert!((width_sum - parent_width).abs() < 0.001);
                 assert!((width_sum - 320.).abs() <= 1.);
                 s += r;
