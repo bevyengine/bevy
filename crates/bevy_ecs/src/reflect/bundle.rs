@@ -35,7 +35,8 @@ pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::apply_or_insert()`].
     pub apply_or_insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::remove()`].
-    pub remove: for<'a, 'w> fn(&'a mut EntityWorldMut<'w>) -> &'a mut EntityWorldMut<'w>,
+    pub remove: fn(&mut EntityWorldMut) -> ReflectBundle,
+    pub take: fn(&mut EntityWorldMut) -> Option<ReflectBundle>,
 }
 
 impl ReflectBundleFns {
@@ -85,8 +86,19 @@ impl ReflectBundle {
     }
 
     /// Removes this [`Bundle`] type from the entity. Does nothing if it doesn't exist.
-    pub fn remove<'a, 'w>(&self, entity: &'a mut EntityWorldMut<'w>) -> &'a mut EntityWorldMut<'w> {
+    pub fn remove(&self, entity: &mut EntityWorldMut) -> ReflectBundle {
         (self.0.remove)(entity)
+    }
+
+
+    /// Removes all components in the [`Bundle`] from the entity and returns their previous values.
+    ///
+    /// **Note:** If the entity does not have every component in the bundle, this method will not
+    /// remove any of them.
+    // TODO: BundleRemover?
+    #[must_use]
+    pub fn take(&self, entity: &mut EntityWorldMut) -> Option<ReflectBundle> {
+        (self.0.take)(entity)
     }
 
     /// Create a custom implementation of [`ReflectBundle`].
@@ -178,6 +190,9 @@ impl<B: Bundle + Reflect + TypePath> FromType<B> for ReflectBundle {
             remove: |entity| {
                 entity.remove::<B>()
             },
+            take: |entity| {
+                entity.take::<B>()
+            }
         })
     }
 }
