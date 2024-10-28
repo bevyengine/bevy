@@ -856,8 +856,8 @@ impl AnimationPlayer {
         self.active_animations.iter_mut()
     }
 
-    #[deprecated = "Use `animation_is_playing` instead"]
-    /// Check if the given animation node is being played.
+    /// Returns true if the animation is currently playing or paused, or false
+    /// if the animation is stopped.
     pub fn is_playing_animation(&self, animation: AnimationNodeIndex) -> bool {
         self.active_animations.contains_key(&animation)
     }
@@ -944,6 +944,7 @@ impl AnimationPlayer {
         self.active_animations.get_mut(&animation)
     }
 
+    #[deprecated = "Use `is_playing_animation` instead"]
     /// Returns true if the animation is currently playing or paused, or false
     /// if the animation is stopped.
     pub fn animation_is_playing(&self, animation: AnimationNodeIndex) -> bool {
