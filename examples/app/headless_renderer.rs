@@ -22,10 +22,9 @@ use bevy::{
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
         texture::{BevyDefault, TextureFormatPixelInfo},
-        Extract, Render, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderPlugin, RenderSet,
     },
 };
-use bevy_render::RenderPlugin;
 use crossbeam_channel::{Receiver, Sender};
 use std::{
     ops::{Deref, DerefMut},
