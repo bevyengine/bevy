@@ -23,6 +23,7 @@ pub use source::*;
 
 use alloc::sync::Arc;
 use bevy_utils::{BoxedFuture, ConditionalSendFuture};
+use core::future::Future;
 use core::{
     mem::size_of,
     pin::Pin,
@@ -117,6 +118,40 @@ impl<T: ?Sized + AsyncSeekForward + Unpin> AsyncSeekForward for Box<T> {
         offset: u64,
     ) -> Poll<futures_io::Result<u64>> {
         Pin::new(&mut **self).poll_seek_forward(cx, offset)
+    }
+}
+
+/// Extension trait for [`AsyncSeekForward`].
+pub trait AsyncSeekForwardExt: AsyncSeekForward {
+    /// Seek by the provided `offset` in the forwards direction, using the [`AsyncSeekForward`] trait.
+    fn seek_forward(&mut self, offset: u64) -> SeekForwardFuture<'_, Self>
+    where
+        Self: Unpin,
+    {
+        SeekForwardFuture {
+            seeker: self,
+            offset,
+        }
+    }
+}
+
+impl<R: AsyncSeekForward + ?Sized> AsyncSeekForwardExt for R {}
+
+#[derive(Debug)]
+#[must_use = "futures do nothing unless you `.await` or poll them"]
+pub struct SeekForwardFuture<'a, S: Unpin + ?Sized> {
+    seeker: &'a mut S,
+    offset: u64,
+}
+
+impl<S: Unpin + ?Sized> Unpin for SeekForwardFuture<'_, S> {}
+
+impl<S: AsyncSeekForward + Unpin + ?Sized> Future for SeekForwardFuture<'_, S> {
+    type Output = futures_lite::io::Result<u64>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let offset = self.offset;
+        Pin::new(&mut *self.seeker).poll_seek_forward(cx, offset)
     }
 }
 

@@ -24,13 +24,13 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_sprite::{
-    ImageScaleMode, SliceScaleMode, SpriteAssetEvents, TextureAtlas, TextureAtlasLayout,
-    TextureSlicer,
+    ImageScaleMode, SliceScaleMode, SpriteAssetEvents, TextureAtlasLayout, TextureSlicer,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
+use widget::UiImage;
 
 pub const UI_SLICER_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11156288772117983964);
 
@@ -258,22 +258,12 @@ pub fn extract_ui_texture_slices(
             Option<&TargetCamera>,
             &UiImage,
             &ImageScaleMode,
-            Option<&TextureAtlas>,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
-    for (
-        entity,
-        uinode,
-        transform,
-        view_visibility,
-        clip,
-        camera,
-        image,
-        image_scale_mode,
-        atlas,
-    ) in &slicers_query
+    for (entity, uinode, transform, view_visibility, clip, camera, image, image_scale_mode) in
+        &slicers_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -287,12 +277,14 @@ pub fn extract_ui_texture_slices(
         // Skip invisible images
         if !view_visibility.get()
             || image.color.is_fully_transparent()
-            || image.texture.id() == TRANSPARENT_IMAGE_HANDLE.id()
+            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
             continue;
         }
 
-        let atlas_rect = atlas
+        let atlas_rect = image
+            .texture_atlas
+            .as_ref()
             .and_then(|s| s.texture_rect(&texture_atlases))
             .map(|r| r.as_rect());
 
@@ -318,7 +310,7 @@ pub fn extract_ui_texture_slices(
                     max: uinode.calculated_size,
                 },
                 clip: clip.map(|clip| clip.clip),
-                image: image.texture.id(),
+                image: image.image.id(),
                 camera_entity,
                 image_scale_mode: image_scale_mode.clone(),
                 atlas_rect,
