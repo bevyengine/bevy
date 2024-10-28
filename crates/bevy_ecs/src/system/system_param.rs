@@ -4,7 +4,7 @@ use crate::{
     bundle::Bundles,
     change_detection::{Ticks, TicksMut},
     component::{self, ComponentId, ComponentTicks, Components, Tick},
-    entity::Entities,
+    entity::{Entities, Entity},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
         QueryState, ReadOnlyQueryData,
@@ -12,13 +12,13 @@ use crate::{
     storage::ResourceData,
     system::{Query, Single, SystemMeta},
     world::{
-        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut, FromWorld, OnMutate, World, ON_MUTATE
+        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut, FromWorld, Mut, OnMutate, World, ON_MUTATE
     },
 };
 use bevy_ecs_macros::impl_param_set;
 pub use bevy_ecs_macros::{Resource, SystemParam};
 use bevy_ptr::UnsafeCellDeref;
-use bevy_utils::{all_tuples, synccell::SyncCell};
+use bevy_utils::{all_tuples, synccell::SyncCell, Entry, HashMap, HashSet};
 #[cfg(feature = "track_change_detection")]
 use core::panic::Location;
 use core::{
@@ -27,6 +27,7 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use std::f64::consts::E;
 
 use super::{IntoSystem, Populated};
 
@@ -321,36 +322,91 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-        let mut vec = Vec::new();
-        for archetype_id in state.matched_archetypes() {
-            let Some(archetype) = world.archetypes().get(archetype_id) else { continue; };
-            if !archetype.has_mutate_observer() { continue; }
+        world.init_resource::<ComponentMutationBuffer>();
+        world.resource_scope(|world, mut buffer: Mut<ComponentMutationBuffer>| {
             let (writes, cant_write) = state.component_access.access.component_writes();
-            let mutable_components = if cant_write { vec![] } else { writes.collect() };
-            
-            for archetype_entity in archetype.entities() {
-                let entity = archetype_entity.id();
-                let entity_ref = world.entity(entity);
-                let mutated_observers = mutable_components
-                    .iter()
-                    .cloned()
-                    .filter(|c| entity_ref
-                        .get_change_ticks_by_id(*c)
-                        .map(|ticks| ticks.changed.get() >= system_meta.last_run.get()) // FIXME GRACE: get this_run
-                        .unwrap_or(false)
-                    ).collect::<Vec<_>>(); 
-                vec.push((entity, mutated_observers));
-            }
-        }
+            let mutable_components = if cant_write { Vec::new() } else { writes.collect() };
+            if mutable_components.is_empty() { return }
 
-        let mut deferred_world = DeferredWorld::from(world);
-        for (e, modified_components) in vec {
-            unsafe {
-                deferred_world.trigger_observers(ON_MUTATE, e, modified_components.into_iter());
+            let buffer_started_empty = buffer.0.is_empty();
+    
+            for archetype_id in state.matched_archetypes() {
+                let Some(archetype) = world.archetypes().get(archetype_id) else { continue; };
+                if !archetype.has_mutate_observer() { continue; }
+                
+                for archetype_entity in archetype.entities() {
+                    let entity = archetype_entity.id();
+                    let entity_ref = world.entity(entity);
+                    let mutated_observers = mutable_components
+                        .iter()
+                        .cloned()
+                        .filter(|c| entity_ref
+                            .get_change_ticks_by_id(*c)
+                            .map(|ticks| ticks.changed.get() >= system_meta.last_run.get()) // FIXME GRACE: get this_run
+                            .unwrap_or(false)
+                        ); 
+                    let values = buffer.0.entry(entity).or_default();
+                    values.extend(mutated_observers);
+                }
             }
-        }
+
+            if buffer_started_empty && !buffer.0.is_empty() {
+                world.commands().queue(flush_mutations);
+            }
+        });
     }
 }
+
+fn flush_mutations(world: &mut World) {
+    world.resource_scope(|world, mut buffer: Mut<ComponentMutationBuffer>| {
+        let mut deferred_world = DeferredWorld::from(world);
+        for (entity, components) in buffer.0.drain() {
+            unsafe {
+                deferred_world.trigger_observers(ON_MUTATE, entity, components.iter().cloned())
+            }
+        }
+    });
+}
+
+#[derive(Default)]
+pub(crate) struct ComponentMutationBuffer(HashMap<Entity, HashSet<ComponentId>>);
+
+impl Resource for ComponentMutationBuffer {}
+
+
+// impl ComponentMutationBuffer {
+//     fn from_query_data(state: &Self::State, system_meta: &SystemMeta, world: &mut World) -> Self {
+        
+//     }
+// }
+
+// impl SystemBuffer for ComponentMutationBuffer {
+//     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+        
+//     }
+
+//     fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld) {
+//         for archetype_id in self.candidate_archetypes {
+//             let Some(archetype) = world.archetypes().get(archetype_id) else { continue; };
+//             if !archetype.has_mutate_observer() { continue; }
+            
+//             for archetype_entity in archetype.entities() {
+//                 let entity = archetype_entity.id();
+//                 let entity_ref = world.entity(entity);
+//                 let mutated_components = self.candidate_components
+//                     .iter()
+//                     .cloned()
+//                     .filter(|c| entity_ref
+//                         .get_change_ticks_by_id(*c)
+//                         .map(|ticks| ticks.changed.get() >= system_meta.last_run.get()) // FIXME GRACE: get this_run
+//                         .unwrap_or(false)
+//                     ).collect::<Vec<_>>(); 
+                
+                
+//             }
+//         }
+//     }
+// }
 
 pub(crate) fn init_query_param<D: QueryData + 'static, F: QueryFilter + 'static>(
     world: &mut World,
