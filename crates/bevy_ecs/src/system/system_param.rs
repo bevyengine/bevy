@@ -325,29 +325,28 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         for archetype_id in state.matched_archetypes() {
             let Some(archetype) = world.archetypes().get(archetype_id) else { continue; };
             if !archetype.has_mutate_observer() { continue; }
-            let (writes, cant_write) = system_meta.component_access_set.combined_access().component_writes();
-            let writes = if cant_write { vec![] } else { writes.collect() };
+            let (writes, cant_write) = state.component_access.access.component_writes();
+            let mutable_components = if cant_write { vec![] } else { writes.collect() };
             
             for archetype_entity in archetype.entities() {
                 let entity = archetype_entity.id();
                 let entity_ref = world.entity(entity);
-                let writes_here = writes.iter().cloned().filter(|c| 
-                    entity_ref
+                let mutated_observers = mutable_components
+                    .iter()
+                    .cloned()
+                    .filter(|c| entity_ref
                         .get_change_ticks_by_id(*c)
-                        .map(|ticks| {
-                            // println!("{:?}", ticks);
-                            ticks.changed.get() >= system_meta.last_run.get()
-                        }) // FIXME GRACE: get this_run
+                        .map(|ticks| ticks.changed.get() >= system_meta.last_run.get()) // FIXME GRACE: get this_run
                         .unwrap_or(false)
                     ).collect::<Vec<_>>(); 
-                vec.push((entity, writes_here));
+                vec.push((entity, mutated_observers));
             }
         }
 
         let mut deferred_world = DeferredWorld::from(world);
         for (e, modified_components) in vec {
             unsafe {
-                deferred_world.trigger_observers(ON_MUTATE, e, modified_components.iter().cloned());
+                deferred_world.trigger_observers(ON_MUTATE, e, modified_components.into_iter());
             }
         }
     }
