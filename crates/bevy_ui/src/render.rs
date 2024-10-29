@@ -100,7 +100,7 @@ pub enum RenderUiSystem {
 }
 
 pub fn build_ui_render(app: &mut App) {
-    load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
+    load_internal_asset!(app, UI_SHADER_HANDLE, "render/ui.wgsl", Shader::from_wgsl);
 
     let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
         return;
@@ -206,7 +206,7 @@ pub enum ExtractedUiItem {
         flip_x: bool,
         flip_y: bool,
         /// Border radius of the UI node.
-        /// Ordering: top left, top right, bottom right, bottom left.   
+        /// Ordering: top left, top right, bottom right, bottom left.
         border_radius: ResolvedBorderRadius,
         /// Border thickness of the UI node.
         /// Ordering: left, top, right, bottom.

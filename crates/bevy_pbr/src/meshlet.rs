@@ -157,61 +157,61 @@ impl Plugin for MeshletPlugin {
         load_internal_asset!(
             app,
             MESHLET_BINDINGS_SHADER_HANDLE,
-            "meshlet_bindings.wgsl",
+            "meshlet/meshlet_bindings.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             super::MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE,
-            "visibility_buffer_resolve.wgsl",
+            "meshlet/visibility_buffer_resolve.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
-            "fill_cluster_buffers.wgsl",
+            "meshlet/fill_cluster_buffers.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             MESHLET_CULLING_SHADER_HANDLE,
-            "cull_clusters.wgsl",
+            "meshlet/cull_clusters.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
-            "downsample_depth.wgsl",
+            "meshlet/downsample_depth.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
-            "visibility_buffer_software_raster.wgsl",
+            "meshlet/visibility_buffer_software_raster.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
-            "visibility_buffer_hardware_raster.wgsl",
+            "meshlet/visibility_buffer_hardware_raster.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             MESHLET_MESH_MATERIAL_SHADER_HANDLE,
-            "meshlet_mesh_material.wgsl",
+            "meshlet/meshlet_mesh_material.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE,
-            "resolve_render_targets.wgsl",
+            "meshlet/resolve_render_targets.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE,
-            "remap_1d_to_2d_dispatch.wgsl",
+            "meshlet/remap_1d_to_2d_dispatch.wgsl",
             Shader::from_wgsl
         );
 

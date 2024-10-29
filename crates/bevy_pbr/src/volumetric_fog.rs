@@ -221,7 +221,7 @@ impl Plugin for VolumetricFogPlugin {
         load_internal_asset!(
             app,
             VOLUMETRIC_FOG_HANDLE,
-            "volumetric_fog.wgsl",
+            "volumetric_fog/volumetric_fog.wgsl",
             Shader::from_wgsl
         );
 

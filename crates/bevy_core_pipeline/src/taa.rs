@@ -49,7 +49,7 @@ pub struct TemporalAntiAliasPlugin;
 
 impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, TAA_SHADER_HANDLE, "taa/taa.wgsl", Shader::from_wgsl);
 
         app.register_type::<TemporalAntiAliasing>();
 

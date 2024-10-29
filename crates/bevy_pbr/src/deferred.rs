@@ -103,7 +103,7 @@ impl Plugin for DeferredPbrLightingPlugin {
         load_internal_asset!(
             app,
             DEFERRED_LIGHTING_SHADER_HANDLE,
-            "deferred_lighting.wgsl",
+            "deferred/deferred_lighting.wgsl",
             Shader::from_wgsl
         );
 

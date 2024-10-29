@@ -47,7 +47,7 @@ impl Plugin for AutoExposurePlugin {
         load_internal_asset!(
             app,
             METERING_SHADER_HANDLE,
-            "auto_exposure.wgsl",
+            "auto_exposure/auto_exposure.wgsl",
             Shader::from_wgsl
         );
 

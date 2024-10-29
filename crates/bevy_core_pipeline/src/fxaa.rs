@@ -86,7 +86,7 @@ const FXAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(41827614651417
 pub struct FxaaPlugin;
 impl Plugin for FxaaPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, FXAA_SHADER_HANDLE, "fxaa.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, FXAA_SHADER_HANDLE, "fxaa/fxaa.wgsl", Shader::from_wgsl);
 
         app.register_type::<Fxaa>();
         app.add_plugins(ExtractComponentPlugin::<Fxaa>::default());

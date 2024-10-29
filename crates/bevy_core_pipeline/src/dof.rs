@@ -206,7 +206,7 @@ enum DofPass {
 
 impl Plugin for DepthOfFieldPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, DOF_SHADER_HANDLE, "dof.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, DOF_SHADER_HANDLE, "dof/dof.wgsl", Shader::from_wgsl);
 
         app.register_type::<DepthOfField>();
         app.register_type::<DepthOfFieldMode>();

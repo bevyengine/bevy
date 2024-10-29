@@ -188,13 +188,13 @@ impl Plugin for PostProcessingPlugin {
         load_internal_asset!(
             app,
             POST_PROCESSING_SHADER_HANDLE,
-            "post_process.wgsl",
+            "post_process/post_process.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             CHROMATIC_ABERRATION_SHADER_HANDLE,
-            "chromatic_aberration.wgsl",
+            "post_process/chromatic_aberration.wgsl",
             Shader::from_wgsl
         );
 

@@ -39,7 +39,7 @@ impl Plugin for OitResolvePlugin {
         load_internal_asset!(
             app,
             OIT_RESOLVE_SHADER_HANDLE,
-            "oit_resolve.wgsl",
+            "resolve/oit_resolve.wgsl",
             Shader::from_wgsl
         );
     }

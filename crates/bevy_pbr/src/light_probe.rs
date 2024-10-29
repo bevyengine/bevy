@@ -326,19 +326,19 @@ impl Plugin for LightProbePlugin {
         load_internal_asset!(
             app,
             LIGHT_PROBE_SHADER_HANDLE,
-            "light_probe.wgsl",
+            "light_probe/light_probe.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             ENVIRONMENT_MAP_SHADER_HANDLE,
-            "environment_map.wgsl",
+            "light_probe/environment_map.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             IRRADIANCE_VOLUME_SHADER_HANDLE,
-            "irradiance_volume.wgsl",
+            "light_probe/irradiance_volume.wgsl",
             Shader::from_wgsl
         );
 

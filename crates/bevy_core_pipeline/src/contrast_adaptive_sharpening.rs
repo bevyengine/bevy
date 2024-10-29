@@ -109,7 +109,7 @@ impl Plugin for CasPlugin {
         load_internal_asset!(
             app,
             CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE,
-            "robust_contrast_adaptive_sharpening.wgsl",
+            "contrast_adaptive_sharpening/robust_contrast_adaptive_sharpening.wgsl",
             Shader::from_wgsl
         );
 

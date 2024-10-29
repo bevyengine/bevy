@@ -70,28 +70,28 @@ where
         load_internal_asset!(
             app,
             PREPASS_SHADER_HANDLE,
-            "prepass.wgsl",
+            "prepass/prepass.wgsl",
             Shader::from_wgsl
         );
 
         load_internal_asset!(
             app,
             PREPASS_BINDINGS_SHADER_HANDLE,
-            "prepass_bindings.wgsl",
+            "prepass/prepass_bindings.wgsl",
             Shader::from_wgsl
         );
 
         load_internal_asset!(
             app,
             PREPASS_UTILS_SHADER_HANDLE,
-            "prepass_utils.wgsl",
+            "prepass/prepass_utils.wgsl",
             Shader::from_wgsl
         );
 
         load_internal_asset!(
             app,
             PREPASS_IO_SHADER_HANDLE,
-            "prepass_io.wgsl",
+            "prepass/prepass_io.wgsl",
             Shader::from_wgsl
         );
 

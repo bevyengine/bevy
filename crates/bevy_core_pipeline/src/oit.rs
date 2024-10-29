@@ -103,7 +103,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
         load_internal_asset!(
             app,
             OIT_DRAW_SHADER_HANDLE,
-            "oit_draw.wgsl",
+            "oit/oit_draw.wgsl",
             Shader::from_wgsl
         );
 

@@ -129,7 +129,7 @@ impl Plugin for MotionBlurPlugin {
         load_internal_asset!(
             app,
             MOTION_BLUR_SHADER_HANDLE,
-            "motion_blur.wgsl",
+            "motion_blur/motion_blur.wgsl",
             Shader::from_wgsl
         );
         app.add_plugins((

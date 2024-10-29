@@ -49,19 +49,19 @@ impl Plugin for TonemappingPlugin {
         load_internal_asset!(
             app,
             TONEMAPPING_SHADER_HANDLE,
-            "tonemapping.wgsl",
+            "tonemapping/tonemapping.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             TONEMAPPING_SHARED_SHADER_HANDLE,
-            "tonemapping_shared.wgsl",
+            "tonemapping/tonemapping_shared.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             TONEMAPPING_LUT_BINDINGS_SHADER_HANDLE,
-            "lut_bindings.wgsl",
+            "tonemapping/lut_bindings.wgsl",
             Shader::from_wgsl
         );
 
@@ -72,15 +72,15 @@ impl Plugin for TonemappingPlugin {
             let tonemapping_luts = {
                 TonemappingLuts {
                     blender_filmic: images.add(setup_tonemapping_lut_image(
-                        include_bytes!("luts/Blender_-11_12.ktx2"),
+                        include_bytes!("tonemapping/luts/Blender_-11_12.ktx2"),
                         ImageType::Extension("ktx2"),
                     )),
                     agx: images.add(setup_tonemapping_lut_image(
-                        include_bytes!("luts/AgX-default_contrast.ktx2"),
+                        include_bytes!("tonemapping/luts/AgX-default_contrast.ktx2"),
                         ImageType::Extension("ktx2"),
                     )),
                     tony_mc_mapface: images.add(setup_tonemapping_lut_image(
-                        include_bytes!("luts/tony_mc_mapface.ktx2"),
+                        include_bytes!("tonemapping/luts/tony_mc_mapface.ktx2"),
                         ImageType::Extension("ktx2"),
                     )),
                 }

@@ -45,7 +45,7 @@ pub struct BloomPlugin;
 
 impl Plugin for BloomPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, BLOOM_SHADER_HANDLE, "bloom.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, BLOOM_SHADER_HANDLE, "bloom/bloom.wgsl", Shader::from_wgsl);
 
         app.register_type::<Bloom>();
         app.register_type::<BloomPrefilter>();

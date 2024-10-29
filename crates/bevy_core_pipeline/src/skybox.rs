@@ -36,11 +36,11 @@ pub struct SkyboxPlugin;
 
 impl Plugin for SkyboxPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, SKYBOX_SHADER_HANDLE, "skybox.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, SKYBOX_SHADER_HANDLE, "skybox/skybox.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
             SKYBOX_PREPASS_SHADER_HANDLE,
-            "skybox_prepass.wgsl",
+            "skybox/skybox_prepass.wgsl",
             Shader::from_wgsl
         );
 

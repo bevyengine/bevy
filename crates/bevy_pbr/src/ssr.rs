@@ -198,11 +198,11 @@ pub struct ScreenSpaceReflectionsPipelineKey {
 
 impl Plugin for ScreenSpaceReflectionsPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, SSR_SHADER_HANDLE, "ssr.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, SSR_SHADER_HANDLE, "ssr/ssr.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
             RAYMARCH_SHADER_HANDLE,
-            "raymarch.wgsl",
+            "ssr/raymarch.wgsl",
             Shader::from_wgsl
         );
 

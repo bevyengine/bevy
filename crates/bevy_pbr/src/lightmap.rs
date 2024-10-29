@@ -126,7 +126,7 @@ impl Plugin for LightmapPlugin {
         load_internal_asset!(
             app,
             LIGHTMAP_SHADER_HANDLE,
-            "lightmap.wgsl",
+            "lightmap/lightmap.wgsl",
             Shader::from_wgsl
         );
     }

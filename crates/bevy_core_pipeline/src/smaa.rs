@@ -293,7 +293,7 @@ pub struct SmaaSpecializedRenderPipelines {
 impl Plugin for SmaaPlugin {
     fn build(&self, app: &mut App) {
         // Load the shader.
-        load_internal_asset!(app, SMAA_SHADER_HANDLE, "smaa.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, SMAA_SHADER_HANDLE, "smaa/smaa.wgsl", Shader::from_wgsl);
 
         // Load the two lookup textures. These are compressed textures in KTX2
         // format.
@@ -301,7 +301,7 @@ impl Plugin for SmaaPlugin {
         load_internal_binary_asset!(
             app,
             SMAA_AREA_LUT_TEXTURE_HANDLE,
-            "SMAAAreaLUT.ktx2",
+            "smaa/SMAAAreaLUT.ktx2",
             |bytes, _: String| Image::from_buffer(
                 #[cfg(all(debug_assertions, feature = "dds"))]
                 "SMAAAreaLUT".to_owned(),
@@ -319,7 +319,7 @@ impl Plugin for SmaaPlugin {
         load_internal_binary_asset!(
             app,
             SMAA_SEARCH_LUT_TEXTURE_HANDLE,
-            "SMAASearchLUT.ktx2",
+            "smaa/SMAASearchLUT.ktx2",
             |bytes, _: String| Image::from_buffer(
                 #[cfg(all(debug_assertions, feature = "dds"))]
                 "SMAASearchLUT".to_owned(),

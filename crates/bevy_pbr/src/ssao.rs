@@ -55,20 +55,20 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         load_internal_asset!(
             app,
             PREPROCESS_DEPTH_SHADER_HANDLE,
-            "preprocess_depth.wgsl",
+            "ssao/preprocess_depth.wgsl",
             Shader::from_wgsl
         );
-        load_internal_asset!(app, SSAO_SHADER_HANDLE, "ssao.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, SSAO_SHADER_HANDLE, "ssao/ssao.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
             SPATIAL_DENOISE_SHADER_HANDLE,
-            "spatial_denoise.wgsl",
+            "ssao/spatial_denoise.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
             app,
             SSAO_UTILS_SHADER_HANDLE,
-            "ssao_utils.wgsl",
+            "ssao/ssao_utils.wgsl",
             Shader::from_wgsl
         );
 
