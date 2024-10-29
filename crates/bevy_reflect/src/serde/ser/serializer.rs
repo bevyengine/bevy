@@ -11,11 +11,11 @@ use crate::{
 };
 use serde::{ser::SerializeMap, Serialize, Serializer};
 
-/// Allows overriding the default serialization behaviour of
+/// Allows overriding the default serialization behavior of
 /// [`ReflectSerializer`] and [`TypedReflectSerializer`] for specific values.
 ///
 /// When serializing a reflected value, you may want to override the default
-/// behaviour and use your own logic for serialization. This logic may also be
+/// behavior and use your own logic for serialization. This logic may also be
 /// context-dependent, and only apply for a single use of your
 /// [`ReflectSerializer`]. To achieve this, you can create a processor and pass
 /// it into your serializer.
