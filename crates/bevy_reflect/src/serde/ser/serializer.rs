@@ -25,6 +25,24 @@ use serde::{ser::SerializeMap, Serialize, Serializer};
 /// serializer and write into the serializer (successfully or not), or return
 /// ownership of the serializer back, and continue with the default logic.
 ///
+/// # Compared to [`SerializeWithRegistry`]
+///
+/// [`SerializeWithRegistry`] allows you to define how your type will be
+/// serialized by a [`TypedReflectSerializer`], given the extra context of the
+/// [`TypeRegistry`]. If your type can be serialized entirely using that, then
+/// you should prefer implementing that trait instead of using a processor.
+///
+/// However, you may need more context-dependent data which is only present in
+/// the scope where you create the [`TypedReflectSerializer`]. For example, if
+/// you need to use a reference to a value while serializing, then there is no
+/// way to do this with [`SerializeWithRegistry`] as you can't pass that
+/// reference into anywhere. This is where a processor is useful, as the
+/// processor can capture local variables.
+///
+/// A [`ReflectSerializerProcessor`] always takes priority over a
+/// [`SerializeWithRegistry`] implementation, so this is also useful for
+/// overriding serialization behavior if you need to do something custom.
+///
 /// # Examples
 ///
 /// Serializing a reflected value when saving an asset to disk, and replacing
@@ -114,6 +132,7 @@ use serde::{ser::SerializeMap, Serialize, Serializer};
 /// ```
 ///
 /// [`try_serialize`]: Self::try_serialize
+/// [`SerializeWithRegistry`]: crate::serde::SerializeWithRegistry
 pub trait ReflectSerializerProcessor {
     /// Attempts to serialize the value which a [`TypedReflectSerializer`] is
     /// currently looking at.
