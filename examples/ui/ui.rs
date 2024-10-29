@@ -338,7 +338,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             UiImage {
-                                image: asset_server.load("branding/bevy_bird_dark.png"),
+                                image: asset_server.load("branding/icon.png"),
                                 flip_x,
                                 flip_y,
                                 ..default()
