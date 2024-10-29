@@ -30,8 +30,26 @@ impl<T: Asset + AsBindGroup + Clone + Sized> BaseMaterial for T {}
 
 pub trait Material<P: MaterialPipeline>: BaseMaterial {
     fn properties(&self) -> P::MaterialProperties;
-    fn shaders() -> impl IntoIterator<Item = (P::ShaderKey, AssetPath<'static>)>;
-    fn specialize(info: P::PipelineInfo<'_, Self>) -> Result<(), SpecializeMaterialError>;
+    fn shaders() -> Shaders<P>;
+    fn specialize(ctx: P::PipelineContext<'_, Self>) -> Result<(), SpecializeMaterialError>;
+}
+
+#[derive(Deref)]
+pub struct Shaders<P: MaterialPipeline> {
+    shaders: HashMap<P::ShaderKey, AssetPath<'static>>,
+}
+
+impl<P: MaterialPipeline, A: Into<AssetPath<'static>>> FromIterator<(P::ShaderKey, A)>
+    for Shaders<P>
+{
+    fn from_iter<T: IntoIterator<Item = (P::ShaderKey, A)>>(iter: T) -> Self {
+        Self {
+            shaders: iter
+                .into_iter()
+                .map(|(key, path)| (key, path.into()))
+                .collect(),
+        }
+    }
 }
 
 pub struct MaterialPlugin<M: Material<P>, P: MaterialPipeline>(PhantomData<fn(M, P)>);
@@ -86,7 +104,7 @@ fn extract_materials<M: Material<P>, P: MaterialPipeline>(
 #[derive(Resource, Deref, DerefMut)]
 pub struct MaterialInstances<M: Material<P>, P: MaterialPipeline> {
     #[deref]
-    pub instances: MainEntityHashMap<AssetId<M>>,
+    instances: MainEntityHashMap<AssetId<M>>,
     _data: PhantomData<fn(P)>,
 }
 
@@ -102,7 +120,7 @@ impl<M: Material<P>, P: MaterialPipeline> Default for MaterialInstances<M, P> {
 /// Data prepared for a [`Material`] instance.
 #[derive(Deref)]
 pub struct MaterialBindGroup<M: BaseMaterial> {
-    pub bind_group: PreparedBindGroup<M::Data>,
+    bind_group: PreparedBindGroup<M::Data>,
 }
 
 impl<M: BaseMaterial> RenderAsset for MaterialBindGroup<M> {
@@ -127,7 +145,7 @@ impl<M: BaseMaterial> RenderAsset for MaterialBindGroup<M> {
 #[derive(Deref)]
 pub struct MaterialProperties<M: Material<R>, R: MaterialPipeline> {
     #[deref]
-    pub properties: R::MaterialProperties,
+    properties: R::MaterialProperties,
     _data: PhantomData<M>,
 }
 
@@ -156,7 +174,7 @@ impl<M: Material<P>, P: MaterialPipeline> RenderAsset for MaterialProperties<M, 
 #[derive(Resource, Deref)]
 pub struct MaterialLayout<M: BaseMaterial> {
     #[deref]
-    pub layout: BindGroupLayout,
+    layout: BindGroupLayout,
     _data: PhantomData<M>,
 }
 
@@ -173,7 +191,7 @@ impl<M: BaseMaterial> FromWorld for MaterialLayout<M> {
 #[derive(Deref, Resource)]
 pub struct MaterialShaders<M: Material<P>, P: MaterialPipeline> {
     #[deref]
-    pub shaders: HashMap<P::ShaderKey, Handle<Shader>>,
+    shaders: HashMap<P::ShaderKey, Handle<Shader>>,
     _data: PhantomData<fn(M)>,
 }
 
@@ -182,6 +200,7 @@ impl<M: Material<P>, P: MaterialPipeline> FromWorld for MaterialShaders<M, P> {
         let asset_server = world.resource::<AssetServer>();
         Self {
             shaders: M::shaders()
+                .shaders
                 .into_iter()
                 .map(|(key, path)| (key, asset_server.load(path)))
                 .collect(),

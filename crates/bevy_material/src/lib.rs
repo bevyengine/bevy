@@ -5,6 +5,7 @@ pub mod material_pipeline;
 
 pub mod prelude {
     pub use super::material::{Material, MaterialPlugin};
+    pub use super::material_pipeline::*;
 }
 
 #[cfg(test)]
@@ -24,7 +25,7 @@ mod tests {
     impl MaterialPipeline for TestPipeline {
         type MaterialProperties = ();
         type ShaderKey = ();
-        type PipelineInfo<'a, M: Material<Self>> = ();
+        type PipelineContext<'a, M: Material<Self>> = ();
 
         fn material_plugin<M: Material<Self>>() -> impl Plugin {
             |_: &mut App| {}

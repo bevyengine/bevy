@@ -38,7 +38,7 @@ impl<'w, M: Material<P>, P: MaterialPipeline> MaterialData<'w, M, P> {
     pub fn iter<'a>(
         &'a self,
         instances: &'a MaterialInstances<M, P>,
-    ) -> impl Iterator<Item = PreparedMaterialInstance<M, P>> + 'a {
+    ) -> impl Iterator<Item = PreparedMaterialInstance<'a, M, P>> + 'a {
         instances
             .iter()
             .filter_map(|(main_entity, material_id)| self.get(*main_entity, *material_id))
