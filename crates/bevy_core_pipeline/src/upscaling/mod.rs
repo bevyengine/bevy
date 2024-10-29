@@ -69,6 +69,7 @@ fn prepare_view_upscaling_pipelines(
                 }
             }
         } else {
+            output_textures.insert(out_texture_id);
             None
         };
 
