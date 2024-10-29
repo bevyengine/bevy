@@ -1,11 +1,13 @@
 //! This example illustrates the various features of Bevy UI.
 
+use std::f32::consts::PI;
+
 use bevy::{
     a11y::{
         accesskit::{NodeBuilder, Role},
         AccessibilityNode,
     },
-    color::palettes::{basic::LIME, css::RED},
+    color::palettes::{basic::LIME, css::DARK_GRAY},
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::focus::HoverMap,
     prelude::*,
@@ -157,37 +159,48 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
 
             parent
-                .spawn((
-                    Node {
-                        width: Val::Px(200.0),
-                        height: Val::Px(200.0),
-                        position_type: PositionType::Absolute,
-                        left: Val::Px(210.),
-                        bottom: Val::Px(10.),
-                        border: UiRect::all(Val::Px(20.)),
-                        ..default()
-                    },
-                    BorderColor(LIME.into()),
-                    BackgroundColor(Color::srgb(0.4, 0.4, 1.)),
-                ))
+                .spawn(Node {
+                    left: Val::Px(210.),
+                    bottom: Val::Px(10.),
+                    position_type: PositionType::Absolute,
+                    ..Default::default()
+                })
                 .with_children(|parent| {
                     parent
                         .spawn((
                             Node {
-                                width: Val::Percent(100.0),
-                                height: Val::Percent(100.0),
+                                width: Val::Px(200.0),
+                                height: Val::Px(200.0),
+                                border: UiRect::all(Val::Px(20.)),
                                 ..default()
                             },
-                            BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
+                            BorderColor(LIME.into()),
+                            BackgroundColor(Color::srgb(0.4, 0.4, 1.)),
                         ))
-                        .with_child((
-                            UiImage::new(asset_server.load("branding/bevy_logo_light.png")),
-                            Outline {
-                                width: Val::Px(2.),
-                                color: RED.into(),
-                                ..Default::default()
-                            },
-                        ));
+                        .with_children(|parent| {
+                            parent
+                                .spawn((
+                                    Node {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+                                        flex_direction: FlexDirection::Column,
+                                        justify_content: JustifyContent::Center,
+                                        ..default()
+                                    },
+                                    BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
+                                ))
+                                .with_child((
+                                    UiImage::new(asset_server.load("branding/bevy_logo_light.png")),
+                                    Transform::from_rotation(Quat::from_rotation_z(0.25 * PI)),
+                                    BorderRadius::all(Val::Percent(30.)),
+                                    Outline {
+                                        width: Val::Px(2.),
+                                        offset: Val::Px(4.),
+                                        color: DARK_GRAY.into(),
+                                        ..Default::default()
+                                    },
+                                ));
+                        });
                 });
 
             let shadow = BoxShadow {
@@ -309,6 +322,37 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("Bevy logo"),
                             ));
                         });
+                });
+
+            // bevy icon flipped and unflipped
+            parent
+                .spawn(Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    position_type: PositionType::Absolute,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::FlexEnd,
+                    column_gap: Val::Px(10.),
+                    padding: UiRect::all(Val::Px(10.)),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    for (flip_x, flip_y) in
+                        [(false, false), (false, true), (true, true), (true, false)]
+                    {
+                        parent.spawn((
+                            Node {
+                                width: Val::Px(75.),
+                                ..Default::default()
+                            },
+                            UiImage {
+                                image: asset_server.load("branding/bevy_bird_dark.png"),
+                                flip_x,
+                                flip_y,
+                                ..Default::default()
+                            },
+                        ));
+                    }
                 });
         });
 }
