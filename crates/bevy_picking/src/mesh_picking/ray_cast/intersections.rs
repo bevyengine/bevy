@@ -98,16 +98,14 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
                 Vec3::from(*positions.get(b)?),
                 Vec3::from(*positions.get(c)?),
             ];
-            let tri_normals = vertex_normals
-                .map(|normals| -> Result<[Vec3; 3], ()> {
-                    Ok([
-                        Vec3::from(*normals.get(a).ok_or(())?),
-                        Vec3::from(*normals.get(b).ok_or(())?),
-                        Vec3::from(*normals.get(c).ok_or(())?),
-                    ])
-                })
-                .transpose()
-                .ok()?;
+            let tri_normals = match vertex_normals {
+                Some(normals) => Some([
+                    Vec3::from(*normals.get(a)?),
+                    Vec3::from(*normals.get(b)?),
+                    Vec3::from(*normals.get(c)?),
+                ]),
+                None => None,
+            };
 
             let Some(hit) = triangle_intersection(
                 tri_vertex_positions,
@@ -144,15 +142,15 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
             };
             let triangle_index = Some(i);
             let tri_vertex_positions = &[Vec3::from(a), Vec3::from(b), Vec3::from(c)];
-            let tri_normals = vertex_normals
-                .map(|normals| -> Result<[Vec3; 3], ()> {
-                    let c = Vec3::from(*normals.get(i + 2).ok_or(())?);
-                    let b = Vec3::from(*normals.get(i + 1).ok_or(())?);
-                    let a = Vec3::from(*normals.get(i).ok_or(())?);
-                    Ok([a, b, c])
-                })
-                .transpose()
-                .ok()?;
+            let tri_normals = match vertex_normals {
+                Some(normals) => {
+                    let c = Vec3::from(*normals.get(i + 2)?);
+                    let b = Vec3::from(*normals.get(i + 1)?);
+                    let a = Vec3::from(*normals.get(i)?);
+                    Some([a, b, c])
+                }
+                None => None,
+            };
 
             let Some(hit) = triangle_intersection(
                 tri_vertex_positions,
