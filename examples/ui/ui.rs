@@ -191,6 +191,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ))
                                 .with_child((
                                     UiImage::new(asset_server.load("branding/bevy_logo_light.png")),
+                                    // Uses the transform to rotate the logo image by 45 degrees
                                     Transform::from_rotation(Quat::from_rotation_z(0.25 * PI)),
                                     BorderRadius::all(Val::Percent(30.)),
                                     Outline {
@@ -324,7 +325,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         });
                 });
 
-            // bevy icon flipped and unflipped
+            // four bevy icons demonstrating image flipping
             parent
                 .spawn(Node {
                     width: Val::Percent(100.0),
@@ -342,6 +343,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     {
                         parent.spawn((
                             Node {
+                                // The height will be chosen automatically to preserve the image's aspect ratio
                                 width: Val::Px(75.),
                                 ..Default::default()
                             },
