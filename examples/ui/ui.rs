@@ -171,14 +171,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     BackgroundColor(Color::srgb(0.4, 0.4, 1.)),
                 ))
                 .with_children(|parent| {
-                    parent.spawn((
-                        Node {
-                            width: Val::Percent(100.0),
-                            height: Val::Percent(100.0),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
-                    ));
+                    parent
+                        .spawn((
+                            Node {
+                                width: Val::Percent(100.0),
+                                height: Val::Percent(100.0),
+                                ..default()
+                            },
+                            BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
+                        ))
+                        .with_child(UiImage::new(
+                            asset_server.load("branding/bevy_logo_light.png"),
+                        ));
                 });
 
             let shadow = BoxShadow {
