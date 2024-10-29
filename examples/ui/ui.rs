@@ -172,35 +172,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 width: Val::Px(200.0),
                                 height: Val::Px(200.0),
                                 border: UiRect::all(Val::Px(20.)),
-                                ..default()
+                                flex_direction: FlexDirection::Column,
+                                justify_content: JustifyContent::Center,
+                                ..Default::default()
                             },
                             BorderColor(LIME.into()),
-                            BackgroundColor(Color::srgb(0.4, 0.4, 1.)),
+                            BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
                         ))
                         .with_children(|parent| {
-                            parent
-                                .spawn((
-                                    Node {
-                                        width: Val::Percent(100.0),
-                                        height: Val::Percent(100.0),
-                                        flex_direction: FlexDirection::Column,
-                                        justify_content: JustifyContent::Center,
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
-                                ))
-                                .with_child((
-                                    UiImage::new(asset_server.load("branding/bevy_logo_light.png")),
-                                    // Uses the transform to rotate the logo image by 45 degrees
-                                    Transform::from_rotation(Quat::from_rotation_z(0.25 * PI)),
-                                    BorderRadius::all(Val::Percent(30.)),
-                                    Outline {
-                                        width: Val::Px(2.),
-                                        offset: Val::Px(4.),
-                                        color: DARK_GRAY.into(),
-                                        ..Default::default()
-                                    },
-                                ));
+                            parent.spawn((
+                                UiImage::new(asset_server.load("branding/bevy_logo_light.png")),
+                                // Uses the transform to rotate the logo image by 45 degrees
+                                Transform::from_rotation(Quat::from_rotation_z(0.25 * PI)),
+                                BorderRadius::all(Val::Px(10.)),
+                                Outline {
+                                    width: Val::Px(2.),
+                                    offset: Val::Px(4.),
+                                    color: DARK_GRAY.into(),
+                                    ..Default::default()
+                                },
+                            ));
                         });
                 });
 
