@@ -163,7 +163,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     left: Val::Px(210.),
                     bottom: Val::Px(10.),
                     position_type: PositionType::Absolute,
-                    ..Default::default()
+                    ..default()
                 })
                 .with_children(|parent| {
                     parent
@@ -174,7 +174,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 border: UiRect::all(Val::Px(20.)),
                                 flex_direction: FlexDirection::Column,
                                 justify_content: JustifyContent::Center,
-                                ..Default::default()
+                                ..default()
                             },
                             BorderColor(LIME.into()),
                             BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
@@ -189,7 +189,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     width: Val::Px(2.),
                                     offset: Val::Px(4.),
                                     color: DARK_GRAY.into(),
-                                    ..Default::default()
                                 },
                             ));
                         });
@@ -200,7 +199,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 blur_radius: Val::Px(2.),
                 x_offset: Val::Px(10.),
                 y_offset: Val::Px(10.),
-                ..Default::default()
+                ..default()
             };
 
             // render order test: reddest in the back, whitest in the front (flex center)
@@ -336,13 +335,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             Node {
                                 // The height will be chosen automatically to preserve the image's aspect ratio
                                 width: Val::Px(75.),
-                                ..Default::default()
+                                ..default()
                             },
                             UiImage {
                                 image: asset_server.load("branding/bevy_bird_dark.png"),
                                 flip_x,
                                 flip_y,
-                                ..Default::default()
+                                ..default()
                             },
                         ));
                     }
