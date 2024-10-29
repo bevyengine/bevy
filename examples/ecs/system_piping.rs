@@ -19,15 +19,15 @@ fn main() {
             Update,
             (
                 parse_message_system.pipe(handler_system),
-                data_pipe_system.map(|system| bevy::utils::tracing::info!("{system}")),
-                parse_message_system.map(|system| bevy::utils::tracing::debug!("{system:?}")),
-                warning_pipe_system.map(|system| {
-                    if let Err(err) = system {
-                        bevy::utils::tracing::warn!("{err}");
+                data_pipe_system.map(|out| info!("{out}")),
+                parse_message_system.map(|out| debug!("{out:?}")),
+                warning_pipe_system.map(|out| {
+                    if let Err(err) = out {
+                        bevy::utils::tracing::error!("{err}");
                     }
                 }),
-                parse_error_message_system.map(|system| {
-                    if let Err(err) = system {
+                parse_error_message_system.map(|out| {
+                    if let Err(err) = out {
                         bevy::utils::tracing::error!("{err}");
                     }
                 }),
