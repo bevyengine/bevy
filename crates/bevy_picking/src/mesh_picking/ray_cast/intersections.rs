@@ -98,14 +98,13 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
                 Vec3::from(*positions.get(b)?),
                 Vec3::from(*positions.get(c)?),
             ];
-            let tri_normals = match vertex_normals {
-                Some(normals) => Some([
+            let tri_normals = vertex_normals.and_then(|normals| {
+                Some([
                     Vec3::from(*normals.get(a)?),
                     Vec3::from(*normals.get(b)?),
                     Vec3::from(*normals.get(c)?),
-                ]),
-                None => None,
-            };
+                ])
+            });
 
             let Some(hit) = triangle_intersection(
                 tri_vertex_positions,
@@ -142,15 +141,12 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
             };
             let triangle_index = Some(i);
             let tri_vertex_positions = &[Vec3::from(a), Vec3::from(b), Vec3::from(c)];
-            let tri_normals = match vertex_normals {
-                Some(normals) => {
-                    let c = Vec3::from(*normals.get(i + 2)?);
-                    let b = Vec3::from(*normals.get(i + 1)?);
-                    let a = Vec3::from(*normals.get(i)?);
-                    Some([a, b, c])
-                }
-                None => None,
-            };
+            let tri_normals = vertex_normals.and_then(|normals| {
+                let Some([a, b, c]) = normals.get(i..(i + 2)) else {
+                    return None;
+                };
+                Some([Vec3::from(*a), Vec3::from(*b), Vec3::from(*c)])
+            });
 
             let Some(hit) = triangle_intersection(
                 tri_vertex_positions,
@@ -445,7 +441,7 @@ mod tests {
             backface_culling,
         );
 
-        assert!(result.is_none());
+        assert!(result.is_some());
     }
 
     #[test]
@@ -466,7 +462,7 @@ mod tests {
             backface_culling,
         );
 
-        assert!(result.is_none());
+        assert!(result.is_some());
     }
 
     #[test]
