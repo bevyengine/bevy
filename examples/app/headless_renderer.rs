@@ -9,10 +9,12 @@
 
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
-    core_pipeline::tonemapping::Tonemapping,
+    core_pipeline::{tonemapping::Tonemapping, CorePipelinePlugin},
+    pbr::PbrPlugin,
     prelude::*,
     render::{
         camera::RenderTarget,
+        pipelined_rendering::PipelinedRenderingPlugin,
         render_asset::{RenderAssetUsages, RenderAssets},
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
@@ -87,8 +89,19 @@ fn main() {
                     Duration::from_secs_f64(1.0 / 60.0),
                 )),
         )
+        .add_plugins(
+            // Not strictly necessary, as the inclusion of ScheduleRunnerPlugin below
+            // replaces the bevy_winit app runner and so a window is never created.
+            WindowPlugin {
+                primary_window: None,
+                ..default()
+            },
+        )
+        .add_plugins(PbrPlugin::default())
         .add_plugins(RenderPlugin::default())
         .add_plugins(ImagePlugin::default_nearest())
+        .add_plugins(PipelinedRenderingPlugin)
+        .add_plugins(CorePipelinePlugin)
         .add_plugins(ImageCopyPlugin)
         // headless frame capture
         .add_plugins(CaptureFramePlugin)
