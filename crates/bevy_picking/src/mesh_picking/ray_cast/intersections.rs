@@ -451,7 +451,7 @@ mod tests {
     }
 
     #[test]
-    fn ray_mesh_intersection_incides_missing_vertex_normals() {
+    fn ray_mesh_intersection_indices_missing_vertex_normals() {
         let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
         let mesh_transform = GlobalTransform::IDENTITY.compute_matrix();
         let positions = &[V0, V1, V2];
