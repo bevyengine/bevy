@@ -4,7 +4,10 @@
 use bevy::prelude::*;
 use std::num::ParseIntError;
 
-use bevy::{log::LogPlugin, utils::tracing::Level};
+use bevy::{
+    log::LogPlugin,
+    utils::tracing::{debug, error, info, Level},
+};
 
 fn main() {
     App::new()
@@ -20,15 +23,15 @@ fn main() {
             (
                 parse_message_system.pipe(handler_system),
                 data_pipe_system.map(|out| info!("{out}")),
-                parse_message_system.map(|out| debug!("{out:?}")),
+                parse_message_system.map(|out| debug!("{out}")),
                 warning_pipe_system.map(|out| {
                     if let Err(err) = out {
-                        bevy::utils::tracing::error!("{err}");
+                        error!("{err}");
                     }
                 }),
                 parse_error_message_system.map(|out| {
                     if let Err(err) = out {
-                        bevy::utils::tracing::error!("{err}");
+                        error!("{err}");
                     }
                 }),
                 parse_message_system.map(drop),
