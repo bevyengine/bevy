@@ -23,7 +23,7 @@ fn main() {
             (
                 parse_message_system.pipe(handler_system),
                 data_pipe_system.map(|out| info!("{out}")),
-                parse_message_system.map(|out| debug!("{out}")),
+                parse_message_system.map(|out| debug!("{out:?}")),
                 warning_pipe_system.map(|out| {
                     if let Err(err) = out {
                         error!("{err}");
