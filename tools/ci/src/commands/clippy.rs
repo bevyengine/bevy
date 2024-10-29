@@ -8,11 +8,16 @@ use xshell::cmd;
 pub struct ClippyCommand {}
 
 impl Prepare for ClippyCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, _args: Args) -> Vec<PreparedCommand<'a>> {
+    fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
+        let jobs = args
+            .jobs
+            .map(|jobs| format!("--jobs {jobs}"))
+            .unwrap_or_default();
+
         vec![PreparedCommand::new::<Self>(
             cmd!(
                 sh,
-                "cargo clippy --workspace --all-targets --all-features -- -Dwarnings"
+                "cargo clippy --workspace --all-targets --all-features {jobs} -- -Dwarnings"
             ),
             "Please fix clippy errors in output above.",
         )]

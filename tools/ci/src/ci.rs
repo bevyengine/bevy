@@ -17,11 +17,11 @@ pub struct CI {
 
     /// parallelism of `cargo test`
     #[argh(option)]
-    test_threads: Option<u8>,
+    test_threads: Option<usize>,
 
-    /// sets `RUST_BUILD_JOBS`
+    /// number of build jobs
     #[argh(option)]
-    build_jobs: Option<u8>,
+    jobs: Option<i32>,
 }
 
 impl From<&CI> for Args {
@@ -29,6 +29,7 @@ impl From<&CI> for Args {
         Args {
             keep_going: value.keep_going,
             test_threads: value.test_threads,
+            jobs: value.jobs,
         }
     }
 }
@@ -40,14 +41,8 @@ impl CI {
     /// This is usually related to differing toolchains and configuration.
     pub fn run(self) {
         let sh = xshell::Shell::new().unwrap();
-        let mut prepared_commands = self.prepare(&sh);
+        let prepared_commands = self.prepare(&sh);
 
-        if let Some(build_jobs) = self.build_jobs {
-            prepared_commands = prepared_commands
-                .into_iter()
-                .map(|pc| pc.with_env_var("RUST_BUILD_JOBS", build_jobs.to_string().leak()))
-                .collect();
-        }
         let mut failures = vec![];
 
         for command in prepared_commands {
