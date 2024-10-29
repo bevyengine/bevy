@@ -11,8 +11,8 @@ use crate::{
 };
 
 use alloc::borrow::Cow;
-use variadics_please::all_tuples;
 use core::marker::PhantomData;
+use variadics_please::all_tuples;
 
 /// A function system that runs with exclusive [`World`] access.
 ///

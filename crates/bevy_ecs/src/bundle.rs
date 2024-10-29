@@ -22,10 +22,10 @@ use crate::{
 };
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
-use variadics_please::all_tuples;
 #[cfg(feature = "track_change_detection")]
 use core::panic::Location;
 use core::{any::TypeId, ptr::NonNull};
+use variadics_please::all_tuples;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///

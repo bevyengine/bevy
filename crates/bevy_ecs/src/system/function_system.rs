@@ -12,8 +12,8 @@ use crate::{
 };
 
 use alloc::borrow::Cow;
-use variadics_please::all_tuples;
 use core::marker::PhantomData;
+use variadics_please::all_tuples;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Span};
