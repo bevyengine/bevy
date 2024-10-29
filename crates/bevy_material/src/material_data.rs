@@ -1,6 +1,10 @@
 use bevy_asset::AssetId;
 use bevy_ecs::system::{Res, SystemParam};
-use bevy_render::{render_asset::RenderAssets, sync_world::MainEntity};
+use bevy_render::{
+    render_asset::RenderAssets,
+    render_resource::{BindGroupLayout, PreparedBindGroup},
+    sync_world::MainEntity,
+};
 
 use crate::{
     material::{
@@ -47,8 +51,8 @@ impl<'w, M: Material<P>, P: MaterialPipeline> MaterialData<'w, M, P> {
 
 pub struct PreparedMaterialInstance<'a, M: Material<P>, P: MaterialPipeline> {
     pub main_entity: MainEntity,
-    pub layout: &'a MaterialLayout<M>,
+    pub properties: &'a P::MaterialProperties,
     pub shaders: &'a MaterialShaders<M, P>,
-    pub bind_group: &'a MaterialBindGroup<M>,
-    pub properties: &'a MaterialProperties<M, P>,
+    pub layout: &'a BindGroupLayout,
+    pub bind_group: &'a PreparedBindGroup<M::Data>,
 }
