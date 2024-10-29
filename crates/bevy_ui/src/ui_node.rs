@@ -2067,7 +2067,7 @@ pub struct UiImage {
     /// is offset by the atlas's minimal (top-left) corner position.
     pub rect: Option<Rect>,
     /// Controls how the image is altered when scaled.
-    pub scale_mode: Option<ImageScaleMode>,
+    pub scale_mode: ImageScaleMode,
 }
 
 impl Default for UiImage {
@@ -2089,7 +2089,7 @@ impl Default for UiImage {
             flip_x: false,
             flip_y: false,
             rect: None,
-            scale_mode: None,
+            scale_mode: ImageScaleMode::Standard,
         }
     }
 }
@@ -2115,7 +2115,7 @@ impl UiImage {
             flip_y: false,
             texture_atlas: None,
             rect: None,
-            scale_mode: None,
+            scale_mode: ImageScaleMode::Standard,
         }
     }
 
@@ -2157,7 +2157,7 @@ impl UiImage {
 
     #[must_use]
     pub const fn with_scale_mode(mut self, scale_mode: ImageScaleMode) -> Self {
-        self.scale_mode = Some(scale_mode);
+        self.scale_mode = scale_mode;
         self
     }
 }

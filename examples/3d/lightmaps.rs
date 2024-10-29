@@ -1,11 +1,16 @@
 //! Rendering a scene with baked lightmaps.
 
-use bevy::{pbr::Lightmap, prelude::*};
+use bevy::{
+    core_pipeline::prepass::DeferredPrepass,
+    pbr::{DefaultOpaqueRendererMethod, Lightmap},
+    prelude::*,
+};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight::NONE)
+        .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .add_systems(Startup, setup)
         .add_systems(Update, add_lightmaps_to_meshes)
         .run();
@@ -19,6 +24,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-278.0, 273.0, 800.0),
+        DeferredPrepass,
+        Msaa::Off,
     ));
 }
 

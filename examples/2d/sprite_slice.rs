@@ -19,55 +19,65 @@ fn spawn_sprites(
 ) {
     let cases = [
         // Reference sprite
-        ("Original", style.clone(), Vec2::splat(100.0), None),
+        (
+            "Original",
+            style.clone(),
+            Vec2::splat(100.0),
+            ImageScaleMode::Standard,
+        ),
         // Scaled regular sprite
-        ("Stretched", style.clone(), Vec2::new(100.0, 200.0), None),
+        (
+            "Stretched",
+            style.clone(),
+            Vec2::new(100.0, 200.0),
+            ImageScaleMode::Standard,
+        ),
         // Stretched Scaled sliced sprite
         (
             "With Slicing",
             style.clone(),
             Vec2::new(100.0, 200.0),
-            Some(ImageScaleMode::Sliced(TextureSlicer {
+            ImageScaleMode::Sliced(TextureSlicer {
                 border: BorderRect::square(slice_border),
                 center_scale_mode: SliceScaleMode::Stretch,
                 ..default()
-            })),
+            }),
         ),
         // Scaled sliced sprite
         (
             "With Tiling",
             style.clone(),
             Vec2::new(100.0, 200.0),
-            Some(ImageScaleMode::Sliced(TextureSlicer {
+            ImageScaleMode::Sliced(TextureSlicer {
                 border: BorderRect::square(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.5 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
                 ..default()
-            })),
+            }),
         ),
         // Scaled sliced sprite horizontally
         (
             "With Tiling",
             style.clone(),
             Vec2::new(300.0, 200.0),
-            Some(ImageScaleMode::Sliced(TextureSlicer {
+            ImageScaleMode::Sliced(TextureSlicer {
                 border: BorderRect::square(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.3 },
                 ..default()
-            })),
+            }),
         ),
         // Scaled sliced sprite horizontally with max scale
         (
             "With Corners Constrained",
             style,
             Vec2::new(300.0, 200.0),
-            Some(ImageScaleMode::Sliced(TextureSlicer {
+            ImageScaleMode::Sliced(TextureSlicer {
                 border: BorderRect::square(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.1 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
                 max_corner_scale: 0.2,
-            })),
+            }),
         ),
     ];
 
@@ -77,13 +87,11 @@ fn spawn_sprites(
             Sprite {
                 image: texture_handle.clone(),
                 custom_size: Some(size),
+                scale_mode,
                 ..default()
             },
             Transform::from_translation(position),
         ));
-        if let Some(scale_mode) = scale_mode {
-            cmd.insert(scale_mode);
-        }
         cmd.with_children(|builder| {
             builder.spawn((
                 Text2d::new(label),

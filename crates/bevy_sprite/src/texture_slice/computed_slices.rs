@@ -86,7 +86,6 @@ impl ComputedTextureSlices {
 #[must_use]
 fn compute_sprite_slices(
     sprite: &Sprite,
-    scale_mode: &ImageScaleMode,
     images: &Assets<Image>,
     atlas_layouts: &Assets<TextureAtlasLayout>,
 ) -> Option<ComputedTextureSlices> {
@@ -111,7 +110,7 @@ fn compute_sprite_slices(
             (size, rect)
         }
     };
-    let slices = match scale_mode {
+    let slices = match &sprite.scale_mode {
         ImageScaleMode::Sliced(slicer) => slicer.compute_slices(texture_rect, sprite.custom_size),
         ImageScaleMode::Tiled {
             tile_x,
@@ -125,6 +124,9 @@ fn compute_sprite_slices(
             };
             slice.tiled(*stretch_value, (*tile_x, *tile_y))
         }
+        ImageScaleMode::Standard => {
+            unreachable!("Slices should not be computed for ImageScaleMode::Standard")
+        }
     };
     Some(ComputedTextureSlices(slices))
 }
@@ -136,7 +138,7 @@ pub(crate) fn compute_slices_on_asset_event(
     mut events: EventReader<AssetEvent<Image>>,
     images: Res<Assets<Image>>,
     atlas_layouts: Res<Assets<TextureAtlasLayout>>,
-    sprites: Query<(Entity, &ImageScaleMode, &Sprite)>,
+    sprites: Query<(Entity, &Sprite)>,
 ) {
     // We store the asset ids of added/modified image assets
     let added_handles: HashSet<_> = events
@@ -150,11 +152,14 @@ pub(crate) fn compute_slices_on_asset_event(
         return;
     }
     // We recompute the sprite slices for sprite entities with a matching asset handle id
-    for (entity, scale_mode, sprite) in &sprites {
+    for (entity, sprite) in &sprites {
+        if !sprite.scale_mode.uses_slices() {
+            continue;
+        }
         if !added_handles.contains(&sprite.image.id()) {
             continue;
         }
-        if let Some(slices) = compute_sprite_slices(sprite, scale_mode, &images, &atlas_layouts) {
+        if let Some(slices) = compute_sprite_slices(sprite, &images, &atlas_layouts) {
             commands.entity(entity).insert(slices);
         }
     }
@@ -166,13 +171,13 @@ pub(crate) fn compute_slices_on_sprite_change(
     mut commands: Commands,
     images: Res<Assets<Image>>,
     atlas_layouts: Res<Assets<TextureAtlasLayout>>,
-    changed_sprites: Query<
-        (Entity, &ImageScaleMode, &Sprite),
-        Or<(Changed<ImageScaleMode>, Changed<Sprite>)>,
-    >,
+    changed_sprites: Query<(Entity, &Sprite), Changed<Sprite>>,
 ) {
-    for (entity, scale_mode, sprite) in &changed_sprites {
-        if let Some(slices) = compute_sprite_slices(sprite, scale_mode, &images, &atlas_layouts) {
+    for (entity, sprite) in &changed_sprites {
+        if !sprite.scale_mode.uses_slices() {
+            continue;
+        }
+        if let Some(slices) = compute_sprite_slices(sprite, &images, &atlas_layouts) {
             commands.entity(entity).insert(slices);
         }
     }

@@ -270,9 +270,9 @@ pub fn extract_ui_texture_slices(
             continue;
         };
 
-        let Some(ref image_scale_mode) = image.scale_mode else {
+        if !image.scale_mode.uses_slices() {
             continue;
-        };
+        }
 
         // Skip invisible images
         if !view_visibility.get()
@@ -312,7 +312,7 @@ pub fn extract_ui_texture_slices(
                 clip: clip.map(|clip| clip.clip),
                 image: image.image.id(),
                 camera_entity,
-                image_scale_mode: image_scale_mode.clone(),
+                image_scale_mode: image.scale_mode.clone(),
                 atlas_rect,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
@@ -783,6 +783,9 @@ fn compute_texture_slices(
             let rx = compute_tiled_axis(*tile_x, image_size.x, target_size.x, *stretch_value);
             let ry = compute_tiled_axis(*tile_y, image_size.y, target_size.y, *stretch_value);
             [[0., 0., 1., 1.], [0., 0., 1., 1.], [1., 1., rx, ry]]
+        }
+        ImageScaleMode::Standard => {
+            unreachable!("Slices should not be computed for ImageScaleMode::Standard")
         }
     }
 }

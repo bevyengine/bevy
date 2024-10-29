@@ -334,7 +334,7 @@ pub fn extract_uinode_images(
         if !view_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
-            || image.scale_mode.is_some()
+            || !image.scale_mode.defines_size()
         {
             continue;
         }
