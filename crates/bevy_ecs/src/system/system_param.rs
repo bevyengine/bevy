@@ -373,41 +373,6 @@ pub(crate) struct ComponentMutationBuffer(HashMap<Entity, HashSet<ComponentId>>)
 
 impl Resource for ComponentMutationBuffer {}
 
-
-// impl ComponentMutationBuffer {
-//     fn from_query_data(state: &Self::State, system_meta: &SystemMeta, world: &mut World) -> Self {
-        
-//     }
-// }
-
-// impl SystemBuffer for ComponentMutationBuffer {
-//     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
-        
-//     }
-
-//     fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld) {
-//         for archetype_id in self.candidate_archetypes {
-//             let Some(archetype) = world.archetypes().get(archetype_id) else { continue; };
-//             if !archetype.has_mutate_observer() { continue; }
-            
-//             for archetype_entity in archetype.entities() {
-//                 let entity = archetype_entity.id();
-//                 let entity_ref = world.entity(entity);
-//                 let mutated_components = self.candidate_components
-//                     .iter()
-//                     .cloned()
-//                     .filter(|c| entity_ref
-//                         .get_change_ticks_by_id(*c)
-//                         .map(|ticks| ticks.changed.get() >= system_meta.last_run.get()) // FIXME GRACE: get this_run
-//                         .unwrap_or(false)
-//                     ).collect::<Vec<_>>(); 
-                
-                
-//             }
-//         }
-//     }
-// }
-
 pub(crate) fn init_query_param<D: QueryData + 'static, F: QueryFilter + 'static>(
     world: &mut World,
     system_meta: &mut SystemMeta,
