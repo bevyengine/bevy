@@ -15,7 +15,7 @@ impl Prepare for DocTestCommand {
             .unwrap_or_default();
 
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo test --workspace --doc {no_fail_fast}"),
+            cmd!(sh, "cargo +nightly test --workspace --doc {no_fail_fast}"),
             "Please fix failing doc tests in output above.",
         )]
     }
