@@ -1,11 +1,11 @@
 use crate::{PartialReflect, TypeRegistration, TypeRegistry};
 
-/// Allows overriding the default deserialization behaviour of
+/// Allows overriding the default deserialization behavior of
 /// [`ReflectDeserializer`] and [`TypedReflectDeserializer`] for specific
 /// [`TypeRegistration`]s.
 ///
 /// When deserializing a reflected value, you may want to override the default
-/// behaviour and use your own logic for deserialization. This logic may also
+/// behavior and use your own logic for deserialization. This logic may also
 /// be context-dependent, and only apply for a single use of your
 /// [`ReflectDeserializer`]. To achieve this, you can create a processor and
 /// pass it in to your deserializer.
