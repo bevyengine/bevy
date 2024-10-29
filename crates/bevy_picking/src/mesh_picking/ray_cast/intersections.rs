@@ -94,17 +94,20 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
 
             let triangle_index = Some(a);
             let tri_vertex_positions = &[
-                Vec3::from(positions[a]),
-                Vec3::from(positions[b]),
-                Vec3::from(positions[c]),
+                Vec3::from(*positions.get(a)?),
+                Vec3::from(*positions.get(b)?),
+                Vec3::from(*positions.get(c)?),
             ];
-            let tri_normals = vertex_normals.map(|normals| {
-                [
-                    Vec3::from(normals[a]),
-                    Vec3::from(normals[b]),
-                    Vec3::from(normals[c]),
-                ]
-            });
+            let tri_normals = vertex_normals
+                .map(|normals| -> Result<[Vec3; 3], ()> {
+                    Ok([
+                        Vec3::from(*normals.get(a).ok_or(())?),
+                        Vec3::from(*normals.get(b).ok_or(())?),
+                        Vec3::from(*normals.get(c).ok_or(())?),
+                    ])
+                })
+                .transpose()
+                .ok()?;
 
             let Some(hit) = triangle_intersection(
                 tri_vertex_positions,
@@ -141,13 +144,15 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
             };
             let triangle_index = Some(i);
             let tri_vertex_positions = &[Vec3::from(a), Vec3::from(b), Vec3::from(c)];
-            let tri_normals = vertex_normals.map(|normals| {
-                [
-                    Vec3::from(normals[i]),
-                    Vec3::from(normals[i + 1]),
-                    Vec3::from(normals[i + 2]),
-                ]
-            });
+            let tri_normals = vertex_normals
+                .map(|normals| -> Result<[Vec3; 3], ()> {
+                    let c = Vec3::from(*normals.get(i + 2).ok_or(())?);
+                    let b = Vec3::from(*normals.get(i + 1).ok_or(())?);
+                    let a = Vec3::from(*normals.get(i).ok_or(())?);
+                    Ok([a, b, c])
+                })
+                .transpose()
+                .ok()?;
 
             let Some(hit) = triangle_intersection(
                 tri_vertex_positions,
@@ -313,6 +318,7 @@ pub fn ray_aabb_intersection_3d(ray: Ray3d, aabb: &Aabb3d, model_to_world: &Mat4
 #[cfg(test)]
 mod tests {
     use bevy_math::Vec3;
+    use bevy_transform::components::GlobalTransform;
 
     use super::*;
 
@@ -334,6 +340,176 @@ mod tests {
         let triangle = [V2.into(), V1.into(), V0.into()];
         let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
         let result = ray_triangle_intersection(&ray, &triangle, Backfaces::Cull);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn ray_mesh_intersection_simple() {
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
+        let mesh_transform = GlobalTransform::IDENTITY.compute_matrix();
+        let positions = &[V0, V1, V2];
+        let vertex_normals = None;
+        let indices: Option<&[u16]> = None;
+        let backface_culling = Backfaces::Cull;
+
+        let result = ray_mesh_intersection(
+            ray,
+            &mesh_transform,
+            positions,
+            vertex_normals,
+            indices,
+            backface_culling,
+        );
+
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn ray_mesh_intersection_indices() {
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
+        let mesh_transform = GlobalTransform::IDENTITY.compute_matrix();
+        let positions = &[V0, V1, V2];
+        let vertex_normals = None;
+        let indices: Option<&[u16]> = Some(&[0, 1, 2]);
+        let backface_culling = Backfaces::Cull;
+
+        let result = ray_mesh_intersection(
+            ray,
+            &mesh_transform,
+            positions,
+            vertex_normals,
+            indices,
+            backface_culling,
+        );
+
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn ray_mesh_intersection_indices_vertex_normals() {
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
+        let mesh_transform = GlobalTransform::IDENTITY.compute_matrix();
+        let positions = &[V0, V1, V2];
+        let vertex_normals: Option<&[[f32; 3]]> =
+            Some(&[[-1., 0., 0.], [-1., 0., 0.], [-1., 0., 0.]]);
+        let indices: Option<&[u16]> = Some(&[0, 1, 2]);
+        let backface_culling = Backfaces::Cull;
+
+        let result = ray_mesh_intersection(
+            ray,
+            &mesh_transform,
+            positions,
+            vertex_normals,
+            indices,
+            backface_culling,
+        );
+
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn ray_mesh_intersection_vertex_normals() {
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
+        let mesh_transform = GlobalTransform::IDENTITY.compute_matrix();
+        let positions = &[V0, V1, V2];
+        let vertex_normals: Option<&[[f32; 3]]> =
+            Some(&[[-1., 0., 0.], [-1., 0., 0.], [-1., 0., 0.]]);
+        let indices: Option<&[u16]> = None;
+        let backface_culling = Backfaces::Cull;
+
+        let result = ray_mesh_intersection(
+            ray,
+            &mesh_transform,
+            positions,
+            vertex_normals,
+            indices,
+            backface_culling,
+        );
+
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn ray_mesh_intersection_missing_vertex_normals() {
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
+        let mesh_transform = GlobalTransform::IDENTITY.compute_matrix();
+        let positions = &[V0, V1, V2];
+        let vertex_normals: Option<&[[f32; 3]]> = Some(&[]);
+        let indices: Option<&[u16]> = None;
+        let backface_culling = Backfaces::Cull;
+
+        let result = ray_mesh_intersection(
+            ray,
+            &mesh_transform,
+            positions,
+            vertex_normals,
+            indices,
+            backface_culling,
+        );
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn ray_mesh_intersection_incides_missing_vertex_normals() {
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
+        let mesh_transform = GlobalTransform::IDENTITY.compute_matrix();
+        let positions = &[V0, V1, V2];
+        let vertex_normals: Option<&[[f32; 3]]> = Some(&[]);
+        let indices: Option<&[u16]> = Some(&[0, 1, 2]);
+        let backface_culling = Backfaces::Cull;
+
+        let result = ray_mesh_intersection(
+            ray,
+            &mesh_transform,
+            positions,
+            vertex_normals,
+            indices,
+            backface_culling,
+        );
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn ray_mesh_intersection_not_enough_indices() {
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
+        let mesh_transform = GlobalTransform::IDENTITY.compute_matrix();
+        let positions = &[V0, V1, V2];
+        let vertex_normals = None;
+        let indices: Option<&[u16]> = Some(&[0]);
+        let backface_culling = Backfaces::Cull;
+
+        let result = ray_mesh_intersection(
+            ray,
+            &mesh_transform,
+            positions,
+            vertex_normals,
+            indices,
+            backface_culling,
+        );
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn ray_mesh_intersection_bad_indices() {
+        let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
+        let mesh_transform = GlobalTransform::IDENTITY.compute_matrix();
+        let positions = &[V0, V1, V2];
+        let vertex_normals = None;
+        let indices: Option<&[u16]> = Some(&[0, 1, 3]);
+        let backface_culling = Backfaces::Cull;
+
+        let result = ray_mesh_intersection(
+            ray,
+            &mesh_transform,
+            positions,
+            vertex_normals,
+            indices,
+            backface_culling,
+        );
+
         assert!(result.is_none());
     }
 }
