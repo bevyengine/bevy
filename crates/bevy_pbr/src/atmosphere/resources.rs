@@ -44,60 +44,74 @@ impl FromWorld for AtmosphereBindGroupLayouts {
         let render_device = world.resource::<RenderDevice>();
         let transmittance_lut = render_device.create_bind_group_layout(
             "transmittance_lut_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
+            &BindGroupLayoutEntries::with_indices(
                 ShaderStages::FRAGMENT,
                 (
-                    uniform_buffer::<Atmosphere>(true),
-                    uniform_buffer::<AtmosphereSettings>(true),
+                    (0, uniform_buffer::<Atmosphere>(true)),
+                    (1, uniform_buffer::<AtmosphereSettings>(true)),
                 ),
             ),
         );
 
         let multiscattering_lut = render_device.create_bind_group_layout(
             "multiscattering_lut_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
+            &BindGroupLayoutEntries::with_indices(
                 ShaderStages::COMPUTE,
                 (
-                    uniform_buffer::<Atmosphere>(true),
-                    uniform_buffer::<AtmosphereSettings>(true),
-                    texture_2d(TextureSampleType::Float { filterable: true }), //transmittance lut and sampler
-                    sampler(SamplerBindingType::Filtering),
-                    texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
+                    (0, uniform_buffer::<Atmosphere>(true)),
+                    (1, uniform_buffer::<AtmosphereSettings>(true)),
+                    (4, texture_2d(TextureSampleType::Float { filterable: true })), //transmittance lut and sampler
+                    (5, sampler(SamplerBindingType::Filtering)),
+                    (
+                        //multiscattering lut storage texture
+                        12,
+                        texture_storage_2d(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ),
                 ),
             ),
         );
 
         let sky_view_lut = render_device.create_bind_group_layout(
             "sky_view_lut_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
+            &BindGroupLayoutEntries::with_indices(
                 ShaderStages::FRAGMENT,
                 (
-                    uniform_buffer::<Atmosphere>(true),
-                    uniform_buffer::<AtmosphereSettings>(true),
-                    uniform_buffer::<ViewUniform>(true),
-                    uniform_buffer::<GpuLights>(true),
-                    texture_2d(TextureSampleType::Float { filterable: true }), //transmittance lut and sampler
-                    sampler(SamplerBindingType::Filtering),
-                    texture_2d(TextureSampleType::Float { filterable: true }), //multiscattering lut and sampler
-                    sampler(SamplerBindingType::Filtering),
+                    (0, uniform_buffer::<Atmosphere>(true)),
+                    (1, uniform_buffer::<AtmosphereSettings>(true)),
+                    (2, uniform_buffer::<ViewUniform>(true)),
+                    (3, uniform_buffer::<GpuLights>(true)),
+                    (4, texture_2d(TextureSampleType::Float { filterable: true })), //transmittance lut and sampler
+                    (5, sampler(SamplerBindingType::Filtering)),
+                    (6, texture_2d(TextureSampleType::Float { filterable: true })), //multiscattering lut and sampler
+                    (7, sampler(SamplerBindingType::Filtering)),
                 ),
             ),
         );
 
         let aerial_view_lut = render_device.create_bind_group_layout(
             "aerial_view_lut_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
+            &BindGroupLayoutEntries::with_indices(
                 ShaderStages::COMPUTE,
                 (
-                    uniform_buffer::<Atmosphere>(true),
-                    uniform_buffer::<AtmosphereSettings>(true),
-                    uniform_buffer::<ViewUniform>(true),
-                    uniform_buffer::<GpuLights>(true),
-                    texture_2d(TextureSampleType::Float { filterable: true }), //transmittance lut and sampler
-                    sampler(SamplerBindingType::Filtering),
-                    texture_2d(TextureSampleType::Float { filterable: true }), //multiscattering lut and sampler
-                    sampler(SamplerBindingType::Filtering),
-                    texture_storage_3d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
+                    (0, uniform_buffer::<Atmosphere>(true)),
+                    (1, uniform_buffer::<AtmosphereSettings>(true)),
+                    (2, uniform_buffer::<ViewUniform>(true)),
+                    (3, uniform_buffer::<GpuLights>(true)),
+                    (4, texture_2d(TextureSampleType::Float { filterable: true })), //transmittance lut and sampler
+                    (5, sampler(SamplerBindingType::Filtering)),
+                    (6, texture_2d(TextureSampleType::Float { filterable: true })), //multiscattering lut and sampler
+                    (7, sampler(SamplerBindingType::Filtering)),
+                    (
+                        //Aerial view lut storage texture
+                        13,
+                        texture_storage_3d(
+                            TextureFormat::Rgba16Float,
+                            StorageTextureAccess::WriteOnly,
+                        ),
+                    ),
                 ),
             ),
         );
@@ -422,49 +436,52 @@ pub(super) fn prepare_atmosphere_bind_groups(
         let transmittance_lut = render_device.create_bind_group(
             "transmittance_lut_bind_group",
             &layouts.transmittance_lut,
-            &BindGroupEntries::sequential((atmosphere_binding.clone(), settings_binding.clone())),
+            &BindGroupEntries::with_indices((
+                (0, atmosphere_binding.clone()),
+                (1, settings_binding.clone()),
+            )),
         );
 
         let multiscattering_lut = render_device.create_bind_group(
             "multiscattering_lut_bind_group",
             &layouts.multiscattering_lut,
-            &BindGroupEntries::sequential((
-                atmosphere_binding.clone(),
-                settings_binding.clone(),
-                &textures.transmittance_lut.default_view,
-                &samplers.transmittance_lut,
-                &textures.multiscattering_lut.default_view,
+            &BindGroupEntries::with_indices((
+                (0, atmosphere_binding.clone()),
+                (1, settings_binding.clone()),
+                (4, &textures.transmittance_lut.default_view),
+                (5, &samplers.transmittance_lut),
+                (12, &textures.multiscattering_lut.default_view),
             )),
         );
 
         let sky_view_lut = render_device.create_bind_group(
             "sky_view_lut_bind_group",
             &layouts.sky_view_lut,
-            &BindGroupEntries::sequential((
-                atmosphere_binding.clone(),
-                settings_binding.clone(),
-                view_binding.clone(),
-                lights_binding.clone(),
-                &textures.transmittance_lut.default_view,
-                &samplers.transmittance_lut,
-                &textures.multiscattering_lut.default_view,
-                &samplers.multiscattering_lut,
+            &BindGroupEntries::with_indices((
+                (0, atmosphere_binding.clone()),
+                (1, settings_binding.clone()),
+                (2, view_binding.clone()),
+                (3, lights_binding.clone()),
+                (4, &textures.transmittance_lut.default_view),
+                (5, &samplers.transmittance_lut),
+                (6, &textures.multiscattering_lut.default_view),
+                (7, &samplers.multiscattering_lut),
             )),
         );
 
         let aerial_view_lut = render_device.create_bind_group(
             "sky_view_lut_bind_group",
             &layouts.aerial_view_lut,
-            &BindGroupEntries::sequential((
-                atmosphere_binding.clone(),
-                settings_binding.clone(),
-                view_binding.clone(),
-                lights_binding.clone(),
-                &textures.transmittance_lut.default_view,
-                &samplers.transmittance_lut,
-                &textures.multiscattering_lut.default_view,
-                &samplers.multiscattering_lut,
-                &textures.aerial_view_lut.default_view,
+            &BindGroupEntries::with_indices((
+                (0, atmosphere_binding.clone()),
+                (1, settings_binding.clone()),
+                (2, view_binding.clone()),
+                (3, lights_binding.clone()),
+                (4, &textures.transmittance_lut.default_view),
+                (5, &samplers.transmittance_lut),
+                (6, &textures.multiscattering_lut.default_view),
+                (7, &samplers.multiscattering_lut),
+                (13, &textures.aerial_view_lut.default_view),
             )),
         );
 

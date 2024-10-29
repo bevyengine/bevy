@@ -40,6 +40,9 @@ mod shaders {
     pub const TYPES: Handle<Shader> = Handle::weak_from_u128(0xB4CA686B10FA592B508580CCC2F9558C);
     pub const FUNCTIONS: Handle<Shader> =
         Handle::weak_from_u128(0xD5524FD88BDC153FBF256B7F2C21906F);
+    pub const BRUNETON_FUNCTIONS: Handle<Shader> =
+        Handle::weak_from_u128(0x7E896F48B707555DD11985F9C1594459);
+    pub const BINDINGS: Handle<Shader> = Handle::weak_from_u128(0x140EFD89B5D4C8490AB895010DFC42FE);
 
     pub const TRANSMITTANCE_LUT: Handle<Shader> =
         Handle::weak_from_u128(0xEECBDEDFEED7F4EAFBD401BFAA5E0EFB);
@@ -59,6 +62,14 @@ impl Plugin for AtmospherePlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, shaders::TYPES, "types.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, shaders::FUNCTIONS, "functions.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            shaders::BRUNETON_FUNCTIONS,
+            "bruneton_functions.wgsl",
+            Shader::from_wgsl
+        );
+
+        load_internal_asset!(app, shaders::BINDINGS, "bindings.wgsl", Shader::from_wgsl);
 
         load_internal_asset!(
             app,

@@ -1,21 +1,19 @@
 #import bevy_pbr::atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
-    functions::{transmittance_lut_uv_to_r_mu, distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary, AtmosphereSample, sample_atmosphere}
+    bindings::{settings, atmosphere},
+    functions::{AtmosphereSample, sample_atmosphere},
+    bruneton_functions::{transmittance_lut_uv_to_r_mu, distance_to_bottom_atmosphere_boundary, distance_to_top_atmosphere_boundary},
 }
 
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
-
-@group(0) @binding(0) var<uniform> atmosphere: Atmosphere;
-@group(0) @binding(1) var<uniform> settings: AtmosphereSettings;
-
 @fragment
 fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // map UV coordinates to view height (r) and zenith cos angle (mu)
-    let r_mu = transmittance_lut_uv_to_r_mu(atmosphere, in.uv);
+    let r_mu = transmittance_lut_uv_to_r_mu(in.uv);
 
     // compute the optical depth from view height r to the top atmosphere boundary
-    let optical_depth = compute_optical_depth_to_top_atmosphere_boundary(atmosphere, r_mu.x, r_mu.y, settings.transmittance_lut_samples);
+    let optical_depth = compute_optical_depth_to_top_atmosphere_boundary(r_mu.x, r_mu.y, settings.transmittance_lut_samples);
 
     let transmittance = exp(-optical_depth);
 
@@ -24,9 +22,9 @@ fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
 /// Compute the optical depth of the atmosphere from the ground to the top atmosphere boundary
 /// at a given view height (r) and zenith cos angle (mu)
-fn compute_optical_depth_to_top_atmosphere_boundary(atmosphere: Atmosphere, altitude: f32, cos_azimuth: f32, sample_count: u32) -> vec3<f32> {
-    let t_bottom = distance_to_bottom_atmosphere_boundary(atmosphere, altitude, cos_azimuth);
-    let t_top = distance_to_top_atmosphere_boundary(atmosphere, altitude, cos_azimuth);
+fn compute_optical_depth_to_top_atmosphere_boundary(altitude: f32, cos_azimuth: f32, sample_count: u32) -> vec3<f32> {
+    let t_bottom = distance_to_bottom_atmosphere_boundary(altitude, cos_azimuth);
+    let t_top = distance_to_top_atmosphere_boundary(altitude, cos_azimuth);
     let t_max = max(t_bottom, t_top); //TODO: max? why not min?
 
     var optical_depth = vec3<f32>(0.0f);
@@ -44,7 +42,7 @@ fn compute_optical_depth_to_top_atmosphere_boundary(atmosphere: Atmosphere, alti
         let r_i = sqrt(t_i * t_i + 2.0 * altitude * cos_azimuth * t_i + altitude * altitude); //?????
         let altitude = r_i - atmosphere.bottom_radius;
 
-        let atmosphere_sample = sample_atmosphere(atmosphere, altitude);
+        let atmosphere_sample = sample_atmosphere(altitude);
         let sample_optical_depth = atmosphere_sample.extinction * dt;
 
         optical_depth += sample_optical_depth;

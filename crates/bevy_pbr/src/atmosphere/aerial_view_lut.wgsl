@@ -2,28 +2,14 @@
     mesh_view_types::{Lights, DirectionalLight},
     atmosphere::{
         types::{Atmosphere, AtmosphereSettings},
+        bindings::{settings, view, lights, aerial_view_lut_out},
         functions::{
             sample_transmittance_lut, sample_atmosphere, rayleigh, henyey_greenstein,
-            sample_multiscattering_lut, distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary,
-            ray_intersects_ground, AtmosphereSample,
+            sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
         },
+        bruneton_functions::{distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary,ray_intersects_ground}
     }
 }
-
-#import bevy_render::view::View;
-
-@group(0) @binding(0) var<uniform> atmosphere: Atmosphere;
-@group(0) @binding(1) var<uniform> settings: AtmosphereSettings;
-@group(0) @binding(2) var<uniform> view: View;
-@group(0) @binding(3) var<uniform> lights: Lights;
-
-@group(0) @binding(4) var transmittance_lut: texture_2d<f32>;
-@group(0) @binding(5) var transmittance_lut_sampler: sampler;
-
-@group(0) @binding(6) var multiscattering_lut: texture_2d<f32>;
-@group(0) @binding(7) var multiscattering_lut_sampler: sampler;
-
-@group(0) @binding(8) var aerial_view_lut: texture_storage_3d<rgba16float, write>;
 
 @compute
 @workgroup_size(16, 16, 1) //TODO: this approach makes it so closer slices get fewer samples. But we also expect those to have less scattering. So win/win?
@@ -51,7 +37,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             prev_depth = depth;
 
             let altitude = world_pos.y;
-            let local_atmosphere = sample_atmosphere(atmosphere, altitude);
+            let local_atmosphere = sample_atmosphere(altitude);
             optical_depth += local_atmosphere.extinction * step_length; //TODO: units between step_length and atmosphere
 
             let transmittance_to_sample = exp(-optical_depth);
@@ -60,8 +46,8 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             total_inscattering += local_inscattering * step_length;
             let mean_transmittance = (transmittance_to_sample.r + transmittance_to_sample.g + transmittance_to_sample.b) / 3.0;
 
-            textureStore(aerial_view_lut, vec3(vec2<i32>(idx.xy), slice_i), vec4(total_inscattering, mean_transmittance));
-            //textureStore(aerial_view_lut, vec3(idx.xy, slice_i), vec4(vec3<f32>(vec3(idx.xy)) / vec3<f32>(settings.aerial_view_lut_size), 1.0));
+            textureStore(aerial_view_lut_out, vec3(vec2<i32>(idx.xy), slice_i), vec4(total_inscattering, mean_transmittance));
+            //textureStore(aerial_view_lut_out, vec3(idx.xy, slice_i), vec4(vec3<f32>(vec3(idx.xy)) / vec3<f32>(settings.aerial_view_lut_size), 1.0));
         }
     }
 }
@@ -113,27 +99,4 @@ fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
 fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
     let view_pos = view.view_from_clip * vec4(0.0, 0.0, ndc_depth, 1.0);
     return view_pos.z / view_pos.w;
-}
-
-
-fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_to_sample: vec3<f32>, view_dir: vec3<f32>, altitude: f32) -> vec3<f32> {
-    //TODO: storing these outside the loop saves several multiplications, but at the cost of an extra vector register
-    var rayleigh_scattering = vec3(0.0);
-    var mie_scattering = vec3(0.0);
-    for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
-        let light = &lights.directional_lights[light_i];
-        let light_cos_azimuth = (*light).direction_to_light.y;
-        let neg_LdotV = dot(view_dir, (*light).direction_to_light);
-        let rayleigh_phase = rayleigh(neg_LdotV);
-        let mie_phase = henyey_greenstein(neg_LdotV, atmosphere.mie_asymmetry);
-
-        let transmittance_to_light = sample_transmittance_lut(atmosphere, transmittance_lut, transmittance_lut_sampler, altitude, light_cos_azimuth);
-        let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(atmosphere, altitude, light_cos_azimuth));
-
-        let psi_ms = sample_multiscattering_lut(atmosphere, multiscattering_lut, multiscattering_lut_sampler, altitude, light_cos_azimuth);
-
-        rayleigh_scattering += (transmittance_to_sample * shadow_factor * rayleigh_phase + psi_ms) * (*light).color.rgb; //TODO: what is color.a?
-        mie_scattering += (transmittance_to_sample * shadow_factor * mie_phase + psi_ms) * (*light).color.rgb;
-    }
-    return local_atmosphere.rayleigh_scattering * rayleigh_scattering + local_atmosphere.mie_scattering * mie_scattering;
 }
