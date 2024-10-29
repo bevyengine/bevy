@@ -143,17 +143,29 @@ impl EntityCloneBuilder {
         .clone_entity(world);
     }
 
-    /// Add a component to the list of allowed components to clone.
+    /// Add a component to the list of components to clone.
     /// Calling this function automatically disallows all other components, only explicitly allowed ones will be cloned.
     pub fn allow<T: Component>(&mut self) -> &mut Self {
         self.allowed_components.insert(TypeId::of::<T>());
         self
     }
 
+    /// Extend the list of components to clone.
+    /// Calling this function automatically disallows all other components, only explicitly allowed ones will be cloned.
+    pub fn allow_by_ids(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
+        self.allowed_components.extend(ids);
+        self
+    }
+
     /// Disallow a component from being cloned.
-    /// If [`Self::allow`] was called beforehand, this will remove the component from allowed list.
     pub fn deny<T: Component>(&mut self) -> &mut Self {
         self.ignored_components.insert(TypeId::of::<T>());
+        self
+    }
+
+    /// Extend the list of components that shouldn't be cloned.
+    pub fn deny_by_ids(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
+        self.ignored_components.extend(ids);
         self
     }
 
