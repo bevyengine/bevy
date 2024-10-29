@@ -36,7 +36,6 @@ mod parallel_queue;
 mod time;
 
 pub use ahash::{AHasher, RandomState};
-pub use bevy_utils_proc_macros::*;
 pub use default::default;
 pub use hashbrown;
 #[cfg(feature = "std")]

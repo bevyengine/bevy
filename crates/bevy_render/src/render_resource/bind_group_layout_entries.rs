@@ -1,4 +1,4 @@
-use bevy_utils::all_tuples_with_size;
+use variadics_please::all_tuples_with_size;
 use core::num::NonZero;
 use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 

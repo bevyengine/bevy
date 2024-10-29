@@ -7,7 +7,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
-use bevy_utils::all_tuples;
+use variadics_please::all_tuples;
 use core::{cell::UnsafeCell, marker::PhantomData};
 
 /// Types that filter the results of a [`Query`].

@@ -13,7 +13,7 @@ use bevy_ecs::{
     query::{QueryItem, QueryState, ReadOnlyQueryData},
     world::{FromWorld, World},
 };
-use bevy_utils::all_tuples_with_size;
+use variadics_please::all_tuples_with_size;
 use core::fmt::Debug;
 use derive_more::derive::{Display, Error, From};
 use downcast_rs::{impl_downcast, Downcast};
