@@ -4,7 +4,7 @@ mod render_pass;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
-use crate::widget::UiImage;
+use crate::widget::{UiImage, UiImageMode};
 use crate::{
     experimental::UiChildren, BackgroundColor, BorderColor, CalculatedClip, ComputedNode,
     DefaultUiCamera, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples,
@@ -335,7 +335,10 @@ pub fn extract_uinode_images(
         if !view_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
-            || image.mode.is_some()
+            || matches!(
+                image.mode,
+                UiImageMode::Sliced { .. } | UiImageMode::Tiled { .. }
+            )
         {
             continue;
         }

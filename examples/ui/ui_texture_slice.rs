@@ -4,6 +4,7 @@
 use bevy::{
     color::palettes::css::{GOLD, ORANGE},
     prelude::*,
+    ui::widget::UiImageMode,
     winit::WinitSettings,
 };
 
@@ -77,8 +78,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             margin: UiRect::all(Val::Px(20.0)),
                             ..default()
                         },
-                        UiImage::new(image.clone())
-                            .with_scale_mode(ImageScaleMode::Sliced(slicer.clone())),
+                        UiImage::new(image.clone()).with_mode(UiImageMode::Sliced(slicer.clone())),
                     ))
                     .with_child((
                         Text::new("Button"),

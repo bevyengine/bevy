@@ -23,11 +23,11 @@ pub struct UiImage {
     ///
     /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
     pub image: Handle<Image>,
-    /// The (optional) texture atlas used to render the image
+    /// The (optional) texture atlas used to render the image.
     pub texture_atlas: Option<TextureAtlas>,
-    /// Whether the image should be flipped along its x-axis
+    /// Whether the image should be flipped along its x-axis.
     pub flip_x: bool,
-    /// Whether the image should be flipped along its y-axis
+    /// Whether the image should be flipped along its y-axis.
     pub flip_y: bool,
     /// An optional rectangle representing the region of the image to render, instead of rendering
     /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`].
@@ -35,7 +35,7 @@ pub struct UiImage {
     /// When used with a [`TextureAtlas`], the rect
     /// is offset by the atlas's minimal (top-left) corner position.
     pub rect: Option<Rect>,
-    /// Controls how the image is altered to fit within the layout and how the layout algorithm should determine how much space to allocate for the image.
+    /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space to allocate for the image.
     pub mode: UiImageMode,
 }
 

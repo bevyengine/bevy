@@ -3,6 +3,7 @@
 use bevy::{
     prelude::*,
     render::texture::{ImageLoaderSettings, ImageSampler},
+    ui::widget::UiImageMode,
     winit::WinitSettings,
 };
 

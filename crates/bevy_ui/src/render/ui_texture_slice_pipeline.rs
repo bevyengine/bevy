@@ -271,8 +271,18 @@ pub fn extract_ui_texture_slices(
             continue;
         };
 
-        let Some(ref image_scale_mode) = image.mode else {
-            continue;
+        let image_scale_mode = match image.mode.clone() {
+            widget::UiImageMode::Sliced(texture_slicer) => ImageScaleMode::Sliced(texture_slicer),
+            widget::UiImageMode::Tiled {
+                tile_x,
+                tile_y,
+                stretch_value,
+            } => ImageScaleMode::Tiled {
+                tile_x,
+                tile_y,
+                stretch_value,
+            },
+            _ => continue,
         };
 
         // Skip invisible images
@@ -313,7 +323,7 @@ pub fn extract_ui_texture_slices(
                 clip: clip.map(|clip| clip.clip),
                 image: image.image.id(),
                 camera_entity,
-                image_scale_mode: image_scale_mode.clone(),
+                image_scale_mode,
                 atlas_rect,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
