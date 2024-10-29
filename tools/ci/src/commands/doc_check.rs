@@ -12,7 +12,7 @@ impl Prepare for DocCheckCommand {
         vec![PreparedCommand::new::<Self>(
             cmd!(
                 sh,
-                "cargo +nightly doc --workspace --all-features --no-deps --document-private-items --keep-going"
+                "cargo doc --workspace --all-features --no-deps --document-private-items --keep-going"
             ),
             "Please fix doc warnings in output above.",
         )
