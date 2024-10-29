@@ -16,7 +16,7 @@ impl Prepare for TestCommand {
 
         let jobs = args
             .jobs
-            .map(|jobs| format!("--jobs {jobs}"))
+            .map(|jobs| format!(" --jobs{jobs}"))
             .unwrap_or_default();
 
         let test_threads = args
@@ -27,7 +27,7 @@ impl Prepare for TestCommand {
         vec![PreparedCommand::new::<Self>(
             cmd!(
                 sh,
-                "cargo test --workspace --lib --bins --tests --benches {no_fail_fast} {jobs} -- {test_threads}"
+                "cargo test --workspace --lib --bins --tests --benches {no_fail_fast}{jobs} -- {test_threads}"
             ),
             "Please fix failing tests in output above.",
         )]

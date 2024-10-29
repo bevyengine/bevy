@@ -11,11 +11,11 @@ impl Prepare for TestCheckCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
         let jobs = args
             .jobs
-            .map(|jobs| format!("--jobs {jobs}"))
+            .map(|jobs| format!(" --jobs{jobs}"))
             .unwrap_or_default();
 
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo check --workspace --tests {jobs}"),
+            cmd!(sh, "cargo check --workspace --tests{jobs}"),
             "Please fix compiler examples for tests in output above.",
         )]
     }

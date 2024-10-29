@@ -30,7 +30,7 @@ impl Prepare for CompileCheckNoStdCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
         let jobs = args
             .jobs
-            .map(|jobs| format!("--jobs {jobs}"))
+            .map(|jobs| format!(" --jobs{jobs}"))
             .unwrap_or_default();
 
         let target = self.target.as_str();
@@ -46,7 +46,7 @@ impl Prepare for CompileCheckNoStdCommand {
         commands.push(PreparedCommand::new::<Self>(
             cmd!(
                 sh,
-                "cargo check -p bevy_ptr --no-default-features --target {target} {jobs}"
+                "cargo check -p bevy_ptr --no-default-features --target {target}{jobs}"
             ),
             "Please fix compiler errors in output above for bevy_ptr no_std compatibility.",
         ));
@@ -54,7 +54,7 @@ impl Prepare for CompileCheckNoStdCommand {
         commands.push(PreparedCommand::new::<Self>(
             cmd!(
                 sh,
-                "cargo check -p bevy_utils --no-default-features --target {target} {jobs}"
+                "cargo check -p bevy_utils --no-default-features --target {target}{jobs}"
             ),
             "Please fix compiler errors in output above for bevy_utils no_std compatibility.",
         ));
@@ -62,7 +62,7 @@ impl Prepare for CompileCheckNoStdCommand {
         commands.push(PreparedCommand::new::<Self>(
             cmd!(
                 sh,
-                "cargo check -p bevy_mikktspace --no-default-features --features libm --target {target} {jobs}"
+                "cargo check -p bevy_mikktspace --no-default-features --features libm --target {target}{jobs}"
             ),
             "Please fix compiler errors in output above for bevy_mikktspace no_std compatibility.",
         ));
