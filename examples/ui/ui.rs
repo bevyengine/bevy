@@ -5,7 +5,7 @@ use bevy::{
         accesskit::{NodeBuilder, Role},
         AccessibilityNode,
     },
-    color::palettes::basic::LIME,
+    color::palettes::{basic::LIME, css::RED},
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::focus::HoverMap,
     prelude::*,
@@ -180,8 +180,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             },
                             BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
                         ))
-                        .with_child(UiImage::new(
-                            asset_server.load("branding/bevy_logo_light.png"),
+                        .with_child((
+                            UiImage::new(asset_server.load("branding/bevy_logo_light.png")),
+                            Outline {
+                                width: Val::Px(2.),
+                                color: RED.into(),
+                                ..Default::default()
+                            },
                         ));
                 });
 
