@@ -1,9 +1,9 @@
 pub use crate::change_detection::{NonSendMut, Res, ResMut};
 use crate::{
-    archetype::{self, Archetype, Archetypes},
+    archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::{Ticks, TicksMut},
-    component::{self, ComponentId, ComponentTicks, Components, Tick},
+    component::{ComponentId, ComponentTicks, Components, Tick},
     entity::{Entities, Entity},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
@@ -12,7 +12,7 @@ use crate::{
     storage::ResourceData,
     system::{Query, Single, SystemMeta},
     world::{
-        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut, FromWorld, Mut, OnMutate, World, ON_MUTATE
+        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut, FromWorld, Mut, World, ON_MUTATE
     },
 };
 use bevy_ecs_macros::impl_param_set;
@@ -27,9 +27,8 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
-use std::f64::consts::E;
 
-use super::{IntoSystem, Populated};
+use super::Populated;
 
 /// A parameter that can be used in a [`System`](super::System).
 ///
