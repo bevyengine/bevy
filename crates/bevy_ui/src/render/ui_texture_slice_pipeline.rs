@@ -30,6 +30,7 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
+use widget::UiImage;
 
 pub const UI_SLICER_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11156288772117983964);
 
@@ -307,7 +308,7 @@ pub fn extract_ui_texture_slices(
                 color: image.color.into(),
                 rect: Rect {
                     min: Vec2::ZERO,
-                    max: uinode.calculated_size,
+                    max: uinode.size,
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: image.image.id(),

@@ -306,7 +306,8 @@ pub struct SystemState<Param: SystemParam + 'static> {
 // So, generate a function for each arity with an explicit `FnMut` constraint to enable higher-order lifetimes,
 // along with a regular `SystemParamFunction` constraint to allow the system to be built.
 macro_rules! impl_build_system {
-    ($($param: ident),*) => {
+    ($(#[$meta:meta])* $($param: ident),*) => {
+        $(#[$meta])*
         impl<$($param: SystemParam),*> SystemState<($($param,)*)> {
             /// Create a [`FunctionSystem`] from a [`SystemState`].
             /// This method signature allows type inference of closure parameters for a system with no input.
@@ -344,7 +345,13 @@ macro_rules! impl_build_system {
     }
 }
 
-all_tuples!(impl_build_system, 0, 16, P);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_build_system,
+    0,
+    16,
+    P
+);
 
 impl<Param: SystemParam> SystemState<Param> {
     /// Creates a new [`SystemState`] with default state.
