@@ -25,7 +25,7 @@ pub struct ComputedNode {
     /// The size of the node as width and height in logical pixels
     ///
     /// automatically calculated by [`super::layout::ui_layout_system`]
-    pub(crate) calculated_size: Vec2,
+    pub(crate) size: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
     /// Outline updates bypass change detection.
@@ -62,15 +62,16 @@ impl ComputedNode {
     /// The calculated node size as width and height in logical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
     pub const fn size(&self) -> Vec2 {
-        self.calculated_size
+        self.size
     }
 
     /// Check if the node is empty.
     /// A node is considered empty if it has a zero or negative extent along either of its axes.
     #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.size().cmple(Vec2::ZERO).any()
+    pub const fn is_empty(&self) -> bool {
+        self.size.x <= 0. || self.size.y <= 0.
     }
 
     /// The order of the node in the UI layout.
@@ -84,6 +85,7 @@ impl ComputedNode {
     /// The calculated node size as width and height in logical pixels before rounding.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
     pub const fn unrounded_size(&self) -> Vec2 {
         self.unrounded_size
     }
@@ -93,7 +95,7 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn outline_width(&self) -> f32 {
+    pub const fn outline_width(&self) -> f32 {
         self.outline_width
     }
 
@@ -101,7 +103,7 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn outline_offset(&self) -> f32 {
+    pub const fn outline_offset(&self) -> f32 {
         self.outline_offset
     }
 
@@ -109,8 +111,9 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn outlined_node_size(&self) -> Vec2 {
-        self.size() + 2. * (self.outline_offset + self.outline_width)
+    pub const fn outlined_node_size(&self) -> Vec2 {
+        let offset = 2. * (self.outline_offset + self.outline_width);
+        Vec2::new(self.size.x + offset, self.size.y + offset)
     }
 
     /// Returns the border radius for each corner of the outline
@@ -119,20 +122,20 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn outline_radius(&self) -> ResolvedBorderRadius {
+    pub const fn outline_radius(&self) -> ResolvedBorderRadius {
         let outer_distance = self.outline_width + self.outline_offset;
-        let compute_radius = |radius| {
+        const fn compute_radius(radius: f32, outer_distance: f32) -> f32 {
             if radius > 0. {
                 radius + outer_distance
             } else {
                 0.
             }
-        };
+        }
         ResolvedBorderRadius {
-            top_left: compute_radius(self.border_radius.top_left),
-            top_right: compute_radius(self.border_radius.top_right),
-            bottom_left: compute_radius(self.border_radius.bottom_left),
-            bottom_right: compute_radius(self.border_radius.bottom_right),
+            top_left: compute_radius(self.border_radius.top_left, outer_distance),
+            top_right: compute_radius(self.border_radius.top_right, outer_distance),
+            bottom_left: compute_radius(self.border_radius.bottom_left, outer_distance),
+            bottom_right: compute_radius(self.border_radius.bottom_right, outer_distance),
         }
     }
 
@@ -140,7 +143,7 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn border(&self) -> BorderRect {
+    pub const fn border(&self) -> BorderRect {
         self.border
     }
 
@@ -148,7 +151,7 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn border_radius(&self) -> ResolvedBorderRadius {
+    pub const fn border_radius(&self) -> ResolvedBorderRadius {
         self.border_radius
     }
 
@@ -178,13 +181,13 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn padding(&self) -> BorderRect {
+    pub const fn padding(&self) -> BorderRect {
         self.padding
     }
 
     /// Returns the combined inset on each edge including both padding and border thickness in logical pixels.
     #[inline]
-    pub fn content_inset(&self) -> BorderRect {
+    pub const fn content_inset(&self) -> BorderRect {
         BorderRect {
             left: self.border.left + self.padding.left,
             right: self.border.right + self.padding.right,
@@ -197,7 +200,7 @@ impl ComputedNode {
 impl ComputedNode {
     pub const DEFAULT: Self = Self {
         stack_index: 0,
-        calculated_size: Vec2::ZERO,
+        size: Vec2::ZERO,
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,

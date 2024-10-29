@@ -12,7 +12,7 @@ use taffy::{MaybeMath, MaybeResolve};
 /// The 2D texture displayed for this UI node
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(Node, UiImageSize)]
+#[require(Node, UiImageSize, ContentSize)]
 pub struct UiImage {
     /// The tint color used to draw the image.
     ///
