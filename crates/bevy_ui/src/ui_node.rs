@@ -71,7 +71,7 @@ impl ComputedNode {
     /// A node is considered empty if it has a zero or negative extent along either of its axes.
     #[inline]
     pub const fn is_empty(&self) -> bool {
-        self.calculated_size.x <= 0. || self.calculated_size.y <= 0.
+        self.size.x <= 0. || self.size.y <= 0.
     }
 
     /// The order of the node in the UI layout.
@@ -113,10 +113,7 @@ impl ComputedNode {
     #[inline]
     pub const fn outlined_node_size(&self) -> Vec2 {
         let offset = 2. * (self.outline_offset + self.outline_width);
-        Vec2::new(
-            self.calculated_size.x + offset,
-            self.calculated_size.y + offset,
-        )
+        Vec2::new(self.size.x + offset, self.size.y + offset)
     }
 
     /// Returns the border radius for each corner of the outline
