@@ -1,4 +1,4 @@
-use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiImage, UiScale};
+use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiImage, UiImageMode, UiScale};
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
@@ -106,7 +106,7 @@ pub fn update_image_content_size_system(
         * ui_scale.0;
 
     for (mut content_size, image, mut image_size) in &mut query {
-        if image.scale_mode.is_some() {
+        if !matches!(image.mode, UiImageMode::Auto) {
             if image.is_changed() {
                 // Mutably derefs, marking the `ContentSize` as changed ensuring `ui_layout_system` will remove the node's measure func if present.
                 content_size.measure = None;

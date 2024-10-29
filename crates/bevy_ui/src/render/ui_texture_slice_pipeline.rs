@@ -270,7 +270,7 @@ pub fn extract_ui_texture_slices(
             continue;
         };
 
-        let Some(ref image_scale_mode) = image.scale_mode else {
+        let Some(ref image_scale_mode) = image.mode else {
             continue;
         };
 

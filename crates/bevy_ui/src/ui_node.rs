@@ -9,7 +9,7 @@ use bevy_render::{
     texture::{Image, TRANSPARENT_IMAGE_HANDLE},
     view::Visibility,
 };
-use bevy_sprite::{BorderRect, ImageScaleMode, TextureAtlas};
+use bevy_sprite::{BorderRect, TextureAtlas, TextureSlicer};
 use bevy_transform::components::Transform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
@@ -2066,8 +2066,8 @@ pub struct UiImage {
     /// When used with a [`TextureAtlas`], the rect
     /// is offset by the atlas's minimal (top-left) corner position.
     pub rect: Option<Rect>,
-    /// Controls how the image is altered when scaled.
-    pub scale_mode: Option<ImageScaleMode>,
+    /// Controls how the image is altered to fit within the layout and how the layout algorithm should determine how much space to allocate for the image.
+    pub mode: UiImageMode,
 }
 
 impl Default for UiImage {
@@ -2089,9 +2089,30 @@ impl Default for UiImage {
             flip_x: false,
             flip_y: false,
             rect: None,
-            scale_mode: None,
+            mode: UiImageMode::Auto,
         }
     }
+}
+
+/// Controls how the image is altered to fit within the layout and how the layout algorithm should determine how much space to allocate for the image
+#[derive(Debug, Clone, Reflect)]
+pub enum UiImageMode {
+    /// The image will be sized automatically by taking the size of the source image and applying any node constraints.
+    Auto,
+    /// The image will be resized to fill the node
+    Fill,
+    /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
+    Sliced(TextureSlicer),
+    /// The texture will be repeated if stretched beyond `stretched_value`
+    Tiled {
+        /// Should the image repeat horizontally
+        tile_x: bool,
+        /// Should the image repeat vertically
+        tile_y: bool,
+        /// The texture will repeat when the ratio between the *drawing dimensions* of texture and the
+        /// *original texture size* are above this value.
+        stretch_value: f32,
+    },
 }
 
 impl UiImage {
@@ -2115,7 +2136,7 @@ impl UiImage {
             flip_y: false,
             texture_atlas: None,
             rect: None,
-            scale_mode: None,
+            mode: UiImageMode::Auto,
         }
     }
 
@@ -2156,8 +2177,8 @@ impl UiImage {
     }
 
     #[must_use]
-    pub const fn with_scale_mode(mut self, scale_mode: ImageScaleMode) -> Self {
-        self.scale_mode = Some(scale_mode);
+    pub const fn with_mode(mut self, mode: UiImageMode) -> Self {
+        self.mode = mode;
         self
     }
 }
