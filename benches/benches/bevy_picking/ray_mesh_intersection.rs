@@ -63,84 +63,84 @@ fn ray_mesh_intersection(c: &mut Criterion) {
     }
 }
 
-fn ray_mesh_intersection_no_cull(c: &mut Criterion) {
-    let mut group = c.benchmark_group("ray_mesh_intersection_no_cull");
-    group.warm_up_time(std::time::Duration::from_millis(500));
+// fn ray_mesh_intersection_no_cull(c: &mut Criterion) {
+//     let mut group = c.benchmark_group("ray_mesh_intersection_no_cull");
+//     group.warm_up_time(std::time::Duration::from_millis(500));
 
-    for vertices_per_side in [10_u32, 100, 1000] {
-        group.bench_function(format!("{}_vertices", vertices_per_side.pow(2)), |b| {
-            let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::NEG_Y);
-            let mesh_to_world = Mat4::IDENTITY;
-            let mesh = mesh_creation(vertices_per_side);
+//     for vertices_per_side in [10_u32, 100, 1000] {
+//         group.bench_function(format!("{}_vertices", vertices_per_side.pow(2)), |b| {
+//             let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::NEG_Y);
+//             let mesh_to_world = Mat4::IDENTITY;
+//             let mesh = mesh_creation(vertices_per_side);
 
-            b.iter(|| {
-                black_box(ray_cast::ray_mesh_intersection(
-                    ray,
-                    &mesh_to_world,
-                    &mesh.positions,
-                    Some(&mesh.normals),
-                    Some(&mesh.indices),
-                    ray_cast::Backfaces::Include,
-                ));
-            });
-        });
-    }
-}
+//             b.iter(|| {
+//                 black_box(ray_cast::ray_mesh_intersection(
+//                     ray,
+//                     &mesh_to_world,
+//                     &mesh.positions,
+//                     Some(&mesh.normals),
+//                     Some(&mesh.indices),
+//                     ray_cast::Backfaces::Include,
+//                 ));
+//             });
+//         });
+//     }
+// }
 
-fn ray_mesh_intersection_no_intersection(c: &mut Criterion) {
-    let mut group = c.benchmark_group("ray_mesh_intersection_no_intersection");
-    group.warm_up_time(std::time::Duration::from_millis(500));
+// fn ray_mesh_intersection_no_intersection(c: &mut Criterion) {
+//     let mut group = c.benchmark_group("ray_mesh_intersection_no_intersection");
+//     group.warm_up_time(std::time::Duration::from_millis(500));
 
-    for vertices_per_side in [10_u32, 100, 1000] {
-        group.bench_function(format!("{}_vertices", (vertices_per_side).pow(2)), |b| {
-            let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::X);
-            let mesh_to_world = Mat4::IDENTITY;
-            let mesh = mesh_creation(vertices_per_side);
+//     for vertices_per_side in [10_u32, 100, 1000] {
+//         group.bench_function(format!("{}_vertices", (vertices_per_side).pow(2)), |b| {
+//             let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::X);
+//             let mesh_to_world = Mat4::IDENTITY;
+//             let mesh = mesh_creation(vertices_per_side);
 
-            b.iter(|| {
-                black_box(ray_cast::ray_mesh_intersection(
-                    ray,
-                    &mesh_to_world,
-                    &mesh.positions,
-                    Some(&mesh.normals),
-                    Some(&mesh.indices),
-                    ray_cast::Backfaces::Cull,
-                ));
-            });
-        });
-    }
-}
+//             b.iter(|| {
+//                 black_box(ray_cast::ray_mesh_intersection(
+//                     ray,
+//                     &mesh_to_world,
+//                     &mesh.positions,
+//                     Some(&mesh.normals),
+//                     Some(&mesh.indices),
+//                     ray_cast::Backfaces::Cull,
+//                 ));
+//             });
+//         });
+//     }
+// }
 
-fn ray_mesh_intersection_no_indices(c: &mut Criterion) {
-    let mut group = c.benchmark_group("ray_mesh_intersection_no_indices");
-    group.warm_up_time(std::time::Duration::from_millis(500));
+// fn ray_mesh_intersection_no_indices(c: &mut Criterion) {
+//     let mut group = c.benchmark_group("ray_mesh_intersection_no_indices");
+//     group.warm_up_time(std::time::Duration::from_millis(500));
 
-    for vertices_per_side in [10_u32, 100, 1000] {
-        group.bench_function(format!("{}_vertices", vertices_per_side.pow(2)), |b| {
-            let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::NEG_Y);
-            let mesh_to_world = Mat4::IDENTITY;
-            let mesh = mesh_creation(vertices_per_side);
-            let indices: Option<&[u32]> = None;
+//     for vertices_per_side in [10_u32, 100, 1000] {
+//         group.bench_function(format!("{}_vertices", vertices_per_side.pow(2)), |b| {
+//             let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::NEG_Y);
+//             let mesh_to_world = Mat4::IDENTITY;
+//             let mesh = mesh_creation(vertices_per_side);
+//             let indices: Option<&[u32]> = None;
 
-            b.iter(|| {
-                black_box(ray_cast::ray_mesh_intersection(
-                    ray,
-                    &mesh_to_world,
-                    &mesh.positions,
-                    Some(&mesh.normals),
-                    indices,
-                    ray_cast::Backfaces::Cull,
-                ));
-            });
-        });
-    }
-}
+//             b.iter(|| {
+//                 black_box(ray_cast::ray_mesh_intersection(
+//                     ray,
+//                     &mesh_to_world,
+//                     &mesh.positions,
+//                     Some(&mesh.normals),
+//                     indices,
+//                     ray_cast::Backfaces::Cull,
+//                 ));
+//             });
+//         });
+//     }
+// }
 
 criterion_group!(
     benches,
     ray_mesh_intersection,
-    ray_mesh_intersection_no_cull,
-    ray_mesh_intersection_no_intersection,
-    ray_mesh_intersection_no_indices,
+    // ray_mesh_intersection_no_cull,
+    // ray_mesh_intersection_no_intersection,
+    // ray_mesh_intersection_no_indices,
 );
 criterion_main!(benches);
