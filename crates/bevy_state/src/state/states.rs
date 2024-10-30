@@ -64,4 +64,9 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
     /// Used to help order transitions and de-duplicate [`ComputedStates`](crate::state::ComputedStates), as well as prevent cyclical
     /// `ComputedState` dependencies.
     const DEPENDENCY_DEPTH: usize = 1;
+
+    /// Should scoped entities be enabled for this state?
+    fn scoped_entities_enabled() -> bool {
+        false
+    }
 }
