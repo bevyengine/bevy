@@ -5,6 +5,10 @@ const RIGHT_VERTEX = 2u;
 const BOTTOM_VERTEX = 4u;
 const BORDER: u32 = 8u;
 
+struct PxScaleUniform {
+    value: f32,
+}
+
 fn enabled(flags: u32, mask: u32) -> bool {
     return (flags & mask) != 0u;
 }
@@ -55,6 +59,7 @@ fn vertex(
 
 @group(1) @binding(0) var sprite_texture: texture_2d<f32>;
 @group(1) @binding(1) var sprite_sampler: sampler;
+@group(2) @binding(0) var<uniform> px_scale: PxScaleUniform;
 
 // The returned value is the shortest distance from the given point to the boundary of the rounded 
 // box.
@@ -118,7 +123,7 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 fn antialias(distance: f32) -> f32 {
     // Using the fwidth(distance) was causing artifacts, so just use the distance.
     // This antialiases between the distance values of 0.25 and -0.25
-    return clamp(0.0, 1.0, 0.5 - 2.0 * distance);
+    return clamp(0.0, 1.0, (0.5 - 2. * px_scale.value * distance));
 }
 
 fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {

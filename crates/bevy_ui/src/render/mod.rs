@@ -792,6 +792,7 @@ pub struct UiMeta {
     vertices: RawBufferVec<UiVertex>,
     indices: RawBufferVec<u32>,
     view_bind_group: Option<BindGroup>,
+    pxscale_bind_group: Option<BindGroup>,
 }
 
 impl Default for UiMeta {
@@ -800,6 +801,7 @@ impl Default for UiMeta {
             vertices: RawBufferVec::new(BufferUsages::VERTEX),
             indices: RawBufferVec::new(BufferUsages::INDEX),
             view_bind_group: None,
+            pxscale_bind_group: None,
         }
     }
 }
@@ -915,6 +917,22 @@ pub fn prepare_uinodes(
             "ui_view_bind_group",
             &ui_pipeline.view_layout,
             &BindGroupEntries::single(view_binding),
+        ));
+
+        // Create the PxScaleUniform buffer
+        let px_scale_uniform = PxScaleUniform { value: 3. };
+
+        let pxscale_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+            label: Some("pxscale_buffer"),
+            contents: bytemuck::bytes_of(&px_scale_uniform),
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        });
+
+        // Create the PxScaleUniform bind group
+        ui_meta.pxscale_bind_group = Some(render_device.create_bind_group(
+            "ui_pxscale_bind_group",
+            &ui_pipeline.pxscale_layout,
+            &BindGroupEntries::single(pxscale_buffer.as_entire_binding()),
         ));
 
         // Buffer indexes

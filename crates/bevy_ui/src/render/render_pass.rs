@@ -160,6 +160,7 @@ pub type DrawUi = (
     SetItemPipeline,
     SetUiViewBindGroup<0>,
     SetUiTextureBindGroup<1>,
+    SetUiPxScaleBindGroup<2>,
     DrawUiNode,
 );
 
@@ -206,6 +207,28 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
         RenderCommandResult::Success
     }
 }
+
+pub struct SetUiPxScaleBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiPxScaleBindGroup<I> {
+    type Param = SRes<UiMeta>;
+    type ViewQuery = ();
+    type ItemQuery = ();
+
+    fn render<'w>(
+        _item: &P,
+        _view: (),
+        _entity: Option<()>,
+        ui_meta: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let Some(pxscale_bind_group) = ui_meta.into_inner().pxscale_bind_group.as_ref() else {
+            return RenderCommandResult::Failure("pxscale_bind_group not available");
+        };
+        pass.set_bind_group(I, pxscale_bind_group, &[]);
+        RenderCommandResult::Success
+    }
+}
+
 pub struct DrawUiNode;
 impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
     type Param = SRes<UiMeta>;

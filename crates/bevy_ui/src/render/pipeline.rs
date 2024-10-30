@@ -8,11 +8,19 @@ use bevy_render::{
     texture::BevyDefault,
     view::{ViewTarget, ViewUniform},
 };
+use bytemuck::{Pod, Zeroable};
 
 #[derive(Resource)]
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
+    pub pxscale_layout: BindGroupLayout,
+}
+
+#[repr(C)]
+#[derive(Clone, ShaderType, Pod, Copy, Zeroable)]
+pub struct PxScaleUniform {
+    pub value: f32,
 }
 
 impl FromWorld for UiPipeline {
@@ -38,9 +46,18 @@ impl FromWorld for UiPipeline {
             ),
         );
 
+        let pxscale_layout = render_device.create_bind_group_layout(
+            "ui_pxscale_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::FRAGMENT,
+                uniform_buffer::<PxScaleUniform>(false),
+            ),
+        );
+
         UiPipeline {
             view_layout,
             image_layout,
+            pxscale_layout,
         }
     }
 }
@@ -103,7 +120,11 @@ impl SpecializedRenderPipeline for UiPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: vec![self.view_layout.clone(), self.image_layout.clone()],
+            layout: vec![
+                self.view_layout.clone(),
+                self.image_layout.clone(),
+                self.pxscale_layout.clone(),
+            ],
             push_constant_ranges: Vec::new(),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
