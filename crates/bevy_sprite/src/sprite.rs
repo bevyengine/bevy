@@ -102,12 +102,6 @@ pub enum ImageScaleMode {
 }
 
 impl ImageScaleMode {
-    /// Determines if the image defines the size in contexts like UI ([`ImageScaleMode::Stretch`]).
-    #[inline]
-    pub fn defines_size(&self) -> bool {
-        matches!(self, ImageScaleMode::Stretch)
-    }
-
     /// Returns true if this mode uses slices internally ([`ImageScaleMode::Sliced`] or [`ImageScaleMode::Tiled`])
     #[inline]
     pub fn uses_slices(&self) -> bool {

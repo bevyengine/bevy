@@ -159,6 +159,14 @@ pub enum UiImageMode {
     },
 }
 
+impl UiImageMode {
+    /// Returns true if this mode uses slices internally ([`UiImageMode::Sliced`] or [`UiImageMode::Tiled`])
+    #[inline]
+    pub fn uses_slices(&self) -> bool {
+        matches!(self, UiImageMode::Sliced(..) | UiImageMode::Tiled { .. })
+    }
+}
+
 /// The size of the image's texture
 ///
 /// This component is updated automatically by [`update_image_content_size_system`]
