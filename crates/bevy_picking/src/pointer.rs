@@ -286,7 +286,7 @@ impl PointerInput {
         }
     }
 
-    /// Returns true if the `button` of this pointer was just pressed.
+    /// Returns true if the `target_button` of this pointer was just pressed.
     #[inline]
     pub fn button_just_down(&self, target_button: PointerButton) -> bool {
         if let PointerAction::Pressed { direction, button } = self.action {
@@ -296,7 +296,7 @@ impl PointerInput {
         }
     }
 
-    /// Returns true if the `button` of this pointer was just released.
+    /// Returns true if the `target_button` of this pointer was just released.
     #[inline]
     pub fn button_just_up(&self, target_button: PointerButton) -> bool {
         if let PointerAction::Pressed { direction, button } = self.action {
