@@ -40,6 +40,10 @@ impl Component for ObservedBy {
             }
         });
     }
+
+    fn get_component_clone_handler() -> ComponentCloneHandler {
+        ComponentCloneHandler::Ignore
+    }
 }
 
 /// Trait that holds functions for configuring interaction with observers during entity cloning.
@@ -55,7 +59,7 @@ impl CloneEntityWithObserversExt for EntityCloneBuilder {
                 component_clone_observed_by,
             ))
         } else {
-            self.override_component_clone_handler::<ObservedBy>(ComponentCloneHandler::Ignore)
+            self.override_component_clone_handler::<ObservedBy>(ComponentCloneHandler::Default)
         }
     }
 }
