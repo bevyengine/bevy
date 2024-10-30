@@ -138,12 +138,13 @@ impl From<Handle<Image>> for UiImage {
 }
 
 /// Controls how the image is altered to fit within the layout and how the layout algorithm should determine how much space to allocate for the image
-#[derive(Debug, Clone, Reflect)]
+#[derive(Default, Debug, Clone, Reflect)]
 pub enum UiImageMode {
     /// The image will be sized automatically by taking the size of the source image and applying any node constraints.
+    #[default]
     Auto,
-    /// The image will be resized to fill the node
-    Fill,
+    /// The image will be resized to fit the node. The image's original size and aspect ratio will be ignored.
+    Resize,
     /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
     Sliced(TextureSlicer),
     /// The texture will be repeated if stretched beyond `stretched_value`
