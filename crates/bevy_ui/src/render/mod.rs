@@ -4,7 +4,7 @@ mod render_pass;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
-use crate::widget::{NodeImageMode, UiImage};
+use crate::widget::UiImage;
 use crate::{
     experimental::UiChildren, BackgroundColor, BorderColor, CalculatedClip, ComputedNode,
     DefaultUiCamera, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples,
