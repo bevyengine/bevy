@@ -87,7 +87,7 @@ fn spawn_sprites(
             Sprite {
                 image: texture_handle.clone(),
                 custom_size: Some(size),
-                scale_mode,
+                mode: scale_mode,
                 ..default()
             },
             Transform::from_translation(position),

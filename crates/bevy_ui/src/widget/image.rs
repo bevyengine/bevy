@@ -159,6 +159,17 @@ pub enum NodeImageMode {
     },
 }
 
+impl NodeImageMode {
+    /// Returns true if this mode uses slices internally ([`NodeImageMode::Sliced`] or [`NodeImageMode::Tiled`])
+    #[inline]
+    pub fn uses_slices(&self) -> bool {
+        matches!(
+            self,
+            NodeImageMode::Sliced(..) | NodeImageMode::Tiled { .. }
+        )
+    }
+}
+
 /// The size of the image's texture
 ///
 /// This component is updated automatically by [`update_image_content_size_system`]

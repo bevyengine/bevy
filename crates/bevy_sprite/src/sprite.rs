@@ -35,7 +35,7 @@ pub struct Sprite {
     /// [`Anchor`] point of the sprite in the world
     pub anchor: Anchor,
     /// How the sprite's image will be scaled.
-    pub scale_mode: SpriteImageMode,
+    pub mode: SpriteImageMode,
 }
 
 impl Sprite {
@@ -102,12 +102,6 @@ pub enum SpriteImageMode {
 }
 
 impl SpriteImageMode {
-    /// Determines if the image defines the size in contexts like UI ([`SpriteImageMode::Stretch`]).
-    #[inline]
-    pub fn defines_size(&self) -> bool {
-        matches!(self, SpriteImageMode::Stretch)
-    }
-
     /// Returns true if this mode uses slices internally ([`SpriteImageMode::Sliced`] or [`SpriteImageMode::Tiled`])
     #[inline]
     pub fn uses_slices(&self) -> bool {

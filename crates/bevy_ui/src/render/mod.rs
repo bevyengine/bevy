@@ -335,10 +335,7 @@ pub fn extract_uinode_images(
         if !view_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
-            || matches!(
-                image.mode,
-                NodeImageMode::Sliced { .. } | NodeImageMode::Tiled { .. }
-            )
+            || image.mode.uses_slices()
         {
             continue;
         }
