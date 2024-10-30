@@ -5,7 +5,6 @@ use bevy::{
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
-use bevy::ecs::system::SystemParamItem;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/custom_material.wgsl";
@@ -13,7 +12,7 @@ const SHADER_ASSET_PATH: &str = "shaders/custom_material.wgsl";
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, MaterialPlugin::<CustomMaterial>::default()))
-        .add_systems(Startup, (setup, foo))
+        .add_systems(Startup, setup)
         .run();
 }
 
