@@ -3,7 +3,7 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
-    animation::{animate_targets, AnimationTargetId, RepeatAnimation},
+    animation::{AnimationTargetId, RepeatAnimation},
     color::palettes::css::WHITE,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
@@ -22,7 +22,7 @@ fn main() {
         .init_resource::<ParticleAssets>()
         .init_resource::<FoxFeetTargets>()
         .add_systems(Startup, setup)
-        .add_systems(Update, setup_scene_once_loaded.before(animate_targets))
+        .add_systems(Update, setup_scene_once_loaded)
         .add_systems(Update, (keyboard_animation_control, simulate_particles))
         .add_observer(observe_on_step)
         .run();
