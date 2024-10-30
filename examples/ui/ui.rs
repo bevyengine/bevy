@@ -282,7 +282,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn((
                             UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png"))
-                                .with_mode(UiImageMode::Resize),
+                                .with_mode(UiImageMode::Stretch),
                             Node {
                                 width: Val::Px(500.0),
                                 height: Val::Px(125.0),

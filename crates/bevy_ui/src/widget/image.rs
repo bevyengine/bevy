@@ -144,7 +144,7 @@ pub enum UiImageMode {
     #[default]
     Auto,
     /// The image will be resized to fit the node. The image's original size and aspect ratio will be ignored.
-    Resize,
+    Stretch,
     /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
     Sliced(TextureSlicer),
     /// The texture will be repeated if stretched beyond `stretched_value`
