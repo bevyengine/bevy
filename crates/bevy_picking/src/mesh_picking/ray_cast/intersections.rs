@@ -85,31 +85,27 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
             return None;
         }
 
-        indices
-            .chunks_exact(3)
-            .enumerate()
-            .for_each(|(tri_idx, triangle)| {
-                let [Ok(a), Ok(b), Ok(c)] = [
-                    triangle[0].try_into(),
-                    triangle[1].try_into(),
-                    triangle[2].try_into(),
-                ] else {
-                    return;
-                };
+        indices.chunks_exact(3).for_each(|triangle| {
+            let [Ok(a), Ok(b), Ok(c)] = [
+                triangle[0].try_into(),
+                triangle[1].try_into(),
+                triangle[2].try_into(),
+            ] else {
+                return;
+            };
 
-                let tri_vertices = match [positions.get(a), positions.get(b), positions.get(c)] {
-                    [Some(c), Some(b), Some(a)] => [Vec3::from(*a), Vec3::from(*b), Vec3::from(*c)],
-                    _ => return,
-                };
+            let tri_vertices = match [positions.get(a), positions.get(b), positions.get(c)] {
+                [Some(a), Some(b), Some(c)] => [Vec3::from(*a), Vec3::from(*b), Vec3::from(*c)],
+                _ => return,
+            };
 
-                if let Some(hit) = ray_triangle_intersection(&ray, &tri_vertices, backface_culling)
-                {
-                    if hit.distance > 0. && hit.distance < closest_hit_distance {
-                        closest_hit_distance = hit.distance;
-                        closest_hit = Some((tri_idx, hit));
-                    }
+            if let Some(hit) = ray_triangle_intersection(&ray, &tri_vertices, backface_culling) {
+                if hit.distance >= 0. && hit.distance < closest_hit_distance {
+                    closest_hit_distance = hit.distance;
+                    closest_hit = Some((a, hit));
                 }
-            });
+            }
+        });
     } else {
         positions
             .chunks_exact(3)
@@ -123,7 +119,7 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
 
                 if let Some(hit) = ray_triangle_intersection(&ray, &tri_vertices, backface_culling)
                 {
-                    if hit.distance > 0. && hit.distance < closest_hit_distance {
+                    if hit.distance >= 0. && hit.distance < closest_hit_distance {
                         closest_hit_distance = hit.distance;
                         closest_hit = Some((tri_idx, hit));
                     }
@@ -150,7 +146,7 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
         };
 
         let tri_vertices = match [positions.get(a), positions.get(b), positions.get(c)] {
-            [Some(c), Some(b), Some(a)] => [Vec3::from(*a), Vec3::from(*b), Vec3::from(*c)],
+            [Some(a), Some(b), Some(c)] => [Vec3::from(*a), Vec3::from(*b), Vec3::from(*c)],
             _ => return None,
         };
 
@@ -177,11 +173,13 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
         };
 
         Some(RayMeshHit {
-            point,
-            normal,
+            point: mesh_transform.transform_point3(point),
+            normal: mesh_transform.transform_vector3(normal),
             barycentric_coords: barycentric,
-            distance: hit.distance,
-            triangle: Some(tri_vertices),
+            distance: mesh_transform
+                .transform_vector3(ray.direction * hit.distance)
+                .length(),
+            triangle: Some(tri_vertices.map(|v| mesh_transform.transform_point3(v))),
             triangle_index: Some(a),
         })
     })
