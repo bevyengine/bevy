@@ -48,7 +48,7 @@ struct ComputeTransform(Task<CommandQueue>);
 /// This system generates tasks simulating computationally intensive
 /// work that potentially spans multiple frames/ticks. A separate
 /// system, [`handle_tasks`], will poll the spawned tasks on subsequent
-/// frames/ticks, and use the results to spawn cubes
+/// frames/ticks, and execute the queued commands to spawn cubes
 fn spawn_tasks(mut commands: Commands) {
     let thread_pool = AsyncComputeTaskPool::get();
     for x in 0..NUM_CUBES {
@@ -104,10 +104,10 @@ fn spawn_tasks(mut commands: Commands) {
     }
 }
 
-/// This system queries for entities that have our Task<Transform> component. It polls the
-/// tasks to see if they're complete. If the task is complete it takes the result, adds a
-/// new [`Mesh3d`] and [`MeshMaterial3d`] to the entity using the result from the task's work, and
-/// removes the task component from the entity.
+/// This system queries for entities that have our Task<CommandQueue> component. It polls the
+/// tasks to see if they're complete. If the task is complete it takes the result, and appends 
+/// all the commands that were queued to the command object, so they will actually run. 
+/// No application specific code is needed here, so this system could be in a separate plugin.
 fn handle_tasks(mut commands: Commands, mut transform_tasks: Query<&mut ComputeTransform>) {
     for mut task in &mut transform_tasks {
         if let Some(mut commands_queue) = block_on(future::poll_once(&mut task.0)) {
