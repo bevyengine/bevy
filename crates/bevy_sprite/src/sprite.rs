@@ -84,9 +84,9 @@ impl From<Handle<Image>> for Sprite {
 #[derive(Default, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Debug)]
 pub enum ImageScaleMode {
-    /// The image will take on its normal size.
+    /// The image will be stretched if given a custom size.
     #[default]
-    Standard,
+    Stretch,
     /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
     Sliced(TextureSlicer),
     /// The texture will be repeated if stretched beyond `stretched_value`
@@ -102,10 +102,10 @@ pub enum ImageScaleMode {
 }
 
 impl ImageScaleMode {
-    /// Determines if the image defines the size in contexts like UI ([`ImageScaleMode::Standard`]).
+    /// Determines if the image defines the size in contexts like UI ([`ImageScaleMode::Stretch`]).
     #[inline]
     pub fn defines_size(&self) -> bool {
-        matches!(self, ImageScaleMode::Standard)
+        matches!(self, ImageScaleMode::Stretch)
     }
 
     /// Returns true if this mode uses slices internally ([`ImageScaleMode::Sliced`] or [`ImageScaleMode::Tiled`])

@@ -124,8 +124,8 @@ fn compute_sprite_slices(
             };
             slice.tiled(*stretch_value, (*tile_x, *tile_y))
         }
-        ImageScaleMode::Standard => {
-            unreachable!("Slices should not be computed for ImageScaleMode::Standard")
+        ImageScaleMode::Stretch => {
+            unreachable!("Slices should not be computed for ImageScaleMode::Stretch")
         }
     };
     Some(ComputedTextureSlices(slices))
