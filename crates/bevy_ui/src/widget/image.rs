@@ -137,10 +137,10 @@ impl From<Handle<Image>> for UiImage {
     }
 }
 
-/// Controls how the image is altered to fit within the layout and how the layout algorithm should determine how much space to allocate for the image
+/// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space in the layout for the image
 #[derive(Default, Debug, Clone, Reflect)]
 pub enum UiImageMode {
-    /// The image will be sized automatically by taking the size of the source image and applying any node constraints.
+    /// The image will be sized automatically by taking the size of the source image and applying any layout constraints.
     #[default]
     Auto,
     /// The image will be resized to fit the node. The image's original size and aspect ratio will be ignored.
