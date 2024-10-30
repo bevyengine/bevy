@@ -106,11 +106,11 @@ impl<'a> Iterator for CommentReplaceIter<'a> {
 
 pub trait CommentReplaceExt<'a> {
     /// replace WGSL and GLSL comments with whitespace characters
-    fn replace_comments(&'a mut self) -> CommentReplaceIter;
+    fn replace_comments(&'a mut self) -> CommentReplaceIter<'a>;
 }
 
 impl<'a> CommentReplaceExt<'a> for Lines<'a> {
-    fn replace_comments(&'a mut self) -> CommentReplaceIter {
+    fn replace_comments(&'a mut self) -> CommentReplaceIter<'a> {
         CommentReplaceIter {
             lines: self,
             state: CommentState::None,

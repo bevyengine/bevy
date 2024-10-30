@@ -1337,7 +1337,7 @@ mod test {
                 }),
             ),
             module: &shader_module,
-            entry_point: "run_test",
+            entry_point: Some("run_test"),
             compilation_options: Default::default(),
             cache: None,
         });
