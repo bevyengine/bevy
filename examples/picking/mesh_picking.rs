@@ -1,10 +1,23 @@
 //! A simple 3D scene to demonstrate mesh picking.
 //!
-//! By default, all meshes are pickable. Picking can be disabled for individual entities
-//! by adding [`PickingBehavior::IGNORE`].
+//! [`bevy::picking::backend`] provides an API for adding picking hit tests to any entity. To get
+//! started with picking 3d meshes, the [`MeshPickingPlugin`] is provided as a simple starting
+//! point, especially useful for debugging. For your game, you may want to use a 3d picking backend
+//! provided by your physics engine, or a picking shader, depending on your specific use case.
 //!
-//! If you want mesh picking to be entirely opt-in, you can set [`MeshPickingSettings::require_markers`]
-//! to `true` and add a [`RayCastPickable`] component to the desired camera and target entities.
+//! [`bevy::picking`] allows you to compose backends together to make any entity on screen pickable
+//! with pointers, regardless of how that entity is rendered. For example, `bevy_ui` and
+//! `bevy_sprite` provide their own picking backends that can be enabled at the same time as this
+//! mesh picking backend. This makes it painless to deal with cases like the UI or sprites blocking
+//! meshes underneath them, or vice versa.
+//!
+//! If you want to build more complex interactions than afforded by the provided pointer events, you
+//! may want to use [`MeshRayCast`] or a full physics engine with raycasting capabilities.
+//!
+//! By default, the mesh picking plugin will raycast against all entities, which is especially
+//! useful for debugging. If you want mesh picking to be opt-in, you can set
+//! [`MeshPickingSettings::require_markers`] to `true` and add a [`RayCastPickable`] component to
+//! the desired camera and target entities.
 
 use std::f32::consts::PI;
 
@@ -19,7 +32,12 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((
+            DefaultPlugins,
+            // The mesh picking plugin is not enabled by default, because raycasting against all
+            // meshes has a performance cost.
+            MeshPickingPlugin,
+        ))
         .init_resource::<SceneMaterials>()
         .add_systems(Startup, setup)
         .add_systems(Update, (on_mesh_hover, rotate))

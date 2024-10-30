@@ -1,15 +1,13 @@
-use crate::{widget::UiImageSize, ContentSize, FocusPolicy, UiRect, Val};
-use bevy_asset::Handle;
+use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    texture::{Image, TRANSPARENT_IMAGE_HANDLE},
     view::Visibility,
 };
-use bevy_sprite::{BorderRect, TextureAtlas};
+use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
@@ -27,7 +25,7 @@ pub struct ComputedNode {
     /// The size of the node as width and height in logical pixels
     ///
     /// automatically calculated by [`super::layout::ui_layout_system`]
-    pub(crate) calculated_size: Vec2,
+    pub(crate) size: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
     /// Outline updates bypass change detection.
@@ -64,15 +62,16 @@ impl ComputedNode {
     /// The calculated node size as width and height in logical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
     pub const fn size(&self) -> Vec2 {
-        self.calculated_size
+        self.size
     }
 
     /// Check if the node is empty.
     /// A node is considered empty if it has a zero or negative extent along either of its axes.
     #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.size().cmple(Vec2::ZERO).any()
+    pub const fn is_empty(&self) -> bool {
+        self.size.x <= 0. || self.size.y <= 0.
     }
 
     /// The order of the node in the UI layout.
@@ -86,6 +85,7 @@ impl ComputedNode {
     /// The calculated node size as width and height in logical pixels before rounding.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
+    #[inline]
     pub const fn unrounded_size(&self) -> Vec2 {
         self.unrounded_size
     }
@@ -95,7 +95,7 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn outline_width(&self) -> f32 {
+    pub const fn outline_width(&self) -> f32 {
         self.outline_width
     }
 
@@ -103,7 +103,7 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn outline_offset(&self) -> f32 {
+    pub const fn outline_offset(&self) -> f32 {
         self.outline_offset
     }
 
@@ -111,8 +111,9 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn outlined_node_size(&self) -> Vec2 {
-        self.size() + 2. * (self.outline_offset + self.outline_width)
+    pub const fn outlined_node_size(&self) -> Vec2 {
+        let offset = 2. * (self.outline_offset + self.outline_width);
+        Vec2::new(self.size.x + offset, self.size.y + offset)
     }
 
     /// Returns the border radius for each corner of the outline
@@ -121,20 +122,20 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn outline_radius(&self) -> ResolvedBorderRadius {
+    pub const fn outline_radius(&self) -> ResolvedBorderRadius {
         let outer_distance = self.outline_width + self.outline_offset;
-        let compute_radius = |radius| {
+        const fn compute_radius(radius: f32, outer_distance: f32) -> f32 {
             if radius > 0. {
                 radius + outer_distance
             } else {
                 0.
             }
-        };
+        }
         ResolvedBorderRadius {
-            top_left: compute_radius(self.border_radius.top_left),
-            top_right: compute_radius(self.border_radius.top_right),
-            bottom_left: compute_radius(self.border_radius.bottom_left),
-            bottom_right: compute_radius(self.border_radius.bottom_right),
+            top_left: compute_radius(self.border_radius.top_left, outer_distance),
+            top_right: compute_radius(self.border_radius.top_right, outer_distance),
+            bottom_left: compute_radius(self.border_radius.bottom_left, outer_distance),
+            bottom_right: compute_radius(self.border_radius.bottom_right, outer_distance),
         }
     }
 
@@ -142,7 +143,7 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn border(&self) -> BorderRect {
+    pub const fn border(&self) -> BorderRect {
         self.border
     }
 
@@ -150,7 +151,7 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn border_radius(&self) -> ResolvedBorderRadius {
+    pub const fn border_radius(&self) -> ResolvedBorderRadius {
         self.border_radius
     }
 
@@ -180,13 +181,13 @@ impl ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
-    pub fn padding(&self) -> BorderRect {
+    pub const fn padding(&self) -> BorderRect {
         self.padding
     }
 
     /// Returns the combined inset on each edge including both padding and border thickness in logical pixels.
     #[inline]
-    pub fn content_inset(&self) -> BorderRect {
+    pub const fn content_inset(&self) -> BorderRect {
         BorderRect {
             left: self.border.left + self.padding.left,
             right: self.border.right + self.padding.right,
@@ -199,7 +200,7 @@ impl ComputedNode {
 impl ComputedNode {
     pub const DEFAULT: Self = Self {
         stack_index: 0,
-        calculated_size: Vec2::ZERO,
+        size: Vec2::ZERO,
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
@@ -288,7 +289,6 @@ impl From<&Vec2> for ScrollPosition {
     BackgroundColor,
     BorderColor,
     BorderRadius,
-    ContentSize,
     FocusPolicy,
     ScrollPosition,
     Transform,
@@ -2037,124 +2037,6 @@ impl Outline {
             offset,
             color,
         }
-    }
-}
-
-/// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
-#[require(Node, UiImageSize)]
-pub struct UiImage {
-    /// The tint color used to draw the image.
-    ///
-    /// This is multiplied by the color of each pixel in the image.
-    /// The field value defaults to solid white, which will pass the image through unmodified.
-    pub color: Color,
-    /// Handle to the texture.
-    ///
-    /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
-    pub image: Handle<Image>,
-    /// The (optional) texture atlas used to render the image
-    pub texture_atlas: Option<TextureAtlas>,
-    /// Whether the image should be flipped along its x-axis
-    pub flip_x: bool,
-    /// Whether the image should be flipped along its y-axis
-    pub flip_y: bool,
-    /// An optional rectangle representing the region of the image to render, instead of rendering
-    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`].
-    ///
-    /// When used with a [`TextureAtlas`], the rect
-    /// is offset by the atlas's minimal (top-left) corner position.
-    pub rect: Option<Rect>,
-}
-
-impl Default for UiImage {
-    /// A transparent 1x1 image with a solid white tint.
-    ///
-    /// # Warning
-    ///
-    /// This will be invisible by default.
-    /// To set this to a visible image, you need to set the `texture` field to a valid image handle,
-    /// or use [`Handle<Image>`]'s default 1x1 solid white texture (as is done in [`UiImage::solid_color`]).
-    fn default() -> Self {
-        UiImage {
-            // This should be white because the tint is multiplied with the image,
-            // so if you set an actual image with default tint you'd want its original colors
-            color: Color::WHITE,
-            texture_atlas: None,
-            // This texture needs to be transparent by default, to avoid covering the background color
-            image: TRANSPARENT_IMAGE_HANDLE,
-            flip_x: false,
-            flip_y: false,
-            rect: None,
-        }
-    }
-}
-
-impl UiImage {
-    /// Create a new [`UiImage`] with the given texture.
-    pub fn new(texture: Handle<Image>) -> Self {
-        Self {
-            image: texture,
-            color: Color::WHITE,
-            ..Default::default()
-        }
-    }
-
-    /// Create a solid color [`UiImage`].
-    ///
-    /// This is primarily useful for debugging / mocking the extents of your image.
-    pub fn solid_color(color: Color) -> Self {
-        Self {
-            image: Handle::default(),
-            color,
-            flip_x: false,
-            flip_y: false,
-            texture_atlas: None,
-            rect: None,
-        }
-    }
-
-    /// Create a [`UiImage`] from an image, with an associated texture atlas
-    pub fn from_atlas_image(image: Handle<Image>, atlas: TextureAtlas) -> Self {
-        Self {
-            image,
-            texture_atlas: Some(atlas),
-            ..Default::default()
-        }
-    }
-
-    /// Set the color tint
-    #[must_use]
-    pub const fn with_color(mut self, color: Color) -> Self {
-        self.color = color;
-        self
-    }
-
-    /// Flip the image along its x-axis
-    #[must_use]
-    pub const fn with_flip_x(mut self) -> Self {
-        self.flip_x = true;
-        self
-    }
-
-    /// Flip the image along its y-axis
-    #[must_use]
-    pub const fn with_flip_y(mut self) -> Self {
-        self.flip_y = true;
-        self
-    }
-
-    #[must_use]
-    pub const fn with_rect(mut self, rect: Rect) -> Self {
-        self.rect = Some(rect);
-        self
-    }
-}
-
-impl From<Handle<Image>> for UiImage {
-    fn from(texture: Handle<Image>) -> Self {
-        Self::new(texture)
     }
 }
 
