@@ -99,11 +99,11 @@ impl<E: Debug + Clone + Reflect> core::ops::Deref for Pointer<E> {
 
 impl<E: Debug + Clone + Reflect> Pointer<E> {
     /// Construct a new `Pointer<E>` event.
-    pub fn new(target: Entity, id: PointerId, location: Location, event: E) -> Self {
+    pub fn new(id: PointerId, location: Location, target: Entity, event: E) -> Self {
         Self {
-            target,
             pointer_id: id,
             pointer_location: location,
+            target,
             event,
         }
     }
