@@ -41,9 +41,7 @@ fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     return vec4(total_inscattering, 1.0);
 }
 
-
-
-//lat-long projection [0,1] x [0,1] --> [-pi, pi] x [-pi/2, pi/2]
+//lat-long projection [-pi, pi] x [-pi/2, pi/2] -> S^2
 fn get_ray_direction(lat_long: vec2<f32>) -> vec3<f32> {
     let cos_long = cos(lat_long.y);
     let sin_long = sin(lat_long.y);

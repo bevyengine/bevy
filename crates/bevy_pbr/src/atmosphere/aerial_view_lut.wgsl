@@ -2,7 +2,7 @@
     mesh_view_types::{Lights, DirectionalLight},
     atmosphere::{
         types::{Atmosphere, AtmosphereSettings},
-        bindings::{settings, view, lights, aerial_view_lut_out},
+        bindings::{atmosphere, settings, view, lights, aerial_view_lut_out},
         functions::{
             sample_transmittance_lut, sample_atmosphere, rayleigh, henyey_greenstein,
             sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
@@ -24,10 +24,14 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     var prev_depth = 0.0;
     var total_inscattering = vec3(0.0);
     for (var slice_i: i32 = i32(settings.aerial_view_lut_size.z - 1); slice_i >= 0; slice_i--) { //reversed loop to iterate depth near->far 
+        var mean_transmittance = 0.0;
         for (var step_i: i32 = i32(settings.aerial_view_lut_samples - 1); step_i >= 0; step_i--) { //same here
             let ndc_z = (f32(slice_i) + ((f32(step_i) + 0.5) / f32(settings.aerial_view_lut_samples))) / f32(settings.aerial_view_lut_size.z);
             let ndc_pos = vec3(ndc_xy, ndc_z);
             let world_pos = position_ndc_to_world(ndc_pos);
+            let altitude = world_pos.y;
+
+            if (altitude > atmosphere.top_radius - atmosphere.bottom_radius) { break; }
 
             let depth = depth_ndc_to_view_z(ndc_z); //TODO: incorrect bc edges of view will have longer step length
 
@@ -36,7 +40,6 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             let step_length = (prev_depth - depth) / view_dir.w / 1000.0;
             prev_depth = depth;
 
-            let altitude = world_pos.y;
             let local_atmosphere = sample_atmosphere(altitude);
             optical_depth += local_atmosphere.extinction * step_length; //TODO: units between step_length and atmosphere
 
@@ -44,11 +47,9 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
             var local_inscattering = sample_local_inscattering(local_atmosphere, transmittance_to_sample, view_dir.xyz, altitude);
             total_inscattering += local_inscattering * step_length;
-            let mean_transmittance = (transmittance_to_sample.r + transmittance_to_sample.g + transmittance_to_sample.b) / 3.0;
-
-            textureStore(aerial_view_lut_out, vec3(vec2<i32>(idx.xy), slice_i), vec4(total_inscattering, mean_transmittance));
-            //textureStore(aerial_view_lut_out, vec3(idx.xy, slice_i), vec4(vec3<f32>(vec3(idx.xy)) / vec3<f32>(settings.aerial_view_lut_size), 1.0));
+            mean_transmittance += transmittance_to_sample.r + transmittance_to_sample.g + transmittance_to_sample.b;
         }
+        textureStore(aerial_view_lut_out, vec3(vec2<i32>(idx.xy), slice_i), vec4(total_inscattering, mean_transmittance / (f32(settings.aerial_view_lut_samples) * 3.0)));
     }
 }
 

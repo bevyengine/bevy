@@ -53,6 +53,14 @@ fn sample_multiscattering_lut(altitude: f32, cos_azimuth: f32) -> vec3<f32> {
     return textureSampleLevel(multiscattering_lut, multiscattering_lut_sampler, uv, 0.0).rgb;
 }
 
+fn sample_sky_view_lut() -> vec3<f32> {
+    return vec3(0.0);
+}
+
+fn sample_aerial_view_lut(ndc: vec3<f32>) -> vec3<f32> {
+    return vec3(0.0);
+}
+
 // PHASE FUNCTIONS
 
 fn rayleigh(neg_LdotV: f32) -> f32 {

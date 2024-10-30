@@ -134,7 +134,7 @@ fn distance_to_bottom_atmosphere_boundary(altitude: f32, cos_azimuth: f32) -> f3
     return max(-altitude * cos_azimuth - sqrt(positive_discriminant), 0.0);
 }
 
-//TODO: What is m2??? is it just there to catch copyright? (from paper)
+//TODO: What is m2??? is it just there to catch copyright?????
 fn ray_intersects_ground(altitude: f32, cos_azimuth: f32) -> bool {
-    return cos_azimuth < 0.0 && altitude * altitude * (cos_azimuth * cos_azimuth - 1.0) + atmosphere.bottom_radius * atmosphere.bottom_radius >= 0.0;// * m2;
+    return cos_azimuth < 0.0 && altitude * altitude * (cos_azimuth * cos_azimuth - 1.0) + atmosphere.bottom_radius * atmosphere.bottom_radius >= 0.0; // * m2;
 }

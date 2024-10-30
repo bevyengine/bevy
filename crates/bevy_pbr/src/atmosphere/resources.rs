@@ -12,18 +12,18 @@ use bevy_render::{
     extract_component::ComponentUniforms,
     render_resource::{
         binding_types::{
-            sampler, texture_2d, texture_3d, texture_storage_2d, texture_storage_3d, uniform_buffer,
+            sampler, texture_2d, texture_storage_2d, texture_storage_3d, uniform_buffer,
         },
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendComponent,
-        BlendFactor, BlendOperation, BlendState, CachedComputePipelineId, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, ComputePipelineDescriptor, Extent3d, FilterMode,
-        FragmentState, MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor,
-        Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, StorageTextureAccess,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
+        CachedComputePipelineId, CachedRenderPipelineId, ColorTargetState, ColorWrites,
+        ComputePipelineDescriptor, Extent3d, FilterMode, FragmentState, MultisampleState,
+        PipelineCache, PrimitiveState, RenderPipelineDescriptor, Sampler, SamplerBindingType,
+        SamplerDescriptor, ShaderStages, StorageTextureAccess, TextureDescriptor, TextureDimension,
+        TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
-    view::{ViewDepthTexture, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ViewUniform, ViewUniforms},
 };
 
 use crate::{GpuLights, LightMeta};
@@ -140,7 +140,6 @@ impl FromWorld for AtmosphereBindGroupLayouts {
 
 #[derive(Resource)]
 pub struct AtmosphereSamplers {
-    //TODO: maybe redundant? could probably include a single sampler alongside layout.
     pub transmittance_lut: Sampler,
     pub multiscattering_lut: Sampler,
     pub sky_view_lut: Sampler,
