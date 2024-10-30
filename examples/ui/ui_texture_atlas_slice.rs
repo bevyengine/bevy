@@ -4,7 +4,7 @@
 use bevy::{
     color::palettes::css::{GOLD, ORANGE},
     prelude::*,
-    ui::widget::UiImageMode,
+    ui::widget::NodeImageMode,
     winit::WinitSettings,
 };
 
@@ -89,7 +89,7 @@ fn setup(
                                 layout: atlas_layout_handle.clone(),
                             },
                         )
-                        .with_mode(UiImageMode::Sliced(slicer.clone())),
+                        .with_mode(NodeImageMode::Sliced(slicer.clone())),
                         Node {
                             width: Val::Px(w),
                             height: Val::Px(h),

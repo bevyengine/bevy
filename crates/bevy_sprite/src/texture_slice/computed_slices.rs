@@ -1,4 +1,4 @@
-use crate::{ExtractedSprite, ImageScaleMode, Sprite, TextureAtlasLayout};
+use crate::{ExtractedSprite, Sprite, SpriteImageMode, TextureAtlasLayout};
 
 use super::TextureSlice;
 use bevy_asset::{AssetEvent, Assets};
@@ -111,8 +111,8 @@ fn compute_sprite_slices(
         }
     };
     let slices = match &sprite.scale_mode {
-        ImageScaleMode::Sliced(slicer) => slicer.compute_slices(texture_rect, sprite.custom_size),
-        ImageScaleMode::Tiled {
+        SpriteImageMode::Sliced(slicer) => slicer.compute_slices(texture_rect, sprite.custom_size),
+        SpriteImageMode::Tiled {
             tile_x,
             tile_y,
             stretch_value,
@@ -124,7 +124,7 @@ fn compute_sprite_slices(
             };
             slice.tiled(*stretch_value, (*tile_x, *tile_y))
         }
-        ImageScaleMode::Stretch => {
+        SpriteImageMode::Stretch => {
             unreachable!("Slices should not be computed for ImageScaleMode::Stretch")
         }
     };

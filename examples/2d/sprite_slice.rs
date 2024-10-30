@@ -23,21 +23,21 @@ fn spawn_sprites(
             "Original",
             style.clone(),
             Vec2::splat(100.0),
-            ImageScaleMode::Stretch,
+            SpriteImageMode::Stretch,
         ),
         // Scaled regular sprite
         (
             "Stretched",
             style.clone(),
             Vec2::new(100.0, 200.0),
-            ImageScaleMode::Stretch,
+            SpriteImageMode::Stretch,
         ),
         // Stretched Scaled sliced sprite
         (
             "With Slicing",
             style.clone(),
             Vec2::new(100.0, 200.0),
-            ImageScaleMode::Sliced(TextureSlicer {
+            SpriteImageMode::Sliced(TextureSlicer {
                 border: BorderRect::square(slice_border),
                 center_scale_mode: SliceScaleMode::Stretch,
                 ..default()
@@ -48,7 +48,7 @@ fn spawn_sprites(
             "With Tiling",
             style.clone(),
             Vec2::new(100.0, 200.0),
-            ImageScaleMode::Sliced(TextureSlicer {
+            SpriteImageMode::Sliced(TextureSlicer {
                 border: BorderRect::square(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.5 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
@@ -60,7 +60,7 @@ fn spawn_sprites(
             "With Tiling",
             style.clone(),
             Vec2::new(300.0, 200.0),
-            ImageScaleMode::Sliced(TextureSlicer {
+            SpriteImageMode::Sliced(TextureSlicer {
                 border: BorderRect::square(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.3 },
@@ -72,7 +72,7 @@ fn spawn_sprites(
             "With Corners Constrained",
             style,
             Vec2::new(300.0, 200.0),
-            ImageScaleMode::Sliced(TextureSlicer {
+            SpriteImageMode::Sliced(TextureSlicer {
                 border: BorderRect::square(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.1 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },

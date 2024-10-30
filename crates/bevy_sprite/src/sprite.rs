@@ -35,7 +35,7 @@ pub struct Sprite {
     /// [`Anchor`] point of the sprite in the world
     pub anchor: Anchor,
     /// How the sprite's image will be scaled.
-    pub scale_mode: ImageScaleMode,
+    pub scale_mode: SpriteImageMode,
 }
 
 impl Sprite {
@@ -83,7 +83,7 @@ impl From<Handle<Image>> for Sprite {
 /// Controls how the image is altered when scaled.
 #[derive(Default, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Debug)]
-pub enum ImageScaleMode {
+pub enum SpriteImageMode {
     /// The image will be stretched or shrunk if given a custom size.
     #[default]
     Stretch,
@@ -101,19 +101,19 @@ pub enum ImageScaleMode {
     },
 }
 
-impl ImageScaleMode {
-    /// Determines if the image defines the size in contexts like UI ([`ImageScaleMode::Stretch`]).
+impl SpriteImageMode {
+    /// Determines if the image defines the size in contexts like UI ([`SpriteImageMode::Stretch`]).
     #[inline]
     pub fn defines_size(&self) -> bool {
-        matches!(self, ImageScaleMode::Stretch)
+        matches!(self, SpriteImageMode::Stretch)
     }
 
-    /// Returns true if this mode uses slices internally ([`ImageScaleMode::Sliced`] or [`ImageScaleMode::Tiled`])
+    /// Returns true if this mode uses slices internally ([`SpriteImageMode::Sliced`] or [`SpriteImageMode::Tiled`])
     #[inline]
     pub fn uses_slices(&self) -> bool {
         matches!(
             self,
-            ImageScaleMode::Sliced(..) | ImageScaleMode::Tiled { .. }
+            SpriteImageMode::Sliced(..) | SpriteImageMode::Tiled { .. }
         )
     }
 }

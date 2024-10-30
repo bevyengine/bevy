@@ -9,7 +9,7 @@ use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::focus::HoverMap,
     prelude::*,
-    ui::widget::UiImageMode,
+    ui::widget::NodeImageMode,
     winit::WinitSettings,
 };
 
@@ -282,7 +282,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn((
                             UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png"))
-                                .with_mode(UiImageMode::Stretch),
+                                .with_mode(NodeImageMode::Stretch),
                             Node {
                                 width: Val::Px(500.0),
                                 height: Val::Px(125.0),

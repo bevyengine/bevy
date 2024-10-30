@@ -36,7 +36,7 @@ pub struct UiImage {
     /// is offset by the atlas's minimal (top-left) corner position.
     pub rect: Option<Rect>,
     /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space to allocate for the image.
-    pub mode: UiImageMode,
+    pub mode: NodeImageMode,
 }
 
 impl Default for UiImage {
@@ -58,7 +58,7 @@ impl Default for UiImage {
             flip_x: false,
             flip_y: false,
             rect: None,
-            mode: UiImageMode::Auto,
+            mode: NodeImageMode::Auto,
         }
     }
 }
@@ -84,7 +84,7 @@ impl UiImage {
             flip_y: false,
             texture_atlas: None,
             rect: None,
-            mode: UiImageMode::Auto,
+            mode: NodeImageMode::Auto,
         }
     }
 
@@ -125,7 +125,7 @@ impl UiImage {
     }
 
     #[must_use]
-    pub const fn with_mode(mut self, mode: UiImageMode) -> Self {
+    pub const fn with_mode(mut self, mode: NodeImageMode) -> Self {
         self.mode = mode;
         self
     }
@@ -139,7 +139,7 @@ impl From<Handle<Image>> for UiImage {
 
 /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space in the layout for the image
 #[derive(Default, Debug, Clone, Reflect)]
-pub enum UiImageMode {
+pub enum NodeImageMode {
     /// The image will be sized automatically by taking the size of the source image and applying any layout constraints.
     #[default]
     Auto,
@@ -257,7 +257,7 @@ pub fn update_image_content_size_system(
         * ui_scale.0;
 
     for (mut content_size, image, mut image_size) in &mut query {
-        if !matches!(image.mode, UiImageMode::Auto) {
+        if !matches!(image.mode, NodeImageMode::Auto) {
             if image.is_changed() {
                 // Mutably derefs, marking the `ContentSize` as changed ensuring `ui_layout_system` will remove the node's measure func if present.
                 content_size.measure = None;

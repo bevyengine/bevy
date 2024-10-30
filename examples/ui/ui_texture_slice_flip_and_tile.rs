@@ -3,7 +3,7 @@
 use bevy::{
     prelude::*,
     render::texture::{ImageLoaderSettings, ImageSampler},
-    ui::widget::UiImageMode,
+    ui::widget::NodeImageMode,
     winit::WinitSettings,
 };
 
@@ -62,7 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         image: image.clone(),
                         flip_x,
                         flip_y,
-                        mode: UiImageMode::Sliced(slicer.clone()),
+                        mode: NodeImageMode::Sliced(slicer.clone()),
                         ..default()
                     },
                     Node {

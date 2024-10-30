@@ -24,7 +24,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_sprite::{
-    ImageScaleMode, SliceScaleMode, SpriteAssetEvents, TextureAtlasLayout, TextureSlicer,
+    SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureAtlasLayout, TextureSlicer,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
@@ -232,7 +232,7 @@ pub struct ExtractedUiTextureSlice {
     pub clip: Option<Rect>,
     pub camera_entity: Entity,
     pub color: LinearRgba,
-    pub image_scale_mode: ImageScaleMode,
+    pub image_scale_mode: SpriteImageMode,
     pub flip_x: bool,
     pub flip_y: bool,
     pub main_entity: MainEntity,
@@ -272,12 +272,14 @@ pub fn extract_ui_texture_slices(
         };
 
         let image_scale_mode = match image.mode.clone() {
-            widget::UiImageMode::Sliced(texture_slicer) => ImageScaleMode::Sliced(texture_slicer),
-            widget::UiImageMode::Tiled {
+            widget::NodeImageMode::Sliced(texture_slicer) => {
+                SpriteImageMode::Sliced(texture_slicer)
+            }
+            widget::NodeImageMode::Tiled {
                 tile_x,
                 tile_y,
                 stretch_value,
-            } => ImageScaleMode::Tiled {
+            } => SpriteImageMode::Tiled {
                 tile_x,
                 tile_y,
                 stretch_value,
@@ -730,10 +732,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSlicer {
 fn compute_texture_slices(
     image_size: Vec2,
     target_size: Vec2,
-    image_scale_mode: &ImageScaleMode,
+    image_scale_mode: &SpriteImageMode,
 ) -> [[f32; 4]; 3] {
     match image_scale_mode {
-        ImageScaleMode::Sliced(TextureSlicer {
+        SpriteImageMode::Sliced(TextureSlicer {
             border: border_rect,
             center_scale_mode,
             sides_scale_mode,
@@ -786,7 +788,7 @@ fn compute_texture_slices(
                 ],
             ]
         }
-        ImageScaleMode::Tiled {
+        SpriteImageMode::Tiled {
             tile_x,
             tile_y,
             stretch_value,
@@ -795,7 +797,7 @@ fn compute_texture_slices(
             let ry = compute_tiled_axis(*tile_y, image_size.y, target_size.y, *stretch_value);
             [[0., 0., 1., 1.], [0., 0., 1., 1.], [1., 1., rx, ry]]
         }
-        ImageScaleMode::Stretch => {
+        SpriteImageMode::Stretch => {
             unreachable!("Slices should not be computed for ImageScaleMode::Stretch")
         }
     }
