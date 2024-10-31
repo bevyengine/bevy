@@ -78,7 +78,8 @@ fn format_archetype(
     Ok(())
 }
 
-impl PartialEq for QueryEntityError<'_> {
+#[allow(clippy::needless_lifetimes)]
+impl<'w> PartialEq for QueryEntityError<'w> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::QueryDoesNotMatch(e1, _), Self::QueryDoesNotMatch(e2, _)) if e1 == e2 => true,
@@ -89,7 +90,8 @@ impl PartialEq for QueryEntityError<'_> {
     }
 }
 
-impl Eq for QueryEntityError<'_> {}
+#[allow(clippy::needless_lifetimes)]
+impl<'w> Eq for QueryEntityError<'w> {}
 
 /// An error that occurs when evaluating a [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState) as a single expected result via
 /// [`get_single`](crate::system::Query::get_single) or [`get_single_mut`](crate::system::Query::get_single_mut).
