@@ -203,22 +203,31 @@ impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
 }
 
 /// Trait that holds functions for cloning entities recursively down the hierarchy
-pub trait CloneEntityRecursiveExt {
+pub trait CloneEntityHierarchyExt {
     /// Sets the option to recursively clone entities.
     /// When set to true all children will be cloned with the same options as the parent.
     fn recursive(&mut self, recursive: bool) -> &mut EntityCloneBuilder;
+    /// Sets the option to add cloned entity as a child to the parent entity.
+    fn as_child(&mut self, as_child: bool) -> &mut EntityCloneBuilder;
 }
 
-impl CloneEntityRecursiveExt for EntityCloneBuilder {
+impl CloneEntityHierarchyExt for EntityCloneBuilder {
     fn recursive(&mut self, recursive: bool) -> &mut EntityCloneBuilder {
         if recursive {
             self.override_component_clone_handler::<Children>(ComponentCloneHandler::Custom(
                 component_clone_children,
             ))
-            .override_component_clone_handler::<Parent>(ComponentCloneHandler::Ignore)
         } else {
             self.override_component_clone_handler::<Children>(ComponentCloneHandler::Default)
-                .override_component_clone_handler::<Parent>(ComponentCloneHandler::Default)
+        }
+    }
+    fn as_child(&mut self, as_child: bool) -> &mut EntityCloneBuilder {
+        if as_child {
+            self.override_component_clone_handler::<Parent>(ComponentCloneHandler::Custom(
+                component_clone_parent,
+            ))
+        } else {
+            self.override_component_clone_handler::<Parent>(ComponentCloneHandler::Default)
         }
     }
 }
@@ -246,6 +255,21 @@ fn component_clone_children(
     }
 }
 
+/// Clone handler for the [`Parent`] component. Allows to add clone as a child to the parent entity.
+fn component_clone_parent(
+    world: &mut World,
+    _component_id: ComponentId,
+    entity_cloner: &EntityCloner,
+) {
+    let parent = world
+        .get::<Parent>(entity_cloner.get_source())
+        .map(|p| p.0)
+        .expect("Source entity must have Parent component");
+    world
+        .entity_mut(entity_cloner.get_target())
+        .set_parent(parent);
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
@@ -258,7 +282,7 @@ mod tests {
     use crate::{
         child_builder::{BuildChildren, ChildBuild},
         components::Children,
-        CloneEntityRecursiveExt,
+        CloneEntityHierarchyExt,
     };
 
     #[derive(Component, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Debug)]
@@ -452,5 +476,28 @@ mod tests {
                     .is_some_and(|c| *c == component2));
             }
         }
+    }
+
+    #[test]
+    fn clone_entity_as_child() {
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+
+        let child = commands.spawn_empty().id();
+        let parent = commands.spawn_empty().add_child(child).id();
+
+        let child_clone = commands
+            .clone_entity_with(child, |builder| {
+                builder.as_child(true);
+            })
+            .id();
+
+        queue.apply(&mut world);
+
+        assert!(world
+            .entity(parent)
+            .get::<Children>()
+            .is_some_and(|c| c.contains(&child_clone)))
     }
 }
