@@ -25,34 +25,31 @@ fn setup(
     window: Query<&Window>,
 ) {
     // circular base
-    commands.spawn(PbrBundle {
-        mesh: Mesh3d(meshes.add(Circle::new(4.0))),
-        material: MeshMaterial3d(materials.add(Color::WHITE)),
-        transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(4.0))),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
 
     // cube
-    commands.spawn(PbrBundle {
-        mesh: Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-        material: MeshMaterial3d(materials.add(Color::WHITE)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 
     // lights
     for i in 0..NUM_LIGHTS {
         let angle = (i as f32) / (NUM_LIGHTS as f32) * PI * 2.0;
-        commands.spawn(PointLightBundle {
-            point_light: PointLight {
+        commands.spawn((
+            PointLight {
                 color: Color::hsv(angle.to_degrees(), 1.0, 1.0),
                 intensity: 2_000_000.0 / NUM_LIGHTS as f32,
                 shadows_enabled: true,
                 ..default()
             },
-            transform: Transform::from_xyz(angle.sin() * 4.0, 2.0, angle.cos() * 4.0),
-            ..default()
-        });
+            Transform::from_xyz(angle.sin() * 4.0, 2.0, angle.cos() * 4.0),
+        ));
     }
 
     // cameras
@@ -63,10 +60,9 @@ fn setup(
     for y in 0..CAMERA_COLS {
         for x in 0..CAMERA_ROWS {
             let angle = i as f32 / (CAMERA_ROWS * CAMERA_COLS) as f32 * PI * 2.0;
-            commands.spawn(Camera3dBundle {
-                transform: Transform::from_xyz(angle.sin() * 4.0, 2.5, angle.cos() * 4.0)
-                    .looking_at(Vec3::ZERO, Vec3::Y),
-                camera: Camera {
+            commands.spawn((
+                Camera3d::default(),
+                Camera {
                     viewport: Some(Viewport {
                         physical_position: UVec2::new(
                             (x as f32 * width) as u32,
@@ -78,8 +74,9 @@ fn setup(
                     order: i,
                     ..default()
                 },
-                ..default()
-            });
+                Transform::from_xyz(angle.sin() * 4.0, 2.5, angle.cos() * 4.0)
+                    .looking_at(Vec3::ZERO, Vec3::Y),
+            ));
             i += 1;
         }
     }
