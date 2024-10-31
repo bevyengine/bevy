@@ -1195,7 +1195,7 @@ where
 
 #[expect(clippy::needless_lifetimes)]
 impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> Iterator
-    for QuerySortedIter<'w, '_, D, F, I>
+    for QuerySortedIter<'w, 's, D, F, I>
 where
     I: Iterator<Item = Entity>,
 {
