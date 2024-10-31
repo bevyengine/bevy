@@ -283,16 +283,20 @@ pub unsafe trait ReadOnlySystemParam: SystemParam {}
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
-    for Query<'_, '_, D, F>
+#[expect(clippy::needless_lifetimes)]
+unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
+    for Query<'w, 's, D, F>
 {
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Query<'_, '_, D, F> {
+#[expect(clippy::needless_lifetimes)]
+unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+    for Query<'w, 's, D, F>
+{
     type State = QueryState<D, F>;
-    type Item<'w, 's> = Query<'w, 's, D, F>;
+    type Item<'world, 'state> = Query<'world, 'state, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);
@@ -309,12 +313,12 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 
     #[inline]
-    unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
         system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'w>,
+        world: UnsafeWorldCell<'world>,
         change_tick: Tick,
-    ) -> Self::Item<'w, 's> {
+    ) -> Self::Item<'world, 'state> {
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
@@ -498,8 +502,8 @@ unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySy
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
-    for Populated<'_, '_, D, F>
+unsafe impl<'world, 'state, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+    for Populated<'world, 'state, D, F>
 {
     type State = QueryState<D, F>;
     type Item<'w, 's> = Populated<'w, 's, D, F>;

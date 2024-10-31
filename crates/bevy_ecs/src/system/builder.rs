@@ -205,8 +205,9 @@ impl ParamBuilder {
 }
 
 // SAFETY: Calls `init_query_param`, just like `Query::init_state`.
-unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static>
-    SystemParamBuilder<Query<'_, '_, D, F>> for QueryState<D, F>
+#[expect(clippy::needless_lifetimes)]
+unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
+    SystemParamBuilder<Query<'w, 's, D, F>> for QueryState<D, F>
 {
     fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> QueryState<D, F> {
         self.validate_world(world.id());
@@ -278,8 +279,14 @@ impl<'a, D: QueryData, F: QueryFilter>
 }
 
 // SAFETY: Calls `init_query_param`, just like `Query::init_state`.
-unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static, T: FnOnce(&mut QueryBuilder<D, F>)>
-    SystemParamBuilder<Query<'_, '_, D, F>> for QueryParamBuilder<T>
+#[expect(clippy::needless_lifetimes)]
+unsafe impl<
+        'w,
+        's,
+        D: QueryData + 'static,
+        F: QueryFilter + 'static,
+        T: FnOnce(&mut QueryBuilder<D, F>),
+    > SystemParamBuilder<Query<'w, 's, D, F>> for QueryParamBuilder<T>
 {
     fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> QueryState<D, F> {
         let mut builder = QueryBuilder::new(world);

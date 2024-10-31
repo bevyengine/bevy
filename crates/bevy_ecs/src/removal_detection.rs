@@ -171,7 +171,8 @@ fn map_id_events(
 
 // For all practical purposes, the api surface of `RemovedComponents<T>`
 // should be similar to `EventReader<T>` to reduce confusion.
-impl<T: Component> RemovedComponents<'_, '_, T> {
+#[expect(clippy::needless_lifetimes)]
+impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// Fetch underlying [`EventCursor`].
     pub fn reader(&self) -> &EventCursor<RemovedComponentEntity> {
         &self.reader

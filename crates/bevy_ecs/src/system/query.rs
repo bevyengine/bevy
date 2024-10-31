@@ -367,7 +367,7 @@ pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = ()> {
     this_run: Tick,
 }
 
-impl<D: QueryData, F: QueryFilter> core::fmt::Debug for Query<'_, '_, D, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter> core::fmt::Debug for Query<'w, 's, D, F> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_struct("Query")
             .field("matched_entities", &self.iter().count())
