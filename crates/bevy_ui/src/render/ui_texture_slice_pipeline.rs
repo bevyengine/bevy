@@ -271,7 +271,7 @@ pub fn extract_ui_texture_slices(
             continue;
         };
 
-        let image_scale_mode = match image.mode.clone() {
+        let image_scale_mode = match image.image_mode.clone() {
             widget::NodeImageMode::Sliced(texture_slicer) => {
                 SpriteImageMode::Sliced(texture_slicer)
             }

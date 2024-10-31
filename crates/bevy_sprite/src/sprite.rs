@@ -35,7 +35,7 @@ pub struct Sprite {
     /// [`Anchor`] point of the sprite in the world
     pub anchor: Anchor,
     /// How the sprite's image will be scaled.
-    pub mode: SpriteImageMode,
+    pub image_mode: SpriteImageMode,
 }
 
 impl Sprite {
