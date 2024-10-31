@@ -8,7 +8,7 @@ use bevy_render::texture::Image;
 use bevy_transform::prelude::*;
 use bevy_utils::HashSet;
 
-/// Component storing texture slices for sprite entities with a [`ImageScaleMode`]
+/// Component storing texture slices for tiled or sliced sprite entities
 ///
 /// This component is automatically inserted and updated
 #[derive(Debug, Clone, Component)]
@@ -69,19 +69,15 @@ impl ComputedTextureSlices {
     }
 }
 
-/// Generates sprite slices for a `sprite` given a `scale_mode`. The slices
+/// Generates sprite slices for a [`Sprite`] with [`SpriteImageMode::Sliced`] or [`SpriteImageMode::Sliced`]. The slices
 /// will be computed according to the `image_handle` dimensions or the sprite rect.
 ///
 /// Returns `None` if the image asset is not loaded
 ///
 /// # Arguments
 ///
-/// * `sprite` - The sprite component, will be used to find the draw area size
-/// * `scale_mode` - The image scaling component
-/// * `image_handle` - The texture to slice or tile
+/// * `sprite` - The sprite component with the image handle and image mode
 /// * `images` - The image assets, use to retrieve the image dimensions
-/// * `atlas` - Optional texture atlas, if set the slicing will happen on the matching sub section
-///     of the texture
 /// * `atlas_layouts` - The atlas layout assets, used to retrieve the texture atlas section rect
 #[must_use]
 fn compute_sprite_slices(
@@ -125,7 +121,7 @@ fn compute_sprite_slices(
             slice.tiled(*stretch_value, (*tile_x, *tile_y))
         }
         SpriteImageMode::Auto => {
-            unreachable!("Slices should not be computed for ImageScaleMode::Stretch")
+            unreachable!("Slices should not be computed for SpriteImageMode::Stretch")
         }
     };
     Some(ComputedTextureSlices(slices))
@@ -165,8 +161,7 @@ pub(crate) fn compute_slices_on_asset_event(
     }
 }
 
-/// System reacting to changes on relevant sprite bundle components to compute the sprite slices
-/// on matching sprite entities with a [`ImageScaleMode`] component
+/// System reacting to changes on the [`Sprite`] component to compute the sprite slices
 pub(crate) fn compute_slices_on_sprite_change(
     mut commands: Commands,
     images: Res<Assets<Image>>,
