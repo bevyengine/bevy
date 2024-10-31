@@ -30,7 +30,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::SpriteBundle,
-        sprite::{SpriteImageMode, Sprite},
+        sprite::{Sprite, SpriteImageMode},
         texture_atlas::{TextureAtlas, TextureAtlasLayout, TextureAtlasSources},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
         ColorMaterial, ColorMesh2dBundle, MeshMaterial2d, TextureAtlasBuilder,
