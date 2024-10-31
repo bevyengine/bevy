@@ -1,8 +1,8 @@
-use crate::serde::de::tuple_utils::visit_tuple;
-use crate::{DynamicTuple, TupleInfo, TypeRegistration, TypeRegistry};
-use core::fmt::Formatter;
+use crate::{
+    serde::de::tuple_utils::visit_tuple, DynamicTuple, TupleInfo, TypeRegistration, TypeRegistry,
+};
+use core::{fmt, fmt::Formatter};
 use serde::de::{SeqAccess, Visitor};
-use std::fmt;
 
 /// A [`Visitor`] for deserializing [`Tuple`] values.
 ///

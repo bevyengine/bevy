@@ -1,7 +1,5 @@
-use crate::serde::TypedReflectSerializer;
-use crate::{Set, TypeRegistry};
-use serde::ser::SerializeSeq;
-use serde::Serialize;
+use crate::{serde::TypedReflectSerializer, Set, TypeRegistry};
+use serde::{ser::SerializeSeq, Serialize};
 
 /// A serializer for [`Set`] values.
 pub(super) struct SetSerializer<'a> {

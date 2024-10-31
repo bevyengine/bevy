@@ -3,11 +3,13 @@
 //! Includes the implementation of [`Gizmos::arc_2d`],
 //! and assorted support items.
 
-use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{
+    circles::DEFAULT_CIRCLE_RESOLUTION,
+    prelude::{GizmoConfigGroup, Gizmos},
+};
 use bevy_color::Color;
 use bevy_math::{Isometry2d, Isometry3d, Quat, Rot2, Vec2, Vec3};
-use std::f32::consts::{FRAC_PI_2, TAU};
+use core::f32::consts::{FRAC_PI_2, TAU};
 
 // === 2D ===
 
@@ -48,14 +50,14 @@ where
     #[inline]
     pub fn arc_2d(
         &mut self,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         arc_angle: f32,
         radius: f32,
         color: impl Into<Color>,
     ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
         Arc2dBuilder {
             gizmos: self,
-            isometry,
+            isometry: isometry.into(),
             arc_angle,
             radius,
             color: color.into(),
@@ -114,8 +116,7 @@ fn arc_2d_inner(arc_angle: f32, radius: f32, resolution: u32) -> impl Iterator<I
     (0..=resolution)
         .map(move |n| arc_angle * n as f32 / resolution as f32)
         .map(|angle| angle + FRAC_PI_2)
-        .map(f32::sin_cos)
-        .map(|(sin, cos)| Vec2::new(cos, sin))
+        .map(Vec2::from_angle)
         .map(move |vec2| vec2 * radius)
 }
 
@@ -175,13 +176,13 @@ where
         &mut self,
         angle: f32,
         radius: f32,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         Arc3dBuilder {
             gizmos: self,
             start_vertex: Vec3::X,
-            isometry,
+            isometry: isometry.into(),
             angle,
             radius,
             color: color.into(),
@@ -366,7 +367,7 @@ where
         to: Vec2,
         color: impl Into<Color>,
     ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
-        self.arc_2d_from_to(center, from, to, color, std::convert::identity)
+        self.arc_2d_from_to(center, from, to, color, core::convert::identity)
     }
 
     /// Draws the longest arc between two points (`from` and `to`) relative to a specified `center` point.

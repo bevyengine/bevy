@@ -4,6 +4,7 @@ use crate::{
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
+use derive_more::derive::From;
 
 /// An enumerated type that can represent any of the color types in this crate.
 ///
@@ -40,7 +41,7 @@ use bevy_reflect::prelude::*;
 /// due to its perceptual uniformity and broad support for Bevy's color operations.
 /// To avoid the cost of repeated conversion, and ensure consistent results where that is desired,
 /// first convert this [`Color`] into your desired color space.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, From)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -122,7 +123,7 @@ impl Color {
     }
 
     /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
-    pub fn srgb_from_array(array: [f32; 3]) -> Self {
+    pub const fn srgb_from_array(array: [f32; 3]) -> Self {
         Self::Srgba(Srgba {
             red: array[0],
             green: array[1],
@@ -142,7 +143,7 @@ impl Color {
     /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values.
     ///
     /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
-    pub fn srgba_u8(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
+    pub const fn srgba_u8(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
         Self::Srgba(Srgba {
             red: red as f32 / 255.0,
             green: green as f32 / 255.0,
@@ -162,7 +163,7 @@ impl Color {
     /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of 1.0.
     ///
     /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
-    pub fn srgb_u8(red: u8, green: u8, blue: u8) -> Self {
+    pub const fn srgb_u8(red: u8, green: u8, blue: u8) -> Self {
         Self::Srgba(Srgba {
             red: red as f32 / 255.0,
             green: green as f32 / 255.0,
@@ -423,66 +424,6 @@ impl Alpha for Color {
             Color::Oklcha(x) => x.set_alpha(alpha),
             Color::Xyza(x) => x.set_alpha(alpha),
         }
-    }
-}
-
-impl From<Srgba> for Color {
-    fn from(value: Srgba) -> Self {
-        Self::Srgba(value)
-    }
-}
-
-impl From<LinearRgba> for Color {
-    fn from(value: LinearRgba) -> Self {
-        Self::LinearRgba(value)
-    }
-}
-
-impl From<Hsla> for Color {
-    fn from(value: Hsla) -> Self {
-        Self::Hsla(value)
-    }
-}
-
-impl From<Hsva> for Color {
-    fn from(value: Hsva) -> Self {
-        Self::Hsva(value)
-    }
-}
-
-impl From<Hwba> for Color {
-    fn from(value: Hwba) -> Self {
-        Self::Hwba(value)
-    }
-}
-
-impl From<Oklaba> for Color {
-    fn from(value: Oklaba) -> Self {
-        Self::Oklaba(value)
-    }
-}
-
-impl From<Oklcha> for Color {
-    fn from(value: Oklcha) -> Self {
-        Self::Oklcha(value)
-    }
-}
-
-impl From<Lcha> for Color {
-    fn from(value: Lcha) -> Self {
-        Self::Lcha(value)
-    }
-}
-
-impl From<Laba> for Color {
-    fn from(value: Laba) -> Self {
-        Self::Laba(value)
-    }
-}
-
-impl From<Xyza> for Color {
-    fn from(value: Xyza) -> Self {
-        Self::Xyza(value)
     }
 }
 

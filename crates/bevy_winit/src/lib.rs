@@ -12,45 +12,45 @@
 //! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`].
 //! See `winit_runner` for details.
 
+extern crate alloc;
+
 use bevy_derive::Deref;
+use bevy_reflect::prelude::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 use winit::event_loop::EventLoop;
-#[cfg(target_os = "android")]
-pub use winit::platform::android::activity as android_activity;
 
 use bevy_a11y::AccessibilityRequested;
 use bevy_app::{App, Last, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_window::{exit_on_all_closed, Window, WindowCreated};
-pub use converters::convert_system_cursor_icon;
-pub use state::{CursorSource, CustomCursorCache, CustomCursorCacheKey, PendingCursor};
-use system::{changed_windows, despawn_windows};
+use system::{changed_windows, check_keyboard_focus_lost, despawn_windows};
 pub use system::{create_monitors, create_windows};
-pub use winit::event_loop::EventLoopProxy;
 #[cfg(all(target_family = "wasm", target_os = "unknown"))]
 pub use winit::platform::web::CustomCursorExtWebSys;
-pub use winit::window::{CustomCursor as WinitCustomCursor, CustomCursorSource};
+pub use winit::{
+    event_loop::EventLoopProxy,
+    window::{CustomCursor as WinitCustomCursor, CustomCursorSource},
+};
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use crate::accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionRequestHandlers};
-use crate::state::winit_runner;
-use crate::winit_monitors::WinitMonitors;
+use crate::{
+    accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionRequestHandlers},
+    state::winit_runner,
+    winit_monitors::WinitMonitors,
+};
 
 pub mod accessibility;
 mod converters;
+#[cfg(feature = "custom_cursor")]
+pub mod cursor;
 mod state;
 mod system;
 mod winit_config;
 mod winit_monitors;
 mod winit_windows;
-
-/// [`AndroidApp`] provides an interface to query the application state as well as monitor events
-/// (for example lifecycle and input events).
-#[cfg(target_os = "android")]
-pub static ANDROID_APP: std::sync::OnceLock<android_activity::AndroidApp> =
-    std::sync::OnceLock::new();
 
 /// A [`Plugin`] that uses `winit` to create and manage windows, and receive window and input
 /// events.
@@ -61,6 +61,9 @@ pub static ANDROID_APP: std::sync::OnceLock<android_activity::AndroidApp> =
 ///
 /// The `T` event type can be used to pass custom events to the `winit`'s loop, and handled as events
 /// in systems.
+///
+/// When using eg. `MinimalPlugins` you can add this using `WinitPlugin::<WakeUp>::default()`, where
+/// `WakeUp` is the default `Event` that bevy uses.
 #[derive(Default)]
 pub struct WinitPlugin<T: Event = WakeUp> {
     /// Allows the window (and the event loop) to be created on any thread
@@ -113,7 +116,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
         {
             use winit::platform::android::EventLoopBuilderExtAndroid;
             let msg = "Bevy must be setup with the #[bevy_main] macro on Android";
-            event_loop_builder.with_android_app(ANDROID_APP.get().expect(msg).clone());
+            event_loop_builder.with_android_app(bevy_window::ANDROID_APP.get().expect(msg).clone());
         }
 
         app.init_non_send_resource::<WinitWindows>()
@@ -127,11 +130,14 @@ impl<T: Event> Plugin for WinitPlugin<T> {
                     // so we don't need to care about its ordering relative to `changed_windows`
                     changed_windows.ambiguous_with(exit_on_all_closed),
                     despawn_windows,
+                    check_keyboard_focus_lost,
                 )
                     .chain(),
             );
 
         app.add_plugins(AccessKitPlugin);
+        #[cfg(feature = "custom_cursor")]
+        app.add_plugins(cursor::CursorPlugin);
 
         let event_loop = event_loop_builder
             .build()
@@ -145,7 +151,8 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 
 /// The default event that can be used to wake the window loop
 /// Wakes up the loop if in wait state
-#[derive(Debug, Default, Clone, Copy, Event)]
+#[derive(Debug, Default, Clone, Copy, Event, Reflect)]
+#[reflect(Debug, Default)]
 pub struct WakeUp;
 
 /// A wrapper type around [`winit::event_loop::EventLoopProxy`] with the specific

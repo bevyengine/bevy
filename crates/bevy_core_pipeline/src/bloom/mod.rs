@@ -15,7 +15,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_math::UVec2;
+use bevy_math::{ops, UVec2};
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -462,9 +462,11 @@ fn prepare_bloom_bind_groups(
 /// This function can be visually previewed for all values of *mip* (normalized) with tweakable
 /// [`Bloom`] parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
 fn compute_blend_factor(bloom: &Bloom, mip: f32, max_mip: f32) -> f32 {
-    let mut lf_boost = (1.0
-        - (1.0 - (mip / max_mip)).powf(1.0 / (1.0 - bloom.low_frequency_boost_curvature)))
-        * bloom.low_frequency_boost;
+    let mut lf_boost =
+        (1.0 - ops::powf(
+            1.0 - (mip / max_mip),
+            1.0 / (1.0 - bloom.low_frequency_boost_curvature),
+        )) * bloom.low_frequency_boost;
     let high_pass_lq = 1.0
         - (((mip / max_mip) - bloom.high_pass_frequency) / bloom.high_pass_frequency)
             .clamp(0.0, 1.0);

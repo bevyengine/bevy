@@ -1,7 +1,7 @@
 use crate::{component::Component, traversal::Traversal};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use std::{
+use core::{
     cmp::Ordering,
     fmt,
     hash::{Hash, Hasher},
@@ -82,7 +82,7 @@ impl<E: Event> fmt::Debug for EventId<E> {
         write!(
             f,
             "event<{}>#{}",
-            std::any::type_name::<E>().split("::").last().unwrap(),
+            core::any::type_name::<E>().split("::").last().unwrap(),
             self.id,
         )
     }

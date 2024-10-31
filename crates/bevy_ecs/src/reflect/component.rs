@@ -60,7 +60,7 @@
 use super::from_reflect_with_fallback;
 use crate::{
     change_detection::Mut,
-    component::Component,
+    component::{Component, ComponentId},
     entity::Entity,
     world::{
         unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityWorldMut, FilteredEntityMut,
@@ -119,6 +119,8 @@ pub struct ReflectComponentFns {
     pub reflect_unchecked_mut: unsafe fn(UnsafeEntityCell<'_>) -> Option<Mut<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::copy()`].
     pub copy: fn(&World, &mut World, Entity, Entity, &TypeRegistry),
+    /// Function pointer implementing [`ReflectComponent::register_component()`].
+    pub register_component: fn(&mut World) -> ComponentId,
 }
 
 impl ReflectComponentFns {
@@ -220,6 +222,11 @@ impl ReflectComponent {
         );
     }
 
+    /// Register the type of this [`Component`] in [`World`], returning its [`ComponentId`].
+    pub fn register_component(&self, world: &mut World) -> ComponentId {
+        (self.0.register_component)(world)
+    }
+
     /// Create a custom implementation of [`ReflectComponent`].
     ///
     /// This is an advanced feature,
@@ -302,6 +309,9 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                 // `reflect_unchecked_mut` which must be called with an UnsafeEntityCell with access to the component `C` on the `entity`
                 let c = unsafe { entity.get_mut::<C>() };
                 c.map(|c| c.map_unchanged(|value| value as &mut dyn Reflect))
+            },
+            register_component: |world: &mut World| -> ComponentId {
+                world.register_component::<C>()
             },
         })
     }

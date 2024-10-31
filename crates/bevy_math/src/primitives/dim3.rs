@@ -1,4 +1,4 @@
-use std::f32::consts::{FRAC_PI_3, PI};
+use core::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{ops, ops::FloatPow, Dir3, InvalidDirectionError, Isometry3d, Mat3, Vec2, Vec3};
@@ -187,7 +187,7 @@ impl InfinitePlane3d {
     #[inline(always)]
     pub fn new<T: TryInto<Dir3>>(normal: T) -> Self
     where
-        <T as TryInto<Dir3>>::Error: std::fmt::Debug,
+        <T as TryInto<Dir3>>::Error: core::fmt::Debug,
     {
         Self {
             normal: normal
@@ -220,7 +220,8 @@ impl InfinitePlane3d {
     /// `point`. The result is a signed value; it's positive if the point lies in the half-space
     /// that the plane's normal vector points towards.
     #[inline]
-    pub fn signed_distance(&self, isometry: Isometry3d, point: Vec3) -> f32 {
+    pub fn signed_distance(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> f32 {
+        let isometry = isometry.into();
         self.normal.dot(isometry.inverse() * point)
     }
 
@@ -228,7 +229,7 @@ impl InfinitePlane3d {
     ///
     /// This projects the point orthogonally along the shortest path onto the plane.
     #[inline]
-    pub fn project_point(&self, isometry: Isometry3d, point: Vec3) -> Vec3 {
+    pub fn project_point(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> Vec3 {
         point - self.normal * self.signed_distance(isometry, point)
     }
 
@@ -926,9 +927,9 @@ impl Torus {
         }
 
         match self.major_radius.partial_cmp(&self.minor_radius).unwrap() {
-            std::cmp::Ordering::Greater => TorusKind::Ring,
-            std::cmp::Ordering::Equal => TorusKind::Horn,
-            std::cmp::Ordering::Less => TorusKind::Spindle,
+            core::cmp::Ordering::Greater => TorusKind::Ring,
+            core::cmp::Ordering::Equal => TorusKind::Horn,
+            core::cmp::Ordering::Less => TorusKind::Spindle,
         }
     }
 }
@@ -1320,7 +1321,7 @@ mod tests {
 
         // Test rotation
         assert!(
-            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Dir3::X)
+            (Quat::from_rotation_z(core::f32::consts::FRAC_PI_2) * Dir3::X)
                 .abs_diff_eq(Vec3::Y, 10e-6)
         );
     }
@@ -1374,36 +1375,36 @@ mod tests {
 
         let point_in_plane = Vec3::X + Vec3::Z;
         assert_eq!(
-            plane.signed_distance(Isometry3d::from_translation(origin), point_in_plane),
+            plane.signed_distance(origin, point_in_plane),
             0.0,
             "incorrect distance"
         );
         assert_eq!(
-            plane.project_point(Isometry3d::from_translation(origin), point_in_plane),
+            plane.project_point(origin, point_in_plane),
             point_in_plane,
             "incorrect point"
         );
 
         let point_outside = Vec3::Y;
         assert_eq!(
-            plane.signed_distance(Isometry3d::from_translation(origin), point_outside),
+            plane.signed_distance(origin, point_outside),
             -1.0,
             "incorrect distance"
         );
         assert_eq!(
-            plane.project_point(Isometry3d::from_translation(origin), point_outside),
+            plane.project_point(origin, point_outside),
             Vec3::ZERO,
             "incorrect point"
         );
 
         let point_outside = Vec3::NEG_Y;
         assert_eq!(
-            plane.signed_distance(Isometry3d::from_translation(origin), point_outside),
+            plane.signed_distance(origin, point_outside),
             1.0,
             "incorrect distance"
         );
         assert_eq!(
-            plane.project_point(Isometry3d::from_translation(origin), point_outside),
+            plane.project_point(origin, point_outside),
             Vec3::ZERO,
             "incorrect point"
         );

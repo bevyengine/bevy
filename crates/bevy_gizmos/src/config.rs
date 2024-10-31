@@ -1,21 +1,21 @@
 //! A module for the [`GizmoConfig<T>`] [`Resource`].
 
-use crate as bevy_gizmos;
+use crate::{self as bevy_gizmos};
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
 #[cfg(all(
     feature = "bevy_render",
     any(feature = "bevy_pbr", feature = "bevy_sprite")
 ))]
-use bevy_ecs::component::Component;
+use {crate::LineGizmo, bevy_asset::Handle, bevy_ecs::component::Component};
 
 use bevy_ecs::{reflect::ReflectResource, system::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_utils::TypeIdMap;
-use core::panic;
-use std::{
+use core::{
     any::TypeId,
     ops::{Deref, DerefMut},
+    panic,
 };
 
 /// An enum configuring how line joints will be drawn.
@@ -201,18 +201,5 @@ pub(crate) struct GizmoMeshConfig {
     pub line_perspective: bool,
     pub line_style: GizmoLineStyle,
     pub render_layers: bevy_render::view::RenderLayers,
-}
-
-#[cfg(all(
-    feature = "bevy_render",
-    any(feature = "bevy_pbr", feature = "bevy_sprite")
-))]
-impl From<&GizmoConfig> for GizmoMeshConfig {
-    fn from(item: &GizmoConfig) -> Self {
-        GizmoMeshConfig {
-            line_perspective: item.line_perspective,
-            line_style: item.line_style,
-            render_layers: item.render_layers.clone(),
-        }
-    }
+    pub handle: Handle<LineGizmo>,
 }

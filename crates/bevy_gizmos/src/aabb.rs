@@ -64,7 +64,7 @@ pub struct AabbGizmoConfigGroup {
 
 /// Add this [`Component`] to an entity to draw its [`Aabb`] component.
 #[derive(Component, Reflect, Default, Debug)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct ShowAabbGizmo {
     /// The color of the box.
     ///

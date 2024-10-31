@@ -86,7 +86,7 @@ fn generic_bench<P: Copy>(
 
 fn all_added_detection_generic<T: Component + Default>(group: &mut BenchGroup, entity_count: u32) {
     group.bench_function(
-        format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
+        format!("{}_entities_{}", entity_count, core::any::type_name::<T>()),
         |bencher| {
             bencher.iter_batched_ref(
                 || {
@@ -110,8 +110,8 @@ fn all_added_detection_generic<T: Component + Default>(group: &mut BenchGroup, e
 
 fn all_added_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("all_added_detection");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
     for &entity_count in ENTITIES_TO_BENCH_COUNT {
         generic_bench(
             &mut group,
@@ -129,7 +129,7 @@ fn all_changed_detection_generic<T: Component + Default + BenchModify>(
     entity_count: u32,
 ) {
     group.bench_function(
-        format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
+        format!("{}_entities_{}", entity_count, core::any::type_name::<T>()),
         |bencher| {
             bencher.iter_batched_ref(
                 || {
@@ -158,8 +158,8 @@ fn all_changed_detection_generic<T: Component + Default + BenchModify>(
 
 fn all_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("all_changed_detection");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
     for &entity_count in ENTITIES_TO_BENCH_COUNT {
         generic_bench(
             &mut group,
@@ -179,7 +179,7 @@ fn few_changed_detection_generic<T: Component + Default + BenchModify>(
     let ratio_to_modify = 0.1;
     let amount_to_modify = (entity_count as f32 * ratio_to_modify) as usize;
     group.bench_function(
-        format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
+        format!("{}_entities_{}", entity_count, core::any::type_name::<T>()),
         |bencher| {
             bencher.iter_batched_ref(
                 || {
@@ -208,8 +208,8 @@ fn few_changed_detection_generic<T: Component + Default + BenchModify>(
 
 fn few_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("few_changed_detection");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
     for &entity_count in ENTITIES_TO_BENCH_COUNT {
         generic_bench(
             &mut group,
@@ -227,7 +227,7 @@ fn none_changed_detection_generic<T: Component + Default>(
     entity_count: u32,
 ) {
     group.bench_function(
-        format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
+        format!("{}_entities_{}", entity_count, core::any::type_name::<T>()),
         |bencher| {
             bencher.iter_batched_ref(
                 || {
@@ -252,8 +252,8 @@ fn none_changed_detection_generic<T: Component + Default>(
 
 fn none_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("none_changed_detection");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
     for &entity_count in ENTITIES_TO_BENCH_COUNT {
         generic_bench(
             &mut group,
@@ -308,7 +308,7 @@ fn multiple_archetype_none_changed_detection_generic<T: Component + Default + Be
             "{}_archetypes_{}_entities_{}",
             archetype_count,
             entity_count,
-            std::any::type_name::<T>()
+            core::any::type_name::<T>()
         ),
         |bencher| {
             bencher.iter_batched_ref(
@@ -356,8 +356,8 @@ fn multiple_archetype_none_changed_detection_generic<T: Component + Default + Be
 
 fn multiple_archetype_none_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("multiple_archetypes_none_changed_detection");
-    group.warm_up_time(std::time::Duration::from_millis(800));
-    group.measurement_time(std::time::Duration::from_secs(8));
+    group.warm_up_time(core::time::Duration::from_millis(800));
+    group.measurement_time(core::time::Duration::from_secs(8));
     for archetype_count in [5, 20, 100] {
         for entity_count in [10, 100, 1000, 10000] {
             multiple_archetype_none_changed_detection_generic::<Table>(

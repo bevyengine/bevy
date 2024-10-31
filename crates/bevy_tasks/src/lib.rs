@@ -5,6 +5,8 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
+extern crate alloc;
+
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
 
@@ -15,11 +17,13 @@ pub use task::Task;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 mod task_pool;
+
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
 #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
 mod single_threaded_task_pool;
+
 #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
 pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
 
@@ -57,7 +61,7 @@ pub mod prelude {
     };
 }
 
-use std::num::NonZero;
+use core::num::NonZero;
 
 /// Gets the logical CPU core count available to the current process.
 ///

@@ -1,18 +1,18 @@
 //! The mouse input functionality.
 
 use crate::{ButtonInput, ButtonState};
-use bevy_ecs::entity::Entity;
-#[cfg(feature = "bevy_reflect")]
-use bevy_ecs::reflect::ReflectResource;
-use bevy_ecs::system::Resource;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
+    entity::Entity,
     event::{Event, EventReader},
-    system::ResMut,
+    system::{ResMut, Resource},
 };
 use bevy_math::Vec2;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use {
+    bevy_ecs::reflect::ReflectResource,
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
+};
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};

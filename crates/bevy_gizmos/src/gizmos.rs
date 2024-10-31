@@ -1,6 +1,6 @@
 //! A module for the [`Gizmos`] [`SystemParam`].
 
-use std::{iter, marker::PhantomData, mem};
+use core::{iter, marker::PhantomData, mem};
 
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
@@ -13,8 +13,7 @@ use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
 use crate::{
-    config::GizmoConfigGroup,
-    config::{DefaultGizmoConfigGroup, GizmoConfigStore},
+    config::{DefaultGizmoConfigGroup, GizmoConfigGroup, GizmoConfigStore},
     prelude::GizmoConfig,
 };
 
@@ -187,13 +186,24 @@ where
         GizmosState::<Config, Clear>::apply(&mut state.state, system_meta, world);
     }
 
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        // SAFETY: Delegated to existing `SystemParam` implementations.
+        unsafe { GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world) }
+    }
+
+    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        // SAFETY: Delegated to existing `SystemParam` implementations
+        // SAFETY: Delegated to existing `SystemParam` implementations.
         let (f0, f1) = unsafe {
             GizmosState::<Config, Clear>::get_param(
                 &mut state.state,
@@ -472,10 +482,11 @@ where
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect(&mut self, isometry: Isometry3d, size: Vec2, color: impl Into<Color>) {
+    pub fn rect(&mut self, isometry: impl Into<Isometry3d>, size: Vec2, color: impl Into<Color>) {
         if !self.enabled {
             return;
         }
+        let isometry = isometry.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2.extend(0.));
         self.linestrip([tl, tr, br, bl, tl], color);
     }
@@ -699,10 +710,16 @@ where
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect_2d(&mut self, isometry: Isometry2d, size: Vec2, color: impl Into<Color>) {
+    pub fn rect_2d(
+        &mut self,
+        isometry: impl Into<Isometry2d>,
+        size: Vec2,
+        color: impl Into<Color>,
+    ) {
         if !self.enabled {
             return;
         }
+        let isometry = isometry.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2);
         self.linestrip_2d([tl, tr, br, bl, tl], color);
     }

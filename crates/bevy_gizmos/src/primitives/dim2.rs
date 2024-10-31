@@ -1,16 +1,18 @@
 //! A module for rendering each of the 2D [`bevy_math::primitives`] with [`Gizmos`].
 
-use std::f32::consts::{FRAC_PI_2, PI};
+use core::f32::consts::{FRAC_PI_2, PI};
 
 use super::helpers::*;
 
 use bevy_color::Color;
-use bevy_math::primitives::{
-    Annulus, Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector,
-    CircularSegment, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle,
-    RegularPolygon, Rhombus, Segment2d, Triangle2d,
+use bevy_math::{
+    primitives::{
+        Annulus, Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector,
+        CircularSegment, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle,
+        RegularPolygon, Rhombus, Segment2d, Triangle2d,
+    },
+    Dir2, Isometry2d, Rot2, Vec2,
 };
-use bevy_math::{Dir2, Isometry2d, Rot2, Vec2};
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
@@ -31,7 +33,7 @@ pub trait GizmoPrimitive2d<P: Primitive2d> {
     fn primitive_2d(
         &mut self,
         primitive: &P,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_>;
 }
@@ -43,17 +45,21 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self : 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &Dir2,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
+        let isometry = isometry.into();
         let start = Vec2::ZERO;
         let end = *primitive * MIN_LINE_LEN;
         self.arrow_2d(isometry * start, isometry * end, color);
@@ -67,18 +73,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &Arc2d,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
+        let isometry = isometry.into();
         let start_iso = isometry * Isometry2d::from_rotation(Rot2::radians(-primitive.half_angle));
 
         self.arc_2d(
@@ -97,12 +107,15 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &Circle,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         self.circle_2d(isometry, primitive.radius, color)
@@ -116,18 +129,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &CircularSector,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
+        let isometry = isometry.into();
         let color = color.into();
 
         let start_iso =
@@ -155,18 +172,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &CircularSegment,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
+        let isometry = isometry.into();
         let color = color.into();
 
         let start_iso =
@@ -193,12 +214,15 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = crate::circles::Ellipse2dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_2d<'a>(
         &mut self,
         primitive: &Ellipse,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         self.ellipse_2d(isometry, primitive.half_size, color)
@@ -252,17 +276,20 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Annulus2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Annulus2dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &Annulus,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Annulus2dBuilder {
             gizmos: self,
-            isometry,
+            isometry: isometry.into(),
             inner_radius: primitive.inner_circle.radius,
             outer_radius: primitive.outer_circle.radius,
             color: color.into(),
@@ -309,17 +336,21 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &Rhombus,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         };
+        let isometry = isometry.into();
         let [a, b, c, d] =
             [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)].map(|(sign_x, sign_y)| {
                 Vec2::new(
@@ -339,14 +370,18 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &Capsule2d,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
+        let isometry = isometry.into();
         let polymorphic_color: Color = color.into();
 
         if !self.enabled {
@@ -428,18 +463,21 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Line2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Line2dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &Line2d,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Line2dBuilder {
             gizmos: self,
             direction: primitive.direction,
-            isometry,
+            isometry: isometry.into(),
             color: color.into(),
             draw_arrow: false,
         }
@@ -483,14 +521,18 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &Plane2d,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
+        let isometry = isometry.into();
         let polymorphic_color: Color = color.into();
 
         if !self.enabled {
@@ -561,12 +603,15 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Segment2dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Segment2dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &Segment2d,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Segment2dBuilder {
@@ -574,7 +619,7 @@ where
             direction: primitive.direction,
             half_length: primitive.half_length,
 
-            isometry,
+            isometry: isometry.into(),
             color: color.into(),
 
             draw_arrow: Default::default(),
@@ -612,17 +657,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &Polyline2d<N>,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
+
+        let isometry = isometry.into();
 
         self.linestrip_2d(
             primitive
@@ -642,17 +692,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &BoxedPolyline2d,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
+
+        let isometry = isometry.into();
 
         self.linestrip_2d(
             primitive
@@ -672,17 +727,23 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &Triangle2d,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
+
+        let isometry = isometry.into();
+
         let [a, b, c] = primitive.vertices;
         let positions = [a, b, c, a].map(|vec2| isometry * vec2);
         self.linestrip_2d(positions, color);
@@ -696,17 +757,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &Rectangle,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
+
+        let isometry = isometry.into();
 
         let [a, b, c, d] =
             [(1.0, 1.0), (1.0, -1.0), (-1.0, -1.0), (-1.0, 1.0)].map(|(sign_x, sign_y)| {
@@ -728,17 +794,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &Polygon<N>,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
+
+        let isometry = isometry.into();
 
         // Check if the polygon needs a closing point
         let closing_point = {
@@ -768,17 +839,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &BoxedPolygon,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
+
+        let isometry = isometry.into();
 
         let closing_point = {
             let first = primitive.vertices.first();
@@ -806,17 +882,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_2d(
         &mut self,
         primitive: &RegularPolygon,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
+
+        let isometry = isometry.into();
 
         let points = (0..=primitive.sides)
             .map(|n| single_circle_coordinate(primitive.circumcircle.radius, primitive.sides, n))

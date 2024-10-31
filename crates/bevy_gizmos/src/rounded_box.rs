@@ -3,7 +3,7 @@
 //! Includes the implementation of [`Gizmos::rounded_rect`], [`Gizmos::rounded_rect_2d`] and [`Gizmos::rounded_cuboid`].
 //! and assorted support items.
 
-use std::f32::consts::FRAC_PI_2;
+use core::f32::consts::FRAC_PI_2;
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
@@ -75,7 +75,7 @@ impl<T: GizmoConfigGroup> Drop for RoundedRectBuilder<'_, '_, '_, T> {
         let mut inner_half_size = outer_half_size - Vec2::splat(corner_radius);
 
         if config.corner_radius < 0. {
-            std::mem::swap(&mut outer_half_size, &mut inner_half_size);
+            core::mem::swap(&mut outer_half_size, &mut inner_half_size);
         }
 
         // Handle cases where the rectangle collapses into simpler shapes
@@ -240,7 +240,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// ```
     pub fn rounded_rect(
         &mut self,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         size: Vec2,
         color: impl Into<Color>,
     ) -> RoundedRectBuilder<'_, 'w, 's, T> {
@@ -248,7 +248,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         RoundedRectBuilder {
             gizmos: self,
             config: RoundedBoxConfig {
-                isometry,
+                isometry: isometry.into(),
                 color: color.into(),
                 corner_radius,
                 arc_resolution: DEFAULT_ARC_RESOLUTION,
@@ -294,10 +294,11 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// ```
     pub fn rounded_rect_2d(
         &mut self,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         size: Vec2,
         color: impl Into<Color>,
     ) -> RoundedRectBuilder<'_, 'w, 's, T> {
+        let isometry = isometry.into();
         let corner_radius = size.min_element() * DEFAULT_CORNER_RADIUS;
         RoundedRectBuilder {
             gizmos: self,
@@ -351,7 +352,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// ```
     pub fn rounded_cuboid(
         &mut self,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         size: Vec3,
         color: impl Into<Color>,
     ) -> RoundedCuboidBuilder<'_, 'w, 's, T> {
@@ -359,7 +360,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
         RoundedCuboidBuilder {
             gizmos: self,
             config: RoundedBoxConfig {
-                isometry,
+                isometry: isometry.into(),
                 color: color.into(),
                 corner_radius,
                 arc_resolution: DEFAULT_ARC_RESOLUTION,

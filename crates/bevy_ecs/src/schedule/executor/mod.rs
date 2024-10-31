@@ -2,9 +2,11 @@ mod multi_threaded;
 mod simple;
 mod single_threaded;
 
-pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
-pub use self::simple::SimpleExecutor;
-pub use self::single_threaded::SingleThreadedExecutor;
+pub use self::{
+    multi_threaded::{MainThreadExecutor, MultiThreadedExecutor},
+    simple::SimpleExecutor,
+    single_threaded::SingleThreadedExecutor,
+};
 
 use fixedbitset::FixedBitSet;
 
@@ -127,6 +129,7 @@ pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
 }
 
 /// These functions hide the bottom of the callstack from `RUST_BACKTRACE=1` (assuming the default panic handler is used).
+///
 /// The full callstack will still be visible with `RUST_BACKTRACE=full`.
 /// They are specialized for `System::run` & co instead of being generic over closures because this avoids an
 /// extra frame in the backtrace.
@@ -134,7 +137,7 @@ pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
 /// This is reliant on undocumented behavior in Rust's default panic handler, which checks the call stack for symbols
 /// containing the string `__rust_begin_short_backtrace` in their mangled name.
 mod __rust_begin_short_backtrace {
-    use std::hint::black_box;
+    use core::hint::black_box;
 
     use crate::{
         system::{ReadOnlySystem, System},
@@ -174,5 +177,90 @@ mod __rust_begin_short_backtrace {
         world: &mut World,
     ) -> O {
         black_box(system.run((), world))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        self as bevy_ecs,
+        prelude::{IntoSystemConfigs, IntoSystemSetConfigs, Resource, Schedule, SystemSet},
+        schedule::ExecutorKind,
+        system::{Commands, In, IntoSystem, Res},
+        world::World,
+    };
+
+    #[derive(Resource)]
+    struct R1;
+
+    #[derive(Resource)]
+    struct R2;
+
+    const EXECUTORS: [ExecutorKind; 3] = [
+        ExecutorKind::Simple,
+        ExecutorKind::SingleThreaded,
+        ExecutorKind::MultiThreaded,
+    ];
+
+    #[test]
+    fn invalid_system_param_skips() {
+        for executor in EXECUTORS {
+            invalid_system_param_skips_core(executor);
+        }
+    }
+
+    fn invalid_system_param_skips_core(executor: ExecutorKind) {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(executor);
+        schedule.add_systems(
+            (
+                // Combined systems get skipped together.
+                (|mut commands: Commands| {
+                    commands.insert_resource(R1);
+                })
+                .pipe(|_: In<()>, _: Res<R1>| {}),
+                // This system depends on a system that is always skipped.
+                |mut commands: Commands| {
+                    commands.insert_resource(R2);
+                },
+            )
+                .chain(),
+        );
+        schedule.run(&mut world);
+        assert!(world.get_resource::<R1>().is_none());
+        assert!(world.get_resource::<R2>().is_some());
+    }
+
+    #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
+    struct S1;
+
+    #[test]
+    fn invalid_condition_param_skips_system() {
+        for executor in EXECUTORS {
+            invalid_condition_param_skips_system_core(executor);
+        }
+    }
+
+    fn invalid_condition_param_skips_system_core(executor: ExecutorKind) {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(executor);
+        schedule.configure_sets(S1.run_if(|_: Res<R1>| true));
+        schedule.add_systems((
+            // System gets skipped if system set run conditions fail validation.
+            (|mut commands: Commands| {
+                commands.insert_resource(R1);
+            })
+            .in_set(S1),
+            // System gets skipped if run conditions fail validation.
+            (|mut commands: Commands| {
+                commands.insert_resource(R2);
+            })
+            .run_if(|_: Res<R2>| true),
+        ));
+        schedule.run(&mut world);
+        assert!(world.get_resource::<R1>().is_none());
+        assert!(world.get_resource::<R2>().is_none());
     }
 }

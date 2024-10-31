@@ -42,6 +42,7 @@ enum D {
 }
 
 /// Reflect has "built in" support for some common traits like `PartialEq`, `Hash`, and `Serialize`.
+///
 /// These are exposed via methods like `PartialReflect::reflect_hash()`,
 /// `PartialReflect::reflect_partial_eq()`, and `PartialReflect::serializable()`.
 /// You can force these implementations to use the actual trait
@@ -53,12 +54,13 @@ pub struct E {
 }
 
 /// By default, deriving with Reflect assumes the type is either a "struct" or an "enum".
-/// You can tell reflect to treat your type instead as a "value type" by using the `reflect_value`
-/// attribute in place of `reflect`. It is generally a good idea to implement (and reflect)
-/// the `PartialEq`, `Serialize`, and `Deserialize` traits on `reflect_value` types to ensure
-/// that these values behave as expected when nested underneath Reflect-ed structs.
+///
+/// You can tell reflect to treat your type instead as an "opaque type" by using the `#[reflect(opaque)]`.
+/// It is generally a good idea to implement (and reflect) the `PartialEq`, `Serialize`, and `Deserialize`
+/// traits on opaque types to ensure that these values behave as expected when nested in other reflected types.
 #[derive(Reflect, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[reflect_value(PartialEq, Serialize, Deserialize)]
+#[reflect(opaque)]
+#[reflect(PartialEq, Serialize, Deserialize)]
 #[allow(dead_code)]
 enum F {
     X,
@@ -112,10 +114,16 @@ fn setup() {
         // This exposes "set" operations on your type, such as getting / inserting by value.
         // Set is automatically implemented for relevant core types like HashSet<T>
         ReflectRef::Set(_) => {}
-        // `Value` types do not implement any of the other traits above. They are simply a Reflect
-        // implementation. Value is implemented for core types like i32, usize, f32, and
-        // String.
-        ReflectRef::Value(_) => {}
+        // `Function` is a special trait that can be manually implemented (instead of deriving Reflect).
+        // This exposes "function" operations on your type, such as calling it with arguments.
+        // This trait is automatically implemented for types like DynamicFunction.
+        // This variant only exists if the `reflect_functions` feature is enabled.
+        #[cfg(feature = "reflect_functions")]
+        ReflectRef::Function(_) => {}
+        // `Opaque` types do not implement any of the other traits above. They are simply a Reflect
+        // implementation. Opaque is implemented for opaque types like String and Instant,
+        // but also include primitive types like i32, usize, and f32 (despite not technically being opaque).
+        ReflectRef::Opaque(_) => {}
     }
 
     let mut dynamic_list = DynamicList::default();

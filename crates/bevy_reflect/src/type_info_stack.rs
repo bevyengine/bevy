@@ -1,6 +1,8 @@
 use crate::TypeInfo;
-use core::fmt::{Debug, Formatter};
-use core::slice::Iter;
+use core::{
+    fmt::{Debug, Formatter},
+    slice::Iter,
+};
 
 /// Helper struct for managing a stack of [`TypeInfo`] instances.
 ///

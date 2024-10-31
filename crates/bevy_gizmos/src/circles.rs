@@ -5,16 +5,15 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::{Isometry2d, Isometry3d};
-use bevy_math::{Quat, Vec2, Vec3};
-use std::f32::consts::TAU;
+use bevy_math::{ops, Isometry2d, Isometry3d, Quat, Vec2, Vec3};
+use core::f32::consts::TAU;
 
 pub(crate) const DEFAULT_CIRCLE_RESOLUTION: u32 = 32;
 
 fn ellipse_inner(half_size: Vec2, resolution: u32) -> impl Iterator<Item = Vec2> {
     (0..resolution + 1).map(move |i| {
         let angle = i as f32 * TAU / resolution as f32;
-        let (x, y) = angle.sin_cos();
+        let (x, y) = ops::sin_cos(angle);
         Vec2::new(x, y) * half_size
     })
 }
@@ -52,13 +51,13 @@ where
     #[inline]
     pub fn ellipse(
         &mut self,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         half_size: Vec2,
         color: impl Into<Color>,
     ) -> EllipseBuilder<'_, 'w, 's, Config, Clear> {
         EllipseBuilder {
             gizmos: self,
-            isometry,
+            isometry: isometry.into(),
             half_size,
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
@@ -93,13 +92,13 @@ where
     #[inline]
     pub fn ellipse_2d(
         &mut self,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         half_size: Vec2,
         color: impl Into<Color>,
     ) -> Ellipse2dBuilder<'_, 'w, 's, Config, Clear> {
         Ellipse2dBuilder {
             gizmos: self,
-            isometry,
+            isometry: isometry.into(),
             half_size,
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
@@ -132,13 +131,13 @@ where
     #[inline]
     pub fn circle(
         &mut self,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         radius: f32,
         color: impl Into<Color>,
     ) -> EllipseBuilder<'_, 'w, 's, Config, Clear> {
         EllipseBuilder {
             gizmos: self,
-            isometry,
+            isometry: isometry.into(),
             half_size: Vec2::splat(radius),
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
@@ -173,13 +172,13 @@ where
     #[inline]
     pub fn circle_2d(
         &mut self,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         radius: f32,
         color: impl Into<Color>,
     ) -> Ellipse2dBuilder<'_, 'w, 's, Config, Clear> {
         Ellipse2dBuilder {
             gizmos: self,
-            isometry,
+            isometry: isometry.into(),
             half_size: Vec2::splat(radius),
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
@@ -215,14 +214,14 @@ where
     #[inline]
     pub fn sphere(
         &mut self,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         radius: f32,
         color: impl Into<Color>,
     ) -> SphereBuilder<'_, 'w, 's, Config, Clear> {
         SphereBuilder {
             gizmos: self,
             radius,
-            isometry,
+            isometry: isometry.into(),
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
         }

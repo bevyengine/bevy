@@ -6,7 +6,7 @@ thread_local! {
     /// The thread-local [`TypeInfoStack`] used for debugging.
     ///
     /// [`TypeInfoStack`]: crate::type_info_stack::TypeInfoStack
-    pub(super) static TYPE_INFO_STACK: std::cell::RefCell<crate::type_info_stack::TypeInfoStack> = const { std::cell::RefCell::new(
+    pub(super) static TYPE_INFO_STACK: core::cell::RefCell<crate::type_info_stack::TypeInfoStack> = const { core::cell::RefCell::new(
         crate::type_info_stack::TypeInfoStack::new()
     ) };
 }

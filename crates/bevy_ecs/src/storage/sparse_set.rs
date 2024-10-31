@@ -5,10 +5,10 @@ use crate::{
     storage::{Column, TableRow},
 };
 use bevy_ptr::{OwningPtr, Ptr};
-use nonmax::NonMaxUsize;
 #[cfg(feature = "track_change_detection")]
-use std::panic::Location;
-use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
+use core::panic::Location;
+use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
+use nonmax::NonMaxUsize;
 
 type EntityIndex = u32;
 
@@ -423,7 +423,7 @@ macro_rules! impl_sparse_set {
             }
 
             /// Returns an iterator visiting all keys (indices) in arbitrary order.
-            pub fn indices(&self) -> impl Iterator<Item = I> + '_ {
+            pub fn indices(&self) -> impl Iterator<Item = I> + Clone + '_ {
                 self.indices.iter().cloned()
             }
 

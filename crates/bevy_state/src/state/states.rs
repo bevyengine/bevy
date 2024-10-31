@@ -1,6 +1,6 @@
-use std::fmt::Debug;
+use core::fmt::Debug;
 
-use std::hash::Hash;
+use core::hash::Hash;
 
 /// Types that can define world-wide states in a finite-state machine.
 ///

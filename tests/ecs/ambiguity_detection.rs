@@ -7,9 +7,9 @@
 use bevy::{
     ecs::schedule::{InternedScheduleLabel, LogLevel, ScheduleBuildSettings},
     prelude::*,
+    render::pipelined_rendering::RenderExtractApp,
     utils::HashMap,
 };
-use bevy_render::pipelined_rendering::RenderExtractApp;
 
 fn main() {
     let mut app = App::new();

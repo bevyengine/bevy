@@ -1,6 +1,8 @@
-use crate::derive_data::{EnumVariantFields, ReflectEnum, StructField};
-use crate::enum_utility::{EnumVariantOutputData, TryApplyVariantBuilder, VariantBuilder};
-use crate::impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed};
+use crate::{
+    derive_data::{EnumVariantFields, ReflectEnum, StructField},
+    enum_utility::{EnumVariantOutputData, TryApplyVariantBuilder, VariantBuilder},
+    impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed},
+};
 use bevy_macro_utils::fq_std::{FQBox, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote;

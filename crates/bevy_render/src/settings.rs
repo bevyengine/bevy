@@ -1,7 +1,8 @@
 use crate::renderer::{
     RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue,
 };
-use std::{borrow::Cow, path::PathBuf};
+use alloc::borrow::Cow;
+use std::path::PathBuf;
 
 pub use wgpu::{
     Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags,

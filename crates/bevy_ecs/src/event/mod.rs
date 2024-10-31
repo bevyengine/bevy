@@ -423,7 +423,7 @@ mod tests {
     #[test]
     fn test_event_cursor_par_read() {
         use crate::prelude::*;
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use core::sync::atomic::{AtomicUsize, Ordering};
 
         #[derive(Resource)]
         struct Counter(AtomicUsize);
@@ -465,7 +465,7 @@ mod tests {
     #[test]
     fn test_event_cursor_par_read_mut() {
         use crate::prelude::*;
-        use std::sync::atomic::{AtomicUsize, Ordering};
+        use core::sync::atomic::{AtomicUsize, Ordering};
 
         #[derive(Resource)]
         struct Counter(AtomicUsize);

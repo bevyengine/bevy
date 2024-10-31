@@ -1,7 +1,5 @@
-use crate::serde::TypedReflectSerializer;
-use crate::{Array, TypeRegistry};
-use serde::ser::SerializeTuple;
-use serde::Serialize;
+use crate::{serde::TypedReflectSerializer, Array, TypeRegistry};
+use serde::{ser::SerializeTuple, Serialize};
 
 /// A serializer for [`Array`] values.
 pub(super) struct ArraySerializer<'a> {

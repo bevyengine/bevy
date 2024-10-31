@@ -1,12 +1,15 @@
 pub use serializable::*;
+pub use serialize_with_registry::*;
 pub use serializer::*;
 
 mod arrays;
+mod custom_serialization;
 mod enums;
 mod error_utils;
 mod lists;
 mod maps;
 mod serializable;
+mod serialize_with_registry;
 mod serializer;
 mod sets;
 mod structs;
@@ -15,15 +18,14 @@ mod tuples;
 
 #[cfg(test)]
 mod tests {
-    use crate::serde::ReflectSerializer;
-    use crate::{self as bevy_reflect, PartialReflect, Struct};
-    use crate::{Reflect, ReflectSerialize, TypeRegistry};
+    use crate::{
+        self as bevy_reflect, serde::ReflectSerializer, PartialReflect, Reflect, ReflectSerialize,
+        Struct, TypeRegistry,
+    };
     use bevy_utils::{HashMap, HashSet};
-    use ron::extensions::Extensions;
-    use ron::ser::PrettyConfig;
+    use core::{f32::consts::PI, ops::RangeInclusive};
+    use ron::{extensions::Extensions, ser::PrettyConfig};
     use serde::Serialize;
-    use std::f32::consts::PI;
-    use std::ops::RangeInclusive;
 
     #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {
@@ -373,10 +375,10 @@ mod tests {
             121, 83, 116, 114, 117, 99, 116, 220, 0, 20, 123, 172, 72, 101, 108, 108, 111, 32, 119,
             111, 114, 108, 100, 33, 145, 123, 146, 202, 64, 73, 15, 219, 205, 5, 57, 149, 254, 255,
             0, 1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 64, 145, 206, 59, 154, 201, 255,
-            145, 172, 84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 164, 85, 110,
-            105, 116, 129, 167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108,
-            101, 146, 202, 63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117,
-            99, 116, 145, 180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32,
+            172, 84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 164, 85, 110, 105,
+            116, 129, 167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101,
+            146, 202, 63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99,
+            116, 145, 180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32,
             118, 97, 108, 117, 101, 144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165,
             84, 117, 112, 108, 101, 144, 146, 100, 145, 101,
         ];
@@ -410,7 +412,7 @@ mod tests {
 
         serializer.serialize(&mut ser).unwrap();
 
-        let output = std::str::from_utf8(&buf).unwrap();
+        let output = core::str::from_utf8(&buf).unwrap();
         let expected = r#"{
     "bevy_reflect::serde::ser::tests::OtherStruct": {
         "some": {
@@ -460,7 +462,7 @@ mod tests {
         assert_eq!(
             error,
             ron::Error::Message(
-                "type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)".to_string()
+                "type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` or `ReflectSerializeWithRegistry` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)".to_string()
             )
         );
         #[cfg(not(feature = "debug_stack"))]
@@ -470,6 +472,42 @@ mod tests {
                 "type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()
             )
         );
+    }
+
+    #[cfg(feature = "functions")]
+    mod functions {
+        use super::*;
+        use crate::func::{DynamicFunction, IntoFunction};
+
+        #[test]
+        fn should_not_serialize_function() {
+            #[derive(Reflect)]
+            #[reflect(from_reflect = false)]
+            struct MyStruct {
+                func: DynamicFunction<'static>,
+            }
+
+            let value: Box<dyn Reflect> = Box::new(MyStruct {
+                func: String::new.into_function(),
+            });
+
+            let registry = TypeRegistry::new();
+            let serializer = ReflectSerializer::new(value.as_partial_reflect(), &registry);
+
+            let error = ron::ser::to_string(&serializer).unwrap_err();
+
+            #[cfg(feature = "debug_stack")]
+            assert_eq!(
+                error,
+                ron::Error::Message("functions cannot be serialized (stack: `bevy_reflect::serde::ser::tests::functions::MyStruct`)".to_string())
+            );
+
+            #[cfg(not(feature = "debug_stack"))]
+            assert_eq!(
+                error,
+                ron::Error::Message("functions cannot be serialized".to_string())
+            );
+        }
     }
 
     #[cfg(feature = "debug_stack")]

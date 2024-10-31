@@ -27,7 +27,7 @@ use crate::{
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
 use bevy_utils::HashMap;
-use std::{
+use core::{
     hash::Hash,
     ops::{Index, IndexMut, RangeFrom},
 };
@@ -135,15 +135,15 @@ pub(crate) struct AddBundle {
 }
 
 impl AddBundle {
-    pub(crate) fn iter_inserted(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub(crate) fn iter_inserted(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.added.iter().chain(self.existing.iter()).copied()
     }
 
-    pub(crate) fn iter_added(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub(crate) fn iter_added(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.added.iter().copied()
     }
 
-    pub(crate) fn iter_existing(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub(crate) fn iter_existing(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.existing.iter().copied()
     }
 }
@@ -489,7 +489,7 @@ impl Archetype {
     ///
     /// All of the IDs are unique.
     #[inline]
-    pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+    pub fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
         self.components.indices()
     }
 
@@ -497,6 +497,16 @@ impl Archetype {
     #[inline]
     pub fn component_count(&self) -> usize {
         self.components.len()
+    }
+
+    /// Gets an iterator of all of the components in the archetype, along with
+    /// their archetype component ID.
+    pub(crate) fn components_with_archetype_component_id(
+        &self,
+    ) -> impl Iterator<Item = (ComponentId, ArchetypeComponentId)> + '_ {
+        self.components
+            .iter()
+            .map(|(component_id, info)| (*component_id, info.archetype_component_id))
     }
 
     /// Fetches an immutable reference to the archetype's [`Edges`], a cache of
@@ -766,7 +776,7 @@ pub struct Archetypes {
     /// find the archetype id by the archetype's components
     by_components: HashMap<ArchetypeComponents, ArchetypeId>,
     /// find all the archetypes that contain a component
-    by_component: ComponentIndex,
+    pub(crate) by_component: ComponentIndex,
 }
 
 /// Metadata about how a component is stored in an [`Archetype`].

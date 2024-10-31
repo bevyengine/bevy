@@ -1,9 +1,12 @@
-use crate::container_attributes::REFLECT_DEFAULT;
-use crate::derive_data::ReflectEnum;
-use crate::enum_utility::{EnumVariantOutputData, FromReflectVariantBuilder, VariantBuilder};
-use crate::field_attributes::DefaultBehavior;
-use crate::utility::{ident_or_index, WhereClauseOptions};
-use crate::{ReflectMeta, ReflectStruct};
+use crate::{
+    container_attributes::REFLECT_DEFAULT,
+    derive_data::ReflectEnum,
+    enum_utility::{EnumVariantOutputData, FromReflectVariantBuilder, VariantBuilder},
+    field_attributes::DefaultBehavior,
+    ident::ident_or_index,
+    where_clause_options::WhereClauseOptions,
+    ReflectMeta, ReflectStruct,
+};
 use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption};
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
@@ -19,7 +22,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
     impl_struct_internal(reflect_struct, true)
 }
 
-pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
+pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let type_path = meta.type_path();
     let bevy_reflect_path = meta.bevy_reflect_path();
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();

@@ -1,5 +1,6 @@
 use crate::{
-    CalculatedClip, DefaultUiCamera, Node, ResolvedBorderRadius, TargetCamera, UiScale, UiStack,
+    CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, TargetCamera, UiScale,
+    UiStack,
 };
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -39,10 +40,10 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// # See also
 ///
-/// - [`ButtonBundle`](crate::node_bundles::ButtonBundle) which includes this component
+/// - [`Button`](crate::widget::Button) which requires this component
 /// - [`RelativeCursorPosition`] to obtain the position of the cursor relative to current node
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -74,9 +75,9 @@ impl Default for Interaction {
 ///
 /// It can be used alongside [`Interaction`] to get the position of the press.
 ///
-/// The component is updated when it is in the same entity with [`Node`].
+/// The component is updated when it is in the same entity with [`Node`](crate::Node).
 #[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -101,7 +102,7 @@ impl RelativeCursorPosition {
 
 /// Describes whether the node should block interactions with lower nodes
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -135,7 +136,7 @@ pub struct State {
 #[query_data(mutable)]
 pub struct NodeQuery {
     entity: Entity,
-    node: &'static Node,
+    node: &'static ComputedNode,
     global_transform: &'static GlobalTransform,
     interaction: Option<&'static mut Interaction>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
@@ -243,7 +244,10 @@ pub fn ui_focus_system(
                 .map(TargetCamera::entity)
                 .or(default_ui_camera.get())?;
 
-            let node_rect = node.node.logical_rect(node.global_transform);
+            let node_rect = Rect::from_center_size(
+                node.global_transform.translation().truncate(),
+                node.node.size(),
+            );
 
             // Intersect with the calculated clip rect to find the bounds of the visible region of the node
             let visible_rect = node

@@ -7,6 +7,8 @@
 
 //! This crate provides core functionality for Bevy Engine.
 
+extern crate alloc;
+
 mod name;
 #[cfg(feature = "serialize")]
 mod serde;
@@ -29,7 +31,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;

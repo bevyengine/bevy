@@ -11,7 +11,10 @@
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 
-use std::sync::{Arc, Mutex};
+extern crate alloc;
+
+use alloc::sync::Arc;
+use std::sync::Mutex;
 
 use bevy_a11y::Focus;
 
@@ -23,6 +26,9 @@ mod system_cursor;
 mod window;
 
 pub use crate::raw_handle::*;
+
+#[cfg(target_os = "android")]
+pub use android_activity;
 
 pub use event::*;
 pub use monitor::*;
@@ -185,3 +191,9 @@ pub enum ExitCondition {
     /// surprise your users.
     DontExit,
 }
+
+/// [`AndroidApp`] provides an interface to query the application state as well as monitor events
+/// (for example lifecycle and input events).
+#[cfg(target_os = "android")]
+pub static ANDROID_APP: std::sync::OnceLock<android_activity::AndroidApp> =
+    std::sync::OnceLock::new();

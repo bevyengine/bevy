@@ -10,7 +10,7 @@ use bevy_render::{
     texture::Image,
     view::ViewUniform,
 };
-use std::num::NonZero;
+use core::num::NonZero;
 
 #[derive(Resource)]
 pub struct AutoExposurePipeline {

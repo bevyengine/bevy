@@ -1,7 +1,5 @@
-use crate::serde::TypedReflectSerializer;
-use crate::{List, TypeRegistry};
-use serde::ser::SerializeSeq;
-use serde::Serialize;
+use crate::{serde::TypedReflectSerializer, List, TypeRegistry};
+use serde::{ser::SerializeSeq, Serialize};
 
 /// A serializer for [`List`] values.
 pub(super) struct ListSerializer<'a> {

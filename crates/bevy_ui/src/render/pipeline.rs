@@ -48,6 +48,7 @@ impl FromWorld for UiPipeline {
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {
     pub hdr: bool,
+    pub anti_alias: bool,
 }
 
 impl SpecializedRenderPipeline for UiPipeline {
@@ -71,9 +72,15 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x4,
                 // border size
                 VertexFormat::Float32x2,
+                // position relative to the center
+                VertexFormat::Float32x2,
             ],
         );
-        let shader_defs = Vec::new();
+        let shader_defs = if key.anti_alias {
+            vec!["ANTI_ALIAS".into()]
+        } else {
+            Vec::new()
+        };
 
         RenderPipelineDescriptor {
             vertex: VertexState {

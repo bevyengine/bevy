@@ -1,7 +1,9 @@
+pub use deserialize_with_registry::*;
 pub use deserializer::*;
 pub use registrations::*;
 
 mod arrays;
+mod deserialize_with_registry;
 mod deserializer;
 mod enums;
 mod error_utils;
@@ -21,18 +23,15 @@ mod tuples;
 #[cfg(test)]
 mod tests {
     use bincode::Options;
-    use std::any::TypeId;
-    use std::f32::consts::PI;
-    use std::ops::RangeInclusive;
+    use core::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
 
-    use serde::de::DeserializeSeed;
-    use serde::Deserialize;
+    use serde::{de::DeserializeSeed, Deserialize};
 
     use bevy_utils::{HashMap, HashSet};
 
     use crate as bevy_reflect;
-    use crate::serde::{ReflectDeserializer, ReflectSerializer, TypedReflectDeserializer};
     use crate::{
+        serde::{ReflectDeserializer, ReflectSerializer, TypedReflectDeserializer},
         DynamicEnum, FromReflect, PartialReflect, Reflect, ReflectDeserialize, TypeRegistry,
     };
 
@@ -473,6 +472,7 @@ mod tests {
     #[test]
     fn should_deserialize_self_describing_binary() {
         let expected = get_my_struct();
+
         let registry = get_registry();
 
         let input = vec![
@@ -480,13 +480,13 @@ mod tests {
             101, 114, 100, 101, 58, 58, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
             83, 116, 114, 117, 99, 116, 220, 0, 20, 123, 172, 72, 101, 108, 108, 111, 32, 119, 111,
             114, 108, 100, 33, 145, 123, 146, 202, 64, 73, 15, 219, 205, 5, 57, 149, 254, 255, 0,
-            1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 64, 145, 206, 59, 154, 201, 255, 145,
-            172, 84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 164, 85, 110, 105,
-            116, 129, 167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101,
-            146, 202, 63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99,
-            116, 145, 180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32,
-            118, 97, 108, 117, 101, 144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165,
-            84, 117, 112, 108, 101, 144, 146, 100, 145, 101,
+            1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 64, 145, 206, 59, 154, 201, 255, 172,
+            84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 164, 85, 110, 105, 116,
+            129, 167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146,
+            202, 63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116,
+            145, 180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97,
+            108, 117, 101, 144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165, 84, 117,
+            112, 108, 101, 144, 146, 100, 145, 101,
         ];
 
         let mut reader = std::io::BufReader::new(input.as_slice());
@@ -515,6 +515,54 @@ mod tests {
         assert_eq!(error, ron::Error::Message("type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `core::ops::RangeInclusive<f32>`)".to_string()));
         #[cfg(not(feature = "debug_stack"))]
         assert_eq!(error, ron::Error::Message("type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()));
+    }
+
+    #[cfg(feature = "functions")]
+    mod functions {
+        use super::*;
+        use crate::func::DynamicFunction;
+
+        #[test]
+        fn should_not_deserialize_function() {
+            #[derive(Reflect)]
+            #[reflect(from_reflect = false)]
+            struct MyStruct {
+                func: DynamicFunction<'static>,
+            }
+
+            let mut registry = TypeRegistry::new();
+            registry.register::<MyStruct>();
+
+            let input = r#"{
+                "bevy_reflect::serde::de::tests::functions::MyStruct": (
+                    func: (),
+                ),
+            }"#;
+
+            let reflect_deserializer = ReflectDeserializer::new(&registry);
+            let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
+
+            let error = reflect_deserializer
+                .deserialize(&mut ron_deserializer)
+                .unwrap_err();
+
+            #[cfg(feature = "debug_stack")]
+            assert_eq!(
+                error,
+                ron::Error::Message(
+                    "no registration found for type `bevy_reflect::DynamicFunction` (stack: `bevy_reflect::serde::de::tests::functions::MyStruct`)"
+                        .to_string()
+                )
+            );
+
+            #[cfg(not(feature = "debug_stack"))]
+            assert_eq!(
+                error,
+                ron::Error::Message(
+                    "no registration found for type `bevy_reflect::DynamicFunction`".to_string()
+                )
+            );
+        }
     }
 
     #[cfg(feature = "debug_stack")]

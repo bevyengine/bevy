@@ -1,208 +1,129 @@
-//! Shows how to zoom and orbit orthographic and perspective projection cameras.
+//! Shows how to zoom orthographic and perspective projection cameras.
 
-use std::{
-    f32::consts::{FRAC_PI_2, PI},
-    ops::Range,
-};
+use std::{f32::consts::PI, ops::Range};
 
 use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*, render::camera::ScalingMode};
 
-#[derive(Debug, Default, Resource)]
+#[derive(Debug, Resource)]
 struct CameraSettings {
-    pub orbit_distance: f32,
-    // Multiply keyboard inputs by this factor
-    pub orbit_speed: f32,
-    // Clamp fixed vertical scale to this range
+    /// The height of the viewport in world units when the orthographic camera's scale is 1
+    pub orthographic_viewport_height: f32,
+    /// Clamp the orthographic camera's scale to this range
     pub orthographic_zoom_range: Range<f32>,
-    // Multiply mouse wheel inputs by this factor
+    /// Multiply mouse wheel inputs by this factor when using the orthographic camera
     pub orthographic_zoom_speed: f32,
-    // Clamp field of view to this range
+    /// Clamp perspective camera's field of view to this range
     pub perspective_zoom_range: Range<f32>,
-    // Multiply mouse wheel inputs by this factor
+    /// Multiply mouse wheel inputs by this factor when using the perspective camera
     pub perspective_zoom_speed: f32,
-    // Clamp pitch to this range
-    pub pitch_range: Range<f32>,
 }
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .init_resource::<CameraSettings>()
+        .insert_resource(CameraSettings {
+            orthographic_viewport_height: 5.,
+            // In orthographic projections, we specify camera scale relative to a default value of 1,
+            // in which one unit in world space corresponds to one pixel.
+            orthographic_zoom_range: 0.1..10.0,
+            // This value was hand-tuned to ensure that zooming in and out feels smooth but not slow.
+            orthographic_zoom_speed: 0.2,
+            // Perspective projections use field of view, expressed in radians. We would
+            // normally not set it to more than π, which represents a 180° FOV.
+            perspective_zoom_range: (PI / 5.)..(PI - 0.2),
+            // Changes in FOV are much more noticeable due to its limited range in radians
+            perspective_zoom_speed: 0.05,
+        })
         .add_systems(Startup, (setup, instructions))
-        .add_systems(Update, (orbit, switch_projection, zoom))
+        .add_systems(Update, (switch_projection, zoom))
         .run();
 }
 
 /// Set up a simple 3D scene
 fn setup(
-    mut camera_settings: ResMut<CameraSettings>,
+    asset_server: Res<AssetServer>,
+    camera_settings: Res<CameraSettings>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Perspective projections use field of view, expressed in radians. We would
-    // normally not set it to more than π, which represents a 180° FOV.
-    let min_fov = PI / 5.;
-    let max_fov = PI - 0.2;
-
-    // In orthographic projections, we specify sizes in world units. The below values
-    // are very roughly similar to the above FOV settings, in terms of how "far away"
-    // the subject will appear when used with FixedVertical scaling mode.
-    let min_zoom = 5.0;
-    let max_zoom = 150.0;
-
-    // Limiting pitch stops some unexpected rotation past 90° up or down.
-    let pitch_limit = FRAC_PI_2 - 0.01;
-
-    camera_settings.orbit_distance = 10.0;
-    camera_settings.orbit_speed = 1.0;
-    camera_settings.orthographic_zoom_range = min_zoom..max_zoom;
-    camera_settings.orthographic_zoom_speed = 1.0;
-    camera_settings.perspective_zoom_range = min_fov..max_fov;
-    // Changes in FOV are much more noticeable due to its limited range in radians
-    camera_settings.perspective_zoom_speed = 0.05;
-    camera_settings.pitch_range = -pitch_limit..pitch_limit;
-
     commands.spawn((
         Name::new("Camera"),
-        Camera3dBundle {
-            projection: OrthographicProjection {
-                scaling_mode: ScalingMode::FixedVertical(
-                    camera_settings.orthographic_zoom_range.start,
-                ),
-                ..OrthographicProjection::default_3d()
-            }
-            .into(),
-            transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Projection::from(OrthographicProjection {
+            // We can set the scaling mode to FixedVertical to keep the viewport height constant as its aspect ratio changes.
+            // The viewport height is the height of the camera's view in world units when the scale is 1.
+            scaling_mode: ScalingMode::FixedVertical {
+                viewport_height: camera_settings.orthographic_viewport_height,
+            },
+            // This is the default value for scale for orthographic projections.
+            // To zoom in and out, change this value, rather than `ScalingMode` or the camera's position.
+            scale: 1.,
+            ..OrthographicProjection::default_3d()
+        }),
+        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     commands.spawn((
         Name::new("Plane"),
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-            material: materials.add(StandardMaterial {
-                base_color: Color::srgb(0.3, 0.5, 0.3),
-                // Turning off culling keeps the plane visible when viewed from beneath.
-                cull_mode: None,
-                ..default()
-            }),
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb(0.3, 0.5, 0.3),
+            // Turning off culling keeps the plane visible when viewed from beneath.
+            cull_mode: None,
             ..default()
-        },
+        })),
     ));
 
     commands.spawn((
-        Name::new("Cube"),
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-            transform: Transform::from_xyz(1.5, 0.51, 1.5),
-            ..default()
-        },
+        Name::new("Fox"),
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
+        ),
+        // Note: the scale adjustment is purely an accident of our fox model, which renders
+        // HUGE unless mitigated!
+        Transform::from_translation(Vec3::splat(0.0)).with_scale(Vec3::splat(0.025)),
     ));
 
     commands.spawn((
         Name::new("Light"),
-        PointLightBundle {
-            transform: Transform::from_xyz(3.0, 8.0, 5.0),
+        PointLight::default(),
+        Transform::from_xyz(3.0, 8.0, 5.0),
+    ));
+}
+
+fn instructions(mut commands: Commands) {
+    commands.spawn((
+        Name::new("Instructions"),
+        Text::new(
+            "Scroll mouse wheel to zoom in/out\n\
+            Space: switch between orthographic and perspective projections",
+        ),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.),
+            left: Val::Px(12.),
             ..default()
         },
     ));
 }
 
-fn instructions(mut commands: Commands) {
-    commands
-        .spawn((
-            Name::new("Instructions"),
-            NodeBundle {
-                style: Style {
-                    align_items: AlignItems::Start,
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Start,
-                    width: Val::Percent(100.),
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Scroll mouse wheel to zoom in/out",
-                TextStyle::default(),
-            ));
-            parent.spawn(TextBundle::from_section(
-                "W or S: pitch",
-                TextStyle::default(),
-            ));
-            parent.spawn(TextBundle::from_section(
-                "A or D: yaw",
-                TextStyle::default(),
-            ));
-        });
-}
-
-fn orbit(
-    mut camera: Query<&mut Transform, With<Camera>>,
-    camera_settings: Res<CameraSettings>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
-) {
-    let mut transform = camera.single_mut();
-
-    let mut delta_pitch = 0.0;
-    let mut delta_yaw = 0.0;
-
-    if keyboard_input.pressed(KeyCode::KeyW) {
-        delta_pitch += camera_settings.orbit_speed;
-    }
-    if keyboard_input.pressed(KeyCode::KeyA) {
-        delta_yaw -= camera_settings.orbit_speed;
-    }
-    if keyboard_input.pressed(KeyCode::KeyS) {
-        delta_pitch -= camera_settings.orbit_speed;
-    }
-    if keyboard_input.pressed(KeyCode::KeyD) {
-        delta_yaw += camera_settings.orbit_speed;
-    }
-
-    // Incorporating the delta time between calls prevents this from being framerate-bound.
-    delta_pitch *= time.delta_seconds();
-    delta_yaw *= time.delta_seconds();
-
-    // Obtain the existing pitch, yaw, and roll values from the transform.
-    let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
-
-    // Establish the new yaw and pitch, preventing the pitch value from exceeding our limits.
-    let pitch = (pitch + delta_pitch).clamp(
-        camera_settings.pitch_range.start,
-        camera_settings.pitch_range.end,
-    );
-    let yaw = yaw + delta_yaw;
-    transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
-
-    // Adjust the translation to maintain the correct orientation toward the orbit target.
-    transform.translation = Vec3::ZERO - transform.forward() * camera_settings.orbit_distance;
-}
-
 fn switch_projection(
-    mut camera: Query<&mut Projection, With<Camera>>,
+    mut camera: Single<&mut Projection, With<Camera>>,
     camera_settings: Res<CameraSettings>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
-    let mut projection = camera.single_mut();
-
     if keyboard_input.just_pressed(KeyCode::Space) {
         // Switch projection type
-        *projection = match *projection {
+        **camera = match **camera {
             Projection::Orthographic(_) => Projection::Perspective(PerspectiveProjection {
                 fov: camera_settings.perspective_zoom_range.start,
                 ..default()
             }),
             Projection::Perspective(_) => Projection::Orthographic(OrthographicProjection {
-                scaling_mode: ScalingMode::FixedVertical(
-                    camera_settings.orthographic_zoom_range.start,
-                ),
+                scaling_mode: ScalingMode::FixedVertical {
+                    viewport_height: camera_settings.orthographic_viewport_height,
+                },
                 ..OrthographicProjection::default_3d()
             }),
         }
@@ -210,36 +131,36 @@ fn switch_projection(
 }
 
 fn zoom(
-    mut camera: Query<&mut Projection, With<Camera>>,
+    camera: Single<&mut Projection, With<Camera>>,
     camera_settings: Res<CameraSettings>,
     mouse_wheel_input: Res<AccumulatedMouseScroll>,
 ) {
-    let projection = camera.single_mut();
-
-    // Usually, you won't need to handle both types of projection. This is by way of demonstration.
-    match projection.into_inner() {
+    // Usually, you won't need to handle both types of projection,
+    // but doing so makes for a more complete example.
+    match *camera.into_inner() {
         Projection::Orthographic(ref mut orthographic) => {
-            // Get the current scaling_mode value to allow clamping the new value to our zoom range.
-            let ScalingMode::FixedVertical(current) = orthographic.scaling_mode else {
-                return;
-            };
-            // Set a new ScalingMode, clamped to a limited range.
-            let zoom_level = (current
-                + camera_settings.orthographic_zoom_speed * mouse_wheel_input.delta.y)
-                .clamp(
-                    camera_settings.orthographic_zoom_range.start,
-                    camera_settings.orthographic_zoom_range.end,
-                );
-            orthographic.scaling_mode = ScalingMode::FixedVertical(zoom_level);
+            // We want scrolling up to zoom in, decreasing the scale, so we negate the delta.
+            let delta_zoom = -mouse_wheel_input.delta.y * camera_settings.orthographic_zoom_speed;
+            // When changing scales, logarithmic changes are more intuitive.
+            // To get this effect, we add 1 to the delta, so that a delta of 0
+            // results in no multiplicative effect, positive values result in a multiplicative increase,
+            // and negative values result in multiplicative decreases.
+            let multiplicative_zoom = 1. + delta_zoom;
+
+            orthographic.scale = (orthographic.scale * multiplicative_zoom).clamp(
+                camera_settings.orthographic_zoom_range.start,
+                camera_settings.orthographic_zoom_range.end,
+            );
         }
         Projection::Perspective(ref mut perspective) => {
+            // We want scrolling up to zoom in, decreasing the scale, so we negate the delta.
+            let delta_zoom = -mouse_wheel_input.delta.y * camera_settings.perspective_zoom_speed;
+
             // Adjust the field of view, but keep it within our stated range.
-            perspective.fov = (perspective.fov
-                + camera_settings.perspective_zoom_speed * mouse_wheel_input.delta.y)
-                .clamp(
-                    camera_settings.perspective_zoom_range.start,
-                    camera_settings.perspective_zoom_range.end,
-                );
+            perspective.fov = (perspective.fov + delta_zoom).clamp(
+                camera_settings.perspective_zoom_range.start,
+                camera_settings.perspective_zoom_range.end,
+            );
         }
     }
 }

@@ -9,6 +9,7 @@ use bevy_ecs::{
     query::QueryState,
     world::{FromWorld, World},
 };
+use bevy_math::ops;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext},
@@ -16,7 +17,7 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewUniformOffset},
 };
-use std::sync::atomic::Ordering;
+use core::sync::atomic::Ordering;
 
 /// Rasterize meshlets into a depth buffer, and optional visibility buffer + material depth buffer for shading passes.
 pub struct MeshletVisibilityBufferRasterPassNode {
@@ -101,10 +102,8 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             .first_node
             .fetch_and(false, Ordering::SeqCst);
 
-        let thread_per_cluster_workgroups =
-            (meshlet_view_resources.scene_cluster_count.div_ceil(128) as f32)
-                .cbrt()
-                .ceil() as u32;
+        let div_ceil = meshlet_view_resources.scene_cluster_count.div_ceil(128);
+        let thread_per_cluster_workgroups = ops::cbrt(div_ceil as f32).ceil() as u32;
 
         render_context
             .command_encoder()
@@ -119,8 +118,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 render_context,
                 &meshlet_view_bind_groups.fill_cluster_buffers,
                 fill_cluster_buffers_pipeline,
-                thread_per_cluster_workgroups,
-                meshlet_view_resources.scene_cluster_count,
+                meshlet_view_resources.scene_instance_count,
             );
         }
         cull_pass(
@@ -131,6 +129,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             previous_view_offset,
             culling_first_pipeline,
             thread_per_cluster_workgroups,
+            meshlet_view_resources.scene_cluster_count,
             meshlet_view_resources.raster_cluster_rightmost_slot,
             meshlet_view_bind_groups
                 .remap_1d_to_2d_dispatch
@@ -166,6 +165,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             previous_view_offset,
             culling_second_pipeline,
             thread_per_cluster_workgroups,
+            meshlet_view_resources.scene_cluster_count,
             meshlet_view_resources.raster_cluster_rightmost_slot,
             meshlet_view_bind_groups
                 .remap_1d_to_2d_dispatch
@@ -254,6 +254,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 previous_view_offset,
                 culling_first_pipeline,
                 thread_per_cluster_workgroups,
+                meshlet_view_resources.scene_cluster_count,
                 meshlet_view_resources.raster_cluster_rightmost_slot,
                 meshlet_view_bind_groups
                     .remap_1d_to_2d_dispatch
@@ -289,6 +290,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 previous_view_offset,
                 culling_second_pipeline,
                 thread_per_cluster_workgroups,
+                meshlet_view_resources.scene_cluster_count,
                 meshlet_view_resources.raster_cluster_rightmost_slot,
                 meshlet_view_bind_groups
                     .remap_1d_to_2d_dispatch
@@ -335,21 +337,32 @@ fn fill_cluster_buffers_pass(
     render_context: &mut RenderContext,
     fill_cluster_buffers_bind_group: &BindGroup,
     fill_cluster_buffers_pass_pipeline: &ComputePipeline,
-    fill_cluster_buffers_pass_workgroups: u32,
-    cluster_count: u32,
+    scene_instance_count: u32,
 ) {
+    let mut fill_cluster_buffers_pass_workgroups_x = scene_instance_count;
+    let mut fill_cluster_buffers_pass_workgroups_y = 1;
+    if scene_instance_count
+        > render_context
+            .render_device()
+            .limits()
+            .max_compute_workgroups_per_dimension
+    {
+        fill_cluster_buffers_pass_workgroups_x = (scene_instance_count as f32).sqrt().ceil() as u32;
+        fill_cluster_buffers_pass_workgroups_y = fill_cluster_buffers_pass_workgroups_x;
+    }
+
     let command_encoder = render_context.command_encoder();
     let mut fill_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
         label: Some("fill_cluster_buffers"),
         timestamp_writes: None,
     });
     fill_pass.set_pipeline(fill_cluster_buffers_pass_pipeline);
-    fill_pass.set_push_constants(0, &cluster_count.to_le_bytes());
+    fill_pass.set_push_constants(0, &scene_instance_count.to_le_bytes());
     fill_pass.set_bind_group(0, fill_cluster_buffers_bind_group, &[]);
     fill_pass.dispatch_workgroups(
-        fill_cluster_buffers_pass_workgroups,
-        fill_cluster_buffers_pass_workgroups,
-        fill_cluster_buffers_pass_workgroups,
+        fill_cluster_buffers_pass_workgroups_x,
+        fill_cluster_buffers_pass_workgroups_y,
+        1,
     );
 }
 
@@ -362,17 +375,26 @@ fn cull_pass(
     previous_view_offset: &PreviousViewUniformOffset,
     culling_pipeline: &ComputePipeline,
     culling_workgroups: u32,
+    scene_cluster_count: u32,
     raster_cluster_rightmost_slot: u32,
     remap_1d_to_2d_dispatch_bind_group: Option<&BindGroup>,
     remap_1d_to_2d_dispatch_pipeline: Option<&ComputePipeline>,
 ) {
+    let max_compute_workgroups_per_dimension = render_context
+        .render_device()
+        .limits()
+        .max_compute_workgroups_per_dimension;
+
     let command_encoder = render_context.command_encoder();
     let mut cull_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
         label: Some(label),
         timestamp_writes: None,
     });
     cull_pass.set_pipeline(culling_pipeline);
-    cull_pass.set_push_constants(0, &raster_cluster_rightmost_slot.to_le_bytes());
+    cull_pass.set_push_constants(
+        0,
+        bytemuck::cast_slice(&[scene_cluster_count, raster_cluster_rightmost_slot]),
+    );
     cull_pass.set_bind_group(
         0,
         culling_bind_group,
@@ -385,6 +407,7 @@ fn cull_pass(
         remap_1d_to_2d_dispatch_bind_group,
     ) {
         cull_pass.set_pipeline(remap_1d_to_2d_dispatch_pipeline);
+        cull_pass.set_push_constants(0, &max_compute_workgroups_per_dimension.to_be_bytes());
         cull_pass.set_bind_group(0, remap_1d_to_2d_dispatch_bind_group, &[]);
         cull_pass.dispatch_workgroups(1, 1, 1);
     }

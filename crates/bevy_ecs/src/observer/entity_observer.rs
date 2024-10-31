@@ -15,11 +15,11 @@ impl Component for ObservedBy {
         hooks.on_remove(|mut world, entity, _| {
             let observed_by = {
                 let mut component = world.get_mut::<ObservedBy>(entity).unwrap();
-                std::mem::take(&mut component.0)
+                core::mem::take(&mut component.0)
             };
             for e in observed_by {
                 let (total_entities, despawned_watched_entities) = {
-                    let Some(mut entity_mut) = world.get_entity_mut(e) else {
+                    let Ok(mut entity_mut) = world.get_entity_mut(e) else {
                         continue;
                     };
                     let Some(mut state) = entity_mut.get_mut::<ObserverState>() else {

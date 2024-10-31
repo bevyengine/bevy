@@ -1,7 +1,5 @@
-use crate::serde::TypedReflectSerializer;
-use crate::{Map, TypeRegistry};
-use serde::ser::SerializeMap;
-use serde::Serialize;
+use crate::{serde::TypedReflectSerializer, Map, TypeRegistry};
+use serde::{ser::SerializeMap, Serialize};
 
 /// A serializer for [`Map`] values.
 pub(super) struct MapSerializer<'a> {

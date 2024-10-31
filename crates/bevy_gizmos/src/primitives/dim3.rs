@@ -3,14 +3,18 @@
 use super::helpers::*;
 
 use bevy_color::Color;
-use bevy_math::primitives::{
-    BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
-    Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
+use bevy_math::{
+    primitives::{
+        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
+        Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
+    },
+    Dir3, Isometry3d, Quat, UVec2, Vec2, Vec3,
 };
-use bevy_math::{Dir3, Isometry3d, Quat, UVec2, Vec2, Vec3};
 
-use crate::circles::SphereBuilder;
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{
+    circles::SphereBuilder,
+    prelude::{GizmoConfigGroup, Gizmos},
+};
 
 const DEFAULT_RESOLUTION: u32 = 5;
 // length used to simulate infinite lines
@@ -27,7 +31,7 @@ pub trait GizmoPrimitive3d<P: Primitive3d> {
     fn primitive_3d(
         &mut self,
         primitive: &P,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_>;
 }
@@ -39,14 +43,18 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Dir3,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
+        let isometry = isometry.into();
         let start = Vec3::ZERO;
         let end = primitive.as_vec3();
         self.arrow(isometry * start, isometry * end, color);
@@ -60,12 +68,15 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = SphereBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = SphereBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Sphere,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         self.sphere(isometry, primitive.radius, color)
@@ -118,18 +129,21 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Plane3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Plane3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Plane3d,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Plane3dBuilder {
             gizmos: self,
             normal: primitive.normal,
-            isometry,
+            isometry: isometry.into(),
             color: color.into(),
             cell_count: UVec2::splat(3),
             spacing: Vec2::splat(1.0),
@@ -167,18 +181,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Line3d,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
+        let isometry = isometry.into();
         let color = color.into();
         let direction = primitive.direction.as_vec3();
         self.arrow(isometry * Vec3::ZERO, isometry * direction, color);
@@ -198,18 +216,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Segment3d,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
+        let isometry = isometry.into();
         let direction = primitive.direction.as_vec3();
         self.line(isometry * direction, isometry * (-direction), color);
     }
@@ -223,18 +245,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Polyline3d<N>,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
+        let isometry = isometry.into();
         self.linestrip(primitive.vertices.map(|vec3| isometry * vec3), color);
     }
 }
@@ -246,18 +272,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &BoxedPolyline3d,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
+        let isometry = isometry.into();
         self.linestrip(
             primitive
                 .vertices
@@ -276,18 +306,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Triangle3d,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
 
+        let isometry = isometry.into();
         let [a, b, c] = primitive.vertices;
         self.linestrip([a, b, c, a].map(|vec3| isometry * vec3), color);
     }
@@ -300,17 +334,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Cuboid,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
+
+        let isometry = isometry.into();
 
         // transform the points from the reference unit cube to the cuboid coords
         let vertices @ [a, b, c, d, e, f, g, h] = [
@@ -390,19 +429,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Cylinder3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Cylinder3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Cylinder,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Cylinder3dBuilder {
             gizmos: self,
             radius: primitive.radius,
             half_height: primitive.half_height,
-            isometry,
+            isometry: isometry.into(),
             color: color.into(),
             resolution: DEFAULT_RESOLUTION,
         }
@@ -473,19 +515,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Capsule3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Capsule3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Capsule3d,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Capsule3dBuilder {
             gizmos: self,
             radius: primitive.radius,
             half_length: primitive.half_length,
-            isometry,
+            isometry: isometry.into(),
             color: color.into(),
             resolution: DEFAULT_RESOLUTION,
         }
@@ -526,11 +571,20 @@ where
                 .short_arc_3d_between(lower_center, start, lower_apex, self.color);
         });
 
-        let upper_lines = upper_points.windows(2).map(|win| (win[0], win[1]));
-        let lower_lines = lower_points.windows(2).map(|win| (win[0], win[1]));
-        upper_lines.chain(lower_lines).for_each(|(start, end)| {
-            self.gizmos.line(start, end, self.color);
-        });
+        let circle_rotation = self
+            .isometry
+            .rotation
+            .mul_quat(Quat::from_rotation_x(core::f32::consts::FRAC_PI_2));
+        self.gizmos.circle(
+            Isometry3d::new(upper_center, circle_rotation),
+            self.radius,
+            self.color,
+        );
+        self.gizmos.circle(
+            Isometry3d::new(lower_center, circle_rotation),
+            self.radius,
+            self.color,
+        );
 
         let connection_lines = upper_points.into_iter().zip(lower_points).skip(1);
         connection_lines.for_each(|(start, end)| {
@@ -601,19 +655,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Cone3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Cone3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Cone,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Cone3dBuilder {
             gizmos: self,
             radius: primitive.radius,
             height: primitive.height,
-            isometry,
+            isometry: isometry.into(),
             color: color.into(),
             base_resolution: DEFAULT_RESOLUTION,
             height_resolution: DEFAULT_RESOLUTION,
@@ -700,12 +757,15 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = ConicalFrustum3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = ConicalFrustum3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &ConicalFrustum,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         ConicalFrustum3dBuilder {
@@ -713,7 +773,7 @@ where
             radius_top: primitive.radius_top,
             radius_bottom: primitive.radius_bottom,
             height: primitive.height,
-            isometry,
+            isometry: isometry.into(),
             color: color.into(),
             resolution: DEFAULT_RESOLUTION,
         }
@@ -801,19 +861,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a> = Torus3dBuilder<'a, 'w, 's, Config, Clear> where Self: 'a;
+    type Output<'a>
+        = Torus3dBuilder<'a, 'w, 's, Config, Clear>
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Torus,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         Torus3dBuilder {
             gizmos: self,
             minor_radius: primitive.minor_radius,
             major_radius: primitive.major_radius,
-            isometry,
+            isometry: isometry.into(),
             color: color.into(),
             minor_resolution: DEFAULT_RESOLUTION,
             major_resolution: DEFAULT_RESOLUTION,
@@ -874,17 +937,22 @@ where
 // tetrahedron
 
 impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'w, 's, T> {
-    type Output<'a> = () where Self: 'a;
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
 
     fn primitive_3d(
         &mut self,
         primitive: &Tetrahedron,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
         if !self.enabled {
             return;
         }
+
+        let isometry = isometry.into();
 
         let [a, b, c, d] = primitive.vertices.map(|vec3| isometry * vec3);
 

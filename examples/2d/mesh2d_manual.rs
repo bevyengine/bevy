@@ -8,8 +8,7 @@
 use bevy::{
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
-    ecs::entity::EntityHashMap,
-    math::FloatOrd,
+    math::{ops, FloatOrd},
     prelude::*,
     render::{
         mesh::{Indices, MeshVertexAttribute, RenderMesh},
@@ -25,14 +24,15 @@ use bevy::{
             SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
             TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
+        sync_world::MainEntityHashMap,
         texture::BevyDefault,
-        view::{ExtractedView, ViewTarget, VisibleEntities},
+        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Extract, Render, RenderApp, RenderSet,
     },
     sprite::{
-        extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dHandle, Mesh2dPipeline,
-        Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
-        SetMesh2dViewBindGroup, WithMesh2d,
+        extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline, Mesh2dPipelineKey,
+        Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
+        SetMesh2dViewBindGroup,
     },
 };
 use std::f32::consts::PI;
@@ -80,11 +80,12 @@ fn star(
         // The radius of inner vertices (even indices) is 100. For outer vertices (odd indices) it's 200.
         let r = (1 - i % 2) as f32 * 100.0 + 100.0;
         // Add the vertex position.
-        v_pos.push([r * a.sin(), r * a.cos(), 0.0]);
+        v_pos.push([r * ops::sin(a), r * ops::cos(a), 0.0]);
     }
     // Set the position attribute
     star.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
-    // And a RGB color attribute as well
+    // And a RGB color attribute as well. A built-in `Mesh::ATTRIBUTE_COLOR` exists, but we
+    // use a custom vertex attribute here for demonstration purposes.
     let mut v_color: Vec<u32> = vec![LinearRgba::BLACK.as_u32()];
     v_color.extend_from_slice(&[LinearRgba::from(YELLOW).as_u32(); 10]);
     star.insert_attribute(
@@ -111,14 +112,12 @@ fn star(
     commands.spawn((
         // We use a marker component to identify the custom colored meshes
         ColoredMesh2d,
-        // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
-        Mesh2dHandle(meshes.add(star)),
-        // This bundle's components are needed for something to be rendered
-        SpatialBundle::INHERITED_IDENTITY,
+        // The `Handle<Mesh>` needs to be wrapped in a `Mesh2d` for 2D rendering
+        Mesh2d(meshes.add(star)),
     ));
 
     // Spawn the camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }
 
 /// A marker component for colored 2d meshes
@@ -291,7 +290,7 @@ pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
 
 /// Our custom pipeline needs its own instance storage
 #[derive(Resource, Deref, DerefMut, Default)]
-pub struct RenderColoredMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
+pub struct RenderColoredMesh2dInstances(MainEntityHashMap<RenderMesh2dInstance>);
 
 impl Plugin for ColoredMesh2dPlugin {
     fn build(&self, app: &mut App) {
@@ -330,7 +329,7 @@ pub fn extract_colored_mesh2d(
     // When extracting, you must use `Extract` to mark the `SystemParam`s
     // which should be taken from the main world.
     query: Extract<
-        Query<(Entity, &ViewVisibility, &GlobalTransform, &Mesh2dHandle), With<ColoredMesh2d>>,
+        Query<(Entity, &ViewVisibility, &GlobalTransform, &Mesh2d), With<ColoredMesh2d>>,
     >,
     mut render_mesh_instances: ResMut<RenderColoredMesh2dInstances>,
 ) {
@@ -347,7 +346,7 @@ pub fn extract_colored_mesh2d(
 
         values.push((entity, ColoredMesh2d));
         render_mesh_instances.insert(
-            entity,
+            entity.into(),
             RenderMesh2dInstance {
                 mesh_asset_id: handle.0.id(),
                 transforms,
@@ -370,7 +369,7 @@ pub fn queue_colored_mesh2d(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderColoredMesh2dInstances>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    views: Query<(Entity, &VisibleEntities, &ExtractedView, &Msaa)>,
+    views: Query<(Entity, &RenderVisibleEntities, &ExtractedView, &Msaa)>,
 ) {
     if render_mesh_instances.is_empty() {
         return;
@@ -387,7 +386,7 @@ pub fn queue_colored_mesh2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         // Queue all entities visible to that view
-        for visible_entity in visible_entities.iter::<WithMesh2d>() {
+        for (render_entity, visible_entity) in visible_entities.iter::<With<Mesh2d>>() {
             if let Some(mesh_instance) = render_mesh_instances.get(visible_entity) {
                 let mesh2d_handle = mesh_instance.mesh_asset_id;
                 let mesh2d_transforms = &mesh_instance.transforms;
@@ -403,7 +402,7 @@ pub fn queue_colored_mesh2d(
 
                 let mesh_z = mesh2d_transforms.world_from_local.translation.z;
                 transparent_phase.add(Transparent2d {
-                    entity: *visible_entity,
+                    entity: (*render_entity, *visible_entity),
                     draw_function: draw_colored_mesh2d,
                     pipeline: pipeline_id,
                     // The 2d render items are sorted according to their z value before rendering,

@@ -3,12 +3,12 @@ use crate::{
     render_resource::DynamicUniformBuffer,
     renderer::{RenderDevice, RenderQueue},
 };
+use core::{marker::PhantomData, num::NonZero};
 use encase::{
     private::{ArrayMetadata, BufferMut, Metadata, RuntimeSizedArray, WriteInto, Writer},
     ShaderType,
 };
 use nonmax::NonMaxU32;
-use std::{marker::PhantomData, num::NonZero};
 use wgpu::{BindingResource, Limits};
 
 // 1MB else we will make really large arrays on macOS which reports very large
@@ -121,7 +121,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
 
 #[inline]
 fn align_to_next(value: u64, alignment: u64) -> u64 {
-    debug_assert!(alignment & (alignment - 1) == 0);
+    debug_assert!(alignment.is_power_of_two());
     ((value - 1) | (alignment - 1)) + 1
 }
 

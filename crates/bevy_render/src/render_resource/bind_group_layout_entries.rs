@@ -1,5 +1,5 @@
 use bevy_utils::all_tuples_with_size;
-use std::num::NonZero;
+use core::num::NonZero;
 use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 
 /// Helper for constructing bind group layouts.
@@ -198,7 +198,7 @@ impl BindGroupLayoutEntries<1> {
     }
 }
 
-impl<const N: usize> std::ops::Deref for BindGroupLayoutEntries<N> {
+impl<const N: usize> core::ops::Deref for BindGroupLayoutEntries<N> {
     type Target = [BindGroupLayoutEntry];
     fn deref(&self) -> &[BindGroupLayoutEntry] {
         &self.entries
@@ -242,7 +242,8 @@ pub trait IntoBindGroupLayoutEntryBuilderArray<const N: usize> {
     fn into_array(self) -> [BindGroupLayoutEntryBuilder; N];
 }
 macro_rules! impl_to_binding_type_slice {
-    ($N: expr, $(($T: ident, $I: ident)),*) => {
+    ($N: expr, $(#[$meta:meta])* $(($T: ident, $I: ident)),*) => {
+        $(#[$meta])*
         impl<$($T: IntoBindGroupLayoutEntryBuilder),*> IntoBindGroupLayoutEntryBuilderArray<$N> for ($($T,)*) {
             #[inline]
             fn into_array(self) -> [BindGroupLayoutEntryBuilder; $N] {
@@ -252,7 +253,14 @@ macro_rules! impl_to_binding_type_slice {
         }
     }
 }
-all_tuples_with_size!(impl_to_binding_type_slice, 1, 32, T, s);
+all_tuples_with_size!(
+    #[doc(fake_variadic)]
+    impl_to_binding_type_slice,
+    1,
+    32,
+    T,
+    s
+);
 
 pub trait IntoIndexedBindGroupLayoutEntryBuilderArray<const N: usize> {
     fn into_array(self) -> [(u32, BindGroupLayoutEntryBuilder); N];
@@ -340,7 +348,7 @@ impl DynamicBindGroupLayoutEntries {
     }
 }
 
-impl std::ops::Deref for DynamicBindGroupLayoutEntries {
+impl core::ops::Deref for DynamicBindGroupLayoutEntries {
     type Target = [BindGroupLayoutEntry];
 
     fn deref(&self) -> &[BindGroupLayoutEntry] {
@@ -352,8 +360,8 @@ pub mod binding_types {
     use crate::render_resource::{
         BufferBindingType, SamplerBindingType, TextureSampleType, TextureViewDimension,
     };
+    use core::num::NonZero;
     use encase::ShaderType;
-    use std::num::NonZero;
     use wgpu::{StorageTextureAccess, TextureFormat};
 
     use super::*;

@@ -26,16 +26,16 @@ fn setup(
 ) {
     // circular base
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Circle::new(4.0)),
-        material: materials.add(Color::WHITE),
+        mesh: Mesh3d(meshes.add(Circle::new(4.0))),
+        material: MeshMaterial3d(materials.add(Color::WHITE)),
         transform: Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
         ..default()
     });
 
     // cube
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-        material: materials.add(Color::WHITE),
+        mesh: Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+        material: MeshMaterial3d(materials.add(Color::WHITE)),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
@@ -87,6 +87,6 @@ fn setup(
 
 fn rotate_cameras(time: Res<Time>, mut query: Query<&mut Transform, With<Camera>>) {
     for mut transform in query.iter_mut() {
-        transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_seconds()));
+        transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_secs()));
     }
 }
