@@ -18,9 +18,11 @@ pub enum QueryEntityError<'w> {
     AliasedMutability(Entity),
 }
 
-impl core::error::Error for QueryEntityError<'_> {}
+#[allow(clippy::needless_lifetimes)]
+impl<'w> core::error::Error for QueryEntityError<'w> {}
 
-impl core::fmt::Display for QueryEntityError<'_> {
+#[allow(clippy::needless_lifetimes)]
+impl<'w> core::fmt::Display for QueryEntityError<'w> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match *self {
             Self::QueryDoesNotMatch(entity, world) => {
@@ -39,7 +41,8 @@ impl core::fmt::Display for QueryEntityError<'_> {
     }
 }
 
-impl core::fmt::Debug for QueryEntityError<'_> {
+#[allow(clippy::needless_lifetimes)]
+impl<'w> core::fmt::Debug for QueryEntityError<'w> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match *self {
             Self::QueryDoesNotMatch(entity, world) => {

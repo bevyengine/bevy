@@ -1070,7 +1070,8 @@ impl<'w> MutUntyped<'w> {
     }
 }
 
-impl DetectChanges for MutUntyped<'_> {
+#[allow(clippy::needless_lifetimes)]
+impl<'w> DetectChanges for MutUntyped<'w> {
     #[inline]
     fn is_added(&self) -> bool {
         self.ticks
