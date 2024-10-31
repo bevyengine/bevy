@@ -498,6 +498,6 @@ mod tests {
         assert!(world
             .entity(parent)
             .get::<Children>()
-            .is_some_and(|c| c.contains(&child_clone)))
+            .is_some_and(|c| c.contains(&child_clone)));
     }
 }
