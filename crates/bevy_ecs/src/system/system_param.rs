@@ -1867,7 +1867,7 @@ unsafe impl<'w, 's, T: SystemParam> SystemParam for ParamSet<'w, 's, Vec<T>> {
 impl<'w, 's, T: SystemParam> ParamSet<'w, 's, Vec<T>> {
     /// Accesses the parameter at the given index.
     /// No other parameters may be accessed while this one is active.
-    pub fn get_mut<'a: 's>(&'a mut self, index: usize) -> T::Item<'w, 'a> {
+    pub fn get_mut(&mut self, index: usize) -> T::Item<'_, '_> {
         // SAFETY:
         // - We initialized the state for each parameter in the builder, so the caller ensures we have access to any world data needed by any param.
         //   We have mutable access to the ParamSet, so no other params in the set are active.
@@ -1883,7 +1883,7 @@ impl<'w, 's, T: SystemParam> ParamSet<'w, 's, Vec<T>> {
     }
 
     /// Calls a closure for each parameter in the set.
-    pub fn for_each<'a: 's>(&'a mut self, mut f: impl FnMut(T::Item<'w, 'a>)) {
+    pub fn for_each(&mut self, mut f: impl FnMut(T::Item<'_, '_>)) {
         self.param_states.iter_mut().for_each(|state| {
             f(
                 // SAFETY:
