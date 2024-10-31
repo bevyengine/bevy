@@ -1193,7 +1193,9 @@ where
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter, I: Iterator> Iterator for QuerySortedIter<'w, '_, D, F, I>
+#[expect(clippy::needless_lifetimes)]
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> Iterator
+    for QuerySortedIter<'w, '_, D, F, I>
 where
     I: Iterator<Item = Entity>,
 {
@@ -1692,7 +1694,9 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> FusedIterator
 }
 
 #[expect(clippy::needless_lifetimes)]
-impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> Debug for QueryCombinationIter<'w, 's, D, F, K> {
+impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> Debug
+    for QueryCombinationIter<'w, 's, D, F, K>
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryCombinationIter").finish()
     }
