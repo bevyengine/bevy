@@ -110,7 +110,7 @@ fn compute_sprite_slices(
             (size, rect)
         }
     };
-    let slices = match &sprite.mode {
+    let slices = match &sprite.image_mode {
         SpriteImageMode::Sliced(slicer) => slicer.compute_slices(texture_rect, sprite.custom_size),
         SpriteImageMode::Tiled {
             tile_x,
@@ -124,7 +124,7 @@ fn compute_sprite_slices(
             };
             slice.tiled(*stretch_value, (*tile_x, *tile_y))
         }
-        SpriteImageMode::Stretch => {
+        SpriteImageMode::Auto => {
             unreachable!("Slices should not be computed for ImageScaleMode::Stretch")
         }
     };
@@ -153,7 +153,7 @@ pub(crate) fn compute_slices_on_asset_event(
     }
     // We recompute the sprite slices for sprite entities with a matching asset handle id
     for (entity, sprite) in &sprites {
-        if !sprite.mode.uses_slices() {
+        if !sprite.image_mode.uses_slices() {
             continue;
         }
         if !added_handles.contains(&sprite.image.id()) {
@@ -174,7 +174,7 @@ pub(crate) fn compute_slices_on_sprite_change(
     changed_sprites: Query<(Entity, &Sprite), Changed<Sprite>>,
 ) {
     for (entity, sprite) in &changed_sprites {
-        if !sprite.mode.uses_slices() {
+        if !sprite.image_mode.uses_slices() {
             continue;
         }
         if let Some(slices) = compute_sprite_slices(sprite, &images, &atlas_layouts) {

@@ -62,7 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         image: image.clone(),
                         flip_x,
                         flip_y,
-                        mode: NodeImageMode::Sliced(slicer.clone()),
+                        image_mode: NodeImageMode::Sliced(slicer.clone()),
                         ..default()
                     },
                     Node {
