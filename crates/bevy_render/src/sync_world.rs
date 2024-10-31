@@ -125,7 +125,7 @@ pub struct SyncToRenderWorld;
 /// Component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity.
 ///
 /// Can also be used as a newtype wrapper for render world entities.
-#[derive(Component, Deref, Clone, Debug, Copy)]
+#[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub struct RenderEntity(Entity);
 impl RenderEntity {
     #[inline]
