@@ -22,7 +22,7 @@ impl<'a> EntityCloner<'a> {
     pub fn clone_entity(&self, world: &mut World) {
         let components = world
             .get_entity(self.source)
-            .unwrap()
+            .expect("Source entity must exist")
             .archetype()
             .components()
             .collect::<Vec<_>>();
@@ -119,16 +119,15 @@ impl EntityCloneBuilder {
             };
         }
 
-        let mut allowed = false;
-        let filter = if allowed_components.is_empty() {
-            ignored_components
-                .iter()
+        let allowed = !allowed_components.is_empty();
+        let filter = if allowed {
+            allowed_components
+                .difference(&ignored_components)
                 .flat_map(|type_id| world.components().get_id(*type_id))
                 .collect::<HashSet<_>>()
         } else {
-            allowed = true;
-            allowed_components
-                .difference(&ignored_components)
+            ignored_components
+                .iter()
                 .flat_map(|type_id| world.components().get_id(*type_id))
                 .collect::<HashSet<_>>()
         };
@@ -157,6 +156,13 @@ impl EntityCloneBuilder {
         self
     }
 
+    /// Reset the filter to allow all components to be cloned
+    pub fn allow_all(&mut self) -> &mut Self {
+        self.allowed_components.clear();
+        self.ignored_components.clear();
+        self
+    }
+
     /// Disallow a component from being cloned.
     pub fn deny<T: Component>(&mut self) -> &mut Self {
         self.ignored_components.insert(TypeId::of::<T>());
@@ -166,6 +172,15 @@ impl EntityCloneBuilder {
     /// Extend the list of components that shouldn't be cloned.
     pub fn deny_by_ids(&mut self, ids: impl IntoIterator<Item = TypeId>) -> &mut Self {
         self.ignored_components.extend(ids);
+        self
+    }
+
+    /// Set the filter to deny all components
+    pub fn deny_all(&mut self) -> &mut Self {
+        struct Dummy;
+        self.allowed_components.clear();
+        // just put some dummy type id that can't be a component to emulate "allowed" mode
+        self.allowed_components.insert(TypeId::of::<Dummy>());
         self
     }
 
