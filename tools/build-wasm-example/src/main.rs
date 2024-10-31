@@ -1,3 +1,5 @@
+//! Tool used to build Bevy examples for wasm.
+
 use std::{fs::File, io::Write};
 
 use clap::{Parser, ValueEnum};

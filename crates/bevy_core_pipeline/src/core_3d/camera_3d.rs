@@ -144,7 +144,7 @@ pub struct Camera3dBundle {
     pub global_transform: GlobalTransform,
     pub camera_3d: Camera3d,
     pub tonemapping: Tonemapping,
-    pub dither: DebandDither,
+    pub deband_dither: DebandDither,
     pub color_grading: ColorGrading,
     pub exposure: Exposure,
     pub main_texture_usages: CameraMainTextureUsages,
@@ -166,7 +166,7 @@ impl Default for Camera3dBundle {
             color_grading: Default::default(),
             exposure: Default::default(),
             main_texture_usages: Default::default(),
-            dither: DebandDither::Enabled,
+            deband_dither: DebandDither::Enabled,
         }
     }
 }

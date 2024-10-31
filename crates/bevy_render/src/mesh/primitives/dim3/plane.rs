@@ -46,6 +46,16 @@ impl PlaneMeshBuilder {
         }
     }
 
+    /// Creates a new [`PlaneMeshBuilder`] from the given length, with the normal pointing upwards,
+    /// and the resulting [`PlaneMeshBuilder`] being a square.
+    #[inline]
+    pub fn from_length(length: f32) -> Self {
+        Self {
+            half_size: Vec2::splat(length) / 2.0,
+            ..Default::default()
+        }
+    }
+
     /// Sets the normal of the plane, aka the direction the plane is facing.
     #[inline]
     #[doc(alias = "facing")]

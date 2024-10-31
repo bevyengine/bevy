@@ -538,6 +538,15 @@ impl Rectangle {
         }
     }
 
+    /// Create a `Rectangle` from a single length.
+    /// The resulting `Rectangle` will be the same size in every direction.
+    #[inline(always)]
+    pub fn from_length(length: f32) -> Self {
+        Self {
+            half_size: Vec2::splat(length / 2.0),
+        }
+    }
+
     /// Get the size of the rectangle
     #[inline(always)]
     pub fn size(&self) -> Vec2 {

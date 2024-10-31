@@ -118,3 +118,28 @@ pub fn build_schedule(criterion: &mut Criterion) {
 
     group.finish();
 }
+
+pub fn empty_schedule_run(criterion: &mut Criterion) {
+    let mut app = bevy_app::App::default();
+
+    let mut group = criterion.benchmark_group("run_empty_schedule");
+
+    let mut schedule = Schedule::default();
+    schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
+    group.bench_function("SingleThreaded", |bencher| {
+        bencher.iter(|| schedule.run(&mut app.world));
+    });
+
+    let mut schedule = Schedule::default();
+    schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::MultiThreaded);
+    group.bench_function("MultiThreaded", |bencher| {
+        bencher.iter(|| schedule.run(&mut app.world));
+    });
+
+    let mut schedule = Schedule::default();
+    schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::Simple);
+    group.bench_function("Simple", |bencher| {
+        bencher.iter(|| schedule.run(&mut app.world));
+    });
+    group.finish();
+}

@@ -1,3 +1,5 @@
+//! Tool to run all examples or generate a showcase page for the Bevy website.
+
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     fmt::Display,

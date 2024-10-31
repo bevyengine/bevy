@@ -11,6 +11,9 @@ keywords = ["bevy"]
 [lib]
 proc-macro = true
 
+[lints]
+workspace = true
+
 [dependencies]
 bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.13.0" }
 

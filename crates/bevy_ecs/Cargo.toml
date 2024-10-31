@@ -23,7 +23,6 @@ bevy_utils = { path = "../bevy_utils", version = "0.13.0" }
 bevy_ecs_macros = { path = "macros", version = "0.13.0" }
 
 async-channel = "2.1.0"
-thread_local = "1.1.4"
 fixedbitset = "0.4.2"
 rustc-hash = "1.1"
 downcast-rs = "1.2"

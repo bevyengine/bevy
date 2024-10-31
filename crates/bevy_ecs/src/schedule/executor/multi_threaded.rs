@@ -166,8 +166,8 @@ impl SystemExecutor for MultiThreadedExecutor {
     fn run(
         &mut self,
         schedule: &mut SystemSchedule,
-        _skip_systems: Option<FixedBitSet>,
         world: &mut World,
+        _skip_systems: Option<&FixedBitSet>,
     ) {
         // reset counts
         self.num_systems = schedule.systems.len();
@@ -189,26 +189,18 @@ impl SystemExecutor for MultiThreadedExecutor {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
         #[cfg(feature = "bevy_debug_stepping")]
-        if let Some(mut skipped_systems) = _skip_systems {
+        if let Some(skipped_systems) = _skip_systems {
             debug_assert_eq!(skipped_systems.len(), self.completed_systems.len());
             // mark skipped systems as completed
-            self.completed_systems |= &skipped_systems;
+            self.completed_systems |= skipped_systems;
             self.num_completed_systems = self.completed_systems.count_ones(..);
 
             // signal the dependencies for each of the skipped systems, as
             // though they had run
             for system_index in skipped_systems.ones() {
                 self.signal_dependents(system_index);
+                self.ready_systems.set(system_index, false);
             }
-
-            // Finally, we need to clear all skipped systems from the ready
-            // list.
-            //
-            // We invert the skipped system mask to get the list of systems
-            // that should be run.  Then we bitwise AND it with the ready list,
-            // resulting in a list of ready systems that aren't skipped.
-            skipped_systems.toggle_range(..);
-            self.ready_systems &= skipped_systems;
         }
 
         let thread_executor = world

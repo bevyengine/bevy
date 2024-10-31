@@ -219,7 +219,7 @@ pub fn _embedded_asset_path(
 #[macro_export]
 macro_rules! embedded_asset {
     ($app: ident, $path: expr) => {{
-        embedded_asset!($app, "src", $path)
+        $crate::embedded_asset!($app, "src", $path)
     }};
 
     ($app: ident, $source_path: expr, $path: expr) => {{

@@ -1,3 +1,5 @@
+//! CI script used for Bevy.
+
 use xshell::{cmd, Shell};
 
 use bitflags::bitflags;

@@ -4,6 +4,8 @@
 //! Clicking toggle IME (Input Method Editor) support, but the font used as limited support of characters.
 //! You should change the provided font with another one to test other languages input.
 
+use std::mem;
+
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
 fn main() {
@@ -178,23 +180,29 @@ fn listen_received_character_events(
 fn listen_keyboard_input_events(
     mut commands: Commands,
     mut events: EventReader<KeyboardInput>,
-    mut edit_text: Query<(Entity, &mut Text), (Without<Node>, Without<Bubble>)>,
+    mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
 ) {
     for event in events.read() {
         match event.key_code {
             KeyCode::Enter => {
-                let (entity, text) = edit_text.single();
-                commands.entity(entity).insert(Bubble {
-                    timer: Timer::from_seconds(5.0, TimerMode::Once),
-                });
+                let mut text = edit_text.single_mut();
+                if text.sections[0].value.is_empty() {
+                    continue;
+                }
+                let old_value = mem::take(&mut text.sections[0].value);
 
-                commands.spawn(Text2dBundle {
-                    text: Text::from_section("".to_string(), text.sections[0].style.clone()),
-                    ..default()
-                });
+                commands.spawn((
+                    Text2dBundle {
+                        text: Text::from_section(old_value, text.sections[0].style.clone()),
+                        ..default()
+                    },
+                    Bubble {
+                        timer: Timer::from_seconds(5.0, TimerMode::Once),
+                    },
+                ));
             }
             KeyCode::Backspace => {
-                edit_text.single_mut().1.sections[0].value.pop();
+                edit_text.single_mut().sections[0].value.pop();
             }
             _ => continue,
         }

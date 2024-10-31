@@ -211,7 +211,7 @@ impl TypeRegistry {
     /// If the short type path is ambiguous, or if no type with the given path
     /// has been registered, returns `None`.
     ///
-    /// [type path]: TypePath::short_type_path
+    /// [short type path]: TypePath::short_type_path
     pub fn get_with_short_type_path(&self, short_type_path: &str) -> Option<&TypeRegistration> {
         self.short_path_to_id
             .get(short_type_path)
@@ -224,7 +224,7 @@ impl TypeRegistry {
     /// If the short type path is ambiguous, or if no type with the given path
     /// has been registered, returns `None`.
     ///
-    /// [type path]: TypePath::short_type_path
+    /// [short type path]: TypePath::short_type_path
     pub fn get_with_short_type_path_mut(
         &mut self,
         short_type_path: &str,
@@ -232,6 +232,32 @@ impl TypeRegistry {
         self.short_path_to_id
             .get(short_type_path)
             .and_then(|id| self.registrations.get_mut(id))
+    }
+
+    /// Returns `true` if the given [short type path] is ambiguous, that is, it matches multiple registered types.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_reflect::TypeRegistry;
+    /// # mod foo {
+    /// #     use bevy_reflect::Reflect;
+    /// #     #[derive(Reflect)]
+    /// #     pub struct MyType;
+    /// # }
+    /// # mod bar {
+    /// #     use bevy_reflect::Reflect;
+    /// #     #[derive(Reflect)]
+    /// #     pub struct MyType;
+    /// # }
+    /// let mut type_registry = TypeRegistry::default();
+    /// type_registry.register::<foo::MyType>();
+    /// type_registry.register::<bar::MyType>();
+    /// assert_eq!(type_registry.is_ambiguous("MyType"), true);
+    /// ```
+    ///
+    /// [short type path]: TypePath::short_type_path
+    pub fn is_ambiguous(&self, short_type_path: &str) -> bool {
+        self.ambiguous_names.contains(short_type_path)
     }
 
     /// Returns a reference to the [`TypeData`] of type `T` associated with the given [`TypeId`].

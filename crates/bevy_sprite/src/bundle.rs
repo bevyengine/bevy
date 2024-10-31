@@ -14,7 +14,7 @@ use bevy_transform::components::{GlobalTransform, Transform};
 /// You may add the following components to enable additional behaviours
 /// - [`ImageScaleMode`](crate::ImageScaleMode) to enable either slicing or tiling of the texture
 /// - [`TextureAtlas`] to draw specific sections of a sprite sheet, (See [`SpriteSheetBundle`])
-#[derive(Bundle, Clone, Default)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct SpriteBundle {
     /// Specifies the rendering properties of the sprite, such as color tint and flip.
     pub sprite: Sprite,
@@ -41,7 +41,7 @@ pub struct SpriteBundle {
 /// Check the following examples for usage:
 /// - [`animated sprite sheet example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
 /// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
-#[derive(Bundle, Clone, Default)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct SpriteSheetBundle {
     /// Specifies the rendering properties of the sprite, such as color tint and flip.
     pub sprite: Sprite,

@@ -116,7 +116,12 @@ fn setup_scene_after_load(
         let mut projection = PerspectiveProjection::default();
         projection.far = projection.far.max(size * 10.0);
 
-        let camera_controller = CameraController::default();
+        let walk_speed = size * 3.0;
+        let camera_controller = CameraController {
+            walk_speed,
+            run_speed: 3.0 * walk_speed,
+            ..default()
+        };
 
         // Display the controls of the scene viewer
         info!("{}", camera_controller);

@@ -149,7 +149,7 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
         #[cfg(all(feature = "bevy_animation", feature = "bevy_ui"))]
         app.ignore_ambiguity(
             bevy_app::PostUpdate,
-            bevy_animation::animation_player,
+            bevy_animation::advance_animations,
             bevy_ui::ui_layout_system,
         );
 

@@ -335,7 +335,13 @@ impl Touches {
 
     /// Retrieves the position of the first currently pressed touch, if any
     pub fn first_pressed_position(&self) -> Option<Vec2> {
-        self.pressed.values().next().map(|t| t.position)
+        // Looking for the position in `pressed`. If nothing is found, also look into `just_pressed`
+        // A touch can be in `just_pressed` but not in `pressed` if it ended in the same frame it started
+        self.pressed
+            .values()
+            .next()
+            .or_else(|| self.just_pressed.values().next())
+            .map(|t| t.position)
     }
 
     /// Clears `just_pressed`, `just_released`, and `just_canceled` data for every touch input.
