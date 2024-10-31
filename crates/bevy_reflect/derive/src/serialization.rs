@@ -1,10 +1,11 @@
-use crate::derive_data::StructField;
-use crate::field_attributes::{DefaultBehavior, ReflectIgnoreBehavior};
+use crate::{
+    derive_data::StructField,
+    field_attributes::{DefaultBehavior, ReflectIgnoreBehavior},
+};
 use bevy_macro_utils::fq_std::{FQBox, FQDefault};
 use quote::quote;
 use std::collections::HashMap;
-use syn::spanned::Spanned;
-use syn::Path;
+use syn::{spanned::Spanned, Path};
 
 type ReflectionIndex = usize;
 

@@ -1,7 +1,7 @@
-use crate::component::Component;
+use crate::{component::Component, traversal::Traversal};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use std::{
+use core::{
     cmp::Ordering,
     fmt,
     hash::{Hash, Hasher},
@@ -26,12 +26,27 @@ use std::{
 /// [`World`]: crate::world::World
 /// [`ComponentId`]: crate::component::ComponentId
 /// [`Observer`]: crate::observer::Observer
+/// [`Events<E>`]: super::Events
+/// [`EventReader`]: super::EventReader
+/// [`EventWriter`]: super::EventWriter
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `Event`",
     label = "invalid `Event`",
     note = "consider annotating `{Self}` with `#[derive(Event)]`"
 )]
-pub trait Event: Component {}
+pub trait Event: Component {
+    /// The component that describes which Entity to propagate this event to next, when [propagation] is enabled.
+    ///
+    /// [propagation]: crate::observer::Trigger::propagate
+    type Traversal: Traversal;
+
+    /// When true, this event will always attempt to propagate when [triggered], without requiring a call
+    /// to [`Trigger::propagate`].
+    ///
+    /// [triggered]: crate::system::Commands::trigger_targets
+    /// [`Trigger::propagate`]: crate::observer::Trigger::propagate
+    const AUTO_PROPAGATE: bool = false;
+}
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
 ///
@@ -67,7 +82,7 @@ impl<E: Event> fmt::Debug for EventId<E> {
         write!(
             f,
             "event<{}>#{}",
-            std::any::type_name::<E>().split("::").last().unwrap(),
+            core::any::type_name::<E>().split("::").last().unwrap(),
             self.id,
         )
     }

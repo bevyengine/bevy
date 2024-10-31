@@ -1,9 +1,9 @@
-use std::mem;
+use core::mem::{self, size_of};
 
 use bevy_asset::Assets;
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
+use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::NoAutomaticBatching,
     mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -23,10 +23,10 @@ pub struct SkinIndex {
 }
 
 impl SkinIndex {
-    /// Index to be in address space based on [`SkinUniform`] size.
+    /// Index to be in address space based on the size of a skin uniform.
     const fn new(start: usize) -> Self {
         SkinIndex {
-            index: (start * std::mem::size_of::<Mat4>()) as u32,
+            index: (start * size_of::<Mat4>()) as u32,
         }
     }
 }
@@ -40,11 +40,11 @@ impl SkinIndex {
 pub struct SkinIndices {
     /// Maps each skinned mesh to the applicable offset within
     /// [`SkinUniforms::current_buffer`].
-    pub current: EntityHashMap<SkinIndex>,
+    pub current: MainEntityHashMap<SkinIndex>,
 
     /// Maps each skinned mesh to the applicable offset within
     /// [`SkinUniforms::prev_buffer`].
-    pub prev: EntityHashMap<SkinIndex>,
+    pub prev: MainEntityHashMap<SkinIndex>,
 }
 
 /// The GPU buffers containing joint matrices for all skinned meshes.
@@ -169,7 +169,9 @@ pub fn extract_skins(
             buffer.push(Mat4::ZERO);
         }
 
-        skin_indices.current.insert(entity, SkinIndex::new(start));
+        skin_indices
+            .current
+            .insert(entity.into(), SkinIndex::new(start));
     }
 
     // Pad out the buffer to ensure that there's enough space for bindings

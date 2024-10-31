@@ -1,4 +1,4 @@
-use std::{
+use core::{
     any,
     fmt::{self, Formatter},
 };
@@ -8,8 +8,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use super::name::Name;
-use super::FrameCount;
+use super::{name::Name, FrameCount};
 
 impl Serialize for Name {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {

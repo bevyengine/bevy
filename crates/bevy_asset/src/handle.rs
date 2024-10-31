@@ -2,16 +2,15 @@ use crate::{
     meta::MetaTransform, Asset, AssetId, AssetIndexAllocator, AssetPath, InternalAssetId,
     UntypedAssetId,
 };
-use bevy_ecs::prelude::*;
+use alloc::sync::Arc;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
-use bevy_utils::get_short_name;
-use crossbeam_channel::{Receiver, Sender};
-use std::{
+use core::{
     any::TypeId,
     hash::{Hash, Hasher},
-    sync::Arc,
 };
-use thiserror::Error;
+use crossbeam_channel::{Receiver, Sender};
+use derive_more::derive::{Display, Error};
+use disqualified::ShortName;
 use uuid::Uuid;
 
 /// Provides [`Handle`] and [`UntypedHandle`] _for a specific asset type_.
@@ -103,8 +102,8 @@ impl Drop for StrongHandle {
     }
 }
 
-impl std::fmt::Debug for StrongHandle {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for StrongHandle {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("StrongHandle")
             .field("id", &self.id)
             .field("asset_server_managed", &self.asset_server_managed)
@@ -122,8 +121,8 @@ impl std::fmt::Debug for StrongHandle {
 /// of the [`Handle`] are dropped.
 ///
 /// [`Handle::Strong`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
-#[derive(Component, Reflect)]
-#[reflect(Default, Component, Debug, Hash, PartialEq)]
+#[derive(Reflect)]
+#[reflect(Default, Debug, Hash, PartialEq)]
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.
@@ -204,9 +203,9 @@ impl<A: Asset> Default for Handle<A> {
     }
 }
 
-impl<A: Asset> std::fmt::Debug for Handle<A> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = get_short_name(std::any::type_name::<A>());
+impl<A: Asset> core::fmt::Debug for Handle<A> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let name = ShortName::of::<A>();
         match self {
             Handle::Strong(handle) => {
                 write!(
@@ -229,13 +228,13 @@ impl<A: Asset> Hash for Handle<A> {
 }
 
 impl<A: Asset> PartialOrd for Handle<A> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl<A: Asset> Ord for Handle<A> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.id().cmp(&other.id())
     }
 }
@@ -357,7 +356,7 @@ impl UntypedHandle {
         let Ok(handle) = self.try_typed() else {
             panic!(
                 "The target Handle<{}>'s TypeId does not match the TypeId of this UntypedHandle",
-                std::any::type_name::<A>()
+                core::any::type_name::<A>()
             )
         };
 
@@ -397,8 +396,8 @@ impl Hash for UntypedHandle {
     }
 }
 
-impl std::fmt::Debug for UntypedHandle {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for UntypedHandle {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             UntypedHandle::Strong(handle) => {
                 write!(
@@ -420,7 +419,7 @@ impl std::fmt::Debug for UntypedHandle {
 }
 
 impl PartialOrd for UntypedHandle {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         if self.type_id() == other.type_id() {
             self.id().partial_cmp(&other.id())
         } else {
@@ -454,7 +453,7 @@ impl<A: Asset> PartialEq<Handle<A>> for UntypedHandle {
 
 impl<A: Asset> PartialOrd<UntypedHandle> for Handle<A> {
     #[inline]
-    fn partial_cmp(&self, other: &UntypedHandle) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &UntypedHandle) -> Option<core::cmp::Ordering> {
         if TypeId::of::<A>() != other.type_id() {
             None
         } else {
@@ -465,7 +464,7 @@ impl<A: Asset> PartialOrd<UntypedHandle> for Handle<A> {
 
 impl<A: Asset> PartialOrd<Handle<A>> for UntypedHandle {
     #[inline]
-    fn partial_cmp(&self, other: &Handle<A>) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Handle<A>) -> Option<core::cmp::Ordering> {
         Some(other.partial_cmp(self)?.reverse())
     }
 }
@@ -503,11 +502,11 @@ impl<A: Asset> TryFrom<UntypedHandle> for Handle<A> {
 }
 
 /// Errors preventing the conversion of to/from an [`UntypedHandle`] and a [`Handle`].
-#[derive(Error, Debug, PartialEq, Clone)]
+#[derive(Error, Display, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub enum UntypedAssetConversionError {
     /// Caused when trying to convert an [`UntypedHandle`] into a [`Handle`] of the wrong type.
-    #[error(
+    #[display(
         "This UntypedHandle is for {found:?} and cannot be converted into a Handle<{expected:?}>"
     )]
     TypeIdMismatch { expected: TypeId, found: TypeId },
@@ -515,6 +514,8 @@ pub enum UntypedAssetConversionError {
 
 #[cfg(test)]
 mod tests {
+    use bevy_reflect::PartialReflect;
+
     use super::*;
 
     type TestAsset = ();
@@ -618,5 +619,57 @@ mod tests {
 
         assert_eq!(typed, Handle::try_from(untyped.clone()).unwrap());
         assert_eq!(UntypedHandle::from(typed.clone()), untyped);
+    }
+
+    /// `Reflect::clone_value` should increase the strong count of a strong handle
+    #[test]
+    fn strong_handle_reflect_clone() {
+        use crate::{AssetApp, AssetPlugin, Assets, VisitAssetDependencies};
+        use bevy_app::App;
+        use bevy_reflect::FromReflect;
+
+        #[derive(Reflect)]
+        struct MyAsset {
+            value: u32,
+        }
+        impl Asset for MyAsset {}
+        impl VisitAssetDependencies for MyAsset {
+            fn visit_dependencies(&self, _visit: &mut impl FnMut(UntypedAssetId)) {}
+        }
+
+        let mut app = App::new();
+        app.add_plugins(AssetPlugin::default())
+            .init_asset::<MyAsset>();
+        let mut assets = app.world_mut().resource_mut::<Assets<MyAsset>>();
+
+        let handle: Handle<MyAsset> = assets.add(MyAsset { value: 1 });
+        match &handle {
+            Handle::Strong(strong) => {
+                assert_eq!(
+                    Arc::strong_count(strong),
+                    1,
+                    "Inserting the asset should result in a strong count of 1"
+                );
+
+                let reflected: &dyn Reflect = &handle;
+                let cloned_handle: Box<dyn PartialReflect> = reflected.clone_value();
+
+                assert_eq!(
+                    Arc::strong_count(strong),
+                    2,
+                    "Cloning the handle with reflect should increase the strong count to 2"
+                );
+
+                let from_reflect_handle: Handle<MyAsset> =
+                    FromReflect::from_reflect(&*cloned_handle).unwrap();
+
+                assert_eq!(Arc::strong_count(strong), 3, "Converting the reflected value back to a handle should increase the strong count to 3");
+                assert!(
+                    from_reflect_handle.is_strong(),
+                    "The cloned handle should still be strong"
+                );
+            }
+            _ => panic!("Expected a strong handle"),
+        }
     }
 }

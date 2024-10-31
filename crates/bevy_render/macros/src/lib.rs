@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 mod as_bind_group;
@@ -24,6 +24,7 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
 }
 
 /// Implements `ExtractComponent` trait for a component.
+///
 /// The component must implement [`Clone`].
 /// The component will be extracted into the render world via cloning.
 /// Note that this only enables extraction of the component, it does not execute the extraction.

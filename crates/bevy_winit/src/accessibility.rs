@@ -1,21 +1,21 @@
 //! Helpers for mapping window entities to accessibility types
 
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-};
+use alloc::{collections::VecDeque, sync::Arc};
+use std::sync::Mutex;
 
 use accesskit_winit::Adapter;
-use bevy_a11y::accesskit::{ActivationHandler, DeactivationHandler, Node};
 use bevy_a11y::{
-    accesskit::{ActionHandler, ActionRequest, NodeBuilder, NodeId, Role, Tree, TreeUpdate},
-    AccessibilityNode, AccessibilityRequested, AccessibilitySystem, Focus,
+    accesskit::{
+        ActionHandler, ActionRequest, ActivationHandler, DeactivationHandler, Node, NodeBuilder,
+        NodeId, Role, Tree, TreeUpdate,
+    },
+    AccessibilityNode, AccessibilityRequested, AccessibilitySystem,
+    ActionRequest as ActionRequestWrapper, Focus, ManageAccessibilityUpdates,
 };
-use bevy_a11y::{ActionRequest as ActionRequestWrapper, ManageAccessibilityUpdates};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
+    entity::EntityHashMap,
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
     query::With,
     schedule::IntoSystemConfigs,
@@ -28,7 +28,7 @@ use bevy_window::{PrimaryWindow, Window, WindowClosed};
 #[derive(Default, Deref, DerefMut)]
 pub struct AccessKitAdapters(pub EntityHashMap<Adapter>);
 
-/// Maps window entities to their respective [`WinitActionRequests`]s.
+/// Maps window entities to their respective [`ActionRequest`]s.
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct WinitActionRequestHandlers(pub EntityHashMap<Arc<Mutex<WinitActionRequestHandler>>>);
 

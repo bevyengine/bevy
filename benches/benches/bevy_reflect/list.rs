@@ -1,4 +1,4 @@
-use std::{iter, time::Duration};
+use core::{iter, time::Duration};
 
 use bevy_reflect::{DynamicList, List};
 use criterion::{

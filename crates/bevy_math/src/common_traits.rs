@@ -1,6 +1,10 @@
-use crate::{Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
-use std::fmt::Debug;
-use std::ops::{Add, Div, Mul, Neg, Sub};
+//! This module contains abstract mathematical traits shared by types used in `bevy_math`.
+
+use crate::{ops, Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
+use core::{
+    fmt::Debug,
+    ops::{Add, Div, Mul, Neg, Sub},
+};
 
 /// A type that supports the mathematical operations of a real vector space, irrespective of dimension.
 /// In particular, this means that the implementing type supports:
@@ -39,11 +43,11 @@ pub trait VectorSpace:
     /// on the parameter `t`. When `t` is `0`, `self` is recovered. When `t` is `1`, `rhs`
     /// is recovered.
     ///
-    /// Note that the value of `t` is not clamped by this function, so interpolating outside
+    /// Note that the value of `t` is not clamped by this function, so extrapolating outside
     /// of the interval `[0,1]` is allowed.
     #[inline]
-    fn lerp(&self, rhs: Self, t: f32) -> Self {
-        *self * (1. - t) + rhs * t
+    fn lerp(self, rhs: Self, t: f32) -> Self {
+        self * (1. - t) + rhs * t
     }
 }
 
@@ -254,7 +258,7 @@ pub trait StableInterpolate: Clone {
     /// object_position.smooth_nudge(&target_position, decay_rate, delta_time);
     /// ```
     fn smooth_nudge(&mut self, target: &Self, decay_rate: f32, delta: f32) {
-        self.interpolate_stable_assign(target, 1.0 - f32::exp(-decay_rate * delta));
+        self.interpolate_stable_assign(target, 1.0 - ops::exp(-decay_rate * delta));
     }
 }
 
@@ -305,3 +309,104 @@ impl StableInterpolate for Dir3A {
         self.slerp(*other, t)
     }
 }
+
+// If you're confused about how #[doc(fake_variadic)] works,
+// then the `all_tuples` macro is nicely documented (it can be found in the `bevy_utils` crate).
+// tl;dr: `#[doc(fake_variadic)]` goes on the impl of tuple length one.
+// the others have to be hidden using `#[doc(hidden)]`.
+macro_rules! impl_stable_interpolate_tuple {
+    (($T:ident, $n:tt)) => {
+        impl_stable_interpolate_tuple! {
+            @impl
+            #[cfg_attr(any(docsrs, docsrs_dep), doc(fake_variadic))]
+            #[cfg_attr(
+                any(docsrs, docsrs_dep),
+                doc = "This trait is implemented for tuples up to 11 items long."
+            )]
+            ($T, $n)
+        }
+    };
+    ($(($T:ident, $n:tt)),*) => {
+        impl_stable_interpolate_tuple! {
+            @impl
+            #[cfg_attr(any(docsrs, docsrs_dep), doc(hidden))]
+            $(($T, $n)),*
+        }
+    };
+    (@impl $(#[$($meta:meta)*])* $(($T:ident, $n:tt)),*) => {
+        $(#[$($meta)*])*
+        impl<$($T: StableInterpolate),*> StableInterpolate for ($($T,)*) {
+            fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
+                (
+                    $(
+                        <$T as StableInterpolate>::interpolate_stable(&self.$n, &other.$n, t),
+                    )*
+                )
+            }
+        }
+    };
+}
+
+// (See `macro_metavar_expr`, which might make this better.)
+// This currently implements `StableInterpolate` for tuples of up to 11 elements.
+impl_stable_interpolate_tuple!((T, 0));
+impl_stable_interpolate_tuple!((T0, 0), (T1, 1));
+impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2));
+impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2), (T3, 3));
+impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2), (T3, 3), (T4, 4));
+impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2), (T3, 3), (T4, 4), (T5, 5));
+impl_stable_interpolate_tuple!(
+    (T0, 0),
+    (T1, 1),
+    (T2, 2),
+    (T3, 3),
+    (T4, 4),
+    (T5, 5),
+    (T6, 6)
+);
+impl_stable_interpolate_tuple!(
+    (T0, 0),
+    (T1, 1),
+    (T2, 2),
+    (T3, 3),
+    (T4, 4),
+    (T5, 5),
+    (T6, 6),
+    (T7, 7)
+);
+impl_stable_interpolate_tuple!(
+    (T0, 0),
+    (T1, 1),
+    (T2, 2),
+    (T3, 3),
+    (T4, 4),
+    (T5, 5),
+    (T6, 6),
+    (T7, 7),
+    (T8, 8)
+);
+impl_stable_interpolate_tuple!(
+    (T0, 0),
+    (T1, 1),
+    (T2, 2),
+    (T3, 3),
+    (T4, 4),
+    (T5, 5),
+    (T6, 6),
+    (T7, 7),
+    (T8, 8),
+    (T9, 9)
+);
+impl_stable_interpolate_tuple!(
+    (T0, 0),
+    (T1, 1),
+    (T2, 2),
+    (T3, 3),
+    (T4, 4),
+    (T5, 5),
+    (T6, 6),
+    (T7, 7),
+    (T8, 8),
+    (T9, 9),
+    (T10, 10)
+);

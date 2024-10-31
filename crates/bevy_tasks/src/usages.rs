@@ -1,5 +1,6 @@
 use super::TaskPool;
-use std::{ops::Deref, sync::OnceLock};
+use core::ops::Deref;
+use std::sync::OnceLock;
 
 macro_rules! taskpool {
     ($(#[$attr:meta])* ($static:ident, $type:ident)) => {

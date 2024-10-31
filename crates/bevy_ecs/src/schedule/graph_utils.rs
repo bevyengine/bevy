@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use bevy_utils::{HashMap, HashSet};
 use fixedbitset::FixedBitSet;

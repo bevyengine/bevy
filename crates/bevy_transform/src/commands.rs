@@ -2,32 +2,42 @@
 //! while preserving [`GlobalTransform`].
 
 use crate::prelude::{GlobalTransform, Transform};
-use bevy_ecs::{prelude::Entity, system::EntityCommands, world::Command, world::World};
-use bevy_hierarchy::{PushChild, RemoveParent};
+use bevy_ecs::{
+    prelude::Entity,
+    system::EntityCommands,
+    world::{Command, EntityWorldMut, World},
+};
+use bevy_hierarchy::{AddChild, RemoveParent};
 
-/// Command similar to [`PushChild`], but updating the child transform to keep
+/// Command similar to [`AddChild`], but updating the child transform to keep
 /// it at the same [`GlobalTransform`].
 ///
 /// You most likely want to use [`BuildChildrenTransformExt::set_parent_in_place`]
 /// method on [`EntityCommands`] instead.
-pub struct PushChildInPlace {
+pub struct AddChildInPlace {
     /// Parent entity to add the child to.
     pub parent: Entity,
     /// Child entity to add.
     pub child: Entity,
 }
-impl Command for PushChildInPlace {
+impl Command for AddChildInPlace {
     fn apply(self, world: &mut World) {
-        let hierarchy_command = PushChild {
+        let hierarchy_command = AddChild {
             child: self.child,
             parent: self.parent,
         };
         hierarchy_command.apply(world);
         // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
         let mut update_transform = || {
-            let parent = *world.get_entity(self.parent)?.get::<GlobalTransform>()?;
-            let child_global = *world.get_entity(self.child)?.get::<GlobalTransform>()?;
-            let mut child_entity = world.get_entity_mut(self.child)?;
+            let parent = *world
+                .get_entity(self.parent)
+                .ok()?
+                .get::<GlobalTransform>()?;
+            let child_global = *world
+                .get_entity(self.child)
+                .ok()?
+                .get::<GlobalTransform>()?;
+            let mut child_entity = world.get_entity_mut(self.child).ok()?;
             let mut child = child_entity.get_mut::<Transform>()?;
             *child = child_global.reparented_to(&parent);
             Some(())
@@ -50,8 +60,11 @@ impl Command for RemoveParentInPlace {
         hierarchy_command.apply(world);
         // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
         let mut update_transform = || {
-            let child_global = *world.get_entity(self.child)?.get::<GlobalTransform>()?;
-            let mut child_entity = world.get_entity_mut(self.child)?;
+            let child_global = *world
+                .get_entity(self.child)
+                .ok()?
+                .get::<GlobalTransform>()?;
+            let mut child_entity = world.get_entity_mut(self.child).ok()?;
             let mut child = child_entity.get_mut::<Transform>()?;
             *child = child_global.compute_transform();
             Some(())
@@ -87,13 +100,27 @@ pub trait BuildChildrenTransformExt {
 impl BuildChildrenTransformExt for EntityCommands<'_> {
     fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
-        self.commands().add(PushChildInPlace { child, parent });
+        self.commands().queue(AddChildInPlace { child, parent });
         self
     }
 
     fn remove_parent_in_place(&mut self) -> &mut Self {
         let child = self.id();
-        self.commands().add(RemoveParentInPlace { child });
+        self.commands().queue(RemoveParentInPlace { child });
+        self
+    }
+}
+
+impl BuildChildrenTransformExt for EntityWorldMut<'_> {
+    fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
+        let child = self.id();
+        self.world_scope(|world| AddChildInPlace { child, parent }.apply(world));
+        self
+    }
+
+    fn remove_parent_in_place(&mut self) -> &mut Self {
+        let child = self.id();
+        self.world_scope(|world| RemoveParentInPlace { child }.apply(world));
         self
     }
 }

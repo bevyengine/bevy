@@ -11,10 +11,15 @@ struct ClusterableObject {
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
     spot_light_tan_angle: f32,
+    soft_shadow_size: f32,
+    shadow_map_near_z: f32,
+    pad_a: f32,
+    pad_b: f32,
 };
 
 const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32   = 1u;
 const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32 = 2u;
+const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32        = 4u;
 
 struct DirectionalCascade {
     clip_from_world: mat4x4<f32>,
@@ -28,6 +33,7 @@ struct DirectionalLight {
     direction_to_light: vec3<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
+    soft_shadow_size: f32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
     num_cascades: u32,
@@ -99,7 +105,7 @@ struct ClusterOffsetsAndCounts {
 };
 #else
 struct ClusterableObjects {
-    data: array<ClusterableObject, 256u>,
+    data: array<ClusterableObject, 204u>,
 };
 struct ClusterLightIndexLists {
     // each u32 contains 4 u8 indices into the ClusterableObjects array
@@ -139,7 +145,7 @@ struct LightProbes {
 // Settings for screen space reflections.
 //
 // For more information on these settings, see the documentation for
-// `bevy_pbr::ssr::ScreenSpaceReflectionsSettings`.
+// `bevy_pbr::ssr::ScreenSpaceReflections`.
 struct ScreenSpaceReflectionsSettings {
     perceptual_roughness_threshold: f32,
     thickness: f32,
@@ -147,4 +153,15 @@ struct ScreenSpaceReflectionsSettings {
     linear_march_exponent: f32,
     bisection_steps: u32,
     use_secant: u32,
+};
+
+struct EnvironmentMapUniform {
+    // Transformation matrix for the environment cubemaps in world space.
+    transform: mat4x4<f32>,
+};
+
+// Shader version of the order independent transparency settings component.
+struct OrderIndependentTransparencySettings {
+  layers_count: i32,
+  alpha_threshold: f32,
 };

@@ -4,9 +4,8 @@ use crate::{
     system::{Local, SystemMeta, SystemParam, SystemState},
     world::World,
 };
-use bevy_utils::all_tuples;
-use bevy_utils::synccell::SyncCell;
-use std::marker::PhantomData;
+use bevy_utils::{all_tuples, synccell::SyncCell};
+use core::marker::PhantomData;
 
 /// A parameter that can be used in an exclusive system (a system with an `&mut World` parameter).
 /// Any parameters implementing this trait must come after the `&mut World` parameter.
@@ -87,9 +86,10 @@ impl<S: ?Sized> ExclusiveSystemParam for PhantomData<S> {
 }
 
 macro_rules! impl_exclusive_system_param_tuple {
-    ($($param: ident),*) => {
+    ($(#[$meta:meta])* $($param: ident),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
+        $(#[$meta])*
         impl<$($param: ExclusiveSystemParam),*> ExclusiveSystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'s> = ($($param::Item<'s>,)*);
@@ -113,16 +113,20 @@ macro_rules! impl_exclusive_system_param_tuple {
     };
 }
 
-all_tuples!(impl_exclusive_system_param_tuple, 0, 16, P);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_exclusive_system_param_tuple,
+    0,
+    16,
+    P
+);
 
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::schedule::Schedule;
-    use crate::system::Local;
-    use crate::world::World;
+    use crate::{schedule::Schedule, system::Local, world::World};
     use bevy_ecs_macros::Resource;
-    use std::marker::PhantomData;
+    use core::marker::PhantomData;
 
     #[test]
     fn test_exclusive_system_params() {

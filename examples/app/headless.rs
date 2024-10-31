@@ -8,21 +8,26 @@
 //! # replace "*" with the most recent version of bevy
 //! ```
 
-use bevy::{app::ScheduleRunnerPlugin, prelude::*, utils::Duration};
+use bevy::{app::ScheduleRunnerPlugin, log::LogPlugin, prelude::*, utils::Duration};
 
 fn main() {
     // This app runs once
     App::new()
-        .add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_once()))
+        .add_plugins(HeadlessPlugins.set(ScheduleRunnerPlugin::run_once()))
         .add_systems(Update, hello_world_system)
         .run();
 
     // This app loops forever at 60 fps
     App::new()
         .add_plugins(
-            MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
-                1.0 / 60.0,
-            ))),
+            HeadlessPlugins
+                .set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
+                    1.0 / 60.0,
+                )))
+                // The log and ctrl+c plugin can only be registered once globally,
+                // which means we need to disable it here, because it was already registered with the
+                // app that runs once.
+                .disable::<LogPlugin>(),
         )
         .add_systems(Update, counter)
         .run();

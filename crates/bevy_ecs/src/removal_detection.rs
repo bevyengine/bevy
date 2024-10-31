@@ -4,14 +4,18 @@ use crate::{
     self as bevy_ecs,
     component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
-    event::{Event, EventId, EventIterator, EventIteratorWithId, Events, ManualEventReader},
+    event::{Event, EventCursor, EventId, EventIterator, EventIteratorWithId, Events},
     prelude::Local,
     storage::SparseSet,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
-use std::{
+use derive_more::derive::Into;
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+use core::{
     fmt::Debug,
     iter,
     marker::PhantomData,
@@ -21,23 +25,19 @@ use std::{
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
 /// Internally, `RemovedComponents` uses these as an `Events<RemovedComponentEntity>`.
-#[derive(Event, Debug, Clone)]
+#[derive(Event, Debug, Clone, Into)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 pub struct RemovedComponentEntity(Entity);
 
-impl From<RemovedComponentEntity> for Entity {
-    fn from(value: RemovedComponentEntity) -> Self {
-        value.0
-    }
-}
-
-/// Wrapper around a [`ManualEventReader<RemovedComponentEntity>`] so that we
+/// Wrapper around a [`EventCursor<RemovedComponentEntity>`] so that we
 /// can differentiate events between components.
 #[derive(Debug)]
 pub struct RemovedComponentReader<T>
 where
     T: Component,
 {
-    reader: ManualEventReader<RemovedComponentEntity>,
+    reader: EventCursor<RemovedComponentEntity>,
     marker: PhantomData<T>,
 }
 
@@ -51,7 +51,7 @@ impl<T: Component> Default for RemovedComponentReader<T> {
 }
 
 impl<T: Component> Deref for RemovedComponentReader<T> {
-    type Target = ManualEventReader<RemovedComponentEntity>;
+    type Target = EventCursor<RemovedComponentEntity>;
     fn deref(&self) -> &Self::Target {
         &self.reader
     }
@@ -172,13 +172,13 @@ fn map_id_events(
 // For all practical purposes, the api surface of `RemovedComponents<T>`
 // should be similar to `EventReader<T>` to reduce confusion.
 impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
-    /// Fetch underlying [`ManualEventReader`].
-    pub fn reader(&self) -> &ManualEventReader<RemovedComponentEntity> {
+    /// Fetch underlying [`EventCursor`].
+    pub fn reader(&self) -> &EventCursor<RemovedComponentEntity> {
         &self.reader
     }
 
-    /// Fetch underlying [`ManualEventReader`] mutably.
-    pub fn reader_mut(&mut self) -> &mut ManualEventReader<RemovedComponentEntity> {
+    /// Fetch underlying [`EventCursor`] mutably.
+    pub fn reader_mut(&mut self) -> &mut EventCursor<RemovedComponentEntity> {
         &mut self.reader
     }
 
@@ -187,7 +187,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
         self.event_sets.get(self.component_id.get())
     }
 
-    /// Destructures to get a mutable reference to the `ManualEventReader`
+    /// Destructures to get a mutable reference to the `EventCursor`
     /// and a reference to `Events`.
     ///
     /// This is necessary since Rust can't detect destructuring through methods and most

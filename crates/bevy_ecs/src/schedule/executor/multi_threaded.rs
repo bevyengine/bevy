@@ -1,14 +1,14 @@
-use std::{
-    any::Any,
-    sync::{Arc, Mutex, MutexGuard},
-};
+use alloc::sync::Arc;
+use core::any::Any;
+use std::sync::{Mutex, MutexGuard};
 
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
-use bevy_utils::default;
-use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::{info_span, Span};
-use std::panic::AssertUnwindSafe;
+use bevy_utils::tracing::info_span;
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::Span;
+use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
+use core::panic::AssertUnwindSafe;
 
 use concurrent_queue::ConcurrentQueue;
 use fixedbitset::FixedBitSet;
@@ -381,7 +381,7 @@ impl ExecutorState {
         }
 
         // can't borrow since loop mutably borrows `self`
-        let mut ready_systems = std::mem::take(&mut self.ready_systems_copy);
+        let mut ready_systems = core::mem::take(&mut self.ready_systems_copy);
 
         // Skipping systems may cause their dependents to become ready immediately.
         // If that happens, we need to run again immediately or we may fail to spawn those dependents.
@@ -519,15 +519,16 @@ impl ExecutorState {
     ///   the system's conditions: this includes conditions for the system
     ///   itself, and conditions for any of the system's sets.
     /// * `update_archetype_component` must have been called with `world`
-    ///   for each run condition in `conditions`.
+    ///   for the system as well as system and system set's run conditions.
     unsafe fn should_run(
         &mut self,
         system_index: usize,
-        _system: &BoxedSystem,
+        system: &mut BoxedSystem,
         conditions: &mut Conditions,
         world: UnsafeWorldCell,
     ) -> bool {
         let mut should_run = !self.skipped_systems.contains(system_index);
+
         for set_idx in conditions.sets_with_conditions_of_systems[system_index].ones() {
             if self.evaluated_sets.contains(set_idx) {
                 continue;
@@ -565,6 +566,18 @@ impl ExecutorState {
         }
 
         should_run &= system_conditions_met;
+
+        if should_run {
+            // SAFETY:
+            // - The caller ensures that `world` has permission to read any data
+            //   required by the system.
+            // - `update_archetype_component_access` has been called for system.
+            let valid_params = unsafe { system.validate_param_unsafe(world) };
+            if !valid_params {
+                self.skipped_systems.insert(system_index);
+            }
+            should_run &= valid_params;
+        }
 
         should_run
     }
@@ -613,9 +626,6 @@ impl ExecutorState {
     /// # Safety
     /// Caller must ensure no systems are currently borrowed.
     unsafe fn spawn_exclusive_system_task(&mut self, context: &Context, system_index: usize) {
-        // SAFETY: `can_run` returned true for this system, which means
-        // that no other systems currently have access to the world.
-        let world = unsafe { context.environment.world_cell.world_mut() };
         // SAFETY: this system is not running, no other reference exists
         let system = unsafe { &mut *context.environment.systems[system_index].get() };
         // Move the full context object into the new future.
@@ -626,6 +636,9 @@ impl ExecutorState {
             let unapplied_systems = self.unapplied_systems.clone();
             self.unapplied_systems.clear();
             let task = async move {
+                // SAFETY: `can_run` returned true for this system, which means
+                // that no other systems currently have access to the world.
+                let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = apply_deferred(&unapplied_systems, context.environment.systems, world);
                 context.system_completed(system_index, res, system);
             };
@@ -633,6 +646,9 @@ impl ExecutorState {
             context.scope.spawn_on_scope(task);
         } else {
             let task = async move {
+                // SAFETY: `can_run` returned true for this system, which means
+                // that no other systems currently have access to the world.
+                let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                     __rust_begin_short_backtrace::run(&mut **system, world);
                 }));
@@ -728,8 +744,17 @@ unsafe fn evaluate_and_fold_conditions(
     conditions
         .iter_mut()
         .map(|condition| {
-            // SAFETY: The caller ensures that `world` has permission to
-            // access any data required by the condition.
+            // SAFETY:
+            // - The caller ensures that `world` has permission to read any data
+            //   required by the condition.
+            // - `update_archetype_component_access` has been called for condition.
+            if !unsafe { condition.validate_param_unsafe(world) } {
+                return false;
+            }
+            // SAFETY:
+            // - The caller ensures that `world` has permission to read any data
+            //   required by the condition.
+            // - `update_archetype_component_access` has been called for condition.
             unsafe { __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world) }
         })
         .fold(true, |acc, res| acc && res)
@@ -782,5 +807,17 @@ mod tests {
         );
         schedule.run(&mut world);
         assert!(world.get_resource::<R>().is_some());
+    }
+
+    /// Regression test for a weird bug flagged by MIRI in
+    /// `spawn_exclusive_system_task`, related to a `&mut World` being captured
+    /// inside an `async` block and somehow remaining alive even after its last use.
+    #[test]
+    fn check_spawn_exclusive_system_task_miri() {
+        let mut world = World::new();
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(ExecutorKind::MultiThreaded);
+        schedule.add_systems(((|_: Commands| {}), |_: Commands| {}).chain());
+        schedule.run(&mut world);
     }
 }

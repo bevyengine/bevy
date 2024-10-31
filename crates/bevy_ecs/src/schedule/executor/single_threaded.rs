@@ -1,7 +1,7 @@
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
+use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
-use std::panic::AssertUnwindSafe;
 
 use crate::{
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
@@ -85,6 +85,12 @@ impl SystemExecutor for SingleThreadedExecutor {
 
             should_run &= system_conditions_met;
 
+            let system = &mut schedule.systems[system_index];
+            if should_run {
+                let valid_params = system.validate_param(world);
+                should_run &= valid_params;
+            }
+
             #[cfg(feature = "trace")]
             should_run_span.exit();
 
@@ -95,7 +101,6 @@ impl SystemExecutor for SingleThreadedExecutor {
                 continue;
             }
 
-            let system = &mut schedule.systems[system_index];
             if is_apply_deferred(system) {
                 self.apply_deferred(schedule, world);
                 continue;
@@ -160,6 +165,11 @@ fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut W
     #[allow(clippy::unnecessary_fold)]
     conditions
         .iter_mut()
-        .map(|condition| __rust_begin_short_backtrace::readonly_run(&mut **condition, world))
+        .map(|condition| {
+            if !condition.validate_param(world) {
+                return false;
+            }
+            __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
+        })
         .fold(true, |acc, res| acc && res)
 }
