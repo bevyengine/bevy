@@ -1227,21 +1227,24 @@ where
     }
 }
 
-impl<D: QueryData, F: QueryFilter, I: Iterator> ExactSizeIterator
-    for QuerySortedIter<'_, '_, D, F, I>
+#[expect(clippy::needless_lifetimes)]
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> ExactSizeIterator
+    for QuerySortedIter<'w, 's, D, F, I>
 where
     I: ExactSizeIterator<Item = Entity>,
 {
 }
 
 // This is correct as [`QuerySortedIter`] returns `None` once exhausted if `entity_iter` does.
-impl<D: QueryData, F: QueryFilter, I: Iterator> FusedIterator for QuerySortedIter<'_, '_, D, F, I> where
+#[expect(clippy::needless_lifetimes)]
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> FusedIterator for QuerySortedIter<'w, 's, D, F, I> where
     I: FusedIterator<Item = Entity>
 {
 }
 
-impl<D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>> Debug
-    for QuerySortedIter<'_, '_, D, F, I>
+#[expect(clippy::needless_lifetimes)]
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>> Debug
+    for QuerySortedIter<'w, 's, D, F, I>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QuerySortedIter").finish()
