@@ -25,7 +25,7 @@ where
     tip_length: f32,
 }
 
-impl<Config, Clear> ArrowBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> ArrowBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -58,7 +58,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for ArrowBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for ArrowBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -161,7 +161,7 @@ where
     }
 }
 
-impl<Config, Clear> Gizmos<'_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,

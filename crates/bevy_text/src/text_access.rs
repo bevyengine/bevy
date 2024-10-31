@@ -72,7 +72,6 @@ pub struct TextReader<'w, 's, R: TextRoot> {
     >,
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
     /// Returns an iterator over text spans in a text block, starting with the root entity.
     pub fn iter(&mut self, root_entity: Entity) -> TextSpanIter<R> {
@@ -249,7 +248,6 @@ pub struct TextWriter<'w, 's, R: TextRoot> {
     children: Query<'w, 's, &'static Children>,
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
     /// Gets a mutable reference to a text span within a text block at a specific index in the flattened span list.
     pub fn get(

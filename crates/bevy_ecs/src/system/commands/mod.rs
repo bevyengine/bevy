@@ -80,10 +80,10 @@ pub struct Commands<'w, 's> {
 }
 
 // SAFETY: All commands [`Command`] implement [`Send`]
-unsafe impl Send for Commands<'_, '_> {}
+unsafe impl<'w, 's> Send for Commands<'w, 's> {}
 
 // SAFETY: `Commands` never gives access to the inner commands.
-unsafe impl Sync for Commands<'_, '_> {}
+unsafe impl<'w, 's> Sync for Commands<'w, 's> {}
 
 const _: () = {
     type __StructFieldsAlias<'w, 's> = (Deferred<'s, CommandQueue>, &'w Entities);
@@ -92,7 +92,7 @@ const _: () = {
         state: <__StructFieldsAlias<'static, 'static> as bevy_ecs::system::SystemParam>::State,
     }
     // SAFETY: Only reads Entities
-    unsafe impl bevy_ecs::system::SystemParam for Commands<'_, '_> {
+    unsafe impl<'world, 'state> bevy_ecs::system::SystemParam for Commands<'world, 'state> {
         type State = FetchState;
 
         type Item<'w, 's> = Commands<'w, 's>;
@@ -102,7 +102,7 @@ const _: () = {
             system_meta: &mut bevy_ecs::system::SystemMeta,
         ) -> Self::State {
             FetchState {
-                state: <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_state(
+                state: <__StructFieldsAlias<'world, 'state> as bevy_ecs::system::SystemParam>::init_state(
                     world,
                     system_meta,
                 ),
@@ -116,7 +116,7 @@ const _: () = {
         ) {
             // SAFETY: Caller guarantees the archetype is from the world used in `init_state`
             unsafe {
-                <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::new_archetype(
+                <__StructFieldsAlias<'world, 'state> as bevy_ecs::system::SystemParam>::new_archetype(
                     &mut state.state,
                     archetype,
                     system_meta,
@@ -129,7 +129,7 @@ const _: () = {
             system_meta: &bevy_ecs::system::SystemMeta,
             world: &mut World,
         ) {
-            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::apply(
+            <__StructFieldsAlias<'world, 'state> as bevy_ecs::system::SystemParam>::apply(
                 &mut state.state,
                 system_meta,
                 world,
@@ -141,7 +141,7 @@ const _: () = {
             system_meta: &bevy_ecs::system::SystemMeta,
             world: bevy_ecs::world::DeferredWorld,
         ) {
-            <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::queue(
+            <__StructFieldsAlias<'world, 'state> as bevy_ecs::system::SystemParam>::queue(
                 &mut state.state,
                 system_meta,
                 world,

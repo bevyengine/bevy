@@ -15,7 +15,7 @@ pub trait CommandsStatesExt {
     fn set_state<S: FreelyMutableState>(&mut self, state: S);
 }
 
-impl CommandsStatesExt for Commands<'_, '_> {
+impl<'w, 's> CommandsStatesExt for Commands<'w, 's> {
     fn set_state<S: FreelyMutableState>(&mut self, state: S) {
         self.queue(move |w: &mut World| {
             let mut next = w.resource_mut::<NextState<S>>();

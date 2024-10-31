@@ -18,10 +18,8 @@ pub enum QueryEntityError<'w> {
     AliasedMutability(Entity),
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w> core::error::Error for QueryEntityError<'w> {}
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w> core::fmt::Display for QueryEntityError<'w> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match *self {
@@ -41,7 +39,6 @@ impl<'w> core::fmt::Display for QueryEntityError<'w> {
     }
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w> core::fmt::Debug for QueryEntityError<'w> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match *self {
@@ -78,7 +75,6 @@ fn format_archetype(
     Ok(())
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w> PartialEq for QueryEntityError<'w> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -90,7 +86,6 @@ impl<'w> PartialEq for QueryEntityError<'w> {
     }
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w> Eq for QueryEntityError<'w> {}
 
 /// An error that occurs when evaluating a [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState) as a single expected result via

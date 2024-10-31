@@ -57,11 +57,11 @@ pub struct ExtractState<P: SystemParam + 'static> {
 }
 
 // SAFETY: The only `World` access (`Res<MainWorld>`) is read-only.
-unsafe impl<P> ReadOnlySystemParam for Extract<'_, '_, P> where P: ReadOnlySystemParam {}
+unsafe impl<'w, 's, P> ReadOnlySystemParam for Extract<'w, 's, P> where P: ReadOnlySystemParam {}
 
 // SAFETY: The only `World` access is properly registered by `Res<MainWorld>::init_state`.
 // This call will also ensure that there are no conflicts with prior params.
-unsafe impl<P> SystemParam for Extract<'_, '_, P>
+unsafe impl<'world, 'state, P> SystemParam for Extract<'world, 'state, P>
 where
     P: ReadOnlySystemParam,
 {
@@ -134,7 +134,7 @@ where
     }
 }
 
-impl<P> DerefMut for Extract<'_, '_, P>
+impl<'w, 's, P> DerefMut for Extract<'w, 's, P>
 where
     P: ReadOnlySystemParam,
 {

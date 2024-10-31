@@ -38,7 +38,7 @@ pub trait GizmoPrimitive3d<P: Primitive3d> {
 
 // direction 3d
 
-impl<Config, Clear> GizmoPrimitive3d<Dir3> for Gizmos<'_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Dir3> for Gizmos<'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -106,7 +106,7 @@ where
     spacing: Vec2,
 }
 
-impl<Config, Clear> Plane3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Plane3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -151,7 +151,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Plane3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Plane3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -176,7 +176,7 @@ where
 
 // line 3d
 
-impl<Config, Clear> GizmoPrimitive3d<Line3d> for Gizmos<'_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Line3d> for Gizmos<'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -211,7 +211,7 @@ where
 
 // segment 3d
 
-impl<Config, Clear> GizmoPrimitive3d<Segment3d> for Gizmos<'_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Segment3d> for Gizmos<'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -239,8 +239,8 @@ where
 
 // polyline 3d
 
-impl<const N: usize, Config, Clear> GizmoPrimitive3d<Polyline3d<N>>
-    for Gizmos<'_, '_, Config, Clear>
+impl<'w, 's, const N: usize, Config, Clear> GizmoPrimitive3d<Polyline3d<N>>
+    for Gizmos<'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -267,7 +267,7 @@ where
 
 // boxed polyline 3d
 
-impl<Config, Clear> GizmoPrimitive3d<BoxedPolyline3d> for Gizmos<'_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<BoxedPolyline3d> for Gizmos<'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -301,7 +301,7 @@ where
 
 // triangle 3d
 
-impl<Config, Clear> GizmoPrimitive3d<Triangle3d> for Gizmos<'_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Triangle3d> for Gizmos<'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -329,7 +329,7 @@ where
 
 // cuboid
 
-impl<Config, Clear> GizmoPrimitive3d<Cuboid> for Gizmos<'_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Cuboid> for Gizmos<'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -412,7 +412,7 @@ where
     resolution: u32,
 }
 
-impl<Config, Clear> Cylinder3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Cylinder3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -451,7 +451,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Cylinder3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Cylinder3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -498,7 +498,7 @@ where
     resolution: u32,
 }
 
-impl<Config, Clear> Capsule3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Capsule3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -537,7 +537,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Capsule3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Capsule3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -619,7 +619,7 @@ where
     height_resolution: u32,
 }
 
-impl<Config, Clear> Cone3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Cone3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -678,7 +678,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Cone3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Cone3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -740,7 +740,7 @@ where
     resolution: u32,
 }
 
-impl<Config, Clear> ConicalFrustum3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> ConicalFrustum3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -780,7 +780,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for ConicalFrustum3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for ConicalFrustum3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -838,7 +838,7 @@ where
     major_resolution: u32,
 }
 
-impl<Config, Clear> Torus3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Torus3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -884,7 +884,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Torus3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Torus3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -936,7 +936,7 @@ where
 
 // tetrahedron
 
-impl<T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'_, '_, T> {
+impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'w, 's, T> {
     type Output<'a>
         = ()
     where

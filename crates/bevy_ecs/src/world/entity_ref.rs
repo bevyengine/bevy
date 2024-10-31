@@ -1788,7 +1788,7 @@ impl<'w> EntityWorldMut<'w> {
             entity_mut: &'a mut EntityWorldMut<'w>,
         }
 
-        impl Drop for Guard<'_, '_> {
+        impl<'w> Drop for Guard<'w, '_> {
             #[inline]
             fn drop(&mut self) {
                 self.entity_mut.update_location();

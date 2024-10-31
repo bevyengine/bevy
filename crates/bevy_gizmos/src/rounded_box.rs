@@ -29,7 +29,7 @@ struct RoundedBoxConfig {
     arc_resolution: u32,
 }
 
-impl<T: GizmoConfigGroup> RoundedRectBuilder<'_, '_, '_, T> {
+impl<'w, 's, T: GizmoConfigGroup> RoundedRectBuilder<'_, 'w, 's, T> {
     /// Change the radius of the corners to be `corner_radius`.
     /// The default corner radius is [min axis of size] / 10.0
     pub fn corner_radius(mut self, corner_radius: f32) -> Self {
@@ -44,7 +44,7 @@ impl<T: GizmoConfigGroup> RoundedRectBuilder<'_, '_, '_, T> {
         self
     }
 }
-impl<T: GizmoConfigGroup> RoundedCuboidBuilder<'_, '_, '_, T> {
+impl<'w, 's, T: GizmoConfigGroup> RoundedCuboidBuilder<'_, 'w, 's, T> {
     /// Change the radius of the edges to be `edge_radius`.
     /// The default edge radius is [min axis of size] / 10.0
     pub fn edge_radius(mut self, edge_radius: f32) -> Self {
@@ -60,7 +60,7 @@ impl<T: GizmoConfigGroup> RoundedCuboidBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for RoundedRectBuilder<'_, '_, '_, T> {
+impl<'w, 's, T: GizmoConfigGroup> Drop for RoundedRectBuilder<'_, 'w, 's, T> {
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
@@ -140,7 +140,7 @@ impl<T: GizmoConfigGroup> Drop for RoundedRectBuilder<'_, '_, '_, T> {
     }
 }
 
-impl<T: GizmoConfigGroup> Drop for RoundedCuboidBuilder<'_, '_, '_, T> {
+impl<'w, 's, T: GizmoConfigGroup> Drop for RoundedCuboidBuilder<'_, 'w, 's, T> {
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;

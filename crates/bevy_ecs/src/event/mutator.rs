@@ -48,7 +48,6 @@ pub struct EventMutator<'w, 's, E: Event> {
     events: ResMut<'w, Events<E>>,
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
     /// Iterates over the events this [`EventMutator`] has not seen yet. This updates the
     /// [`EventMutator`]'s event counter, which means subsequent event reads will not include events

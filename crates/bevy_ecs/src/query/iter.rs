@@ -112,7 +112,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///     }
     /// }
     /// ```
-    pub fn remaining_mut(&mut self) -> QueryIter<'_, 's, D, F> {
+    pub fn remaining_mut(&mut self) -> QueryIter<'w, 's, D, F> {
         QueryIter {
             world: self.world,
             tables: self.tables,
@@ -1058,7 +1058,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> {
     type Item = D::Item<'w>;
 
@@ -1102,10 +1101,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
 }
 
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, D: QueryData, F: QueryFilter> FusedIterator for QueryIter<'w, 's, D, F> {}
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, D: QueryData, F: QueryFilter> Debug for QueryIter<'w, 's, D, F> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryIter").finish()
@@ -1193,7 +1190,6 @@ where
     }
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> Iterator
     for QuerySortedIter<'w, 's, D, F, I>
 where
@@ -1213,7 +1209,6 @@ where
     }
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> DoubleEndedIterator
     for QuerySortedIter<'w, 's, D, F, I>
 where
@@ -1227,7 +1222,6 @@ where
     }
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> ExactSizeIterator
     for QuerySortedIter<'w, 's, D, F, I>
 where
@@ -1236,7 +1230,6 @@ where
 }
 
 // This is correct as [`QuerySortedIter`] returns `None` once exhausted if `entity_iter` does.
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> FusedIterator
     for QuerySortedIter<'w, 's, D, F, I>
 where
@@ -1244,7 +1237,6 @@ where
 {
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>> Debug
     for QuerySortedIter<'w, 's, D, F, I>
 {
@@ -1377,8 +1369,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     }
 }
 
-impl<D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item: Borrow<Entity>>>
-    QueryManyIter<'_, '_, D, F, I>
+impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item: Borrow<Entity>>>
+    QueryManyIter<'w, 's, D, F, I>
 {
     /// Get next result from the back of the query
     #[inline(always)]
@@ -1403,8 +1395,8 @@ impl<D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item: Borrow<Entity>>>
     }
 }
 
-impl<'w, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> Iterator
-    for QueryManyIter<'w, '_, D, F, I>
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> Iterator
+    for QueryManyIter<'w, 's, D, F, I>
 {
     type Item = D::Item<'w>;
 
@@ -1432,8 +1424,13 @@ impl<'w, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>
     }
 }
 
-impl<D: ReadOnlyQueryData, F: QueryFilter, I: DoubleEndedIterator<Item: Borrow<Entity>>>
-    DoubleEndedIterator for QueryManyIter<'_, '_, D, F, I>
+impl<
+        'w,
+        's,
+        D: ReadOnlyQueryData,
+        F: QueryFilter,
+        I: DoubleEndedIterator<Item: Borrow<Entity>>,
+    > DoubleEndedIterator for QueryManyIter<'w, 's, D, F, I>
 {
     #[inline(always)]
     fn next_back(&mut self) -> Option<Self::Item> {
@@ -1455,13 +1452,13 @@ impl<D: ReadOnlyQueryData, F: QueryFilter, I: DoubleEndedIterator<Item: Borrow<E
 }
 
 // This is correct as [`QueryManyIter`] always returns `None` once exhausted.
-impl<D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> FusedIterator
-    for QueryManyIter<'_, '_, D, F, I>
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> FusedIterator
+    for QueryManyIter<'w, 's, D, F, I>
 {
 }
 
-impl<D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> Debug
-    for QueryManyIter<'_, '_, D, F, I>
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> Debug
+    for QueryManyIter<'w, 's, D, F, I>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryManyIter").finish()
@@ -1639,8 +1636,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
 // Iterator type is intentionally implemented only for read-only access.
 // Doing so for mutable references would be unsound, because calling `next`
 // multiple times would allow multiple owned references to the same data to exist.
-impl<'w, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> Iterator
-    for QueryCombinationIter<'w, '_, D, F, K>
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> Iterator
+    for QueryCombinationIter<'w, 's, D, F, K>
 {
     type Item = [D::Item<'w>; K];
 
@@ -1682,7 +1679,6 @@ impl<'w, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> Iterator
     }
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, D: QueryData, F: QueryFilter> ExactSizeIterator for QueryIter<'w, 's, D, F>
 where
     F: ArchetypeFilter,
@@ -1693,13 +1689,11 @@ where
 }
 
 // This is correct as [`QueryCombinationIter`] always returns `None` once exhausted.
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> FusedIterator
     for QueryCombinationIter<'w, 's, D, F, K>
 {
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> Debug
     for QueryCombinationIter<'w, 's, D, F, K>
 {
@@ -1722,7 +1716,6 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
     current_row: usize,
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'w, 's, D, F> {
     fn clone(&self) -> Self {
         Self {
@@ -1777,7 +1770,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         }
     }
 
-    fn reborrow(&mut self) -> QueryIterationCursor<'_, 's, D, F> {
+    fn reborrow(&mut self) -> QueryIterationCursor<'w, 's, D, F> {
         QueryIterationCursor {
             is_dense: self.is_dense,
             fetch: D::shrink_fetch(self.fetch.clone()),

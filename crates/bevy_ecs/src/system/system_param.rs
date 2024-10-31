@@ -283,7 +283,6 @@ pub unsafe trait ReadOnlySystemParam: SystemParam {}
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-#[expect(clippy::needless_lifetimes)]
 unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
     for Query<'w, 's, D, F>
 {
@@ -291,7 +290,6 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-#[expect(clippy::needless_lifetimes)]
 unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     for Query<'w, 's, D, F>
 {
@@ -550,8 +548,8 @@ unsafe impl<'world, 'state, D: QueryData + 'static, F: QueryFilter + 'static> Sy
 }
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
-    for Populated<'_, '_, D, F>
+unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
+    for Populated<'w, 's, D, F>
 {
 }
 
@@ -1818,7 +1816,7 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
 // SAFETY: When initialized with `init_state`, `get_param` returns an empty `Vec` and does no access.
 // Therefore, `init_state` trivially registers all access, and no accesses can conflict.
 // Note that the safety requirements for non-empty `Vec`s are handled by the `SystemParamBuilder` impl that builds them.
-unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
+unsafe impl<'w, 's, T: SystemParam> SystemParam for ParamSet<'w, 's, Vec<T>> {
     type State = Vec<T::State>;
 
     type Item<'world, 'state> = ParamSet<'world, 'state, Vec<T>>;
@@ -1866,10 +1864,10 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
     }
 }
 
-impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
+impl<'w, 's, T: SystemParam> ParamSet<'w, 's, Vec<T>> {
     /// Accesses the parameter at the given index.
     /// No other parameters may be accessed while this one is active.
-    pub fn get_mut(&mut self, index: usize) -> T::Item<'_, '_> {
+    pub fn get_mut<'a: 's>(&'a mut self, index: usize) -> T::Item<'w, 'a> {
         // SAFETY:
         // - We initialized the state for each parameter in the builder, so the caller ensures we have access to any world data needed by any param.
         //   We have mutable access to the ParamSet, so no other params in the set are active.
@@ -1885,7 +1883,7 @@ impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
     }
 
     /// Calls a closure for each parameter in the set.
-    pub fn for_each(&mut self, mut f: impl FnMut(T::Item<'_, '_>)) {
+    pub fn for_each<'a: 's>(&'a mut self, mut f: impl FnMut(T::Item<'w, 'a>)) {
         self.param_states.iter_mut().for_each(|state| {
             f(
                 // SAFETY:
@@ -2055,7 +2053,7 @@ impl<'w, 's, P: SystemParam> Deref for StaticSystemParam<'w, 's, P> {
     }
 }
 
-impl<P: SystemParam> DerefMut for StaticSystemParam<'_, '_, P> {
+impl<'w, 's, P: SystemParam> DerefMut for StaticSystemParam<'w, 's, P> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -2069,10 +2067,13 @@ impl<'w, 's, P: SystemParam> StaticSystemParam<'w, 's, P> {
 }
 
 // SAFETY: This doesn't add any more reads, and the delegated fetch confirms it
-unsafe impl<P: ReadOnlySystemParam + 'static> ReadOnlySystemParam for StaticSystemParam<'_, '_, P> {}
+unsafe impl<'w, 's, P: ReadOnlySystemParam + 'static> ReadOnlySystemParam
+    for StaticSystemParam<'w, 's, P>
+{
+}
 
 // SAFETY: all methods are just delegated to `P`'s `SystemParam` implementation
-unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, P> {
+unsafe impl<'w, 's, P: SystemParam + 'static> SystemParam for StaticSystemParam<'w, 's, P> {
     type State = P::State;
     type Item<'world, 'state> = StaticSystemParam<'world, 'state, P>;
 
@@ -2378,7 +2379,7 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
 }
 
 // SAFETY: `init_state` creates a state of (), which performs no access.  The interesting safety checks are on the `SystemParamBuilder`.
-unsafe impl SystemParam for DynSystemParam<'_, '_> {
+unsafe impl<'w, 's> SystemParam for DynSystemParam<'w, 's> {
     type State = DynSystemParamState;
 
     type Item<'world, 'state> = DynSystemParam<'world, 'state>;
@@ -2439,7 +2440,7 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
 // SAFETY: When initialized with `init_state`, `get_param` returns a `FilteredResources` with no access.
 // Therefore, `init_state` trivially registers all access, and no accesses can conflict.
 // Note that the safety requirements for non-empty access are handled by the `SystemParamBuilder` impl that builds them.
-unsafe impl SystemParam for FilteredResources<'_, '_> {
+unsafe impl<'w, 's> SystemParam for FilteredResources<'w, 's> {
     type State = Access<ComponentId>;
 
     type Item<'world, 'state> = FilteredResources<'world, 'state>;
@@ -2461,12 +2462,12 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
 }
 
 // SAFETY: FilteredResources only reads resources.
-unsafe impl ReadOnlySystemParam for FilteredResources<'_, '_> {}
+unsafe impl<'w, 's> ReadOnlySystemParam for FilteredResources<'w, 's> {}
 
 // SAFETY: When initialized with `init_state`, `get_param` returns a `FilteredResourcesMut` with no access.
 // Therefore, `init_state` trivially registers all access, and no accesses can conflict.
 // Note that the safety requirements for non-empty access are handled by the `SystemParamBuilder` impl that builds them.
-unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
+unsafe impl<'w, 's> SystemParam for FilteredResourcesMut<'w, 's> {
     type State = Access<ComponentId>;
 
     type Item<'world, 'state> = FilteredResourcesMut<'world, 'state>;

@@ -45,7 +45,6 @@ pub struct ThreadExecutor<'task> {
     thread_id: ThreadId,
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'task> Default for ThreadExecutor<'task> {
     fn default() -> Self {
         Self {

@@ -602,7 +602,6 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     env: PhantomData<&'env mut &'env ()>,
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     /// Spawns a scoped future onto the thread pool. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
@@ -656,7 +655,6 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     }
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'scope, 'env, T> Drop for Scope<'scope, 'env, T>
 where
     T: 'scope,

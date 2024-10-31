@@ -241,7 +241,7 @@ where
     resolution: u32,
 }
 
-impl<Config, Clear> EllipseBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> EllipseBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -253,7 +253,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for EllipseBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for EllipseBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -282,7 +282,7 @@ where
     resolution: u32,
 }
 
-impl<Config, Clear> Ellipse2dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Ellipse2dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -294,7 +294,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Ellipse2dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Ellipse2dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -330,7 +330,7 @@ where
     resolution: u32,
 }
 
-impl<Config, Clear> SphereBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> SphereBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -342,7 +342,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for SphereBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for SphereBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,

@@ -205,7 +205,6 @@ impl ParamBuilder {
 }
 
 // SAFETY: Calls `init_query_param`, just like `Query::init_state`.
-#[expect(clippy::needless_lifetimes)]
 unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
     SystemParamBuilder<Query<'w, 's, D, F>> for QueryState<D, F>
 {
@@ -279,7 +278,6 @@ impl<'a, D: QueryData, F: QueryFilter>
 }
 
 // SAFETY: Calls `init_query_param`, just like `Query::init_state`.
-#[expect(clippy::needless_lifetimes)]
 unsafe impl<
         'w,
         's,
@@ -442,8 +440,8 @@ all_tuples!(impl_param_set_builder_tuple, 1, 8, P, B, meta);
 
 // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
 // with any prior access, a panic will occur.
-unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<ParamSet<'_, '_, Vec<P>>>
-    for ParamSetBuilder<Vec<B>>
+unsafe impl<'w, 's, P: SystemParam, B: SystemParamBuilder<P>>
+    SystemParamBuilder<ParamSet<'w, 's, Vec<P>>> for ParamSetBuilder<Vec<B>>
 {
     fn build(
         self,

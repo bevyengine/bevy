@@ -601,7 +601,6 @@ impl<'w, T: Resource> From<Res<'w, T>> for Ref<'w, T> {
     }
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 'a, T: Resource> IntoIterator for &'a Res<'w, T>
 where
     &'a T: IntoIterator,
@@ -633,7 +632,6 @@ pub struct ResMut<'w, T: ?Sized + Resource> {
     pub(crate) changed_by: &'w mut &'static Location<'static>,
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 'a, T: Resource> IntoIterator for &'a ResMut<'w, T>
 where
     &'a T: IntoIterator,
@@ -646,7 +644,6 @@ where
     }
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 'a, T: Resource> IntoIterator for &'a mut ResMut<'w, T>
 where
     &'a mut T: IntoIterator,
@@ -797,7 +794,6 @@ impl<'w, T: ?Sized> Ref<'w, T> {
     }
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 'a, T> IntoIterator for &'a Ref<'w, T>
 where
     &'a T: IntoIterator,
@@ -928,7 +924,6 @@ impl<'w, T: ?Sized> From<Mut<'w, T>> for Ref<'w, T> {
     }
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 'a, T> IntoIterator for &'a Mut<'w, T>
 where
     &'a T: IntoIterator,
@@ -941,7 +936,6 @@ where
     }
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 'a, T> IntoIterator for &'a mut Mut<'w, T>
 where
     &'a mut T: IntoIterator,
@@ -1070,7 +1064,6 @@ impl<'w> MutUntyped<'w> {
     }
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w> DetectChanges for MutUntyped<'w> {
     #[inline]
     fn is_added(&self) -> bool {

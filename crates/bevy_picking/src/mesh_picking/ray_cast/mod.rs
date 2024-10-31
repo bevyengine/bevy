@@ -203,7 +203,7 @@ pub struct MeshRayCast<'w, 's> {
     >,
 }
 
-impl MeshRayCast<'_, '_> {
+impl<'w, 's> MeshRayCast<'w, 's> {
     /// Casts the `ray` into the world and returns a sorted list of intersections, nearest first.
     pub fn cast_ray(&mut self, ray: Ray3d, settings: &RayCastSettings) -> &[(Entity, RayMeshHit)] {
         let ray_cull = info_span!("ray culling");

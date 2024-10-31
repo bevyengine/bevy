@@ -2501,7 +2501,6 @@ pub struct DefaultUiCamera<'w, 's> {
     primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's> DefaultUiCamera<'w, 's> {
     pub fn get(&self) -> Option<Entity> {
         self.default_cameras.get_single().ok().or_else(|| {

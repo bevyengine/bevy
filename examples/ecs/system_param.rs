@@ -26,7 +26,6 @@ struct PlayerCounter<'w, 's> {
     count: ResMut<'w, PlayerCount>,
 }
 
-#[expect(clippy::needless_lifetimes)]
 impl<'w, 's> PlayerCounter<'w, 's> {
     fn count(&mut self) {
         self.count.0 = self.players.iter().len();
