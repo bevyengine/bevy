@@ -128,7 +128,7 @@ fn compute_sprite_slices(
 }
 
 /// System reacting to added or modified [`Image`] handles, and recompute sprite slices
-/// on matching sprite entities with a [`ImageScaleMode`] component
+/// on sprite entities with a matching  [`SpriteImageMode`]
 pub(crate) fn compute_slices_on_asset_event(
     mut commands: Commands,
     mut events: EventReader<AssetEvent<Image>>,
