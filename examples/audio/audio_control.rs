@@ -20,32 +20,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 #[derive(Component)]
 struct MyMusic;
 
-fn update_speed(music_controller: Query<&AudioSink, With<MyMusic>>, time: Res<Time>) {
-    if let Ok(sink) = music_controller.get_single() {
-        sink.set_speed((ops::sin(time.elapsed_secs() / 5.0) + 1.0).max(0.1));
-    }
+fn update_speed(sink: Single<&AudioSink, With<MyMusic>>, time: Res<Time>) {
+    sink.set_speed((ops::sin(time.elapsed_secs() / 5.0) + 1.0).max(0.1));
 }
 
 fn pause(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    music_controller: Query<&AudioSink, With<MyMusic>>,
+    sink: Single<&AudioSink, With<MyMusic>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        if let Ok(sink) = music_controller.get_single() {
-            sink.toggle();
-        }
+        sink.toggle();
     }
 }
 
 fn volume(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    music_controller: Query<&AudioSink, With<MyMusic>>,
+    sink: Single<&AudioSink, With<MyMusic>>,
 ) {
-    if let Ok(sink) = music_controller.get_single() {
-        if keyboard_input.just_pressed(KeyCode::Equal) {
-            sink.set_volume(sink.volume() + 0.1);
-        } else if keyboard_input.just_pressed(KeyCode::Minus) {
-            sink.set_volume(sink.volume() - 0.1);
-        }
+    if keyboard_input.just_pressed(KeyCode::Equal) {
+        sink.set_volume(sink.volume() + 0.1);
+    } else if keyboard_input.just_pressed(KeyCode::Minus) {
+        sink.set_volume(sink.volume() - 0.1);
     }
 }
