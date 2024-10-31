@@ -146,7 +146,8 @@ impl Plugin for ViewPlugin {
     }
 }
 
-/// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
+/// Component for configuring [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing)
+/// for a [`Camera`](crate::camera::Camera).
 ///
 /// The number of samples to run for Multi-Sample Anti-Aliasing for a given camera. Higher numbers
 /// result in smoother edges.
