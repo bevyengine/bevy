@@ -1213,8 +1213,9 @@ where
     }
 }
 
-impl<D: QueryData, F: QueryFilter, I: Iterator> DoubleEndedIterator
-    for QuerySortedIter<'_, '_, D, F, I>
+#[expect(clippy::needless_lifetimes)]
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> DoubleEndedIterator
+    for QuerySortedIter<'w, 's, D, F, I>
 where
     I: DoubleEndedIterator<Item = Entity>,
 {
