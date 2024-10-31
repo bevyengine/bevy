@@ -84,9 +84,9 @@ impl From<Handle<Image>> for Sprite {
 #[derive(Default, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Debug)]
 pub enum SpriteImageMode {
-    /// The image will be stretched or shrunk if given a custom size.
+    /// The sprite will take on the size of the image by default, and will be stretched or shrunk if [`Sprite::custom_size`] is set.
     #[default]
-    Stretch,
+    Auto,
     /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
     Sliced(TextureSlicer),
     /// The texture will be repeated if stretched beyond `stretched_value`

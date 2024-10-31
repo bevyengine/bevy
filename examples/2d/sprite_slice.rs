@@ -23,14 +23,14 @@ fn spawn_sprites(
             "Original",
             style.clone(),
             Vec2::splat(100.0),
-            SpriteImageMode::Stretch,
+            SpriteImageMode::Auto,
         ),
         // Scaled regular sprite
         (
             "Stretched",
             style.clone(),
             Vec2::new(100.0, 200.0),
-            SpriteImageMode::Stretch,
+            SpriteImageMode::Auto,
         ),
         // Stretched Scaled sliced sprite
         (
