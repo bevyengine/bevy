@@ -193,7 +193,7 @@ impl EntityCloneBuilder {
                 *id = component_id;
             });
         };
-        self.allowed_bundles.push(bundle_ids_getter)
+        self.allowed_bundles.push(bundle_ids_getter);
     }
 
     /// Disallow a component from being cloned.
@@ -225,7 +225,7 @@ impl EntityCloneBuilder {
                 *id = component_id;
             });
         };
-        self.ignored_bundles.push(bundle_ids_getter)
+        self.ignored_bundles.push(bundle_ids_getter);
     }
 
     /// Overrides the [`ComponentCloneHandler`] for the specific component for this builder.
