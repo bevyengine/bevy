@@ -1,5 +1,5 @@
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
+    experimental::{UiRootNodes, UiTree},
     BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
     ScrollPosition, TargetCamera, UiScale,
 };
@@ -122,7 +122,7 @@ pub fn ui_layout_system(
         Option<&TargetCamera>,
     )>,
     computed_node_query: Query<(Entity, Option<Ref<Parent>>), With<ComputedNode>>,
-    ui_children: UiChildren,
+    ui_tree: UiTree,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(
         &mut ComputedNode,
@@ -263,7 +263,7 @@ pub fn ui_layout_system(
                 // Note: This does not cover the case where a parent's Node component was removed.
                 // Users are responsible for fixing hierarchies if they do that (it is not recommended).
                 // Detecting it here would be a permanent perf burden on the hot path.
-                if parent.is_changed() && !ui_children.is_ui_node(parent.get()) {
+                if parent.is_changed() && !ui_tree.is_ui_entity(parent.get()) {
                     warn!(
                         "Node ({entity}) is in a non-UI entity hierarchy. You are using an entity \
 with UI components as a child of an entity without UI components, your UI layout may be broken."
@@ -271,8 +271,8 @@ with UI components as a child of an entity without UI components, your UI layout
                 }
             }
 
-            if ui_children.is_changed(entity) {
-                ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
+            if ui_tree.children_is_changed(entity) {
+                ui_surface.update_children(entity, ui_tree.iter_children(entity));
             }
         });
 
@@ -282,8 +282,8 @@ with UI components as a child of an entity without UI components, your UI layout
 
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
     computed_node_query.iter().for_each(|(entity, _)| {
-        if ui_children.is_changed(entity) {
-            ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
+        if ui_tree.children_is_changed(entity) {
+            ui_surface.update_children(entity, ui_tree.iter_children(entity));
         }
     });
 
@@ -299,7 +299,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 &mut ui_surface,
                 None,
                 &mut node_transform_query,
-                &ui_children,
+                &ui_tree,
                 inverse_target_scale_factor,
                 Vec2::ZERO,
                 Vec2::ZERO,
@@ -324,7 +324,7 @@ with UI components as a child of an entity without UI components, your UI layout
             Option<&Outline>,
             Option<&ScrollPosition>,
         )>,
-        ui_children: &UiChildren,
+        ui_tree: &UiTree,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
@@ -428,14 +428,14 @@ with UI components as a child of an entity without UI components, your UI layout
                     .insert(ScrollPosition::from(&clamped_scroll_position));
             }
 
-            for child_uinode in ui_children.iter_ui_children(entity) {
+            for child_uinode in ui_tree.iter_children(entity) {
                 update_uinode_geometry_recursive(
                     commands,
                     child_uinode,
                     ui_surface,
                     Some(viewport_size),
                     node_transform_query,
-                    ui_children,
+                    ui_tree,
                     inverse_target_scale_factor,
                     layout_size,
                     clamped_scroll_position,
