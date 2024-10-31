@@ -114,7 +114,7 @@ bitflags! {
 #[derive(Component, Clone)]
 pub struct PreprocessBindGroup(BindGroup);
 
-/// Stops the GpuPreprocessNode attempting to generate the buffer for this view
+/// Stops the `GpuPreprocessNode` attempting to generate the buffer for this view
 /// useful to avoid duplicating effort if the bind group is shared between views
 #[derive(Component)]
 pub struct SkipGpuPreprocess;
