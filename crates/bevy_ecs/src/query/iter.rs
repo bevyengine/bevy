@@ -1237,8 +1237,10 @@ where
 
 // This is correct as [`QuerySortedIter`] returns `None` once exhausted if `entity_iter` does.
 #[expect(clippy::needless_lifetimes)]
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> FusedIterator for QuerySortedIter<'w, 's, D, F, I> where
-    I: FusedIterator<Item = Entity>
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> FusedIterator
+    for QuerySortedIter<'w, 's, D, F, I>
+where
+    I: FusedIterator<Item = Entity>,
 {
 }
 
