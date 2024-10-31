@@ -59,7 +59,7 @@ pub(crate) struct EarPositions<'w, 's> {
     pub(crate) query: Query<'w, 's, (Entity, &'static GlobalTransform, &'static SpatialListener)>,
 }
 
-#[allow(clippy::needless_lifetimes)]
+#[expect(clippy::needless_lifetimes)]
 impl<'w, 's> EarPositions<'w, 's> {
     /// Gets a set of transformed ear positions.
     ///

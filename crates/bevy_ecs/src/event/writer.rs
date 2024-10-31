@@ -64,7 +64,7 @@ pub struct EventWriter<'w, E: Event> {
     events: ResMut<'w, Events<E>>,
 }
 
-#[allow(clippy::needless_lifetimes)]
+#[expect(clippy::needless_lifetimes)]
 impl<'w, E: Event> EventWriter<'w, E> {
     /// Sends an `event`, which can later be read by [`EventReader`](super::EventReader)s.
     /// This method returns the [ID](`EventId`) of the sent `event`.

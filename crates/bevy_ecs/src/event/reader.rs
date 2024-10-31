@@ -20,7 +20,7 @@ pub struct EventReader<'w, 's, E: Event> {
     events: Res<'w, Events<E>>,
 }
 
-#[allow(clippy::needless_lifetimes)]
+#[expect(clippy::needless_lifetimes)]
 impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// Iterates over the events this [`EventReader`] has not seen yet. This updates the
     /// [`EventReader`]'s event counter, which means subsequent event reads will not include events

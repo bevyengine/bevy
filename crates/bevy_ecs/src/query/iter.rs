@@ -1058,7 +1058,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 }
 
-impl<'w, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, '_, D, F> {
+#[expect(clippy::needless_lifetimes)]
+impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> {
     type Item = D::Item<'w>;
 
     #[inline(always)]
@@ -1101,9 +1102,11 @@ impl<'w, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, '_, D, F> {
 }
 
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
-impl<D: QueryData, F: QueryFilter> FusedIterator for QueryIter<'_, '_, D, F> {}
+#[expect(clippy::needless_lifetimes)]
+impl<'w, 's, D: QueryData, F: QueryFilter> FusedIterator for QueryIter<'w, 's, D, F> {}
 
-impl<D: QueryData, F: QueryFilter> Debug for QueryIter<'_, '_, D, F> {
+#[expect(clippy::needless_lifetimes)]
+impl<'w, 's, D: QueryData, F: QueryFilter> Debug for QueryIter<'w, 's, D, F> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryIter").finish()
     }
@@ -1671,7 +1674,8 @@ impl<'w, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> Iterator
     }
 }
 
-impl<D: QueryData, F: QueryFilter> ExactSizeIterator for QueryIter<'_, '_, D, F>
+#[expect(clippy::needless_lifetimes)]
+impl<'w, 's, D: QueryData, F: QueryFilter> ExactSizeIterator for QueryIter<'w, 's, D, F>
 where
     F: ArchetypeFilter,
 {
@@ -1681,12 +1685,14 @@ where
 }
 
 // This is correct as [`QueryCombinationIter`] always returns `None` once exhausted.
-impl<D: ReadOnlyQueryData, F: QueryFilter, const K: usize> FusedIterator
-    for QueryCombinationIter<'_, '_, D, F, K>
+#[expect(clippy::needless_lifetimes)]
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> FusedIterator
+    for QueryCombinationIter<'w, 's, D, F, K>
 {
 }
 
-impl<D: QueryData, F: QueryFilter, const K: usize> Debug for QueryCombinationIter<'_, '_, D, F, K> {
+#[expect(clippy::needless_lifetimes)]
+impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> Debug for QueryCombinationIter<'w, 's, D, F, K> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryCombinationIter").finish()
     }
@@ -1706,7 +1712,8 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
     current_row: usize,
 }
 
-impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> {
+#[expect(clippy::needless_lifetimes)]
+impl<'w, 's, D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'w, 's, D, F> {
     fn clone(&self) -> Self {
         Self {
             is_dense: self.is_dense,
