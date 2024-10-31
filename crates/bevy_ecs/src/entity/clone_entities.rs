@@ -101,9 +101,9 @@ impl<'a> EntityCloner<'a> {
 #[derive(Default)]
 pub struct EntityCloneBuilder {
     ignored_components: HashSet<TypeId>,
-    ignored_bundles: Vec<fn(&Components, &mut Option<ComponentId>)>,
+    ignored_bundles: Vec<fn(&Components, &mut HashSet<ComponentId>)>,
     allowed_components: HashSet<TypeId>,
-    allowed_bundles: Vec<fn(&Components, &mut Option<ComponentId>)>,
+    allowed_bundles: Vec<fn(&Components, &mut HashSet<ComponentId>, &HashSet<ComponentId>)>,
     clone_handlers_overrides: TypeIdMap<ComponentCloneHandler>,
 }
 
@@ -126,28 +126,29 @@ impl EntityCloneBuilder {
             };
         }
 
-        let ignored_components = ignored_components
+        let mut ignored_components = ignored_components
             .into_iter()
             .flat_map(|type_id| world.components().get_id(type_id))
-            .chain(ignored_bundles.into_iter().flat_map(|f| {
-                let mut id = None;
-                (f)(world.components(), &mut id);
-                id
-            }))
             .collect::<HashSet<_>>();
+        for getter in ignored_bundles {
+            (getter)(world.components(), &mut ignored_components);
+        }
 
         let allowed = !allowed_components.is_empty();
         let filter = if allowed {
-            allowed_components
+            let mut allowed_components = allowed_components
                 .into_iter()
                 .flat_map(|type_id| world.components().get_id(type_id))
-                .chain(allowed_bundles.into_iter().flat_map(|f| {
-                    let mut id = None;
-                    (f)(world.components(), &mut id);
-                    id
-                }))
-                .filter(|id| !ignored_components.contains(id))
-                .collect::<HashSet<_>>()
+                .filter(|component_id| !ignored_components.contains(component_id))
+                .collect::<HashSet<_>>();
+            for getter in allowed_bundles {
+                (getter)(
+                    world.components(),
+                    &mut allowed_components,
+                    &ignored_components,
+                );
+            }
+            allowed_components
         } else {
             ignored_components
         };
@@ -188,11 +189,18 @@ impl EntityCloneBuilder {
     /// Add a bundle of components to the list of components to clone.
     /// Calling this function automatically disallows all other components, only explicitly allowed ones will be cloned.
     pub fn allow_bundle<T: Bundle>(&mut self) {
-        let bundle_ids_getter = |components: &Components, id: &mut Option<ComponentId>| {
-            T::get_component_ids(components, &mut |component_id: Option<ComponentId>| {
-                *id = component_id;
-            });
-        };
+        let bundle_ids_getter =
+            |components: &Components,
+             ids: &mut HashSet<ComponentId>,
+             ignored_ids: &HashSet<ComponentId>| {
+                T::get_component_ids(components, &mut |component_id: Option<ComponentId>| {
+                    if let Some(id) = component_id {
+                        if !ignored_ids.contains(&id) {
+                            ids.insert(id);
+                        }
+                    };
+                });
+            };
         self.allowed_bundles.push(bundle_ids_getter);
     }
 
@@ -220,9 +228,11 @@ impl EntityCloneBuilder {
 
     /// Disallow a bundle of components from being cloned.
     pub fn deny_bundle<T: Bundle>(&mut self) {
-        let bundle_ids_getter = |components: &Components, id: &mut Option<ComponentId>| {
+        let bundle_ids_getter = |components: &Components, ids: &mut HashSet<ComponentId>| {
             T::get_component_ids(components, &mut |component_id: Option<ComponentId>| {
-                *id = component_id;
+                if let Some(id) = component_id {
+                    ids.insert(id);
+                };
             });
         };
         self.ignored_bundles.push(bundle_ids_getter);
@@ -433,11 +443,11 @@ mod tests {
 
         let mut builder = EntityCloneBuilder::default();
         builder.allow_bundle::<(A, B, C)>();
-        builder.deny_bundle::<B>();
+        builder.deny_bundle::<(B, C)>();
         builder.clone_entity(&mut world, e, e_clone);
 
         assert!(world.get::<A>(e_clone).is_some_and(|c| *c == component));
         assert!(world.get::<B>(e_clone).is_none());
-        assert!(world.get::<C>(e_clone).is_some());
+        assert!(world.get::<C>(e_clone).is_none());
     }
 }
