@@ -667,8 +667,7 @@ mod tests {
         let (scene_id, scene_entity) = app
             .world_mut()
             .run_system_once(
-                move |mut commands: Commands,
-                      mut scene_spawner: ResMut<'_, SceneSpawner>| {
+                move |mut commands: Commands, mut scene_spawner: ResMut<'_, SceneSpawner>| {
                     let entity = commands.spawn_empty().id();
                     let id = scene_spawner.spawn_as_child(scene.clone(), entity);
                     (id, entity)
@@ -691,8 +690,7 @@ mod tests {
         let (scene_id, scene_entity) = app
             .world_mut()
             .run_system_once(
-                move |mut commands: Commands,
-                      mut scene_spawner: ResMut<'_, SceneSpawner>| {
+                move |mut commands: Commands, mut scene_spawner: ResMut<'_, SceneSpawner>| {
                     let entity = commands.spawn_empty().id();
                     let id = scene_spawner.spawn_dynamic_as_child(scene.clone(), entity);
                     (id, entity)
