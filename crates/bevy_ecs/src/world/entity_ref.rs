@@ -3303,7 +3303,7 @@ unsafe impl<const N: usize> DynamicComponentFetch for [ComponentId; N] {
 // SAFETY:
 // - No aliased mutability is caused because the array is checked for duplicates.
 // - No mutable references are returned by `fetch_ref`.
-unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
+unsafe impl<const N: usize> DynamicComponentFetch for &[ComponentId; N] {
     type Ref<'w> = [Ptr<'w>; N];
     type Mut<'w> = [MutUntyped<'w>; N];
 
@@ -3357,7 +3357,7 @@ unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
 // SAFETY:
 // - No aliased mutability is caused because the slice is checked for duplicates.
 // - No mutable references are returned by `fetch_ref`.
-unsafe impl DynamicComponentFetch for &'_ [ComponentId] {
+unsafe impl DynamicComponentFetch for &[ComponentId] {
     type Ref<'w> = Vec<Ptr<'w>>;
     type Mut<'w> = Vec<MutUntyped<'w>>;
 
@@ -3403,7 +3403,7 @@ unsafe impl DynamicComponentFetch for &'_ [ComponentId] {
 // SAFETY:
 // - No aliased mutability is caused because `HashSet` guarantees unique elements.
 // - No mutable references are returned by `fetch_ref`.
-unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
+unsafe impl DynamicComponentFetch for &HashSet<ComponentId> {
     type Ref<'w> = HashMap<ComponentId, Ptr<'w>>;
     type Mut<'w> = HashMap<ComponentId, MutUntyped<'w>>;
 
