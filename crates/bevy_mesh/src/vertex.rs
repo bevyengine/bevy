@@ -152,12 +152,15 @@ pub(crate) struct MeshAttributeData {
 /// By computing _2 A_ we avoid a division operation, and when calculating the
 /// the sum of these vectors which are then normalized, a constant multiple has
 /// no effect.
-pub(crate) fn face_area_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
+#[inline]
+pub fn face_area_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
     (b - a).cross(c - a).into()
 }
 
-pub(crate) fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
+/// Compute the normal of a face made of three points: a, b, and c.
+#[inline]
+pub fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
     (b - a).cross(c - a).normalize().into()
 }
