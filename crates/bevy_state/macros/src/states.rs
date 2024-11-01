@@ -60,9 +60,7 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 
     quote! {
         impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {
-            fn scoped_entities_enabled() -> bool {
-                #scoped_entities_enabled
-            }
+            const SCOPED_ENTITIES_ENABLED: bool = #scoped_entities_enabled;
         }
 
         impl #impl_generics #state_mutation_trait_path for #struct_name #ty_generics #where_clause {
@@ -169,9 +167,7 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
         impl #impl_generics #state_trait_path for #struct_name #ty_generics #where_clause {
             const DEPENDENCY_DEPTH : usize = <Self as #trait_path>::SourceStates::SET_DEPENDENCY_DEPTH + 1;
 
-            fn scoped_entities_enabled() -> bool {
-                #scoped_entities_enabled
-            }
+            const SCOPED_ENTITIES_ENABLED: bool = #scoped_entities_enabled;
         }
 
         impl #impl_generics #state_mutation_trait_path for #struct_name #ty_generics #where_clause {

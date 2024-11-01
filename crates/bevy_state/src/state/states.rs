@@ -65,8 +65,7 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
     /// `ComputedState` dependencies.
     const DEPENDENCY_DEPTH: usize = 1;
 
-    /// Should scoped entities be enabled for this state?
-    fn scoped_entities_enabled() -> bool {
-        false
-    }
+    /// Should [`StateScoped`] be enabled for this state? If set to `true`, the [`StateScoped`]
+    /// component will be used to remove entities when changing state.
+    const SCOPED_ENTITIES_ENABLED: bool = false;
 }

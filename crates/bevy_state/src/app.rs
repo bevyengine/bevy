@@ -104,7 +104,7 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: Some(state),
             });
-            if S::scoped_entities_enabled() {
+            if S::SCOPED_ENTITIES_ENABLED {
                 self.enable_state_scoped_entities::<S>();
             }
         } else {
@@ -129,7 +129,7 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: Some(state),
             });
-            if S::scoped_entities_enabled() {
+            if S::SCOPED_ENTITIES_ENABLED {
                 self.enable_state_scoped_entities::<S>();
             }
         } else {
@@ -166,7 +166,7 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: state,
             });
-            if S::scoped_entities_enabled() {
+            if S::SCOPED_ENTITIES_ENABLED {
                 self.enable_state_scoped_entities::<S>();
             }
         } else {
@@ -197,7 +197,7 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: state,
             });
-            if S::scoped_entities_enabled() {
+            if S::SCOPED_ENTITIES_ENABLED {
                 self.enable_state_scoped_entities::<S>();
             }
         } else {
