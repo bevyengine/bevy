@@ -3627,7 +3627,7 @@ impl<'w> World {
 }
 
 // Schedule-related methods
-impl<'w> World {
+impl World {
     /// Adds the specified [`Schedule`] to the world. The schedule can later be run
     /// by calling [`.run_schedule(label)`](Self::run_schedule) or by directly
     /// accessing the [`Schedules`] resource.
