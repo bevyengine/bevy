@@ -352,7 +352,7 @@ pub fn queue_ui_slices(
             pipeline,
             entity: (*entity, extracted_slicer.main_entity),
             sort_key: (
-                FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::SLICE),
+                FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::TEXTURE_SLICE),
                 entity.index(),
             ),
             batch_range: 0..0,

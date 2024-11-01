@@ -83,9 +83,9 @@ pub mod graph {
 /// Note that nodes "stack" on each other, so a negative offset on the node above could clip _into_
 /// a positive offset on a node below.
 pub mod stack_z_offsets {
-    pub const SHADOW: f32 = -0.1;
-    pub const SLICE: f32 = 0.0;
-    pub const BACKGROUND_COLOR: f32 = 0.0;
+    pub const BOX_SHADOW: f32 = -0.1;
+    pub const TEXTURE_SLICE: f32 = 0.0;
+    pub const NODE: f32 = 0.0;
     pub const MATERIAL: f32 = 0.18267;
 }
 
@@ -865,7 +865,7 @@ pub fn queue_uinodes(
             pipeline,
             entity: (*entity, extracted_uinode.main_entity),
             sort_key: (
-                FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR),
+                FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::NODE),
                 entity.index(),
             ),
             // batch_range will be calculated in prepare_uinodes
