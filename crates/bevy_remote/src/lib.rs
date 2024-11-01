@@ -438,7 +438,7 @@ impl Plugin for RemotePlugin {
             .init_resource::<RemoteWatchingRequests>()
             .add_systems(PreStartup, setup_mailbox_channel)
             .add_systems(
-                Update,
+                Last,
                 (
                     process_remote_requests,
                     process_ongoing_watching_requests,
