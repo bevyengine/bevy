@@ -430,7 +430,7 @@ impl<A: Asset> Assets<A> {
     /// [`Handle`] and [`AssetId`]. Be careful with holding the Arc indefinitely: holding the
     /// [`Arc`] (or a [`Weak`]) prevents the asset from being mutated in place. This can incur
     /// clones when using `get_cloned_mut`, or can just entirely block mutation when using
-    /// `get_inplace_mut`.
+    /// `get_in_place_mut`.
     ///
     /// [`Weak`]: std::sync::Weak
     #[inline]
@@ -447,7 +447,7 @@ impl<A: Asset> Assets<A> {
     /// returns an error.
     ///
     /// [`Weak`]: std::sync::Weak
-    pub fn get_inplace_mut(
+    pub fn get_in_place_mut(
         &mut self,
         id: impl Into<AssetId<A>>,
     ) -> Result<&mut A, MutableAssetError> {
