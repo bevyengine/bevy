@@ -3431,7 +3431,7 @@ impl<'w> World {
     /// // probably use something like `ReflectFromPtr` in a real-world scenario.
     ///
     /// // Create the hash map that will store the mutator closures for each resource type
-    /// let mut mutators: HashMap<TypeId, Box<dyn Fn(&mut MutUntyped<'w>)>> = HashMap::new();
+    /// let mut mutators: HashMap<TypeId, Box<dyn Fn(&mut MutUntyped<'_>)>> = HashMap::new();
     ///
     /// // Add mutator closure for `A`
     /// mutators.insert(TypeId::of::<A>(), Box::new(|mut_untyped| {
