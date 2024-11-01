@@ -95,8 +95,7 @@ impl RelativeCursorPosition {
     /// A helper function to check if the mouse is over the node
     pub fn mouse_over(&self) -> bool {
         self.normalized
-            .map(|position| self.normalized_visible_node_rect.contains(position))
-            .unwrap_or(false)
+            .map_or(false, |position| self.normalized_visible_node_rect.contains(position))
     }
 }
 

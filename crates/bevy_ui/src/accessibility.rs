@@ -27,13 +27,13 @@ fn calc_name(
     for child in children {
         let values = text_reader
             .iter(child)
-            .map(|(_, _, text, _, _)| text.into())
+            .map(|(_, _, text, _, _)| text.to_string()) 
             .collect::<Vec<String>>();
         if !values.is_empty() {
-            name = Some(values.join(" "));
+            name = Some(values.join(" ").into_boxed_str()); 
         }
     }
-    name.map(String::into_boxed_str)
+    name
 }
 
 fn calc_bounds(
