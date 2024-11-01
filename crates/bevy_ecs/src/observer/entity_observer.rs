@@ -69,8 +69,8 @@ fn component_clone_observed_by(
     _component_id: ComponentId,
     entity_cloner: &EntityCloner,
 ) {
-    let target = entity_cloner.get_target();
-    let source = entity_cloner.get_source();
+    let target = entity_cloner.target();
+    let source = entity_cloner.source();
 
     let observed_by = world
         .get::<ObservedBy>(source)

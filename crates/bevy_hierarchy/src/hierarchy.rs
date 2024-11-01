@@ -239,7 +239,7 @@ fn component_clone_children(
     entity_cloner: &EntityCloner,
 ) {
     let children = world
-        .get::<Children>(entity_cloner.get_source())
+        .get::<Children>(entity_cloner.source())
         .expect("Source entity must have Children component")
         .iter()
         .cloned()
@@ -251,7 +251,7 @@ fn component_clone_children(
             .clone_entity(world);
         world
             .entity_mut(child_clone)
-            .set_parent(entity_cloner.get_target());
+            .set_parent(entity_cloner.target());
     }
 }
 
@@ -262,12 +262,10 @@ fn component_clone_parent(
     entity_cloner: &EntityCloner,
 ) {
     let parent = world
-        .get::<Parent>(entity_cloner.get_source())
+        .get::<Parent>(entity_cloner.source())
         .map(|p| p.0)
         .expect("Source entity must have Parent component");
-    world
-        .entity_mut(entity_cloner.get_target())
-        .set_parent(parent);
+    world.entity_mut(entity_cloner.target()).set_parent(parent);
 }
 
 #[cfg(test)]

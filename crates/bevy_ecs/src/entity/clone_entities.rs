@@ -15,7 +15,7 @@ use crate::{
 pub struct EntityCloner<'a> {
     source: Entity,
     target: Entity,
-    allowed: bool,
+    filter_allows_components: bool,
     filter: &'a HashSet<ComponentId>,
     clone_handlers_overrides: &'a ComponentCloneHandlers,
 }
@@ -28,12 +28,10 @@ impl<'a> EntityCloner<'a> {
             .expect("Source entity must exist")
             .archetype()
             .components()
+            .filter(|id| self.is_cloning_allowed(id))
             .collect::<Vec<_>>();
 
         for component in components {
-            if !self.is_cloning_allowed(&component) {
-                continue;
-            }
             let handler = if self
                 .clone_handlers_overrides
                 .is_handler_registered(component)
@@ -51,17 +49,17 @@ impl<'a> EntityCloner<'a> {
     }
 
     fn is_cloning_allowed(&self, component: &ComponentId) -> bool {
-        (self.allowed && self.filter.contains(component))
-            || (!self.allowed && !self.filter.contains(component))
+        (self.filter_allows_components && self.filter.contains(component))
+            || (!self.filter_allows_components && !self.filter.contains(component))
     }
 
     /// Returns the current source entity.
-    pub fn get_source(&self) -> Entity {
+    pub fn source(&self) -> Entity {
         self.source
     }
 
     /// Returns the current target entity.
-    pub fn get_target(&self) -> Entity {
+    pub fn target(&self) -> Entity {
         self.target
     }
 
@@ -156,7 +154,7 @@ impl EntityCloneBuilder {
         EntityCloner {
             source,
             target,
-            allowed,
+            filter_allows_components: allowed,
             filter: &filter,
             clone_handlers_overrides: &component_clone_handlers,
         }

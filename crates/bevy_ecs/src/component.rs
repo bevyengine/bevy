@@ -1938,13 +1938,11 @@ pub fn component_clone_via_clone<C: Clone + Component>(
     entity_cloner: &EntityCloner,
 ) {
     let component = world
-        .entity(entity_cloner.get_source())
+        .entity(entity_cloner.source())
         .get::<C>()
         .expect("Component must exists on source entity")
         .clone();
-    world
-        .entity_mut(entity_cloner.get_target())
-        .insert(component);
+    world.entity_mut(entity_cloner.target()).insert(component);
 }
 
 /// Component [clone handler function](ComponentCloneFn) implemented using reflect.
@@ -1976,13 +1974,13 @@ pub fn component_clone_via_reflect(
         let source_component = reflect_component
             .reflect(
                 world
-                    .get_entity(entity_cloner.get_source())
+                    .get_entity(entity_cloner.source())
                     .expect("Source entity must exist"),
             )
             .expect("Source entity must have reflected component")
             .clone_value();
         let mut target = world
-            .get_entity_mut(entity_cloner.get_target())
+            .get_entity_mut(entity_cloner.target())
             .expect("Target entity must exist");
         reflect_component.apply_or_insert(&mut target, &*source_component, &registry);
     });
