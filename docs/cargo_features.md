@@ -85,6 +85,7 @@ The default feature set enables most of the expected features of a game engine, 
 |pbr_multi_layer_material_textures|Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |pbr_transmission_textures|Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
+|pcx|PCX image format support|
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |qoi|QOI image format support|
 |reflect_functions|Enable function reflection|

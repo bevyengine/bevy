@@ -30,6 +30,8 @@ impl ImageLoader {
         ImageFormat::Jpeg,
         #[cfg(feature = "ktx2")]
         ImageFormat::Ktx2,
+        #[cfg(feature = "pcx")]
+        ImageFormat::Pcx,
         #[cfg(feature = "png")]
         ImageFormat::Png,
         #[cfg(feature = "pnm")]
