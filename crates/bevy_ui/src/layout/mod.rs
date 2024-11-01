@@ -19,7 +19,7 @@ use bevy_log::warn;
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_transform::components::Transform;
-use bevy_utils::{default, HashMap, HashSet};
+use bevy_utils::{default, HashSet, HashMap};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use std::fmt;
 use taffy::{tree::LayoutTree, Taffy};
@@ -134,6 +134,54 @@ without UI components as a child of an entity with UI components, results may be
         self.taffy
             .set_children(*taffy_node, &taffy_children)
             .unwrap();
+    }
+
+    /// Tries to place a fixed-node as the children of an associated root node
+    pub fn try_update_fixed_node(&mut self, entity: &Entity, fixed_node: &Entity) {
+
+        let children_node;
+        if let Some(children) = self.entity_to_taffy.get(fixed_node) {
+            children_node = *children;
+        } else {
+            warn!(
+                    "Unstyled child in a UI entity hierarchy. You are using an entity \
+without UI components as a child of an entity with UI components, results may be unexpected."
+            );
+            return;
+        }
+
+        let root_node;
+        if let Some(root) = self.entity_to_taffy.get(entity) {
+            root_node = *root;
+        } else {
+            warn!(
+                    "Unstyled parent in a UI entity hierarchy. You are using an entity \
+without UI components as an \"root node\" of a fixed UI node, results may be unexpected."
+            );
+            return;
+        }
+
+        // Remove relation with previos parent if it exists
+        if let Some(parent) = self.taffy.parent(children_node) {
+            if parent != root_node {
+                if let Err(_) = self.taffy.remove_child( parent, children_node) {
+                    warn!("Failed to remove parent Taffy node.");
+                }
+            }
+        }
+        
+        // Insert the fixed node as a child if not already the case
+        // this is used to dodge updates every frame
+        match self.taffy.children(root_node) {
+            Ok(children_nodes) => {
+                if !children_nodes.contains(&children_node) {
+                    self.taffy
+                        .add_child(root_node, children_node)
+                        .unwrap();
+                }
+            },
+            Err(_) => {return;}
+        }
     }
 
     /// Removes children from the entity's taffy node if it exists. Does nothing otherwise.
@@ -338,7 +386,7 @@ pub fn ui_layout_system(
         }
     }
 
-    let mut fixed_nodes: HashSet<Entity> = HashSet::new();
+    let mut fixed_nodes: HashMap<Entity, Entity> = HashMap::new();
 
     // Resize all nodes
     // Create our set of fixed nodes
@@ -359,8 +407,8 @@ pub fn ui_layout_system(
             }
         }
 
-        if style.position_type == PositionType::Fixed {
-            fixed_nodes.insert(entity);
+        if let PositionType::Fixed(associated_root) = style.position_type{
+            fixed_nodes.insert(entity, associated_root);
         }
     }
     scale_factor_events.clear();
@@ -393,6 +441,10 @@ pub fn ui_layout_system(
         }
     }
 
+    for (fixed_node, associated_root) in fixed_nodes.iter() {
+        ui_surface.try_update_fixed_node(associated_root, fixed_node);
+    }
+
     for (camera_id, camera) in &camera_layout_info {
         let inverse_target_scale_factor = camera.scale_factor.recip();
 
@@ -405,7 +457,6 @@ pub fn ui_layout_system(
                 &just_children_query,
                 inverse_target_scale_factor,
                 Vec2::ZERO,
-                None,
                 Vec2::ZERO,
                 &fixed_nodes,
             );
@@ -419,9 +470,8 @@ pub fn ui_layout_system(
         children_query: &Query<&Children>,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
-        parent_location: Option<Vec2>,
         mut absolute_location: Vec2,
-        fixed_nodes: &HashSet<Entity>,
+        fixed_nodes: &HashMap<Entity, Entity>,
     ) {
         if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
             let layout = ui_surface.get_layout(entity).unwrap();
@@ -431,12 +481,9 @@ pub fn ui_layout_system(
                 inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
 
             // A fixed node ignores it's parent's location
-            if fixed_nodes.contains(&entity) {
-                if let Some(parent_location) = parent_location {
-                    layout_location -= parent_location;
-                }
+            if fixed_nodes.contains_key(&entity) {
+                layout_location -= absolute_location;
             }
-
             absolute_location += layout_location;
 
             let rounded_size = round_layout_coords(absolute_location + layout_size)
@@ -462,7 +509,6 @@ pub fn ui_layout_system(
                         children_query,
                         inverse_target_scale_factor,
                         rounded_size,
-                        Some(rounded_location),
                         absolute_location,
                         fixed_nodes,
                     );

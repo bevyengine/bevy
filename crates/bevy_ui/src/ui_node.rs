@@ -928,8 +928,9 @@ pub enum PositionType {
     Relative,
     /// Independent of all other nodes, but relative to its parent node.
     Absolute,
-    /// Independent of all nodes, relative to the window.
-    Fixed,
+    /// Independent of all nodes, relative to the root node.
+    /// Must include the id of the root node.
+    Fixed(Entity),
 }
 
 impl PositionType {

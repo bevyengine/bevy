@@ -2288,6 +2288,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "dialog_box"
+path = "examples/ui/dialog_box.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.dialog_box]
+name = "Dialog box"
+description = "Demonstrates how UI elements can be layed-out independently of their ancestors."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "display_and_visibility"
 path = "examples/ui/display_and_visibility.rs"
 doc-scrape-examples = true

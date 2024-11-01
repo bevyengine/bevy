@@ -251,7 +251,7 @@ impl From<PositionType> for taffy::style::Position {
     fn from(value: PositionType) -> Self {
         match value {
             PositionType::Relative => taffy::style::Position::Relative,
-            PositionType::Absolute | PositionType::Fixed => taffy::style::Position::Absolute,
+            PositionType::Absolute | PositionType::Fixed(_) => taffy::style::Position::Absolute,
         }
     }
 }
