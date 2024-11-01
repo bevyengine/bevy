@@ -33,12 +33,12 @@ fn picking(sprite: Query<(&PickingInteraction, &Children)>, mut text: Query<&mut
         while let Some(mut text) = iter.fetch_next() {
             match interaction {
                 PickingInteraction::Pressed(pressed_buttons)
-                    if pressed_buttons.contains(PressedButtons::PRIMARY) =>
+                    if pressed_buttons.contains(PressedButtons::LEFT) =>
                 {
                     text.0 = "Left Clicked!".into();
                 }
                 PickingInteraction::Pressed(pressed_buttons)
-                    if pressed_buttons.contains(PressedButtons::SECONDARY) =>
+                    if pressed_buttons.contains(PressedButtons::RIGHT) =>
                 {
                     text.0 = "Right Clicked!".into();
                 }

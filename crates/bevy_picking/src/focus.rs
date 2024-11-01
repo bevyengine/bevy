@@ -231,16 +231,22 @@ bitflags::bitflags! {
     #[reflect(Hash, PartialEq, Debug)]
     /// Button pressed in a [`PickingInteraction`]
     pub struct PressedButtons: u8 {
-        /// Primary mouse button is pressed.
-        const PRIMARY = 1;
-        /// Secondary mouse button is pressed.
-        const SECONDARY = 2;
+        /// Left mouse button is pressed.
+        const LEFT = 1;
+        /// Right mouse button is pressed.
+        const RIGHT = 2;
         /// Middle mouse button is pressed.
         const MIDDLE = 4;
         /// Touch input is pressed.
         const TOUCH = 8;
         /// Custom input is pressed.
         const CUSTOM = 16;
+        /// X1 or back, reserved, currently does nothing.
+        const X1 = 32;
+        /// X2 or forward, reserved, currently does nothing.
+        const X2 = 64;
+        /// Left mouse button or touch input is pressed.
+        const LEFT_OR_TOUCH = 1|8;
     }
 }
 
@@ -248,10 +254,10 @@ impl From<PointerPress> for PressedButtons {
     fn from(value: PointerPress) -> Self {
         let mut result = PressedButtons::empty();
         if value.is_primary_pressed() {
-            result |= PressedButtons::PRIMARY;
+            result |= PressedButtons::LEFT;
         }
         if value.is_secondary_pressed() {
-            result |= PressedButtons::SECONDARY;
+            result |= PressedButtons::RIGHT;
         }
         if value.is_middle_pressed() {
             result |= PressedButtons::MIDDLE;
@@ -344,24 +350,24 @@ mod test {
     #[test]
     fn merge_interaction() {
         assert_eq!(
-            Pressed(PressedButtons::PRIMARY) | Pressed(PressedButtons::SECONDARY),
-            Pressed(PressedButtons::PRIMARY | PressedButtons::SECONDARY)
+            Pressed(PressedButtons::LEFT) | Pressed(PressedButtons::RIGHT),
+            Pressed(PressedButtons::LEFT | PressedButtons::RIGHT)
         );
         assert_eq!(
-            Pressed(PressedButtons::PRIMARY) | Hovered,
-            Pressed(PressedButtons::PRIMARY)
+            Pressed(PressedButtons::LEFT) | Hovered,
+            Pressed(PressedButtons::LEFT)
         );
         assert_eq!(
-            Hovered | Pressed(PressedButtons::PRIMARY),
-            Pressed(PressedButtons::PRIMARY)
+            Hovered | Pressed(PressedButtons::LEFT),
+            Pressed(PressedButtons::LEFT)
         );
         assert_eq!(
-            Pressed(PressedButtons::PRIMARY) | None,
-            Pressed(PressedButtons::PRIMARY)
+            Pressed(PressedButtons::LEFT) | None,
+            Pressed(PressedButtons::LEFT)
         );
         assert_eq!(
-            None | Pressed(PressedButtons::PRIMARY),
-            Pressed(PressedButtons::PRIMARY)
+            None | Pressed(PressedButtons::LEFT),
+            Pressed(PressedButtons::LEFT)
         );
         assert_eq!(Hovered | None, Hovered);
         assert_eq!(None | Hovered, Hovered);
