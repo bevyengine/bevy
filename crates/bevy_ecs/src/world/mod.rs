@@ -870,7 +870,10 @@ impl<'w> World {
     /// world.many_entities([id1, id2]);
     /// ```
     #[deprecated(since = "0.15.0", note = "Use `World::entity::<[Entity; N]>` instead")]
-    pub fn many_entities<const N: usize>(&'w mut self, entities: [Entity; N]) -> [EntityRef<'w>; N] {
+    pub fn many_entities<const N: usize>(
+        &'w mut self,
+        entities: [Entity; N],
+    ) -> [EntityRef<'w>; N] {
         self.entity(entities)
     }
 
@@ -1682,7 +1685,10 @@ impl<'w> World {
 
     /// Returns an iterator of entities that had components with the given `component_id` removed
     /// since the last call to [`World::clear_trackers`].
-    pub fn removed_with_id(&'w self, component_id: ComponentId) -> impl Iterator<Item = Entity> + 'w {
+    pub fn removed_with_id(
+        &'w self,
+        component_id: ComponentId,
+    ) -> impl Iterator<Item = Entity> + 'w {
         self.removed_components
             .get(component_id)
             .map(|removed| removed.iter_current_update_events().cloned())
@@ -3285,7 +3291,10 @@ impl<'w> World {
     /// **You should prefer to use the typed API [`World::get_resource_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
-    pub fn get_resource_mut_by_id(&'w mut self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
+    pub fn get_resource_mut_by_id(
+        &'w mut self,
+        component_id: ComponentId,
+    ) -> Option<MutUntyped<'w>> {
         // SAFETY:
         // - `&mut self` ensures that all accessed data is unaliased
         // - `as_unsafe_world_cell` provides mutable permission to the whole world
@@ -3462,7 +3471,9 @@ impl<'w> World {
     /// # assert_eq!(world.resource::<B>().0, 3);
     /// ```
     #[inline]
-    pub fn iter_resources_mut(&'w mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'w>)> {
+    pub fn iter_resources_mut(
+        &'w mut self,
+    ) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'w>)> {
         self.storages
             .resources
             .iter()
@@ -3533,7 +3544,10 @@ impl<'w> World {
     /// # Panics
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
-    pub fn get_non_send_mut_by_id(&'w mut self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
+    pub fn get_non_send_mut_by_id(
+        &'w mut self,
+        component_id: ComponentId,
+    ) -> Option<MutUntyped<'w>> {
         // SAFETY:
         // - `&mut self` ensures that all accessed data is unaliased
         // - `as_unsafe_world_cell` provides mutable permission to the whole world

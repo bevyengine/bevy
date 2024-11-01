@@ -803,7 +803,10 @@ fn get_entity<'w>(world: &'w World, entity: Entity) -> Result<EntityRef<'w>, Brp
 
 /// Mutably retrieves an entity from the [`World`], returning an error if the
 /// entity isn't present.
-fn get_entity_mut<'w>(world: &'w mut World, entity: Entity) -> Result<EntityWorldMut<'w>, BrpError> {
+fn get_entity_mut<'w>(
+    world: &'w mut World,
+    entity: Entity,
+) -> Result<EntityWorldMut<'w>, BrpError> {
     world
         .get_entity_mut(entity)
         .map_err(|_| BrpError::entity_not_found(entity))
