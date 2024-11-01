@@ -650,7 +650,7 @@ impl ScheduleGraph {
             .and_then(|system| system.inner.as_deref())
     }
 
-    /// Returns `true` if the given system set is part of the graph. Otherwise returns `false`.
+    /// Returns `true` if the given system set is part of the graph. Otherwise, returns `false`.
     pub fn contains_set(&self, set: impl SystemSet) -> bool {
         self.system_set_ids.contains_key(&set.intern())
     }
