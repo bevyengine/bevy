@@ -1683,7 +1683,7 @@ path = "examples/asset/arc_asset.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.arc_asset]
-name = "Arced Assets"
+name = "Arc'd Assets"
 description = "Demonstrates how to acquire Arc'd assets and use them in an async context"
 category = "Assets"
 wasm = false

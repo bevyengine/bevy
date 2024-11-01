@@ -329,8 +329,8 @@ impl<A: Asset> Assets<A> {
         self.insert_arc(id, asset);
     }
 
-    /// Inserts the given [`Arc`]-ed `asset`, identified by the given `id`. If an asset already
-    /// exists for `id`, it will be replaced.
+    /// Inserts the given [`Arc`]d `asset`, identified by the given `id`. If an asset already exists
+    /// for `id`, it will be replaced.
     pub fn insert_arc(&mut self, id: impl Into<AssetId<A>>, asset: impl Into<Arc<A>>) {
         let asset = asset.into();
         match id.into() {
@@ -384,7 +384,7 @@ impl<A: Asset> Assets<A> {
         self.add_arc(asset.into())
     }
 
-    /// Adds the given [`Arc`]-ed `asset` and allocates a new strong [`Handle`] for it.
+    /// Adds the given [`Arc`]d `asset` and allocates a new strong [`Handle`] for it.
     #[inline]
     pub fn add_arc(&mut self, asset: impl Into<Arc<A>>) -> Handle<A> {
         let index = self.dense_storage.allocator.reserve();
