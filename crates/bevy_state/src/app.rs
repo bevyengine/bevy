@@ -58,6 +58,9 @@ pub trait AppExtStates {
 
     /// Enable state-scoped entity clearing for state `S`.
     ///
+    /// If the [`States`] trait was derived with the `#[states(scoped_entities)]` attribute, it
+    /// will be called automatically.
+    ///
     /// For more information refer to [`StateScoped`](crate::state_scoped::StateScoped).
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
 
