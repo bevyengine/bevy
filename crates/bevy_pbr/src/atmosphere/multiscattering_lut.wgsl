@@ -2,7 +2,7 @@
     mesh_view_types::{Lights, DirectionalLight},
     atmosphere::{
         types::{Atmosphere, AtmosphereSettings},
-        bindings::{atmosphere, settings, multiscattering_lut_out},
+        bindings::{atmosphere, settings},
         functions::{multiscattering_lut_uv_to_r_mu, sample_transmittance_lut},
         bruneton_functions::{
             distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary,
@@ -12,15 +12,17 @@
 
 
 fn s2_sequence(n: u32) -> vec2<f32> {
-//    const phi_2 = vec2(1.3247179572447460259609088, 1.7548776662466927600495087);
-//    fract(0.5 + phi_2 * n);
-    return vec2(0.0, 0.0); //TODO
+    //const phi_2 = vec2(1.3247179572447460259609088, 1.7548776662466927600495087);
+    //return fract(0.5 + phi_2 * n);
+    return vec2(0.0);
 }
 
 //Lambert equal-area projection. 
 fn map_to_hemisphere(uv: vec2<f32>) -> vec2<f32> {
     return vec2(0.0, 0.0); //TODO
 }
+
+@group(0) @binding(12) var multiscattering_lut_out: texture_storage_2d<rgba16float, write>;
 
 @compute 
 @workgroup_size(16, 16, 1)

@@ -6,10 +6,14 @@
         functions::{
             sample_transmittance_lut, sample_atmosphere, rayleigh, henyey_greenstein,
             sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
+            get_local_r, get_local_up
         },
         bruneton_functions::{distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary,ray_intersects_ground}
     }
 }
+
+
+@group(0) @binding(13) var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;
 
 @compute
 @workgroup_size(16, 16, 1) //TODO: this approach makes it so closer slices get fewer samples. But we also expect those to have less scattering. So win/win?
@@ -18,38 +22,38 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     var optical_depth: vec3<f32> = vec3(0.0);
 
     let uv = (vec2<f32>(idx.xy) + 0.5) / vec2<f32>(settings.aerial_view_lut_size.xy);
-    let ndc_xy = uv_to_ndc(uv);
-    let view_dir = uv_to_ray_direction(uv);
+    let view_dir = uv_to_ray_direction(uv); //TODO: negate for lighting calcs?
+    let r = view.world_position.y / 1000.0 + atmosphere.bottom_radius;
+    let mu = view_dir.y;
 
-    var prev_depth = 0.0;
+    var prev_view_z = 0.0;
     var total_inscattering = vec3(0.0);
     for (var slice_i: i32 = i32(settings.aerial_view_lut_size.z - 1); slice_i >= 0; slice_i--) { //reversed loop to iterate depth near->far 
-        var mean_transmittance = 0.0;
+        var sum_transmittance = 0.0;
         for (var step_i: i32 = i32(settings.aerial_view_lut_samples - 1); step_i >= 0; step_i--) { //same here
             let ndc_z = (f32(slice_i) + ((f32(step_i) + 0.5) / f32(settings.aerial_view_lut_samples))) / f32(settings.aerial_view_lut_size.z);
-            let ndc_pos = vec3(ndc_xy, ndc_z);
-            let world_pos = position_ndc_to_world(ndc_pos);
-            let altitude = world_pos.y;
-
-            if (altitude > atmosphere.top_radius - atmosphere.bottom_radius) { break; }
-
-            let depth = depth_ndc_to_view_z(ndc_z); //TODO: incorrect bc edges of view will have longer step length
+            //view_dir.w is the cosine of the angle between the view vector and the camera forward vector, used to correct the step length.            
+            let view_z = depth_ndc_to_view_z(ndc_z) / view_dir.w / 1000.0;
 
             //subtraction is flipped because z values in front of the camera are negative
-            //see uv_to_ray_direction regarding view_dir.w
-            let step_length = (prev_depth - depth) / view_dir.w / 1000.0;
-            prev_depth = depth;
+            let step_length = (prev_view_z - view_z) ;
+            prev_view_z = view_z;
 
-            let local_atmosphere = sample_atmosphere(altitude);
+            let local_r = get_local_r(r, mu, view_z);
+            if local_r > atmosphere.top_radius { break; }
+            let local_up = get_local_up(r, view_z * view_dir.xyz);
+
+            let local_atmosphere = sample_atmosphere(local_r);
             optical_depth += local_atmosphere.extinction * step_length; //TODO: units between step_length and atmosphere
 
             let transmittance_to_sample = exp(-optical_depth);
 
-            var local_inscattering = sample_local_inscattering(local_atmosphere, transmittance_to_sample, view_dir.xyz, altitude);
+            var local_inscattering = sample_local_inscattering(local_atmosphere, transmittance_to_sample, view_dir.xyz, local_r, local_up);
             total_inscattering += local_inscattering * step_length;
-            mean_transmittance += transmittance_to_sample.r + transmittance_to_sample.g + transmittance_to_sample.b;
+            sum_transmittance += transmittance_to_sample.r + transmittance_to_sample.g + transmittance_to_sample.b;
         }
-        textureStore(aerial_view_lut_out, vec3(vec2<i32>(idx.xy), slice_i), vec4(total_inscattering, mean_transmittance / (f32(settings.aerial_view_lut_samples) * 3.0)));
+        let mean_transmittance = sum_transmittance / (f32(settings.aerial_view_lut_samples) * 3.0);
+        textureStore(aerial_view_lut_out, vec3(vec2<i32>(idx.xy), slice_i), vec4(total_inscattering, mean_transmittance));
     }
 }
 
@@ -81,8 +85,6 @@ fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
         1.0,
     );
 
-    // Transforming the view space ray direction by the skybox transform matrix, it is 
-    // equivalent to rotating the skybox itself.
     let view_ray_direction = view_position_homogeneous.xyz / view_position_homogeneous.w; //TODO: remove this step and just use position_ndc_to_world? we didn't need to transform in view space
 
     // Transforming the view space ray direction by the inverse view matrix, transforms the
@@ -91,7 +93,7 @@ fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
     // the translations from the view matrix.
     let ray_direction = (view.world_from_view * vec4(view_ray_direction, 0.0)).xyz;
 
-    return vec4(normalize(ray_direction), -view_ray_direction.z);
+    return vec4(normalize(ray_direction), -view_ray_direction.z); //TODO: correct sign?
 }
 
 

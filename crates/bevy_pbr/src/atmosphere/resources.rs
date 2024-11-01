@@ -14,7 +14,7 @@ use bevy_render::{
         binding_types::{
             sampler, texture_2d, texture_storage_2d, texture_storage_3d, uniform_buffer,
         },
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
+        AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedComputePipelineId, CachedRenderPipelineId, ColorTargetState, ColorWrites,
         ComputePipelineDescriptor, Extent3d, FilterMode, FragmentState, MultisampleState,
         PipelineCache, PrimitiveState, RenderPipelineDescriptor, Sampler, SamplerBindingType,
@@ -118,12 +118,12 @@ impl FromWorld for AtmosphereBindGroupLayouts {
 
         let render_sky = render_device.create_bind_group_layout(
             "render_sky_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
+            &BindGroupLayoutEntries::with_indices(
                 ShaderStages::FRAGMENT,
                 (
-                    uniform_buffer::<ViewUniform>(true),
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
+                    (2, uniform_buffer::<ViewUniform>(true)),
+                    (8, texture_2d(TextureSampleType::Float { filterable: true })),
+                    (9, sampler(SamplerBindingType::Filtering)),
                 ),
             ),
         );
@@ -171,6 +171,7 @@ impl FromWorld for AtmosphereSamplers {
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
             mipmap_filter: FilterMode::Linear,
+            address_mode_u: AddressMode::Repeat, //want to wrap along the equator
             ..Default::default()
         });
 
@@ -487,10 +488,10 @@ pub(super) fn prepare_atmosphere_bind_groups(
         let render_sky = render_device.create_bind_group(
             "render_sky_bind_group",
             &layouts.render_sky,
-            &BindGroupEntries::sequential((
-                view_binding.clone(),
-                &textures.sky_view_lut.default_view,
-                &samplers.sky_view_lut,
+            &BindGroupEntries::with_indices((
+                (2, view_binding.clone()),
+                (8, &textures.sky_view_lut.default_view),
+                (9, &samplers.sky_view_lut),
             )),
         );
 

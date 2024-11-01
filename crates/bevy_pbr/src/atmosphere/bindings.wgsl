@@ -19,6 +19,3 @@
 @group(0) @binding(9) var sky_view_lut_sampler: sampler;
 @group(0) @binding(10) var aerial_view_lut: texture_3d<f32>;
 @group(0) @binding(11) var aerial_view_lut_sampler: sampler;
-
-@group(0) @binding(12) var multiscattering_lut_out: texture_storage_2d<rgba16float, write>;
-@group(0) @binding(13) var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;
