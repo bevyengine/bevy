@@ -220,7 +220,6 @@ fn run_camera_controller(
             .clamp(-PI / 2., PI / 2.);
         controller.yaw -=
             accumulated_mouse_motion.delta.x * RADIANS_PER_DOT * controller.sensitivity;
-        transform.rotation =
-            Quat::from_euler(EulerRot::ZYX, 0.0, controller.yaw, controller.pitch);
+        transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, controller.yaw, controller.pitch);
     }
 }

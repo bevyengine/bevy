@@ -175,12 +175,8 @@ fn alter_mesh(
     left_shape: Single<&Mesh3d, With<Left>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    // It's convenient to retrieve the asset handle stored with the shape on the left. However,
-    // we could just as easily have retained this in a resource or a dedicated component.
-    let handle = *left_shape;
-
     // Obtain a mutable reference to the Mesh asset.
-    let Some(mesh) = meshes.get_mut(handle) else {
+    let Some(mesh) = meshes.get_mut(left_shape) else {
         return;
     };
 

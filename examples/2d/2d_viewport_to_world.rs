@@ -17,7 +17,6 @@ fn draw_cursor(
 ) {
     let (camera, camera_transform) = *camera_query;
 
-
     let Some(cursor_position) = window.cursor_position() else {
         return;
     };

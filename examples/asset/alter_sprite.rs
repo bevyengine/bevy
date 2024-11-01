@@ -123,12 +123,8 @@ fn alter_handle(
 }
 
 fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Single<&Sprite, With<Left>>) {
-    // It's convenient to retrieve the asset handle stored with the bird on the left. However,
-    // we could just as easily have retained this in a resource or a dedicated component.
-    let sprite = *left_bird;
-
     // Obtain a mutable reference to the Image asset.
-    let Some(image) = images.get_mut(&sprite.image) else {
+    let Some(image) = images.get_mut(&left_bird.image) else {
         return;
     };
 

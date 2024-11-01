@@ -134,8 +134,8 @@ fn environment_map_load_finish(
         .load_state(&environment_map.diffuse_map)
         .is_loaded()
         && asset_server
-        .load_state(&environment_map.specular_map)
-        .is_loaded()
+            .load_state(&environment_map.specular_map)
+            .is_loaded()
     {
         commands.entity(*label_entity).despawn();
     }

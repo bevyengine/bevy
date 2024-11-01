@@ -24,19 +24,13 @@ fn update_speed(sink: Single<&AudioSink, With<MyMusic>>, time: Res<Time>) {
     sink.set_speed((ops::sin(time.elapsed_secs() / 5.0) + 1.0).max(0.1));
 }
 
-fn pause(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    sink: Single<&AudioSink, With<MyMusic>>,
-) {
+fn pause(keyboard_input: Res<ButtonInput<KeyCode>>, sink: Single<&AudioSink, With<MyMusic>>) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         sink.toggle();
     }
 }
 
-fn volume(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    sink: Single<&AudioSink, With<MyMusic>>,
-) {
+fn volume(keyboard_input: Res<ButtonInput<KeyCode>>, sink: Single<&AudioSink, With<MyMusic>>) {
     if keyboard_input.just_pressed(KeyCode::Equal) {
         sink.set_volume(sink.volume() + 0.1);
     } else if keyboard_input.just_pressed(KeyCode::Minus) {
