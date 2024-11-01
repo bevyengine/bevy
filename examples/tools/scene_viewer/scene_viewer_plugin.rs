@@ -114,7 +114,7 @@ fn scene_load_check(
                             )
                         });
                 let scene = scenes
-                    .get_inplace_mut(gltf_scene_handle)
+                    .get_in_place_mut(gltf_scene_handle)
                     .expect("The asset is missing or is aliased.");
 
                 let mut query = scene
