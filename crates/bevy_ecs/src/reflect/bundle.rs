@@ -67,9 +67,9 @@ impl ReflectBundle {
     /// # Panics
     ///
     /// Panics if there is no [`Bundle`] of the given type.
-    pub fn apply<'a>(
+    pub fn apply<'w>(
         &self,
-        entity: impl Into<EntityMut<'a>>,
+        entity: impl Into<EntityMut<'w>>,
         bundle: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {

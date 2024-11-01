@@ -779,14 +779,14 @@ unsafe impl<'world> WorldQuery for FilteredEntityMut<'world> {
 }
 
 /// SAFETY: access of `FilteredEntityRef` is a subset of `FilteredEntityMut`
-unsafe impl<'a> QueryData for FilteredEntityMut<'a> {
-    type ReadOnly = FilteredEntityRef<'a>;
+unsafe impl<'w> QueryData for FilteredEntityMut<'w> {
+    type ReadOnly = FilteredEntityRef<'w>;
 }
 
 /// SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
-unsafe impl<B> WorldQuery for EntityRefExcept<'_, B>
+unsafe impl<'world, B> WorldQuery for EntityRefExcept<'world, B>
 where
     B: Bundle,
 {

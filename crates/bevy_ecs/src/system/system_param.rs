@@ -1386,8 +1386,8 @@ impl<T> Deref for NonSend<'_, T> {
         self.value
     }
 }
-impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
-    fn from(nsm: NonSendMut<'a, T>) -> Self {
+impl<'w, T> From<NonSendMut<'w, T>> for NonSend<'w, T> {
+    fn from(nsm: NonSendMut<'w, T>) -> Self {
         Self {
             value: nsm.value,
             ticks: ComponentTicks {

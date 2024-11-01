@@ -537,13 +537,12 @@ pub struct WorldChildBuilder<'w> {
     parent: Entity,
 }
 
-impl ChildBuild for WorldChildBuilder<'_> {
-    type SpawnOutput<'a>
-        = EntityWorldMut<'a>
-    where
-        Self: 'a;
+impl<'world> ChildBuild for WorldChildBuilder<'world> {
+    type SpawnOutput<'w> = EntityWorldMut<'w>
+        where
+            Self: 'w;
 
-    fn spawn(&mut self, bundle: impl Bundle) -> EntityWorldMut {
+    fn spawn(&mut self, bundle: impl Bundle) -> EntityWorldMut<'_> {
         let entity = self.world.spawn((bundle, Parent(self.parent))).id();
         add_child_unchecked(self.world, self.parent, entity);
         push_events(
@@ -556,7 +555,7 @@ impl ChildBuild for WorldChildBuilder<'_> {
         self.world.entity_mut(entity)
     }
 
-    fn spawn_empty(&mut self) -> EntityWorldMut {
+    fn spawn_empty(&mut self) -> EntityWorldMut<'_> {
         let entity = self.world.spawn(Parent(self.parent)).id();
         add_child_unchecked(self.world, self.parent, entity);
         push_events(

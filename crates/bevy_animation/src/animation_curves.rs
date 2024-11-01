@@ -316,10 +316,10 @@ where
         self.evaluator.push_blend_register(weight, graph_node)
     }
 
-    fn commit<'a>(
+    fn commit<'w>(
         &mut self,
-        _: Option<Mut<'a, Transform>>,
-        mut entity: AnimationEntityMut<'a>,
+        _: Option<Mut<'w, Transform>>,
+        mut entity: AnimationEntityMut<'w>,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = entity.get_mut::<P::Component>().ok_or_else(|| {
             AnimationEvaluationError::ComponentNotPresent(TypeId::of::<P::Component>())
@@ -415,10 +415,10 @@ impl AnimationCurveEvaluator for TranslationCurveEvaluator {
         self.evaluator.push_blend_register(weight, graph_node)
     }
 
-    fn commit<'a>(
+    fn commit<'w>(
         &mut self,
-        transform: Option<Mut<'a, Transform>>,
-        _: AnimationEntityMut<'a>,
+        transform: Option<Mut<'w, Transform>>,
+        _: AnimationEntityMut<'w>,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = transform.ok_or_else(|| {
             AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
@@ -512,10 +512,10 @@ impl AnimationCurveEvaluator for RotationCurveEvaluator {
         self.evaluator.push_blend_register(weight, graph_node)
     }
 
-    fn commit<'a>(
+    fn commit<'w>(
         &mut self,
-        transform: Option<Mut<'a, Transform>>,
-        _: AnimationEntityMut<'a>,
+        transform: Option<Mut<'w, Transform>>,
+        _: AnimationEntityMut<'w>,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = transform.ok_or_else(|| {
             AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
@@ -609,10 +609,10 @@ impl AnimationCurveEvaluator for ScaleCurveEvaluator {
         self.evaluator.push_blend_register(weight, graph_node)
     }
 
-    fn commit<'a>(
+    fn commit<'w>(
         &mut self,
-        transform: Option<Mut<'a, Transform>>,
-        _: AnimationEntityMut<'a>,
+        transform: Option<Mut<'w, Transform>>,
+        _: AnimationEntityMut<'w>,
     ) -> Result<(), AnimationEvaluationError> {
         let mut component = transform.ok_or_else(|| {
             AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
@@ -792,10 +792,10 @@ impl AnimationCurveEvaluator for WeightsCurveEvaluator {
         Ok(())
     }
 
-    fn commit<'a>(
+    fn commit<'w>(
         &mut self,
-        _: Option<Mut<'a, Transform>>,
-        mut entity: AnimationEntityMut<'a>,
+        _: Option<Mut<'w, Transform>>,
+        mut entity: AnimationEntityMut<'w>,
     ) -> Result<(), AnimationEvaluationError> {
         if self.stack_morph_target_weights.is_empty() {
             return Ok(());
@@ -1066,10 +1066,10 @@ pub trait AnimationCurveEvaluator: Reflect {
     ///
     /// The property on the component must be overwritten with the value from
     /// the stack, not blended with it.
-    fn commit<'a>(
+    fn commit<'w>(
         &mut self,
-        transform: Option<Mut<'a, Transform>>,
-        entity: AnimationEntityMut<'a>,
+        transform: Option<Mut<'w, Transform>>,
+        entity: AnimationEntityMut<'w>,
     ) -> Result<(), AnimationEvaluationError>;
 }
 
