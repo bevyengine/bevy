@@ -54,7 +54,7 @@ impl<'w> core::fmt::Debug for QueryEntityError<'w> {
 }
 
 fn format_archetype<'w>(
-    f: &mut core::fmt::Formatter,
+    f: &mut core::fmt::Formatter<'_>,
     world: UnsafeWorldCell<'w>,
     entity: Entity,
 ) -> core::fmt::Result {
