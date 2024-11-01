@@ -305,7 +305,7 @@ use bevy_app::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
-    schedule::IntoSystemConfigs,
+    schedule::{IntoSystemConfigs, SystemSet},
     system::{Commands, In, IntoSystem, ResMut, Resource, System, SystemId},
     world::World,
 };
@@ -444,10 +444,15 @@ impl Plugin for RemotePlugin {
                     process_ongoing_watching_requests,
                     remove_closed_watching_requests,
                 )
-                    .chain(),
+                    .chain()
+                    .in_set(RemoteSystem),
             );
     }
 }
+
+/// System set for labeling systems in the Bevy Remote Protocol
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct RemoteSystem;
 
 /// A type to hold the allowed types of systems to be used as method handlers.
 #[derive(Debug)]
