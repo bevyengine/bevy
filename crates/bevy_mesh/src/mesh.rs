@@ -793,10 +793,7 @@ impl Mesh {
         use VertexAttributeValues::*;
 
         // The indices of `other` should start after the last vertex of `self`.
-        let index_offset = self
-            .attribute(Mesh::ATTRIBUTE_POSITION)
-            .get_or_insert(&Float32x3(Vec::default()))
-            .len();
+        let index_offset = self.count_vertices();
 
         // Extend attributes of `self` with attributes of `other`.
         for (attribute, values) in self.attributes_mut() {
@@ -842,20 +839,7 @@ impl Mesh {
 
         // Extend indices of `self` with indices of `other`.
         if let (Some(indices), Some(other_indices)) = (self.indices_mut(), other.indices()) {
-            match (indices, other_indices) {
-                (Indices::U16(i1), Indices::U16(i2)) => {
-                    i1.extend(i2.iter().map(|i| *i + index_offset as u16));
-                }
-                (Indices::U32(i1), Indices::U32(i2)) => {
-                    i1.extend(i2.iter().map(|i| *i + index_offset as u32));
-                }
-                (Indices::U16(i1), Indices::U32(i2)) => {
-                    i1.extend(i2.iter().map(|i| *i as u16 + index_offset as u16));
-                }
-                (Indices::U32(i1), Indices::U16(i2)) => {
-                    i1.extend(i2.iter().map(|i| *i as u32 + index_offset as u32));
-                }
-            }
+            indices.extend(other_indices.iter().map(|i| (i + index_offset) as u32));
         }
     }
 
