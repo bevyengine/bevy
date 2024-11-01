@@ -206,28 +206,28 @@ impl<'w> DespawnRecursiveExt for EntityWorldMut<'w> {
 pub trait CloneEntityHierarchyExt {
     /// Sets the option to recursively clone entities.
     /// When set to true all children will be cloned with the same options as the parent.
-    fn recursive(&mut self, recursive: bool) -> &mut EntityCloneBuilder;
+    fn recursive(&mut self, recursive: bool) -> &mut Self;
     /// Sets the option to add cloned entity as a child to the parent entity.
-    fn as_child(&mut self, as_child: bool) -> &mut EntityCloneBuilder;
+    fn as_child(&mut self, as_child: bool) -> &mut Self;
 }
 
-impl CloneEntityHierarchyExt for EntityCloneBuilder {
-    fn recursive(&mut self, recursive: bool) -> &mut EntityCloneBuilder {
+impl CloneEntityHierarchyExt for EntityCloneBuilder<'_> {
+    fn recursive(&mut self, recursive: bool) -> &mut Self {
         if recursive {
             self.override_component_clone_handler::<Children>(ComponentCloneHandler::Custom(
                 component_clone_children,
             ))
         } else {
-            self.override_component_clone_handler::<Children>(ComponentCloneHandler::Default)
+            self.remove_component_clone_handler_override::<Children>()
         }
     }
-    fn as_child(&mut self, as_child: bool) -> &mut EntityCloneBuilder {
+    fn as_child(&mut self, as_child: bool) -> &mut Self {
         if as_child {
             self.override_component_clone_handler::<Parent>(ComponentCloneHandler::Custom(
                 component_clone_parent,
             ))
         } else {
-            self.override_component_clone_handler::<Parent>(ComponentCloneHandler::Default)
+            self.remove_component_clone_handler_override::<Parent>()
         }
     }
 }

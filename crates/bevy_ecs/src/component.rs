@@ -909,6 +909,11 @@ impl ComponentCloneHandlers {
         self.default_handler = handler;
     }
 
+    /// Returns the currently registered default handler.
+    pub fn get_default_handler(&self) -> ComponentCloneFn {
+        self.default_handler
+    }
+
     /// Sets a handler for a specific component.
     pub fn set_component_handler(
         &mut self,

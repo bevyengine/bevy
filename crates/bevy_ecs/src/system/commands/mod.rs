@@ -294,12 +294,14 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn clone_entity_with(
         &mut self,
         entity: Entity,
-        f: impl FnOnce(&mut EntityCloneBuilder),
+        f: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
     ) -> EntityCommands<'_> {
-        let mut builder = EntityCloneBuilder::default();
-        f(&mut builder);
         let cloned_entity = self.spawn_empty().id();
-        self.queue(move |world: &mut World| builder.clone_entity(world, entity, cloned_entity));
+        self.queue(move |world: &mut World| {
+            let mut builder = EntityCloneBuilder::new(world);
+            f(&mut builder);
+            builder.clone_entity(entity, cloned_entity);
+        });
         EntityCommands {
             commands: self.reborrow(),
             entity: cloned_entity,

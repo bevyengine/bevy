@@ -49,17 +49,17 @@ impl Component for ObservedBy {
 /// Trait that holds functions for configuring interaction with observers during entity cloning.
 pub trait CloneEntityWithObserversExt {
     /// Sets the option to automatically add cloned entities to the obsevers targeting source entity.
-    fn add_observers(&mut self, add_observers: bool) -> &mut EntityCloneBuilder;
+    fn add_observers(&mut self, add_observers: bool) -> &mut Self;
 }
 
-impl CloneEntityWithObserversExt for EntityCloneBuilder {
-    fn add_observers(&mut self, add_observers: bool) -> &mut EntityCloneBuilder {
+impl CloneEntityWithObserversExt for EntityCloneBuilder<'_> {
+    fn add_observers(&mut self, add_observers: bool) -> &mut Self {
         if add_observers {
             self.override_component_clone_handler::<ObservedBy>(ComponentCloneHandler::Custom(
                 component_clone_observed_by,
             ))
         } else {
-            self.override_component_clone_handler::<ObservedBy>(ComponentCloneHandler::Default)
+            self.remove_component_clone_handler_override::<ObservedBy>()
         }
     }
 }
@@ -139,9 +139,9 @@ mod tests {
         world.trigger_targets(E, e);
 
         let e_clone = world.spawn_empty().id();
-        let mut builder = EntityCloneBuilder::default();
+        let mut builder = EntityCloneBuilder::new(&mut world);
         builder.add_observers(true);
-        builder.clone_entity(&mut world, e, e_clone);
+        builder.clone_entity(e, e_clone);
 
         world.trigger_targets(E, [e, e_clone]);
 
