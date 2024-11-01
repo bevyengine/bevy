@@ -31,7 +31,7 @@ impl<'a> StructVisitor<'a> {
 impl<'de> Visitor<'de> for StructVisitor<'_> {
     type Value = DynamicStruct;
 
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str("reflected struct value")
     }
 

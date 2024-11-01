@@ -25,7 +25,7 @@ impl<'a> ListVisitor<'a> {
 impl<'de> Visitor<'de> for ListVisitor<'_> {
     type Value = DynamicList;
 
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str("reflected list value")
     }
 

@@ -53,9 +53,9 @@ impl<'w> core::fmt::Debug for QueryEntityError<'w> {
     }
 }
 
-fn format_archetype(
-    f: &mut core::fmt::Formatter<'_>,
-    world: UnsafeWorldCell<'_>,
+fn format_archetype<'w>(
+    f: &mut core::fmt::Formatter,
+    world: UnsafeWorldCell<'w>,
     entity: Entity,
 ) -> core::fmt::Result {
     // We know entity is still alive

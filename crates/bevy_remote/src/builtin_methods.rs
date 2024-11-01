@@ -795,7 +795,7 @@ pub fn process_remote_list_watching_request(
 
 /// Immutably retrieves an entity from the [`World`], returning an error if the
 /// entity isn't present.
-fn get_entity(world: &World, entity: Entity) -> Result<EntityRef<'_>, BrpError> {
+fn get_entity<'w>(world: &'w World, entity: Entity) -> Result<EntityRef<'w>, BrpError> {
     world
         .get_entity(entity)
         .map_err(|_| BrpError::entity_not_found(entity))
@@ -803,7 +803,7 @@ fn get_entity(world: &World, entity: Entity) -> Result<EntityRef<'_>, BrpError> 
 
 /// Mutably retrieves an entity from the [`World`], returning an error if the
 /// entity isn't present.
-fn get_entity_mut(world: &mut World, entity: Entity) -> Result<EntityWorldMut<'_>, BrpError> {
+fn get_entity_mut<'w>(world: &'w mut World, entity: Entity) -> Result<EntityWorldMut<'w>, BrpError> {
     world
         .get_entity_mut(entity)
         .map_err(|_| BrpError::entity_not_found(entity))

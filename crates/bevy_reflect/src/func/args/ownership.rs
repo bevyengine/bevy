@@ -79,7 +79,7 @@ macro_rules! impl_get_ownership {
         impl <
             $($($T $(: $T1 $(+ $T2)*)?),*)?
             $(, $(const $N : $size),*)?
-        > $crate::func::args::GetOwnership for &'_ $ty
+        > $crate::func::args::GetOwnership for &$ty
         $(
             where
                 $($U $(: $U1 $(+ $U2)*)?),*
@@ -93,7 +93,7 @@ macro_rules! impl_get_ownership {
         impl <
             $($($T $(: $T1 $(+ $T2)*)?),*)?
             $(, $(const $N : $size),*)?
-        > $crate::func::args::GetOwnership for &'_ mut $ty
+        > $crate::func::args::GetOwnership for &mut $ty
         $(
             where
                 $($U $(: $U1 $(+ $U2)*)?),*

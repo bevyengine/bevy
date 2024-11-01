@@ -30,7 +30,7 @@ impl PartialEq<Symbol> for &Path {
 }
 
 impl Display for Symbol {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(self.0)
     }
 }

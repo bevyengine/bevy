@@ -88,14 +88,14 @@ impl Name {
 
 impl core::fmt::Display for Name {
     #[inline(always)]
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         core::fmt::Display::fmt(&self.name, f)
     }
 }
 
 impl core::fmt::Debug for Name {
     #[inline(always)]
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         core::fmt::Debug::fmt(&self.name, f)
     }
 }
@@ -132,7 +132,7 @@ pub struct NameOrEntity {
 
 impl core::fmt::Display for NameOrEntityItem<'_> {
     #[inline(always)]
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self.name {
             Some(name) => core::fmt::Display::fmt(name, f),
             None => core::fmt::Display::fmt(&self.entity, f),

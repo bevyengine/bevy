@@ -22,7 +22,7 @@ impl<'a> SetVisitor<'a> {
 impl<'de> Visitor<'de> for SetVisitor<'_> {
     type Value = DynamicSet;
 
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str("reflected set value")
     }
 

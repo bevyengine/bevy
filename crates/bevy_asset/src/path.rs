@@ -588,7 +588,7 @@ struct AssetPathVisitor;
 impl Visitor<'_> for AssetPathVisitor {
     type Value = AssetPath<'static>;
 
-    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         formatter.write_str("string AssetPath")
     }
 

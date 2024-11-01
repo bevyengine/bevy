@@ -966,7 +966,7 @@ unsafe impl<T: Resource> SystemParam for Option<ResMut<'_, T>> {
 unsafe impl ReadOnlySystemParam for &World {}
 
 // SAFETY: `read_all` access is set and conflicts result in a panic
-unsafe impl SystemParam for &'_ World {
+unsafe impl SystemParam for &World {
     type State = ();
     type Item<'w, 's> = &'w World;
 

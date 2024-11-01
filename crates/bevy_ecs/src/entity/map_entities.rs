@@ -96,7 +96,7 @@ impl EntityMapper for &mut dyn EntityMapper {
     }
 }
 
-impl EntityMapper for SceneEntityMapper<'_> {
+impl<'m> EntityMapper for SceneEntityMapper<'m> {
     /// Returns the corresponding mapped entity or reserves a new dead entity ID in the current world if it is absent.
     fn map_entity(&mut self, entity: Entity) -> Entity {
         if let Some(&mapped) = self.map.get(&entity) {

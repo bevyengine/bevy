@@ -25,7 +25,7 @@ impl<'a> ArrayVisitor<'a> {
 impl<'de> Visitor<'de> for ArrayVisitor<'_> {
     type Value = DynamicArray;
 
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str("reflected array value")
     }
 

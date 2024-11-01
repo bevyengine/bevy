@@ -441,7 +441,7 @@ unsafe impl ReadOnlyQueryData for EntityLocation {}
 /// `fetch` accesses all components in a readonly way.
 /// This is sound because `update_component_access` and `update_archetype_component_access` set read access for all components and panic when appropriate.
 /// Filters are unchanged.
-unsafe impl WorldQuery for EntityRef<'_> {
+unsafe impl<'world> WorldQuery for EntityRef<'world> {
     type Item<'w> = EntityRef<'w>;
     type Fetch<'w> = UnsafeWorldCell<'w>;
     type State = ();
@@ -513,15 +513,15 @@ unsafe impl WorldQuery for EntityRef<'_> {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl QueryData for EntityRef<'_> {
+unsafe impl<'w> QueryData for EntityRef<'w> {
     type ReadOnly = Self;
 }
 
 /// SAFETY: access is read only
-unsafe impl ReadOnlyQueryData for EntityRef<'_> {}
+unsafe impl<'w> ReadOnlyQueryData for EntityRef<'w> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
-unsafe impl WorldQuery for EntityMut<'_> {
+unsafe impl<'world> WorldQuery for EntityMut<'world> {
     type Item<'w> = EntityMut<'w>;
     type Fetch<'w> = UnsafeWorldCell<'w>;
     type State = ();
@@ -593,12 +593,12 @@ unsafe impl WorldQuery for EntityMut<'_> {
 }
 
 /// SAFETY: access of `EntityRef` is a subset of `EntityMut`
-unsafe impl<'a> QueryData for EntityMut<'a> {
-    type ReadOnly = EntityRef<'a>;
+unsafe impl<'w> QueryData for EntityMut<'w> {
+    type ReadOnly = EntityRef<'w>;
 }
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
-unsafe impl WorldQuery for FilteredEntityRef<'_> {
+unsafe impl<'world> WorldQuery for FilteredEntityRef<'world> {
     type Fetch<'w> = (UnsafeWorldCell<'w>, Access<ComponentId>);
     type Item<'w> = FilteredEntityRef<'w>;
     type State = FilteredAccess<ComponentId>;
@@ -685,15 +685,15 @@ unsafe impl WorldQuery for FilteredEntityRef<'_> {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl QueryData for FilteredEntityRef<'_> {
+unsafe impl<'w> QueryData for FilteredEntityRef<'w> {
     type ReadOnly = Self;
 }
 
 /// SAFETY: Access is read-only.
-unsafe impl ReadOnlyQueryData for FilteredEntityRef<'_> {}
+unsafe impl<'world> ReadOnlyQueryData for FilteredEntityRef<'world> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
-unsafe impl WorldQuery for FilteredEntityMut<'_> {
+unsafe impl<'world> WorldQuery for FilteredEntityMut<'world> {
     type Fetch<'w> = (UnsafeWorldCell<'w>, Access<ComponentId>);
     type Item<'w> = FilteredEntityMut<'w>;
     type State = FilteredAccess<ComponentId>;

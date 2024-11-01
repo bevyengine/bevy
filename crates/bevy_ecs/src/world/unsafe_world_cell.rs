@@ -80,9 +80,9 @@ use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
 pub struct UnsafeWorldCell<'w>(*mut World, PhantomData<(&'w World, &'w UnsafeCell<World>)>);
 
 // SAFETY: `&World` and `&mut World` are both `Send`
-unsafe impl Send for UnsafeWorldCell<'_> {}
+unsafe impl<'w> Send for UnsafeWorldCell<'w> {}
 // SAFETY: `&World` and `&mut World` are both `Sync`
-unsafe impl Sync for UnsafeWorldCell<'_> {}
+unsafe impl<'w> Sync for UnsafeWorldCell<'w> {}
 
 impl<'w> From<&'w mut World> for UnsafeWorldCell<'w> {
     fn from(value: &'w mut World) -> Self {
@@ -631,8 +631,8 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 }
 
-impl Debug for UnsafeWorldCell<'_> {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+impl<'w> Debug for UnsafeWorldCell<'w> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // SAFETY: World's Debug implementation only accesses metadata.
         Debug::fmt(unsafe { self.world_metadata() }, f)
     }
@@ -1032,8 +1032,8 @@ impl<'w> UnsafeWorldCell<'w> {
 /// - the caller must ensure that no aliasing rules are violated
 #[inline]
 #[allow(unsafe_op_in_unsafe_fn)]
-unsafe fn get_component(
-    world: UnsafeWorldCell<'_>,
+unsafe fn get_component<'w>(
+    world: UnsafeWorldCell<'w>,
     component_id: ComponentId,
     storage_type: StorageType,
     entity: Entity,
@@ -1059,8 +1059,8 @@ unsafe fn get_component(
 /// - the caller must ensure that no aliasing rules are violated
 #[inline]
 #[allow(unsafe_op_in_unsafe_fn)]
-unsafe fn get_component_and_ticks(
-    world: UnsafeWorldCell<'_>,
+unsafe fn get_component_and_ticks<'w>(
+    world: UnsafeWorldCell<'w>,
     component_id: ComponentId,
     storage_type: StorageType,
     entity: Entity,
@@ -1103,8 +1103,8 @@ unsafe fn get_component_and_ticks(
 /// - the caller must ensure that no aliasing rules are violated
 #[inline]
 #[allow(unsafe_op_in_unsafe_fn)]
-unsafe fn get_ticks(
-    world: UnsafeWorldCell<'_>,
+unsafe fn get_ticks<'w>(
+    world: UnsafeWorldCell<'w>,
     component_id: ComponentId,
     storage_type: StorageType,
     entity: Entity,
