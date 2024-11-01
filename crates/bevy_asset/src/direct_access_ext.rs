@@ -11,7 +11,7 @@ pub trait DirectAssetAccessExt {
     /// Insert an asset similarly to [`Assets::add`].
     fn add_asset<A: Asset>(&mut self, asset: impl Into<A>) -> Handle<A>;
 
-    /// Insert an [`Arc`]ed asset similarly to [`Assets::add_arc`].
+    /// Insert an [`Arc`]d asset similarly to [`Assets::add_arc`].
     fn add_arc_asset<A: Asset>(&mut self, asset: impl Into<Arc<A>>) -> Handle<A>;
 
     /// Load an asset similarly to [`AssetServer::load`].
@@ -33,7 +33,7 @@ impl DirectAssetAccessExt for World {
         self.resource_mut::<Assets<A>>().add(asset)
     }
 
-    /// Insert an [`Arc`]ed asset similarly to [`Assets::add_arc`].
+    /// Insert an [`Arc`]d asset similarly to [`Assets::add_arc`].
     ///
     /// # Panics
     /// If `self` doesn't have an [`AssetServer`] resource initialized yet.
