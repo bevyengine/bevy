@@ -47,7 +47,7 @@ impl<'de> Deserialize<'de> for Ident {
     {
         struct IdentVisitor;
 
-        impl Visitor<'_> for IdentVisitor {
+        impl<'de> Visitor<'de> for IdentVisitor {
             type Value = Ident;
 
             fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {

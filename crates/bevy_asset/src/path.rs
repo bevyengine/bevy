@@ -585,7 +585,7 @@ impl<'de> Deserialize<'de> for AssetPath<'static> {
 
 struct AssetPathVisitor;
 
-impl Visitor<'_> for AssetPathVisitor {
+impl<'de> Visitor<'de> for AssetPathVisitor {
     type Value = AssetPath<'static>;
 
     fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
