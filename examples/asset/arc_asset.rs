@@ -1,4 +1,5 @@
-//! This example illustrates how to use assets in an async context (through locking).
+//! This example illustrates how to use assets in an async context (through cloning the underlying
+//! `Arc`).
 
 use std::sync::Arc;
 
