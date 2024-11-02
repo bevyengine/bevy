@@ -229,6 +229,7 @@ impl GlobalTransform {
     /// The transform is expected to be non-degenerate and without shearing, or the output will be invalid.
     #[inline]
     pub fn scale(&self) -> Vec3 {
+        //Formula based on glam's implementation https://docs.rs/glam/latest/src/glam/f32/affine3a.rs.html#285-309
         let det = self.0.matrix3.determinant();
         Vec3::new(
             self.0.matrix3.x_axis.length() * det.signum(),
