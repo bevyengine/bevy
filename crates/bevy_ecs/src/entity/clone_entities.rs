@@ -21,13 +21,17 @@ pub struct EntityCloner<'a> {
 impl<'a> EntityCloner<'a> {
     /// Clones and inserts components from the `source` entity into `target` entity using the stored configuration.
     pub fn clone_entity(&self, world: &mut World) {
-        let components = world
+        let source_entity = world
             .get_entity(self.source)
-            .expect("Source entity must exist")
-            .archetype()
-            .components()
-            .filter(|id| self.is_cloning_allowed(id))
-            .collect::<Vec<_>>();
+            .expect("Source entity must exist");
+        let archetype = source_entity.archetype();
+
+        let mut components = Vec::with_capacity(archetype.component_count());
+        components.extend(
+            archetype
+                .components()
+                .filter(|id| self.is_cloning_allowed(id)),
+        );
 
         for component in components {
             let global_handlers = world.components().get_component_clone_handlers();
