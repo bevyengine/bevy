@@ -213,8 +213,10 @@ impl GlobalTransform {
 
     /// Get the rotation as a [`Quat`].
     ///
+    /// The transform is expected to be non-degenerate and without shearing, or the output will be invalid.
+    /// 
     /// It is calculated using `to_scale_rotation_translation`, meaning that you
-    /// shoud probably use it instead if you also need translation or scale.
+    /// shoud probably use it directly if you also need translation or scale.
     #[inline]
     pub fn just_rotation(&self) -> Quat {
         self.to_scale_rotation_translation().1
