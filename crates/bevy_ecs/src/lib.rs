@@ -2214,7 +2214,7 @@ mod tests {
         let mut world = World::new();
 
         world.register_required_components::<X, Y>();
-        world.register_required_components_with::<Y, Z>(|| Z(7));
+        world.register_required_components_with::<Y, Z>(Some(|| Z(7)));
 
         let id = world.spawn(X).id();
 
@@ -2278,8 +2278,8 @@ mod tests {
         // - Y requires Z with custom constructor
         // - X requires Z with custom constructor (more specific than X -> Y -> Z)
         world.register_required_components::<X, Y>();
-        world.register_required_components_with::<Y, Z>(|| Z(5));
-        world.register_required_components_with::<X, Z>(|| Z(7));
+        world.register_required_components_with::<Y, Z>(Some(|| Z(5)));
+        world.register_required_components_with::<X, Z>(Some(|| Z(7)));
 
         let id = world.spawn(X).id();
 
@@ -2309,8 +2309,8 @@ mod tests {
         // - X requires Z with custom constructor (more specific than X -> Y -> Z)
         // - Y requires Z with custom constructor
         world.register_required_components::<X, Y>();
-        world.register_required_components_with::<X, Z>(|| Z(7));
-        world.register_required_components_with::<Y, Z>(|| Z(5));
+        world.register_required_components_with::<X, Z>(Some(|| Z(7)));
+        world.register_required_components_with::<Y, Z>(Some(|| Z(5)));
 
         let id = world.spawn(X).id();
 
@@ -2356,6 +2356,52 @@ mod tests {
             world.try_register_required_components::<X, Y>(),
             Err(RequiredComponentsError::DuplicateRegistration(_, _))
         ));
+    }
+
+    #[test]
+    fn runtime_explicitly_required_components_succeeds_on_spawn() {
+        #[derive(Component)]
+        #[require(Y(explicit))]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+        // No panic since we spawned both components.
+        world.spawn((X, Y));
+    }
+
+    #[test]
+    fn runtime_explicitly_required_components_succeeds_on_insert() {
+        #[derive(Component)]
+        #[require(Y(explicit))]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+        // No panic since we inserted both components.
+        world.spawn(()).insert((X, Y));
+        // No panic since we inserted Y, then X.
+        world.spawn(Y).insert(X);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Bundle is missing explicitly required components: bevy_ecs::tests::runtime_explicitly_required_components_panics_when_missing::Y"
+    )]
+    fn runtime_explicitly_required_components_panics_when_missing() {
+        #[derive(Component)]
+        #[require(Y(explicit))]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+        world.spawn(X);
     }
 
     #[test]

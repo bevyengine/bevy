@@ -253,14 +253,19 @@ use derive_more::derive::{Display, Error};
 /// #[derive(Component, PartialEq, Eq, Debug)]
 /// struct C(u32);
 ///
+/// #[derive(Component, PartialEq, Eq, Debug)]
+/// struct D(u32);
+///
 /// # let mut world = World::default();
 /// // Register B as required by A and C as required by B.
 /// world.register_required_components::<A, B>();
-/// world.register_required_components_with::<B, C>(|| C(2));
+/// world.register_required_components_with::<B, C>(Some(|| C(2)));
+/// // Register D as explicitly required by B.
+/// world.register_required_components_with::<B, D>(None);
 ///
-/// // This will implicitly also insert B with its Default constructor
-/// // and C with the custom constructor defined by B.
-/// let id = world.spawn(A).id();
+/// // This will implicitly also insert B with its Default constructor and C with the custom
+/// // constructor defined by B. D must also be inserted since B explicitly requires it.
+/// let id = world.spawn((A, D(5))).id();
 /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
 /// assert_eq!(&C(2), world.entity(id).get::<C>().unwrap());
 /// ```
@@ -1031,7 +1036,7 @@ impl Components {
         &mut self,
         required: ComponentId,
         requiree: ComponentId,
-        constructor: fn() -> R,
+        constructor: Option<fn() -> R>,
     ) -> Result<(), RequiredComponentsError> {
         // SAFETY: The caller ensures that the `requiree` is valid.
         let required_components = unsafe {
@@ -1178,7 +1183,7 @@ impl Components {
         &mut self,
         storages: &mut Storages,
         required_components: &mut RequiredComponents,
-        constructor: fn() -> R,
+        constructor: Option<fn() -> R>,
         inheritance_depth: u16,
     ) {
         let requiree = self.register_component::<T>(storages);
@@ -1216,7 +1221,7 @@ impl Components {
         requiree: ComponentId,
         required: ComponentId,
         required_components: &mut RequiredComponents,
-        constructor: fn() -> R,
+        constructor: Option<fn() -> R>,
         inheritance_depth: u16,
     ) {
         // Components cannot require themselves.
@@ -1687,7 +1692,7 @@ impl RequiredComponentConstructor {
 #[derive(Clone)]
 pub struct RequiredComponent {
     /// The constructor used for the required component.
-    pub constructor: RequiredComponentConstructor,
+    pub constructor: Option<RequiredComponentConstructor>,
 
     /// The depth of the component requirement in the requirement hierarchy for this component.
     /// This is used for determining which constructor is used in cases where there are duplicate requires.
@@ -1731,7 +1736,7 @@ impl RequiredComponents {
     pub unsafe fn register_dynamic(
         &mut self,
         component_id: ComponentId,
-        constructor: RequiredComponentConstructor,
+        constructor: Option<RequiredComponentConstructor>,
         inheritance_depth: u16,
     ) {
         self.0
@@ -1757,7 +1762,7 @@ impl RequiredComponents {
         &mut self,
         components: &mut Components,
         storages: &mut Storages,
-        constructor: fn() -> C,
+        constructor: Option<fn() -> C>,
         inheritance_depth: u16,
     ) {
         let component_id = components.register_component::<C>(storages);
@@ -1771,38 +1776,40 @@ impl RequiredComponents {
     pub fn register_by_id<C: Component>(
         &mut self,
         component_id: ComponentId,
-        constructor: fn() -> C,
+        constructor: Option<fn() -> C>,
         inheritance_depth: u16,
     ) {
-        let erased: RequiredComponentConstructor = RequiredComponentConstructor(Arc::new(
-            move |table,
-                  sparse_sets,
-                  change_tick,
-                  table_row,
-                  entity,
-                  #[cfg(feature = "track_change_detection")] caller| {
-                OwningPtr::make(constructor(), |ptr| {
-                    // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
-                    // pass in a valid table_row and entity requiring a C constructor
-                    // C::STORAGE_TYPE is the storage type associated with `component_id` / `C`
-                    // `ptr` points to valid `C` data, which matches the type associated with `component_id`
-                    unsafe {
-                        BundleInfo::initialize_required_component(
-                            table,
-                            sparse_sets,
-                            change_tick,
-                            table_row,
-                            entity,
-                            component_id,
-                            C::STORAGE_TYPE,
-                            ptr,
-                            #[cfg(feature = "track_change_detection")]
-                            caller,
-                        );
-                    }
-                });
-            },
-        ));
+        let erased = constructor.map(|constructor| {
+            RequiredComponentConstructor(Arc::new(
+                move |table,
+                      sparse_sets,
+                      change_tick,
+                      table_row,
+                      entity,
+                      #[cfg(feature = "track_change_detection")] caller| {
+                    OwningPtr::make(constructor(), |ptr| {
+                        // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
+                        // pass in a valid table_row and entity requiring a C constructor
+                        // C::STORAGE_TYPE is the storage type associated with `component_id` / `C`
+                        // `ptr` points to valid `C` data, which matches the type associated with `component_id`
+                        unsafe {
+                            BundleInfo::initialize_required_component(
+                                table,
+                                sparse_sets,
+                                change_tick,
+                                table_row,
+                                entity,
+                                component_id,
+                                C::STORAGE_TYPE,
+                                ptr,
+                                #[cfg(feature = "track_change_detection")]
+                                caller,
+                            );
+                        }
+                    });
+                },
+            ))
+        });
         // SAFETY:
         // `component_id` matches the type initialized by the `erased` constructor above.
         // `erased` initializes a component for `component_id` in such a way that

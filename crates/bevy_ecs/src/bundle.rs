@@ -356,7 +356,7 @@ pub struct BundleInfo {
     /// and the range (0..`explicit_components_len`) must be in the same order as the source bundle
     /// type writes its components in.
     component_ids: Vec<ComponentId>,
-    required_components: Vec<RequiredComponentConstructor>,
+    required_components: Vec<Option<RequiredComponentConstructor>>,
     explicit_components_len: usize,
 }
 
@@ -648,6 +648,35 @@ impl BundleInfo {
         if let Some(add_bundle_id) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
             return add_bundle_id;
         }
+
+        fn find_missing_explicit_required_components(
+            bundle_info: &BundleInfo,
+            archetype: &Archetype,
+        ) -> Vec<ComponentId> {
+            bundle_info.component_ids[bundle_info.explicit_components_len..]
+                .iter()
+                .copied()
+                .enumerate()
+                .filter(|&(i, _)| bundle_info.required_components[i].is_none())
+                .map(|(_, component)| component)
+                .filter(|&component| !archetype.contains(component))
+                .collect()
+        }
+
+        let missing_required_components =
+            find_missing_explicit_required_components(self, &archetypes[archetype_id]);
+        if !missing_required_components.is_empty() {
+            let names = missing_required_components
+                .into_iter()
+                .map(|id| {
+                    // SAFETY: the caller ensures component_id is valid.
+                    unsafe { components.get_info_unchecked(id).name() }
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            panic!("Bundle is missing explicitly required components: {names}");
+        }
+
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
         let mut bundle_status = Vec::with_capacity(self.explicit_components_len);
@@ -674,7 +703,12 @@ impl BundleInfo {
 
         for (index, component_id) in self.iter_required_components().enumerate() {
             if !current_archetype.contains(component_id) {
-                added_required_components.push(self.required_components[index].clone());
+                added_required_components.push(
+                    self.required_components[index]
+                        .as_ref()
+                        .expect("there are no explicitly required components missing from the archetype, but we are still trying to initialize this explicitly required component")
+                        .clone(),
+                );
                 added.push(component_id);
                 // SAFETY: component_id exists
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
@@ -1205,7 +1239,12 @@ impl<'w> BundleSpawner<'w> {
                 table,
                 sparse_sets,
                 &SpawnBundleStatus,
-                bundle_info.required_components.iter(),
+                bundle_info
+                    .required_components
+                    .iter()
+                    // We already checked whether the archetype contains the explicitly required
+                    // components, so filter them out.
+                    .filter_map(|constructor| constructor.as_ref()),
                 entity,
                 table_row,
                 self.change_tick,

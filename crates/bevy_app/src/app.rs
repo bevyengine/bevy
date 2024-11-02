@@ -849,18 +849,23 @@ impl App {
     /// #[derive(Component, Default, PartialEq, Eq, Debug)]
     /// struct C(u32);
     ///
+    /// #[derive(Component, Default, PartialEq, Eq, Debug)]
+    /// struct D(u32);
+    ///
     /// # let mut app = App::new();
     /// # app.add_plugins(MinimalPlugins).add_systems(Startup, setup);
     /// // Register B and C as required by A and C as required by B.
     /// // A requiring C directly will overwrite the indirect requirement through B.
     /// app.register_required_components::<A, B>();
-    /// app.register_required_components_with::<B, C>(|| C(1));
-    /// app.register_required_components_with::<A, C>(|| C(2));
+    /// app.register_required_components_with::<B, C>(Some(|| C(1)));
+    /// app.register_required_components_with::<A, C>(Some(|| C(2)));
+    /// // Register D as explicitly required by B.
+    /// app.register_required_components_with::<B, D>(None);
     ///
     /// fn setup(mut commands: Commands) {
-    ///     // This will implicitly also insert B with its Default constructor and C
-    ///     // with the custom constructor defined by A.
-    ///     commands.spawn(A);
+    ///     // This will implicitly also insert B with its Default constructor and C with the custom
+    ///     // constructor defined by A. D must also be inserted since B explicitly requires it.
+    ///     commands.spawn((A, D(5)));
     /// }
     ///
     /// fn validate(query: Option<Single<(&A, &B, &C)>>) {
@@ -872,7 +877,7 @@ impl App {
     /// ```
     pub fn register_required_components_with<T: Component, R: Component>(
         &mut self,
-        constructor: fn() -> R,
+        constructor: Option<fn() -> R>,
     ) -> &mut Self {
         self.world_mut()
             .register_required_components_with::<T, R>(constructor);
@@ -981,11 +986,11 @@ impl App {
     /// // Register B and C as required by A and C as required by B.
     /// // A requiring C directly will overwrite the indirect requirement through B.
     /// app.register_required_components::<A, B>();
-    /// app.register_required_components_with::<B, C>(|| C(1));
-    /// app.register_required_components_with::<A, C>(|| C(2));
+    /// app.register_required_components_with::<B, C>(Some(|| C(1)));
+    /// app.register_required_components_with::<A, C>(Some(|| C(2)));
     ///
     /// // Duplicate registration! Even if the constructors were different, this would fail.
-    /// assert!(app.try_register_required_components_with::<B, C>(|| C(1)).is_err());
+    /// assert!(app.try_register_required_components_with::<B, C>(Some(|| C(1))).is_err());
     ///
     /// fn setup(mut commands: Commands) {
     ///     // This will implicitly also insert B with its Default constructor and C
@@ -1002,7 +1007,7 @@ impl App {
     /// ```
     pub fn try_register_required_components_with<T: Component, R: Component>(
         &mut self,
-        constructor: fn() -> R,
+        constructor: Option<fn() -> R>,
     ) -> Result<(), RequiredComponentsError> {
         self.world_mut()
             .try_register_required_components_with::<T, R>(constructor)

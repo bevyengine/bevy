@@ -92,11 +92,16 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             });
             match &require.func {
                 Some(RequireFunc::Path(func)) => {
+                    let constructor = if func.is_ident("explicit") {
+                        quote! { None }
+                    } else {
+                        quote! {Some(|| { let x: #ident = #func().into(); x })}
+                    };
                     register_required.push(quote! {
                         components.register_required_components_manual::<Self, #ident>(
                             storages,
                             required_components,
-                            || { let x: #ident = #func().into(); x },
+                            #constructor,
                             inheritance_depth
                         );
                     });
@@ -106,7 +111,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                         components.register_required_components_manual::<Self, #ident>(
                             storages,
                             required_components,
-                            || { let x: #ident = (#func)().into(); x },
+                            Some(|| { let x: #ident = (#func)().into(); x }),
                             inheritance_depth
                         );
                     });
@@ -116,7 +121,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                         components.register_required_components_manual::<Self, #ident>(
                             storages,
                             required_components,
-                            <#ident as Default>::default,
+                            Some(<#ident as Default>::default),
                             inheritance_depth
                         );
                     });
