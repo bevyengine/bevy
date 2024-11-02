@@ -223,6 +223,8 @@ impl GlobalTransform {
     }
 
     /// Get the scale as a [`Vec3`].
+    ///
+    /// The transform is expected to be non-degenerate and without shearing, or the output will be invalid.
     #[inline]
     pub fn scale(&self) -> Vec3 {
         let det = self.0.matrix3.determinant();
