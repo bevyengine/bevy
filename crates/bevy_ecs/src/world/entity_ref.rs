@@ -730,6 +730,34 @@ impl<'w> EntityMut<'w> {
         unsafe { component_ids.fetch_mut(self.0) }
     }
 
+    /// Returns [untyped mutable reference(s)](MutUntyped) to component for
+    /// the current entity, based on the given [`ComponentId`].
+    ///
+    /// Unlike [`EntityMut::get_mut_by_id`], this method borrows &self instead of
+    /// mut &self, allowing the caller to access multiple components simultaneously.
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`EntityComponentError::MissingComponent`] if the entity does
+    ///   not have a component.
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - Exclusive access to all components of this entity,
+    /// - or simultaneous access to multiple components that are mutually
+    /// - independent.
+    #[inline]
+    pub unsafe fn get_mut_by_id_unchecked(
+        &self,
+        component_id: ComponentId,
+    ) -> Result<MutUntyped<'w>, EntityComponentError> {
+        // SAFETY:
+        // - The caller must ensure simultaneous access to multiple components
+        // - that are mutually independent.
+        unsafe { self.0.get_mut_by_id(component_id) }
+            .ok_or(EntityComponentError::MissingComponent(component_id))
+    }
+
     /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
     /// to component(s) with lifetime `'w` for the current entity, based on the
     /// given [`ComponentId`]s.
@@ -4426,6 +4454,26 @@ mod tests {
                 .entity_mut(e3)
                 .get_mut_by_id(&[x_id, x_id])
                 .map(|_| { unreachable!() })
+        );
+    }
+
+    #[test]
+    fn get_mut_by_id_unchecked() {
+        let mut world = World::default();
+        let e1 = world.spawn((X(7), Y(10))).id();
+        let x_id = world.register_component::<X>();
+        let y_id = world.register_component::<Y>();
+        let e1_mut = &world.get_entity_mut([e1]).unwrap()[0];
+        // SAFETY: The entity e1 contains component X.
+        let x_ptr = unsafe { e1_mut.get_mut_by_id_unchecked(x_id) }.unwrap();
+        // SAFETY: The entity e1 contains component Y, with components X and Y being mutually independent.
+        let y_ptr = unsafe { e1_mut.get_mut_by_id_unchecked(y_id) }.unwrap();
+        assert_eq!(
+            (&mut X(7), &mut Y(10)),
+            // SAFETY: components match the id they were fetched with
+            (unsafe { x_ptr.into_inner().deref_mut::<X>() }, unsafe {
+                y_ptr.into_inner().deref_mut::<Y>()
+            })
         );
     }
 }
