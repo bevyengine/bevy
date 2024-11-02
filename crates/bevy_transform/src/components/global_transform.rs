@@ -218,7 +218,7 @@ impl GlobalTransform {
     /// It is calculated using `to_scale_rotation_translation`, meaning that you
     /// should probably use it directly if you also need translation or scale.
     #[inline]
-    pub fn just_rotation(&self) -> Quat {
+    pub fn rotation(&self) -> Quat {
         self.to_scale_rotation_translation().1
     }
 
