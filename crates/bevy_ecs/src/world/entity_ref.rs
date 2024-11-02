@@ -4463,17 +4463,20 @@ mod tests {
         let e1 = world.spawn((X(7), Y(10))).id();
         let x_id = world.register_component::<X>();
         let y_id = world.register_component::<Y>();
+
         let e1_mut = &world.get_entity_mut([e1]).unwrap()[0];
         // SAFETY: The entity e1 contains component X.
         let x_ptr = unsafe { e1_mut.get_mut_by_id_unchecked(x_id) }.unwrap();
         // SAFETY: The entity e1 contains component Y, with components X and Y being mutually independent.
         let y_ptr = unsafe { e1_mut.get_mut_by_id_unchecked(y_id) }.unwrap();
-        assert_eq!(
-            (&mut X(7), &mut Y(10)),
-            // SAFETY: components match the id they were fetched with
-            (unsafe { x_ptr.into_inner().deref_mut::<X>() }, unsafe {
-                y_ptr.into_inner().deref_mut::<Y>()
-            })
-        );
+
+        // SAFETY: components match the id they were fetched with
+        let x_component = unsafe { x_ptr.into_inner().deref_mut::<X>() };
+        x_component.0 += 1;
+        // SAFETY: components match the id they were fetched with
+        let y_component = unsafe { y_ptr.into_inner().deref_mut::<Y>() };
+        y_component.0 -= 1;
+
+        assert_eq!((&mut X(8), &mut Y(9)), (x_component, y_component));
     }
 }
