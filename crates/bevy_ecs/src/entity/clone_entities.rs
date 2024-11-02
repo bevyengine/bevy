@@ -85,10 +85,44 @@ impl<'a> EntityCloner<'a> {
 /// let entity = world.spawn(component.clone()).id();
 /// let entity_clone = world.spawn_empty().id();
 ///
-/// EntityCloneBuilder::default().clone_entity(&mut world, entity, entity_clone);
+/// EntityCloneBuilder::new(&mut world).clone_entity(entity, entity_clone);
 ///
 /// assert!(world.get::<A>(entity_clone).is_some_and(|c| *c == component));
 ///```
+///
+/// # Default cloning strategy
+/// By default, all types that derive [`Component`] and implement either [`Clone`] or `Reflect` (with `ReflectComponent`) will be cloned
+/// (with `Clone`-based implementation preferred in case component implements both).
+///
+/// It should be noted that if `Component` is implemented manually or if `Clone` implementation is conditional
+/// (like when deriving `Clone` for a type with a generic parameter without `Clone` bound),
+/// the component will be cloned using the [default cloning strategy](crate::component::ComponentCloneHandlers::get_default_handler).
+/// To use `Clone`-based handler ([`component_clone_via_clone`](crate::component::component_clone_via_clone)) in this case it should be set manually using one
+/// of the methods mentioned in the [Handlers](#handlers) section
+///
+/// Here's an example of how to do it using [`get_component_clone_handler`](Component::get_component_clone_handler):
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::component::{StorageType, component_clone_via_clone, ComponentCloneHandler};
+/// #[derive(Clone)]
+/// struct SomeComponent;
+///
+/// impl Component for SomeComponent {
+///     const STORAGE_TYPE: StorageType = StorageType::Table;
+///     fn get_component_clone_handler() -> ComponentCloneHandler {
+///         ComponentCloneHandler::Custom(component_clone_via_clone::<Self>)
+///     }
+/// }
+/// ```
+///
+/// # Handlers
+/// `EntityCloneBuilder` clones entities by cloning components using [`handlers`](ComponentCloneHandler), and there are multiple layers
+/// to decide which handler to use for which component. The overall hierarchy looks like this (priority from most to least):
+/// 1. local overrides using [`override_component_clone_handler`](Self::override_component_clone_handler)
+/// 2. global overrides using [`set_component_handler`](crate::component::ComponentCloneHandlers::set_component_handler)
+/// 3. component-defined handler using [`get_component_clone_handler`](Component::get_component_clone_handler)
+/// 4. default handler override using [`set_default_handler`](crate::component::ComponentCloneHandlers::set_default_handler)
+/// 5. reflect-based or noop default clone handler depending on if `bevy_reflect` feature is enabled or not.
 #[derive(Debug)]
 pub struct EntityCloneBuilder<'w> {
     world: &'w mut World,
@@ -242,7 +276,9 @@ impl<'w> EntityCloneBuilder<'w> {
     }
 
     /// Overrides the [`ComponentCloneHandler`] for a component in this builder.
-    /// This handler will be used to clone the component instead of the global one defined by [`ComponentCloneHandlers`]
+    /// This handler will be used to clone the component instead of the global one defined by [`ComponentCloneHandlers`](crate::component::ComponentCloneHandlers)
+    ///
+    /// See [Handlers section of `EntityCloneBuilder`](EntityCloneBuilder#handlers) to understand how this affects handler priority.
     pub fn override_component_clone_handler<T: Component>(
         &mut self,
         handler: ComponentCloneHandler,
