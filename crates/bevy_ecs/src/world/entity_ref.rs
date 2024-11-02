@@ -744,16 +744,16 @@ impl<'w> EntityMut<'w> {
     /// # Safety
     /// It is the callers responsibility to ensure that
     /// - Exclusive access to all components of this entity,
-    ///   or simultaneous access to multiple components that are mutually
-    ///   independent.
+    /// - or simultaneous access to multiple components that are mutually
+    /// - independent.
     #[inline]
     pub unsafe fn get_mut_by_id_unchecked(
         &self,
         component_id: ComponentId,
     ) -> Result<MutUntyped<'w>, EntityComponentError> {
         // SAFETY:
-        // - The caller must ensure simultaneous access to multiple components
-        //   that are mutually independent.
+        // - The caller must ensure simultaneous access is limited
+        // - to components that are mutually independent.
         unsafe { self.0.get_mut_by_id(component_id) }
             .ok_or(EntityComponentError::MissingComponent(component_id))
     }
