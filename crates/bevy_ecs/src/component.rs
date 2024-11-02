@@ -900,7 +900,7 @@ pub enum ComponentCloneHandler {
 /// A registry of component clone handlers. Allows to set global default and per-component clone function for all components in the world.
 #[derive(Debug)]
 pub struct ComponentCloneHandlers {
-    handlers: HashMap<ComponentId, ComponentCloneFn>,
+    handlers: Vec<Option<ComponentCloneFn>>,
     default_handler: ComponentCloneFn,
 }
 
@@ -921,33 +921,34 @@ impl ComponentCloneHandlers {
     /// Sets a handler for a specific component.
     ///
     /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
-    pub fn set_component_handler(
-        &mut self,
-        component_id: ComponentId,
-        handler: ComponentCloneHandler,
-    ) {
+    pub fn set_component_handler(&mut self, id: ComponentId, handler: ComponentCloneHandler) {
+        if id.0 >= self.handlers.len() {
+            self.handlers.resize(id.0 + 1, None);
+        }
         match handler {
-            ComponentCloneHandler::Default => self.handlers.remove(&component_id),
-            ComponentCloneHandler::Ignore => {
-                self.handlers.insert(component_id, component_clone_ignore)
-            }
-            ComponentCloneHandler::Custom(handler) => self.handlers.insert(component_id, handler),
+            ComponentCloneHandler::Default => self.handlers[id.0] = None,
+            ComponentCloneHandler::Ignore => self.handlers[id.0] = Some(component_clone_ignore),
+            ComponentCloneHandler::Custom(handler) => self.handlers[id.0] = Some(handler),
         };
     }
 
     /// Checks if the specified component is registered. If not, the component will use the default global handler.
-    pub fn is_handler_registered(&self, component_id: ComponentId) -> bool {
-        self.handlers.contains_key(&component_id)
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`.
+    pub fn is_handler_registered(&self, id: ComponentId) -> bool {
+        self.handlers.get(id.0).is_some_and(Option::is_some)
     }
 
     /// Gets a handler to clone a component. This can be one of the following:
     /// - Custom clone function for this specific component.
     /// - Default global handler.
     /// - A [`component_clone_ignore`] (no cloning).
-    pub fn get_handler(&self, component_id: ComponentId) -> ComponentCloneFn {
-        match self.handlers.get(&component_id) {
-            Some(handler) => *handler,
-            None => self.default_handler,
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`.
+    pub fn get_handler(&self, id: ComponentId) -> ComponentCloneFn {
+        match self.handlers.get(id.0) {
+            Some(Some(handler)) => *handler,
+            Some(None) | None => self.default_handler,
         }
     }
 }
