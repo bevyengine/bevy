@@ -730,7 +730,7 @@ impl<'w> EntityMut<'w> {
         unsafe { component_ids.fetch_mut(self.0) }
     }
 
-    /// Returns [untyped mutable reference(s)](MutUntyped) to component for
+    /// Returns [untyped mutable reference](MutUntyped) to component for
     /// the current entity, based on the given [`ComponentId`].
     ///
     /// Unlike [`EntityMut::get_mut_by_id`], this method borrows &self instead of
