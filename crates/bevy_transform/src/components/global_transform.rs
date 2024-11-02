@@ -211,6 +211,26 @@ impl GlobalTransform {
         self.0.translation
     }
 
+    /// Get the rotation as a [`Quat`].
+    ///
+    /// It is calculated using `to_scale_rotation_translation`, meaning that you
+    /// shoud probably use it instead if you also need translation or scale.
+    #[inline]
+    pub fn just_rotation(&self) -> Quat {
+        self.to_scale_rotation_translation().1
+    }
+
+    /// Get the scale as a [`Vec3`].
+    #[inline]
+    pub fn scale(&self) -> Vec3 {
+        let det = self.0.matrix3.determinant();
+        Vec3::new(
+            self.0.matrix3.x_axis.length() * det.signum(),
+            self.0.matrix3.y_axis.length(),
+            self.0.matrix3.z_axis.length(),
+        )
+    }
+
     /// Get an upper bound of the radius from the given `extents`.
     #[inline]
     pub fn radius_vec3a(&self, extents: Vec3A) -> f32 {
