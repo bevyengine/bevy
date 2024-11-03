@@ -4482,4 +4482,27 @@ mod tests {
 
         assert_eq!((&mut X(8), &mut Y(9)), (x_component, y_component));
     }
+
+    #[derive(Event)]
+    struct TestEvent;
+
+    #[test]
+    fn adding_observer_updates_location() {
+        let mut world = World::new();
+        let entity = world
+            .spawn_empty()
+            .observe(|trigger: Trigger<TestEvent>, mut commands: Commands| {
+                commands.entity(trigger.entity()).insert(TestComponent(0));
+            })
+            .id();
+
+        // this should not be needed, but is currently required to tease out the bug
+        world.flush();
+
+        let mut a = world.entity_mut(entity);
+        a.trigger(TestEvent); // this adds command to change entity archetype
+        a.observe(|_: Trigger<TestEvent>| {}); // this flushes commands implicitly by spawning
+        let location = a.location();
+        assert_eq!(world.entities().get(entity), Some(location));
+    }
 }
