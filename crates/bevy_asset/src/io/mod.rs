@@ -538,7 +538,7 @@ impl<T: AssetWriter> ErasedAssetWriter for T {
     fn create_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> impl ConditionalSendFuture<Output = Result<(), AssetWriterError>> {
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::create_directory(self, path))
     }
     fn remove_directory<'a>(
