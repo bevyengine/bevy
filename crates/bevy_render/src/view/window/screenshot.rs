@@ -94,12 +94,20 @@ impl Screenshot {
 
     /// Capture a screenshot of the provided render target image.
     pub fn image(image: Handle<Image>) -> Self {
-        Self(RenderTarget::Image(image))
+        Self(RenderTarget::image(image))
     }
 
     /// Capture a screenshot of the provided manual texture view.
     pub fn texture_view(texture_view: ManualTextureViewHandle) -> Self {
-        Self(RenderTarget::TextureView(texture_view))
+        Self(RenderTarget::texture_view(texture_view))
+    }
+
+    /// Capture a screenshot of the given [`RenderTarget`].
+    ///
+    /// If you know exactly what your render target is, prefer using the other
+    /// functions on this type.
+    pub fn target(target: RenderTarget) -> Self {
+        Self(target)
     }
 }
 

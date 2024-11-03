@@ -41,6 +41,8 @@ use bevy_window::{
 };
 use core::ops::Range;
 use derive_more::derive::From;
+use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
 /// Render viewport configuration for the [`Camera`] component.
@@ -715,12 +717,31 @@ impl CameraRenderGraph {
 #[derive(Debug, Clone, Reflect, From)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
+    ///
+    /// The scale factor will be determined automatically based on the targeted
+    /// window.
     Window(WindowRef),
     /// Image to which the camera's view is rendered.
-    Image(Handle<Image>),
-    /// Texture View to which the camera's view is rendered.
+    Image {
+        /// Handle of the image to render into.
+        handle: Handle<Image>,
+        /// Scale factor of the target.
+        ///
+        /// This will be passed into [`RenderTargetInfo::scale_factor`]
+        /// directly. The default is `1.0`.
+        scale_factor: f32,
+    },
+    /// Texture view to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
-    TextureView(ManualTextureViewHandle),
+    TextureView {
+        /// Handle of the texture view to render into.
+        handle: ManualTextureViewHandle,
+        /// Scale factor of the target.
+        ///
+        /// This will be passed into [`RenderTargetInfo::scale_factor`]
+        /// directly. The default is `1.0`.
+        scale_factor: f32,
+    },
 }
 
 impl Default for RenderTarget {
@@ -729,18 +750,96 @@ impl Default for RenderTarget {
     }
 }
 
+impl RenderTarget {
+    /// Creates a [`RenderTarget::Image`] with the default scale factor.
+    #[must_use]
+    pub const fn image(handle: Handle<Image>) -> Self {
+        Self::Image {
+            handle,
+            scale_factor: 1.0,
+        }
+    }
+
+    /// Creates a [`RenderTarget::TextureView`] with the default scale factor.
+    #[must_use]
+    pub const fn texture_view(handle: ManualTextureViewHandle) -> Self {
+        Self::TextureView {
+            handle,
+            scale_factor: 1.0,
+        }
+    }
+}
+
 /// Normalized version of the render target.
 ///
 /// Once we have this we shouldn't need to resolve it down anymore.
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord, From)]
+#[derive(Debug, Clone, Reflect, PartialOrd, From)]
 pub enum NormalizedRenderTarget {
     /// Window to which the camera's view is rendered.
+    ///
+    /// See [`RenderTarget::Window`].
     Window(NormalizedWindowRef),
     /// Image to which the camera's view is rendered.
-    Image(Handle<Image>),
-    /// Texture View to which the camera's view is rendered.
+    ///
+    /// See [`RenderTarget::Image`].
+    Image {
+        /// Handle of the image to render into.
+        handle: Handle<Image>,
+        /// Scale factor of the target.
+        ///
+        /// This field is ignored in the implementations of [`PartialEq`],
+        /// [`Eq`], [`PartialOrd`], [`Ord`], and [`Hash`].
+        scale_factor: f32,
+    },
+    /// Texture view to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
-    TextureView(ManualTextureViewHandle),
+    ///
+    /// See [`RenderTarget::TextureView`].
+    TextureView {
+        handle: ManualTextureViewHandle,
+        /// Scale factor of the target.
+        ///
+        /// This field is ignored in the implementations of [`PartialEq`],
+        /// [`Eq`], [`PartialOrd`], [`Ord`], and [`Hash`].
+        scale_factor: f32,
+    },
+}
+
+impl PartialEq for NormalizedRenderTarget {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Window(window_a), Self::Window(window_b)) => window_a == window_b,
+            (
+                Self::Image {
+                    handle: handle_a, ..
+                },
+                Self::Image {
+                    handle: handle_b, ..
+                },
+            ) => handle_a == handle_b,
+            (
+                Self::TextureView {
+                    handle: handle_a, ..
+                },
+                Self::TextureView {
+                    handle: handle_b, ..
+                },
+            ) => handle_a == handle_b,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for NormalizedRenderTarget {}
+
+impl Hash for NormalizedRenderTarget {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Window(window) => window.hash(state),
+            Self::Image { handle, .. } => handle.hash(state),
+            Self::TextureView { handle, .. } => handle.hash(state),
+        }
+    }
 }
 
 impl RenderTarget {
@@ -750,15 +849,27 @@ impl RenderTarget {
             RenderTarget::Window(window_ref) => window_ref
                 .normalize(primary_window)
                 .map(NormalizedRenderTarget::Window),
-            RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
-            RenderTarget::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
+            RenderTarget::Image {
+                handle,
+                scale_factor,
+            } => Some(NormalizedRenderTarget::Image {
+                handle: handle.clone(),
+                scale_factor: *scale_factor,
+            }),
+            RenderTarget::TextureView {
+                handle,
+                scale_factor,
+            } => Some(NormalizedRenderTarget::TextureView {
+                handle: *handle,
+                scale_factor: *scale_factor,
+            }),
         }
     }
 
     /// Get a handle to the render target's image,
     /// or `None` if the render target is another variant.
     pub fn as_image(&self) -> Option<&Handle<Image>> {
-        if let Self::Image(handle) = self {
+        if let Self::Image { handle, .. } = self {
             Some(handle)
         } else {
             None
@@ -777,12 +888,12 @@ impl NormalizedRenderTarget {
             NormalizedRenderTarget::Window(window_ref) => windows
                 .get(&window_ref.entity())
                 .and_then(|window| window.swap_chain_texture_view.as_ref()),
-            NormalizedRenderTarget::Image(image_handle) => {
-                images.get(image_handle).map(|image| &image.texture_view)
+            NormalizedRenderTarget::Image { handle, .. } => {
+                images.get(handle).map(|image| &image.texture_view)
             }
-            NormalizedRenderTarget::TextureView(id) => {
-                manual_texture_views.get(id).map(|tex| &tex.texture_view)
-            }
+            NormalizedRenderTarget::TextureView { handle, .. } => manual_texture_views
+                .get(handle)
+                .map(|tex| &tex.texture_view),
         }
     }
 
@@ -797,11 +908,11 @@ impl NormalizedRenderTarget {
             NormalizedRenderTarget::Window(window_ref) => windows
                 .get(&window_ref.entity())
                 .and_then(|window| window.swap_chain_texture_format),
-            NormalizedRenderTarget::Image(image_handle) => {
-                images.get(image_handle).map(|image| image.texture_format)
+            NormalizedRenderTarget::Image { handle, .. } => {
+                images.get(handle).map(|image| image.texture_format)
             }
-            NormalizedRenderTarget::TextureView(id) => {
-                manual_texture_views.get(id).map(|tex| tex.format)
+            NormalizedRenderTarget::TextureView { handle, .. } => {
+                manual_texture_views.get(handle).map(|tex| tex.format)
             }
         }
     }
@@ -820,19 +931,25 @@ impl NormalizedRenderTarget {
                     physical_size: window.physical_size(),
                     scale_factor: window.resolution.scale_factor(),
                 }),
-            NormalizedRenderTarget::Image(image_handle) => {
-                let image = images.get(image_handle)?;
+            NormalizedRenderTarget::Image {
+                handle,
+                scale_factor,
+            } => {
+                let image = images.get(handle)?;
                 Some(RenderTargetInfo {
                     physical_size: image.size(),
-                    scale_factor: 1.0,
+                    scale_factor: *scale_factor,
                 })
             }
-            NormalizedRenderTarget::TextureView(id) => {
-                manual_texture_views.get(id).map(|tex| RenderTargetInfo {
+            NormalizedRenderTarget::TextureView {
+                handle,
+                scale_factor,
+            } => manual_texture_views
+                .get(handle)
+                .map(|tex| RenderTargetInfo {
                     physical_size: tex.size,
-                    scale_factor: 1.0,
-                })
-            }
+                    scale_factor: *scale_factor,
+                }),
         }
     }
 
@@ -846,10 +963,10 @@ impl NormalizedRenderTarget {
             NormalizedRenderTarget::Window(window_ref) => {
                 changed_window_ids.contains(&window_ref.entity())
             }
-            NormalizedRenderTarget::Image(image_handle) => {
-                changed_image_handles.contains(&image_handle.id())
+            NormalizedRenderTarget::Image { handle, .. } => {
+                changed_image_handles.contains(&handle.id())
             }
-            NormalizedRenderTarget::TextureView(_) => true,
+            NormalizedRenderTarget::TextureView { .. } => true,
         }
     }
 }
