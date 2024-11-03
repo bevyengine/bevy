@@ -393,4 +393,18 @@ mod test {
             t1_prime.compute_transform(),
         );
     }
+
+    #[test]
+    fn scale() {
+        let test_values = [-42.42, 0., 42.42];
+        for x in test_values {
+            for y in test_values {
+                for z in test_values {
+                    let scale = Vec3::new(x, y, z);
+                    let gt = GlobalTransform::from_scale(scale);
+                    assert_eq!(gt.scale(), gt.to_scale_rotation_translation().0);
+                }
+            }
+        }
+    }
 }
