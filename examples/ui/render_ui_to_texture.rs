@@ -151,7 +151,7 @@ fn change_scale_factor(
             panic!("render target should be an image");
         };
 
-        *scale_factor += scale_factor_change;
-        info!("Changed render target scale factor by {scale_factor_change}, now {scale_factor}");
+        *scale_factor = (*scale_factor + scale_factor_change).clamp(UI_SCALE_CHANGE_STEP, 4.0);
+        info!("New render target scale factor: {scale_factor}");
     }
 }

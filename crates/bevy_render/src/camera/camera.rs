@@ -1004,13 +1004,18 @@ impl NormalizedRenderTarget {
         &self,
         changed_window_ids: &HashSet<Entity>,
         changed_image_handles: &HashSet<&AssetId<Image>>,
+        old_scale_factor: Option<f32>,
     ) -> bool {
         match self {
             NormalizedRenderTarget::Window(window_ref) => {
                 changed_window_ids.contains(&window_ref.entity())
             }
-            NormalizedRenderTarget::Image { handle, .. } => {
+            NormalizedRenderTarget::Image {
+                handle,
+                scale_factor,
+            } => {
                 changed_image_handles.contains(&handle.id())
+                    || old_scale_factor != Some(*scale_factor)
             }
             NormalizedRenderTarget::TextureView { .. } => true,
         }
@@ -1073,8 +1078,17 @@ pub fn camera_system<T: CameraProjection + Component>(
             .map(|viewport| viewport.physical_size);
 
         if let Some(normalized_target) = camera.target.normalize(primary_window) {
-            if normalized_target.is_changed(&changed_window_ids, &changed_image_handles)
-                || camera.is_added()
+            let old_scale_factor = camera
+                .computed
+                .target_info
+                .as_ref()
+                .map(|info| info.scale_factor);
+
+            if normalized_target.is_changed(
+                &changed_window_ids,
+                &changed_image_handles,
+                old_scale_factor,
+            ) || camera.is_added()
                 || camera_projection.is_changed()
                 || camera.computed.old_viewport_size != viewport_size
                 || camera.computed.old_sub_camera_view != camera.sub_camera_view
@@ -1088,16 +1102,16 @@ pub fn camera_system<T: CameraProjection + Component>(
                 // This can happen when the window is moved between monitors with different DPIs.
                 // Without this, the viewport will take a smaller portion of the window moved to
                 // a higher DPI monitor.
-                if normalized_target.is_changed(&scale_factor_changed_window_ids, &HashSet::new()) {
+                if normalized_target.is_changed(
+                    &scale_factor_changed_window_ids,
+                    &HashSet::new(),
+                    old_scale_factor,
+                ) {
                     if let (Some(new_scale_factor), Some(old_scale_factor)) = (
                         new_computed_target_info
                             .as_ref()
                             .map(|info| info.scale_factor),
-                        camera
-                            .computed
-                            .target_info
-                            .as_ref()
-                            .map(|info| info.scale_factor),
+                        old_scale_factor,
                     ) {
                         let resize_factor = new_scale_factor / old_scale_factor;
                         if let Some(ref mut viewport) = camera.viewport {
