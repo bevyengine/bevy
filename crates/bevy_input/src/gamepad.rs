@@ -347,7 +347,7 @@ pub struct Gamepad {
 
 impl Gamepad {
     /// Creates a gamepad with the given metadata.
-    fn new(info: GamepadInfo) -> Self {
+    pub fn new(info: GamepadInfo) -> Self {
         let mut analog = Axis::default();
         for button in GamepadButton::all().iter().copied() {
             analog.set(button.into(), 0.0);
