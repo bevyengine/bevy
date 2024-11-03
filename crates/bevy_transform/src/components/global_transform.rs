@@ -227,6 +227,9 @@ impl GlobalTransform {
     /// Get the scale as a [`Vec3`].
     ///
     /// The transform is expected to be non-degenerate and without shearing, or the output will be invalid.
+    ///
+    /// Some of the computations overlap with `to_scale_rotation_translation`, which means you should use
+    /// it instead if you also need rotation.
     #[inline]
     pub fn scale(&self) -> Vec3 {
         //Formula based on glam's implementation https://github.com/bitshifter/glam-rs/blob/2e4443e70c709710dfb25958d866d29b11ed3e2b/src/f32/affine3a.rs#L290
