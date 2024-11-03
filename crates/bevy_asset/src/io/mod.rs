@@ -471,7 +471,7 @@ pub trait ErasedAssetWriter: Send + Sync + 'static {
     fn create_directory<'a>(
         &'a self,
         path: &'a Path,
-    ) -> impl ConditionalSendFuture<Output = Result<(), AssetWriterError>>;
+    ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
     /// Removes the directory at the given path, including all assets _and_ directories in that directory.
     fn remove_directory<'a>(
         &'a self,
