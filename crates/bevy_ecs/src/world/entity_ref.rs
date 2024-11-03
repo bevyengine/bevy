@@ -1836,7 +1836,11 @@ impl<'w> EntityWorldMut<'w> {
     /// This is *only* required when using the unsafe function [`EntityWorldMut::world_mut`],
     /// which enables the location to change.
     pub fn update_location(&mut self) {
-        self.location = self.world.entities().get(self.entity).unwrap();
+        self.location = self
+            .world
+            .entities()
+            .get(self.entity)
+            .unwrap_or(EntityLocation::INVALID);
     }
 
     /// Gets an Entry into the world for this entity and component for in-place manipulation.
