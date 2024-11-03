@@ -101,14 +101,6 @@ impl Screenshot {
     pub fn texture_view(texture_view: ManualTextureViewHandle) -> Self {
         Self(RenderTarget::from(texture_view))
     }
-
-    /// Capture a screenshot of the given [`RenderTarget`].
-    ///
-    /// If you know exactly what your render target is, prefer using the other
-    /// functions on this type.
-    pub fn target(target: RenderTarget) -> Self {
-        Self(target)
-    }
 }
 
 struct ScreenshotPreparedState {

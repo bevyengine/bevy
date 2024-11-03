@@ -780,6 +780,11 @@ impl From<ManualTextureViewHandle> for RenderTarget {
 /// Normalized version of the render target.
 ///
 /// Once we have this we shouldn't need to resolve it down anymore.
+///
+/// # [`PartialEq`], [`Hash`], [`Ord`] implementations
+///
+/// This type is used to check for ambiguities between cameras and their render
+/// targets. For this purpose, the `scale_factor` field of variants is ignored.
 #[derive(Debug, Clone, Reflect, From)]
 pub enum NormalizedRenderTarget {
     /// Window to which the camera's view is rendered.
