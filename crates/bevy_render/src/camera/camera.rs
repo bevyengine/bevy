@@ -39,10 +39,10 @@ use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
 };
+use core::cmp::Ordering;
+use core::hash::{Hash, Hasher};
 use core::ops::Range;
 use derive_more::derive::From;
-use std::cmp::Ordering;
-use std::hash::{Hash, Hasher};
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
 /// Render viewport configuration for the [`Camera`] component.
@@ -712,9 +712,12 @@ impl CameraRenderGraph {
     }
 }
 
-/// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`]
-/// swapchain or an [`Image`].
-#[derive(Debug, Clone, Reflect, From)]
+/// The "target" that a [`Camera`] will render to. For example, this could be a
+/// [`Window`] swapchain or an [`Image`].
+///
+/// If creating a [`RenderTarget`] [from][From] a [`Handle<Image>`] or
+/// [`ManualTextureViewHandle`], the scale factor is set to `1.0` by default.
+#[derive(Debug, Clone, Reflect)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     ///
@@ -750,19 +753,23 @@ impl Default for RenderTarget {
     }
 }
 
-impl RenderTarget {
-    /// Creates a [`RenderTarget::Image`] with the default scale factor.
-    #[must_use]
-    pub const fn image(handle: Handle<Image>) -> Self {
+impl From<WindowRef> for RenderTarget {
+    fn from(value: WindowRef) -> Self {
+        Self::Window(value)
+    }
+}
+
+impl From<Handle<Image>> for RenderTarget {
+    fn from(handle: Handle<Image>) -> Self {
         Self::Image {
             handle,
             scale_factor: 1.0,
         }
     }
+}
 
-    /// Creates a [`RenderTarget::TextureView`] with the default scale factor.
-    #[must_use]
-    pub const fn texture_view(handle: ManualTextureViewHandle) -> Self {
+impl From<ManualTextureViewHandle> for RenderTarget {
+    fn from(handle: ManualTextureViewHandle) -> Self {
         Self::TextureView {
             handle,
             scale_factor: 1.0,
@@ -773,7 +780,7 @@ impl RenderTarget {
 /// Normalized version of the render target.
 ///
 /// Once we have this we shouldn't need to resolve it down anymore.
-#[derive(Debug, Clone, Reflect, PartialOrd, From)]
+#[derive(Debug, Clone, Reflect, From)]
 pub enum NormalizedRenderTarget {
     /// Window to which the camera's view is rendered.
     ///
@@ -839,6 +846,45 @@ impl Hash for NormalizedRenderTarget {
             Self::Image { handle, .. } => handle.hash(state),
             Self::TextureView { handle, .. } => handle.hash(state),
         }
+    }
+}
+
+impl Ord for NormalizedRenderTarget {
+    fn cmp(&self, other: &Self) -> Ordering {
+        fn discriminant(target: &NormalizedRenderTarget) -> u8 {
+            match target {
+                NormalizedRenderTarget::Window(_) => 0,
+                NormalizedRenderTarget::Image { .. } => 1,
+                NormalizedRenderTarget::TextureView { .. } => 2,
+            }
+        }
+
+        match (self, other) {
+            (Self::Window(window_a), Self::Window(window_b)) => window_a.cmp(window_b),
+            (
+                Self::Image {
+                    handle: handle_a, ..
+                },
+                Self::Image {
+                    handle: handle_b, ..
+                },
+            ) => handle_a.cmp(handle_b),
+            (
+                Self::TextureView {
+                    handle: handle_a, ..
+                },
+                Self::TextureView {
+                    handle: handle_b, ..
+                },
+            ) => handle_a.cmp(handle_b),
+            (a, b) => discriminant(a).cmp(&discriminant(b)),
+        }
+    }
+}
+
+impl PartialOrd for NormalizedRenderTarget {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -1311,7 +1357,7 @@ pub fn sort_cameras(
     sorted_cameras
         .0
         .sort_by(|c1, c2| match c1.order.cmp(&c2.order) {
-            core::cmp::Ordering::Equal => c1.target.cmp(&c2.target),
+            Ordering::Equal => c1.target.cmp(&c2.target),
             ord => ord,
         });
     let mut previous_order_target = None;
