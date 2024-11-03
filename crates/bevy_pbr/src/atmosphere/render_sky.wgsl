@@ -11,3 +11,5 @@ fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let ray_dir = uv_to_ray_direction(in.uv).xyz;
     return vec4(sample_sky_view_lut(ray_dir), 0.0);
 }
+
+

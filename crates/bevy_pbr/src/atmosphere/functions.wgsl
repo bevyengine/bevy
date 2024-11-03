@@ -58,7 +58,9 @@ fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
 }
 
 fn sample_sky_view_lut(ray_dir: vec3<f32>) -> vec3<f32> {
-    return vec3(0.0);
+    let lat_long = ray_dir_to_lat_long(ray_dir);
+    let uv = sky_view_lut_lat_long_to_uv(lat_long.x, lat_long.y);
+    return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, uv, 0.0).rgb;
 }
 
 //RGB channels: total inscattered light along the camera ray to the current sample.
@@ -73,7 +75,8 @@ fn rayleigh(neg_LdotV: f32) -> f32 {
     return FRAC_3_16_PI * (1 + (neg_LdotV * neg_LdotV));
 }
 
-fn henyey_greenstein(neg_LdotV: f32, g: f32) -> f32 {
+fn henyey_greenstein(neg_LdotV: f32) -> f32 {
+    let g = atmosphere.mie_asymmetry;
     let denom = 1.0 + g * g - 2.0 * g * neg_LdotV;
     return FRAC_4_PI * (1.0 - g * g) / (denom * sqrt(denom));
 }
@@ -92,7 +95,7 @@ fn sample_atmosphere(r: f32) -> AtmosphereSample {
     let altitude = r - atmosphere.bottom_radius;
 
     // atmosphere values at altitude
-    let mie_density = exp(atmosphere.mie_density_exp_scale * altitude); //TODO: zero-out when above atmosphere boundary? i mean the raycast will stop anyway
+    let mie_density = exp(atmosphere.mie_density_exp_scale * altitude);
     let rayleigh_density = exp(atmosphere.rayleigh_density_exp_scale * altitude);
     var ozone_density: f32 = max(0.0, 1.0 - (abs(altitude - atmosphere.ozone_layer_center_altitude) / atmosphere.ozone_layer_half_width));
 
@@ -124,7 +127,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_t
         let mu_light = dot((*light).direction_to_light, local_up);
         let neg_LdotV = dot((*light).direction_to_light, view_dir);
         let rayleigh_phase = rayleigh(neg_LdotV);
-        let mie_phase = henyey_greenstein(neg_LdotV, atmosphere.mie_asymmetry);
+        let mie_phase = henyey_greenstein(neg_LdotV);
 
         let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
         let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
@@ -137,7 +140,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_t
     return local_atmosphere.rayleigh_scattering * rayleigh_scattering + local_atmosphere.mie_scattering * mie_scattering;
 }
 
-// Transform utilities
+// TRANSFORM UTILITIES
 
 //We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
 //NOTE: this means that if your bevy world is actually placed on a sphere, this will be wrong.
@@ -190,6 +193,12 @@ fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
     return vec4(normalize(ray_direction), -view_ray_direction.z);
 }
 
+fn ray_dir_to_lat_long(ray_dir: vec3<f32>) -> vec2<f32> {
+    let view_dir = -view.world_from_view[2].xyz;
+    let lat = asin(ray_dir.y);
+    let long = atan2(view_dir.x * ray_dir.z - view_dir.z * ray_dir.x, view_dir.x * ray_dir.x + view_dir.z + ray_dir.z); //TODO: explain
+    return vec2(lat, long);
+}
 
 /// Convert ndc depth to linear view z. 
 /// Note: Depth values in front of the camera will be negative as -z is forward
