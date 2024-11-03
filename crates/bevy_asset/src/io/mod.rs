@@ -384,6 +384,12 @@ pub trait AssetWriter: Send + Sync + 'static {
         old_path: &'a Path,
         new_path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<(), AssetWriterError>>;
+    /// Creates a directory at the given path, including all parent directories if they do not
+    /// already exist.
+    fn create_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> impl ConditionalSendFuture<Output = Result<(), AssetWriterError>>;
     /// Removes the directory at the given path, including all assets _and_ directories in that directory.
     fn remove_directory<'a>(
         &'a self,
@@ -460,6 +466,12 @@ pub trait ErasedAssetWriter: Send + Sync + 'static {
         old_path: &'a Path,
         new_path: &'a Path,
     ) -> BoxedFuture<'a, Result<(), AssetWriterError>>;
+    /// Creates a directory at the given path, including all parent directories if they do not
+    /// already exist.
+    fn create_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> impl ConditionalSendFuture<Output = Result<(), AssetWriterError>>;
     /// Removes the directory at the given path, including all assets _and_ directories in that directory.
     fn remove_directory<'a>(
         &'a self,
@@ -522,6 +534,12 @@ impl<T: AssetWriter> ErasedAssetWriter for T {
         new_path: &'a Path,
     ) -> BoxedFuture<'a, Result<(), AssetWriterError>> {
         Box::pin(Self::rename_meta(self, old_path, new_path))
+    }
+    fn create_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> impl ConditionalSendFuture<Output = Result<(), AssetWriterError>> {
+        Box::pin(Self::create_directory(self, path))
     }
     fn remove_directory<'a>(
         &'a self,
