@@ -1,4 +1,6 @@
-use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiImage, UiScale};
+use crate::{
+    ContentSize, Measure, MeasureArgs, Node, NodeImageMode, NodeMeasure, UiImage, UiScale,
+};
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
@@ -97,7 +99,7 @@ pub fn update_image_content_size_system(
     textures: Res<Assets<Image>>,
 
     atlases: Res<Assets<TextureAtlasLayout>>,
-    mut query: Query<(&mut ContentSize, &UiImage, &mut UiImageSize), UpdateImageFilter>,
+    mut query: Query<(&mut ContentSize, Ref<UiImage>, &mut UiImageSize), UpdateImageFilter>,
 ) {
     let combined_scale_factor = windows
         .get_single()
@@ -106,6 +108,14 @@ pub fn update_image_content_size_system(
         * ui_scale.0;
 
     for (mut content_size, image, mut image_size) in &mut query {
+        if !matches!(image.image_mode, NodeImageMode::Auto) {
+            if image.is_changed() {
+                // Mutably derefs, marking the `ContentSize` as changed ensuring `ui_layout_system` will remove the node's measure func if present.
+                content_size.measure = None;
+            }
+            continue;
+        }
+
         if let Some(size) = match &image.texture_atlas {
             Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
             None => textures.get(&image.image).map(Image::size),

@@ -40,7 +40,7 @@ use bevy_render::{
     ExtractSchedule, Render,
 };
 use bevy_sprite::TextureAtlasLayout;
-use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents};
+use bevy_sprite::{BorderRect, SpriteAssetEvents};
 
 use crate::{Display, Node};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
@@ -308,18 +308,15 @@ pub fn extract_uinode_images(
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
-        Query<
-            (
-                Entity,
-                &ComputedNode,
-                &GlobalTransform,
-                &ViewVisibility,
-                Option<&CalculatedClip>,
-                Option<&TargetCamera>,
-                &UiImage,
-            ),
-            Without<ImageScaleMode>,
-        >,
+        Query<(
+            Entity,
+            &ComputedNode,
+            &GlobalTransform,
+            &ViewVisibility,
+            Option<&CalculatedClip>,
+            Option<&TargetCamera>,
+            &UiImage,
+        )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
@@ -337,6 +334,7 @@ pub fn extract_uinode_images(
         if !view_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+            || image.image_mode.uses_slices()
         {
             continue;
         }

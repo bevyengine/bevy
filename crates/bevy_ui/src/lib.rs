@@ -62,7 +62,7 @@ pub mod prelude {
             Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
-        bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer},
+        bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
     };
 }
 

@@ -9,7 +9,7 @@ use bevy_render::{
     texture::{Image, TRANSPARENT_IMAGE_HANDLE},
     view::Visibility,
 };
-use bevy_sprite::{BorderRect, TextureAtlas};
+use bevy_sprite::{BorderRect, TextureAtlas, TextureSlicer};
 use bevy_transform::components::Transform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
@@ -2068,6 +2068,8 @@ pub struct UiImage {
     /// When used with a [`TextureAtlas`], the rect
     /// is offset by the atlas's minimal (top-left) corner position.
     pub rect: Option<Rect>,
+    /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space to allocate for the image.
+    pub image_mode: NodeImageMode,
 }
 
 impl Default for UiImage {
@@ -2089,6 +2091,7 @@ impl Default for UiImage {
             flip_x: false,
             flip_y: false,
             rect: None,
+            image_mode: NodeImageMode::Auto,
         }
     }
 }
@@ -2114,6 +2117,7 @@ impl UiImage {
             flip_y: false,
             texture_atlas: None,
             rect: None,
+            image_mode: NodeImageMode::Auto,
         }
     }
 
@@ -2152,11 +2156,50 @@ impl UiImage {
         self.rect = Some(rect);
         self
     }
+
+    #[must_use]
+    pub const fn with_mode(mut self, mode: NodeImageMode) -> Self {
+        self.image_mode = mode;
+        self
+    }
 }
 
 impl From<Handle<Image>> for UiImage {
     fn from(texture: Handle<Image>) -> Self {
         Self::new(texture)
+    }
+}
+
+/// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space in the layout for the image
+#[derive(Default, Debug, Clone, Reflect)]
+pub enum NodeImageMode {
+    /// The image will be sized automatically by taking the size of the source image and applying any layout constraints.
+    #[default]
+    Auto,
+    /// The image will be resized to match the size of the node. The image's original size and aspect ratio will be ignored.
+    Stretch,
+    /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
+    Sliced(TextureSlicer),
+    /// The texture will be repeated if stretched beyond `stretched_value`
+    Tiled {
+        /// Should the image repeat horizontally
+        tile_x: bool,
+        /// Should the image repeat vertically
+        tile_y: bool,
+        /// The texture will repeat when the ratio between the *drawing dimensions* of texture and the
+        /// *original texture size* are above this value.
+        stretch_value: f32,
+    },
+}
+
+impl NodeImageMode {
+    /// Returns true if this mode uses slices internally ([`NodeImageMode::Sliced`] or [`NodeImageMode::Tiled`])
+    #[inline]
+    pub fn uses_slices(&self) -> bool {
+        matches!(
+            self,
+            NodeImageMode::Sliced(..) | NodeImageMode::Tiled { .. }
+        )
     }
 }
 
