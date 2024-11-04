@@ -320,14 +320,15 @@ pub enum ButtonSettingsError {
 /// # use bevy_ecs::system::Query;
 /// #
 /// fn gamepad_usage_system(gamepads: Query<&Gamepad>) {
-///     for gamepad in gamepads.iter() {
-///         println!("{}", gamepad.name());
+///     for gamepad in &gamepads {
+///         let name = &gamepad.info.name;
+///         println!("{name}");
 ///
-///         if gamepad.just_pressed(GamepadButton::North) {
-///             println!("{} just pressed North", gamepad.name())
+///         if gamepad.digital.just_pressed(GamepadButton::North) {
+///             println!("{name} just pressed North")
 ///         }
 ///
-///         if let Some(left_stick_x) = gamepad.get(GamepadAxis::LeftStickX)  {
+///         if let Some(left_stick_x) = gamepad.analog.get(GamepadAxis::LeftStickX)  {
 ///             println!("left stick X: {}", left_stick_x)
 ///         }
 ///     }
