@@ -34,6 +34,8 @@ pub struct Sprite {
     pub rect: Option<Rect>,
     /// [`Anchor`] point of the sprite in the world
     pub anchor: Anchor,
+    /// How the sprite's image will be scaled.
+    pub image_mode: SpriteImageMode,
 }
 
 impl Sprite {
@@ -79,9 +81,12 @@ impl From<Handle<Image>> for Sprite {
 }
 
 /// Controls how the image is altered when scaled.
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Debug)]
-pub enum ImageScaleMode {
+#[derive(Default, Debug, Clone, Reflect, PartialEq)]
+#[reflect(Debug)]
+pub enum SpriteImageMode {
+    /// The sprite will take on the size of the image by default, and will be stretched or shrunk if [`Sprite::custom_size`] is set.
+    #[default]
+    Auto,
     /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
     Sliced(TextureSlicer),
     /// The texture will be repeated if stretched beyond `stretched_value`
@@ -94,6 +99,17 @@ pub enum ImageScaleMode {
         /// *original texture size* are above this value.
         stretch_value: f32,
     },
+}
+
+impl SpriteImageMode {
+    /// Returns true if this mode uses slices internally ([`SpriteImageMode::Sliced`] or [`SpriteImageMode::Tiled`])
+    #[inline]
+    pub fn uses_slices(&self) -> bool {
+        matches!(
+            self,
+            SpriteImageMode::Sliced(..) | SpriteImageMode::Tiled { .. }
+        )
+    }
 }
 
 /// How a sprite is positioned relative to its [`Transform`].

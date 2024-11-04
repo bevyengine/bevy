@@ -57,12 +57,6 @@ pub struct NodeBundle {
 }
 
 /// A UI node that is an image
-///
-/// # Extra behaviors
-///
-/// You may add one or both of the following components to enable additional behaviors:
-/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
-/// - [`TextureAtlas`](bevy_sprite::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Debug, Default)]
 #[deprecated(
     since = "0.15.0",
@@ -110,12 +104,6 @@ pub struct ImageBundle {
 }
 
 /// A UI node that is a button
-///
-/// # Extra behaviors
-///
-/// You may add one or both of the following components to enable additional behaviors:
-/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
-/// - [`TextureAtlas`](bevy_sprite::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Clone, Debug)]
 #[deprecated(
     since = "0.15.0",
