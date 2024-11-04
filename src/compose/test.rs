@@ -999,6 +999,74 @@ mod test {
         output_eq!(wgsl, "tests/expected/conditional_import_b.txt");
     }
 
+    #[test]
+    fn conditional_missing_import() {
+        let mut composer = Composer::default();
+
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/conditional_import_fail/mod_a_b.wgsl"),
+                file_path: "tests/conditional_import_fail/mod_a_b.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+
+        let error = composer
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/conditional_import_fail/top.wgsl"),
+                file_path: "tests/conditional_import_fail/top.wgsl",
+                ..Default::default()
+            })
+            .err()
+            .unwrap();
+
+        let text = error.emit_to_string(&composer);
+
+        // let mut f = std::fs::File::create("conditional_missing_import.txt").unwrap();
+        // f.write_all(text.as_bytes()).unwrap();
+        // drop(f);
+
+        output_eq!(text, "tests/expected/conditional_missing_import.txt");
+    }
+
+    #[test]
+    fn conditional_missing_import_nested() {
+        let mut composer = Composer::default();
+
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/conditional_import_fail/mod_a_b.wgsl"),
+                file_path: "tests/conditional_import_fail/mod_a_b.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/conditional_import_fail/middle.wgsl"),
+                file_path: "tests/conditional_import_fail/middle.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+
+        let error = composer
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/conditional_import_fail/top_nested.wgsl"),
+                file_path: "tests/conditional_import_fail/top_nested.wgsl",
+                ..Default::default()
+            })
+            .err()
+            .unwrap();
+
+        let text = error.emit_to_string(&composer);
+
+        // let mut f = std::fs::File::create("conditional_missing_import_nested.txt").unwrap();
+        // f.write_all(text.as_bytes()).unwrap();
+        // drop(f);
+
+        output_eq!(text, "tests/expected/conditional_missing_import_nested.txt");
+    }
+
     #[cfg(feature = "test_shader")]
     #[test]
     fn rusty_imports() {

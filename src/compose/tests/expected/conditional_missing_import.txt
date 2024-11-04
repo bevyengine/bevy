@@ -1,0 +1,8 @@
+error: required import 'b' not found
+  ┌─ tests/conditional_import_fail/top.wgsl:6:12
+  │
+6 │     return b::C;
+  │            ^
+  │
+  = missing import 'b'
+
