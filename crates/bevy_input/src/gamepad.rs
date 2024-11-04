@@ -306,7 +306,7 @@ pub enum ButtonSettingsError {
     },
 }
 
-/// Stores a connected gamepad's metadata such as name and its input.
+/// Stores a connected gamepad's state and any metadata such as the device name.
 ///
 /// An entity with this component is spawned automatically after [`GamepadConnectionEvent`]
 /// and updated by [`gamepad_event_processing_system`].
