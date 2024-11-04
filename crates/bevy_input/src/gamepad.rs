@@ -418,6 +418,17 @@ pub struct GamepadInfo {
     pub product_id: Option<u16>,
 }
 
+impl GamepadInfo {
+    /// Creates a new instance with the given name and empty vendor and product IDs.
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            vendor_id: None,
+            product_id: None,
+        }
+    }
+}
+
 /// Represents gamepad input types that are mapped in the range [0.0, 1.0].
 ///
 /// ## Usage
@@ -1871,11 +1882,7 @@ mod tests {
                 .resource_mut::<Events<GamepadConnectionEvent>>()
                 .send(GamepadConnectionEvent::new(
                     gamepad,
-                    Connected(GamepadInfo {
-                        name: String::from("Gamepad test"),
-                        vendor_id: None,
-                        product_id: None,
-                    }),
+                    Connected(GamepadInfo::new("Gamepad test")),
                 ));
             gamepad
         }
