@@ -3,10 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    a11y::{
-        accesskit::{Node as Accessible, Role},
-        AccessibilityNode,
-    },
+    a11y::{accesskit::Role, AccessibilityNode},
     color::palettes::{basic::LIME, css::DARK_GRAY},
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::focus::HoverMap,
@@ -149,7 +146,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             ..default()
                                         },
                                         Label,
-                                        AccessibilityNode(Accessible::new(Role::ListItem)),
+                                        AccessibilityNode::new(Role::ListItem),
                                     ))
                                     .insert(PickingBehavior {
                                         should_block_lower: false,

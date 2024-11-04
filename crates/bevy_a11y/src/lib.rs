@@ -86,6 +86,13 @@ impl ManageAccessibilityUpdates {
 #[derive(Component, Clone, Deref, DerefMut)]
 pub struct AccessibilityNode(pub Node);
 
+impl AccessibilityNode {
+    /// Creates a new `AccessibilityNode` with the given role.
+    pub fn new(role: accesskit::Role) -> Self {
+        Self(Node::new(role))
+    }
+}
+
 impl From<Node> for AccessibilityNode {
     fn from(node: Node) -> Self {
         Self(node)

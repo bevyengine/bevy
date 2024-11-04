@@ -1,10 +1,7 @@
 //! This example illustrates scrolling in Bevy UI.
 
 use bevy::{
-    a11y::{
-        accesskit::{Node as Accessible, Role},
-        AccessibilityNode,
-    },
+    a11y::{accesskit::Role, AccessibilityNode},
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::focus::HoverMap,
     prelude::*,
@@ -79,7 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             ..default()
                                         },
                                     Label,
-                                    AccessibilityNode(Accessible::new(Role::ListItem)),
+                                    AccessibilityNode::new(Role::ListItem),
                                 ))
                                 .insert(Node {
                                     min_width: Val::Px(200.),
@@ -167,9 +164,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                             ..default()
                                                         },
                                                         Label,
-                                                        AccessibilityNode(Accessible::new(
-                                                            Role::ListItem,
-                                                        )),
+                                                        AccessibilityNode::new(Role::ListItem),
                                                     ))
                                                     .insert(PickingBehavior {
                                                         should_block_lower: false,
@@ -234,9 +229,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                                 ..default()
                                                             },
                                                             Label,
-                                                            AccessibilityNode(Accessible::new(
-                                                                Role::ListItem,
-                                                            )),
+                                                            AccessibilityNode::new(Role::ListItem),
                                                         ))
                                                         .insert(PickingBehavior {
                                                             should_block_lower: false,
@@ -310,9 +303,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                                 ..default()
                                                             },
                                                             Label,
-                                                            AccessibilityNode(Accessible::new(
-                                                                Role::ListItem,
-                                                            )),
+                                                            AccessibilityNode::new(Role::ListItem),
                                                         ))
                                                         .insert(PickingBehavior {
                                                             should_block_lower: false,
