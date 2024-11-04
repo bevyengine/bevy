@@ -1871,7 +1871,7 @@ mod tests {
                 .resource_mut::<Events<GamepadConnectionEvent>>()
                 .send(GamepadConnectionEvent::new(
                     gamepad,
-                    Connected(GamepadInfo::new(Default::default())),
+                    Connected(GamepadInfo::default()),
                 ));
             gamepad
         }
