@@ -24,7 +24,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_sprite::{
-    ImageScaleMode, SliceScaleMode, SpriteAssetEvents, TextureAtlasLayout, TextureSlicer,
+    SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureAtlasLayout, TextureSlicer,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
@@ -232,7 +232,7 @@ pub struct ExtractedUiTextureSlice {
     pub clip: Option<Rect>,
     pub camera_entity: Entity,
     pub color: LinearRgba,
-    pub image_scale_mode: ImageScaleMode,
+    pub image_scale_mode: SpriteImageMode,
     pub flip_x: bool,
     pub flip_y: bool,
     pub main_entity: MainEntity,
@@ -257,14 +257,11 @@ pub fn extract_ui_texture_slices(
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
             &UiImage,
-            &ImageScaleMode,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
-    for (entity, uinode, transform, view_visibility, clip, camera, image, image_scale_mode) in
-        &slicers_query
-    {
+    for (entity, uinode, transform, view_visibility, clip, camera, image) in &slicers_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -272,6 +269,22 @@ pub fn extract_ui_texture_slices(
 
         let Ok(camera_entity) = mapping.get(camera_entity) else {
             continue;
+        };
+
+        let image_scale_mode = match image.image_mode.clone() {
+            widget::NodeImageMode::Sliced(texture_slicer) => {
+                SpriteImageMode::Sliced(texture_slicer)
+            }
+            widget::NodeImageMode::Tiled {
+                tile_x,
+                tile_y,
+                stretch_value,
+            } => SpriteImageMode::Tiled {
+                tile_x,
+                tile_y,
+                stretch_value,
+            },
+            _ => continue,
         };
 
         // Skip invisible images
@@ -312,7 +325,7 @@ pub fn extract_ui_texture_slices(
                 clip: clip.map(|clip| clip.clip),
                 image: image.image.id(),
                 camera_entity,
-                image_scale_mode: image_scale_mode.clone(),
+                image_scale_mode,
                 atlas_rect,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
@@ -719,10 +732,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSlicer {
 fn compute_texture_slices(
     image_size: Vec2,
     target_size: Vec2,
-    image_scale_mode: &ImageScaleMode,
+    image_scale_mode: &SpriteImageMode,
 ) -> [[f32; 4]; 3] {
     match image_scale_mode {
-        ImageScaleMode::Sliced(TextureSlicer {
+        SpriteImageMode::Sliced(TextureSlicer {
             border: border_rect,
             center_scale_mode,
             sides_scale_mode,
@@ -775,7 +788,7 @@ fn compute_texture_slices(
                 ],
             ]
         }
-        ImageScaleMode::Tiled {
+        SpriteImageMode::Tiled {
             tile_x,
             tile_y,
             stretch_value,
@@ -783,6 +796,9 @@ fn compute_texture_slices(
             let rx = compute_tiled_axis(*tile_x, image_size.x, target_size.x, *stretch_value);
             let ry = compute_tiled_axis(*tile_y, image_size.y, target_size.y, *stretch_value);
             [[0., 0., 1., 1.], [0., 0., 1., 1.], [1., 1., rx, ry]]
+        }
+        SpriteImageMode::Auto => {
+            unreachable!("Slices should not be computed for ImageScaleMode::Stretch")
         }
     }
 }
