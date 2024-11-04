@@ -113,7 +113,7 @@ mod tests {
         assert_eq!(
             MyEnum::C {
                 foo: 1.23,
-                bar: true,
+                bar: true
             },
             value
         );
@@ -147,7 +147,7 @@ mod tests {
         assert_eq!(
             MyEnum::C {
                 foo: 1.23,
-                bar: true,
+                bar: true
             },
             value
         );

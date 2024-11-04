@@ -47,13 +47,7 @@ impl FileWatcher {
 impl AssetWatcher for FileWatcher {}
 
 pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> (PathBuf, bool) {
-    let relative_path = absolute_path.strip_prefix(root).unwrap_or_else(|_| {
-        panic!(
-            "FileWatcher::get_asset_path() failed to strip prefix from absolute path: absolute_path={:?}, root={:?}",
-            absolute_path,
-            root
-        )
-    });
+    let relative_path = absolute_path.strip_prefix(root).unwrap_or_else(|_| panic!("FileWatcher::get_asset_path() failed to strip prefix from absolute path: absolute_path={:?}, root={:?}", absolute_path, root));
     let is_meta = relative_path
         .extension()
         .map(|e| e == "meta")
@@ -187,14 +181,10 @@ pub(crate) fn new_asset_event_debouncer(
                                             );
                                         }
                                         (true, false) => {
-                                            error!(
-                                            "Asset metafile {old_path:?} was changed to asset file {new_path:?}, which is not supported. Try restarting your app to see if configuration is still valid"
-                                        );
+                                            error!("Asset metafile {old_path:?} was changed to asset file {new_path:?}, which is not supported. Try restarting your app to see if configuration is still valid");
                                         }
                                         (false, true) => {
-                                            error!(
-                                            "Asset file {old_path:?} was changed to meta file {new_path:?}, which is not supported. Try restarting your app to see if configuration is still valid"
-                                        );
+                                            error!("Asset file {old_path:?} was changed to meta file {new_path:?}, which is not supported. Try restarting your app to see if configuration is still valid");
                                         }
                                     }
                                 }

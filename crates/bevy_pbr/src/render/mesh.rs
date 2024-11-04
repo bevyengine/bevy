@@ -194,30 +194,20 @@ impl Plugin for MeshRenderPlugin {
             render_app.insert_resource(render_mesh_instances);
 
             if use_gpu_instance_buffer_builder {
-                render_app
-                    .init_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
-                    .init_resource::<RenderMeshInstanceGpuQueues>()
-                    .add_systems(
-                        ExtractSchedule,
-                        extract_meshes_for_gpu_building.in_set(ExtractMeshesSet),
-                    )
-                    .add_systems(
-                        Render,
-                        (
-                            gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
-                                .in_set(RenderSet::PrepareResourcesFlush),
-                            gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
-                                .in_set(RenderSet::ManageViews)
-                                .after(prepare_view_targets),
-                            collect_meshes_for_gpu_building
-                                .in_set(RenderSet::PrepareAssets)
-                                .after(allocator::allocate_and_free_meshes)
-                                // This must be before
-                                // `set_mesh_motion_vector_flags` so it doesn't
-                                // overwrite those flags.
-                                .before(set_mesh_motion_vector_flags),
-                        ),
-                    );
+                render_app.init_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>().init_resource::<RenderMeshInstanceGpuQueues>().add_systems(ExtractSchedule, extract_meshes_for_gpu_building.in_set(ExtractMeshesSet)).add_systems(
+                    Render,
+                    (
+                        gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>.in_set(RenderSet::PrepareResourcesFlush),
+                        gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>.in_set(RenderSet::ManageViews).after(prepare_view_targets),
+                        collect_meshes_for_gpu_building
+                            .in_set(RenderSet::PrepareAssets)
+                            .after(allocator::allocate_and_free_meshes)
+                            // This must be before
+                            // `set_mesh_motion_vector_flags` so it doesn't
+                            // overwrite those flags.
+                            .before(set_mesh_motion_vector_flags),
+                    ),
+                );
             } else {
                 let render_device = render_app.world().resource::<RenderDevice>();
                 let cpu_batched_instance_buffer =

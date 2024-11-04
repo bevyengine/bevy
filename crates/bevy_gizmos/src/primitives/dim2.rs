@@ -618,10 +618,8 @@ where
             gizmos: self,
             direction: primitive.direction,
             half_length: primitive.half_length,
-
             isometry: isometry.into(),
             color: color.into(),
-
             draw_arrow: Default::default(),
         }
     }

@@ -300,9 +300,7 @@ pub(crate) fn generate_remote_assertions(
             };
             let (impl_generics, _, where_clause) = field.generics.split_for_impl();
 
-            let where_reflect_clause = derive_data
-                .where_clause_options()
-                .extend_where_clause(where_clause);
+            let where_reflect_clause = derive_data.where_clause_options().extend_where_clause(where_clause);
 
             let ty = &field.ty;
             let remote_ty = field.remote_ty;

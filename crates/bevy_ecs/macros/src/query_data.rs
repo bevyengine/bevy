@@ -56,9 +56,8 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 meta.parse_nested_meta(|meta| {
                     attributes.derive_args.push(Meta::Path(meta.path));
                     Ok(())
-                }).map_err(|_| {
-                    meta.error(format_args!("`{DERIVE_ATTRIBUTE_NAME}` requires at least one argument"))
                 })
+                .map_err(|_| meta.error(format_args!("`{DERIVE_ATTRIBUTE_NAME}` requires at least one argument")))
             } else {
                 Err(meta.error(format_args!("invalid attribute, expected `{MUTABLE_ATTRIBUTE_NAME}` or `{DERIVE_ATTRIBUTE_NAME}`")))
             }

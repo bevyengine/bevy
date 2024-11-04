@@ -758,7 +758,7 @@ mod tests {
             ReflectPathError::InvalidAccess(AccessError {
                 kind: AccessErrorKind::MissingField(ReflectKind::Struct),
                 access: access_field("notreal"),
-                offset: Some(2),
+                offset: Some(2)
             })
         );
 
@@ -767,12 +767,12 @@ mod tests {
             ReflectPathError::InvalidAccess(AccessError {
                 kind: AccessErrorKind::IncompatibleEnumVariantTypes {
                     actual: VariantType::Unit,
-                    expected: VariantType::Tuple,
+                    expected: VariantType::Tuple
                 },
                 access: ParsedPath::parse_static("unit_variant.0").unwrap()[1]
                     .access
                     .clone(),
-                offset: Some(13),
+                offset: Some(13)
             })
         );
         assert_eq!(

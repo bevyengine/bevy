@@ -218,7 +218,7 @@ mod tests {
             world.entity_mut(e1).take::<FooBundle>().unwrap(),
             FooBundle {
                 x: TableStored("xyz"),
-                y: SparseStored(123),
+                y: SparseStored(123)
             }
         );
 
@@ -269,9 +269,9 @@ mod tests {
                 a: A(1),
                 foo: FooBundle {
                     x: TableStored("ghi"),
-                    y: SparseStored(789),
+                    y: SparseStored(789)
                 },
-                b: B(2),
+                b: B(2)
             }
         );
 
@@ -310,7 +310,7 @@ mod tests {
             world.entity_mut(e4).take::<BundleWithIgnored>().unwrap(),
             BundleWithIgnored {
                 c: C,
-                ignored: Ignored,
+                ignored: Ignored
             }
         );
     }
@@ -1744,11 +1744,7 @@ mod tests {
         let mut query = world.query::<(Option<&A>, &B, &C)>();
         let component_values = query.get_many(&world, [e0, e1, e2]).unwrap();
 
-        assert_eq!(
-            component_values,
-            [(Some(&A(0)), &B(1), &C), (Some(&A(0)), &B(2), &C), (None, &B(3), &C)],
-            "all entities should have had their B component replaced, received C component, and had their A component (or lack thereof) unchanged"
-        );
+        assert_eq!(component_values, [(Some(&A(0)), &B(1), &C), (Some(&A(0)), &B(2), &C), (None, &B(3), &C)], "all entities should have had their B component replaced, received C component, and had their A component (or lack thereof) unchanged");
     }
 
     #[test]

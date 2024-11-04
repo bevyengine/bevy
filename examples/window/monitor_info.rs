@@ -62,9 +62,7 @@ fn update(
             ))
             .id();
 
-        let info_text = format!(
-            "Monitor: {name}\nSize: {size}\nRefresh rate: {hz}\nPosition: {position}\nScale: {scale}\n\n",
-        );
+        let info_text = format!("Monitor: {name}\nSize: {size}\nRefresh rate: {hz}\nPosition: {position}\nScale: {scale}\n\n",);
         commands.spawn((
             Text(info_text),
             Node {

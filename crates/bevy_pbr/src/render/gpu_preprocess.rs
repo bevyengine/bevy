@@ -136,24 +136,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
         }
 
         // Stitch the node in.
-        render_app
-            .add_render_graph_node::<GpuPreprocessNode>(Core3d, NodePbr::GpuPreprocess)
-            .add_render_graph_edges(Core3d, (NodePbr::GpuPreprocess, Node3d::Prepass))
-            .add_render_graph_edges(Core3d, (NodePbr::GpuPreprocess, NodePbr::ShadowPass))
-            .init_resource::<PreprocessPipelines>()
-            .init_resource::<SpecializedComputePipelines<PreprocessPipeline>>()
-            .add_systems(
-                Render,
-                (
-                    prepare_preprocess_pipelines.in_set(RenderSet::Prepare),
-                    prepare_preprocess_bind_groups
-                        .run_if(
-                            resource_exists::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
-                        )
-                        .in_set(RenderSet::PrepareBindGroups),
-                    write_mesh_culling_data_buffer.in_set(RenderSet::PrepareResourcesFlush),
-                )
-            );
+        render_app.add_render_graph_node::<GpuPreprocessNode>(Core3d, NodePbr::GpuPreprocess).add_render_graph_edges(Core3d, (NodePbr::GpuPreprocess, Node3d::Prepass)).add_render_graph_edges(Core3d, (NodePbr::GpuPreprocess, NodePbr::ShadowPass)).init_resource::<PreprocessPipelines>().init_resource::<SpecializedComputePipelines<PreprocessPipeline>>().add_systems(Render, (prepare_preprocess_pipelines.in_set(RenderSet::Prepare), prepare_preprocess_bind_groups.run_if(resource_exists::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>).in_set(RenderSet::PrepareBindGroups), write_mesh_culling_data_buffer.in_set(RenderSet::PrepareResourcesFlush)));
     }
 }
 

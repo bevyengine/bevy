@@ -653,7 +653,7 @@ mod tests {
         // Valid
         assert!(Rot2 {
             sin: 10.0,
-            cos: 5.0,
+            cos: 5.0
         }
         .try_normalize()
         .is_some());
@@ -661,7 +661,7 @@ mod tests {
         // NaN
         assert!(Rot2 {
             sin: f32::NAN,
-            cos: 5.0,
+            cos: 5.0
         }
         .try_normalize()
         .is_none());
@@ -672,7 +672,7 @@ mod tests {
         // Non-finite
         assert!(Rot2 {
             sin: f32::INFINITY,
-            cos: 5.0,
+            cos: 5.0
         }
         .try_normalize()
         .is_none());

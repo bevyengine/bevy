@@ -36,11 +36,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 //  - The first row will size to the size of its contents
                 //  - The second row take up remaining available space (after rows 1 and 3 have both been sized)
                 //  - The third row will be exactly 20px high
-                grid_template_rows: vec![
-                    GridTrack::auto(),
-                    GridTrack::flex(1.0),
-                    GridTrack::px(20.),
-                ],
+                grid_template_rows: vec![GridTrack::auto(), GridTrack::flex(1.0), GridTrack::px(20.)],
                 ..default()
             },
             BackgroundColor(Color::WHITE),
@@ -48,15 +44,13 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|builder| {
             // Header
             builder
-                .spawn(
-                    Node {
-                        display: Display::Grid,
-                        // Make this node span two grid columns so that it takes up the entire top tow
-                        grid_column: GridPlacement::span(2),
-                        padding: UiRect::all(Val::Px(6.0)),
-                        ..default()
-                    },
-                )
+                .spawn(Node {
+                    display: Display::Grid,
+                    // Make this node span two grid columns so that it takes up the entire top tow
+                    grid_column: GridPlacement::span(2),
+                    padding: UiRect::all(Val::Px(6.0)),
+                    ..default()
+                })
                 .with_children(|builder| {
                     spawn_nested_text_bundle(builder, font.clone(), "Bevy CSS Grid Layout Example");
                 });
@@ -132,19 +126,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     BackgroundColor(BLACK.into()),
                 ))
                 .with_children(|builder| {
-                    builder.spawn((Text::new("Sidebar"),
-                        TextFont {
-                            font: font.clone(),
-                            ..default()
-                        },
-                    ));
-                    builder.spawn((Text::new("A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely."),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: 13.0,
-                            ..default()
-                        },
-                    ));
+                    builder.spawn((Text::new("Sidebar"), TextFont { font: font.clone(), ..default() }));
+                    builder.spawn((Text::new("A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely."), TextFont { font: font.clone(), font_size: 13.0, ..default() }));
                     builder.spawn(Node::default());
                 });
 
@@ -159,23 +142,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             ));
 
             // Modal (absolutely positioned on top of content - currently hidden: to view it, change its visibility)
-            builder.spawn((
-                Node {
-                    position_type: PositionType::Absolute,
-                    margin: UiRect {
-                        top: Val::Px(100.),
-                        bottom: Val::Auto,
-                        left: Val::Auto,
-                        right: Val::Auto,
-                    },
-                    width: Val::Percent(60.),
-                    height: Val::Px(300.),
-                    max_width: Val::Px(600.),
-                    ..default()
-                },
-                Visibility::Hidden,
-                BackgroundColor(Color::WHITE.with_alpha(0.8)),
-            ));
+            builder.spawn((Node { position_type: PositionType::Absolute, margin: UiRect { top: Val::Px(100.), bottom: Val::Auto, left: Val::Auto, right: Val::Auto }, width: Val::Percent(60.), height: Val::Px(300.), max_width: Val::Px(600.), ..default() }, Visibility::Hidden, BackgroundColor(Color::WHITE.with_alpha(0.8))));
         });
 }
 

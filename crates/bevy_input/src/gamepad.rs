@@ -1642,10 +1642,7 @@ mod tests {
         expected: Option<f32>,
     ) {
         let actual = settings.filter(new_value, old_value);
-        assert_eq!(
-            expected, actual,
-            "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",
-        );
+        assert_eq!(expected, actual, "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",);
     }
 
     #[test]
@@ -1697,10 +1694,7 @@ mod tests {
         expected: Option<f32>,
     ) {
         let actual = settings.filter(new_value, old_value);
-        assert_eq!(
-            expected, actual,
-            "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",
-        );
+        assert_eq!(expected, actual, "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",);
     }
 
     #[test]
@@ -1833,9 +1827,7 @@ mod tests {
                     assert_eq!(button_settings.release_threshold, release_threshold);
                 }
                 Err(_) => {
-                    panic!(
-                        "ButtonSettings::new({press_threshold}, {release_threshold}) should be valid"
-                    );
+                    panic!("ButtonSettings::new({press_threshold}, {release_threshold}) should be valid");
                 }
             }
         }
@@ -1858,9 +1850,7 @@ mod tests {
             let bs = ButtonSettings::new(press_threshold, release_threshold);
             match bs {
                 Ok(_) => {
-                    panic!(
-                        "ButtonSettings::new({press_threshold}, {release_threshold}) should be invalid"
-                    );
+                    panic!("ButtonSettings::new({press_threshold}, {release_threshold}) should be invalid");
                 }
                 Err(err_code) => match err_code {
                     ButtonSettingsError::PressThresholdOutOfRange(_press_threshold) => {}
@@ -1884,7 +1874,7 @@ mod tests {
                 deadzone_lowerbound: -0.05,
                 deadzone_upperbound: 0.05,
                 livezone_upperbound: 0.95,
-                threshold: 0.001,
+                threshold: 0.001
             })
         );
         assert_eq!(
@@ -1927,7 +1917,7 @@ mod tests {
             Err(
                 AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
                     livezone_lowerbound: -0.1,
-                    deadzone_lowerbound: -0.3,
+                    deadzone_lowerbound: -0.3
                 }
             ),
             axis_settings.try_set_livezone_lowerbound(-0.1)

@@ -2822,10 +2822,12 @@ impl World {
             changed_by: &mut _caller,
         };
         let result = f(self, value_mut);
-        assert!(!self.contains_resource::<R>(),
+        assert!(
+            !self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
             This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
-            core::any::type_name::<R>());
+            core::any::type_name::<R>()
+        );
 
         OwningPtr::make(value, |ptr| {
             // SAFETY: pointer is of type R
@@ -2878,10 +2880,7 @@ impl World {
         events: impl IntoIterator<Item = E>,
     ) -> Option<SendBatchIds<E>> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
-            bevy_utils::tracing::error!(
-                "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
-                core::any::type_name::<E>()
-            );
+            bevy_utils::tracing::error!("Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ", core::any::type_name::<E>());
             return None;
         };
         Some(events_resource.send_batch(events))

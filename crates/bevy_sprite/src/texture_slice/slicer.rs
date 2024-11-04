@@ -318,7 +318,7 @@ mod test {
                     max: Vec2::splat(10.0)
                 },
                 draw_size: Vec2::new(10.0, 10.0),
-                offset: Vec2::new(-45.0, 45.0),
+                offset: Vec2::new(-45.0, 45.0)
             }
         );
     }
@@ -350,7 +350,7 @@ mod test {
                     max: Vec2::new(20.0, 10.0)
                 },
                 draw_size: Vec2::new(20.0, 10.0),
-                offset: Vec2::new(-40.0, 45.0),
+                offset: Vec2::new(-40.0, 45.0)
             }
         );
     }
@@ -384,7 +384,7 @@ mod test {
                     max: Vec2::new(5.0, 10.0)
                 },
                 draw_size: Vec2::new(5.0, 10.0),
-                offset: Vec2::new(-47.5, 45.0),
+                offset: Vec2::new(-47.5, 45.0)
             }
         );
         assert_eq!(
@@ -395,7 +395,7 @@ mod test {
                     max: Vec2::new(40.0, 10.0)
                 },
                 draw_size: Vec2::new(85.0, 10.0),
-                offset: Vec2::new(-2.5, 45.0),
+                offset: Vec2::new(-2.5, 45.0)
             }
         );
     }
@@ -427,7 +427,7 @@ mod test {
                     max: Vec2::new(0.0, 10.0)
                 },
                 draw_size: Vec2::new(0.0, 10.0),
-                offset: Vec2::new(-50.0, 45.0),
+                offset: Vec2::new(-50.0, 45.0)
             }
         );
     }

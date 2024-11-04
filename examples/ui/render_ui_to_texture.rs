@@ -96,7 +96,6 @@ fn setup(
         base_color_texture: Some(image_handle),
         reflectance: 0.02,
         unlit: false,
-
         ..default()
     });
 

@@ -144,10 +144,7 @@ macro_rules! impl_cast_method {
         pub fn $name(self) -> Result<$retval, ReflectKindMismatchError> {
             match self {
                 Self::Opaque(value) => Ok(value),
-                _ => Err(ReflectKindMismatchError {
-                    expected: ReflectKind::Opaque,
-                    received: self.kind(),
-                }),
+                _ => Err(ReflectKindMismatchError { expected: ReflectKind::Opaque, received: self.kind() }),
             }
         }
     };
@@ -157,10 +154,7 @@ macro_rules! impl_cast_method {
         pub fn $name(self) -> Result<$retval, ReflectKindMismatchError> {
             match self {
                 Self::$kind(value) => Ok(value),
-                _ => Err(ReflectKindMismatchError {
-                    expected: ReflectKind::$kind,
-                    received: self.kind(),
-                }),
+                _ => Err(ReflectKindMismatchError { expected: ReflectKind::$kind, received: self.kind() }),
             }
         }
     };

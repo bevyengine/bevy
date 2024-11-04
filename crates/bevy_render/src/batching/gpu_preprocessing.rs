@@ -249,15 +249,9 @@ impl FromWorld for GpuPreprocessingSupport {
             }
         }
 
-        if device.limits().max_compute_workgroup_size_x == 0 || is_non_supported_android_device(adapter)
-        {
+        if device.limits().max_compute_workgroup_size_x == 0 || is_non_supported_android_device(adapter) {
             GpuPreprocessingSupport::None
-        } else if !device
-            .features()
-            .contains(Features::INDIRECT_FIRST_INSTANCE) ||
-            !adapter.get_downlevel_capabilities().flags.contains(
-        DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW)
-        {
+        } else if !device.features().contains(Features::INDIRECT_FIRST_INSTANCE) || !adapter.get_downlevel_capabilities().flags.contains(DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW) {
             GpuPreprocessingSupport::PreprocessingOnly
         } else {
             GpuPreprocessingSupport::Culling

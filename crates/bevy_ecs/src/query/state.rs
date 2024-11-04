@@ -587,11 +587,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         NewF::update_component_access(&filter_state, &mut filter_component_access);
 
         component_access.extend(&filter_component_access);
-        assert!(
-            component_access.is_subset(&self.component_access),
-            "Transmuted state for {} attempts to access terms that are not allowed by original state {}.",
-            core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>()
-        );
+        assert!(component_access.is_subset(&self.component_access), "Transmuted state for {} attempts to access terms that are not allowed by original state {}.", core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>());
 
         QueryState {
             world_id: self.world_id,
@@ -665,10 +661,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.validate_world(world.id());
 
         let mut component_access = FilteredAccess::default();
-        let mut new_fetch_state = NewD::get_state(world.components())
-            .expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
-        let new_filter_state = NewF::get_state(world.components())
-            .expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
+        let mut new_fetch_state = NewD::get_state(world.components()).expect("Could not create fetch_state, Please initialize all referenced components before transmuting.");
+        let new_filter_state = NewF::get_state(world.components()).expect("Could not create filter_state, Please initialize all referenced components before transmuting.");
 
         NewD::set_access(&mut new_fetch_state, &self.component_access);
         NewD::update_component_access(&new_fetch_state, &mut component_access);
@@ -681,11 +675,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut joined_component_access = self.component_access.clone();
         joined_component_access.extend(&other.component_access);
 
-        assert!(
-            component_access.is_subset(&joined_component_access),
-            "Joined state for {} attempts to access terms that are not allowed by state {} joined with {}.",
-            core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>(), core::any::type_name::<(OtherD, OtherF)>()
-        );
+        assert!(component_access.is_subset(&joined_component_access), "Joined state for {} attempts to access terms that are not allowed by state {} joined with {}.", core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>(), core::any::type_name::<(OtherD, OtherF)>());
 
         if self.archetype_generation != other.archetype_generation {
             warn!("You have tried to join queries with different archetype_generations. This could lead to unpredictable results.");

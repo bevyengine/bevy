@@ -547,13 +547,7 @@ mod tests {
                 .unwrap_err();
 
             #[cfg(feature = "debug_stack")]
-            assert_eq!(
-                error,
-                ron::Error::Message(
-                    "no registration found for type `bevy_reflect::DynamicFunction` (stack: `bevy_reflect::serde::de::tests::functions::MyStruct`)"
-                        .to_string()
-                )
-            );
+            assert_eq!(error, ron::Error::Message("no registration found for type `bevy_reflect::DynamicFunction` (stack: `bevy_reflect::serde::de::tests::functions::MyStruct`)".to_string()));
 
             #[cfg(not(feature = "debug_stack"))]
             assert_eq!(
@@ -599,12 +593,7 @@ mod tests {
             let error = reflect_deserializer
                 .deserialize(&mut deserializer)
                 .unwrap_err();
-            assert_eq!(
-                error,
-                ron::Error::Message(
-                    "type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `bevy_reflect::serde::de::tests::debug_stack::Foo` -> `bevy_reflect::serde::de::tests::debug_stack::Bar` -> `bevy_reflect::serde::de::tests::debug_stack::Baz` -> `alloc::vec::Vec<core::ops::RangeInclusive<f32>>` -> `core::ops::RangeInclusive<f32>`)".to_string()
-                )
-            );
+            assert_eq!(error, ron::Error::Message("type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data` (stack: `bevy_reflect::serde::de::tests::debug_stack::Foo` -> `bevy_reflect::serde::de::tests::debug_stack::Bar` -> `bevy_reflect::serde::de::tests::debug_stack::Baz` -> `alloc::vec::Vec<core::ops::RangeInclusive<f32>>` -> `core::ops::RangeInclusive<f32>`)".to_string()));
         }
     }
 }

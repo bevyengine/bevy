@@ -491,10 +491,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
-        assert!(
-            !access.access().has_any_component_write(),
-            "EntityRef conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-        );
+        assert!(!access.access().has_any_component_write(), "EntityRef conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",);
         access.read_all_components();
     }
 
@@ -571,10 +568,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
-        assert!(
-            !access.access().has_any_component_read(),
-            "EntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
-        );
+        assert!(!access.access().has_any_component_read(), "EntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",);
         access.write_all_components();
     }
 
@@ -661,10 +655,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
         state: &Self::State,
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
-        assert!(
-            filtered_access.access().is_compatible(&state.access),
-            "FilteredEntityRef conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
-        );
+        assert!(filtered_access.access().is_compatible(&state.access), "FilteredEntityRef conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",);
         filtered_access.access.extend(&state.access);
     }
 
@@ -755,10 +746,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
         state: &Self::State,
         filtered_access: &mut FilteredAccess<ComponentId>,
     ) {
-        assert!(
-            filtered_access.access().is_compatible(&state.access),
-            "FilteredEntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
-        );
+        assert!(filtered_access.access().is_compatible(&state.access), "FilteredEntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",);
         filtered_access.access.extend(&state.access);
     }
 
@@ -1184,11 +1172,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         &component_id: &ComponentId,
         access: &mut FilteredAccess<ComponentId>,
     ) {
-        assert!(
-            !access.access().has_component_write(component_id),
-            "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-            core::any::type_name::<T>(),
-        );
+        assert!(!access.access().has_component_write(component_id), "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.", core::any::type_name::<T>(),);
         access.add_component_read(component_id);
     }
 
@@ -1383,11 +1367,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         &component_id: &ComponentId,
         access: &mut FilteredAccess<ComponentId>,
     ) {
-        assert!(
-            !access.access().has_component_write(component_id),
-            "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-            core::any::type_name::<T>(),
-        );
+        assert!(!access.access().has_component_write(component_id), "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.", core::any::type_name::<T>(),);
         access.add_component_read(component_id);
     }
 
@@ -1582,11 +1562,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         &component_id: &ComponentId,
         access: &mut FilteredAccess<ComponentId>,
     ) {
-        assert!(
-            !access.access().has_component_read(component_id),
-            "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
-            core::any::type_name::<T>(),
-        );
+        assert!(!access.access().has_component_read(component_id), "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.", core::any::type_name::<T>(),);
         access.add_component_write(component_id);
     }
 
@@ -1684,11 +1660,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     ) {
         // Update component access here instead of in `<&mut T as WorldQuery>` to avoid erroneously referencing
         // `&mut T` in error message.
-        assert!(
-            !access.access().has_component_read(component_id),
-            "Mut<{}> conflicts with a previous access in this query. Mutable component access mut be unique.",
-            core::any::type_name::<T>(),
-        );
+        assert!(!access.access().has_component_read(component_id), "Mut<{}> conflicts with a previous access in this query. Mutable component access mut be unique.", core::any::type_name::<T>(),);
         access.add_component_write(component_id);
     }
 

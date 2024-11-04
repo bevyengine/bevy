@@ -289,9 +289,7 @@ mod tests {
         values.iter().for_each(|pair| {
             let mut sorted = *pair;
             sorted.sort();
-            assert!(expected.contains(&sorted),
-                    "the results of iter_combinations should contain this combination {:?}. Expected: {:?}, got: {:?}",
-                    &sorted, &expected, &values);
+            assert!(expected.contains(&sorted), "the results of iter_combinations should contain this combination {:?}. Expected: {:?}, got: {:?}", &sorted, &expected, &values);
         });
     }
 

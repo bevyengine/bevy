@@ -152,12 +152,13 @@ impl CubicRotationCurve {
     /// - The actual value `v_k` for the sample at time `t_k`
     /// - The out-tangent `b_k` for the sample at time `t_k`
     ///
-    /// For example, for a curve built from two keyframes, the inputs would have the following form:
+    /// For example, for a curve built from two keyframes,
+    /// the inputs would have the following form:
     /// - `times`: `[t_0, t_1]`
     /// - `values`: `[a_0, v_0, b_0, a_1, v_1, b_1]`
     ///
-    /// To sample quaternions from this curve, the resulting interpolated `Vec4` output is normalized
-    /// and interpreted as a quaternion.
+    /// To sample quaternions from this curve, the resulting interpolated `Vec4` output is
+    /// normalized and interpreted as a quaternion.
     pub fn new(
         times: impl IntoIterator<Item = f32>,
         values: impl IntoIterator<Item = Vec4>,
@@ -300,8 +301,8 @@ where
             InterpolationDatum::Exact((_, v))
             | InterpolationDatum::LeftTail((_, v))
             | InterpolationDatum::RightTail((_, v)) => {
-                // Pick out the part of this that actually represents the position (instead of tangents),
-                // which is the middle third.
+                // Pick out the part of this that actually represents the
+                // position (instead of tangents), which is the middle third.
                 let width = self.core.width();
                 Either::Left(v[width..(width * 2)].iter().copied())
             }

@@ -112,12 +112,7 @@ fn setup(
         font_size: 25.0,
         ..default()
     };
-    commands.spawn((
-        Text2d::new("Press Space to play on your desktop! Press it again to return.\nRight click Bevy logo to exit."),
-            text_style.clone(),
-            Transform::from_xyz(0.0, -300.0, 100.0),
-        InstructionsText,
-    ));
+    commands.spawn((Text2d::new("Press Space to play on your desktop! Press it again to return.\nRight click Bevy logo to exit."), text_style.clone(), Transform::from_xyz(0.0, -300.0, 100.0), InstructionsText));
 
     // Create a circle mesh. We will reuse this mesh for all our circles.
     let circle = meshes.add(Circle { radius: 1.0 });

@@ -384,9 +384,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 }
                 TypeInfo::Opaque(_) => {
                     // This case should already be handled
-                    Err(make_custom_error(format_args!(
-                        "type `{type_path}` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`",
-                    )))
+                    Err(make_custom_error(format_args!("type `{type_path}` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`",)))
                 }
             }
         };

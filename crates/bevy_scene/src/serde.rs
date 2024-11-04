@@ -954,12 +954,7 @@ mod tests {
                         )
                     });
 
-                assert!(
-                    expected
-                        .reflect_partial_eq(received.as_ref())
-                        .unwrap_or_default(),
-                    "components did not match: (expected: `{expected:?}`, received: `{received:?}`)",
-                );
+                assert!(expected.reflect_partial_eq(received.as_ref()).unwrap_or_default(), "components did not match: (expected: `{expected:?}`, received: `{received:?}`)",);
             }
         }
     }

@@ -421,15 +421,15 @@ mod aabb2d_tests {
         assert!(aabb.intersects(&aabb));
         assert!(aabb.intersects(&Aabb2d {
             min: Vec2::new(0.5, 0.5),
-            max: Vec2::new(2.0, 2.0),
+            max: Vec2::new(2.0, 2.0)
         }));
         assert!(aabb.intersects(&Aabb2d {
             min: Vec2::new(-2.0, -2.0),
-            max: Vec2::new(-0.5, -0.5),
+            max: Vec2::new(-0.5, -0.5)
         }));
         assert!(!aabb.intersects(&Aabb2d {
             min: Vec2::new(1.1, 0.0),
-            max: Vec2::new(2.0, 0.5),
+            max: Vec2::new(2.0, 0.5)
         }));
     }
 

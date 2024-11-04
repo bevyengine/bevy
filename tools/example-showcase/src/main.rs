@@ -187,10 +187,7 @@ fn main() {
                 // When the example does not automatically stop.
                 (0, _) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
-                    file.write_all(
-                        format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, Screenshot)])").as_bytes(),
-                    )
-                    .unwrap();
+                    file.write_all(format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, Screenshot)])").as_bytes()).unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
@@ -205,10 +202,7 @@ fn main() {
                 // When the example both automatically stops and takes a screenshot.
                 (_, _) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
-                    file.write_all(
-                        format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, Screenshot), ({stop_frame}, AppExit)])").as_bytes(),
-                    )
-                    .unwrap();
+                    file.write_all(format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, Screenshot), ({stop_frame}, AppExit)])").as_bytes()).unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
@@ -217,40 +211,20 @@ fn main() {
             if in_ci {
                 // Removing desktop mode as is slows down too much in CI
                 let sh = Shell::new().unwrap();
-                cmd!(
-                    sh,
-                    "git apply --ignore-whitespace tools/example-showcase/remove-desktop-app-mode.patch"
-                )
-                .run()
-                .unwrap();
+                cmd!(sh, "git apply --ignore-whitespace tools/example-showcase/remove-desktop-app-mode.patch").run().unwrap();
 
                 // Don't use automatic position as it's "random" on Windows and breaks screenshot comparison
                 // using the cursor position
                 let sh = Shell::new().unwrap();
-                cmd!(
-                    sh,
-                    "git apply --ignore-whitespace tools/example-showcase/fixed-window-position.patch"
-                )
-                .run()
-                .unwrap();
+                cmd!(sh, "git apply --ignore-whitespace tools/example-showcase/fixed-window-position.patch").run().unwrap();
 
                 // Setting lights ClusterConfig to have less clusters by default
                 // This is needed as the default config is too much for the CI runner
-                cmd!(
-                    sh,
-                    "git apply --ignore-whitespace tools/example-showcase/reduce-light-cluster-config.patch"
-                )
-                .run()
-                .unwrap();
+                cmd!(sh, "git apply --ignore-whitespace tools/example-showcase/reduce-light-cluster-config.patch").run().unwrap();
 
                 // Sending extra WindowResize events. They are not sent on CI with xvfb x11 server
                 // This is needed for example split_screen that uses the window size to set the panels
-                cmd!(
-                    sh,
-                    "git apply --ignore-whitespace tools/example-showcase/extra-window-resized-events.patch"
-                )
-                .run()
-                .unwrap();
+                cmd!(sh, "git apply --ignore-whitespace tools/example-showcase/extra-window-resized-events.patch").run().unwrap();
 
                 // Don't try to get an audio output stream in CI as there isn't one
                 // On macOS m1 runner in GitHub Actions, getting one timeouts after 15 minutes
@@ -311,10 +285,7 @@ fn main() {
                     cmd!(sh, "{exe} {args...}").run().unwrap();
                 }
 
-                let _ = cmd!(
-                    sh,
-                    "cargo build --profile {profile} --example {example} {local_extra_parameters...}"
-                ).run();
+                let _ = cmd!(sh, "cargo build --profile {profile} --example {example} {local_extra_parameters...}").run();
                 let local_extra_parameters = extra_parameters
                     .iter()
                     .map(ToString::to_string)
@@ -637,20 +608,10 @@ header_message = \"Examples ({})\"
                 let sh = Shell::new().unwrap();
 
                 // setting a canvas by default to help with integration
-                cmd!(
-                    sh,
-                    "git apply --ignore-whitespace tools/example-showcase/window-settings-wasm.patch"
-                )
-                .run()
-                .unwrap();
+                cmd!(sh, "git apply --ignore-whitespace tools/example-showcase/window-settings-wasm.patch").run().unwrap();
 
                 // setting the asset folder root to the root url of this domain
-                cmd!(
-                    sh,
-                    "git apply --ignore-whitespace tools/example-showcase/asset-source-website.patch"
-                )
-                .run()
-                .unwrap();
+                cmd!(sh, "git apply --ignore-whitespace tools/example-showcase/asset-source-website.patch").run().unwrap();
             }
 
             let work_to_do = || {
@@ -675,19 +636,9 @@ header_message = \"Examples ({})\"
                 };
 
                 if optimize_size {
-                    cmd!(
-                        sh,
-                        "cargo run -p build-wasm-example -- --api {api} {example} --optimize-size {required_features...}"
-                    )
-                    .run()
-                    .unwrap();
+                    cmd!(sh, "cargo run -p build-wasm-example -- --api {api} {example} --optimize-size {required_features...}").run().unwrap();
                 } else {
-                    cmd!(
-                        sh,
-                        "cargo run -p build-wasm-example -- --api {api} {example} {required_features...}"
-                    )
-                    .run()
-                    .unwrap();
+                    cmd!(sh, "cargo run -p build-wasm-example -- --api {api} {example} {required_features...}").run().unwrap();
                 }
 
                 let category_path = root_path.join(&to_build.category);

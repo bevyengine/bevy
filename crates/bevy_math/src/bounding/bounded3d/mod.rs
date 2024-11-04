@@ -425,15 +425,15 @@ mod aabb3d_tests {
         assert!(aabb.intersects(&aabb));
         assert!(aabb.intersects(&Aabb3d {
             min: Vec3A::splat(0.5),
-            max: Vec3A::splat(2.0),
+            max: Vec3A::splat(2.0)
         }));
         assert!(aabb.intersects(&Aabb3d {
             min: Vec3A::splat(-2.0),
-            max: Vec3A::splat(-0.5),
+            max: Vec3A::splat(-0.5)
         }));
         assert!(!aabb.intersects(&Aabb3d {
             min: Vec3A::new(1.1, 0.0, 0.0),
-            max: Vec3A::new(2.0, 0.5, 0.25),
+            max: Vec3A::new(2.0, 0.5, 0.25)
         }));
     }
 

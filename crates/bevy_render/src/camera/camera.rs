@@ -1247,9 +1247,7 @@ pub struct TemporalJitter {
 impl TemporalJitter {
     pub fn jitter_projection(&self, clip_from_view: &mut Mat4, view_size: Vec2) {
         if clip_from_view.w_axis.w == 1.0 {
-            warn!(
-                "TemporalJitter not supported with OrthographicProjection. Use PerspectiveProjection instead."
-            );
+            warn!("TemporalJitter not supported with OrthographicProjection. Use PerspectiveProjection instead.");
             return;
         }
 

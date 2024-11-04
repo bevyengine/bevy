@@ -2106,21 +2106,9 @@ mod tests {
         {
             let mut query = world.query::<&Sparse>();
             let mut iter = query.iter(&world);
-            println!(
-                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
-                iter.cursor.current_len,
-                iter.cursor.current_row
-            );
+            println!("before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", iter.cursor.archetype_entities.len(), iter.cursor.table_entities.len(), iter.cursor.current_len, iter.cursor.current_row);
             _ = iter.next();
-            println!(
-                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
-                iter.cursor.current_len,
-                iter.cursor.current_row
-            );
+            println!("after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", iter.cursor.archetype_entities.len(), iter.cursor.table_entities.len(), iter.cursor.current_len, iter.cursor.current_row);
             println!("{}", iter.sort::<Entity>().len());
         }
     }
@@ -2131,21 +2119,9 @@ mod tests {
         {
             let mut query = world.query::<(&A, &Sparse)>();
             let mut iter = query.iter(&world);
-            println!(
-                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
-                iter.cursor.current_len,
-                iter.cursor.current_row
-            );
+            println!("before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", iter.cursor.archetype_entities.len(), iter.cursor.table_entities.len(), iter.cursor.current_len, iter.cursor.current_row);
             _ = iter.next();
-            println!(
-                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
-                iter.cursor.current_len,
-                iter.cursor.current_row
-            );
+            println!("after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", iter.cursor.archetype_entities.len(), iter.cursor.table_entities.len(), iter.cursor.current_len, iter.cursor.current_row);
             println!("{}", iter.sort::<Entity>().len());
         }
     }
@@ -2159,22 +2135,10 @@ mod tests {
         {
             let mut query = world.query::<(&A, &Sparse)>();
             let mut iter = query.iter(&world);
-            println!(
-                "before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
-                iter.cursor.current_len,
-                iter.cursor.current_row
-            );
+            println!("before_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", iter.cursor.archetype_entities.len(), iter.cursor.table_entities.len(), iter.cursor.current_len, iter.cursor.current_row);
             assert!(iter.cursor.table_entities.len() | iter.cursor.archetype_entities.len() == 0);
             _ = iter.next();
-            println!(
-                "after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}",
-                iter.cursor.archetype_entities.len(),
-                iter.cursor.table_entities.len(),
-                iter.cursor.current_len,
-                iter.cursor.current_row
-            );
+            println!("after_next_call: archetype_entities: {} table_entities: {} current_len: {} current_row: {}", iter.cursor.archetype_entities.len(), iter.cursor.table_entities.len(), iter.cursor.current_len, iter.cursor.current_row);
             assert!(
                 (
                     iter.cursor.table_entities.len(),

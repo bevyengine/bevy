@@ -371,13 +371,15 @@ pub struct AnimationTarget {
 
 impl AnimationClip {
     #[inline]
-    /// [`VariableCurve`]s for each animation target. Indexed by the [`AnimationTargetId`].
+    /// [`VariableCurve`]s for each animation target.
+    /// Indexed by the [`AnimationTargetId`].
     pub fn curves(&self) -> &AnimationCurves {
         &self.curves
     }
 
     #[inline]
-    /// Get mutable references of [`VariableCurve`]s for each animation target. Indexed by the [`AnimationTargetId`].
+    /// Get mutable references of [`VariableCurve`]s for each animation target.
+    /// Indexed by the [`AnimationTargetId`].
     pub fn curves_mut(&mut self) -> &mut AnimationCurves {
         &mut self.curves
     }
@@ -596,7 +598,8 @@ impl Default for ActiveAnimation {
 }
 
 impl ActiveAnimation {
-    /// Check if the animation has finished, based on its repetition behavior and the number of times it has repeated.
+    /// Check if the animation has finished, based on its repetition behavior
+    /// and the number of times it has repeated.
     ///
     /// Note: An animation with `RepeatAnimation::Forever` will never finish.
     #[inline]

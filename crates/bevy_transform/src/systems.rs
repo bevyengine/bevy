@@ -59,39 +59,28 @@ pub fn propagate_transforms(
     orphaned_entities.clear();
     orphaned_entities.extend(orphaned.read());
     orphaned_entities.sort_unstable();
-    root_query.par_iter_mut().for_each(
-        |(entity, children, transform, mut global_transform)| {
-            let changed = transform.is_changed() || global_transform.is_added() || orphaned_entities.binary_search(&entity).is_ok();
-            if changed {
-                *global_transform = GlobalTransform::from(*transform);
-            }
+    root_query.par_iter_mut().for_each(|(entity, children, transform, mut global_transform)| {
+        let changed = transform.is_changed() || global_transform.is_added() || orphaned_entities.binary_search(&entity).is_ok();
+        if changed {
+            *global_transform = GlobalTransform::from(*transform);
+        }
 
-            for (child, actual_parent) in parent_query.iter_many(children) {
-                assert_eq!(
-                    actual_parent.get(), entity,
-                    "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
-                );
-                // SAFETY:
-                // - `child` must have consistent parentage, or the above assertion would panic.
-                // Since `child` is parented to a root entity, the entire hierarchy leading to it is consistent.
-                // - We may operate as if all descendants are consistent, since `propagate_recursive` will panic before 
-                //   continuing to propagate if it encounters an entity with inconsistent parentage.
-                // - Since each root entity is unique and the hierarchy is consistent and forest-like,
-                //   other root entities' `propagate_recursive` calls will not conflict with this one.
-                // - Since this is the only place where `transform_query` gets used, there will be no conflicting fetches elsewhere.
-                #[expect(unsafe_code, reason = "`propagate_recursive()` is unsafe due to its use of `Query::get_unchecked()`.")]
-                unsafe {
-                    propagate_recursive(
-                        &global_transform,
-                        &transform_query,
-                        &parent_query,
-                        child,
-                        changed || actual_parent.is_changed(),
-                    );
-                }
+        for (child, actual_parent) in parent_query.iter_many(children) {
+            assert_eq!(actual_parent.get(), entity, "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle");
+            // SAFETY:
+            // - `child` must have consistent parentage, or the above assertion would panic.
+            // Since `child` is parented to a root entity, the entire hierarchy leading to it is consistent.
+            // - We may operate as if all descendants are consistent, since `propagate_recursive` will panic before
+            //   continuing to propagate if it encounters an entity with inconsistent parentage.
+            // - Since each root entity is unique and the hierarchy is consistent and forest-like,
+            //   other root entities' `propagate_recursive` calls will not conflict with this one.
+            // - Since this is the only place where `transform_query` gets used, there will be no conflicting fetches elsewhere.
+            #[expect(unsafe_code, reason = "`propagate_recursive()` is unsafe due to its use of `Query::get_unchecked()`.")]
+            unsafe {
+                propagate_recursive(&global_transform, &transform_query, &parent_query, child, changed || actual_parent.is_changed());
             }
-        },
-    );
+        }
+    });
 }
 
 /// Recursively propagates the transforms for `entity` and all of its descendants.
@@ -162,10 +151,7 @@ unsafe fn propagate_recursive(
 
     let Some(children) = children else { return };
     for (child, actual_parent) in parent_query.iter_many(children) {
-        assert_eq!(
-            actual_parent.get(), entity,
-            "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
-        );
+        assert_eq!(actual_parent.get(), entity, "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle");
         // SAFETY: The caller guarantees that `transform_query` will not be fetched
         // for any descendants of `entity`, so it is safe to call `propagate_recursive` for each child.
         //

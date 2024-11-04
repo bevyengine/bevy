@@ -466,12 +466,10 @@ impl FromWorld for SsaoPipelines {
         Self {
             preprocess_depth_pipeline,
             spatial_denoise_pipeline,
-
             common_bind_group_layout,
             preprocess_depth_bind_group_layout,
             ssao_bind_group_layout,
             spatial_denoise_bind_group_layout,
-
             hilbert_index_lut,
             point_clamp_sampler,
             linear_clamp_sampler,
@@ -528,10 +526,7 @@ fn extract_ssao_settings(
 ) {
     for (entity, camera, ssao_settings, msaa) in &cameras {
         if *msaa != Msaa::Off {
-            error!(
-                "SSAO is being used which requires Msaa::Off, but Msaa is currently set to Msaa::{:?}",
-                *msaa
-            );
+            error!("SSAO is being used which requires Msaa::Off, but Msaa is currently set to Msaa::{:?}", *msaa);
             return;
         }
         let mut entity_commands = commands

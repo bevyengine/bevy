@@ -153,11 +153,11 @@ use crate::{
 ///         .expect("Failed to create font size curve")
 ///     );
 ///
-/// Here, the use of [`AnimatableKeyframeCurve`] creates a curve out of the given keyframe time-value
-/// pairs, using the [`Animatable`] implementation of `f32` to interpolate between them. The
-/// invocation of [`AnimatableCurve::from_curve`] with `FieldOfViewProperty` indicates that the `f32`
-/// output from that curve is to be used to animate the font size of a `PerspectiveProjection` component (as
-/// configured above).
+/// Here, the use of [`AnimatableKeyframeCurve`] creates a curve out of the given keyframe
+/// time-value pairs, using the [`Animatable`] implementation of `f32` to interpolate between them.
+/// The invocation of [`AnimatableCurve::from_curve`] with `FieldOfViewProperty` indicates that
+/// the `f32` output from that curve is to be used to animate the font size of a
+/// `PerspectiveProjection` component (as configured above).
 ///
 /// [`AnimationClip`]: crate::AnimationClip
 pub trait AnimatableProperty: Reflect + TypePath {

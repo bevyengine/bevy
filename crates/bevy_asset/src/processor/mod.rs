@@ -1320,10 +1320,7 @@ impl ProcessorAssetInfos {
                 .await
                 .unwrap();
             if !info.dependents.is_empty() {
-                error!(
-                    "The asset at {asset_path} was removed, but it had assets that depend on it to be processed. Consider updating the path in the following assets: {:?}",
-                    info.dependents
-                );
+                error!("The asset at {asset_path} was removed, but it had assets that depend on it to be processed. Consider updating the path in the following assets: {:?}", info.dependents);
                 self.non_existent_dependents
                     .insert(asset_path.clone(), info.dependents);
             }
@@ -1342,10 +1339,7 @@ impl ProcessorAssetInfos {
                 // If deps encoded "relativeness" as part of loading, that would also work (this seems like the right call).
                 // TODO: it would be nice to log an error here for dependents that aren't also being moved + fixed.
                 // (see the remove impl).
-                error!(
-                    "The asset at {old} was removed, but it had assets that depend on it to be processed. Consider updating the path in the following assets: {:?}",
-                    info.dependents
-                );
+                error!("The asset at {old} was removed, but it had assets that depend on it to be processed. Consider updating the path in the following assets: {:?}", info.dependents);
                 self.non_existent_dependents
                     .insert(old.clone(), core::mem::take(&mut info.dependents));
             }
