@@ -306,13 +306,12 @@ pub enum ButtonSettingsError {
     },
 }
 
-/// The [`Gamepad`] [`component`](Component) stores a connected gamepad's metadata such as the `name` and its [`GamepadButton`] and [`GamepadAxis`].
+/// Stores a connected gamepad's state and any metadata such as the device name.
 ///
-/// The [`entity`](Entity) representing a gamepad and its [`minimal components`](GamepadSettings) are automatically managed.
+/// An entity with this component is spawned automatically after [`GamepadConnectionEvent`]
+/// and updated by [`gamepad_event_processing_system`].
 ///
-/// # Usage
-///
-/// The only way to obtain a [`Gamepad`] is by [`query`](Query).
+/// See also [`GamepadSettings`] for configuration.
 ///
 /// # Examples
 ///
@@ -321,14 +320,15 @@ pub enum ButtonSettingsError {
 /// # use bevy_ecs::system::Query;
 /// #
 /// fn gamepad_usage_system(gamepads: Query<&Gamepad>) {
-///     for gamepad in gamepads.iter() {
-///         println!("{}", gamepad.name());
+///     for gamepad in &gamepads {
+///         let name = &gamepad.info.name;
+///         println!("{name}");
 ///
-///         if gamepad.just_pressed(GamepadButton::North) {
-///             println!("{} just pressed North", gamepad.name())
+///         if gamepad.digital.just_pressed(GamepadButton::North) {
+///             println!("{name} just pressed North")
 ///         }
 ///
-///         if let Some(left_stick_x) = gamepad.get(GamepadAxis::LeftStickX)  {
+///         if let Some(left_stick_x) = gamepad.analog.get(GamepadAxis::LeftStickX)  {
 ///             println!("left stick X: {}", left_stick_x)
 ///         }
 ///     }
@@ -338,22 +338,23 @@ pub enum ButtonSettingsError {
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 #[require(GamepadSettings)]
 pub struct Gamepad {
-    info: GamepadInfo,
+    /// Metadata.
+    pub info: GamepadInfo,
     /// [`ButtonInput`] of [`GamepadButton`] representing their digital state
-    pub(crate) digital: ButtonInput<GamepadButton>,
+    pub digital: ButtonInput<GamepadButton>,
     /// [`Axis`] of [`GamepadButton`] representing their analog state.
-    pub(crate) analog: Axis<GamepadInput>,
+    pub analog: Axis<GamepadInput>,
 }
 
 impl Gamepad {
     /// Creates a gamepad with the given metadata.
-    fn new(info: GamepadInfo) -> Self {
+    pub fn new(info: GamepadInfo) -> Self {
         let mut analog = Axis::default();
         for button in GamepadButton::all().iter().copied() {
-            analog.set(button.into(), 0.0);
+            analog.set(button, 0.0);
         }
         for axis_type in GamepadAxis::all().iter().copied() {
-            analog.set(axis_type.into(), 0.0);
+            analog.set(axis_type, 0.0);
         }
         Self {
             info,
@@ -362,160 +363,30 @@ impl Gamepad {
         }
     }
 
-    /// The name of the gamepad.
-    ///
-    /// This name is generally defined by the OS.
-    ///
-    /// For example on Windows the name may be "HID-compliant game controller".
-    pub fn name(&self) -> &str {
-        self.info.name.as_str()
-    }
-
-    /// Returns the USB vendor ID as assigned by the USB-IF, if available.
-    pub fn vendor_id(&self) -> Option<u16> {
-        self.info.vendor_id
-    }
-
-    /// Returns the USB product ID as assigned by the [vendor], if available.
-    ///
-    /// [vendor]: Self::vendor_id
-    pub fn product_id(&self) -> Option<u16> {
-        self.info.product_id
-    }
-
-    /// Returns the analog data of the provided [`GamepadAxis`] or [`GamepadButton`].
-    ///
-    /// This will be clamped between [[`Axis::MIN`],[`Axis::MAX`]].
-    pub fn get(&self, input: impl Into<GamepadInput>) -> Option<f32> {
-        self.analog.get(input.into())
-    }
-
-    /// Returns the unclamped analog data of the provided [`GamepadAxis`] or [`GamepadButton`].
-    ///
-    /// This value may be outside the [`Axis::MIN`] and [`Axis::MAX`] range.
-    pub fn get_unclamped(&self, input: impl Into<GamepadInput>) -> Option<f32> {
-        self.analog.get_unclamped(input.into())
-    }
-
     /// Returns the left stick as a [`Vec2`]
     pub fn left_stick(&self) -> Vec2 {
         Vec2 {
-            x: self.get(GamepadAxis::LeftStickX).unwrap_or(0.0),
-            y: self.get(GamepadAxis::LeftStickY).unwrap_or(0.0),
+            x: self.analog.get(GamepadAxis::LeftStickX).unwrap_or(0.0),
+            y: self.analog.get(GamepadAxis::LeftStickY).unwrap_or(0.0),
         }
     }
 
     /// Returns the right stick as a [`Vec2`]
     pub fn right_stick(&self) -> Vec2 {
         Vec2 {
-            x: self.get(GamepadAxis::RightStickX).unwrap_or(0.0),
-            y: self.get(GamepadAxis::RightStickY).unwrap_or(0.0),
+            x: self.analog.get(GamepadAxis::RightStickX).unwrap_or(0.0),
+            y: self.analog.get(GamepadAxis::RightStickY).unwrap_or(0.0),
         }
     }
 
     /// Returns the directional pad as a [`Vec2`]
     pub fn dpad(&self) -> Vec2 {
         Vec2 {
-            x: self.get(GamepadButton::DPadRight).unwrap_or(0.0)
-                - self.get(GamepadButton::DPadLeft).unwrap_or(0.0),
-            y: self.get(GamepadButton::DPadUp).unwrap_or(0.0)
-                - self.get(GamepadButton::DPadDown).unwrap_or(0.0),
+            x: self.analog.get(GamepadButton::DPadRight).unwrap_or(0.0)
+                - self.analog.get(GamepadButton::DPadLeft).unwrap_or(0.0),
+            y: self.analog.get(GamepadButton::DPadUp).unwrap_or(0.0)
+                - self.analog.get(GamepadButton::DPadDown).unwrap_or(0.0),
         }
-    }
-
-    /// Returns `true` if the [`GamepadButton`] has been pressed.
-    pub fn pressed(&self, button_type: GamepadButton) -> bool {
-        self.digital.pressed(button_type)
-    }
-
-    /// Returns `true` if any item in [`GamepadButton`] has been pressed.
-    pub fn any_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
-        button_inputs
-            .into_iter()
-            .any(|button_type| self.pressed(button_type))
-    }
-
-    /// Returns `true` if all items in [`GamepadButton`] have been pressed.
-    pub fn all_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
-        button_inputs
-            .into_iter()
-            .all(|button_type| self.pressed(button_type))
-    }
-
-    /// Returns `true` if the [`GamepadButton`] has been pressed during the current frame.
-    ///
-    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_released`].
-    pub fn just_pressed(&self, button_type: GamepadButton) -> bool {
-        self.digital.just_pressed(button_type)
-    }
-
-    /// Returns `true` if any item in [`GamepadButton`] has been pressed during the current frame.
-    pub fn any_just_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
-        button_inputs
-            .into_iter()
-            .any(|button_type| self.just_pressed(button_type))
-    }
-
-    /// Returns `true` if all items in [`GamepadButton`] have been just pressed.
-    pub fn all_just_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
-        button_inputs
-            .into_iter()
-            .all(|button_type| self.just_pressed(button_type))
-    }
-
-    /// Returns `true` if the [`GamepadButton`] has been released during the current frame.
-    ///
-    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_pressed`].
-    pub fn just_released(&self, button_type: GamepadButton) -> bool {
-        self.digital.just_released(button_type)
-    }
-
-    /// Returns `true` if any item in [`GamepadButton`] has just been released.
-    pub fn any_just_released(
-        &self,
-        button_inputs: impl IntoIterator<Item = GamepadButton>,
-    ) -> bool {
-        button_inputs
-            .into_iter()
-            .any(|button_type| self.just_released(button_type))
-    }
-
-    /// Returns `true` if all items in [`GamepadButton`] have just been released.
-    pub fn all_just_released(
-        &self,
-        button_inputs: impl IntoIterator<Item = GamepadButton>,
-    ) -> bool {
-        button_inputs
-            .into_iter()
-            .all(|button_type| self.just_released(button_type))
-    }
-
-    /// Returns an iterator over all digital [button]s that are pressed.
-    ///
-    /// [button]: GamepadButton
-    pub fn get_pressed(&self) -> impl Iterator<Item = &GamepadButton> {
-        self.digital.get_pressed()
-    }
-
-    /// Returns an iterator over all digital [button]s that were just pressed.
-    ///
-    /// [button]: GamepadButton
-    pub fn get_just_pressed(&self) -> impl Iterator<Item = &GamepadButton> {
-        self.digital.get_just_pressed()
-    }
-
-    /// Returns an iterator over all digital [button]s that were just released.
-    ///
-    /// [button]: GamepadButton
-    pub fn get_just_released(&self) -> impl Iterator<Item = &GamepadButton> {
-        self.digital.get_just_released()
-    }
-
-    /// Returns an iterator over all analog [axes].
-    ///
-    /// [axes]: GamepadInput
-    pub fn get_analog_axes(&self) -> impl Iterator<Item = &GamepadInput> {
-        self.analog.all_axes()
     }
 }
 
@@ -523,7 +394,7 @@ impl Gamepad {
 // https://gitlab.com/gilrs-project/gilrs/-/issues/153.
 //
 /// Metadata associated with a [`Gamepad`].
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1426,12 +1297,12 @@ pub fn gamepad_event_processing_system(
                 };
                 let Some(filtered_value) = gamepad_settings
                     .get_axis_settings(axis)
-                    .filter(value, gamepad_axis.get(axis))
+                    .filter(value, gamepad_axis.analog.get(axis))
                 else {
                     continue;
                 };
 
-                gamepad_axis.analog.set(axis.into(), filtered_value);
+                gamepad_axis.analog.set(axis, filtered_value);
                 let send_event = GamepadAxisChangedEvent::new(gamepad, axis, filtered_value);
                 processed_axis_events.send(send_event);
                 processed_events.send(GamepadEvent::from(send_event));
@@ -1447,16 +1318,16 @@ pub fn gamepad_event_processing_system(
                 };
                 let Some(filtered_value) = settings
                     .get_button_axis_settings(button)
-                    .filter(value, gamepad_buttons.get(button))
+                    .filter(value, gamepad_buttons.analog.get(button))
                 else {
                     continue;
                 };
                 let button_settings = settings.get_button_settings(button);
-                gamepad_buttons.analog.set(button.into(), filtered_value);
+                gamepad_buttons.analog.set(button, filtered_value);
 
                 if button_settings.is_released(filtered_value) {
                     // Check if button was previously pressed
-                    if gamepad_buttons.pressed(button) {
+                    if gamepad_buttons.digital.pressed(button) {
                         processed_digital_events.send(GamepadButtonStateChangedEvent::new(
                             gamepad,
                             button,
@@ -1468,7 +1339,7 @@ pub fn gamepad_event_processing_system(
                     gamepad_buttons.digital.release(button);
                 } else if button_settings.is_pressed(filtered_value) {
                     // Check if button was previously not pressed
-                    if !gamepad_buttons.pressed(button) {
+                    if !gamepad_buttons.digital.pressed(button) {
                         processed_digital_events.send(GamepadButtonStateChangedEvent::new(
                             gamepad,
                             button,
@@ -2000,11 +1871,7 @@ mod tests {
                 .resource_mut::<Events<GamepadConnectionEvent>>()
                 .send(GamepadConnectionEvent::new(
                     gamepad,
-                    Connected(GamepadInfo {
-                        name: String::from("Gamepad test"),
-                        vendor_id: None,
-                        product_id: None,
-                    }),
+                    Connected(GamepadInfo::default()),
                 ));
             gamepad
         }
@@ -2522,13 +2389,8 @@ mod tests {
             assert_eq!(event.button, GamepadButton::DPadDown);
             assert_eq!(event.state, ButtonState::Pressed);
         }
-        assert!(ctx
-            .app
-            .world_mut()
-            .query::<&Gamepad>()
-            .get(ctx.app.world(), entity)
-            .unwrap()
-            .pressed(GamepadButton::DPadDown));
+        let gamepad = ctx.app.world_mut().get::<Gamepad>(entity).unwrap();
+        assert!(gamepad.digital.pressed(GamepadButton::DPadDown));
 
         ctx.app
             .world_mut()
@@ -2543,13 +2405,8 @@ mod tests {
                 .len(),
             0
         );
-        assert!(ctx
-            .app
-            .world_mut()
-            .query::<&Gamepad>()
-            .get(ctx.app.world(), entity)
-            .unwrap()
-            .pressed(GamepadButton::DPadDown));
+        let gamepad = ctx.app.world_mut().get::<Gamepad>(entity).unwrap();
+        assert!(gamepad.digital.pressed(GamepadButton::DPadDown));
     }
 
     #[test]
@@ -2568,23 +2425,13 @@ mod tests {
         ctx.update();
 
         // Check it is flagged for this frame
-        assert!(ctx
-            .app
-            .world_mut()
-            .query::<&Gamepad>()
-            .get(ctx.app.world(), entity)
-            .unwrap()
-            .just_pressed(GamepadButton::DPadDown));
+        let gamepad = ctx.app.world_mut().get::<Gamepad>(entity).unwrap();
+        assert!(gamepad.digital.just_pressed(GamepadButton::DPadDown));
         ctx.update();
 
         //Check it clears next frame
-        assert!(!ctx
-            .app
-            .world_mut()
-            .query::<&Gamepad>()
-            .get(ctx.app.world(), entity)
-            .unwrap()
-            .just_pressed(GamepadButton::DPadDown));
+        let gamepad = ctx.app.world_mut().get::<Gamepad>(entity).unwrap();
+        assert!(!gamepad.digital.just_pressed(GamepadButton::DPadDown));
     }
     #[test]
     fn gamepad_buttons_released() {
@@ -2627,13 +2474,8 @@ mod tests {
             assert_eq!(event.button, GamepadButton::DPadDown);
             assert_eq!(event.state, ButtonState::Released);
         }
-        assert!(!ctx
-            .app
-            .world_mut()
-            .query::<&Gamepad>()
-            .get(ctx.app.world(), entity)
-            .unwrap()
-            .pressed(GamepadButton::DPadDown));
+        let gamepad = ctx.app.world_mut().get::<Gamepad>(entity).unwrap();
+        assert!(!gamepad.digital.pressed(GamepadButton::DPadDown));
         ctx.app
             .world_mut()
             .resource_mut::<Events<GamepadButtonStateChangedEvent>>()
@@ -2672,23 +2514,13 @@ mod tests {
         ctx.update();
 
         // Check it is flagged for this frame
-        assert!(ctx
-            .app
-            .world_mut()
-            .query::<&Gamepad>()
-            .get(ctx.app.world(), entity)
-            .unwrap()
-            .just_released(GamepadButton::DPadDown));
+        let gamepad = ctx.app.world_mut().get::<Gamepad>(entity).unwrap();
+        assert!(gamepad.digital.just_released(GamepadButton::DPadDown));
         ctx.update();
 
-        //Check it clears next frame
-        assert!(!ctx
-            .app
-            .world_mut()
-            .query::<&Gamepad>()
-            .get(ctx.app.world(), entity)
-            .unwrap()
-            .just_released(GamepadButton::DPadDown));
+        // Check it clears next frame
+        let gamepad = ctx.app.world_mut().get::<Gamepad>(entity).unwrap();
+        assert!(!gamepad.digital.just_released(GamepadButton::DPadDown));
     }
 
     #[test]
