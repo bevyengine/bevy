@@ -350,8 +350,8 @@ pub struct PickingEventWriters<'w> {
 /// receive [`Out`] and then entity B will receive [`Over`]. No entity will ever
 /// receive both an [`Over`] and and a [`Out`] event during the same frame.
 ///
-/// When we account for event bubbling, this is no longer ture. When focus shifts
-/// between children, parent entities may receive reduntant [`Out`] → [`Over`] pairs.
+/// When we account for event bubbling, this is no longer true. When focus shifts
+/// between children, parent entities may receive redundant [`Out`] → [`Over`] pairs.
 /// In the context of UI, this is especially problematic. Additional hierarchy-aware
 /// events will be added in a future release.
 ///
