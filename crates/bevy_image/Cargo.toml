@@ -49,7 +49,7 @@ image = { version = "0.25.2", default-features = false }
 # misc
 bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5" }
-wgpu = { git = "https://github.com/gfx-rs/wgpu", branch = "trunk", default-features = false }
+wgpu = { version = "23", default-features = false }
 serde = { version = "1", features = ["derive"] }
 derive_more = { version = "1", default-features = false, features = [
   "error",
