@@ -1268,9 +1268,7 @@ pub enum GamepadConnection {
         /// The USB vendor ID as assigned by the USB-IF, if available.
         vendor_id: Option<u16>,
 
-        /// The USB product ID as assigned by the [vendor], if available.
-        ///
-        /// [vendor]: Self::vendor_id
+        /// The USB product ID as assigned by the vendor, if available.
         product_id: Option<u16>,
     },
     /// The gamepad is disconnected.
