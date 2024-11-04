@@ -363,6 +363,11 @@ impl Gamepad {
         }
     }
 
+    /// Creates a gamepad with the given name.
+    pub fn with_name(name: impl Into<String>) -> Self {
+        Self::new(GamepadInfo::new(name))
+    }
+
     /// Returns the left stick as a [`Vec2`]
     pub fn left_stick(&self) -> Vec2 {
         Vec2 {
