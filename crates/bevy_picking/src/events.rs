@@ -254,13 +254,49 @@ pub struct DragEntry {
 /// An entry in the cache that drives the `pointer_events` system, storing additional data
 /// about pointer button presses.
 #[derive(Debug, Clone, Default)]
-pub struct PointerState {
+pub struct PointerButtonState {
     /// Stores the press location and start time for each button currently being pressed by the pointer.
     pub pressing: HashMap<Entity, (Location, Instant, HitData)>,
     /// Stores the starting and current locations for each entity currently being dragged by the pointer.
     pub dragging: HashMap<Entity, DragEntry>,
     /// Stores  the hit data for each entity currently being dragged over by the pointer.
     pub dragging_over: HashMap<Entity, HitData>,
+}
+
+/// State for all pointers.
+#[derive(Debug, Clone, Default, Resource)]
+pub struct PointerState {
+    /// Pressing and dragging state, organized by pointer and button.
+    pub pointer_buttons: HashMap<(PointerId, PointerButton), PointerButtonState>,
+}
+
+impl PointerState {
+    /// Retrives the current state for a specific pointer and button, if it has been created.
+    pub fn get(&self, pointer_id: PointerId, button: PointerButton) -> Option<&PointerButtonState> {
+        self.pointer_buttons.get(&(pointer_id, button))
+    }
+
+    /// Provides write access to the state of a pointer and button, creating it if it does not yet exist.
+    pub fn get_mut(
+        &mut self,
+        pointer_id: PointerId,
+        button: PointerButton,
+    ) -> &mut PointerButtonState {
+        self.pointer_buttons
+            .entry((pointer_id, button))
+            .or_default()
+    }
+
+    /// Clears all the data assoceated with all of the buttons on a pointer. Does not free the underlying memory.
+    pub fn clear(&mut self, pointer_id: PointerId) {
+        for button in PointerButton::iter() {
+            if let Some(state) = self.pointer_buttons.get_mut(&(pointer_id, button)) {
+                state.pressing.clear();
+                state.dragging.clear();
+                state.dragging_over.clear();
+            }
+        }
+    }
 }
 
 /// A helper system param for accessing the picking event writers.
@@ -316,8 +352,7 @@ pub fn pointer_events(
     pointer_map: Res<PointerMap>,
     hover_map: Res<HoverMap>,
     previous_hover_map: Res<PreviousHoverMap>,
-    // Local state
-    mut pointer_state: Local<HashMap<(PointerId, PointerButton), PointerState>>,
+    mut pointer_state: ResMut<PointerState>,
     // Output
     mut commands: Commands,
     mut event_writers: PickingEventWriters,
@@ -352,7 +387,7 @@ pub fn pointer_events(
 
             // Possibly send DragEnter events
             for button in PointerButton::iter() {
-                let state = pointer_state.entry((pointer_id, button)).or_default();
+                let state = pointer_state.get_mut(pointer_id, button);
 
                 for drag_target in state
                     .dragging
@@ -397,7 +432,7 @@ pub fn pointer_events(
         match action {
             // Pressed Button
             PointerAction::Pressed { direction, button } => {
-                let state = pointer_state.entry((pointer_id, button)).or_default();
+                let state = pointer_state.get_mut(pointer_id, button);
 
                 // The sequence of events emitted depends on if this is a press or a release
                 match direction {
@@ -519,7 +554,7 @@ pub fn pointer_events(
             PointerAction::Moved { delta } => {
                 // Triggers during movement even if not over an entity
                 for button in PointerButton::iter() {
-                    let state = pointer_state.entry((pointer_id, button)).or_default();
+                    let state = pointer_state.get_mut(pointer_id, button);
 
                     // Emit DragEntry and DragStart the first time we move while pressing an entity
                     for (press_target, (location, _, hit)) in state.pressing.iter() {
@@ -619,14 +654,8 @@ pub fn pointer_events(
                     commands.trigger_targets(cancel_event.clone(), hovered_entity);
                     event_writers.cancel_events.send(cancel_event);
                 }
-                // Clear the local state for the canceled pointer
-                for button in PointerButton::iter() {
-                    if let Some(state) = pointer_state.get_mut(&(pointer_id, button)) {
-                        state.pressing.clear();
-                        state.dragging.clear();
-                        state.dragging_over.clear();
-                    }
-                }
+                // Clear the state for the canceled pointer
+                pointer_state.clear(pointer_id);
             }
         }
     }
@@ -662,7 +691,7 @@ pub fn pointer_events(
 
             // Possibly send DragLeave events
             for button in PointerButton::iter() {
-                let state = pointer_state.entry((pointer_id, button)).or_default();
+                let state = pointer_state.get_mut(pointer_id, button);
                 state.dragging_over.remove(&hovered_entity);
                 for drag_target in state.dragging.keys() {
                     let drag_leave_event = Pointer::new(
