@@ -306,13 +306,12 @@ pub enum ButtonSettingsError {
     },
 }
 
-/// The [`Gamepad`] [`component`](Component) stores a connected gamepad's metadata such as the `name` and its [`GamepadButton`] and [`GamepadAxis`].
+/// Stores a connected gamepad's metadata such as name and its input.
 ///
-/// The [`entity`](Entity) representing a gamepad and its [`minimal components`](GamepadSettings) are automatically managed.
+/// An entity with this component is spawned automatically after [`GamepadConnectionEvent`]
+/// and updated by [`gamepad_event_processing_system`].
 ///
-/// # Usage
-///
-/// The only way to obtain a [`Gamepad`] is by [`query`](Query).
+/// See also [`GamepadSettings`] for configuration.
 ///
 /// # Examples
 ///
