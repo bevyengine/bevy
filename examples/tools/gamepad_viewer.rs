@@ -447,7 +447,7 @@ fn update_axes(
 
 fn update_connected(
     mut connected: EventReader<GamepadConnectionEvent>,
-    gamepads: Query<(Entity, &Gamepad)>,
+    gamepads: Query<(Entity, &Name), With<Gamepad>>,
     text: Single<Entity, With<ConnectedGamepadsText>>,
     mut writer: TextUiWriter,
 ) {
@@ -458,7 +458,7 @@ fn update_connected(
 
     let formatted = gamepads
         .iter()
-        .map(|(entity, gamepad)| format!("{} - {}", entity, gamepad.info.name))
+        .map(|(entity, name)| format!("{} - {}", entity, name))
         .collect::<Vec<_>>()
         .join("\n");
 
