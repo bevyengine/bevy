@@ -77,6 +77,9 @@ pub unsafe trait WorldQuery {
     /// iterators.
     const IS_DENSE: bool;
 
+    /// Return true if (and only if) TODO
+    const IS_MUTATE: bool;
+
     /// Adjusts internal state to account for the next [`Archetype`]. This will always be called on
     /// archetypes that match this [`WorldQuery`].
     ///
@@ -185,6 +188,7 @@ macro_rules! impl_tuple_world_query {
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
+            const IS_MUTATE: bool = false $(|| $name::IS_MUTATE)*;
 
             #[inline]
             unsafe fn set_archetype<'w>(

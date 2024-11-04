@@ -21,6 +21,8 @@ use bevy_ptr::Ptr;
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
+use std::cell::RefCell;
+use crate::world::entity_change::{EntityChange, EntityChanges};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -320,6 +322,19 @@ impl<'w> UnsafeWorldCell<'w> {
         &unsafe { self.unsafe_world() }.storages
     }
 
+    /// Provides unchecked access to the internal data stores of the [`World`].
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that this is only used to access world data
+    /// that this [`UnsafeWorldCell`] is allowed to.
+    /// As always, any mutable access to a component must not exist at the same
+    /// time as any other accesses to that same component.
+    pub unsafe fn entity_changes(self) -> &'w RefCell<EntityChanges> {
+        // SAFETY: The caller promises to only access world data allowed by this instance.
+        &unsafe { self.unsafe_world() }.entity_changes.get_local_ref_cell()
+    }
+
     /// Retrieves an [`UnsafeEntityCell`] that exposes read and write operations for the given `entity`.
     /// Similar to the [`UnsafeWorldCell`], you are in charge of making sure that no aliasing rules are violated.
     #[inline]
@@ -492,6 +507,7 @@ impl<'w> UnsafeWorldCell<'w> {
         };
 
         Some(MutUntyped {
+            on_change: None,
             // SAFETY:
             // - caller ensures that `self` has permission to access the resource
             // - caller ensures that the resource is unaliased
@@ -558,6 +574,7 @@ impl<'w> UnsafeWorldCell<'w> {
             unsafe { TicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
 
         Some(MutUntyped {
+            on_change: None,
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
             value: unsafe { ptr.assert_unique() },
             ticks,
@@ -873,6 +890,10 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.location,
             )
             .map(|(value, cells, _caller)| Mut {
+                on_change: Some((
+                    EntityChange::new(self.entity, component_id),
+                    self.world.entity_changes(),
+                )),
                 // SAFETY: returned component is of type T
                 value: value.assert_unique().deref_mut::<T>(),
                 ticks: TicksMut::from_tick_cells(cells, last_change_tick, change_tick),
@@ -984,6 +1005,10 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.location,
             )
             .map(|(value, cells, _caller)| MutUntyped {
+                on_change: Some((
+                    EntityChange::new(self.entity, component_id),
+                    self.world.entity_changes(),
+                )),
                 // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
                 value: value.assert_unique(),
                 ticks: TicksMut::from_tick_cells(

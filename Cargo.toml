@@ -2915,6 +2915,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "responding_to_changes"
+path = "examples/ecs/responding_to_changes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.responding_to_changes]
+name = "Responding to Changes"
+description = "Demonstrates how and when to use change detection and `OnMutate` hooks and observers"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "box_shadow"
 path = "examples/ui/box_shadow.rs"
 doc-scrape-examples = true
