@@ -271,7 +271,7 @@ pub struct PointerState {
 }
 
 impl PointerState {
-    /// Retrives the current state for a specific pointer and button, if it has been created.
+    /// Retrieves the current state for a specific pointer and button, if it has been created.
     pub fn get(&self, pointer_id: PointerId, button: PointerButton) -> Option<&PointerButtonState> {
         self.pointer_buttons.get(&(pointer_id, button))
     }
