@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     a11y::{
-        accesskit::{NodeBuilder, Role},
+        accesskit::{Node as Accessible, Role},
         AccessibilityNode,
     },
     color::palettes::{basic::LIME, css::DARK_GRAY},
@@ -149,7 +149,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             ..default()
                                         },
                                         Label,
-                                        AccessibilityNode(NodeBuilder::new(Role::ListItem)),
+                                        AccessibilityNode(Accessible::new(Role::ListItem)),
                                     ))
                                     .insert(PickingBehavior {
                                         should_block_lower: false,
