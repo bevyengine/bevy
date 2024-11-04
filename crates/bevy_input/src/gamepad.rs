@@ -363,11 +363,6 @@ impl Gamepad {
         }
     }
 
-    /// Creates a gamepad with the given name.
-    pub fn with_name(name: impl Into<String>) -> Self {
-        Self::new(GamepadInfo::new(name))
-    }
-
     /// Returns the left stick as a [`Vec2`]
     pub fn left_stick(&self) -> Vec2 {
         Vec2 {
@@ -399,7 +394,7 @@ impl Gamepad {
 // https://gitlab.com/gilrs-project/gilrs/-/issues/153.
 //
 /// Metadata associated with a [`Gamepad`].
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -421,17 +416,6 @@ pub struct GamepadInfo {
     ///
     /// [vendor]: Self::vendor_id
     pub product_id: Option<u16>,
-}
-
-impl GamepadInfo {
-    /// Creates a new instance with the given name and empty vendor and product IDs.
-    pub fn new(name: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            vendor_id: None,
-            product_id: None,
-        }
-    }
 }
 
 /// Represents gamepad input types that are mapped in the range [0.0, 1.0].
