@@ -2,9 +2,9 @@
 
 pub(crate) mod command_queue;
 
-pub(crate) mod entity_change;
 mod component_constants;
 mod deferred_world;
+pub(crate) mod entity_change;
 mod entity_fetch;
 mod entity_ref;
 pub mod error;
@@ -63,9 +63,9 @@ use core::{
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
 
+use crate::world::entity_change::ParallelEntityChanges;
 use core::panic::Location;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
-use crate::world::entity_change::ParallelEntityChanges;
 
 /// A [`World`] mutation.
 ///
@@ -3024,12 +3024,18 @@ impl World {
     pub(crate) fn flush_entity_changes(&mut self) {
         let mut parallel_entity_changes = std::mem::take(&mut self.entity_changes);
         let mut deferred_world = DeferredWorld::from(&mut *self);
-        parallel_entity_changes.iter_mut().for_each(|entity_changes| {
-            entity_changes.drain(..).for_each(|entity_change| unsafe {
-                // SAFETY: [`OnMutate`] Event is ZST
-                deferred_world.trigger_observers(ON_MUTATE, entity_change.entity(), std::iter::once(entity_change.component()))
-            })
-        });
+        parallel_entity_changes
+            .iter_mut()
+            .for_each(|entity_changes| {
+                entity_changes.drain(..).for_each(|entity_change| unsafe {
+                    // SAFETY: [`OnMutate`] Event is ZST
+                    deferred_world.trigger_observers(
+                        ON_MUTATE,
+                        entity_change.entity(),
+                        std::iter::once(entity_change.component()),
+                    )
+                })
+            });
         _ = std::mem::replace(&mut self.entity_changes, parallel_entity_changes);
     }
 

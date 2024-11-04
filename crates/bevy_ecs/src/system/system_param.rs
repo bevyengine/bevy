@@ -1,3 +1,4 @@
+use super::Populated;
 pub use crate::change_detection::{NonSendMut, Res, ResMut};
 use crate::{
     archetype::{Archetype, Archetypes},
@@ -28,7 +29,6 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
-use super::Populated;
 
 /// A parameter that can be used in a [`System`](super::System).
 ///

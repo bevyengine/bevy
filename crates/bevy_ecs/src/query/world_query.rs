@@ -77,7 +77,7 @@ pub unsafe trait WorldQuery {
     /// iterators.
     const IS_DENSE: bool;
 
-    /// Return true if (and only if) TODO
+    /// Return true if (and only if) this query will return a mutate access of any [`Component`]
     const IS_MUTATE: bool;
 
     /// Adjusts internal state to account for the next [`Archetype`]. This will always be called on

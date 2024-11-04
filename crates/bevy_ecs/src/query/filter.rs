@@ -277,7 +277,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         }
     };
     const IS_MUTATE: bool = false;
-    
+
     #[inline]
     unsafe fn set_archetype(
         _fetch: &mut (),

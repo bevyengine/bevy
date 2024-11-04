@@ -1,3 +1,4 @@
+use crate::world::entity_change::{EntityChange, EntityChanges};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
@@ -14,9 +15,8 @@ use crate::{
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
 use core::{cell::UnsafeCell, marker::PhantomData};
-use std::cell::RefCell;
 use smallvec::SmallVec;
-use crate::world::entity_change::{EntityChange, EntityChanges};
+use std::cell::RefCell;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -1431,7 +1431,7 @@ unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
 /// The [`WorldQuery::Fetch`] type for `&mut T`.
 pub struct WriteFetch<'w, T: Component> {
     component_id: ComponentId,
-    changes:    &'w RefCell<EntityChanges>,
+    changes: &'w RefCell<EntityChanges>,
     components: StorageSwitch<
         T,
         // T::STORAGE_TYPE = StorageType::Table
@@ -1571,10 +1571,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 let caller = unsafe { _callers.get(table_row.as_usize()) };
 
                 Mut {
-                    on_change: Some((
-                        EntityChange::new(entity, fetch.component_id),
-                        fetch.changes,
-                    )),
+                    on_change: Some((EntityChange::new(entity, fetch.component_id), fetch.changes)),
                     value: component.deref_mut(),
                     ticks: TicksMut {
                         added: added.deref_mut(),
@@ -1592,10 +1589,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     unsafe { sparse_set.get_with_ticks(entity).debug_checked_unwrap() };
 
                 Mut {
-                    on_change: Some((
-                        EntityChange::new(entity, fetch.component_id),
-                        fetch.changes,
-                    )),
+                    on_change: Some((EntityChange::new(entity, fetch.component_id), fetch.changes)),
                     value: component.assert_unique().deref_mut(),
                     ticks: TicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
                     #[cfg(feature = "track_change_detection")]

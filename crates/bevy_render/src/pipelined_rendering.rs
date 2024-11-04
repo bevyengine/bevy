@@ -43,7 +43,6 @@ impl RenderAppChannels {
         self.app_to_render_sender.send_blocking(render_app).unwrap();
         self.render_app_in_render_thread = true;
     }
-
 }
 
 impl Drop for RenderAppChannels {

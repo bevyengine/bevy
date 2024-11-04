@@ -3,6 +3,7 @@
 #![warn(unsafe_op_in_unsafe_fn)]
 
 use super::{Mut, Ref, World, WorldId};
+use crate::world::entity_change::{EntityChange, EntityChanges};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -22,7 +23,6 @@ use bevy_ptr::Ptr;
 use bevy_ptr::UnsafeCellDeref;
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
 use std::cell::RefCell;
-use crate::world::entity_change::{EntityChange, EntityChanges};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -332,7 +332,9 @@ impl<'w> UnsafeWorldCell<'w> {
     /// time as any other accesses to that same component.
     pub unsafe fn entity_changes(self) -> &'w RefCell<EntityChanges> {
         // SAFETY: The caller promises to only access world data allowed by this instance.
-        &unsafe { self.unsafe_world() }.entity_changes.get_local_ref_cell()
+        &unsafe { self.unsafe_world() }
+            .entity_changes
+            .get_local_ref_cell()
     }
 
     /// Retrieves an [`UnsafeEntityCell`] that exposes read and write operations for the given `entity`.

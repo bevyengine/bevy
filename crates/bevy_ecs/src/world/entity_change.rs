@@ -1,7 +1,7 @@
-use std::cell::RefCell;
-use bevy_utils::Parallel;
 use crate::component::ComponentId;
 use crate::entity::Entity;
+use bevy_utils::Parallel;
+use std::cell::RefCell;
 
 /// A shorthand for [`Vec<EntityChange>`].
 pub type EntityChanges = Vec<EntityChange>;
@@ -14,7 +14,6 @@ pub struct ParallelEntityChanges {
 }
 
 impl ParallelEntityChanges {
-
     /// Returns a default `Changes`
 
     pub fn new() -> Self {
@@ -35,7 +34,7 @@ impl ParallelEntityChanges {
 /// A Record hint which entity's component has changed
 #[derive(Copy, Clone, Debug)]
 pub struct EntityChange {
-    entity:    Entity,
+    entity: Entity,
     component: ComponentId,
 }
 

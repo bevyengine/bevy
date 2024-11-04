@@ -1,4 +1,3 @@
-
 //! Bevy has two primary ways to respond to changes in your ECS data:
 //!
 //! 1. **Change detection:** whenever a component or resource is mutated, it will be flagged as changed.
@@ -192,11 +191,8 @@ fn update_counter_observer(
     trigger: Trigger<OnMutate, Interaction>,
     mut button_query: Query<(&mut CounterValue, &Interaction, &ChangeStrategy)>,
 ) {
-    let Ok((
-        mut counter,
-        interaction,
-        change_strategy
-    )) = button_query.get_mut(trigger.entity()) else {
+    let Ok((mut counter, interaction, change_strategy)) = button_query.get_mut(trigger.entity())
+    else {
         // Other entities may have the Interaction component, but we're only interested in these particular buttons.
         return;
     };
@@ -216,16 +212,14 @@ fn setup_ui(mut commands: Commands) {
     commands.spawn(Camera2d::default());
 
     let root_node = commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-        ))
+        .spawn((Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },))
         .id();
 
     let changed_filter_button =

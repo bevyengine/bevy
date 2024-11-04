@@ -1,5 +1,6 @@
 //! Types that detect when their internal data mutate.
 
+use crate::world::entity_change::{EntityChange, EntityChanges};
 use crate::{
     component::{Tick, TickCells},
     ptr::PtrMut,
@@ -16,7 +17,6 @@ use {
     bevy_ptr::ThinSlicePtr,
     core::{cell::UnsafeCell, panic::Location},
 };
-use crate::world::entity_change::{EntityChange, EntityChanges};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 ///
@@ -1102,7 +1102,6 @@ where
         self.value.into_iter()
     }
 }
-
 
 change_detection_impl!(Mut<'w, T>, T,);
 change_detection_mut_with_onchange_impl!(Mut<'w, T>, T,);
