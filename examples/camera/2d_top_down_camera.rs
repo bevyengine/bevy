@@ -73,18 +73,10 @@ fn setup_camera(mut commands: Commands) {
 
 /// Update the camera position by tracking the player.
 fn update_camera(
-    mut camera: Query<&mut Transform, (With<Camera2d>, Without<Player>)>,
-    player: Query<&Transform, (With<Player>, Without<Camera2d>)>,
+    mut camera: Single<&mut Transform, (With<Camera2d>, Without<Player>)>,
+    player: Single<&Transform, (With<Player>, Without<Camera2d>)>,
     time: Res<Time>,
 ) {
-    let Ok(mut camera) = camera.get_single_mut() else {
-        return;
-    };
-
-    let Ok(player) = player.get_single() else {
-        return;
-    };
-
     let Vec3 { x, y, .. } = player.translation;
     let direction = Vec3::new(x, y, camera.translation.z);
 
@@ -101,14 +93,10 @@ fn update_camera(
 ///
 /// A more robust solution for player movement can be found in `examples/movement/physics_in_fixed_timestep.rs`.
 fn move_player(
-    mut player: Query<&mut Transform, With<Player>>,
+    mut player: Single<&mut Transform, With<Player>>,
     time: Res<Time>,
     kb_input: Res<ButtonInput<KeyCode>>,
 ) {
-    let Ok(mut player) = player.get_single_mut() else {
-        return;
-    };
-
     let mut direction = Vec2::ZERO;
 
     if kb_input.pressed(KeyCode::KeyW) {

@@ -207,11 +207,10 @@ fn spawn_text(mut commands: Commands) {
 
 fn move_player(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
-    mut player: Query<(&mut Transform, &CameraSensitivity), With<Player>>,
+    player: Single<(&mut Transform, &CameraSensitivity), With<Player>>,
 ) {
-    let Ok((mut transform, camera_sensitivity)) = player.get_single_mut() else {
-        return;
-    };
+    let (mut transform, camera_sensitivity) = player.into_inner();
+
     let delta = accumulated_mouse_motion.delta;
 
     if delta != Vec2::ZERO {
@@ -242,12 +241,9 @@ fn move_player(
 
 fn change_fov(
     input: Res<ButtonInput<KeyCode>>,
-    mut world_model_projection: Query<&mut Projection, With<WorldModelCamera>>,
+    mut world_model_projection: Single<&mut Projection, With<WorldModelCamera>>,
 ) {
-    let Ok(mut projection) = world_model_projection.get_single_mut() else {
-        return;
-    };
-    let Projection::Perspective(ref mut perspective) = projection.as_mut() else {
+    let Projection::Perspective(ref mut perspective) = world_model_projection.as_mut() else {
         unreachable!(
             "The `Projection` component was explicitly built with `Projection::Perspective`"
         );
