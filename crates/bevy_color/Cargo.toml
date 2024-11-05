@@ -23,7 +23,7 @@ derive_more = { version = "1", default-features = false, features = [
   "from",
   "display",
 ] }
-wgpu-types = { version = "22", default-features = false, optional = true }
+wgpu-types = { version = "23", default-features = false, optional = true }
 encase = { version = "0.10", default-features = false }
 
 [features]
