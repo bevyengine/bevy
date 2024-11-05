@@ -1244,6 +1244,33 @@ impl<T: Resource> ReactiveSystemParam for Res<'_, T> {
     }
 }
 
+macro_rules! impl_reactive_system_param {
+    ($($t:tt),*) => {
+        impl<$($t: ReactiveSystemParam),*> ReactiveSystemParam for ($($t,)*) {
+            type State = ($(<$t as ReactiveSystemParam>::State,)*);
+
+            fn init_state(world: &mut World) -> <Self as ReactiveSystemParam>::State {
+                ($(<$t as ReactiveSystemParam>::init_state(world),)*)
+            }
+
+            fn is_changed(mut world: DeferredWorld, state: &mut <Self as ReactiveSystemParam>::State) -> bool {
+                #[allow(non_snake_case)]
+                let ($($t,)*) = state;
+                $($t::is_changed(world.reborrow(), $t)) ||*
+            }
+        }
+    };
+}
+
+impl_reactive_system_param!(T1);
+impl_reactive_system_param!(T1, T2);
+impl_reactive_system_param!(T1, T2, T3);
+impl_reactive_system_param!(T1, T2, T3, T4);
+impl_reactive_system_param!(T1, T2, T3, T4, T5);
+impl_reactive_system_param!(T1, T2, T3, T4, T5, T6);
+impl_reactive_system_param!(T1, T2, T3, T4, T5, T6, T7);
+impl_reactive_system_param!(T1, T2, T3, T4, T5, T6, T7, T8);
+
 /// A type alias to [`&'static Location<'static>`](std::panic::Location) when the `track_change_detection` feature is
 /// enabled, and the unit type `()` when it is not.
 ///
