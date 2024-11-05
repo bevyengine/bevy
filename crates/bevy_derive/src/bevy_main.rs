@@ -17,12 +17,6 @@ pub fn bevy_main(_attr: TokenStream, item: TokenStream) -> TokenStream {
             main();
         }
 
-        #[no_mangle]
-        #[cfg(target_os = "ios")]
-        extern "C" fn main_rs() {
-            main();
-        }
-
         #[allow(unused)]
         #input
     })
