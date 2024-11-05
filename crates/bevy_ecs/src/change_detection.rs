@@ -1166,13 +1166,37 @@ where
         SystemState::new(world)
     }
 
-    fn is_changed<'w>(
-        world: DeferredWorld,
-        state: &mut <Self as ReactiveQueryData<F>>::State,
-    ) -> bool {
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveQueryData<F>>::State) -> bool {
         !state.get(&world).is_empty()
     }
 }
+
+macro_rules! impl_reactive_query_data {
+    ($($t:tt),*) => {
+        impl<F: QueryFilter + 'static, $($t: ReactiveQueryData<F>),*> ReactiveQueryData<F> for ($($t,)*) {
+            type State = ($(<$t as ReactiveQueryData<F>>::State,)*);
+
+            fn init(world: &mut World) -> <Self as ReactiveQueryData<F>>::State  {
+                ($(<$t as ReactiveQueryData<F>>::init(world),)*)
+            }
+
+            fn is_changed(mut world: DeferredWorld, state: &mut <Self as ReactiveQueryData<F>>::State ) -> bool {
+                #[allow(non_snake_case)]
+                let ($($t,)*) = state;
+                $($t::is_changed(world.reborrow(), $t)) ||*
+            }
+        }
+    };
+}
+
+impl_reactive_query_data!(T1);
+impl_reactive_query_data!(T1, T2);
+impl_reactive_query_data!(T1, T2, T3);
+impl_reactive_query_data!(T1, T2, T3, T4);
+impl_reactive_query_data!(T1, T2, T3, T4, T5);
+impl_reactive_query_data!(T1, T2, T3, T4, T5, T6);
+impl_reactive_query_data!(T1, T2, T3, T4, T5, T6, T7);
+impl_reactive_query_data!(T1, T2, T3, T4, T5, T6, T7, T8);
 
 /// A reactive system parameter that implements change detection.
 pub trait ReactiveSystemParam: ReadOnlySystemParam {
