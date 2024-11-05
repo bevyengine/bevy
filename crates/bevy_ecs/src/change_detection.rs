@@ -3,7 +3,8 @@
 use crate::{
     component::{Tick, TickCells},
     ptr::PtrMut,
-    system::{Resource, SystemParam},
+    system::{ReadOnlySystemParam, Resource, SystemMeta},
+    world::World,
 };
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use core::{
@@ -1140,6 +1141,37 @@ impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
     }
 }
 
+/// A reactive system parameter that implements change detection.
+pub trait ReactiveSystemParam: ReadOnlySystemParam {
+    /// The reactive state of this parameter.
+    type State: Send + Sync + 'static;
+
+    /// Initializes the reactive state of this parameter.
+    fn init_state(
+        world: &mut World,
+        system_meta: &mut SystemMeta,
+    ) -> <Self as ReactiveSystemParam>::State;
+
+    /// Returns `true` if the parameter has changed since the last system run.
+    fn is_changed(&self) -> bool;
+}
+
+impl<T: Resource> ReactiveSystemParam for Res<'_, T> {
+    type State = ();
+
+    fn init_state(
+        world: &mut World,
+        system_meta: &mut SystemMeta,
+    ) -> <Self as ReactiveSystemParam>::State {
+        let _ = world;
+        let _ = system_meta;
+    }
+
+    fn is_changed(&self) -> bool {
+        DetectChanges::is_changed(self)
+    }
+}
+
 /// A type alias to [`&'static Location<'static>`](std::panic::Location) when the `track_change_detection` feature is
 /// enabled, and the unit type `()` when it is not.
 ///
@@ -1190,27 +1222,6 @@ pub(crate) type MaybeThinSlicePtrLocation<'w> =
 /// See [`MaybeLocation`] for further information.
 #[cfg(not(feature = "track_change_detection"))]
 pub(crate) type MaybeThinSlicePtrLocation<'w> = ();
-
-pub trait ReactiveSystemParam: ReadOnlySystemParam {
-    type State: Send + Sync + 'static;
-
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
-
-    fn is_changed(&self) -> bool;
-}
-
-impl<T> ReactiveSystemParam for Res<'_, T> {
-    type State = ();
-
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let _ = world;
-        let _ = system_meta;
-    }
-
-    fn is_changed(&self) -> bool {
-        self.is_changed()
-    }
-}
 
 #[cfg(test)]
 mod tests {
