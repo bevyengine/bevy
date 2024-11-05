@@ -650,6 +650,11 @@ impl ScheduleGraph {
             .and_then(|system| system.inner.as_deref())
     }
 
+    /// Returns `true` if the given system set is part of the graph. Otherwise, returns `false`.
+    pub fn contains_set(&self, set: impl SystemSet) -> bool {
+        self.system_set_ids.contains_key(&set.intern())
+    }
+
     /// Returns the system at the given [`NodeId`].
     ///
     /// Panics if it doesn't exist.
@@ -1138,7 +1143,7 @@ impl ScheduleGraph {
         Ok(self.build_schedule_inner(dependency_flattened_dag, hier_results.reachable))
     }
 
-    // modify the graph to have sync nodes for any dependants after a system with deferred system params
+    // modify the graph to have sync nodes for any dependents after a system with deferred system params
     fn auto_insert_apply_deferred(
         &mut self,
         dependency_flattened: &mut GraphMap<NodeId, (), Directed>,

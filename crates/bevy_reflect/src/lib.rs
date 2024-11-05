@@ -51,7 +51,7 @@
 //! `dyn Reflect` trait objects can be used similarly to `dyn PartialReflect`,
 //! but `Reflect` is also often used in trait bounds (like `T: Reflect`).
 //!
-//! The distinction between `PartialReflect` and `Reflect` is summarised in the following:
+//! The distinction between `PartialReflect` and `Reflect` is summarized in the following:
 //! * `PartialReflect` is a trait for interacting with values under `bevy_reflect`'s data model.
 //!   This means values implementing `PartialReflect` can be dynamically constructed and introspected.
 //! * The `Reflect` trait, however, ensures that the interface exposed by `PartialReflect`

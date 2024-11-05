@@ -56,7 +56,8 @@ pub mod prelude {
 /// Note that systems reading these events in [`PreUpdate`](bevy_app) will not report ordering
 /// ambiguities with picking backends. Take care to ensure such systems are explicitly ordered
 /// against [`PickSet::Backends`](crate), or better, avoid reading `PointerHits` in `PreUpdate`.
-#[derive(Event, Debug, Clone)]
+#[derive(Event, Debug, Clone, Reflect)]
+#[reflect(Debug)]
 pub struct PointerHits {
     /// The pointer associated with this hit test.
     pub pointer: prelude::PointerId,

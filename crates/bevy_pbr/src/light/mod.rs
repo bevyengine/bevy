@@ -51,7 +51,7 @@ pub mod light_consts {
     /// Predefined for lux values in several locations.
     ///
     /// The **lux** (symbol: **lx**) is the unit of [illuminance], or [luminous flux] per unit area,
-    /// in the [International System of Units] (SI). It is equal to one lumen per square metre.
+    /// in the [International System of Units] (SI). It is equal to one lumen per square meter.
     ///
     /// For more information, see [wikipedia](https://en.wikipedia.org/wiki/Lux)
     ///

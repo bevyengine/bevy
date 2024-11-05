@@ -30,7 +30,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::SpriteBundle,
-        sprite::{ImageScaleMode, Sprite},
+        sprite::{Sprite, SpriteImageMode},
         texture_atlas::{TextureAtlas, TextureAtlasLayout, TextureAtlasSources},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
         ColorMaterial, ColorMesh2dBundle, MeshMaterial2d, TextureAtlasBuilder,
@@ -106,7 +106,7 @@ impl Plugin for SpritePlugin {
         app.init_asset::<TextureAtlasLayout>()
             .register_asset_reflect::<TextureAtlasLayout>()
             .register_type::<Sprite>()
-            .register_type::<ImageScaleMode>()
+            .register_type::<SpriteImageMode>()
             .register_type::<TextureSlicer>()
             .register_type::<Anchor>()
             .register_type::<TextureAtlas>()
@@ -135,7 +135,7 @@ impl Plugin for SpritePlugin {
             );
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
-        app.add_plugins(picking_backend::SpritePickingBackend);
+        app.add_plugins(picking_backend::SpritePickingPlugin);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

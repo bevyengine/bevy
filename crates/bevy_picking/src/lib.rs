@@ -144,7 +144,7 @@
 //! a pointer hovers or clicks an entity. These simple events are then used to generate more complex
 //! events for dragging and dropping.
 //!
-//! Because it is completely agnostic to the the earlier stages of the pipeline, you can easily
+//! Because it is completely agnostic to the earlier stages of the pipeline, you can easily
 //! extend the plugin with arbitrary backends and input methods, yet still use all the high level
 //! features.
 
@@ -160,7 +160,7 @@ pub mod input;
 pub mod mesh_picking;
 pub mod pointer;
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, PluginGroupBuilder};
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 
@@ -172,7 +172,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::mesh_picking::{
         ray_cast::{MeshRayCast, RayCastBackfaces, RayCastSettings, RayCastVisibility},
-        MeshPickingBackend, MeshPickingBackendSettings, RayCastPickable,
+        MeshPickingPlugin, MeshPickingSettings, RayCastPickable,
     };
     #[doc(hidden)]
     pub use crate::{
@@ -275,15 +275,12 @@ pub enum PickSet {
 #[derive(Default)]
 pub struct DefaultPickingPlugins;
 
-impl Plugin for DefaultPickingPlugins {
-    fn build(&self, app: &mut App) {
-        app.add_plugins((
-            input::PointerInputPlugin::default(),
-            PickingPlugin::default(),
-            InteractionPlugin,
-        ));
-        #[cfg(feature = "bevy_mesh")]
-        app.add_plugins(mesh_picking::MeshPickingBackend);
+impl PluginGroup for DefaultPickingPlugins {
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<Self>()
+            .add(input::PointerInputPlugin::default())
+            .add(PickingPlugin::default())
+            .add(InteractionPlugin)
     }
 }
 
@@ -384,6 +381,21 @@ impl Plugin for InteractionPlugin {
 
         app.init_resource::<focus::HoverMap>()
             .init_resource::<focus::PreviousHoverMap>()
+            .init_resource::<PointerState>()
+            .add_event::<Pointer<Cancel>>()
+            .add_event::<Pointer<Click>>()
+            .add_event::<Pointer<Down>>()
+            .add_event::<Pointer<DragDrop>>()
+            .add_event::<Pointer<DragEnd>>()
+            .add_event::<Pointer<DragEnter>>()
+            .add_event::<Pointer<Drag>>()
+            .add_event::<Pointer<DragLeave>>()
+            .add_event::<Pointer<DragOver>>()
+            .add_event::<Pointer<DragStart>>()
+            .add_event::<Pointer<Move>>()
+            .add_event::<Pointer<Out>>()
+            .add_event::<Pointer<Over>>()
+            .add_event::<Pointer<Up>>()
             .add_systems(
                 PreUpdate,
                 (update_focus, pointer_events, update_interactions)

@@ -74,7 +74,7 @@ impl SystemMeta {
         &self.name
     }
 
-    /// Sets the name of of this system.
+    /// Sets the name of this system.
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
     #[inline]
@@ -306,7 +306,8 @@ pub struct SystemState<Param: SystemParam + 'static> {
 // So, generate a function for each arity with an explicit `FnMut` constraint to enable higher-order lifetimes,
 // along with a regular `SystemParamFunction` constraint to allow the system to be built.
 macro_rules! impl_build_system {
-    ($($param: ident),*) => {
+    ($(#[$meta:meta])* $($param: ident),*) => {
+        $(#[$meta])*
         impl<$($param: SystemParam),*> SystemState<($($param,)*)> {
             /// Create a [`FunctionSystem`] from a [`SystemState`].
             /// This method signature allows type inference of closure parameters for a system with no input.
@@ -344,7 +345,13 @@ macro_rules! impl_build_system {
     }
 }
 
-all_tuples!(impl_build_system, 0, 16, P);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_build_system,
+    0,
+    16,
+    P
+);
 
 impl<Param: SystemParam> SystemState<Param> {
     /// Creates a new [`SystemState`] with default state.
@@ -659,7 +666,7 @@ impl<Marker, F> FunctionSystem<Marker, F>
 where
     F: SystemParamFunction<Marker>,
 {
-    /// Message shown when a system isn't initialised
+    /// Message shown when a system isn't initialized
     // When lines get too long, rustfmt can sometimes refuse to format them.
     // Work around this by storing the message separately.
     const PARAM_MESSAGE: &'static str = "System's param_state was not found. Did you forget to initialize this system before running it?";

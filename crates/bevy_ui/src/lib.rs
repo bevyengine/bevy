@@ -40,7 +40,7 @@ pub use measurement::*;
 pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
-use widget::UiImageSize;
+use widget::{UiImage, UiImageSize};
 
 /// The UI prelude.
 ///
@@ -58,11 +58,11 @@ pub mod prelude {
             node_bundles::*,
             ui_material::*,
             ui_node::*,
-            widget::{Button, Label},
+            widget::{Button, Label, UiImage},
             Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
-        bevy_sprite::{BorderRect, ImageScaleMode, SliceScaleMode, TextureSlicer},
+        bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
     };
 }
 
@@ -219,7 +219,7 @@ impl Plugin for UiPlugin {
         build_text_interop(app);
 
         #[cfg(feature = "bevy_ui_picking_backend")]
-        app.add_plugins(picking_backend::UiPickingBackendPlugin);
+        app.add_plugins(picking_backend::UiPickingPlugin);
 
         if !self.enable_rendering {
             return;

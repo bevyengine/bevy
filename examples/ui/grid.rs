@@ -179,7 +179,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-/// Create a coloured rectangle node. The node has size as it is assumed that it will be
+/// Create a colored rectangle node. The node has size as it is assumed that it will be
 /// spawned as a child of a Grid container with `AlignItems::Stretch` and `JustifyItems::Stretch`
 /// which will allow it to take its size from the size of the grid area it occupies.
 fn item_rect(builder: &mut ChildBuilder, color: Srgba) {

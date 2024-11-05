@@ -228,7 +228,7 @@ use derive_more::derive::{Display, Error};
 ///
 /// In general, this shouldn't happen often, but when it does the algorithm is simple and predictable:
 /// 1. Use all of the constructors (including default constructors) directly defined in the spawned component's require list
-/// 2. In the order the requires are defined in `#[require()]`, recursively visit the require list of each of the components in the list (this is a depth Depth First Search). When a constructor is found, it will only be used if one has not already been found.
+/// 2. In the order the requires are defined in `#[require()]`, recursively visit the require list of each of the components in the list (this is a Depth First Search). When a constructor is found, it will only be used if one has not already been found.
 ///
 /// From a user perspective, just think about this as the following:
 /// 1. Specifying a required component constructor for Foo directly on a spawned component Bar will result in that constructor being used (and overriding existing constructors lower in the inheritance tree). This is the classic "inheritance override" behavior people expect.
@@ -487,7 +487,7 @@ impl ComponentHooks {
     /// Will panic if the component already has an `on_add` hook
     pub fn on_add(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_add(hook)
-            .expect("Component id: {:?}, already has an on_add hook")
+            .expect("Component already has an on_add hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is added (with `.insert`)
@@ -505,7 +505,7 @@ impl ComponentHooks {
     /// Will panic if the component already has an `on_insert` hook
     pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_insert(hook)
-            .expect("Component id: {:?}, already has an on_insert hook")
+            .expect("Component already has an on_insert hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is about to be dropped,
@@ -527,7 +527,7 @@ impl ComponentHooks {
     /// Will panic if the component already has an `on_replace` hook
     pub fn on_replace(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_replace(hook)
-            .expect("Component id: {:?}, already has an on_replace hook")
+            .expect("Component already has an on_replace hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
@@ -538,7 +538,7 @@ impl ComponentHooks {
     /// Will panic if the component already has an `on_remove` hook
     pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_remove(hook)
-            .expect("Component id: {:?}, already has an on_remove hook")
+            .expect("Component already has an on_remove hook")
     }
 
     /// Attempt to register a [`ComponentHook`] that will be run when this component is added to an entity.

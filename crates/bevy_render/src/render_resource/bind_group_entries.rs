@@ -180,7 +180,8 @@ pub trait IntoBindingArray<'b, const N: usize> {
 }
 
 macro_rules! impl_to_binding_slice {
-    ($N: expr, $(($T: ident, $I: ident)),*) => {
+    ($N: expr, $(#[$meta:meta])* $(($T: ident, $I: ident)),*) => {
+        $(#[$meta])*
         impl<'b, $($T: IntoBinding<'b>),*> IntoBindingArray<'b, $N> for ($($T,)*) {
             #[inline]
             fn into_array(self) -> [BindingResource<'b>; $N] {
@@ -191,7 +192,14 @@ macro_rules! impl_to_binding_slice {
     }
 }
 
-all_tuples_with_size!(impl_to_binding_slice, 1, 32, T, s);
+all_tuples_with_size!(
+    #[doc(fake_variadic)]
+    impl_to_binding_slice,
+    1,
+    32,
+    T,
+    s
+);
 
 pub trait IntoIndexedBindingArray<'b, const N: usize> {
     fn into_array(self) -> [(u32, BindingResource<'b>); N];

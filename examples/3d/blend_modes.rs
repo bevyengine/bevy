@@ -254,7 +254,7 @@ fn example_control_system(
     camera: Single<(&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
     mut labels: Query<(&mut Node, &ExampleLabel)>,
     mut display: Single<&mut Text, With<ExampleDisplay>>,
-    labelled: Query<&GlobalTransform>,
+    labeled: Query<&GlobalTransform>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
@@ -308,7 +308,7 @@ fn example_control_system(
     camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(rotation));
 
     for (mut node, label) in &mut labels {
-        let world_position = labelled.get(label.entity).unwrap().translation() + Vec3::Y;
+        let world_position = labeled.get(label.entity).unwrap().translation() + Vec3::Y;
 
         let viewport_position = camera
             .world_to_viewport(camera_global_transform, world_position)

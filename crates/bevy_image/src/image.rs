@@ -166,6 +166,7 @@ impl ImageFormat {
     }
 
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
+        #[allow(unreachable_code)]
         Some(match mime_type.to_ascii_lowercase().as_str() {
             // note: farbfeld does not have a MIME type
             "image/basis" | "image/x-basis" => feature_gate!("basis-universal", Basis),
@@ -191,6 +192,7 @@ impl ImageFormat {
     }
 
     pub fn from_extension(extension: &str) -> Option<Self> {
+        #[allow(unreachable_code)]
         Some(match extension.to_ascii_lowercase().as_str() {
             "basis" => feature_gate!("basis-universal", Basis),
             "bmp" => feature_gate!("bmp", Bmp),
@@ -213,6 +215,7 @@ impl ImageFormat {
     }
 
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
+        #[allow(unreachable_code)]
         Some(match self {
             #[cfg(feature = "bmp")]
             ImageFormat::Bmp => image::ImageFormat::Bmp,
@@ -253,6 +256,7 @@ impl ImageFormat {
     }
 
     pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
+        #[allow(unreachable_code)]
         Some(match format {
             image::ImageFormat::Bmp => feature_gate!("bmp", Bmp),
             image::ImageFormat::Dds => feature_gate!("dds", Dds),
@@ -895,6 +899,7 @@ impl Image {
             ImageFormat::Ktx2 => {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
+            #[allow(unreachable_patterns)]
             _ => {
                 let image_crate_format = format
                     .as_image_crate_format()

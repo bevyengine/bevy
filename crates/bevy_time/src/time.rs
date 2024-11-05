@@ -537,7 +537,7 @@ mod test {
 
         // Time will wrap to modulo duration from full `elapsed()`, not to what
         // is left in `elapsed_wrapped()`. This test of values is here to ensure
-        // that we notice if we change that behaviour.
+        // that we notice if we change that behavior.
         assert_eq!(time.elapsed_wrapped(), Duration::from_secs(0));
         assert_eq!(time.elapsed_secs_wrapped(), 0.0);
         assert_eq!(time.elapsed_secs_wrapped_f64(), 0.0);

@@ -15,6 +15,8 @@
 extern crate alloc;
 
 use bevy_derive::Deref;
+use bevy_reflect::prelude::ReflectDefault;
+use bevy_reflect::Reflect;
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
 use core::marker::PhantomData;
 use winit::event_loop::EventLoop;
@@ -42,7 +44,6 @@ use crate::{
 
 pub mod accessibility;
 mod converters;
-#[cfg(feature = "custom_cursor")]
 pub mod cursor;
 mod state;
 mod system;
@@ -134,7 +135,6 @@ impl<T: Event> Plugin for WinitPlugin<T> {
             );
 
         app.add_plugins(AccessKitPlugin);
-        #[cfg(feature = "custom_cursor")]
         app.add_plugins(cursor::CursorPlugin);
 
         let event_loop = event_loop_builder
@@ -149,7 +149,8 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 
 /// The default event that can be used to wake the window loop
 /// Wakes up the loop if in wait state
-#[derive(Debug, Default, Clone, Copy, Event)]
+#[derive(Debug, Default, Clone, Copy, Event, Reflect)]
+#[reflect(Debug, Default)]
 pub struct WakeUp;
 
 /// A wrapper type around [`winit::event_loop::EventLoopProxy`] with the specific

@@ -58,7 +58,7 @@ fn setup(mut commands: Commands) {
 
     // Other color spaces like `Srgba` or `Hsva` are neither perceptually nor physically linear.
     // As such, we cannot use curves in these spaces.
-    // However, we can still mix these colours and animate that way. In fact, mixing colors works in any color space.
+    // However, we can still mix these colors and animate that way. In fact, mixing colors works in any color space.
 
     // Spawn a spritre using the provided colors for mixing.
     spawn_mixed_sprite(&mut commands, -75., colors.map(Hsla::from));
