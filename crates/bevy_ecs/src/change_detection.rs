@@ -3,7 +3,7 @@
 use crate::{
     component::{Tick, TickCells},
     ptr::PtrMut,
-    system::Resource,
+    system::{Resource, SystemParam},
 };
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use core::{
@@ -1190,6 +1190,27 @@ pub(crate) type MaybeThinSlicePtrLocation<'w> =
 /// See [`MaybeLocation`] for further information.
 #[cfg(not(feature = "track_change_detection"))]
 pub(crate) type MaybeThinSlicePtrLocation<'w> = ();
+
+pub trait ReactiveSystemParam: ReadOnlySystemParam {
+    type State: Send + Sync + 'static;
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
+
+    fn is_changed(&self) -> bool;
+}
+
+impl<T> ReactiveSystemParam for Res<'_, T> {
+    type State = ();
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        let _ = world;
+        let _ = system_meta;
+    }
+
+    fn is_changed(&self) -> bool {
+        self.is_changed()
+    }
+}
 
 #[cfg(test)]
 mod tests {
