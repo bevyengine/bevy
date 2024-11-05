@@ -131,13 +131,12 @@ impl UiSurface {
 
     /// Tries to place a fixed-node as the children of an associated root node
     pub fn try_update_fixed_node(&mut self, entity: &Entity, fixed_node: &Entity) {
-
         let children_node;
         if let Some(children) = self.entity_to_taffy.get(fixed_node) {
             children_node = *children;
         } else {
             warn!(
-                    "Unstyled child in a UI entity hierarchy. You are using an entity \
+                "Unstyled child in a UI entity hierarchy. You are using an entity \
 without UI components as a child of an entity with UI components, results may be unexpected."
             );
             return;
@@ -148,32 +147,32 @@ without UI components as a child of an entity with UI components, results may be
             root_node = *root;
         } else {
             warn!(
-                    "Unstyled parent in a UI entity hierarchy. You are using an entity \
+                "Unstyled parent in a UI entity hierarchy. You are using an entity \
 without UI components as an \"root node\" of a fixed UI node, results may be unexpected."
             );
             return;
         }
 
-        // Remove relation with previos parent if it exists
+        // Remove relation with previous parent if it exists
         if let Some(parent) = self.taffy.parent(children_node) {
             if parent != root_node {
-                if let Err(_) = self.taffy.remove_child( parent, children_node) {
+                if let Err(_) = self.taffy.remove_child(parent, children_node) {
                     warn!("Failed to remove parent Taffy node.");
                 }
             }
         }
-        
+
         // Insert the fixed node as a child if not already the case
         // this is used to dodge updates every frame
         match self.taffy.children(root_node) {
             Ok(children_nodes) => {
                 if !children_nodes.contains(&children_node) {
-                    self.taffy
-                        .add_child(root_node, children_node)
-                        .unwrap();
+                    self.taffy.add_child(root_node, children_node).unwrap();
                 }
-            },
-            Err(_) => {return;}
+            }
+            Err(_) => {
+                return;
+            }
         }
     }
 

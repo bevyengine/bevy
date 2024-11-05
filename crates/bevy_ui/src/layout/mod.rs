@@ -1,7 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, Node, Outline,
-    PositionType, OverflowAxis, ScrollPosition, TargetCamera, UiScale,
+    BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
+    PositionType, ScrollPosition, TargetCamera, UiScale,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -17,7 +17,7 @@ use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
-use bevy_utils::{HashMap, tracing::warn};
+use bevy_utils::{tracing::warn, HashMap};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use derive_more::derive::{Display, Error, From};
 use ui_surface::UiSurface;
@@ -369,24 +369,28 @@ with UI components as a child of an entity without UI components, your UI layout
 
             // The position of the center of the node, stored in the node's transform
             let node_center: Vec2;
-            if let Some(associted_root) = fixed_nodes.get(&entity) {
-                if let Some((root_scroll_position, root_size)) = associated_roots.get(associted_root) {
-
-                    node_center = layout_location - root_scroll_position + 0.5 * (layout_size - root_size);
+            if let Some(associated_root) = fixed_nodes.get(&entity) {
+                if let Some((root_scroll_position, root_size)) =
+                    associated_roots.get(associated_root)
+                {
+                    node_center =
+                        layout_location - root_scroll_position + 0.5 * (layout_size - root_size);
 
                     dbg!(layout_location);
                     dbg!(root_scroll_position, root_size);
                     dbg!(node_center);
                 } else {
                     warn!(
-                    "Could find the associated root of a fixed node,\
+                        "Could find the associated root of a fixed node,\
  please ensure that your associated roots are direct ancestors.\
  Result may be unexpected."
                     );
-                    node_center = layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
+                    node_center = layout_location - parent_scroll_position
+                        + 0.5 * (layout_size - parent_size);
                 }
             } else {
-                node_center = layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
+                node_center =
+                    layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
             }
 
             // only trigger change detection when the new values are different
