@@ -2,6 +2,7 @@
 
 use crate::{
     component::{Tick, TickCells},
+    entity::Entity,
     prelude::Component,
     ptr::PtrMut,
     query::{Changed, QueryData, QueryFilter, ReadOnlyQueryData},
@@ -1153,6 +1154,21 @@ pub trait ReactiveQueryData<F: QueryFilter>: ReadOnlyQueryData + Sized {
 
     /// Returns `true` if the query has changed since the last system run.
     fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveQueryData<F>>::State) -> bool;
+}
+
+impl<F: QueryFilter> ReactiveQueryData<F> for Entity {
+    type State = ();
+
+    fn init(world: &mut World) -> <Self as ReactiveQueryData<F>>::State {
+        let _ = world;
+    }
+
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveQueryData<F>>::State) -> bool {
+        let _ = world;
+        let _ = state;
+
+        false
+    }
 }
 
 impl<F, T> ReactiveQueryData<F> for &T
