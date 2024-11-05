@@ -3,8 +3,8 @@
 use crate::{
     component::{Tick, TickCells},
     ptr::PtrMut,
-    system::{ReadOnlySystemParam, Resource, SystemMeta},
-    world::World,
+    system::{Commands, Local, ReadOnlySystemParam, Resource, SystemMeta, SystemState},
+    world::{DeferredWorld, FromWorld, World},
 };
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use core::{
@@ -1154,6 +1154,38 @@ pub trait ReactiveSystemParam: ReadOnlySystemParam {
 
     /// Returns `true` if the parameter has changed since the last system run.
     fn is_changed(&self) -> bool;
+}
+
+impl ReactiveSystemParam for Commands<'_, '_> {
+    type State = ();
+
+    fn init_state(
+        world: &mut World,
+        system_meta: &mut SystemMeta,
+    ) -> <Self as ReactiveSystemParam>::State {
+        let _ = world;
+        let _ = system_meta;
+    }
+
+    fn is_changed(&self) -> bool {
+        false
+    }
+}
+
+impl<T: FromWorld + Send> ReactiveSystemParam for Local<'_, T> {
+    type State = ();
+
+    fn init_state(
+        world: &mut World,
+        system_meta: &mut SystemMeta,
+    ) -> <Self as ReactiveSystemParam>::State {
+        let _ = world;
+        let _ = system_meta;
+    }
+
+    fn is_changed(&self) -> bool {
+        false
+    }
 }
 
 impl<T: Resource> ReactiveSystemParam for Res<'_, T> {
