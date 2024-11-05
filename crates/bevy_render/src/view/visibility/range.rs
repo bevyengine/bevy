@@ -25,7 +25,7 @@ use wgpu::{BufferBindingType, BufferUsages};
 use super::{check_visibility, VisibilitySystems};
 use crate::sync_world::{MainEntity, MainEntityHashMap};
 use crate::{
-    camera::Camera,
+    camera::RenderSurface,
     mesh::Mesh3d,
     primitives::Aabb,
     render_resource::BufferVec,
@@ -367,7 +367,7 @@ impl VisibleEntityRanges {
 /// cull.
 pub fn check_visibility_ranges(
     mut visible_entity_ranges: ResMut<VisibleEntityRanges>,
-    view_query: Query<(Entity, &GlobalTransform), With<Camera>>,
+    view_query: Query<(Entity, &GlobalTransform), With<RenderSurface>>,
     mut entity_query: Query<(Entity, &GlobalTransform, Option<&Aabb>, &VisibilityRange)>,
 ) {
     visible_entity_ranges.clear();

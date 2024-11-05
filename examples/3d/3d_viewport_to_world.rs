@@ -11,7 +11,7 @@ fn main() {
 }
 
 fn draw_cursor(
-    camera_query: Single<(&Camera, &GlobalTransform)>,
+    camera_query: Single<(&RenderSurface, &GlobalTransform)>,
     ground: Single<&GlobalTransform, With<Ground>>,
     windows: Single<&Window>,
     mut gizmos: Gizmos,

@@ -114,7 +114,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     // this camera renders whatever is on `PIXEL_PERFECT_LAYERS` to the canvas
     commands.spawn((
         Camera2d,
-        Camera {
+        RenderSurface {
             // render before the "main pass" camera
             order: -1,
             target: RenderTarget::Image(image_handle.clone()),

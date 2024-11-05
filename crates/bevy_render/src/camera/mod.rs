@@ -23,7 +23,7 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Camera>()
+        app.register_type::<RenderSurface>()
             .register_type::<ClearColor>()
             .register_type::<CameraRenderGraph>()
             .register_type::<CameraMainTextureUsages>()

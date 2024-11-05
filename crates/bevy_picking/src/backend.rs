@@ -133,7 +133,7 @@ pub mod ray {
     use bevy_ecs::prelude::*;
     use bevy_math::Ray3d;
     use bevy_reflect::Reflect;
-    use bevy_render::camera::Camera;
+    use bevy_render::camera::RenderSurface;
     use bevy_transform::prelude::GlobalTransform;
     use bevy_utils::{hashbrown::hash_map::Iter, HashMap};
     use bevy_window::PrimaryWindow;
@@ -198,7 +198,7 @@ pub mod ray {
         pub fn repopulate(
             mut ray_map: ResMut<Self>,
             primary_window_entity: Query<Entity, With<PrimaryWindow>>,
-            cameras: Query<(Entity, &Camera, &GlobalTransform)>,
+            cameras: Query<(Entity, &RenderSurface, &GlobalTransform)>,
             pointers: Query<(&PointerId, &PointerLocation)>,
         ) {
             ray_map.map.clear();
@@ -223,7 +223,7 @@ pub mod ray {
 
     fn make_ray(
         primary_window_entity: &Query<Entity, With<PrimaryWindow>>,
-        camera: &Camera,
+        camera: &RenderSurface,
         camera_tfm: &GlobalTransform,
         pointer_loc: &PointerLocation,
     ) -> Option<Ray3d> {

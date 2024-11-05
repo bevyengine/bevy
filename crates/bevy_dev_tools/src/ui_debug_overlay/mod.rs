@@ -69,7 +69,7 @@ fn update_debug_camera(
     mut gizmo_config: ResMut<GizmoConfigStore>,
     mut options: ResMut<UiDebugOptions>,
     mut cmds: Commands,
-    mut debug_cams: Query<&mut Camera, With<DebugOverlayCamera>>,
+    mut debug_cams: Query<&mut RenderSurface, With<DebugOverlayCamera>>,
 ) {
     if !options.is_changed() && !gizmo_config.is_changed() {
         return;
@@ -94,7 +94,7 @@ fn update_debug_camera(
                     viewport_origin: Vec2::new(0.0, 0.0),
                     ..OrthographicProjection::default_3d()
                 },
-                Camera {
+                RenderSurface {
                     order: LAYOUT_DEBUG_CAMERA_ORDER,
                     clear_color: ClearColorConfig::None,
                     ..default()
@@ -159,12 +159,12 @@ struct OutlineParam<'w, 's> {
     ui_scale: Res<'w, UiScale>,
 }
 
-type CameraQuery<'w, 's> = Query<'w, 's, &'static Camera, With<DebugOverlayCamera>>;
+type CameraQuery<'w, 's> = Query<'w, 's, &'static RenderSurface, With<DebugOverlayCamera>>;
 
 #[derive(SystemParam)]
 struct CameraParam<'w, 's> {
-    debug_camera: Query<'w, 's, &'static Camera, With<DebugOverlayCamera>>,
-    cameras: Query<'w, 's, &'static Camera, Without<DebugOverlayCamera>>,
+    debug_camera: Query<'w, 's, &'static RenderSurface, With<DebugOverlayCamera>>,
+    cameras: Query<'w, 's, &'static RenderSurface, Without<DebugOverlayCamera>>,
     primary_window: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
     default_ui_camera: DefaultUiCamera<'w, 's>,
 }

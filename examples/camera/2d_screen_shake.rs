@@ -77,7 +77,7 @@ fn setup_instructions(mut commands: Commands) {
 fn setup_camera(mut commands: Commands) {
     commands.spawn((
         Camera2d,
-        Camera {
+        RenderSurface {
             sub_camera_view: Some(SubCameraView {
                 full_size: UVec2::new(1000, 700),
                 offset: Vec2::new(0.0, 0.0),
@@ -136,7 +136,7 @@ fn trigger_shake_on_space(
 fn screen_shake(
     time: Res<Time>,
     mut screen_shake: ResMut<ScreenShake>,
-    mut query: Query<(&mut Camera, &mut Transform)>,
+    mut query: Query<(&mut RenderSurface, &mut Transform)>,
 ) {
     let mut rng = ChaCha8Rng::from_entropy();
     let shake = screen_shake.trauma * screen_shake.trauma;

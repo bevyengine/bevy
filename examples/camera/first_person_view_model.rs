@@ -124,7 +124,7 @@ fn spawn_view_model(
             // Spawn view model camera.
             parent.spawn((
                 Camera3d::default(),
-                Camera {
+                RenderSurface {
                     // Bump the order to render on top of the world model.
                     order: 1,
                     ..default()

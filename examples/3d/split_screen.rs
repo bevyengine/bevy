@@ -70,7 +70,7 @@ fn setup(
             .spawn((
                 Camera3d::default(),
                 Transform::from_translation(*camera_pos).looking_at(Vec3::ZERO, Vec3::Y),
-                Camera {
+                RenderSurface {
                     // Renders cameras with different priorities to prevent ambiguities
                     order: index as isize,
                     ..default()
@@ -162,7 +162,7 @@ enum Direction {
 fn set_camera_viewports(
     windows: Query<&Window>,
     mut resize_events: EventReader<WindowResized>,
-    mut query: Query<(&CameraPosition, &mut Camera)>,
+    mut query: Query<(&CameraPosition, &mut RenderSurface)>,
 ) {
     // We need to dynamically resize the camera's viewports whenever the window size changes
     // so then each camera always takes up half the screen.
@@ -187,7 +187,7 @@ fn button_system(
         (&Interaction, &TargetCamera, &RotateCamera),
         (Changed<Interaction>, With<Button>),
     >,
-    mut camera_query: Query<&mut Transform, With<Camera>>,
+    mut camera_query: Query<&mut Transform, With<RenderSurface>>,
 ) {
     for (interaction, target_camera, RotateCamera(direction)) in &interaction_query {
         if let Interaction::Pressed = *interaction {

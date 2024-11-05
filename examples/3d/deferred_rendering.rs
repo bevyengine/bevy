@@ -35,7 +35,7 @@ fn setup(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Camera {
+        RenderSurface {
             // Deferred both supports both hdr: true and hdr: false
             hdr: false,
             ..default()
@@ -287,7 +287,7 @@ fn switch_mode(
     keys: Res<ButtonInput<KeyCode>>,
     mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    cameras: Query<Entity, With<Camera>>,
+    cameras: Query<Entity, With<RenderSurface>>,
     mut pause: ResMut<Pause>,
     mut hide_ui: Local<bool>,
     mut mode: Local<DefaultRenderMode>,

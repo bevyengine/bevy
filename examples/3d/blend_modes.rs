@@ -251,7 +251,7 @@ impl Default for ExampleState {
 fn example_control_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,
-    camera: Single<(&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
+    camera: Single<(&mut RenderSurface, &mut Transform, &GlobalTransform), With<Camera3d>>,
     mut labels: Query<(&mut Node, &ExampleLabel)>,
     mut display: Single<&mut Text, With<ExampleDisplay>>,
     labeled: Query<&GlobalTransform>,

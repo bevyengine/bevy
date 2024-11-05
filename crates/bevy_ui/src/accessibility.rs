@@ -16,7 +16,7 @@ use bevy_ecs::{
     system::{Commands, Query},
     world::Ref,
 };
-use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
+use bevy_render::{camera::CameraUpdateSystem, prelude::RenderSurface};
 use bevy_transform::prelude::GlobalTransform;
 
 fn calc_label(
@@ -37,7 +37,7 @@ fn calc_label(
 }
 
 fn calc_bounds(
-    camera: Query<(&Camera, &GlobalTransform)>,
+    camera: Query<(&RenderSurface, &GlobalTransform)>,
     mut nodes: Query<(
         &mut AccessibilityNode,
         Ref<ComputedNode>,

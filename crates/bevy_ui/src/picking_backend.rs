@@ -62,7 +62,7 @@ pub struct NodeQuery {
 /// we need for determining picking.
 pub fn ui_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
-    camera_query: Query<(Entity, &Camera, Has<IsDefaultUiCamera>)>,
+    camera_query: Query<(Entity, &RenderSurface, Has<IsDefaultUiCamera>)>,
     default_ui_camera: DefaultUiCamera,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     ui_scale: Res<UiScale>,

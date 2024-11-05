@@ -194,7 +194,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
 }
 
 // remove all entities that are not a camera or window
-fn teardown(mut commands: Commands, entities: Query<Entity, (Without<Camera>, Without<Window>)>) {
+fn teardown(mut commands: Commands, entities: Query<Entity, (Without<RenderSurface>, Without<Window>)>) {
     for entity in &entities {
         commands.entity(entity).despawn();
     }

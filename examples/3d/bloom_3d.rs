@@ -29,7 +29,7 @@ fn setup_scene(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Camera {
+        RenderSurface {
             hdr: true, // 1. HDR is required for bloom
             ..default()
         },
@@ -98,7 +98,7 @@ fn setup_scene(
 // ------------------------------------------------------------------------------------------------
 
 fn update_bloom_settings(
-    camera: Single<(Entity, Option<&mut Bloom>), With<Camera>>,
+    camera: Single<(Entity, Option<&mut Bloom>), With<RenderSurface>>,
     mut text: Single<&mut Text>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,

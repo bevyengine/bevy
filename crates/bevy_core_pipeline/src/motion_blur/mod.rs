@@ -16,7 +16,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::Camera,
+    camera::RenderSurface,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, ShaderType, SpecializedRenderPipelines},
@@ -70,7 +70,7 @@ pub struct MotionBlurBundle {
 /// ````
 #[derive(Reflect, Component, Clone, ExtractComponent, ShaderType)]
 #[reflect(Component, Default)]
-#[extract_component_filter(With<Camera>)]
+#[extract_component_filter(With<RenderSurface>)]
 #[require(DepthPrepass, MotionVectorPrepass)]
 pub struct MotionBlur {
     /// The strength of motion blur from `0.0` to `1.0`.

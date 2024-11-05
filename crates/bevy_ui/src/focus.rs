@@ -13,7 +13,7 @@ use bevy_ecs::{
 use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
+use bevy_render::{camera::NormalizedRenderTarget, prelude::RenderSurface, view::ViewVisibility};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window};
@@ -152,7 +152,7 @@ pub struct NodeQuery {
 #[allow(clippy::too_many_arguments)]
 pub fn ui_focus_system(
     mut state: Local<State>,
-    camera_query: Query<(Entity, &Camera)>,
+    camera_query: Query<(Entity, &RenderSurface)>,
     default_ui_camera: DefaultUiCamera,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<&Window>,

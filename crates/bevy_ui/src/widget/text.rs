@@ -16,7 +16,7 @@ use bevy_ecs::{
 };
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{camera::Camera, texture::Image};
+use bevy_render::{camera::RenderSurface, texture::Image};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
@@ -258,7 +258,7 @@ pub fn measure_text_system(
     mut scale_factors_buffer: Local<EntityHashMap<f32>>,
     mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
-    camera_query: Query<(Entity, &Camera)>,
+    camera_query: Query<(Entity, &RenderSurface)>,
     default_ui_camera: DefaultUiCamera,
     ui_scale: Res<UiScale>,
     mut text_query: Query<
@@ -400,7 +400,7 @@ pub fn text_system(
     mut scale_factors_buffer: Local<EntityHashMap<f32>>,
     mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
-    camera_query: Query<(Entity, &Camera)>,
+    camera_query: Query<(Entity, &RenderSurface)>,
     default_ui_camera: DefaultUiCamera,
     ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,

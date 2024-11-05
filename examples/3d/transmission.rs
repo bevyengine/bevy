@@ -303,7 +303,7 @@ fn setup(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Camera {
+        RenderSurface {
             hdr: true,
             ..default()
         },
@@ -388,7 +388,7 @@ fn example_control_system(
     camera: Single<
         (
             Entity,
-            &mut Camera,
+            &mut RenderSurface,
             &mut Camera3d,
             &mut Transform,
             Option<&DepthPrepass>,

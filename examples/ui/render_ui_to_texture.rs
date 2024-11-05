@@ -56,7 +56,7 @@ fn setup(
     let texture_camera = commands
         .spawn((
             Camera2d,
-            Camera {
+            RenderSurface {
                 target: RenderTarget::Image(image_handle.clone()),
                 ..default()
             },

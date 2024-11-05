@@ -447,7 +447,7 @@ fn toggle_rotation(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<A
 fn handle_mouse_clicks(
     buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
-    cameras: Query<(&Camera, &GlobalTransform)>,
+    cameras: Query<(&RenderSurface, &GlobalTransform)>,
     mut main_objects: Query<&mut Transform, With<MainObject>>,
 ) {
     if !buttons.pressed(MouseButton::Left) {

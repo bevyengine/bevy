@@ -46,7 +46,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Camera {
+        RenderSurface {
             // renders after / on top of the main camera
             order: 1,
             clear_color: ClearColorConfig::None,

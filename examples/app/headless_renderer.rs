@@ -187,7 +187,7 @@ fn setup(
 
     commands.spawn((
         Camera3d::default(),
-        Camera {
+        RenderSurface {
             // render to image
             target: render_target,
             ..default()

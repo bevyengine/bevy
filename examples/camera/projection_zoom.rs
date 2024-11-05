@@ -109,7 +109,7 @@ fn instructions(mut commands: Commands) {
 }
 
 fn switch_projection(
-    mut camera: Single<&mut Projection, With<Camera>>,
+    mut camera: Single<&mut Projection, With<RenderSurface>>,
     camera_settings: Res<CameraSettings>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
@@ -131,7 +131,7 @@ fn switch_projection(
 }
 
 fn zoom(
-    camera: Single<&mut Projection, With<Camera>>,
+    camera: Single<&mut Projection, With<RenderSurface>>,
     camera_settings: Res<CameraSettings>,
     mouse_wheel_input: Res<AccumulatedMouseScroll>,
 ) {

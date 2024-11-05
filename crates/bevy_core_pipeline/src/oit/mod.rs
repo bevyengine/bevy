@@ -6,7 +6,7 @@ use bevy_ecs::{component::*, prelude::*};
 use bevy_math::UVec2;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    camera::{Camera, ExtractedCamera},
+    camera::{RenderSurface, ExtractedCamera},
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{
@@ -150,8 +150,8 @@ impl Plugin for OrderIndependentTransparencyPlugin {
 // bevy reuses the same depth texture so we need to set this on all cameras with the same render target.
 fn configure_depth_texture_usages(
     p: Query<Entity, With<PrimaryWindow>>,
-    cameras: Query<(&Camera, Has<OrderIndependentTransparencySettings>)>,
-    mut new_cameras: Query<(&mut Camera3d, &Camera), Added<Camera3d>>,
+    cameras: Query<(&RenderSurface, Has<OrderIndependentTransparencySettings>)>,
+    mut new_cameras: Query<(&mut Camera3d, &RenderSurface), Added<Camera3d>>,
 ) {
     if new_cameras.is_empty() {
         return;

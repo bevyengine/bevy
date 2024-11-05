@@ -20,7 +20,7 @@ use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
-    prelude::{Camera, Projection},
+    prelude::{Projection, RenderSurface},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
@@ -362,7 +362,7 @@ impl SpecializedRenderPipeline for TaaPipeline {
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
     let mut cameras_3d = main_world.query_filtered::<(
         RenderEntity,
-        &Camera,
+        &RenderSurface,
         &Projection,
         &mut TemporalAntiAliasing,
     ), (

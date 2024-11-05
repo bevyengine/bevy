@@ -148,7 +148,7 @@ fn integrate(time: Res<Time>, mut query: Query<(&mut Acceleration, &mut Transfor
 }
 
 fn look_at_star(
-    mut camera: Single<&mut Transform, (With<Camera>, Without<Star>)>,
+    mut camera: Single<&mut Transform, (With<RenderSurface>, Without<Star>)>,
     star: Single<&Transform, With<Star>>,
 ) {
     let new_rotation = camera

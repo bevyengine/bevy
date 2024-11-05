@@ -109,7 +109,7 @@ fn run_camera_controller(
     key_input: Res<ButtonInput<KeyCode>>,
     mut toggle_cursor_grab: Local<bool>,
     mut mouse_cursor_grab: Local<bool>,
-    query: Single<(&mut Transform, &mut CameraController), With<Camera>>,
+    query: Single<(&mut Transform, &mut CameraController), With<RenderSurface>>,
 ) {
     let dt = time.delta_secs();
 

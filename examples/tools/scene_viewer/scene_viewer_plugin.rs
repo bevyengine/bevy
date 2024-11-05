@@ -201,9 +201,9 @@ fn camera_tracker(
     mut camera_tracker: ResMut<CameraTracker>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut queries: ParamSet<(
-        Query<(Entity, &mut Camera), (Added<Camera>, Without<CameraController>)>,
-        Query<(Entity, &mut Camera), (Added<Camera>, With<CameraController>)>,
-        Query<&mut Camera>,
+        Query<(Entity, &mut RenderSurface), (Added<RenderSurface>, Without<CameraController>)>,
+        Query<(Entity, &mut RenderSurface), (Added<RenderSurface>, With<CameraController>)>,
+        Query<&mut RenderSurface>,
     )>,
 ) {
     // track added scene camera entities first, to ensure they are preferred for the

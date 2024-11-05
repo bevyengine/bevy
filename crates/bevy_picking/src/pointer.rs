@@ -11,7 +11,7 @@
 use bevy_ecs::prelude::*;
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
-use bevy_render::camera::{Camera, NormalizedRenderTarget};
+use bevy_render::camera::{RenderSurface, NormalizedRenderTarget};
 use bevy_utils::HashMap;
 use bevy_window::PrimaryWindow;
 
@@ -218,7 +218,7 @@ impl Location {
     #[inline]
     pub fn is_in_viewport(
         &self,
-        camera: &Camera,
+        camera: &RenderSurface,
         primary_window: &Query<Entity, With<PrimaryWindow>>,
     ) -> bool {
         if camera

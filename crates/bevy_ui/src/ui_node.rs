@@ -4,7 +4,7 @@ use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    camera::{Camera, RenderTarget},
+    camera::{RenderSurface, RenderTarget},
     view::Visibility,
 };
 use bevy_sprite::BorderRect;
@@ -2496,8 +2496,8 @@ pub struct IsDefaultUiCamera;
 
 #[derive(SystemParam)]
 pub struct DefaultUiCamera<'w, 's> {
-    cameras: Query<'w, 's, (Entity, &'static Camera)>,
-    default_cameras: Query<'w, 's, Entity, (With<Camera>, With<IsDefaultUiCamera>)>,
+    cameras: Query<'w, 's, (Entity, &'static RenderSurface)>,
+    default_cameras: Query<'w, 's, Entity, (With<RenderSurface>, With<IsDefaultUiCamera>)>,
     primary_window: Query<'w, 's, Entity, With<PrimaryWindow>>,
 }
 

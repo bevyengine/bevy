@@ -137,7 +137,7 @@ fn animate_light(
 
 /// A system that rotates the camera if the environment map is enabled.
 fn rotate_camera(
-    mut camera: Query<&mut Transform, With<Camera>>,
+    mut camera: Query<&mut Transform, With<RenderSurface>>,
     app_status: Res<AppStatus>,
     time: Res<Time>,
     mut stopwatch: Local<Stopwatch>,
@@ -159,7 +159,7 @@ fn rotate_camera(
 fn handle_input(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    cameras: Query<Entity, With<Camera>>,
+    cameras: Query<Entity, With<RenderSurface>>,
     lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>)>>,
     mut meshes: Query<(&mut MeshMaterial3d<StandardMaterial>, &MaterialVariants)>,
     keyboard: Res<ButtonInput<KeyCode>>,

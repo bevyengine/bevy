@@ -135,7 +135,7 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 }
 
 // System for rotating the camera
-fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<Camera>>) {
+fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<RenderSurface>>) {
     let delta = time.delta_secs() * 0.15;
     camera_transform.rotate_z(delta);
     camera_transform.rotate_x(delta);

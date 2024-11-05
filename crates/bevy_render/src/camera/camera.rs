@@ -297,7 +297,7 @@ pub enum ViewportConversionError {
     Msaa,
     SyncToRenderWorld
 )]
-pub struct Camera {
+pub struct RenderSurface {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,
     /// Cameras with a higher order are rendered later, and thus on top of lower order cameras.
@@ -334,7 +334,7 @@ fn warn_on_no_render_graph(world: DeferredWorld, entity: Entity, _: ComponentId)
     }
 }
 
-impl Default for Camera {
+impl Default for RenderSurface {
     fn default() -> Self {
         Self {
             is_active: true,
@@ -351,7 +351,7 @@ impl Default for Camera {
     }
 }
 
-impl Camera {
+impl RenderSurface {
     /// Converts a physical size in this `Camera` to a logical size.
     #[inline]
     pub fn to_logical(&self, physical_size: UVec2) -> Option<Vec2> {
@@ -882,7 +882,7 @@ pub fn camera_system<T: CameraProjection + Component>(
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
     manual_texture_views: Res<ManualTextureViews>,
-    mut cameras: Query<(&mut Camera, &mut T)>,
+    mut cameras: Query<(&mut RenderSurface, &mut T)>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -1020,7 +1020,7 @@ pub fn extract_cameras(
     query: Extract<
         Query<(
             RenderEntity,
-            &Camera,
+            &RenderSurface,
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,

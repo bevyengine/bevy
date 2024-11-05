@@ -115,7 +115,7 @@ mod bloom {
     ) {
         commands.spawn((
             Camera2d,
-            Camera {
+            RenderSurface {
                 hdr: true,
                 ..default()
             },

@@ -28,7 +28,7 @@ fn setup(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Camera {
+        RenderSurface {
             hdr: true,
             ..default()
         },
@@ -96,7 +96,7 @@ fn update(
             Option<&ScreenSpaceAmbientOcclusion>,
             Option<&TemporalJitter>,
         ),
-        With<Camera>,
+        With<RenderSurface>,
     >,
     mut text: Single<&mut Text>,
     mut sphere: Single<&mut Transform, With<SphereMarker>>,

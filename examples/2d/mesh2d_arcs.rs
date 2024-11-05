@@ -41,7 +41,7 @@ fn setup(
 
     commands.spawn((
         Camera2d,
-        Camera {
+        RenderSurface {
             clear_color: ClearColorConfig::Custom(DARK_SLATE_GREY.into()),
             ..default()
         },

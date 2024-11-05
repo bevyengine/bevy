@@ -85,7 +85,7 @@ fn setup(
 
     commands.spawn((
         Camera3d::default(),
-        Camera {
+        RenderSurface {
             target: image_handle.clone().into(),
             clear_color: Color::WHITE.into(),
             ..default()

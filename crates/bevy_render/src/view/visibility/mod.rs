@@ -20,7 +20,7 @@ use bevy_utils::{Parallel, TypeIdMap};
 use super::NoCpuCulling;
 use crate::sync_world::MainEntity;
 use crate::{
-    camera::{Camera, CameraProjection},
+    camera::{RenderSurface, CameraProjection},
     mesh::{Mesh, Mesh3d, MeshAabb},
     primitives::{Aabb, Frustum, Sphere},
 };
@@ -485,7 +485,7 @@ pub fn check_visibility<QF>(
         &mut VisibleEntities,
         &Frustum,
         Option<&RenderLayers>,
-        &Camera,
+        &RenderSurface,
         Has<NoCpuCulling>,
     )>,
     mut visible_aabb_query: Query<

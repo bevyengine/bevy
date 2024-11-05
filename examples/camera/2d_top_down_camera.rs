@@ -63,7 +63,7 @@ fn setup_instructions(mut commands: Commands) {
 fn setup_camera(mut commands: Commands) {
     commands.spawn((
         Camera2d,
-        Camera {
+        RenderSurface {
             hdr: true, // HDR is required for the bloom effect
             ..default()
         },
