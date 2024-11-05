@@ -16,7 +16,7 @@
 // the W3C short notice apply to the `KeyCode` enums and their variants and the
 // documentation attached to their variants.
 
-// --------- BEGGINING OF W3C LICENSE --------------------------------------------------------------
+// --------- BEGINNING OF W3C LICENSE --------------------------------------------------------------
 //
 // License
 //
@@ -51,7 +51,7 @@
 //
 // --------- END OF W3C LICENSE --------------------------------------------------------------------
 
-// --------- BEGGINING OF W3C SHORT NOTICE ---------------------------------------------------------
+// --------- BEGINNING OF W3C SHORT NOTICE ---------------------------------------------------------
 //
 // winit: https://github.com/rust-windowing/winit
 //
@@ -66,16 +66,17 @@
 // --------- END OF W3C SHORT NOTICE ---------------------------------------------------------------
 
 use crate::{ButtonInput, ButtonState};
-use bevy_ecs::entity::Entity;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
+    entity::Entity,
     event::{Event, EventReader},
     system::ResMut,
 };
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use smol_str::SmolStr;
 
-#[cfg(feature = "serialize")]
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A keyboard input event.
@@ -86,12 +87,16 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// ## Usage
 ///
 /// The event is consumed inside of the [`keyboard_input_system`]
-/// to update the [`Input<KeyCode>`](ButtonInput<KeyCode>) resource.
-#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+/// to update the [`ButtonInput<KeyCode>`](ButtonInput<KeyCode>) resource.
+#[derive(Event, Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Hash)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct KeyboardInput {
@@ -101,19 +106,39 @@ pub struct KeyboardInput {
     pub logical_key: Key,
     /// The press state of the key.
     pub state: ButtonState,
+    /// On some systems, holding down a key for some period of time causes that key to be repeated
+    /// as though it were being pressed and released repeatedly. This field is [`true`] if this
+    /// event is the result of one of those repeats.
+    pub repeat: bool,
     /// Window that received the input.
     pub window: Entity,
 }
+
+/// Gets generated from `bevy_winit::winit_runner`
+///
+/// Used for clearing all cached states to avoid having 'stuck' key presses
+/// when, for example, switching between windows with 'Alt-Tab' or using any other
+/// OS specific key combination that leads to Bevy window losing focus and not receiving any
+/// input events
+#[derive(Event, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct KeyboardFocusLost;
 
 /// Updates the [`ButtonInput<KeyCode>`] resource with the latest [`KeyboardInput`] events.
 ///
 /// ## Differences
 ///
 /// The main difference between the [`KeyboardInput`] event and the [`ButtonInput<KeyCode>`] resources is that
-/// the latter have convenient functions such as [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`].
+/// the latter has convenient functions such as [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`] and is window id agnostic.
 pub fn keyboard_input_system(
     mut key_input: ResMut<ButtonInput<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
+    mut focus_events: EventReader<KeyboardFocusLost>,
 ) {
     // Avoid clearing if it's not empty to ensure change detection is not triggered.
     key_input.bypass_change_detection().clear();
@@ -126,6 +151,12 @@ pub fn keyboard_input_system(
             ButtonState::Released => key_input.release(*key_code),
         }
     }
+
+    // Release all cached input to avoid having stuck input when switching between windows in os
+    if !focus_events.is_empty() {
+        key_input.release_all();
+        focus_events.clear();
+    }
 }
 
 /// Contains the platform-native physical key identifier
@@ -135,14 +166,15 @@ pub fn keyboard_input_system(
 ///
 /// This enum is primarily used to store raw keycodes when Winit doesn't map a given native
 /// physical key identifier to a meaningful [`KeyCode`] variant. In the presence of identifiers we
-/// haven't mapped for you yet, this lets you use use [`KeyCode`] to:
+/// haven't mapped for you yet, this lets you use [`KeyCode`] to:
 ///
 /// - Correctly match key press and release events.
 /// - On non-web platforms, support assigning keybinds to virtually any key through a UI.
-#[derive(Debug, Clone, Ord, PartialOrd, Copy, PartialEq, Eq, Hash, Reflect)]
+#[derive(Debug, Clone, Ord, PartialOrd, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum NativeKeyCode {
@@ -162,7 +194,7 @@ pub enum NativeKeyCode {
 ///
 /// ## Usage
 ///
-/// It is used as the generic `T` value of an [`ButtonInput`] to create a `Res<Input<KeyCode>>`.
+/// It is used as the generic `T` value of an [`ButtonInput`] to create a `Res<ButtonInput<KeyCode>>`.
 ///
 /// Code representing the location of a physical key
 /// This mostly conforms to the UI Events Specification's [`KeyboardEvent.code`] with a few
@@ -176,13 +208,18 @@ pub enum NativeKeyCode {
 /// ## Updating
 ///
 /// The resource is updated inside of the [`keyboard_input_system`].
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[allow(clippy::doc_markdown)] // Clippy doesn't like our use of <kbd>.
 #[repr(u32)]
 pub enum KeyCode {
     /// This variant is used when the key cannot be translated to any other variant.
@@ -191,7 +228,7 @@ pub enum KeyCode {
     /// key-press and key-release events by hashing the [`KeyCode`]. It is also possible to use
     /// this for keybinds for non-standard keys, but such keybinds are tied to a given platform.
     Unidentified(NativeKeyCode),
-    /// <kbd>`</kbd> on a US keyboard. This is also called a backtick or grave.
+    /// <kbd>\`</kbd> on a US keyboard. This is also called a backtick or grave.
     /// This is the <kbd>半角</kbd>/<kbd>全角</kbd>/<kbd>漢字</kbd>
     /// (hankaku/zenkaku/kanji) key on Japanese keyboards
     Backquote,
@@ -358,7 +395,7 @@ pub enum KeyCode {
     /// Japanese: <kbd>無変換</kbd> (muhenkan)
     NonConvert,
     /// <kbd>⌦</kbd>. The forward delete key.
-    /// Note that on Apple keyboards, the key labelled <kbd>Delete</kbd> on the main part of
+    /// Note that on Apple keyboards, the key labeled <kbd>Delete</kbd> on the main part of
     /// the keyboard is encoded as [`Backspace`].
     ///
     /// [`Backspace`]: Self::Backspace
@@ -495,9 +532,9 @@ pub enum KeyCode {
     /// <kbd>Eject</kbd> or <kbd>⏏</kbd>. This key is placed in the function section on some Apple
     /// keyboards.
     Eject,
-    /// Sometimes labelled <kbd>My Computer</kbd> on the keyboard
+    /// Sometimes labeled <kbd>My Computer</kbd> on the keyboard
     LaunchApp1,
-    /// Sometimes labelled <kbd>Calculator</kbd> on the keyboard
+    /// Sometimes labeled <kbd>Calculator</kbd> on the keyboard
     LaunchApp2,
     /// LaunchMail
     LaunchMail,
@@ -664,11 +701,15 @@ pub enum KeyCode {
 /// This enum is primarily used to store raw keysym when Winit doesn't map a given native logical
 /// key identifier to a meaningful [`Key`] variant. This lets you use [`Key`], and let the user
 /// define keybinds which work in the presence of identifiers we haven't mapped for you yet.
-#[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum NativeKey {
@@ -693,13 +734,18 @@ pub enum NativeKey {
 ///
 /// Its values map 1 to 1 to winit's Key.
 #[non_exhaustive]
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[allow(clippy::doc_markdown)] // Clippy doesn't like our use of <kbd>.
 pub enum Key {
     /// A key string that corresponds to the character typed by the user, taking into account the
     /// user’s current locale setting, and any system-level keyboard mapping overrides that are in
@@ -794,7 +840,7 @@ pub enum Key {
     /// Scroll up or display previous page of content.
     PageUp,
     /// Used to remove the character to the left of the cursor. This key value is also used for
-    /// the key labeled `Delete` on MacOS keyboards.
+    /// the key labeled `Delete` on macOS keyboards.
     Backspace,
     /// Remove the currently selected input.
     Clear,
@@ -805,7 +851,7 @@ pub enum Key {
     /// Cut the current selection. (`APPCOMMAND_CUT`)
     Cut,
     /// Used to delete the character to the right of the cursor. This key value is also used for the
-    /// key labeled `Delete` on MacOS keyboards when `Fn` is active.
+    /// key labeled `Delete` on macOS keyboards when `Fn` is active.
     Delete,
     /// The Erase to End of Field key. This key deletes all characters from the current cursor
     /// position to the end of the current field.
@@ -881,12 +927,12 @@ pub enum Key {
     /// be restored. The computer will then shutdown.
     Hibernate,
     /// The Standby key. This key turns off the display and places the computer into a low-power
-    /// mode without completely shutting down. It is sometimes labelled `Suspend` or `Sleep` key.
+    /// mode without completely shutting down. It is sometimes labeled `Suspend` or `Sleep` key.
     /// (`KEYCODE_SLEEP`)
     Standby,
     /// The WakeUp key. (`KEYCODE_WAKEUP`)
     WakeUp,
-    /// Initate the multi-candidate mode.
+    /// Initiate the multi-candidate mode.
     AllCandidates,
     /// The Alphanumeric key (on linux/web)
     Alphanumeric,

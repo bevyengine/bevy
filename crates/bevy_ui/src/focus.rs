@@ -1,4 +1,7 @@
-use crate::{CalculatedClip, DefaultUiCamera, Node, TargetCamera, UiScale, UiStack};
+use crate::{
+    CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, TargetCamera, UiScale,
+    UiStack,
+};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
@@ -12,9 +15,10 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
 use bevy_transform::components::GlobalTransform;
-
-use bevy_utils::{smallvec::SmallVec, HashMap};
+use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window};
+
+use smallvec::SmallVec;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -36,10 +40,10 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// # See also
 ///
-/// - [`ButtonBundle`](crate::node_bundles::ButtonBundle) which includes this component
+/// - [`Button`](crate::widget::Button) which requires this component
 /// - [`RelativeCursorPosition`] to obtain the position of the cursor relative to current node
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -71,9 +75,9 @@ impl Default for Interaction {
 ///
 /// It can be used alongside [`Interaction`] to get the position of the press.
 ///
-/// The component is updated when it is in the same entity with [`Node`].
+/// The component is updated when it is in the same entity with [`Node`](crate::Node).
 #[derive(Component, Copy, Clone, Default, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -98,7 +102,7 @@ impl RelativeCursorPosition {
 
 /// Describes whether the node should block interactions with lower nodes
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default, PartialEq)]
+#[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -132,7 +136,7 @@ pub struct State {
 #[query_data(mutable)]
 pub struct NodeQuery {
     entity: Entity,
-    node: &'static Node,
+    node: &'static ComputedNode,
     global_transform: &'static GlobalTransform,
     interaction: Option<&'static mut Interaction>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
@@ -203,7 +207,7 @@ pub fn ui_focus_system(
             windows
                 .get(window_ref.entity())
                 .ok()
-                .and_then(|window| window.cursor_position())
+                .and_then(Window::cursor_position)
                 .or_else(|| touches_input.first_pressed_position())
                 .map(|cursor_position| (entity, cursor_position - viewport_position))
         })
@@ -240,7 +244,10 @@ pub fn ui_focus_system(
                 .map(TargetCamera::entity)
                 .or(default_ui_camera.get())?;
 
-            let node_rect = node.node.logical_rect(node.global_transform);
+            let node_rect = Rect::from_center_size(
+                node.global_transform.translation().truncate(),
+                node.node.size(),
+            );
 
             // Intersect with the calculated clip rect to find the bounds of the visible region of the node
             let visible_rect = node
@@ -248,12 +255,18 @@ pub fn ui_focus_system(
                 .map(|clip| node_rect.intersect(clip.clip))
                 .unwrap_or(node_rect);
 
+            let cursor_position = camera_cursor_positions.get(&camera_entity);
+
             // The mouse position relative to the node
             // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
             // Coordinates are relative to the entire node, not just the visible region.
-            let relative_cursor_position = camera_cursor_positions
-                .get(&camera_entity)
-                .map(|cursor_position| (*cursor_position - node_rect.min) / node_rect.size());
+            let relative_cursor_position = cursor_position.and_then(|cursor_position| {
+                // ensure node size is non-zero in all dimensions, otherwise relative position will be
+                // +/-inf. if the node is hidden, the visible rect min/max will also be -inf leading to
+                // false positives for mouse_over (#12395)
+                (node_rect.size().cmpgt(Vec2::ZERO).all())
+                    .then_some((*cursor_position - node_rect.min) / node_rect.size())
+            });
 
             // If the current cursor position is within the bounds of the node's visible area, consider it for
             // clicking
@@ -262,7 +275,16 @@ pub fn ui_focus_system(
                 normalized: relative_cursor_position,
             };
 
-            let contains_cursor = relative_cursor_position_component.mouse_over();
+            let contains_cursor = relative_cursor_position_component.mouse_over()
+                && cursor_position
+                    .map(|point| {
+                        pick_rounded_rect(
+                            *point - node_rect.center(),
+                            node_rect.size(),
+                            node.node.border_radius,
+                        )
+                    })
+                    .unwrap_or(false);
 
             // Save the relative cursor position to the correct component
             if let Some(mut node_relative_cursor_position_component) = node.relative_cursor_position
@@ -323,4 +345,27 @@ pub fn ui_focus_system(
             }
         }
     }
+}
+
+// Returns true if `point` (relative to the rectangle's center) is within the bounds of a rounded rectangle with
+// the given size and border radius.
+//
+// Matches the sdf function in `ui.wgsl` that is used by the UI renderer to draw rounded rectangles.
+pub(crate) fn pick_rounded_rect(
+    point: Vec2,
+    size: Vec2,
+    border_radius: ResolvedBorderRadius,
+) -> bool {
+    let [top, bottom] = if point.x < 0. {
+        [border_radius.top_left, border_radius.bottom_left]
+    } else {
+        [border_radius.top_right, border_radius.bottom_right]
+    };
+    let r = if point.y < 0. { top } else { bottom };
+
+    let corner_to_point = point.abs() - 0.5 * size;
+    let q = corner_to_point + r;
+    let l = q.max(Vec2::ZERO).length();
+    let m = q.max_element().min(0.);
+    l + m - r < 0.
 }

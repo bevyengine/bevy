@@ -1,4 +1,4 @@
-use super::{BloomSettings, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT};
+use super::{Bloom, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT};
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
     prelude::{Component, Entity},
@@ -33,7 +33,7 @@ pub struct BloomDownsamplingPipelineKeys {
     first_downsample: bool,
 }
 
-/// The uniform struct extracted from [`BloomSettings`] attached to a Camera.
+/// The uniform struct extracted from [`Bloom`] attached to a Camera.
 /// Will be available for use in the Bloom shader.
 #[derive(Component, ShaderType, Clone)]
 pub struct BloomUniforms {
@@ -41,6 +41,7 @@ pub struct BloomUniforms {
     pub threshold_precomputations: Vec4,
     pub viewport: Vec4,
     pub aspect: f32,
+    pub uv_offset: f32,
 }
 
 impl FromWorld for BloomDownsamplingPipeline {
@@ -135,10 +136,10 @@ pub fn prepare_downsampling_pipeline(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomDownsamplingPipeline>>,
     pipeline: Res<BloomDownsamplingPipeline>,
-    views: Query<(Entity, &BloomSettings)>,
+    views: Query<(Entity, &Bloom)>,
 ) {
-    for (entity, settings) in &views {
-        let prefilter = settings.prefilter_settings.threshold > 0.0;
+    for (entity, bloom) in &views {
+        let prefilter = bloom.prefilter.threshold > 0.0;
 
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,

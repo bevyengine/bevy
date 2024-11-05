@@ -7,9 +7,7 @@ use std::time::Duration;
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    math::Quat,
     prelude::*,
-    render::camera::Camera,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -66,12 +64,12 @@ fn setup(
     let half_y = (map_size.y / 2.0) as i32;
 
     let texture_handle = assets.load("textures/rpg/chars/gabe/gabe-idle-run.png");
-    let texture_atlas = TextureAtlasLayout::from_grid(Vec2::new(24.0, 24.0), 7, 1, None, None);
+    let texture_atlas = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     // Spawns the camera
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Builds and spawns the sprites
     for y in -half_y..half_y {
@@ -84,22 +82,16 @@ fn setup(
             timer.set_elapsed(Duration::from_secs_f32(rng.gen::<f32>()));
 
             commands.spawn((
-                SpriteSheetBundle {
-                    texture: texture_handle.clone(),
-                    atlas: TextureAtlas {
-                        layout: texture_atlas_handle.clone(),
-                        ..Default::default()
-                    },
-                    transform: Transform {
-                        translation,
-                        rotation,
-                        scale,
-                    },
-                    sprite: Sprite {
-                        custom_size: Some(tile_size),
-                        ..default()
-                    },
+                Sprite {
+                    image: texture_handle.clone(),
+                    texture_atlas: Some(TextureAtlas::from(texture_atlas_handle.clone())),
+                    custom_size: Some(tile_size),
                     ..default()
+                },
+                Transform {
+                    translation,
+                    rotation,
+                    scale,
                 },
                 AnimationTimer(timer),
             ));
@@ -108,11 +100,10 @@ fn setup(
 }
 
 // System for rotating and translating the camera
-fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
-    let mut camera_transform = camera_query.single_mut();
-    camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.5));
-    *camera_transform = *camera_transform
-        * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
+fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<Camera>>) {
+    camera_transform.rotate(Quat::from_rotation_z(time.delta_secs() * 0.5));
+    **camera_transform = **camera_transform
+        * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_secs());
 }
 
 #[derive(Component, Deref, DerefMut)]
@@ -121,13 +112,16 @@ struct AnimationTimer(Timer);
 fn animate_sprite(
     time: Res<Time>,
     texture_atlases: Res<Assets<TextureAtlasLayout>>,
-    mut query: Query<(&mut AnimationTimer, &mut TextureAtlas)>,
+    mut query: Query<(&mut AnimationTimer, &mut Sprite)>,
 ) {
-    for (mut timer, mut sheet) in query.iter_mut() {
+    for (mut timer, mut sprite) in query.iter_mut() {
         timer.tick(time.delta());
         if timer.just_finished() {
-            let texture_atlas = texture_atlases.get(&sheet.layout).unwrap();
-            sheet.index = (sheet.index + 1) % texture_atlas.textures.len();
+            let Some(atlas) = &mut sprite.texture_atlas else {
+                continue;
+            };
+            let texture_atlas = texture_atlases.get(&atlas.layout).unwrap();
+            atlas.index = (atlas.index + 1) % texture_atlas.textures.len();
         }
     }
 }

@@ -1,23 +1,38 @@
+#![expect(deprecated)]
+
 use crate::{
     core_3d::graph::Core3d,
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::prelude::*;
-use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
     camera::{Camera, CameraMainTextureUsages, CameraRenderGraph, Exposure, Projection},
     extract_component::ExtractComponent,
     primitives::Frustum,
     render_resource::{LoadOp, TextureUsages},
-    view::{ColorGrading, VisibleEntities},
+    sync_world::SyncToRenderWorld,
+    view::{ColorGrading, Msaa, VisibleEntities},
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
-/// Configuration for the "main 3d render graph".
+/// A 3D camera component. Enables the main 3D render graph for a [`Camera`].
+///
+/// The camera coordinate space is right-handed X-right, Y-up, Z-back.
+/// This means "forward" is -Z.
 #[derive(Component, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
+#[require(
+    Camera,
+    DebandDither(|| DebandDither::Enabled),
+    CameraRenderGraph(|| CameraRenderGraph::new(Core3d)),
+    Projection,
+    Tonemapping,
+    ColorGrading,
+    Exposure
+)]
 pub struct Camera3d {
     /// The depth clear operation to perform for the main 3d pass.
     pub depth_load_op: Camera3dDepthLoadOp,
@@ -63,7 +78,7 @@ impl Default for Camera3d {
 
 #[derive(Clone, Copy, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
-pub struct Camera3dDepthTextureUsage(u32);
+pub struct Camera3dDepthTextureUsage(pub u32);
 
 impl From<TextureUsages> for Camera3dDepthTextureUsage {
     fn from(value: TextureUsages) -> Self {
@@ -109,7 +124,7 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
 ///
 /// **Note:** You can get better-looking results at any quality level by enabling TAA. See: [`TemporalAntiAliasPlugin`](crate::experimental::taa::TemporalAntiAliasPlugin).
 #[derive(Resource, Default, Clone, Copy, Reflect, PartialEq, PartialOrd, Debug)]
-#[reflect(Resource)]
+#[reflect(Resource, Default, Debug, PartialEq)]
 pub enum ScreenSpaceTransmissionQuality {
     /// Best performance at the cost of quality. Suitable for lower end GPUs. (e.g. Mobile)
     ///
@@ -133,7 +148,13 @@ pub enum ScreenSpaceTransmissionQuality {
     Ultra,
 }
 
-#[derive(Bundle)]
+/// The camera coordinate space is right-handed x-right, y-up, z-back.
+/// This means "forward" is -Z.
+#[derive(Bundle, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Camera3d` component instead. Inserting it will now also insert the other components required by it automatically."
+)]
 pub struct Camera3dBundle {
     pub camera: Camera,
     pub camera_render_graph: CameraRenderGraph,
@@ -148,6 +169,9 @@ pub struct Camera3dBundle {
     pub color_grading: ColorGrading,
     pub exposure: Exposure,
     pub main_texture_usages: CameraMainTextureUsages,
+    pub msaa: Msaa,
+    /// Marker component that indicates that its entity needs to be synchronized to the render world
+    pub sync: SyncToRenderWorld,
 }
 
 // NOTE: ideally Perspective and Orthographic defaults can share the same impl, but sadly it breaks rust's type inference
@@ -167,6 +191,8 @@ impl Default for Camera3dBundle {
             exposure: Default::default(),
             main_texture_usages: Default::default(),
             deband_dither: DebandDither::Enabled,
+            msaa: Default::default(),
+            sync: Default::default(),
         }
     }
 }

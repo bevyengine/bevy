@@ -1,9 +1,8 @@
 use super::CachedTexture;
-use crate::{prelude::Color, render_resource::TextureView};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use crate::render_resource::{TextureFormat, TextureView};
+use alloc::sync::Arc;
+use bevy_color::LinearRgba;
+use core::sync::atomic::{AtomicBool, Ordering};
 use wgpu::{
     LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
 };
@@ -13,7 +12,7 @@ use wgpu::{
 pub struct ColorAttachment {
     pub texture: CachedTexture,
     pub resolve_target: Option<CachedTexture>,
-    clear_color: Option<Color>,
+    clear_color: Option<LinearRgba>,
     is_first_call: Arc<AtomicBool>,
 }
 
@@ -21,7 +20,7 @@ impl ColorAttachment {
     pub fn new(
         texture: CachedTexture,
         resolve_target: Option<CachedTexture>,
-        clear_color: Option<Color>,
+        clear_color: Option<LinearRgba>,
     ) -> Self {
         Self {
             texture,
@@ -116,6 +115,44 @@ impl DepthAttachment {
                 store,
             }),
             stencil_ops: None,
+        }
+    }
+}
+
+/// A wrapper for a [`TextureView`] that is used as a [`RenderPassColorAttachment`] for a view
+/// target's final output texture.
+#[derive(Clone)]
+pub struct OutputColorAttachment {
+    pub view: TextureView,
+    pub format: TextureFormat,
+    is_first_call: Arc<AtomicBool>,
+}
+
+impl OutputColorAttachment {
+    pub fn new(view: TextureView, format: TextureFormat) -> Self {
+        Self {
+            view,
+            format,
+            is_first_call: Arc::new(AtomicBool::new(true)),
+        }
+    }
+
+    /// Get this texture view as an attachment. The attachment will be cleared with a value of
+    /// the provided `clear_color` if this is the first time calling this function, otherwise it
+    /// will be loaded.
+    pub fn get_attachment(&self, clear_color: Option<LinearRgba>) -> RenderPassColorAttachment {
+        let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
+
+        RenderPassColorAttachment {
+            view: &self.view,
+            resolve_target: None,
+            ops: Operations {
+                load: match (clear_color, first_call) {
+                    (Some(clear_color), true) => LoadOp::Clear(clear_color.into()),
+                    (None, _) | (Some(_), false) => LoadOp::Load,
+                },
+                store: StoreOp::Store,
+            },
         }
     }
 }

@@ -7,9 +7,15 @@
     rgb9e5,
     mesh_view_bindings::view,
     utils::{octahedral_encode, octahedral_decode},
-    prepass_io::{VertexOutput, FragmentOutput},
+    prepass_io::FragmentOutput,
     view_transformations::{position_ndc_to_world, frag_coord_to_ndc},
 }
+
+#ifdef MESHLET_MESH_MATERIAL_PASS
+#import bevy_pbr::meshlet_visibility_buffer_resolve::VertexOutput
+#else
+#import bevy_pbr::prepass_io::VertexOutput
+#endif
 
 #ifdef MOTION_VECTOR_PREPASS
     #import bevy_pbr::pbr_prepass_functions::calculate_motion_vector
@@ -47,6 +53,22 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     } else {
         base_color_srgb = pow(in.material.base_color.rgb, vec3(1.0 / 2.2));
     }
+
+    // Utilize the emissive channel to transmit the lightmap data. To ensure
+    // it matches the output in forward shading, pre-multiply it with the 
+    // calculated diffuse color.
+    let base_color = in.material.base_color.rgb;
+    let metallic = in.material.metallic;
+    let specular_transmission = in.material.specular_transmission;
+    let diffuse_transmission = in.material.diffuse_transmission;
+    let diffuse_color = pbr_functions::calculate_diffuse_color(
+        base_color,
+        metallic,
+        specular_transmission,
+        diffuse_transmission
+    );
+    emissive += in.lightmap_light * diffuse_color * view.exposure;
+
     let deferred = vec4(
         deferred_types::pack_unorm4x8_(vec4(base_color_srgb, in.material.perceptual_roughness)),
         rgb9e5::vec3_to_rgb9e5_(emissive),
@@ -70,10 +92,10 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let emissive = rgb9e5::rgb9e5_to_vec3_(gbuffer.g);
     if ((pbr.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u) {
         pbr.material.base_color = vec4(emissive, 1.0);
-        pbr.material.emissive = vec4(vec3(0.0), 1.0);
+        pbr.material.emissive = vec4(vec3(0.0), 0.0);
     } else {
         pbr.material.base_color = vec4(pow(base_rough.rgb, vec3(2.2)), 1.0);
-        pbr.material.emissive = vec4(emissive, 1.0);
+        pbr.material.emissive = vec4(emissive, 0.0);
     }
 #ifdef WEBGL2 // More crunched for webgl so we can also fit depth.
     let props = deferred_types::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
@@ -89,7 +111,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let N = octahedral_decode(octahedral_normal);
 
     let world_position = vec4(position_ndc_to_world(frag_coord_to_ndc(frag_coord)), 1.0);
-    let is_orthographic = view.projection[3].w == 1.0;
+    let is_orthographic = view.clip_from_view[3].w == 1.0;
     let V = pbr_functions::calculate_view(world_position, is_orthographic);
 
     pbr.frag_coord = frag_coord;
@@ -116,7 +138,11 @@ fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
 #endif
     // motion vectors if required
 #ifdef MOTION_VECTOR_PREPASS
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    out.motion_vector = in.motion_vector;
+#else
     out.motion_vector = calculate_motion_vector(in.world_position, in.previous_world_position);
+#endif
 #endif
 
     return out;

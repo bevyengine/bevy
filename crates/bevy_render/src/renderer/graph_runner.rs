@@ -1,15 +1,14 @@
 use bevy_ecs::{prelude::Entity, world::World};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{
-    smallvec::{smallvec, SmallVec},
-    HashMap,
-};
+use bevy_utils::HashMap;
 
-use std::{borrow::Cow, collections::VecDeque};
-use thiserror::Error;
+use alloc::{borrow::Cow, collections::VecDeque};
+use derive_more::derive::{Display, Error, From};
+use smallvec::{smallvec, SmallVec};
 
 use crate::{
+    diagnostic::internal::{DiagnosticsRecorder, RenderDiagnosticsMutex},
     render_graph::{
         Edge, InternedRenderLabel, InternedRenderSubGraph, NodeRunError, NodeState, RenderGraph,
         RenderGraphContext, SlotLabel, SlotType, SlotValue,
@@ -17,32 +16,42 @@ use crate::{
     renderer::{RenderContext, RenderDevice},
 };
 
+/// The [`RenderGraphRunner`] is responsible for executing a [`RenderGraph`].
+///
+/// It will run all nodes in the graph sequentially in the correct order (defined by the edges).
+/// Each [`Node`](crate::render_graph::Node) can run any arbitrary code, but will generally
+/// either send directly a [`CommandBuffer`] or a task that will asynchronously generate a [`CommandBuffer`]
+///
+/// After running the graph, the [`RenderGraphRunner`] will execute in parallel all the tasks to get
+/// an ordered list of [`CommandBuffer`]s to execute. These [`CommandBuffer`] will be submitted to the GPU
+/// sequentially in the order that the tasks were submitted. (which is the order of the [`RenderGraph`])
+///
+/// [`CommandBuffer`]: wgpu::CommandBuffer
 pub(crate) struct RenderGraphRunner;
 
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub enum RenderGraphRunnerError {
-    #[error(transparent)]
-    NodeRunError(#[from] NodeRunError),
-    #[error("node output slot not set (index {slot_index}, name {slot_name})")]
+    NodeRunError(NodeRunError),
+    #[display("node output slot not set (index {slot_index}, name {slot_name})")]
     EmptyNodeOutputSlot {
         type_name: &'static str,
         slot_index: usize,
         slot_name: Cow<'static, str>,
     },
-    #[error("graph '{sub_graph:?}' could not be run because slot '{slot_name}' at index {slot_index} has no value")]
+    #[display("graph '{sub_graph:?}' could not be run because slot '{slot_name}' at index {slot_index} has no value")]
     MissingInput {
         slot_index: usize,
         slot_name: Cow<'static, str>,
         sub_graph: Option<InternedRenderSubGraph>,
     },
-    #[error("attempted to use the wrong type for input slot")]
+    #[display("attempted to use the wrong type for input slot")]
     MismatchedInputSlotType {
         slot_index: usize,
         label: SlotLabel,
         expected: SlotType,
         actual: SlotType,
     },
-    #[error(
+    #[display(
         "node (name: '{node_name:?}') has {slot_count} input slots, but was provided {value_count} values"
     )]
     MismatchedInputCount {
@@ -56,23 +65,43 @@ impl RenderGraphRunner {
     pub fn run(
         graph: &RenderGraph,
         render_device: RenderDevice,
+        mut diagnostics_recorder: Option<DiagnosticsRecorder>,
         queue: &wgpu::Queue,
         adapter: &wgpu::Adapter,
         world: &World,
         finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
-    ) -> Result<(), RenderGraphRunnerError> {
-        let mut render_context = RenderContext::new(render_device, adapter.get_info());
+    ) -> Result<Option<DiagnosticsRecorder>, RenderGraphRunnerError> {
+        if let Some(recorder) = &mut diagnostics_recorder {
+            recorder.begin_frame();
+        }
+
+        let mut render_context =
+            RenderContext::new(render_device, adapter.get_info(), diagnostics_recorder);
         Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
         finalizer(render_context.command_encoder());
 
-        {
+        let (render_device, mut diagnostics_recorder) = {
             #[cfg(feature = "trace")]
             let _span = info_span!("submit_graph_commands").entered();
-            queue.submit(render_context.finish());
+
+            let (commands, render_device, diagnostics_recorder) = render_context.finish();
+            queue.submit(commands);
+
+            (render_device, diagnostics_recorder)
+        };
+
+        if let Some(recorder) = &mut diagnostics_recorder {
+            let render_diagnostics_mutex = world.resource::<RenderDiagnosticsMutex>().0.clone();
+            recorder.finish_frame(&render_device, move |diagnostics| {
+                *render_diagnostics_mutex.lock().expect("lock poisoned") = Some(diagnostics);
+            });
         }
-        Ok(())
+
+        Ok(diagnostics_recorder)
     }
 
+    /// Runs the [`RenderGraph`] and all its sub-graphs sequentially, making sure that all nodes are
+    /// run in the correct order. (a node only runs when all its dependencies have finished running)
     fn run_graph<'w>(
         graph: &RenderGraph,
         sub_graph: Option<InternedRenderSubGraph>,

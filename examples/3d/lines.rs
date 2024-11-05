@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        mesh::{MeshVertexBufferLayout, PrimitiveTopology},
+        mesh::{MeshVertexBufferLayoutRef, PrimitiveTopology},
         render_asset::RenderAssetUsages,
         render_resource::{
             AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
@@ -13,6 +13,9 @@ use bevy::{
         },
     },
 };
+
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/line_material.wgsl";
 
 fn main() {
     App::new()
@@ -27,56 +30,56 @@ fn setup(
     mut materials: ResMut<Assets<LineMaterial>>,
 ) {
     // Spawn a list of lines with start and end points for each lines
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(LineList {
+    commands.spawn((
+        Mesh3d(meshes.add(LineList {
             lines: vec![
                 (Vec3::ZERO, Vec3::new(1.0, 1.0, 0.0)),
                 (Vec3::new(1.0, 1.0, 0.0), Vec3::new(1.0, 0.0, 0.0)),
             ],
-        }),
-        transform: Transform::from_xyz(-1.5, 0.0, 0.0),
-        material: materials.add(LineMaterial {
-            color: Color::GREEN,
-        }),
-        ..default()
-    });
+        })),
+        MeshMaterial3d(materials.add(LineMaterial {
+            color: LinearRgba::GREEN,
+        })),
+        Transform::from_xyz(-1.5, 0.0, 0.0),
+    ));
 
     // Spawn a line strip that goes from point to point
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(LineStrip {
+    commands.spawn((
+        Mesh3d(meshes.add(LineStrip {
             points: vec![
                 Vec3::ZERO,
                 Vec3::new(1.0, 1.0, 0.0),
                 Vec3::new(1.0, 0.0, 0.0),
             ],
-        }),
-        transform: Transform::from_xyz(0.5, 0.0, 0.0),
-        material: materials.add(LineMaterial { color: Color::BLUE }),
-        ..default()
-    });
+        })),
+        MeshMaterial3d(materials.add(LineMaterial {
+            color: LinearRgba::BLUE,
+        })),
+        Transform::from_xyz(0.5, 0.0, 0.0),
+    ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 #[derive(Asset, TypePath, Default, AsBindGroup, Debug, Clone)]
 struct LineMaterial {
     #[uniform(0)]
-    color: Color,
+    color: LinearRgba,
 }
 
 impl Material for LineMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/line_material.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
+        _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         // This is the important part to tell bevy to render this material as a line between vertices

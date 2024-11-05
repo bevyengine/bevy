@@ -1,3 +1,10 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![forbid(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
+
 //! Parent-child relationships for Bevy entities.
 //!
 //! You should use the tools in this crate
@@ -9,7 +16,7 @@
 //! for managing parent-child relationships between entities.
 //! It provides two components, [`Parent`] and [`Children`],
 //! to store references to related entities.
-//! It also provides [command] and [world] API extensions
+//! It also provides [command and world] API extensions
 //! to set and clear those relationships.
 //!
 //! More advanced users may also appreciate
@@ -37,13 +44,14 @@
 //! In most cases, these operations will invalidate the hierarchy.
 //! Instead, you should use the provided [hierarchical despawn extension methods].
 //!
-//! [command]: BuildChildren
+//! [command and world]: BuildChildren
 //! [diagnostic plugin]: ValidParentCheckPlugin
 //! [events]: HierarchyEvent
 //! [hierarchical despawn extension methods]: DespawnRecursiveExt
 //! [plugin]: HierarchyPlugin
 //! [query extension methods]: HierarchyQueryExt
-//! [world]: BuildWorldChildren
+
+extern crate alloc;
 
 mod components;
 pub use components::*;
@@ -63,7 +71,9 @@ pub use valid_parent_check_plugin::*;
 mod query_extension;
 pub use query_extension::*;
 
-#[doc(hidden)]
+/// The hierarchy prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{child_builder::*, components::*, hierarchy::*, query_extension::*};
@@ -81,16 +91,15 @@ use bevy_app::prelude::*;
 /// Check the [crate-level documentation] for all the features.
 ///
 /// [crate-level documentation]: crate
+#[cfg(feature = "bevy_app")]
 #[derive(Default)]
 pub struct HierarchyPlugin;
 
 #[cfg(feature = "bevy_app")]
-use bevy_utils::smallvec::SmallVec;
 impl Plugin for HierarchyPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Children>()
             .register_type::<Parent>()
-            .register_type::<SmallVec<[bevy_ecs::entity::Entity; 8]>>()
             .add_event::<HierarchyEvent>();
     }
 }

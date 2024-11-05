@@ -10,8 +10,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::Camera,
-    render_graph::RenderGraphApp,
-    render_graph::ViewNodeRunner,
+    render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d},
         *,
@@ -27,7 +26,7 @@ mod node;
 
 pub use node::FxaaNode;
 
-#[derive(Reflect, Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Debug, Reflect, Eq, PartialEq, Hash, Clone, Copy)]
 #[reflect(PartialEq, Hash)]
 pub enum Sensitivity {
     Low,
@@ -49,9 +48,12 @@ impl Sensitivity {
     }
 }
 
+/// A component for enabling Fast Approximate Anti-Aliasing (FXAA)
+/// for a [`bevy_render::camera::Camera`].
 #[derive(Reflect, Component, Clone, ExtractComponent)]
 #[reflect(Component, Default)]
 #[extract_component_filter(With<Camera>)]
+#[doc(alias = "FastApproximateAntiAliasing")]
 pub struct Fxaa {
     /// Enable render passes for FXAA.
     pub enabled: bool,
@@ -60,7 +62,7 @@ pub struct Fxaa {
     /// Use higher sensitivity for a slower, smoother, result.
     /// [`Ultra`](`Sensitivity::Ultra`) and [`Extreme`](`Sensitivity::Extreme`)
     /// settings can result in significant smearing and loss of detail.
-
+    ///
     /// The minimum amount of local contrast required to apply algorithm.
     pub edge_threshold: Sensitivity,
 
@@ -89,7 +91,7 @@ impl Plugin for FxaaPlugin {
         app.register_type::<Fxaa>();
         app.add_plugins(ExtractComponentPlugin::<Fxaa>::default());
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
         render_app
@@ -116,7 +118,7 @@ impl Plugin for FxaaPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
         render_app.init_resource::<FxaaPipeline>();

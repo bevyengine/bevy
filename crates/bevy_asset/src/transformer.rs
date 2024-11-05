@@ -1,13 +1,18 @@
 use crate::{meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle};
-use bevy_utils::{BoxedFuture, CowArc, HashMap};
-use serde::{Deserialize, Serialize};
-use std::{
+use atomicow::CowArc;
+use bevy_utils::{ConditionalSendFuture, HashMap};
+use core::{
     borrow::Borrow,
+    convert::Infallible,
     hash::Hash,
+    marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use serde::{Deserialize, Serialize};
 
 /// Transforms an [`Asset`] of a given [`AssetTransformer::AssetInput`] type to an [`Asset`] of [`AssetTransformer::AssetOutput`] type.
+///
+/// This trait is commonly used in association with [`LoadTransformAndSave`](crate::processor::LoadTransformAndSave) to accomplish common asset pipeline workflows.
 pub trait AssetTransformer: Send + Sync + 'static {
     /// The [`Asset`] type which this [`AssetTransformer`] takes as and input.
     type AssetInput: Asset;
@@ -16,16 +21,16 @@ pub trait AssetTransformer: Send + Sync + 'static {
     /// The settings type used by this [`AssetTransformer`].
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
     /// The type of [error](`std::error::Error`) which could be encountered by this transformer.
-    type Error: Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
+    type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
 
-    /// Transformes the given [`TransformedAsset`] to [`AssetTransformer::AssetOutput`].
+    /// Transforms the given [`TransformedAsset`] to [`AssetTransformer::AssetOutput`].
     /// The [`TransformedAsset`]'s `labeled_assets` can be altered to add new Labeled Sub-Assets
     /// The passed in `settings` can influence how the `asset` is transformed
     fn transform<'a>(
         &'a self,
         asset: TransformedAsset<Self::AssetInput>,
         settings: &'a Self::Settings,
-    ) -> BoxedFuture<'a, Result<TransformedAsset<Self::AssetOutput>, Self::Error>>;
+    ) -> impl ConditionalSendFuture<Output = Result<TransformedAsset<Self::AssetOutput>, Self::Error>>;
 }
 
 /// An [`Asset`] (and any "sub assets") intended to be transformed
@@ -58,7 +63,7 @@ impl<A: Asset> TransformedAsset<A> {
         }
         None
     }
-    /// Creates a new [`TransformedAsset`] from `asset`, transfering the `labeled_assets` from this [`TransformedAsset`] to the new one
+    /// Creates a new [`TransformedAsset`] from `asset`, transferring the `labeled_assets` from this [`TransformedAsset`] to the new one
     pub fn replace_asset<B: Asset>(self, asset: B) -> TransformedAsset<B> {
         TransformedAsset {
             value: asset,
@@ -238,5 +243,39 @@ impl<'a, A: Asset> TransformedSubAsset<'a, A> {
     /// Iterate over all labels for "labeled assets" in the loaded asset
     pub fn iter_labels(&self) -> impl Iterator<Item = &str> {
         self.labeled_assets.keys().map(|s| &**s)
+    }
+}
+
+/// An identity [`AssetTransformer`] which infallibly returns the input [`Asset`] on transformation.]
+pub struct IdentityAssetTransformer<A: Asset> {
+    _phantom: PhantomData<fn(A) -> A>,
+}
+
+impl<A: Asset> IdentityAssetTransformer<A> {
+    pub const fn new() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<A: Asset> Default for IdentityAssetTransformer<A> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<A: Asset> AssetTransformer for IdentityAssetTransformer<A> {
+    type AssetInput = A;
+    type AssetOutput = A;
+    type Settings = ();
+    type Error = Infallible;
+
+    async fn transform<'a>(
+        &'a self,
+        asset: TransformedAsset<Self::AssetInput>,
+        _settings: &'a Self::Settings,
+    ) -> Result<TransformedAsset<Self::AssetOutput>, Self::Error> {
+        Ok(asset)
     }
 }

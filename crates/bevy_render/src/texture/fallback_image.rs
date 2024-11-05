@@ -1,17 +1,16 @@
-use crate::{render_asset::RenderAssetUsages, render_resource::*, texture::DefaultImageSampler};
+use crate::{
+    render_asset::RenderAssetUsages,
+    render_resource::*,
+    renderer::{RenderDevice, RenderQueue},
+    texture::{DefaultImageSampler, GpuImage},
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},
     system::{Resource, SystemParam},
 };
+use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_utils::HashMap;
-use wgpu::{Extent3d, TextureFormat};
-
-use crate::{
-    prelude::Image,
-    renderer::{RenderDevice, RenderQueue},
-    texture::{image::TextureFormatPixelInfo, BevyDefault, GpuImage, ImageSampler},
-};
 
 /// A [`RenderApp`](crate::RenderApp) resource that contains the default "fallback image",
 /// which can be used in situations where an image was not explicitly defined. The most common
@@ -99,7 +98,7 @@ fn fallback_image_new(
         render_device.create_texture_with_data(
             render_queue,
             &image.texture_descriptor,
-            wgpu::util::TextureDataOrder::default(),
+            TextureDataOrder::default(),
             &image.data,
         )
     } else {
@@ -122,7 +121,7 @@ fn fallback_image_new(
         texture_view,
         texture_format: image.texture_descriptor.format,
         sampler,
-        size: image.size_f32(),
+        size: image.size(),
         mip_level_count: image.texture_descriptor.mip_level_count,
     }
 }

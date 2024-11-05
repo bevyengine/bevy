@@ -22,7 +22,7 @@ pub const EMBEDDED: &str = "embedded";
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
-    root_paths: std::sync::Arc<parking_lot::RwLock<bevy_utils::HashMap<PathBuf, PathBuf>>>,
+    root_paths: alloc::sync::Arc<parking_lot::RwLock<bevy_utils::HashMap<Box<Path>, PathBuf>>>,
 }
 
 impl EmbeddedAssetRegistry {
@@ -30,12 +30,18 @@ impl EmbeddedAssetRegistry {
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
     /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
     /// or a [`Vec<u8>`].
-    #[allow(unused)]
+    #[cfg_attr(
+        not(feature = "embedded_watcher"),
+        expect(
+            unused_variables,
+            reason = "The `full_path` argument is not used when `embedded_watcher` is disabled."
+        )
+    )]
     pub fn insert_asset(&self, full_path: PathBuf, asset_path: &Path, value: impl Into<Value>) {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
-            .insert(full_path.to_owned(), asset_path.to_owned());
+            .insert(full_path.into(), asset_path.to_owned());
         self.dir.insert_asset(asset_path, value);
     }
 
@@ -43,21 +49,39 @@ impl EmbeddedAssetRegistry {
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
     /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
     /// or a [`Vec<u8>`].
-    #[allow(unused)]
+    #[cfg_attr(
+        not(feature = "embedded_watcher"),
+        expect(
+            unused_variables,
+            reason = "The `full_path` argument is not used when `embedded_watcher` is disabled."
+        )
+    )]
     pub fn insert_meta(&self, full_path: &Path, asset_path: &Path, value: impl Into<Value>) {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
-            .insert(full_path.to_owned(), asset_path.to_owned());
+            .insert(full_path.into(), asset_path.to_owned());
         self.dir.insert_meta(asset_path, value);
     }
 
-    /// Registers a `embedded` [`AssetSource`] that uses this [`EmbeddedAssetRegistry`].
-    // NOTE: unused_mut because embedded_watcher feature is the only mutable consumer of `let mut source`
-    #[allow(unused_mut)]
+    /// Removes an asset stored using `full_path` (the full path as [`file`] would return for that file, if it was capable of
+    /// running in a non-rust file). If no asset is stored with at `full_path` its a no-op.
+    /// It returning `Option` contains the originally stored `Data` or `None`.
+    pub fn remove_asset(&self, full_path: &Path) -> Option<super::memory::Data> {
+        self.dir.remove_asset(full_path)
+    }
+
     pub fn register_source(&self, sources: &mut AssetSourceBuilders) {
         let dir = self.dir.clone();
         let processed_dir = self.dir.clone();
+
+        #[cfg_attr(
+            not(feature = "embedded_watcher"),
+            expect(
+                unused_mut,
+                reason = "Variable is only mutated when `embedded_watcher` feature is enabled."
+            )
+        )]
         let mut source = AssetSource::build()
             .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() }))
             .with_processed_reader(move || {
@@ -76,22 +100,22 @@ impl EmbeddedAssetRegistry {
             let root_paths = self.root_paths.clone();
             let dir = self.dir.clone();
             let processed_root_paths = self.root_paths.clone();
-            let processd_dir = self.dir.clone();
+            let processed_dir = self.dir.clone();
             source = source
                 .with_watcher(move |sender| {
                     Some(Box::new(EmbeddedWatcher::new(
                         dir.clone(),
                         root_paths.clone(),
                         sender,
-                        std::time::Duration::from_millis(300),
+                        core::time::Duration::from_millis(300),
                     )))
                 })
                 .with_processed_watcher(move |sender| {
                     Some(Box::new(EmbeddedWatcher::new(
-                        processd_dir.clone(),
+                        processed_dir.clone(),
                         processed_root_paths.clone(),
                         sender,
-                        std::time::Duration::from_millis(300),
+                        core::time::Duration::from_millis(300),
                     )))
                 });
         }
@@ -183,7 +207,7 @@ pub fn _embedded_asset_path(
 /// # use bevy_asset::{Asset, AssetServer};
 /// # use bevy_reflect::TypePath;
 /// # let asset_server: AssetServer = panic!();
-/// #[derive(Asset, TypePath)]
+/// # #[derive(Asset, TypePath)]
 /// # struct Shader;
 /// let shader = asset_server.load::<Shader>("embedded://bevy_rock/render/rock.wgsl");
 /// ```
@@ -224,7 +248,7 @@ macro_rules! embedded_asset {
 
     ($app: ident, $source_path: expr, $path: expr) => {{
         let mut embedded = $app
-            .world
+            .world_mut()
             .resource_mut::<$crate::io::embedded::EmbeddedAssetRegistry>();
         let path = $crate::embedded_path!($source_path, $path);
         let watched_path = $crate::io::embedded::watched_path(file!(), $path);
@@ -253,8 +277,8 @@ pub fn watched_path(_source_file_path: &'static str, _asset_path: &'static str) 
 #[macro_export]
 macro_rules! load_internal_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
-        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.insert($handle, ($loader)(
+        let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
+        assets.insert($handle.id(), ($loader)(
             include_str!($path_str),
             std::path::Path::new(file!())
                 .parent()
@@ -265,8 +289,8 @@ macro_rules! load_internal_asset {
     }};
     // we can't support params without variadic arguments, so internal assets with additional params can't be hot-reloaded
     ($app: ident, $handle: ident, $path_str: expr, $loader: expr $(, $param:expr)+) => {{
-        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
-        assets.insert($handle, ($loader)(
+        let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
+        assets.insert($handle.id(), ($loader)(
             include_str!($path_str),
             std::path::Path::new(file!())
                 .parent()
@@ -282,9 +306,9 @@ macro_rules! load_internal_asset {
 #[macro_export]
 macro_rules! load_internal_binary_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
-        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
+        let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
         assets.insert(
-            $handle,
+            $handle.id(),
             ($loader)(
                 include_bytes!($path_str).as_ref(),
                 std::path::Path::new(file!())
@@ -300,7 +324,7 @@ macro_rules! load_internal_binary_asset {
 
 #[cfg(test)]
 mod tests {
-    use super::_embedded_asset_path;
+    use super::{EmbeddedAssetRegistry, _embedded_asset_path};
     use std::path::Path;
 
     // Relative paths show up if this macro is being invoked by a local crate.
@@ -403,5 +427,16 @@ mod tests {
         );
         // Really, should be "my_crate/src/the/asset.png"
         assert_eq!(asset_path, Path::new("my_crate/the/asset.png"));
+    }
+
+    #[test]
+    fn remove_embedded_asset() {
+        let reg = EmbeddedAssetRegistry::default();
+        let path = std::path::PathBuf::from("a/b/asset.png");
+        reg.insert_asset(path.clone(), &path, &[]);
+        assert!(reg.dir.get_asset(&path).is_some());
+        assert!(reg.remove_asset(&path).is_some());
+        assert!(reg.dir.get_asset(&path).is_none());
+        assert!(reg.remove_asset(&path).is_none());
     }
 }

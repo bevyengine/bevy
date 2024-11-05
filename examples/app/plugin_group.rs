@@ -16,7 +16,7 @@ fn main() {
         //     HelloWorldPlugins
         //         .build()
         //         .disable::<PrintWorldPlugin>()
-        //         .add_before::<PrintHelloPlugin, _>(
+        //         .add_before::<PrintHelloPlugin>(
         //             bevy::diagnostic::LogDiagnosticsPlugin::default(),
         //         ),
         // )

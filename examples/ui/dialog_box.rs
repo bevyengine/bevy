@@ -2,7 +2,9 @@
 //! 
 //! Do note that this solution is only but sugar, it is recomended that you make dialogs direct childrens of the root UI Node.
 
+use bevy::color::palettes::css::{ALICE_BLUE, CRIMSON};
 use bevy::prelude::*;
+use bevy::text::FontSmoothing;
 use bevy::winit::WinitSettings;
 
 fn main() {
@@ -15,45 +17,36 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let text_style = TextStyle {
+    let text_style = TextFont {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 24.0,
-        color: Color::WHITE,
+        font_smoothing: FontSmoothing::AntiAliased,
     };
 
-    commands.spawn(Camera2dBundle::default());
-    commands.spawn(NodeBundle {
-        style: Style {
+    commands.spawn(Camera2d::default());
+    commands.spawn((
+        Node {
             width: Val::Percent(100.),
             height: Val::Percent(100.),
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceEvenly,
-            ..default()
+            ..Default::default()
         },
-        background_color: BackgroundColor(Color::BLACK),
-        border_color: BorderColor(Color::BLUE),
-        ..default()
-    }).with_children(|parent| {
+        BackgroundColor(Color::BLACK),
+    )).with_children(|parent| {
 
         let ui_root = parent.parent_entity();
 
-        parent.spawn((TextBundle {
-            text: Text::from_section(
-                "Notice how the dialog box is layed-out independently from it's parent.",                
-                text_style.clone(),
-            ).with_justify(JustifyText::Center),
-            style: Style {
-                margin: UiRect::bottom(Val::Px(10.)),
-                ..Default::default()
-            },   
-            ..Default::default()
-        },
+        parent.spawn((
+            Text::new("Notice how the dialog box is layed-out independently from it's parent."),
+            text_style.clone(),
+            TextColor(Color::WHITE),
         ));
 
         parent
-            .spawn(NodeBundle {
-                style: Style {
+            .spawn((
+                Node {
                     align_items: AlignItems::Default,
                     left: Val::Percent(0.),
                     top: Val::Percent(0.),
@@ -61,28 +54,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     height: Val::Percent(50.),
                     ..Default::default()
                 },
-                background_color: BackgroundColor(Color::ALICE_BLUE),
-                ..Default::default()
-            })
+                BackgroundColor(Color::Srgba(ALICE_BLUE)),
+            ))
             .with_children(|parent| {
-                parent.spawn(TextBundle {
-                    style: Style {
+                parent.spawn((
+                    Node {
                         // We use PositionType::Fixed to create a dialog box
                         position_type: PositionType::Fixed(ui_root),
                         align_items: AlignItems::Center,
-                        left: Val::Percent(5.),
-                        top: Val::Percent(5.),
+                        left: Val::Percent(0.),
+                        top: Val::Percent(0.),
                         width: Val::Auto,
-                        height: Val::Percent(10.),
+                        height: Val::Percent(50.),
                         ..Default::default()
                     },
-                    background_color: BackgroundColor(Color::CRIMSON),
-                    text: Text::from_section(
-                    "Dialog content",                
-                        text_style.clone(),
-                    ).with_justify(JustifyText::Center),
-                    ..Default::default()
-                });
+                    BackgroundColor(Color::Srgba(CRIMSON)),
+                    Text::new("Dialog content"),
+                    text_style.clone(),
+                    TextColor(Color::BLACK),
+                ));
             });
     });
 }

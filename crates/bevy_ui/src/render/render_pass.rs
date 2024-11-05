@@ -1,4 +1,4 @@
-use std::ops::Range;
+use core::ops::Range;
 
 use super::{UiBatch, UiImageBindGroups, UiMeta};
 use crate::DefaultCameraView;
@@ -6,6 +6,8 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
+use bevy_math::FloatOrd;
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::*,
@@ -14,17 +16,10 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
-use bevy_utils::{nonmax::NonMaxU32, FloatOrd};
+use bevy_utils::tracing::error;
 
 pub struct UiPassNode {
-    ui_view_query: QueryState<
-        (
-            &'static RenderPhase<TransparentUi>,
-            &'static ViewTarget,
-            &'static ExtractedCamera,
-        ),
-        With<ExtractedView>,
-    >,
+    ui_view_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera), With<ExtractedView>>,
     default_camera_view_query: QueryState<&'static DefaultCameraView>,
 }
 
@@ -51,9 +46,17 @@ impl Node for UiPassNode {
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.view_entity();
 
-        let Ok((transparent_phase, target, camera)) =
-            self.ui_view_query.get_manual(world, input_view_entity)
+        let Some(transparent_render_phases) =
+            world.get_resource::<ViewSortedRenderPhases<TransparentUi>>()
         else {
+            return Ok(());
+        };
+
+        let Some(transparent_phase) = transparent_render_phases.get(&input_view_entity) else {
+            return Ok(());
+        };
+
+        let Ok((target, camera)) = self.ui_view_query.get_manual(world, input_view_entity) else {
             return Ok(());
         };
         if transparent_phase.items.is_empty() {
@@ -79,7 +82,9 @@ impl Node for UiPassNode {
         if let Some(viewport) = camera.viewport.as_ref() {
             render_pass.set_camera_viewport(viewport);
         }
-        transparent_phase.render(&mut render_pass, world, view_entity);
+        if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
+            error!("Error encountered while rendering the ui phase {err:?}");
+        }
 
         Ok(())
     }
@@ -87,34 +92,26 @@ impl Node for UiPassNode {
 
 pub struct TransparentUi {
     pub sort_key: (FloatOrd, u32),
-    pub entity: Entity,
+    pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
-    pub dynamic_offset: Option<NonMaxU32>,
+    pub extra_index: PhaseItemExtraIndex,
 }
 
 impl PhaseItem for TransparentUi {
-    type SortKey = (FloatOrd, u32);
-
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.entity.0
     }
 
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        self.sort_key
+    fn main_entity(&self) -> MainEntity {
+        self.entity.1
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_by_key(|item| item.sort_key());
     }
 
     #[inline]
@@ -128,13 +125,27 @@ impl PhaseItem for TransparentUi {
     }
 
     #[inline]
-    fn dynamic_offset(&self) -> Option<NonMaxU32> {
-        self.dynamic_offset
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
     }
 
     #[inline]
-    fn dynamic_offset_mut(&mut self) -> &mut Option<NonMaxU32> {
-        &mut self.dynamic_offset
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
+    }
+}
+
+impl SortedPhaseItem for TransparentUi {
+    type SortKey = (FloatOrd, u32);
+
+    #[inline]
+    fn sort_key(&self) -> Self::SortKey {
+        self.sort_key
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        items.sort_by_key(SortedPhaseItem::sort_key);
     }
 }
 
@@ -165,11 +176,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(
-            I,
-            ui_meta.into_inner().view_bind_group.as_ref().unwrap(),
-            &[view_uniform.offset],
-        );
+        let Some(view_bind_group) = ui_meta.into_inner().view_bind_group.as_ref() else {
+            return RenderCommandResult::Failure("view_bind_group not available");
+        };
+        pass.set_bind_group(I, view_bind_group, &[view_uniform.offset]);
         RenderCommandResult::Success
     }
 }
@@ -189,7 +199,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
         let Some(batch) = batch else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
@@ -211,11 +221,26 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(batch) = batch else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
+        };
+        let ui_meta = ui_meta.into_inner();
+        let Some(vertices) = ui_meta.vertices.buffer() else {
+            return RenderCommandResult::Failure("missing vertices to draw ui");
+        };
+        let Some(indices) = ui_meta.indices.buffer() else {
+            return RenderCommandResult::Failure("missing indices to draw ui");
         };
 
-        pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
-        pass.draw(batch.range.clone(), 0..1);
+        // Store the vertices
+        pass.set_vertex_buffer(0, vertices.slice(..));
+        // Define how to "connect" the vertices
+        pass.set_index_buffer(
+            indices.slice(..),
+            0,
+            bevy_render::render_resource::IndexFormat::Uint32,
+        );
+        // Draw the vertices
+        pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success
     }
 }

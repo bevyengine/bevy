@@ -1,17 +1,50 @@
 //! A module for the [`GizmoConfig<T>`] [`Resource`].
 
-use crate as bevy_gizmos;
+use crate::{self as bevy_gizmos};
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
-use bevy_ecs::{component::Component, system::Resource};
-use bevy_reflect::{Reflect, TypePath};
-use bevy_render::view::RenderLayers;
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
+use {crate::LineGizmo, bevy_asset::Handle, bevy_ecs::component::Component};
+
+use bevy_ecs::{reflect::ReflectResource, system::Resource};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_utils::TypeIdMap;
-use core::panic;
-use std::{
+use core::{
     any::TypeId,
     ops::{Deref, DerefMut},
+    panic,
 };
+
+/// An enum configuring how line joints will be drawn.
+#[derive(Debug, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash)]
+pub enum GizmoLineJoint {
+    /// Does not draw any line joints.
+    #[default]
+    None,
+    /// Extends both lines at the joining point until they meet in a sharp point.
+    Miter,
+    /// Draws a round corner with the specified resolution between the two lines.
+    ///
+    /// The resolution determines the amount of triangles drawn per joint,
+    /// e.g. `GizmoLineJoint::Round(4)` will draw 4 triangles at each line joint.
+    Round(u32),
+    /// Draws a bevel, a straight line in this case, to connect the ends of both lines.
+    Bevel,
+}
+
+/// An enum used to configure the style of gizmo lines, similar to CSS line-style
+#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, Reflect)]
+#[non_exhaustive]
+pub enum GizmoLineStyle {
+    /// A solid line without any decorators
+    #[default]
+    Solid,
+    /// A dotted line
+    Dotted,
+}
 
 /// A trait used to create gizmo configs groups.
 ///
@@ -27,9 +60,11 @@ pub struct DefaultGizmoConfigGroup;
 /// A [`Resource`] storing [`GizmoConfig`] and [`GizmoConfigGroup`] structs
 ///
 /// Use `app.init_gizmo_group::<T>()` to register a custom config group.
-#[derive(Resource, Default)]
+#[derive(Reflect, Resource, Default)]
+#[reflect(Resource, Default)]
 pub struct GizmoConfigStore {
     // INVARIANT: must map TypeId::of::<T>() to correct type T
+    #[reflect(ignore)]
     store: TypeIdMap<(GizmoConfig, Box<dyn Reflect>)>,
 }
 
@@ -116,6 +151,8 @@ pub struct GizmoConfig {
     ///
     /// Defaults to `false`.
     pub line_perspective: bool,
+    /// Determine the style of gizmo lines.
+    pub line_style: GizmoLineStyle,
     /// How closer to the camera than real geometry the line should be.
     ///
     /// In 2D this setting has no effect and is effectively always -1.
@@ -132,7 +169,11 @@ pub struct GizmoConfig {
     /// Describes which rendering layers gizmos will be rendered to.
     ///
     /// Gizmos will only be rendered to cameras with intersecting layers.
-    pub render_layers: RenderLayers,
+    #[cfg(feature = "bevy_render")]
+    pub render_layers: bevy_render::view::RenderLayers,
+
+    /// Describe how lines should join
+    pub line_joints: GizmoLineJoint,
 }
 
 impl Default for GizmoConfig {
@@ -141,23 +182,24 @@ impl Default for GizmoConfig {
             enabled: true,
             line_width: 2.,
             line_perspective: false,
+            line_style: GizmoLineStyle::Solid,
             depth_bias: 0.,
+            #[cfg(feature = "bevy_render")]
             render_layers: Default::default(),
+
+            line_joints: GizmoLineJoint::None,
         }
     }
 }
 
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 #[derive(Component)]
 pub(crate) struct GizmoMeshConfig {
     pub line_perspective: bool,
-    pub render_layers: RenderLayers,
-}
-
-impl From<&GizmoConfig> for GizmoMeshConfig {
-    fn from(item: &GizmoConfig) -> Self {
-        GizmoMeshConfig {
-            line_perspective: item.line_perspective,
-            render_layers: item.render_layers,
-        }
-    }
+    pub line_style: GizmoLineStyle,
+    pub render_layers: bevy_render::view::RenderLayers,
+    pub handle: Handle<LineGizmo>,
 }

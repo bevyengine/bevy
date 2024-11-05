@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    component::{ComponentId, Tick},
+    component::{ComponentId, Components, Tick},
     entity::Entity,
     query::FilteredAccess,
     storage::{Table, TableRow},
@@ -52,6 +52,9 @@ pub unsafe trait WorldQuery {
 
     /// This function manually implements subtyping for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
+
+    /// This function manually implements subtyping for the query fetches.
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort>;
 
     /// Creates a new instance of this fetch.
     ///
@@ -120,6 +123,8 @@ pub unsafe trait WorldQuery {
     ) -> Self::Item<'w>;
 
     /// Adds any component accesses used by this [`WorldQuery`] to `access`.
+    ///
+    /// Used to check which queries are disjoint and can run in parallel
     // This does not have a default body of `{}` because 99% of cases need to add accesses
     // and forgetting to do so would be unsound.
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>);
@@ -128,10 +133,13 @@ pub unsafe trait WorldQuery {
     fn init_state(world: &mut World) -> Self::State;
 
     /// Attempts to initialize a [`State`](WorldQuery::State) for this [`WorldQuery`] type using read-only
-    /// access to the [`World`].
-    fn get_state(world: &World) -> Option<Self::State>;
+    /// access to [`Components`].
+    fn get_state(components: &Components) -> Option<Self::State>;
 
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
+    ///
+    /// Used to check which [`Archetype`]s can be skipped by the query
+    /// (if none of the [`Component`](crate::component::Component)s match)
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -139,10 +147,11 @@ pub unsafe trait WorldQuery {
 }
 
 macro_rules! impl_tuple_world_query {
-    ($(($name: ident, $state: ident)),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
 
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
+        $(#[$meta])*
         /// SAFETY:
         /// `fetch` accesses are the conjunction of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
@@ -160,11 +169,19 @@ macro_rules! impl_tuple_world_query {
                 )*)
             }
 
+            fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+                let ($($name,)*) = fetch;
+                ($(
+                    $name::shrink_fetch($name),
+                )*)
+            }
+
             #[inline]
             #[allow(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
-                ($($name::init_fetch(_world, $name, _last_run, _this_run),)*)
+                // SAFETY: The invariants are uphold by the caller.
+                ($(unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) },)*)
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
@@ -178,14 +195,16 @@ macro_rules! impl_tuple_world_query {
             ) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
-                $($name::set_archetype($name, $state, _archetype, _table);)*
+                // SAFETY: The invariants are uphold by the caller.
+                $(unsafe { $name::set_archetype($name, $state, _archetype, _table); })*
             }
 
             #[inline]
             unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
-                $($name::set_table($name, $state, _table);)*
+                // SAFETY: The invariants are uphold by the caller.
+                $(unsafe { $name::set_table($name, $state, _table); })*
             }
 
             #[inline(always)]
@@ -196,20 +215,21 @@ macro_rules! impl_tuple_world_query {
                 _table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($name,)*) = _fetch;
-                ($($name::fetch($name, _entity, _table_row),)*)
+                // SAFETY: The invariants are uphold by the caller.
+                ($(unsafe { $name::fetch($name, _entity, _table_row) },)*)
             }
 
             fn update_component_access(state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
                 let ($($name,)*) = state;
                 $($name::update_component_access($name, _access);)*
             }
-
-            fn init_state(_world: &mut World) -> Self::State {
-                ($($name::init_state(_world),)*)
+            #[allow(unused_variables)]
+            fn init_state(world: &mut World) -> Self::State {
+                ($($name::init_state(world),)*)
             }
-
-            fn get_state(_world: &World) -> Option<Self::State> {
-                Some(($($name::get_state(_world)?,)*))
+            #[allow(unused_variables)]
+            fn get_state(components: &Components) -> Option<Self::State> {
+                Some(($($name::get_state(components)?,)*))
             }
 
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -220,4 +240,11 @@ macro_rules! impl_tuple_world_query {
     };
 }
 
-all_tuples!(impl_tuple_world_query, 0, 15, F, S);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_tuple_world_query,
+    0,
+    15,
+    F,
+    S
+);

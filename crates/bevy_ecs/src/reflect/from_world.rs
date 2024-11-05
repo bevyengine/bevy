@@ -1,5 +1,5 @@
 //! Definitions for [`FromWorld`] reflection.
-//! This allows creating instaces of types that are known only at runtime and
+//! This allows creating instances of types that are known only at runtime and
 //! require an `&mut World` to be initialized.
 //!
 //! This module exports two types: [`ReflectFromWorldFns`] and [`ReflectFromWorld`].

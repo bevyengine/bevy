@@ -1,13 +1,13 @@
 //! The generic input type.
 
 use bevy_ecs::system::Resource;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
-use std::hash::Hash;
-
-// unused import, but needed for intra doc link to work
-#[allow(unused_imports)]
-use bevy_ecs::schedule::State;
+use core::hash::Hash;
+#[cfg(feature = "bevy_reflect")]
+use {
+    bevy_ecs::reflect::ReflectResource,
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
+};
 
 /// A "press-able" input of type `T`.
 ///
@@ -23,11 +23,88 @@ use bevy_ecs::schedule::State;
 /// ## Multiple systems
 ///
 /// In case multiple systems are checking for [`ButtonInput::just_pressed`] or [`ButtonInput::just_released`]
-/// but only one should react, for example in the case of triggering
-/// [`State`] change, you should consider clearing the input state, either by:
+/// but only one should react, for example when modifying a
+/// [`Resource`], you should consider clearing the input state, either by:
 ///
 /// * Using [`ButtonInput::clear_just_pressed`] or [`ButtonInput::clear_just_released`] instead.
 /// * Calling [`ButtonInput::clear`] or [`ButtonInput::reset`] immediately after the state change.
+///
+/// ## Performance
+///
+/// For all operations, the following conventions are used:
+/// - **n** is the number of stored inputs.
+/// - **m** is the number of input arguments passed to the method.
+/// - **\***-suffix denotes an amortized cost.
+/// - **~**-suffix denotes an expected cost.
+///
+/// See Rust's [std::collections doc on performance](https://doc.rust-lang.org/std/collections/index.html#performance) for more details on the conventions used here.
+///
+/// | **[`ButtonInput`] operations**          | **Computational complexity** |
+/// |-----------------------------------|------------------------------------|
+/// | [`ButtonInput::any_just_pressed`]       | *O*(m)~                      |
+/// | [`ButtonInput::any_just_released`]      | *O*(m)~                      |
+/// | [`ButtonInput::any_pressed`]            | *O*(m)~                      |
+/// | [`ButtonInput::get_just_pressed`]       | *O*(n)                       |
+/// | [`ButtonInput::get_just_released`]      | *O*(n)                       |
+/// | [`ButtonInput::get_pressed`]            | *O*(n)                       |
+/// | [`ButtonInput::just_pressed`]           | *O*(1)~                      |
+/// | [`ButtonInput::just_released`]          | *O*(1)~                      |
+/// | [`ButtonInput::pressed`]                | *O*(1)~                      |
+/// | [`ButtonInput::press`]                  | *O*(1)~*                     |
+/// | [`ButtonInput::release`]                | *O*(1)~*                     |
+/// | [`ButtonInput::release_all`]            | *O*(n)~*                     |
+/// | [`ButtonInput::clear_just_pressed`]     | *O*(1)~                      |
+/// | [`ButtonInput::clear_just_released`]    | *O*(1)~                      |
+/// | [`ButtonInput::reset_all`]              | *O*(n)                       |
+/// | [`ButtonInput::clear`]                  | *O*(n)                       |
+///
+/// ## Window focus
+///
+/// `ButtonInput<KeyCode>` is tied to window focus. For example, if the user holds a button
+/// while the window loses focus, [`ButtonInput::just_released`] will be triggered. Similarly if the window
+/// regains focus, [`ButtonInput::just_pressed`] will be triggered.
+///
+/// `ButtonInput<GamepadButton>` is independent of window focus.
+///
+/// ## Examples
+///
+/// Reading and checking against the current set of pressed buttons:
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
+/// # use bevy_ecs::{prelude::{IntoSystemConfigs, Res, Resource, resource_changed}, schedule::Condition};
+/// # use bevy_input::{ButtonInput, prelude::{KeyCode, MouseButton}};
+///
+/// fn main() {
+///     App::new()
+///         .add_plugins(DefaultPlugins)
+///         .add_systems(
+///             Update,
+///             print_mouse.run_if(resource_changed::<ButtonInput<MouseButton>>),
+///         )
+///         .add_systems(
+///             Update,
+///             print_keyboard.run_if(resource_changed::<ButtonInput<KeyCode>>),
+///         )
+///         .run();
+/// }
+///
+/// fn print_mouse(mouse: Res<ButtonInput<MouseButton>>) {
+///     println!("Mouse: {:?}", mouse.get_pressed().collect::<Vec<_>>());
+/// }
+///
+/// fn print_keyboard(keyboard: Res<ButtonInput<KeyCode>>) {
+///     if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight])
+///         && keyboard.any_pressed([KeyCode::AltLeft, KeyCode::AltRight])
+///         && keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
+///         && keyboard.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight])
+///         && keyboard.pressed(KeyCode::KeyL)
+///     {
+///         println!("On Windows this opens LinkedIn.");
+///     } else {
+///         println!("keyboard: {:?}", keyboard.get_pressed().collect::<Vec<_>>());
+///     }
+/// }
+/// ```
 ///
 /// ## Note
 ///
@@ -41,10 +118,10 @@ use bevy_ecs::schedule::State;
 /// It may be preferable to use [`DetectChangesMut::bypass_change_detection`]
 /// to avoid causing the resource to always be marked as changed.
 ///
-///[`ResMut`]: bevy_ecs::system::ResMut
-///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
-#[derive(Debug, Clone, Resource, Reflect)]
-#[reflect(Default)]
+/// [`ResMut`]: bevy_ecs::system::ResMut
+/// [`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
+#[derive(Debug, Clone, Resource)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default, Resource))]
 pub struct ButtonInput<T: Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
@@ -105,12 +182,14 @@ where
         self.just_released.extend(self.pressed.drain());
     }
 
-    /// Returns `true` if the `input` has just been pressed.
+    /// Returns `true` if the `input` has been pressed during the current frame.
+    ///
+    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_released`].
     pub fn just_pressed(&self, input: T) -> bool {
         self.just_pressed.contains(&input)
     }
 
-    /// Returns `true` if any item in `inputs` has just been pressed.
+    /// Returns `true` if any item in `inputs` has been pressed during the current frame.
     pub fn any_just_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
         inputs.into_iter().any(|it| self.just_pressed(it))
     }
@@ -122,7 +201,9 @@ where
         self.just_pressed.remove(&input)
     }
 
-    /// Returns `true` if the `input` has just been released.
+    /// Returns `true` if the `input` has been released during the current frame.
+    ///
+    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_pressed`].
     pub fn just_released(&self, input: T) -> bool {
         self.just_released.contains(&input)
     }
@@ -169,11 +250,15 @@ where
     }
 
     /// An iterator visiting every just pressed input in arbitrary order.
+    ///
+    /// Note: Returned elements do not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_released`].
     pub fn get_just_pressed(&self) -> impl ExactSizeIterator<Item = &T> {
         self.just_pressed.iter()
     }
 
     /// An iterator visiting every just released input in arbitrary order.
+    ///
+    /// Note: Returned elements do not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_pressed`].
     pub fn get_just_released(&self) -> impl ExactSizeIterator<Item = &T> {
         self.just_released.iter()
     }
@@ -181,12 +266,10 @@ where
 
 #[cfg(test)]
 mod test {
-    use bevy_reflect::TypePath;
-
     use crate::ButtonInput;
 
     /// Used for testing the functionality of [`ButtonInput`].
-    #[derive(TypePath, Copy, Clone, Eq, PartialEq, Hash)]
+    #[derive(Copy, Clone, Eq, PartialEq, Hash)]
     enum DummyInput {
         Input1,
         Input2,

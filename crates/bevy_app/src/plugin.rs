@@ -1,7 +1,7 @@
 use downcast_rs::{impl_downcast, Downcast};
 
 use crate::App;
-use std::any::Any;
+use core::any::Any;
 
 /// A collection of Bevy app logic and configuration.
 ///
@@ -54,7 +54,7 @@ use std::any::Any;
 ///     }
 /// }
 /// # fn damp_flickering() {}
-/// ````
+/// ```
 pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
@@ -82,7 +82,7 @@ pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures a name for the [`Plugin`] which is primarily used for checking plugin
     /// uniqueness and debugging.
     fn name(&self) -> &str {
-        std::any::type_name::<Self>()
+        core::any::type_name::<Self>()
     }
 
     /// If the plugin can be meaningfully instantiated several times in an [`App`],
@@ -100,11 +100,25 @@ impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {
     }
 }
 
-/// A type representing an unsafe function that returns a mutable pointer to a [`Plugin`].
-/// It is used for dynamically loading plugins.
-///
-/// See `bevy_dynamic_plugin/src/loader.rs#dynamically_load_plugin`.
-pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
+/// Plugins state in the application
+#[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
+pub enum PluginsState {
+    /// Plugins are being added.
+    Adding,
+    /// All plugins already added are ready.
+    Ready,
+    /// Finish has been executed for all plugins added.
+    Finished,
+    /// Cleanup has been executed for all plugins added.
+    Cleaned,
+}
+
+/// A dummy plugin that's to temporarily occupy an entry in an app's plugin registry.
+pub(crate) struct PlaceholderPlugin;
+
+impl Plugin for PlaceholderPlugin {
+    fn build(&self, _app: &mut App) {}
+}
 
 /// Types that represent a set of [`Plugin`]s.
 ///
@@ -115,8 +129,7 @@ pub trait Plugins<Marker>: sealed::Plugins<Marker> {}
 impl<Marker, T> Plugins<Marker> for T where T: sealed::Plugins<Marker> {}
 
 mod sealed {
-
-    use bevy_ecs::all_tuples;
+    use bevy_utils::all_tuples;
 
     use crate::{App, AppError, Plugin, PluginGroup};
 
@@ -149,12 +162,15 @@ mod sealed {
     }
 
     macro_rules! impl_plugins_tuples {
-        ($(($param: ident, $plugins: ident)),*) => {
+        ($(#[$meta:meta])* $(($param: ident, $plugins: ident)),*) => {
+            $(#[$meta])*
             impl<$($param, $plugins),*> Plugins<(PluginsTupleMarker, $($param,)*)> for ($($plugins,)*)
             where
                 $($plugins: Plugins<$param>),*
             {
-                #[allow(non_snake_case, unused_variables)]
+                // We use `allow` instead of `expect` here because the lint is not generated for all cases.
+                #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
+                #[allow(unused_variables, reason = "`app` is unused when implemented for the unit type `()`.")]
                 #[track_caller]
                 fn add_to_app(self, app: &mut App) {
                     let ($($plugins,)*) = self;
@@ -164,5 +180,12 @@ mod sealed {
         }
     }
 
-    all_tuples!(impl_plugins_tuples, 0, 15, P, S);
+    all_tuples!(
+        #[doc(fake_variadic)]
+        impl_plugins_tuples,
+        0,
+        15,
+        P,
+        S
+    );
 }
