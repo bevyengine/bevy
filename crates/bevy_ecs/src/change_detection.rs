@@ -5,7 +5,7 @@ use crate::{
     prelude::Component,
     ptr::PtrMut,
     query::{Changed, QueryData, QueryFilter, ReadOnlyQueryData},
-    system::{Commands, Local, Query, ReadOnlySystemParam, Resource, SystemMeta, SystemState},
+    system::{Commands, Local, Query, ReadOnlySystemParam, Resource, SystemState},
     world::{DeferredWorld, FromWorld, World},
 };
 use bevy_ptr::{Ptr, UnsafeCellDeref};
@@ -1180,35 +1180,20 @@ pub trait ReactiveSystemParam: ReadOnlySystemParam {
     type State: Send + Sync + 'static;
 
     /// Initializes the reactive state of this parameter.
-    fn init_state(
-        world: &mut World,
-        system_meta: &mut SystemMeta,
-    ) -> <Self as ReactiveSystemParam>::State;
+    fn init_state(world: &mut World) -> <Self as ReactiveSystemParam>::State;
 
     /// Returns `true` if the parameter has changed since the last system run.
-    fn is_changed(
-        &self,
-        world: DeferredWorld,
-        state: &mut <Self as ReactiveSystemParam>::State,
-    ) -> bool;
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveSystemParam>::State) -> bool;
 }
 
 impl ReactiveSystemParam for Commands<'_, '_> {
     type State = ();
 
-    fn init_state(
-        world: &mut World,
-        system_meta: &mut SystemMeta,
-    ) -> <Self as ReactiveSystemParam>::State {
+    fn init_state(world: &mut World) -> <Self as ReactiveSystemParam>::State {
         let _ = world;
-        let _ = system_meta;
     }
 
-    fn is_changed(
-        &self,
-        world: DeferredWorld,
-        state: &mut <Self as ReactiveSystemParam>::State,
-    ) -> bool {
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveSystemParam>::State) -> bool {
         let _ = world;
         let _ = state;
 
@@ -1219,19 +1204,11 @@ impl ReactiveSystemParam for Commands<'_, '_> {
 impl<T: FromWorld + Send> ReactiveSystemParam for Local<'_, T> {
     type State = ();
 
-    fn init_state(
-        world: &mut World,
-        system_meta: &mut SystemMeta,
-    ) -> <Self as ReactiveSystemParam>::State {
+    fn init_state(world: &mut World) -> <Self as ReactiveSystemParam>::State {
         let _ = world;
-        let _ = system_meta;
     }
 
-    fn is_changed(
-        &self,
-        world: DeferredWorld,
-        state: &mut <Self as ReactiveSystemParam>::State,
-    ) -> bool {
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveSystemParam>::State) -> bool {
         let _ = world;
         let _ = state;
 
@@ -1246,44 +1223,24 @@ where
 {
     type State = <D as ReactiveQueryData<F>>::State;
 
-    fn init_state(
-        world: &mut World,
-        system_meta: &mut SystemMeta,
-    ) -> <Self as ReactiveSystemParam>::State {
-        let _ = system_meta;
-
+    fn init_state(world: &mut World) -> <Self as ReactiveSystemParam>::State {
         <D as ReactiveQueryData<F>>::init(world)
     }
 
-    fn is_changed(
-        &self,
-        world: DeferredWorld,
-        state: &mut <Self as ReactiveSystemParam>::State,
-    ) -> bool {
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveSystemParam>::State) -> bool {
         <D as ReactiveQueryData<F>>::is_changed(world, state)
     }
 }
 
 impl<T: Resource> ReactiveSystemParam for Res<'_, T> {
-    type State = ();
+    type State = SystemState<Res<'static, T>>;
 
-    fn init_state(
-        world: &mut World,
-        system_meta: &mut SystemMeta,
-    ) -> <Self as ReactiveSystemParam>::State {
-        let _ = world;
-        let _ = system_meta;
+    fn init_state(world: &mut World) -> <Self as ReactiveSystemParam>::State {
+        SystemState::new(world)
     }
 
-    fn is_changed(
-        &self,
-        world: DeferredWorld,
-        state: &mut <Self as ReactiveSystemParam>::State,
-    ) -> bool {
-        let _ = world;
-        let _ = state;
-
-        DetectChanges::is_changed(self)
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveSystemParam>::State) -> bool {
+        state.get(&world).is_changed()
     }
 }
 
@@ -1357,7 +1314,7 @@ mod tests {
         world::World,
     };
 
-    use super::{DetectChanges, DetectChangesMut, MutUntyped};
+    use super::{DetectChanges, DetectChangesMut, MutUntyped, ReactiveSystemParam, Res};
 
     #[derive(Component, PartialEq)]
     struct C;
@@ -1709,5 +1666,33 @@ mod tests {
         assert_eq!(2, into_mut.ticks.changed.get());
         assert_eq!(3, into_mut.ticks.last_run.get());
         assert_eq!(4, into_mut.ticks.this_run.get());
+    }
+
+    #[test]
+    fn reactive_system_param() {
+        let mut world = World::new();
+        world.insert_resource(R);
+
+        // Ensure the param is marked as changed for the first tick.
+        let mut state = Res::<R>::init_state(&mut world);
+        assert!(<Res::<R> as ReactiveSystemParam>::is_changed(
+            (&mut world).into(),
+            &mut state
+        ));
+
+        // Ensure the param is not marked as changed for the next tick.
+        world.increment_change_tick();
+        assert!(!<Res::<R> as ReactiveSystemParam>::is_changed(
+            (&mut world).into(),
+            &mut state
+        ));
+
+        // Trigger a change.
+        *world.resource_mut::<R>() = R;
+
+        assert!(<Res::<R> as ReactiveSystemParam>::is_changed(
+            (&mut world).into(),
+            &mut state
+        ));
     }
 }
