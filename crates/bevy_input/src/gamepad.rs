@@ -1,6 +1,7 @@
 //! The gamepad input functionality.
 
 use crate::{Axis, ButtonInput, ButtonState};
+use bevy_core::Name;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
@@ -148,7 +149,7 @@ impl GamepadConnectionEvent {
 
     /// Is the gamepad connected?
     pub fn connected(&self) -> bool {
-        matches!(self.connection, GamepadConnection::Connected(_))
+        matches!(self.connection, GamepadConnection::Connected { .. })
     }
 
     /// Is the gamepad disconnected?
@@ -318,10 +319,10 @@ pub enum ButtonSettingsError {
 /// ```
 /// # use bevy_input::gamepad::{Gamepad, GamepadAxis, GamepadButton};
 /// # use bevy_ecs::system::Query;
+/// # use bevy_core::Name;
 /// #
-/// fn gamepad_usage_system(gamepads: Query<&Gamepad>) {
-///     for gamepad in &gamepads {
-///         let name = &gamepad.info.name;
+/// fn gamepad_usage_system(gamepads: Query<(&Name, &Gamepad)>) {
+///     for (name, gamepad) in &gamepads {
 ///         println!("{name}");
 ///
 ///         if gamepad.digital.just_pressed(GamepadButton::North) {
@@ -338,31 +339,22 @@ pub enum ButtonSettingsError {
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 #[require(GamepadSettings)]
 pub struct Gamepad {
-    /// Metadata.
-    pub info: GamepadInfo,
+    /// The USB vendor ID as assigned by the USB-IF, if available.
+    pub vendor_id: Option<u16>,
+
+    /// The USB product ID as assigned by the [vendor], if available.
+    ///
+    /// [vendor]: Self::vendor_id
+    pub product_id: Option<u16>,
+
     /// [`ButtonInput`] of [`GamepadButton`] representing their digital state
     pub digital: ButtonInput<GamepadButton>,
+
     /// [`Axis`] of [`GamepadButton`] representing their analog state.
     pub analog: Axis<GamepadInput>,
 }
 
 impl Gamepad {
-    /// Creates a gamepad with the given metadata.
-    pub fn new(info: GamepadInfo) -> Self {
-        let mut analog = Axis::default();
-        for button in GamepadButton::all().iter().copied() {
-            analog.set(button, 0.0);
-        }
-        for axis_type in GamepadAxis::all().iter().copied() {
-            analog.set(axis_type, 0.0);
-        }
-        Self {
-            info,
-            analog,
-            digital: ButtonInput::default(),
-        }
-    }
-
     /// Returns the left stick as a [`Vec2`]
     pub fn left_stick(&self) -> Vec2 {
         Vec2 {
@@ -390,32 +382,23 @@ impl Gamepad {
     }
 }
 
-// Note that we don't expose `gilrs::Gamepad::uuid` due to
-// https://gitlab.com/gilrs-project/gilrs/-/issues/153.
-//
-/// Metadata associated with a [`Gamepad`].
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    all(feature = "serialize", feature = "bevy_reflect"),
-    reflect(Serialize, Deserialize)
-)]
-pub struct GamepadInfo {
-    /// The name of the gamepad.
-    ///
-    /// This name is generally defined by the OS.
-    ///
-    /// For example on Windows the name may be "HID-compliant game controller".
-    pub name: String,
+impl Default for Gamepad {
+    fn default() -> Self {
+        let mut analog = Axis::default();
+        for button in GamepadButton::all().iter().copied() {
+            analog.set(button, 0.0);
+        }
+        for axis_type in GamepadAxis::all().iter().copied() {
+            analog.set(axis_type, 0.0);
+        }
 
-    /// The USB vendor ID as assigned by the USB-IF, if available.
-    pub vendor_id: Option<u16>,
-
-    /// The USB product ID as assigned by the [vendor], if available.
-    ///
-    /// [vendor]: Self::vendor_id
-    pub product_id: Option<u16>,
+        Self {
+            vendor_id: None,
+            product_id: None,
+            digital: Default::default(),
+            analog,
+        }
+    }
 }
 
 /// Represents gamepad input types that are mapped in the range [0.0, 1.0].
@@ -1227,12 +1210,23 @@ pub fn gamepad_connection_system(
     for connection_event in connection_events.read() {
         let id = connection_event.gamepad;
         match &connection_event.connection {
-            GamepadConnection::Connected(info) => {
+            GamepadConnection::Connected {
+                name,
+                vendor_id,
+                product_id,
+            } => {
                 let Some(mut gamepad) = commands.get_entity(id) else {
                     warn!("Gamepad {:} removed before handling connection event.", id);
                     continue;
                 };
-                gamepad.insert(Gamepad::new(info.clone()));
+                gamepad.insert((
+                    Name::new(name.clone()),
+                    Gamepad {
+                        vendor_id: *vendor_id,
+                        product_id: *product_id,
+                        ..Default::default()
+                    },
+                ));
                 info!("Gamepad {:?} connected.", id);
             }
             GamepadConnection::Disconnected => {
@@ -1250,6 +1244,9 @@ pub fn gamepad_connection_system(
     }
 }
 
+// Note that we don't expose `gilrs::Gamepad::uuid` due to
+// https://gitlab.com/gilrs-project/gilrs/-/issues/153.
+//
 /// The connection status of a gamepad.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
@@ -1260,7 +1257,20 @@ pub fn gamepad_connection_system(
 )]
 pub enum GamepadConnection {
     /// The gamepad is connected.
-    Connected(GamepadInfo),
+    Connected {
+        /// The name of the gamepad.
+        ///
+        /// This name is generally defined by the OS.
+        ///
+        /// For example on Windows the name may be "HID-compliant game controller".
+        name: String,
+
+        /// The USB vendor ID as assigned by the USB-IF, if available.
+        vendor_id: Option<u16>,
+
+        /// The USB product ID as assigned by the vendor, if available.
+        product_id: Option<u16>,
+    },
     /// The gamepad is disconnected.
     Disconnected,
 }
@@ -1497,8 +1507,8 @@ mod tests {
         GamepadAxis, GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent,
         GamepadButtonStateChangedEvent,
         GamepadConnection::{Connected, Disconnected},
-        GamepadConnectionEvent, GamepadEvent, GamepadInfo, GamepadSettings,
-        RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent, RawGamepadEvent,
+        GamepadConnectionEvent, GamepadEvent, GamepadSettings, RawGamepadAxisChangedEvent,
+        RawGamepadButtonChangedEvent, RawGamepadEvent,
     };
     use crate::ButtonState;
     use bevy_app::{App, PreUpdate};
@@ -1871,7 +1881,11 @@ mod tests {
                 .resource_mut::<Events<GamepadConnectionEvent>>()
                 .send(GamepadConnectionEvent::new(
                     gamepad,
-                    Connected(GamepadInfo::default()),
+                    Connected {
+                        name: "Test gamepad".to_string(),
+                        vendor_id: None,
+                        product_id: None,
+                    },
                 ));
             gamepad
         }
