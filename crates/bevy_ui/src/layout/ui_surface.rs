@@ -155,23 +155,16 @@ without UI components as an \"root node\" of a fixed UI node, results may be une
 
         // Remove relation with previous parent if it exists
         if let Some(parent) = self.taffy.parent(children_node) {
-            if parent != root_node {
-                if let Err(_) = self.taffy.remove_child(parent, children_node) {
-                    warn!("Failed to remove parent Taffy node.");
-                }
+            if parent != root_node && self.taffy.remove_child(parent, children_node).is_err() {
+                warn!("Failed to remove parent Taffy node.");
             }
         }
 
         // Insert the fixed node as a child if not already the case
         // this is used to dodge updates every frame
-        match self.taffy.children(root_node) {
-            Ok(children_nodes) => {
-                if !children_nodes.contains(&children_node) {
-                    self.taffy.add_child(root_node, children_node).unwrap();
-                }
-            }
-            Err(_) => {
-                return;
+        if let Ok(children_nodes) = self.taffy.children(root_node) {
+            if !children_nodes.contains(&children_node) {
+                self.taffy.add_child(root_node, children_node).unwrap();
             }
         }
     }
