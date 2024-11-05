@@ -2,7 +2,6 @@
 
 use crate::{
     component::{Tick, TickCells},
-    entity::Entity,
     prelude::Component,
     ptr::PtrMut,
     query::{Changed, QueryData, QueryFilter, ReadOnlyQueryData},
@@ -1251,6 +1250,8 @@ where
         world: &mut World,
         system_meta: &mut SystemMeta,
     ) -> <Self as ReactiveSystemParam>::State {
+        let _ = system_meta;
+
         <D as ReactiveQueryData<F>>::init(world)
     }
 
@@ -1279,6 +1280,9 @@ impl<T: Resource> ReactiveSystemParam for Res<'_, T> {
         world: DeferredWorld,
         state: &mut <Self as ReactiveSystemParam>::State,
     ) -> bool {
+        let _ = world;
+        let _ = state;
+
         DetectChanges::is_changed(self)
     }
 }
