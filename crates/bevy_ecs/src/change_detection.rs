@@ -2,8 +2,11 @@
 
 use crate::{
     component::{Tick, TickCells},
+    entity::Entity,
+    prelude::Component,
     ptr::PtrMut,
-    system::{Commands, Local, ReadOnlySystemParam, Resource, SystemMeta, SystemState},
+    query::{Changed, QueryData, QueryFilter, ReadOnlyQueryData},
+    system::{Commands, Local, Query, ReadOnlySystemParam, Resource, SystemMeta, SystemState},
     world::{DeferredWorld, FromWorld, World},
 };
 use bevy_ptr::{Ptr, UnsafeCellDeref};
@@ -1141,6 +1144,37 @@ impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
     }
 }
 
+/// Reactive [`QueryData`].
+pub trait ReactiveQueryData<F: QueryFilter>: ReadOnlyQueryData + Sized {
+    /// The reactive state of this query.
+    type State: Send + Sync + 'static;
+
+    /// Initializes the reactive state of this query.
+    fn init(world: &mut World) -> <Self as ReactiveQueryData<F>>::State;
+
+    /// Returns `true` if the query has changed since the last system run.
+    fn is_changed(world: DeferredWorld, state: &mut <Self as ReactiveQueryData<F>>::State) -> bool;
+}
+
+impl<F, T> ReactiveQueryData<F> for &T
+where
+    F: QueryFilter + 'static,
+    T: Component,
+{
+    type State = SystemState<Query<'static, 'static, (), (Changed<T>, F)>>;
+
+    fn init(world: &mut World) -> <Self as ReactiveQueryData<F>>::State {
+        SystemState::new(world)
+    }
+
+    fn is_changed<'w>(
+        world: DeferredWorld,
+        state: &mut <Self as ReactiveQueryData<F>>::State,
+    ) -> bool {
+        !state.get(&world).is_empty()
+    }
+}
+
 /// A reactive system parameter that implements change detection.
 pub trait ReactiveSystemParam: ReadOnlySystemParam {
     /// The reactive state of this parameter.
@@ -1153,7 +1187,11 @@ pub trait ReactiveSystemParam: ReadOnlySystemParam {
     ) -> <Self as ReactiveSystemParam>::State;
 
     /// Returns `true` if the parameter has changed since the last system run.
-    fn is_changed(&self) -> bool;
+    fn is_changed(
+        &self,
+        world: DeferredWorld,
+        state: &mut <Self as ReactiveSystemParam>::State,
+    ) -> bool;
 }
 
 impl ReactiveSystemParam for Commands<'_, '_> {
@@ -1167,7 +1205,14 @@ impl ReactiveSystemParam for Commands<'_, '_> {
         let _ = system_meta;
     }
 
-    fn is_changed(&self) -> bool {
+    fn is_changed(
+        &self,
+        world: DeferredWorld,
+        state: &mut <Self as ReactiveSystemParam>::State,
+    ) -> bool {
+        let _ = world;
+        let _ = state;
+
         false
     }
 }
@@ -1183,8 +1228,38 @@ impl<T: FromWorld + Send> ReactiveSystemParam for Local<'_, T> {
         let _ = system_meta;
     }
 
-    fn is_changed(&self) -> bool {
+    fn is_changed(
+        &self,
+        world: DeferredWorld,
+        state: &mut <Self as ReactiveSystemParam>::State,
+    ) -> bool {
+        let _ = world;
+        let _ = state;
+
         false
+    }
+}
+
+impl<D, F> ReactiveSystemParam for Query<'_, '_, D, F>
+where
+    D: ReactiveQueryData<F> + QueryData + 'static,
+    F: QueryFilter + 'static,
+{
+    type State = <D as ReactiveQueryData<F>>::State;
+
+    fn init_state(
+        world: &mut World,
+        system_meta: &mut SystemMeta,
+    ) -> <Self as ReactiveSystemParam>::State {
+        <D as ReactiveQueryData<F>>::init(world)
+    }
+
+    fn is_changed(
+        &self,
+        world: DeferredWorld,
+        state: &mut <Self as ReactiveSystemParam>::State,
+    ) -> bool {
+        <D as ReactiveQueryData<F>>::is_changed(world, state)
     }
 }
 
@@ -1199,7 +1274,11 @@ impl<T: Resource> ReactiveSystemParam for Res<'_, T> {
         let _ = system_meta;
     }
 
-    fn is_changed(&self) -> bool {
+    fn is_changed(
+        &self,
+        world: DeferredWorld,
+        state: &mut <Self as ReactiveSystemParam>::State,
+    ) -> bool {
         DetectChanges::is_changed(self)
     }
 }
