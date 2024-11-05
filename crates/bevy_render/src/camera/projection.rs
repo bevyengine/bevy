@@ -11,7 +11,7 @@ use bevy_transform::{components::GlobalTransform, TransformSystem};
 use derive_more::derive::From;
 use serde::{Deserialize, Serialize};
 
-/// Adds [`Camera`](crate::camera::Camera) driver systems for a given projection type.
+/// Adds [`RenderSurface`](crate::camera::Camera) driver systems for a given projection type.
 ///
 /// If you are using `bevy_pbr`, then you need to add `PbrProjectionPlugin` along with this.
 pub struct CameraProjectionPlugin<T: CameraProjection + Component + GetTypeRegistration>(
@@ -65,13 +65,13 @@ pub struct CameraUpdateSystem;
 /// Trait to control the projection matrix of a camera.
 ///
 /// Components implementing this trait are automatically polled for changes, and used
-/// to recompute the camera projection matrix of the [`Camera`] component attached to
+/// to recompute the camera projection matrix of the [`RenderSurface`] component attached to
 /// the same entity as the component implementing this trait.
 ///
 /// Use the plugins [`CameraProjectionPlugin`] and `bevy::pbr::PbrProjectionPlugin` to setup the
 /// systems for your [`CameraProjection`] implementation.
 ///
-/// [`Camera`]: crate::camera::Camera
+/// [`RenderSurface`]: crate::camera::Camera
 pub trait CameraProjection {
     fn get_clip_from_view(&self) -> Mat4;
     fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4;

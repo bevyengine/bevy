@@ -11,7 +11,7 @@
 //! which have made SMAA less popular when advanced photorealistic rendering
 //! features are used in recent years.
 //!
-//! To use SMAA, add [`Smaa`] to a [`bevy_render::camera::Camera`]. In a
+//! To use SMAA, add [`Smaa`] to a [`bevy_render::camera::RenderSurface`]. In a
 //! pinch, you can simply use the default settings (via the [`Default`] trait)
 //! for a high-quality, high-performance appearance. When using SMAA, you will
 //! likely want set [`bevy_render::view::Msaa`] to [`bevy_render::view::Msaa::Off`]
@@ -96,7 +96,7 @@ const SMAA_SEARCH_LUT_TEXTURE_HANDLE: Handle<Image> = Handle::weak_from_u128(318
 pub struct SmaaPlugin;
 
 /// A component for enabling Subpixel Morphological Anti-Aliasing (SMAA)
-/// for a [`bevy_render::camera::Camera`].
+/// for a [`bevy_render::camera::RenderSurface`].
 #[derive(Clone, Copy, Default, Component, Reflect, ExtractComponent)]
 #[reflect(Component, Default)]
 #[doc(alias = "SubpixelMorphologicalAntiAliasing")]

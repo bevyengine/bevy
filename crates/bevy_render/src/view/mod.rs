@@ -147,7 +147,7 @@ impl Plugin for ViewPlugin {
 }
 
 /// Component for configuring the number of samples for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing)
-/// for a [`Camera`](crate::camera::Camera).
+/// for a [`RenderSurface`](crate::camera::Camera).
 ///
 /// Defaults to 4 samples. A higher number of samples results in smoother edges.
 ///
@@ -207,7 +207,7 @@ impl ExtractedView {
 /// Configures filmic color grading parameters to adjust the image appearance.
 ///
 /// Color grading is applied just before tonemapping for a given
-/// [`Camera`](crate::camera::Camera) entity, with the sole exception of the
+/// [`RenderSurface`](crate::camera::Camera) entity, with the sole exception of the
 /// `post_saturation` value in [`ColorGradingGlobal`], which is applied after
 /// tonemapping.
 #[derive(Component, Reflect, Debug, Default, Clone)]

@@ -7,7 +7,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
-    camera::{RenderSurface, CameraMainTextureUsages, CameraRenderGraph, Exposure, Projection},
+    camera::{CameraMainTextureUsages, CameraRenderGraph, Exposure, Projection, RenderSurface},
     extract_component::ExtractComponent,
     primitives::Frustum,
     render_resource::{LoadOp, TextureUsages},
@@ -17,7 +17,7 @@ use bevy_render::{
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
-/// A 3D camera component. Enables the main 3D render graph for a [`Camera`].
+/// A 3D camera component. Enables the main 3D render graph for a [`RenderSurface`].
 ///
 /// The camera coordinate space is right-handed X-right, Y-up, Z-back.
 /// This means "forward" is -Z.

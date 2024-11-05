@@ -71,7 +71,7 @@ impl Default for ContrastAdaptiveSharpening {
 #[reflect(Component, Default)]
 pub struct DenoiseCas(bool);
 
-/// The uniform struct extracted from [`ContrastAdaptiveSharpening`] attached to a [`Camera`].
+/// The uniform struct extracted from [`ContrastAdaptiveSharpening`] attached to a [`RenderSurface`].
 /// Will be available for use in the CAS shader.
 #[doc(hidden)]
 #[derive(Component, ShaderType, Clone)]

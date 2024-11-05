@@ -199,9 +199,9 @@ impl PointerLocation {
 ///
 /// Note that:
 /// - a pointer can move freely between render targets
-/// - a pointer is not associated with a [`Camera`] because multiple cameras can target the same
+/// - a pointer is not associated with a [`RenderSurface`] because multiple cameras can target the same
 ///   render target. It is up to picking backends to associate a Pointer's `Location` with a
-///   specific `Camera`, if any.
+///   specific `RenderSurface`, if any.
 #[derive(Debug, Clone, Component, Reflect, PartialEq)]
 #[reflect(Component, Debug, PartialEq)]
 pub struct Location {
@@ -212,7 +212,7 @@ pub struct Location {
 }
 
 impl Location {
-    /// Returns `true` if this pointer's [`Location`] is within the [`Camera`]'s viewport.
+    /// Returns `true` if this pointer's [`Location`] is within the [`RenderSurface`]'s viewport.
     ///
     /// Note this returns `false` if the location and camera have different render targets.
     #[inline]

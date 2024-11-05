@@ -43,7 +43,7 @@ use core::ops::Range;
 use derive_more::derive::From;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
-/// Render viewport configuration for the [`Camera`] component.
+/// Render viewport configuration for the [`RenderSurface`] component.
 ///
 /// The viewport defines the area on the render target to which the camera renders its image.
 /// You can overlay multiple cameras in a single window using viewports to create effects like
@@ -51,10 +51,10 @@ use wgpu::{BlendState, TextureFormat, TextureUsages};
 #[derive(Reflect, Debug, Clone)]
 #[reflect(Default)]
 pub struct Viewport {
-    /// The physical position to render this viewport to within the [`RenderTarget`] of this [`Camera`].
+    /// The physical position to render this viewport to within the [`RenderTarget`] of this [`RenderSurface`].
     /// (0,0) corresponds to the top-left corner
     pub physical_position: UVec2,
-    /// The physical size of the viewport rectangle to render to within the [`RenderTarget`] of this [`Camera`].
+    /// The physical size of the viewport rectangle to render to within the [`RenderTarget`] of this [`RenderSurface`].
     /// The origin of the rectangle is in the top-left corner.
     pub physical_size: UVec2,
     /// The minimum and maximum depth to render (on a scale from 0.0 to 1.0).
@@ -131,7 +131,7 @@ pub struct RenderTargetInfo {
     pub scale_factor: f32,
 }
 
-/// Holds internally computed [`Camera`] values.
+/// Holds internally computed [`RenderSurface`] values.
 #[derive(Default, Debug, Clone)]
 pub struct ComputedCameraValues {
     clip_from_view: Mat4,
@@ -249,18 +249,18 @@ impl Default for PhysicalCameraParameters {
 pub enum ViewportConversionError {
     /// The pre-computed size of the viewport was not available.
     ///
-    /// This may be because the `Camera` was just created and [`camera_system`] has not been executed
+    /// This may be because the `RenderSurface` was just created and [`camera_system`] has not been executed
     /// yet, or because the [`RenderTarget`] is misconfigured in one of the following ways:
     ///   - it references the [`PrimaryWindow`](RenderTarget::Window) when there is none,
     ///   - it references a [`Window`](RenderTarget::Window) entity that doesn't exist or doesn't actually have a `Window` component,
     ///   - it references an [`Image`](RenderTarget::Image) that doesn't exist (invalid handle),
     ///   - it references a [`TextureView`](RenderTarget::TextureView) that doesn't exist (invalid handle).
     NoViewportSize,
-    /// The computed coordinate was beyond the `Camera`'s near plane.
+    /// The computed coordinate was beyond the `RenderSurface`'s near plane.
     ///
     /// Only applicable when converting from world-space to viewport-space.
     PastNearPlane,
-    /// The computed coordinate was beyond the `Camera`'s far plane.
+    /// The computed coordinate was beyond the `RenderSurface`'s far plane.
     ///
     /// Only applicable when converting from world-space to viewport-space.
     PastFarPlane,
@@ -273,14 +273,14 @@ pub enum ViewportConversionError {
 /// The defining [`Component`] for camera entities,
 /// storing information about how and what to render through this camera.
 ///
-/// The [`Camera`] component is added to an entity to define the properties of the viewpoint from
+/// The [`RenderSurface`] component is added to an entity to define the properties of the viewpoint from
 /// which rendering occurs. It defines the position of the view to render, the projection method
 /// to transform the 3D objects into a 2D image, as well as the render target into which that image
 /// is produced.
 ///
-/// Note that a [`Camera`] needs a [`CameraRenderGraph`] to render anything.
+/// Note that a [`RenderSurface`] needs a [`CameraRenderGraph`] to render anything.
 /// This is typically provided by adding a [`Camera2d`] or [`Camera3d`] component,
-/// but custom render graphs can also be defined. Inserting a [`Camera`] with no render
+/// but custom render graphs can also be defined. Inserting a [`RenderSurface`] with no render
 /// graph will emit an error at runtime.
 ///
 /// [`Camera2d`]: https://docs.rs/crate/bevy_core_pipeline/latest/core_2d/struct.Camera2d.html
@@ -330,7 +330,7 @@ pub struct RenderSurface {
 
 fn warn_on_no_render_graph(world: DeferredWorld, entity: Entity, _: ComponentId) {
     if !world.entity(entity).contains::<CameraRenderGraph>() {
-        warn!("Entity {entity} has a `Camera` component, but it doesn't have a render graph configured. Consider adding a `Camera2d` or `Camera3d` component, or manually adding a `CameraRenderGraph` component if you need a custom render graph.");
+        warn!("Entity {entity} has a `RenderSurface` component, but it doesn't have a render graph configured. Consider adding a `Camera2d` or `Camera3d` component, or manually adding a `CameraRenderGraph` component if you need a custom render graph.");
     }
 }
 
@@ -352,7 +352,7 @@ impl Default for RenderSurface {
 }
 
 impl RenderSurface {
-    /// Converts a physical size in this `Camera` to a logical size.
+    /// Converts a physical size in this `RenderSurface` to a logical size.
     #[inline]
     pub fn to_logical(&self, physical_size: UVec2) -> Option<Vec2> {
         let scale = self.computed.target_info.as_ref()?.scale_factor;
@@ -392,7 +392,7 @@ impl RenderSurface {
     /// [`RenderTarget`], prefer [`Camera::logical_target_size`].
     ///
     /// Returns `None` if either:
-    /// - the function is called just after the `Camera` is created, before `camera_system` is executed,
+    /// - the function is called just after the `RenderSurface` is created, before `camera_system` is executed,
     /// - the [`RenderTarget`] isn't correctly set:
     ///   - it references the [`PrimaryWindow`](RenderTarget::Window) when there is none,
     ///   - it references a [`Window`](RenderTarget::Window) entity that doesn't exist or doesn't actually have a `Window` component,
@@ -565,7 +565,7 @@ impl RenderSurface {
             })
     }
 
-    /// Returns a 2D world position computed from a position on this [`Camera`]'s viewport.
+    /// Returns a 2D world position computed from a position on this [`RenderSurface`]'s viewport.
     ///
     /// Useful for 2D cameras and other cameras with an orthographic projection pointing along the Z axis.
     ///
@@ -690,7 +690,7 @@ impl Default for CameraOutputMode {
     }
 }
 
-/// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
+/// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`RenderSurface`] entity.
 #[derive(Component, Debug, Deref, DerefMut, Reflect, Clone)]
 #[reflect(opaque)]
 #[reflect(Component, Debug)]
@@ -710,7 +710,7 @@ impl CameraRenderGraph {
     }
 }
 
-/// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`]
+/// The "target" that a [`RenderSurface`] will render to. For example, this could be a [`Window`]
 /// swapchain or an [`Image`].
 #[derive(Debug, Clone, Reflect, From)]
 pub enum RenderTarget {
@@ -854,11 +854,11 @@ impl NormalizedRenderTarget {
     }
 }
 
-/// System in charge of updating a [`Camera`] when its window or projection changes.
+/// System in charge of updating a [`RenderSurface`] when its window or projection changes.
 ///
 /// The system detects window creation, resize, and scale factor change events to update the camera
 /// projection if needed. It also queries any [`CameraProjection`] component associated with the same
-/// entity as the [`Camera`] one, to automatically update the camera projection matrix.
+/// entity as the [`RenderSurface`] one, to automatically update the camera projection matrix.
 ///
 /// The system function is generic over the camera projection type, and only instances of
 /// [`OrthographicProjection`] and [`PerspectiveProjection`] are automatically added to

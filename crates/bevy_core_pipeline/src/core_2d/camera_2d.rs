@@ -19,7 +19,7 @@ use bevy_render::{
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-/// A 2D camera component. Enables the 2D render graph for a [`Camera`].
+/// A 2D camera component. Enables the 2D render graph for a [`RenderSurface`].
 #[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<RenderSurface>)]
 #[reflect(Component, Default)]
