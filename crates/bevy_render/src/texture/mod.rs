@@ -12,7 +12,7 @@ pub use bevy_image::{
     BevyDefault, CompressedImageFormats, FileTextureError, Image, ImageAddressMode,
     ImageFilterMode, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderError,
     ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor, ImageType, IntoDynamicImageError,
-    TextureError, TextureFormatPixelInfo,
+    TextureError, TextureFormatPixelInfo, Volume,
 };
 #[cfg(feature = "basis-universal")]
 pub use bevy_image::{CompressedImageSaver, CompressedImageSaverError};
