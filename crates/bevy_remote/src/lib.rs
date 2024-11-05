@@ -301,11 +301,11 @@
 //! [fully-qualified type name]: bevy_reflect::TypePath::type_path
 
 use async_channel::{Receiver, Sender};
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
-    schedule::IntoSystemConfigs,
+    schedule::{IntoSystemConfigs, ScheduleLabel},
     system::{Commands, In, IntoSystem, ResMut, Resource, System, SystemId},
     world::World,
 };
@@ -434,11 +434,16 @@ impl Plugin for RemotePlugin {
             );
         }
 
+        app.init_schedule(RemoteLast)
+            .world_mut()
+            .resource_mut::<MainScheduleOrder>()
+            .insert_after(Last, RemoteLast);
+
         app.insert_resource(remote_methods)
             .init_resource::<RemoteWatchingRequests>()
             .add_systems(PreStartup, setup_mailbox_channel)
             .add_systems(
-                Update,
+                RemoteLast,
                 (
                     process_remote_requests,
                     process_ongoing_watching_requests,
@@ -448,6 +453,10 @@ impl Plugin for RemotePlugin {
             );
     }
 }
+
+/// Schedule that contains all systems to process Bevy Remote Protocol requests
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+struct RemoteLast;
 
 /// A type to hold the allowed types of systems to be used as method handlers.
 #[derive(Debug)]
