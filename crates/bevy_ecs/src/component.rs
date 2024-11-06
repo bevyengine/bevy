@@ -487,7 +487,7 @@ impl ComponentHooks {
     /// Will panic if the component already has an `on_add` hook
     pub fn on_add(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_add(hook)
-            .expect("Component id: {:?}, already has an on_add hook")
+            .expect("Component already has an on_add hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is added (with `.insert`)
@@ -505,7 +505,7 @@ impl ComponentHooks {
     /// Will panic if the component already has an `on_insert` hook
     pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_insert(hook)
-            .expect("Component id: {:?}, already has an on_insert hook")
+            .expect("Component already has an on_insert hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is about to be dropped,
@@ -527,7 +527,7 @@ impl ComponentHooks {
     /// Will panic if the component already has an `on_replace` hook
     pub fn on_replace(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_replace(hook)
-            .expect("Component id: {:?}, already has an on_replace hook")
+            .expect("Component already has an on_replace hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
@@ -538,7 +538,7 @@ impl ComponentHooks {
     /// Will panic if the component already has an `on_remove` hook
     pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_remove(hook)
-            .expect("Component id: {:?}, already has an on_remove hook")
+            .expect("Component already has an on_remove hook")
     }
 
     /// Attempt to register a [`ComponentHook`] that will be run when this component is added to an entity.

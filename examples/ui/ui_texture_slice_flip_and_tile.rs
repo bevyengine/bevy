@@ -3,6 +3,7 @@
 use bevy::{
     prelude::*,
     render::texture::{ImageLoaderSettings, ImageSampler},
+    ui::widget::NodeImageMode,
     winit::WinitSettings,
 };
 
@@ -61,6 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         image: image.clone(),
                         flip_x,
                         flip_y,
+                        image_mode: NodeImageMode::Sliced(slicer.clone()),
                         ..default()
                     },
                     Node {
@@ -68,7 +70,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         height: Val::Px(height),
                         ..default()
                     },
-                    ImageScaleMode::Sliced(slicer.clone()),
                 ));
             }
         });
