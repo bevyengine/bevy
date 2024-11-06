@@ -362,7 +362,7 @@ where
     }
 }
 
-/// A curve that has had its domain changed by a linear reparametrization (stretching and scaling).
+/// A curve that has had its domain changed by a linear reparameterization (stretching and scaling).
 /// Curves of this type are produced by [`Curve::reparametrize_linear`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]

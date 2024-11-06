@@ -27,6 +27,8 @@ fn main() {
                     // on iOS, gestures must be enabled.
                     // This doesn't work on Android
                     recognize_rotation_gesture: true,
+                    // Only has an effect on iOS
+                    prefers_home_indicator_hidden: true,
                     ..default()
                 }),
                 ..default()
@@ -169,12 +171,8 @@ fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
 // This is handled by the OS on iOS, but not on Android.
 fn handle_lifetime(
     mut lifecycle_events: EventReader<AppLifecycle>,
-    music_controller: Query<&AudioSink>,
+    music_controller: Single<&AudioSink>,
 ) {
-    let Ok(music_controller) = music_controller.get_single() else {
-        return;
-    };
-
     for event in lifecycle_events.read() {
         match event {
             AppLifecycle::Idle | AppLifecycle::WillSuspend | AppLifecycle::WillResume => {}

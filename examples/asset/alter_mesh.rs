@@ -149,13 +149,11 @@ fn spawn_text(mut commands: Commands) {
 
 fn alter_handle(
     asset_server: Res<AssetServer>,
-    mut right_shape: Query<(&mut Mesh3d, &mut Shape), Without<Left>>,
+    right_shape: Single<(&mut Mesh3d, &mut Shape), Without<Left>>,
 ) {
     // Mesh handles, like other parts of the ECS, can be queried as mutable and modified at
     // runtime. We only spawned one shape without the `Left` marker component.
-    let Ok((mut mesh, mut shape)) = right_shape.get_single_mut() else {
-        return;
-    };
+    let (mut mesh, mut shape) = right_shape.into_inner();
 
     // Switch to a new Shape variant
     shape.set_next_variant();
@@ -174,17 +172,11 @@ fn alter_handle(
 
 fn alter_mesh(
     mut is_mesh_scaled: Local<bool>,
-    left_shape: Query<&Mesh3d, With<Left>>,
+    left_shape: Single<&Mesh3d, With<Left>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    // It's convenient to retrieve the asset handle stored with the shape on the left. However,
-    // we could just as easily have retained this in a resource or a dedicated component.
-    let Ok(handle) = left_shape.get_single() else {
-        return;
-    };
-
     // Obtain a mutable reference to the Mesh asset.
-    let Some(mesh) = meshes.get_mut(handle) else {
+    let Some(mesh) = meshes.get_mut(*left_shape) else {
         return;
     };
 
