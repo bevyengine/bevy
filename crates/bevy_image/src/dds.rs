@@ -182,7 +182,7 @@ pub fn dds_format_to_texture_format(
             DxgiFormat::R10G10B10A2_Typeless | DxgiFormat::R10G10B10A2_UNorm => {
                 TextureFormat::Rgb10a2Unorm
             }
-            DxgiFormat::R11G11B10_Float => TextureFormat::Rg11b10Float,
+            DxgiFormat::R11G11B10_Float => TextureFormat::Rg11b10Ufloat,
             DxgiFormat::R8G8B8A8_Typeless
             | DxgiFormat::R8G8B8A8_UNorm
             | DxgiFormat::R8G8B8A8_UNorm_sRGB => {

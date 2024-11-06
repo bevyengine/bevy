@@ -45,6 +45,18 @@ impl From<wgpu::BindGroup> for BindGroup {
     }
 }
 
+impl<'a> From<&'a BindGroup> for Option<&'a wgpu::BindGroup> {
+    fn from(value: &'a BindGroup) -> Self {
+        Some(value.deref())
+    }
+}
+
+impl<'a> From<&'a mut BindGroup> for Option<&'a wgpu::BindGroup> {
+    fn from(value: &'a mut BindGroup) -> Self {
+        Some(&*value)
+    }
+}
+
 impl Deref for BindGroup {
     type Target = wgpu::BindGroup;
 
@@ -359,7 +371,7 @@ pub enum AsBindGroupError {
     /// The bind group could not be generated. Try again next frame.
     #[display("The bind group could not be generated")]
     RetryNextUpdate,
-    #[display("At binding index{0}, the provided image sampler `{_1}` does not match the required sampler type(s) `{_2}`.")]
+    #[display("At binding index {_0}, the provided image sampler `{_1}` does not match the required sampler type(s) `{_2}`.")]
     InvalidSamplerType(u32, String, String),
 }
 

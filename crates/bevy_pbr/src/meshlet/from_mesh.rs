@@ -14,9 +14,8 @@ use derive_more::derive::{Display, Error};
 use half::f16;
 use itertools::Itertools;
 use meshopt::{
-    build_meshlets,
-    ffi::{meshopt_Meshlet, meshopt_simplifyWithAttributes},
-    generate_vertex_remap_multi, Meshlets, SimplifyOptions, VertexDataAdapter, VertexStream,
+    build_meshlets, ffi::meshopt_Meshlet, generate_vertex_remap_multi,
+    simplify_with_attributes_and_locks, Meshlets, SimplifyOptions, VertexDataAdapter, VertexStream,
 };
 use metis::Graph;
 use smallvec::SmallVec;
@@ -29,7 +28,7 @@ const SIMPLIFICATION_FAILURE_PERCENTAGE: f32 = 0.95;
 /// Default vertex position quantization factor for use with [`MeshletMesh::from_mesh`].
 ///
 /// Snaps vertices to the nearest 1/16th of a centimeter (1/2^4).
-pub const DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR: u8 = 4;
+pub const MESHLET_DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR: u8 = 4;
 
 const CENTIMETERS_PER_METER: f32 = 100.0;
 
@@ -54,7 +53,7 @@ impl MeshletMesh {
     /// Vertices are snapped to the nearest (1/2^x)th of a centimeter, where x = `vertex_position_quantization_factor`.
     /// E.g. if x = 4, then vertices are snapped to the nearest 1/2^4 = 1/16th of a centimeter.
     ///
-    /// Use [`DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR`] as a default, adjusting lower to save memory and disk space, and higher to prevent artifacts if needed.
+    /// Use [`MESHLET_DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR`] as a default, adjusting lower to save memory and disk space, and higher to prevent artifacts if needed.
     ///
     /// To ensure that two different meshes do not have cracks between them when placed directly next to each other:
     ///   * Use the same quantization factor when converting each mesh to a meshlet mesh
@@ -72,6 +71,7 @@ impl MeshletMesh {
         let vertex_buffer = mesh.create_packed_vertex_buffer_data();
         let vertex_stride = mesh.get_vertex_size() as usize;
         let vertices = VertexDataAdapter::new(&vertex_buffer, vertex_stride, 0).unwrap();
+        let vertex_normals = bytemuck::cast_slice(&vertex_buffer[12..16]);
         let mut meshlets = compute_meshlets(&indices, &vertices);
         let mut bounding_spheres = meshlets
             .iter()
@@ -102,7 +102,7 @@ impl MeshletMesh {
             Some(&indices),
         );
 
-        let mut vertex_locks = vec![0; vertices.vertex_count];
+        let mut vertex_locks = vec![false; vertices.vertex_count];
 
         // Build further LODs
         let mut simplification_queue = Vec::from_iter(0..meshlets.len());
@@ -138,9 +138,14 @@ impl MeshletMesh {
                 }
 
                 // Simplify the group to ~50% triangle count
-                let Some((simplified_group_indices, mut group_error)) =
-                    simplify_meshlet_group(&group_meshlets, &meshlets, &vertices, &vertex_locks)
-                else {
+                let Some((simplified_group_indices, mut group_error)) = simplify_meshlet_group(
+                    &group_meshlets,
+                    &meshlets,
+                    &vertices,
+                    vertex_normals,
+                    vertex_stride,
+                    &vertex_locks,
+                ) else {
                     // Couldn't simplify the group enough, retry its meshlets later
                     retry_queue.extend_from_slice(&group_meshlets);
                     continue;
@@ -338,7 +343,7 @@ fn group_meshlets(
 }
 
 fn lock_group_borders(
-    vertex_locks: &mut [u8],
+    vertex_locks: &mut [bool],
     groups: &[SmallVec<[usize; TARGET_MESHLETS_PER_GROUP]>],
     meshlets: &Meshlets,
     position_only_vertex_remap: &[u32],
@@ -369,17 +374,17 @@ fn lock_group_borders(
     // Lock vertices used by more than 1 group
     for i in 0..vertex_locks.len() {
         let vertex_id = position_only_vertex_remap[i] as usize;
-        vertex_locks[i] = (position_only_locks[vertex_id] == -2) as u8;
+        vertex_locks[i] = position_only_locks[vertex_id] == -2;
     }
 }
 
-#[allow(unsafe_code)]
-#[allow(clippy::undocumented_unsafe_blocks)]
 fn simplify_meshlet_group(
     group_meshlets: &[usize],
     meshlets: &Meshlets,
     vertices: &VertexDataAdapter<'_>,
-    vertex_locks: &[u8],
+    vertex_normals: &[f32],
+    vertex_stride: usize,
+    vertex_locks: &[bool],
 ) -> Option<(Vec<u32>, f16)> {
     // Build a new index buffer into the mesh vertex data by combining all meshlet data in the group
     let mut group_indices = Vec::new();
@@ -391,33 +396,19 @@ fn simplify_meshlet_group(
     }
 
     // Simplify the group to ~50% triangle count
-    // TODO: Simplify using vertex attributes
     let mut error = 0.0;
-    let simplified_group_indices = unsafe {
-        let vertex_data = vertices.reader.get_ref();
-        let vertex_data = vertex_data.as_ptr().cast::<u8>();
-        let positions = vertex_data.add(vertices.position_offset);
-        let mut result: Vec<u32> = vec![0; group_indices.len()];
-        let index_count = meshopt_simplifyWithAttributes(
-            result.as_mut_ptr().cast(),
-            group_indices.as_ptr().cast(),
-            group_indices.len(),
-            positions.cast::<f32>(),
-            vertices.vertex_count,
-            vertices.vertex_stride,
-            core::ptr::null(),
-            0,
-            core::ptr::null(),
-            0,
-            vertex_locks.as_ptr().cast(),
-            group_indices.len() / 2,
-            f32::MAX,
-            (SimplifyOptions::Sparse | SimplifyOptions::ErrorAbsolute).bits(),
-            core::ptr::from_mut(&mut error),
-        );
-        result.resize(index_count, 0u32);
-        result
-    };
+    let simplified_group_indices = simplify_with_attributes_and_locks(
+        &group_indices,
+        vertices,
+        vertex_normals,
+        &[0.5; 3],
+        vertex_stride,
+        vertex_locks,
+        group_indices.len() / 2,
+        f32::MAX,
+        SimplifyOptions::Sparse | SimplifyOptions::ErrorAbsolute,
+        Some(&mut error),
+    );
 
     // Check if we were able to simplify at least a little
     if simplified_group_indices.len() as f32 / group_indices.len() as f32

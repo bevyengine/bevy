@@ -32,18 +32,15 @@ fn screenshot_on_spacebar(
 fn screenshot_saving(
     mut commands: Commands,
     screenshot_saving: Query<Entity, With<Capturing>>,
-    windows: Query<Entity, With<Window>>,
+    window: Single<Entity, With<Window>>,
 ) {
-    let Ok(window) = windows.get_single() else {
-        return;
-    };
     match screenshot_saving.iter().count() {
         0 => {
-            commands.entity(window).remove::<CursorIcon>();
+            commands.entity(*window).remove::<CursorIcon>();
         }
         x if x > 0 => {
             commands
-                .entity(window)
+                .entity(*window)
                 .insert(CursorIcon::from(SystemCursorIcon::Progress));
         }
         _ => {}
