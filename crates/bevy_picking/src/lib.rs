@@ -30,7 +30,7 @@
 //! ## Expressive Events
 //!
 //! The events in this module (see [`events`]) cannot be listened to with normal `EventReader`s.
-//! Instead, they are dispatched to *ovservers* attached to specific entities. When events are generated, they
+//! Instead, they are dispatched to *observers* attached to specific entities. When events are generated, they
 //! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is haulted
 //! with a call to [`Trigger::propagate`](bevy_ecs::observer::Trigger::propagate).
 //! See [`Observer`] for details.
