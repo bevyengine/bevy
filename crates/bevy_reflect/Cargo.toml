@@ -11,7 +11,16 @@ rust-version = "1.76.0"
 
 [features]
 default = ["std", "smallvec", "debug"]
-std = ["bevy_utils/std", "erased-serde/std", "downcast-rs/std", "serde/std", "spin/std", "glam?/std", "smol_str?/std", "uuid?/std"]
+std = [
+  "bevy_utils/std",
+  "erased-serde/std",
+  "downcast-rs/std",
+  "serde/std",
+  "spin/std",
+  "glam?/std",
+  "smol_str?/std",
+  "uuid?/std",
+]
 # When enabled, provides Bevy-related reflection implementations
 bevy = ["smallvec", "smol_str"]
 glam = ["dep:glam"]
@@ -31,11 +40,15 @@ functions = ["bevy_reflect_derive/functions"]
 [dependencies]
 # bevy
 bevy_reflect_derive = { path = "derive", version = "0.15.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev", default-features = false, features = ["alloc"] }
+bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev", default-features = false, features = [
+  "alloc",
+] }
 bevy_ptr = { path = "../bevy_ptr", version = "0.15.0-dev" }
 
 # other
-erased-serde = { version = "0.4", default-features = false, features = ["alloc"] }
+erased-serde = { version = "0.4", default-features = false, features = [
+  "alloc",
+] }
 disqualified = { version = "1.0", default-features = false }
 downcast-rs = { version = "1.2", default-features = false }
 derive_more = { version = "1", default-features = false, features = [
@@ -44,14 +57,24 @@ derive_more = { version = "1", default-features = false, features = [
   "display",
 ] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
-spin = { version = "0.9.8", default-features = false, features = ["once", "rwlock"] }
+spin = { version = "0.9.8", default-features = false, features = [
+  "once",
+  "rwlock",
+] }
 assert_type_match = "0.1.1"
 
 smallvec = { version = "1.11", default-features = false, optional = true }
-glam = { version = "0.29", default-features = false, features = ["serde"], optional = true }
+glam = { version = "0.29", default-features = false, features = [
+  "serde",
+], optional = true }
 petgraph = { version = "0.6", features = ["serde-1"], optional = true }
-smol_str = { version = "0.2.0", default-features = false, features = ["serde"], optional = true }
-uuid = { version = "1.0", default-features = false, optional = true, features = ["v4", "serde"] }
+smol_str = { version = "0.2.0", default-features = false, features = [
+  "serde",
+], optional = true }
+uuid = { version = "1.0", default-features = false, optional = true, features = [
+  "v4",
+  "serde",
+] }
 wgpu-types = { version = "23", features = ["serde"], optional = true }
 
 [dev-dependencies]
