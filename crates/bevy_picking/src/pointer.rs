@@ -286,6 +286,26 @@ impl PointerInput {
         }
     }
 
+    /// Returns true if the `target_button` of this pointer was just pressed.
+    #[inline]
+    pub fn button_just_pressed(&self, target_button: PointerButton) -> bool {
+        if let PointerAction::Pressed { direction, button } = self.action {
+            direction == PressDirection::Down && button == target_button
+        } else {
+            false
+        }
+    }
+
+    /// Returns true if the `target_button` of this pointer was just released.
+    #[inline]
+    pub fn button_just_released(&self, target_button: PointerButton) -> bool {
+        if let PointerAction::Pressed { direction, button } = self.action {
+            direction == PressDirection::Up && button == target_button
+        } else {
+            false
+        }
+    }
+
     /// Updates pointer entities according to the input events.
     pub fn receive(
         mut events: EventReader<PointerInput>,
