@@ -67,16 +67,16 @@ use bevy_render::{
         VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    texture::{BevyDefault, CachedTexture, GpuImage, Image, TextureCache},
+    texture::{CachedTexture, GpuImage, TextureCache},
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
-#[cfg(feature = "smaa_luts")]
-use bevy_render::{
-    render_asset::RenderAssetUsages,
-    texture::{CompressedImageFormats, ImageFormat, ImageSampler, ImageType},
-};
 use bevy_utils::prelude::default;
+#[cfg(feature = "smaa_luts")]
+use {
+    bevy_image::{prelude::*, CompressedImageFormats, ImageSampler, ImageType},
+    bevy_render::render_asset::RenderAssetUsages,
+};
 
 #[cfg(not(feature = "smaa_luts"))]
 use crate::tonemapping::lut_placeholder;

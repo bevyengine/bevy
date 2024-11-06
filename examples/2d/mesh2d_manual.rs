@@ -8,6 +8,7 @@
 use bevy::{
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
+    image::prelude::*,
     math::{ops, FloatOrd},
     prelude::*,
     render::{
@@ -25,7 +26,6 @@ use bevy::{
             TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
         sync_world::MainEntityHashMap,
-        texture::BevyDefault,
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Extract, Render, RenderApp, RenderSet,
     },

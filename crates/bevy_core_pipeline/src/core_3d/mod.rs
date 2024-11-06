@@ -67,6 +67,7 @@ use core::ops::Range;
 
 use bevy_asset::{AssetId, UntypedAssetId};
 use bevy_color::LinearRgba;
+use bevy_image::prelude::*;
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
@@ -91,7 +92,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     sync_world::RenderEntity,
-    texture::{BevyDefault, ColorAttachment, Image, TextureCache},
+    texture::{ColorAttachment, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };

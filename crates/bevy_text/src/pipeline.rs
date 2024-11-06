@@ -9,9 +9,9 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{ResMut, Resource},
 };
+use bevy_image::Image;
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;
 

@@ -15,6 +15,10 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
+use bevy_image::{
+    prelude::*, CompressedImageFormats, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
+    ImageSampler, ImageSamplerDescriptor, ImageType,
+};
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
     DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial, UvChannel,
@@ -31,10 +35,6 @@ use bevy_render::{
     primitives::Aabb,
     render_asset::RenderAssetUsages,
     render_resource::{Face, PrimitiveTopology},
-    texture::{
-        CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
-        ImageSampler, ImageSamplerDescriptor, ImageType, TextureError,
-    },
     view::Visibility,
 };
 use bevy_scene::Scene;
