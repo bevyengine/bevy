@@ -34,6 +34,10 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// when [`ViewVisibility::get()`] is false.
 /// This ensures that hidden UI nodes are not interactable,
 /// and do not end up stuck in an active state if hidden at the wrong time.
+/// 
+/// If a UI node has both [`Interaction`] and [`Interactivity`] components,
+/// [`Interaction`] will always be [`Interaction::None`]
+/// when [`Interactivity::Disabled`] is used.
 ///
 /// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
 /// which fully collapses it during layout calculations.
@@ -65,6 +69,31 @@ impl Interaction {
 }
 
 impl Default for Interaction {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// Describes if an interactive UI node can be interacted with.
+/// 
+/// This is commoly queried with [`Interaction`]
+/// 
+/// Note: click/press-release actions will still be registered. To block propagation see [`FocusPolicy`]
+#[derive(Component, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq)]
+#[require(Interaction)]
+pub enum Interactivity {
+    /// The node can be interacted with, it's [`Interaction`] componnent will be updated.
+	Enabled,
+    /// The node can't be interacted with, it's [`Interaction`] componnent will always be [`Interaction::None`].
+	Disabled,
+}
+
+impl Interactivity {
+    const DEFAULT: Self = Self::Enabled;
+}
+
+impl Default for Interactivity {
     fn default() -> Self {
         Self::DEFAULT
     }
