@@ -358,7 +358,7 @@ mod tests {
 
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
-    use bevy_ecs::{event::Events, schedule::IntoSystemConfigs};
+    use bevy_ecs::schedule::IntoSystemConfigs;
 
     use crate::{detect_text_needs_rerender, TextIterScratch};
 
@@ -373,7 +373,6 @@ mod tests {
             .init_resource::<Assets<Image>>()
             .init_resource::<Assets<TextureAtlasLayout>>()
             .init_resource::<FontAtlasSets>()
-            .init_resource::<Events<WindowScaleFactorChanged>>()
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
