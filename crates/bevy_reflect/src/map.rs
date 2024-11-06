@@ -42,7 +42,7 @@ use alloc::{boxed::Box, format, vec::Vec};
 /// assert_eq!(field.try_downcast_ref::<bool>(), Some(&true));
 /// ```
 ///
-/// [`HashMap`]: alloc::collections::HashMap
+/// [`HashMap`]: std::collections::HashMap
 /// [`BTreeMap`]: alloc::collections::BTreeMap
 /// [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
 /// [reflection]: crate

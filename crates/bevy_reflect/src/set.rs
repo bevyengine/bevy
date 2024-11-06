@@ -42,7 +42,7 @@ use crate::{
 /// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123_u32));
 /// ```
 ///
-/// [`HashSet`]: alloc::collections::HashSet
+/// [`HashSet`]: std::collections::HashSet
 /// [`BTreeSet`]: alloc::collections::BTreeSet
 /// [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
 /// [reflection]: crate
