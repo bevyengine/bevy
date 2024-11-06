@@ -221,7 +221,7 @@ pub fn ui_layout_system(
                     || node.is_changed()
                     || content_size
                         .as_ref()
-                        .map(|c| c.measure.is_some())
+                        .map(|c| c.is_changed() || c.measure.is_some())
                         .unwrap_or(false)
                 {
                     let layout_context = LayoutContext::new(
