@@ -658,9 +658,11 @@ pub mod __macro_exports {
     /// This is required because in `std` environments (e.g., the `std` feature is enabled)
     /// the `alloc` crate may not have been included, making its namespace unreliable.
     pub mod alloc_utils {
-        pub use ::alloc::borrow::Cow;
-        pub use ::alloc::boxed::Box;
-        pub use ::alloc::string::ToString;
+        pub use ::alloc::{
+            borrow::{Cow, ToOwned},
+            boxed::Box,
+            string::ToString,
+        };
     }
 
     /// A wrapper trait around [`GetTypeRegistration`].
