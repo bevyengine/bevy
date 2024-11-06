@@ -1043,7 +1043,7 @@ impl<'a> ReflectTypePath<'a> {
                 let ty = &const_param.ty;
 
                 Some(StringExpr::Owned(quote! {
-                    <#ty as #bevy_reflect_path::__macro_exports::ToString>::to_string(&#ident)
+                    <#ty as #bevy_reflect_path::__macro_exports::alloc_utils::ToString>::to_string(&#ident)
                 }))
             }
             GenericParam::Lifetime(_) => None,

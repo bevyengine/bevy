@@ -186,8 +186,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             }
 
             #[inline]
-            fn clone_value(&self) -> #bevy_reflect_path::__macro_exports::Box<dyn #bevy_reflect_path::PartialReflect> {
-                #bevy_reflect_path::__macro_exports::Box::new(#bevy_reflect_path::Enum::clone_dynamic(self))
+            fn clone_value(&self) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect> {
+                #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#bevy_reflect_path::Enum::clone_dynamic(self))
             }
 
             #[inline]
@@ -256,7 +256,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 #bevy_reflect_path::ReflectMut::Enum(self)
             }
 
-            fn reflect_owned(self: #bevy_reflect_path::__macro_exports::Box<Self>) -> #bevy_reflect_path::ReflectOwned {
+            fn reflect_owned(self: #bevy_reflect_path::__macro_exports::alloc_utils::Box<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::Enum(self)
             }
 

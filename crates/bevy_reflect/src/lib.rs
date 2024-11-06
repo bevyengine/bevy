@@ -653,9 +653,15 @@ pub mod __macro_exports {
         DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
     };
 
-    pub use alloc::borrow::Cow;
-    pub use alloc::boxed::Box;
-    pub use alloc::string::ToString;
+    /// Re-exports of items from the [`alloc`] crate.
+    ///
+    /// This is required because in `std` environments (e.g., the `std` feature is enabled)
+    /// the `alloc` crate may not have been included, making its namespace unreliable.
+    pub mod alloc_utils {
+        pub use ::alloc::borrow::Cow;
+        pub use ::alloc::boxed::Box;
+        pub use ::alloc::string::ToString;
+    }
 
     /// A wrapper trait around [`GetTypeRegistration`].
     ///

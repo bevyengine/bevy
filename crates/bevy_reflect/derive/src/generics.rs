@@ -32,7 +32,7 @@ pub(crate) fn generate_generics(meta: &ReflectMeta) -> Option<TokenStream> {
                 Some(quote! {
                     #bevy_reflect_path::GenericInfo::Type(
                         #bevy_reflect_path::TypeParamInfo::new::<#ident>(
-                            #bevy_reflect_path::__macro_exports::Cow::Borrowed(#name),
+                            #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(#name),
                         )
                         #with_default
                     )
@@ -53,7 +53,7 @@ pub(crate) fn generate_generics(meta: &ReflectMeta) -> Option<TokenStream> {
                     )]
                     #bevy_reflect_path::GenericInfo::Const(
                         #bevy_reflect_path::ConstParamInfo::new::<#ty>(
-                            #bevy_reflect_path::__macro_exports::Cow::Borrowed(#name),
+                            #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(#name),
                         )
                         #with_default
                     )

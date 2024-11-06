@@ -81,10 +81,10 @@ impl SkippedFieldDef {
 
         let default_fn = match &field.attrs.default {
             DefaultBehavior::Func(func) => quote! {
-              || { #bevy_reflect_path::__macro_exports::Box::new(#func()) }
+              || { #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#func()) }
             },
             _ => quote! {
-              || { #bevy_reflect_path::__macro_exports::Box::new(<#ty as #FQDefault>::default()) }
+              || { #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(<#ty as #FQDefault>::default()) }
             },
         };
 

@@ -48,7 +48,7 @@ impl StringExpr {
 
         match self {
             Self::Const(tokens) | Self::Borrowed(tokens) => quote! {
-                #bevy_reflect_path::__macro_exports::ToString::to_string(#tokens)
+                #bevy_reflect_path::__macro_exports::alloc_utils::ToString::to_string(#tokens)
             },
             Self::Owned(owned) => owned,
         }

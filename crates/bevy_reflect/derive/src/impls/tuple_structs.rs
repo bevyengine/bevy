@@ -100,8 +100,8 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
             #[inline]
-            fn clone_value(&self) -> #bevy_reflect_path::__macro_exports::Box<dyn #bevy_reflect_path::PartialReflect> {
-                #bevy_reflect_path::__macro_exports::Box::new(#bevy_reflect_path::TupleStruct::clone_dynamic(self))
+            fn clone_value(&self) -> #bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::PartialReflect> {
+                #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#bevy_reflect_path::TupleStruct::clone_dynamic(self))
             }
 
             #[inline]
@@ -139,7 +139,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
                 #bevy_reflect_path::ReflectMut::TupleStruct(self)
             }
             #[inline]
-            fn reflect_owned(self: #bevy_reflect_path::__macro_exports::Box<Self>) -> #bevy_reflect_path::ReflectOwned {
+            fn reflect_owned(self: #bevy_reflect_path::__macro_exports::alloc_utils::Box<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::TupleStruct(self)
             }
 
