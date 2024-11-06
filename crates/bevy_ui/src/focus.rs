@@ -79,7 +79,7 @@ impl Default for Interaction {
 /// This is commoly queried with [`Interaction`]
 /// 
 /// Note: click/press-release actions will still be registered. To block propagation see [`FocusPolicy`]
-#[derive(Component, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq)]
 #[require(Interaction)]
 pub enum Interactivity {
@@ -168,6 +168,7 @@ pub struct NodeQuery {
     node: &'static ComputedNode,
     global_transform: &'static GlobalTransform,
     interaction: Option<&'static mut Interaction>,
+    interactivity: Option<&'static Interactivity>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
@@ -340,19 +341,24 @@ pub fn ui_focus_system(
     // the iteration will stop on it because it "captures" the interaction.
     let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
     while let Some(node) = iter.fetch_next() {
-        if let Some(mut interaction) = node.interaction {
-            if mouse_clicked {
-                // only consider nodes with Interaction "pressed"
-                if *interaction != Interaction::Pressed {
-                    *interaction = Interaction::Pressed;
-                    // if the mouse was simultaneously released, reset this Interaction in the next
-                    // frame
-                    if mouse_released {
-                        state.entities_to_reset.push(node.entity);
+
+        // Block interaction of disabled nodes
+        if node.interactivity.is_none() || node.interactivity.is_some_and(|inter| *inter == Interactivity::Enabled)
+        {
+            if let Some(mut interaction) = node.interaction {
+                if mouse_clicked {
+                    // only consider nodes with Interaction "pressed"
+                    if *interaction != Interaction::Pressed {
+                        *interaction = Interaction::Pressed;
+                        // if the mouse was simultaneously released, reset this Interaction in the next
+                        // frame
+                        if mouse_released {
+                            state.entities_to_reset.push(node.entity);
+                        }
                     }
+                } else if *interaction == Interaction::None {
+                    *interaction = Interaction::Hovered;
                 }
-            } else if *interaction == Interaction::None {
-                *interaction = Interaction::Hovered;
             }
         }
 
