@@ -30,7 +30,7 @@ impl<C: Component> Default for SyncComponentPlugin<C> {
 
 impl<C: Component> Plugin for SyncComponentPlugin<C> {
     fn build(&self, app: &mut App) {
-        app.register_required_components::<C, SyncToRenderWorld>();
+        app.register_related_components::<C, SyncToRenderWorld>();
 
         app.world_mut().register_component_hooks::<C>().on_remove(
             |mut world, entity, _component_id| {

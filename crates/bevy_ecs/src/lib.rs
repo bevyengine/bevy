@@ -82,7 +82,7 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::component::{RequiredComponents, RequiredComponentsError};
+    use crate::component::{RelatedComponents, RelatedComponentsError};
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
@@ -2071,8 +2071,8 @@ mod tests {
         struct V;
 
         let mut world = World::new();
-        world.register_required_components::<X, Y>();
-        world.register_required_components::<Y, Z>();
+        world.register_related_components::<X, Y>();
+        world.register_related_components::<Y, Z>();
 
         let e = world.spawn((X, V)).id();
         assert!(world.entity(e).contains::<X>());
@@ -2213,8 +2213,8 @@ mod tests {
 
         let mut world = World::new();
 
-        world.register_required_components::<X, Y>();
-        world.register_required_components_with::<Y, Z>(|| Z(7));
+        world.register_related_components::<X, Y>();
+        world.register_related_components_with::<Y, Z>(|| Z(7));
 
         let id = world.spawn(X).id();
 
@@ -2277,9 +2277,9 @@ mod tests {
         // - X requires Y with default constructor
         // - Y requires Z with custom constructor
         // - X requires Z with custom constructor (more specific than X -> Y -> Z)
-        world.register_required_components::<X, Y>();
-        world.register_required_components_with::<Y, Z>(|| Z(5));
-        world.register_required_components_with::<X, Z>(|| Z(7));
+        world.register_related_components::<X, Y>();
+        world.register_related_components_with::<Y, Z>(|| Z(5));
+        world.register_related_components_with::<X, Z>(|| Z(7));
 
         let id = world.spawn(X).id();
 
@@ -2308,9 +2308,9 @@ mod tests {
         // - X requires Y with default constructor
         // - X requires Z with custom constructor (more specific than X -> Y -> Z)
         // - Y requires Z with custom constructor
-        world.register_required_components::<X, Y>();
-        world.register_required_components_with::<X, Z>(|| Z(7));
-        world.register_required_components_with::<Y, Z>(|| Z(5));
+        world.register_related_components::<X, Y>();
+        world.register_related_components_with::<X, Z>(|| Z(7));
+        world.register_related_components_with::<Y, Z>(|| Z(5));
 
         let id = world.spawn(X).id();
 
@@ -2335,8 +2335,8 @@ mod tests {
         // This may change in the future.
         world.spawn(X);
         assert!(matches!(
-            world.try_register_required_components::<X, Y>(),
-            Err(RequiredComponentsError::ArchetypeExists(_))
+            world.try_register_related_components::<X, Y>(),
+            Err(RelatedComponentsError::ArchetypeExists(_))
         ));
     }
 
@@ -2353,8 +2353,8 @@ mod tests {
 
         // This should fail: Tried to register Y as a requirement for X, but the requirement already exists.
         assert!(matches!(
-            world.try_register_required_components::<X, Y>(),
-            Err(RequiredComponentsError::DuplicateRegistration(_, _))
+            world.try_register_related_components::<X, Y>(),
+            Err(RelatedComponentsError::DuplicateRegistration(_, _))
         ));
     }
 
@@ -2403,10 +2403,10 @@ mod tests {
         let y = world.register_component::<Y>();
         let z = world.register_component::<Z>();
 
-        world.register_required_components::<X, A>();
-        world.register_required_components::<X, Y>();
-        world.register_required_components::<Y, Z>();
-        world.register_required_components::<Z, B>();
+        world.register_related_components::<X, A>();
+        world.register_related_components::<X, Y>();
+        world.register_related_components::<Y, Z>();
+        world.register_related_components::<Z, B>();
 
         world.spawn(X);
 
@@ -2419,7 +2419,7 @@ mod tests {
 
         /// Returns the component IDs and inheritance depths of the required components
         /// in ascending order based on the component ID.
-        fn to_vec(required: &RequiredComponents) -> Vec<(ComponentId, u16)> {
+        fn to_vec(required: &RelatedComponents) -> Vec<(ComponentId, u16)> {
             let mut vec = required
                 .0
                 .iter()

@@ -35,7 +35,7 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, RequiredComponents, RequiredComponentsError, Tick,
+        Components, RelatedComponents, RelatedComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
@@ -293,22 +293,22 @@ impl World {
         self.components.get_hooks_mut(id)
     }
 
-    /// Registers the given component `R` as a [required component] for `T`.
+    /// Registers the given component `R` as a [related component] for `T`.
     ///
-    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// When `T` is added to an entity, `R` and its own related components will also be added
     /// if `R` was not already provided. The [`Default`] `constructor` will be used for the creation of `R`.
-    /// If a custom constructor is desired, use [`World::register_required_components_with`] instead.
+    /// If a custom constructor is desired, use [`World::register_related_components_with`] instead.
     ///
-    /// For the non-panicking version, see [`World::try_register_required_components`].
+    /// For the non-panicking version, see [`World::try_register_related_components`].
     ///
     /// Note that requirements must currently be registered before `T` is inserted into the world
     /// for the first time. This limitation may be fixed in the future.
     ///
-    /// [required component]: Component#required-components
+    /// [related component]: Component#related-components
     ///
     /// # Panics
     ///
-    /// Panics if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// Panics if `R` is already a directly related component for `T`, or if `T` has ever been added
     /// on an entity before the registration.
     ///
     /// Indirect requirements through other components are allowed. In those cases, any existing requirements
@@ -329,34 +329,34 @@ impl World {
     ///
     /// # let mut world = World::default();
     /// // Register B as required by A and C as required by B.
-    /// world.register_required_components::<A, B>();
-    /// world.register_required_components::<B, C>();
+    /// world.register_related_components::<A, B>();
+    /// world.register_related_components::<B, C>();
     ///
     /// // This will implicitly also insert B and C with their Default constructors.
     /// let id = world.spawn(A).id();
     /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
     /// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
     /// ```
-    pub fn register_required_components<T: Component, R: Component + Default>(&mut self) {
-        self.try_register_required_components::<T, R>().unwrap();
+    pub fn register_related_components<T: Component, R: Component + Default>(&mut self) {
+        self.try_register_related_components::<T, R>().unwrap();
     }
 
-    /// Registers the given component `R` as a [required component] for `T`.
+    /// Registers the given component `R` as a [related component] for `T`.
     ///
-    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// When `T` is added to an entity, `R` and its own related components will also be added
     /// if `R` was not already provided. The given `constructor` will be used for the creation of `R`.
-    /// If a [`Default`] constructor is desired, use [`World::register_required_components`] instead.
+    /// If a [`Default`] constructor is desired, use [`World::register_related_components`] instead.
     ///
-    /// For the non-panicking version, see [`World::try_register_required_components_with`].
+    /// For the non-panicking version, see [`World::try_register_related_components_with`].
     ///
     /// Note that requirements must currently be registered before `T` is inserted into the world
     /// for the first time. This limitation may be fixed in the future.
     ///
-    /// [required component]: Component#required-components
+    /// [related component]: Component#related-components
     ///
     /// # Panics
     ///
-    /// Panics if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// Panics if `R` is already a directly related component for `T`, or if `T` has ever been added
     /// on an entity before the registration.
     ///
     /// Indirect requirements through other components are allowed. In those cases, any existing requirements
@@ -378,9 +378,9 @@ impl World {
     /// # let mut world = World::default();
     /// // Register B and C as required by A and C as required by B.
     /// // A requiring C directly will overwrite the indirect requirement through B.
-    /// world.register_required_components::<A, B>();
-    /// world.register_required_components_with::<B, C>(|| C(1));
-    /// world.register_required_components_with::<A, C>(|| C(2));
+    /// world.register_related_components::<A, B>();
+    /// world.register_related_components_with::<B, C>(|| C(1));
+    /// world.register_related_components_with::<A, C>(|| C(2));
     ///
     /// // This will implicitly also insert B with its Default constructor and C
     /// // with the custom constructor defined by A.
@@ -388,30 +388,30 @@ impl World {
     /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
     /// assert_eq!(&C(2), world.entity(id).get::<C>().unwrap());
     /// ```
-    pub fn register_required_components_with<T: Component, R: Component>(
+    pub fn register_related_components_with<T: Component, R: Component>(
         &mut self,
         constructor: fn() -> R,
     ) {
-        self.try_register_required_components_with::<T, R>(constructor)
+        self.try_register_related_components_with::<T, R>(constructor)
             .unwrap();
     }
 
-    /// Tries to register the given component `R` as a [required component] for `T`.
+    /// Tries to register the given component `R` as a [related component] for `T`.
     ///
-    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// When `T` is added to an entity, `R` and its own related components will also be added
     /// if `R` was not already provided. The [`Default`] `constructor` will be used for the creation of `R`.
-    /// If a custom constructor is desired, use [`World::register_required_components_with`] instead.
+    /// If a custom constructor is desired, use [`World::register_related_components_with`] instead.
     ///
-    /// For the panicking version, see [`World::register_required_components`].
+    /// For the panicking version, see [`World::register_related_components`].
     ///
     /// Note that requirements must currently be registered before `T` is inserted into the world
     /// for the first time. This limitation may be fixed in the future.
     ///
-    /// [required component]: Component#required-components
+    /// [related component]: Component#related-components
     ///
     /// # Errors
     ///
-    /// Returns a [`RequiredComponentsError`] if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// Returns a [`RelatedComponentsError`] if `R` is already a directly required component for `T`, or if `T` has ever been added
     /// on an entity before the registration.
     ///
     /// Indirect requirements through other components are allowed. In those cases, any existing requirements
@@ -432,39 +432,39 @@ impl World {
     ///
     /// # let mut world = World::default();
     /// // Register B as required by A and C as required by B.
-    /// world.register_required_components::<A, B>();
-    /// world.register_required_components::<B, C>();
+    /// world.register_related_components::<A, B>();
+    /// world.register_related_components::<B, C>();
     ///
     /// // Duplicate registration! This will fail.
-    /// assert!(world.try_register_required_components::<A, B>().is_err());
+    /// assert!(world.try_register_related_components::<A, B>().is_err());
     ///
     /// // This will implicitly also insert B and C with their Default constructors.
     /// let id = world.spawn(A).id();
     /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
     /// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
     /// ```
-    pub fn try_register_required_components<T: Component, R: Component + Default>(
+    pub fn try_register_related_components<T: Component, R: Component + Default>(
         &mut self,
-    ) -> Result<(), RequiredComponentsError> {
-        self.try_register_required_components_with::<T, R>(R::default)
+    ) -> Result<(), RelatedComponentsError> {
+        self.try_register_related_components_with::<T, R>(R::default)
     }
 
-    /// Tries to register the given component `R` as a [required component] for `T`.
+    /// Tries to register the given component `R` as a [related component] for `T`.
     ///
-    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// When `T` is added to an entity, `R` and its own related components will also be added
     /// if `R` was not already provided. The given `constructor` will be used for the creation of `R`.
-    /// If a [`Default`] constructor is desired, use [`World::register_required_components`] instead.
+    /// If a [`Default`] constructor is desired, use [`World::register_related_components`] instead.
     ///
-    /// For the panicking version, see [`World::register_required_components_with`].
+    /// For the panicking version, see [`World::register_related_components_with`].
     ///
     /// Note that requirements must currently be registered before `T` is inserted into the world
     /// for the first time. This limitation may be fixed in the future.
     ///
-    /// [required component]: Component#required-components
+    /// [related component]: Component#related-components
     ///
     /// # Errors
     ///
-    /// Returns a [`RequiredComponentsError`] if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// Returns a [`RelatedComponentsError`] if `R` is already a directly required component for `T`, or if `T` has ever been added
     /// on an entity before the registration.
     ///
     /// Indirect requirements through other components are allowed. In those cases, any existing requirements
@@ -486,12 +486,12 @@ impl World {
     /// # let mut world = World::default();
     /// // Register B and C as required by A and C as required by B.
     /// // A requiring C directly will overwrite the indirect requirement through B.
-    /// world.register_required_components::<A, B>();
-    /// world.register_required_components_with::<B, C>(|| C(1));
-    /// world.register_required_components_with::<A, C>(|| C(2));
+    /// world.register_related_components::<A, B>();
+    /// world.register_related_components_with::<B, C>(|| C(1));
+    /// world.register_related_components_with::<A, C>(|| C(2));
     ///
     /// // Duplicate registration! Even if the constructors were different, this would fail.
-    /// assert!(world.try_register_required_components_with::<B, C>(|| C(1)).is_err());
+    /// assert!(world.try_register_related_components_with::<B, C>(|| C(1)).is_err());
     ///
     /// // This will implicitly also insert B with its Default constructor and C
     /// // with the custom constructor defined by A.
@@ -499,15 +499,15 @@ impl World {
     /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
     /// assert_eq!(&C(2), world.entity(id).get::<C>().unwrap());
     /// ```
-    pub fn try_register_required_components_with<T: Component, R: Component>(
+    pub fn try_register_related_components_with<T: Component, R: Component>(
         &mut self,
         constructor: fn() -> R,
-    ) -> Result<(), RequiredComponentsError> {
+    ) -> Result<(), RelatedComponentsError> {
         let requiree = self.register_component::<T>();
 
         // TODO: Remove this panic and update archetype edges accordingly when required components are added
         if self.archetypes().component_index().contains_key(&requiree) {
-            return Err(RequiredComponentsError::ArchetypeExists(requiree));
+            return Err(RelatedComponentsError::ArchetypeExists(requiree));
         }
 
         let required = self.register_component::<R>();
@@ -515,19 +515,19 @@ impl World {
         // SAFETY: We just created the `required` and `requiree` components.
         unsafe {
             self.components
-                .register_required_components::<R>(required, requiree, constructor)
+                .register_related_components::<R>(required, requiree, constructor)
         }
     }
 
-    /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
-    pub fn get_required_components<C: Component>(&self) -> Option<&RequiredComponents> {
+    /// Retrieves the [related components](RelatedComponents) for the given component type, if it exists.
+    pub fn get_required_components<C: Component>(&self) -> Option<&RelatedComponents> {
         let id = self.components().component_id::<C>()?;
         let component_info = self.components().get_info(id)?;
         Some(component_info.required_components())
     }
 
-    /// Retrieves the [required components](RequiredComponents) for the component of the given [`ComponentId`], if it exists.
-    pub fn get_required_components_by_id(&self, id: ComponentId) -> Option<&RequiredComponents> {
+    /// Retrieves the [related components](RelatedComponents) for the component of the given [`ComponentId`], if it exists.
+    pub fn get_required_components_by_id(&self, id: ComponentId) -> Option<&RelatedComponents> {
         let component_info = self.components().get_info(id)?;
         Some(component_info.required_components())
     }

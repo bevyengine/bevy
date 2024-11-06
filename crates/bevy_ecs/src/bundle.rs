@@ -10,7 +10,7 @@ use crate::{
         SpawnBundleStatus,
     },
     component::{
-        Component, ComponentId, Components, RequiredComponentConstructor, RequiredComponents,
+        Component, ComponentId, Components, RelatedComponentConstructor, RelatedComponents,
         StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
@@ -171,10 +171,10 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
         Self: Sized;
 
     /// Registers components that are required by the components in this [`Bundle`].
-    fn register_required_components(
+    fn register_related_components(
         _components: &mut Components,
         _storages: &mut Storages,
-        _required_components: &mut RequiredComponents,
+        _required_components: &mut RelatedComponents,
     );
 }
 
@@ -214,13 +214,13 @@ unsafe impl<C: Component> Bundle for C {
         unsafe { ptr.read() }
     }
 
-    fn register_required_components(
+    fn register_related_components(
         components: &mut Components,
         storages: &mut Storages,
-        required_components: &mut RequiredComponents,
+        required_components: &mut RelatedComponents,
     ) {
         let component_id = components.register_component::<C>(storages);
-        <C as Component>::register_required_components(
+        <C as Component>::register_related_components(
             component_id,
             components,
             storages,
@@ -273,12 +273,12 @@ macro_rules! tuple_impl {
                 unsafe { ($(<$name as Bundle>::from_components(ctx, func),)*) }
             }
 
-            fn register_required_components(
+            fn register_related_components(
                 _components: &mut Components,
                 _storages: &mut Storages,
-                _required_components: &mut RequiredComponents,
+                _required_components: &mut RelatedComponents,
             ) {
-                $(<$name as Bundle>::register_required_components(_components, _storages, _required_components);)*
+                $(<$name as Bundle>::register_related_components(_components, _storages, _required_components);)*
             }
         }
 
@@ -356,7 +356,7 @@ pub struct BundleInfo {
     /// and the range (0..`explicit_components_len`) must be in the same order as the source bundle
     /// type writes its components in.
     component_ids: Vec<ComponentId>,
-    required_components: Vec<RequiredComponentConstructor>,
+    required_components: Vec<RelatedComponentConstructor>,
     explicit_components_len: usize,
 }
 
@@ -401,7 +401,7 @@ impl BundleInfo {
         }
 
         let explicit_components_len = component_ids.len();
-        let mut required_components = RequiredComponents::default();
+        let mut required_components = RelatedComponents::default();
         for component_id in component_ids.iter().copied() {
             // SAFETY: caller has verified that all ids are valid
             let info = unsafe { components.get_info_unchecked(component_id) };
@@ -504,7 +504,7 @@ impl BundleInfo {
         table: &mut Table,
         sparse_sets: &mut SparseSets,
         bundle_component_status: &S,
-        required_components: impl Iterator<Item = &'a RequiredComponentConstructor>,
+        required_components: impl Iterator<Item = &'a RelatedComponentConstructor>,
         entity: Entity,
         table_row: TableRow,
         change_tick: Tick,
@@ -576,12 +576,12 @@ impl BundleInfo {
         }
     }
 
-    /// Internal method to initialize a required component from an [`OwningPtr`]. This should ultimately be called
-    /// in the context of [`BundleInfo::write_components`], via [`RequiredComponentConstructor::initialize`].
+    /// Internal method to initialize a related component from an [`OwningPtr`]. This should ultimately be called
+    /// in the context of [`BundleInfo::write_components`], via [`RelatedComponentConstructor::initialize`].
     ///
     /// # Safety
     ///
-    /// `component_ptr` must point to a required component value that matches the given `component_id`. The `storage_type` must match
+    /// `component_ptr` must point to a related component value that matches the given `component_id`. The `storage_type` must match
     /// the type associated with `component_id`. The `entity` and `table_row` must correspond to an entity with an uninitialized
     /// component matching `component_id`.
     ///
@@ -589,7 +589,7 @@ impl BundleInfo {
     /// For more information, read the [`BundleInfo::write_components`] safety docs.
     /// This function inherits the safety requirements defined there.
     #[allow(clippy::too_many_arguments)]
-    pub(crate) unsafe fn initialize_required_component(
+    pub(crate) unsafe fn initialize_related_component(
         table: &mut Table,
         sparse_sets: &mut SparseSets,
         change_tick: Tick,

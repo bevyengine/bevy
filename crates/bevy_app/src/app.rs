@@ -4,7 +4,7 @@ use crate::{
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    component::RequiredComponentsError,
+    component::RelatedComponentsError,
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
@@ -754,25 +754,25 @@ impl App {
         self
     }
 
-    /// Registers the given component `R` as a [required component] for `T`.
+    /// Registers the given component `R` as a [related component] for `T`.
     ///
-    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// When `T` is added to an entity, `R` and its own related components will also be added
     /// if `R` was not already provided. The [`Default`] `constructor` will be used for the creation of `R`.
-    /// If a custom constructor is desired, use [`App::register_required_components_with`] instead.
+    /// If a custom constructor is desired, use [`App::register_related_components_with`] instead.
     ///
-    /// For the non-panicking version, see [`App::try_register_required_components`].
+    /// For the non-panicking version, see [`App::try_register_related_components`].
     ///
     /// Note that requirements must currently be registered before `T` is inserted into the world
     /// for the first time. Commonly, this is done in plugins. This limitation may be fixed in the future.
     ///
-    /// [required component]: Component#required-components
+    /// [related component]: Component#related-components
     ///
     /// # Panics
     ///
-    /// Panics if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// Panics if `R` is already a directly related component for `T`, or if `T` has ever been added
     /// on an entity before the registration.
     ///
-    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// Indirect relationships through other components are allowed. In those cases, any existing requirements
     /// will only be overwritten if the new requirement is more specific.
     ///
     /// # Example
@@ -792,8 +792,8 @@ impl App {
     /// # let mut app = App::new();
     /// # app.add_plugins(MinimalPlugins).add_systems(Startup, setup);
     /// // Register B as required by A and C as required by B.
-    /// app.register_required_components::<A, B>();
-    /// app.register_required_components::<B, C>();
+    /// app.register_related_components::<A, B>();
+    /// app.register_related_components::<B, C>();
     ///
     /// fn setup(mut commands: Commands) {
     ///     // This will implicitly also insert B and C with their Default constructors.
@@ -807,32 +807,32 @@ impl App {
     /// }
     /// # app.update();
     /// ```
-    pub fn register_required_components<T: Component, R: Component + Default>(
+    pub fn register_related_components<T: Component, R: Component + Default>(
         &mut self,
     ) -> &mut Self {
-        self.world_mut().register_required_components::<T, R>();
+        self.world_mut().register_related_components::<T, R>();
         self
     }
 
-    /// Registers the given component `R` as a [required component] for `T`.
+    /// Registers the given component `R` as a [related component] for `T`.
     ///
-    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// When `T` is added to an entity, `R` and its own related components will also be added
     /// if `R` was not already provided. The given `constructor` will be used for the creation of `R`.
-    /// If a [`Default`] constructor is desired, use [`App::register_required_components`] instead.
+    /// If a [`Default`] constructor is desired, use [`App::register_related_components`] instead.
     ///
-    /// For the non-panicking version, see [`App::try_register_required_components_with`].
+    /// For the non-panicking version, see [`App::try_register_related_components_with`].
     ///
     /// Note that requirements must currently be registered before `T` is inserted into the world
     /// for the first time. Commonly, this is done in plugins. This limitation may be fixed in the future.
     ///
-    /// [required component]: Component#required-components
+    /// [related component]: Component#related-components
     ///
     /// # Panics
     ///
-    /// Panics if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// Panics if `R` is already a directly related component for `T`, or if `T` has ever been added
     /// on an entity before the registration.
     ///
-    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// Indirect relationships through other components are allowed. In those cases, any existing relationships
     /// will only be overwritten if the new requirement is more specific.
     ///
     /// # Example
@@ -853,9 +853,9 @@ impl App {
     /// # app.add_plugins(MinimalPlugins).add_systems(Startup, setup);
     /// // Register B and C as required by A and C as required by B.
     /// // A requiring C directly will overwrite the indirect requirement through B.
-    /// app.register_required_components::<A, B>();
-    /// app.register_required_components_with::<B, C>(|| C(1));
-    /// app.register_required_components_with::<A, C>(|| C(2));
+    /// app.register_related_components::<A, B>();
+    /// app.register_related_components_with::<B, C>(|| C(1));
+    /// app.register_related_components_with::<A, C>(|| C(2));
     ///
     /// fn setup(mut commands: Commands) {
     ///     // This will implicitly also insert B with its Default constructor and C
@@ -870,34 +870,34 @@ impl App {
     /// }
     /// # app.update();
     /// ```
-    pub fn register_required_components_with<T: Component, R: Component>(
+    pub fn register_related_components_with<T: Component, R: Component>(
         &mut self,
         constructor: fn() -> R,
     ) -> &mut Self {
         self.world_mut()
-            .register_required_components_with::<T, R>(constructor);
+            .register_related_components_with::<T, R>(constructor);
         self
     }
 
-    /// Tries to register the given component `R` as a [required component] for `T`.
+    /// Tries to register the given component `R` as a [related component] for `T`.
     ///
-    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// When `T` is added to an entity, `R` and its own related components will also be added
     /// if `R` was not already provided. The [`Default`] `constructor` will be used for the creation of `R`.
-    /// If a custom constructor is desired, use [`App::register_required_components_with`] instead.
+    /// If a custom constructor is desired, use [`App::register_related_components_with`] instead.
     ///
-    /// For the panicking version, see [`App::register_required_components`].
+    /// For the panicking version, see [`App::register_related_components`].
     ///
     /// Note that requirements must currently be registered before `T` is inserted into the world
     /// for the first time. Commonly, this is done in plugins. This limitation may be fixed in the future.
     ///
-    /// [required component]: Component#required-components
+    /// [related component]: Component#related-components
     ///
     /// # Errors
     ///
-    /// Returns a [`RequiredComponentsError`] if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// Returns a [`RelatedComponentsError`] if `R` is already a directly related component for `T`, or if `T` has ever been added
     /// on an entity before the registration.
     ///
-    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// Indirect relationships through other components are allowed. In those cases, any existing relationships
     /// will only be overwritten if the new requirement is more specific.
     ///
     /// # Example
@@ -917,11 +917,11 @@ impl App {
     /// # let mut app = App::new();
     /// # app.add_plugins(MinimalPlugins).add_systems(Startup, setup);
     /// // Register B as required by A and C as required by B.
-    /// app.register_required_components::<A, B>();
-    /// app.register_required_components::<B, C>();
+    /// app.register_related_components::<A, B>();
+    /// app.register_related_components::<B, C>();
     ///
     /// // Duplicate registration! This will fail.
-    /// assert!(app.try_register_required_components::<A, B>().is_err());
+    /// assert!(app.try_register_related_components::<A, B>().is_err());
     ///
     /// fn setup(mut commands: Commands) {
     ///     // This will implicitly also insert B and C with their Default constructors.
@@ -935,31 +935,31 @@ impl App {
     /// }
     /// # app.update();
     /// ```
-    pub fn try_register_required_components<T: Component, R: Component + Default>(
+    pub fn try_register_related_components<T: Component, R: Component + Default>(
         &mut self,
-    ) -> Result<(), RequiredComponentsError> {
-        self.world_mut().try_register_required_components::<T, R>()
+    ) -> Result<(), RelatedComponentsError> {
+        self.world_mut().try_register_related_components::<T, R>()
     }
 
-    /// Tries to register the given component `R` as a [required component] for `T`.
+    /// Tries to register the given component `R` as a [related component] for `T`.
     ///
-    /// When `T` is added to an entity, `R` and its own required components will also be added
+    /// When `T` is added to an entity, `R` and its own related components will also be added
     /// if `R` was not already provided. The given `constructor` will be used for the creation of `R`.
-    /// If a [`Default`] constructor is desired, use [`App::register_required_components`] instead.
+    /// If a [`Default`] constructor is desired, use [`App::register_related_components`] instead.
     ///
-    /// For the panicking version, see [`App::register_required_components_with`].
+    /// For the panicking version, see [`App::register_related_components_with`].
     ///
     /// Note that requirements must currently be registered before `T` is inserted into the world
     /// for the first time. Commonly, this is done in plugins. This limitation may be fixed in the future.
     ///
-    /// [required component]: Component#required-components
+    /// [related component]: Component#related-components
     ///
     /// # Errors
     ///
-    /// Returns a [`RequiredComponentsError`] if `R` is already a directly required component for `T`, or if `T` has ever been added
+    /// Returns a [`RelatedComponentsError`] if `R` is already a directly related component for `T`, or if `T` has ever been added
     /// on an entity before the registration.
     ///
-    /// Indirect requirements through other components are allowed. In those cases, any existing requirements
+    /// Indirect relationships through other components are allowed. In those cases, any existing relationships
     /// will only be overwritten if the new requirement is more specific.
     ///
     /// # Example
@@ -980,12 +980,12 @@ impl App {
     /// # app.add_plugins(MinimalPlugins).add_systems(Startup, setup);
     /// // Register B and C as required by A and C as required by B.
     /// // A requiring C directly will overwrite the indirect requirement through B.
-    /// app.register_required_components::<A, B>();
-    /// app.register_required_components_with::<B, C>(|| C(1));
-    /// app.register_required_components_with::<A, C>(|| C(2));
+    /// app.register_related_components::<A, B>();
+    /// app.register_related_components_with::<B, C>(|| C(1));
+    /// app.register_related_components_with::<A, C>(|| C(2));
     ///
     /// // Duplicate registration! Even if the constructors were different, this would fail.
-    /// assert!(app.try_register_required_components_with::<B, C>(|| C(1)).is_err());
+    /// assert!(app.try_register_related_components_with::<B, C>(|| C(1)).is_err());
     ///
     /// fn setup(mut commands: Commands) {
     ///     // This will implicitly also insert B with its Default constructor and C
@@ -1000,12 +1000,12 @@ impl App {
     /// }
     /// # app.update();
     /// ```
-    pub fn try_register_required_components_with<T: Component, R: Component>(
+    pub fn try_register_related_components_with<T: Component, R: Component>(
         &mut self,
         constructor: fn() -> R,
-    ) -> Result<(), RequiredComponentsError> {
+    ) -> Result<(), RelatedComponentsError> {
         self.world_mut()
-            .try_register_required_components_with::<T, R>(constructor)
+            .try_register_related_components_with::<T, R>(constructor)
     }
 
     /// Returns a reference to the [`World`].
