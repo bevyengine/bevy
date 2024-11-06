@@ -82,7 +82,7 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::component::{RelatedComponents, RelatedComponentsError};
+    use crate::component::{RelatedComponents, RelatedComponentsError, Relatedness};
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
@@ -2071,8 +2071,8 @@ mod tests {
         struct V;
 
         let mut world = World::new();
-        world.register_related_components::<X, Y>();
-        world.register_related_components::<Y, Z>();
+        world.register_related_components::<X, Y>(Relatedness::Required);
+        world.register_related_components::<Y, Z>(Relatedness::Required);
 
         let e = world.spawn((X, V)).id();
         assert!(world.entity(e).contains::<X>());
@@ -2213,8 +2213,8 @@ mod tests {
 
         let mut world = World::new();
 
-        world.register_related_components::<X, Y>();
-        world.register_related_components_with::<Y, Z>(|| Z(7));
+        world.register_related_components::<X, Y>(Relatedness::Required);
+        world.register_related_components_with::<Y, Z>(|| Z(7), Relatedness::Required);
 
         let id = world.spawn(X).id();
 
@@ -2277,9 +2277,9 @@ mod tests {
         // - X requires Y with default constructor
         // - Y requires Z with custom constructor
         // - X requires Z with custom constructor (more specific than X -> Y -> Z)
-        world.register_related_components::<X, Y>();
-        world.register_related_components_with::<Y, Z>(|| Z(5));
-        world.register_related_components_with::<X, Z>(|| Z(7));
+        world.register_related_components::<X, Y>(Relatedness::Required);
+        world.register_related_components_with::<Y, Z>(|| Z(5), Relatedness::Required);
+        world.register_related_components_with::<X, Z>(|| Z(7), Relatedness::Required);
 
         let id = world.spawn(X).id();
 
@@ -2308,9 +2308,9 @@ mod tests {
         // - X requires Y with default constructor
         // - X requires Z with custom constructor (more specific than X -> Y -> Z)
         // - Y requires Z with custom constructor
-        world.register_related_components::<X, Y>();
-        world.register_related_components_with::<X, Z>(|| Z(7));
-        world.register_related_components_with::<Y, Z>(|| Z(5));
+        world.register_related_components::<X, Y>(Relatedness::Required);
+        world.register_related_components_with::<X, Z>(|| Z(7), Relatedness::Required);
+        world.register_related_components_with::<Y, Z>(|| Z(5), Relatedness::Required);
 
         let id = world.spawn(X).id();
 
@@ -2335,7 +2335,7 @@ mod tests {
         // This may change in the future.
         world.spawn(X);
         assert!(matches!(
-            world.try_register_related_components::<X, Y>(),
+            world.try_register_related_components::<X, Y>(Relatedness::Required),
             Err(RelatedComponentsError::ArchetypeExists(_))
         ));
     }
@@ -2353,7 +2353,7 @@ mod tests {
 
         // This should fail: Tried to register Y as a requirement for X, but the requirement already exists.
         assert!(matches!(
-            world.try_register_related_components::<X, Y>(),
+            world.try_register_related_components::<X, Y>(Relatedness::Required),
             Err(RelatedComponentsError::DuplicateRegistration(_, _))
         ));
     }
@@ -2403,10 +2403,10 @@ mod tests {
         let y = world.register_component::<Y>();
         let z = world.register_component::<Z>();
 
-        world.register_related_components::<X, A>();
-        world.register_related_components::<X, Y>();
-        world.register_related_components::<Y, Z>();
-        world.register_related_components::<Z, B>();
+        world.register_related_components::<X, A>(Relatedness::Required);
+        world.register_related_components::<X, Y>(Relatedness::Required);
+        world.register_related_components::<Y, Z>(Relatedness::Required);
+        world.register_related_components::<Z, B>(Relatedness::Required);
 
         world.spawn(X);
 

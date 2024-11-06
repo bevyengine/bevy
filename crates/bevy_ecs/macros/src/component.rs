@@ -78,7 +78,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let requires = &attrs.requires;
     let mut register_required = Vec::with_capacity(attrs.requires.iter().len());
     let mut register_recursive_requires = Vec::with_capacity(attrs.requires.iter().len());
+
     if let Some(requires) = requires {
+        let relatedness = quote! { #bevy_ecs_path::component::Relatedness::Required };
         for require in requires {
             let ident = &require.path;
             register_recursive_requires.push(quote! {
@@ -87,7 +89,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                     components,
                     storages,
                     required_components,
-                    inheritance_depth + 1
+                    inheritance_depth + 1,
                 );
             });
             match &require.func {
@@ -97,7 +99,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                             storages,
                             required_components,
                             || { let x: #ident = #func().into(); x },
-                            inheritance_depth
+                            inheritance_depth,
+                            #relatedness,
                         );
                     });
                 }
@@ -107,7 +110,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                             storages,
                             required_components,
                             || { let x: #ident = (#func)().into(); x },
-                            inheritance_depth
+                            inheritance_depth,
+                            #relatedness,
                         );
                     });
                 }
@@ -117,7 +121,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                             storages,
                             required_components,
                             <#ident as Default>::default,
-                            inheritance_depth
+                            inheritance_depth,
+                            #relatedness,
                         );
                     });
                 }

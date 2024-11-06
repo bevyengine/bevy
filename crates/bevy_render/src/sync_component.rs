@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
-use bevy_ecs::component::Component;
+use bevy_ecs::component::{Component, Relatedness};
 
 use crate::sync_world::{EntityRecord, PendingSyncEntity, SyncToRenderWorld};
 
@@ -30,7 +30,7 @@ impl<C: Component> Default for SyncComponentPlugin<C> {
 
 impl<C: Component> Plugin for SyncComponentPlugin<C> {
     fn build(&self, app: &mut App) {
-        app.register_related_components::<C, SyncToRenderWorld>();
+        app.register_related_components::<C, SyncToRenderWorld>(Relatedness::Required);
 
         app.world_mut().register_component_hooks::<C>().on_remove(
             |mut world, entity, _component_id| {

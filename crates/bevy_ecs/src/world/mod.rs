@@ -35,7 +35,7 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, RelatedComponents, RelatedComponentsError, Tick,
+        Components, RelatedComponents, RelatedComponentsError, Relatedness, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
@@ -337,8 +337,12 @@ impl World {
     /// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
     /// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
     /// ```
-    pub fn register_related_components<T: Component, R: Component + Default>(&mut self) {
-        self.try_register_related_components::<T, R>().unwrap();
+    pub fn register_related_components<T: Component, R: Component + Default>(
+        &mut self,
+        relatedness: Relatedness,
+    ) {
+        self.try_register_related_components::<T, R>(relatedness)
+            .unwrap();
     }
 
     /// Registers the given component `R` as a [related component] for `T`.
@@ -391,8 +395,9 @@ impl World {
     pub fn register_related_components_with<T: Component, R: Component>(
         &mut self,
         constructor: fn() -> R,
+        relatedness: Relatedness,
     ) {
-        self.try_register_related_components_with::<T, R>(constructor)
+        self.try_register_related_components_with::<T, R>(constructor, relatedness)
             .unwrap();
     }
 
@@ -445,8 +450,9 @@ impl World {
     /// ```
     pub fn try_register_related_components<T: Component, R: Component + Default>(
         &mut self,
+        relatedness: Relatedness,
     ) -> Result<(), RelatedComponentsError> {
-        self.try_register_related_components_with::<T, R>(R::default)
+        self.try_register_related_components_with::<T, R>(R::default, relatedness)
     }
 
     /// Tries to register the given component `R` as a [related component] for `T`.
@@ -502,6 +508,7 @@ impl World {
     pub fn try_register_related_components_with<T: Component, R: Component>(
         &mut self,
         constructor: fn() -> R,
+        relatedness: Relatedness,
     ) -> Result<(), RelatedComponentsError> {
         let requiree = self.register_component::<T>();
 
@@ -514,8 +521,12 @@ impl World {
 
         // SAFETY: We just created the `required` and `requiree` components.
         unsafe {
-            self.components
-                .register_related_components::<R>(required, requiree, constructor)
+            self.components.register_related_components::<R>(
+                required,
+                requiree,
+                constructor,
+                relatedness,
+            )
         }
     }
 

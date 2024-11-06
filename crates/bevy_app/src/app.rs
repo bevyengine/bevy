@@ -4,7 +4,7 @@ use crate::{
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    component::RelatedComponentsError,
+    component::{RelatedComponentsError, Relatedness},
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
@@ -809,8 +809,10 @@ impl App {
     /// ```
     pub fn register_related_components<T: Component, R: Component + Default>(
         &mut self,
+        relatedness: Relatedness,
     ) -> &mut Self {
-        self.world_mut().register_related_components::<T, R>();
+        self.world_mut()
+            .register_related_components::<T, R>(relatedness);
         self
     }
 
@@ -873,9 +875,10 @@ impl App {
     pub fn register_related_components_with<T: Component, R: Component>(
         &mut self,
         constructor: fn() -> R,
+        relatedness: Relatedness,
     ) -> &mut Self {
         self.world_mut()
-            .register_related_components_with::<T, R>(constructor);
+            .register_related_components_with::<T, R>(constructor, relatedness);
         self
     }
 
@@ -937,8 +940,10 @@ impl App {
     /// ```
     pub fn try_register_related_components<T: Component, R: Component + Default>(
         &mut self,
+        relatedness: Relatedness,
     ) -> Result<(), RelatedComponentsError> {
-        self.world_mut().try_register_related_components::<T, R>()
+        self.world_mut()
+            .try_register_related_components::<T, R>(relatedness)
     }
 
     /// Tries to register the given component `R` as a [related component] for `T`.
@@ -1003,9 +1008,10 @@ impl App {
     pub fn try_register_related_components_with<T: Component, R: Component>(
         &mut self,
         constructor: fn() -> R,
+        relatedness: Relatedness,
     ) -> Result<(), RelatedComponentsError> {
         self.world_mut()
-            .try_register_related_components_with::<T, R>(constructor)
+            .try_register_related_components_with::<T, R>(constructor, relatedness)
     }
 
     /// Returns a reference to the [`World`].

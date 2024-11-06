@@ -1042,6 +1042,7 @@ impl Components {
         required: ComponentId,
         requiree: ComponentId,
         constructor: fn() -> R,
+        relatedness: Relatedness,
     ) -> Result<(), RelatedComponentsError> {
         // SAFETY: The caller ensures that the `requiree` is valid.
         let related_components = unsafe {
@@ -1049,12 +1050,14 @@ impl Components {
                 .debug_checked_unwrap()
         };
 
-        // Cannot directly require the same component twice.
-        if related_components
-            .required_components
-            .get(&required)
-            .is_some_and(|c| c.inheritance_depth == 0)
-        {
+        let map = match relatedness {
+            Relatedness::Suggested => &related_components.suggested_components,
+            Relatedness::Included => &related_components.included_components,
+            Relatedness::Required => &related_components.required_components,
+        };
+
+        // Cannot directly create the same relation between components twice.
+        if map.get(&required).is_some_and(|c| c.inheritance_depth == 0) {
             return Err(RelatedComponentsError::DuplicateRegistration(
                 requiree, required,
             ));
@@ -1062,7 +1065,7 @@ impl Components {
 
         // Register the required component for the requiree.
         // This is a direct requirement with a depth of `0`.
-        related_components.register_by_id(required, constructor, 0);
+        related_components.register_by_id(required, constructor, 0, relatedness);
 
         // Add the requiree to the list of components that require the required component.
         // SAFETY: The component is in the list of required components, so it must exist already.
@@ -1071,7 +1074,7 @@ impl Components {
 
         // SAFETY: The caller ensures that the `requiree` and `required` components are valid.
         let inherited_requirements =
-            unsafe { self.register_inherited_required_components(requiree, required) };
+            unsafe { self.register_inherited_required_components(requiree, required, relatedness) };
 
         // Propagate the new required components up the chain to all components that require the requiree.
         if let Some(required_by) = self.get_required_by(requiree).cloned() {
@@ -1084,7 +1087,7 @@ impl Components {
 
                 // Register the original required component for the requiree.
                 // The inheritance depth is `1` since this is a component required by the original requiree.
-                required_components.register_by_id(required, constructor, 1);
+                required_components.register_by_id(required, constructor, 1, relatedness);
 
                 for (component_id, component) in inherited_requirements.iter() {
                     // Register the required component.
@@ -1096,6 +1099,7 @@ impl Components {
                             *component_id,
                             component.constructor.clone(),
                             component.inheritance_depth + 1,
+                            relatedness,
                         );
                     };
                 }
@@ -1115,6 +1119,7 @@ impl Components {
         &mut self,
         requiree: ComponentId,
         required: ComponentId,
+        relatedness: Relatedness,
     ) -> Vec<(ComponentId, RelatedComponent)> {
         // Get required components inherited from the `required` component.
         // SAFETY: The caller ensures that the `required` component is valid.
@@ -1151,6 +1156,7 @@ impl Components {
                     component_id,
                     component.constructor,
                     component.inheritance_depth,
+                    relatedness,
                 );
             };
 
@@ -1190,6 +1196,7 @@ impl Components {
         required_components: &mut RelatedComponents,
         constructor: fn() -> R,
         inheritance_depth: u16,
+        relatedness: Relatedness,
     ) {
         let requiree = self.register_component::<T>(storages);
         let required = self.register_component::<R>(storages);
@@ -1202,6 +1209,7 @@ impl Components {
                 required_components,
                 constructor,
                 inheritance_depth,
+                relatedness,
             );
         }
     }
@@ -1228,6 +1236,7 @@ impl Components {
         required_components: &mut RelatedComponents,
         constructor: fn() -> R,
         inheritance_depth: u16,
+        relatedness: Relatedness,
     ) {
         // Components cannot require themselves.
         if required == requiree {
@@ -1235,7 +1244,7 @@ impl Components {
         }
 
         // Register the required component `R` for the requiree.
-        required_components.register_by_id(required, constructor, inheritance_depth);
+        required_components.register_by_id(required, constructor, inheritance_depth, relatedness);
 
         // Add the requiree to the list of components that require `R`.
         // SAFETY: The caller ensures that the component ID is valid.
@@ -1806,8 +1815,9 @@ impl RelatedComponents {
         component_id: ComponentId,
         constructor: RelatedComponentConstructor,
         inheritance_depth: u16,
+        relatedness: Relatedness,
     ) {
-        self.required_components
+        self.get_map_mut(relatedness)
             .entry(component_id)
             .and_modify(|component| {
                 if component.inheritance_depth > inheritance_depth {
@@ -1832,9 +1842,10 @@ impl RelatedComponents {
         storages: &mut Storages,
         constructor: fn() -> C,
         inheritance_depth: u16,
+        relatedness: Relatedness,
     ) {
         let component_id = components.register_component::<C>(storages);
-        self.register_by_id(component_id, constructor, inheritance_depth);
+        self.register_by_id(component_id, constructor, inheritance_depth, relatedness);
     }
 
     /// Registers the [`Component`] with the given ID as related if it exists.
@@ -1846,6 +1857,7 @@ impl RelatedComponents {
         component_id: ComponentId,
         constructor: fn() -> C,
         inheritance_depth: u16,
+        relatedness: Relatedness,
     ) {
         let erased: RelatedComponentConstructor = RelatedComponentConstructor(Arc::new(
             move |table,
@@ -1881,12 +1893,12 @@ impl RelatedComponents {
         // `erased` initializes a component for `component_id` in such a way that
         // matches the storage type of the component. It only uses the given `table_row` or `Entity` to
         // initialize the storage corresponding to the given entity.
-        unsafe { self.register_dynamic(component_id, erased, inheritance_depth) };
+        unsafe { self.register_dynamic(component_id, erased, inheritance_depth, relatedness) };
     }
 
     /// Iterates the ids of all related components. This includes recursive related components.
-    pub fn iter_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.required_components.keys().copied()
+    pub fn iter_ids(&self, relatedness: Relatedness) -> impl Iterator<Item = ComponentId> + '_ {
+        self.get_map(relatedness).keys().copied()
     }
 
     /// Removes components that are explicitly provided in a given [`Bundle`]. These components should
@@ -1899,10 +1911,46 @@ impl RelatedComponents {
         }
     }
 
-    // Merges `required_components` into this collection. This only inserts a required component
+    /// Gets read-only access to the map corresponding to the given [`Relatedness`].
+    pub(crate) fn get_map(
+        &self,
+        relatedness: Relatedness,
+    ) -> &HashMap<ComponentId, RelatedComponent> {
+        match relatedness {
+            Relatedness::Suggested => &self.suggested_components,
+            Relatedness::Included => &self.included_components,
+            Relatedness::Required => &self.required_components,
+        }
+    }
+
+    /// Gets mutable access to the map corresponding to the given [`Relatedness`].
+    pub(crate) fn get_map_mut(
+        &mut self,
+        relatedness: Relatedness,
+    ) -> &mut HashMap<ComponentId, RelatedComponent> {
+        match relatedness {
+            Relatedness::Suggested => &mut self.suggested_components,
+            Relatedness::Included => &mut self.included_components,
+            Relatedness::Required => &mut self.required_components,
+        }
+    }
+
+    // Merges `related_components` into this collection. This only inserts a related component
     // if it _did not already exist_.
-    pub(crate) fn merge(&mut self, required_components: &RelatedComponents) {
-        for (id, constructor) in &required_components.required_components {
+    pub(crate) fn merge(&mut self, related_components: &RelatedComponents) {
+        for (id, constructor) in &related_components.suggested_components {
+            self.suggested_components
+                .entry(*id)
+                .or_insert_with(|| constructor.clone());
+        }
+
+        for (id, constructor) in &related_components.included_components {
+            self.included_components
+                .entry(*id)
+                .or_insert_with(|| constructor.clone());
+        }
+
+        for (id, constructor) in &related_components.required_components {
             self.required_components
                 .entry(*id)
                 .or_insert_with(|| constructor.clone());
