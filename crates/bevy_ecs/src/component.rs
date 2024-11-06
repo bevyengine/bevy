@@ -1722,13 +1722,23 @@ pub struct RelatedComponent {
 /// For the metadata associated with a relayed component, see [`RelatedComponent`].
 #[derive(Default, Clone)]
 pub struct RelatedComponents {
+    // NOTE: these are stored in separate maps to allow for more efficient lookups.
+    // A double map keyed by [`Relatedness`] then [`ComponentId`] would be more ergonomic,
+    // but would require more expensive lookups.
+    /// The components corresponding to [`Relatedness::Suggested`].
+    pub(crate) suggested_components: HashMap<ComponentId, RelatedComponent>,
+    /// The components corresponding to [`Relatedness::Included`].
+    pub(crate) included_components: HashMap<ComponentId, RelatedComponent>,
+    /// The components corresponding to [`Relatedness::Required`].
     pub(crate) required_components: HashMap<ComponentId, RelatedComponent>,
 }
 
 impl Debug for RelatedComponents {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("RelatedComponents")
-            .field(&self.required_components.keys())
+        f.debug_struct("RelatedComponents")
+            .field("Suggested", &self.suggested_components.keys())
+            .field("Included", &self.included_components.keys())
+            .field("Required", &self.required_components.keys())
             .finish()
     }
 }
