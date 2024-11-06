@@ -7,11 +7,11 @@ use crate::{
     reflect::impl_full_reflect,
     set_apply, set_partial_eq, set_try_apply,
     utility::{reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell},
-    ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap, DynamicSet, FromReflect, FromType,
-    Generics, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, MaybeTyped,
-    OpaqueInfo, PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect,
-    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set, SetInfo, TypeInfo,
-    TypeParamInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
+    ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap, DynamicSet, DynamicTypePath, FromReflect,
+    FromType, Generics, GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter,
+    MaybeTyped, OpaqueInfo, PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr,
+    ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set,
+    SetInfo, TypeInfo, TypeParamInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
 };
 use alloc::{borrow::Cow, borrow::ToOwned, boxed::Box, collections::VecDeque, format, vec::Vec};
 use bevy_reflect_derive::{impl_reflect, impl_reflect_opaque};
@@ -23,9 +23,6 @@ use core::{
 
 #[cfg(feature = "std")]
 use std::path::Path;
-
-#[cfg(feature = "std")]
-use crate::DynamicTypePath;
 
 impl_reflect_opaque!(bool(
     Debug,
@@ -224,7 +221,6 @@ impl_reflect_opaque!(::std::ffi::OsString(
 impl_reflect_opaque!(::std::ffi::OsString(Debug, Hash, PartialEq));
 impl_reflect_opaque!(::alloc::collections::BinaryHeap<T: Clone>);
 
-#[cfg(feature = "std")]
 macro_rules! impl_reflect_for_atomic {
     ($ty:ty, $ordering:expr) => {
         impl_type_path!($ty);
@@ -243,8 +239,14 @@ macro_rules! impl_reflect_for_atomic {
                     registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
                     registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
                     registration.insert::<ReflectDefault>(FromType::<Self>::from_type());
-                    registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
-                    registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
+
+                    // Serde only supports atomic types when the "std" feature is enabled
+                    #[cfg(feature = "std")]
+                    {
+                        registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
+                        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
+                    }
+
                     registration
                 }
             }
@@ -349,58 +351,46 @@ macro_rules! impl_reflect_for_atomic {
     };
 }
 
-// Serde only supports Deserialize with atomic types when the "std" feature is enabled
-#[cfg(feature = "std")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicIsize,
     ::core::sync::atomic::Ordering::SeqCst
 );
-#[cfg(feature = "std")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicUsize,
     ::core::sync::atomic::Ordering::SeqCst
 );
-#[cfg(feature = "std")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicI64,
     ::core::sync::atomic::Ordering::SeqCst
 );
-#[cfg(feature = "std")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicU64,
     ::core::sync::atomic::Ordering::SeqCst
 );
-#[cfg(feature = "std")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicI32,
     ::core::sync::atomic::Ordering::SeqCst
 );
-#[cfg(feature = "std")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicU32,
     ::core::sync::atomic::Ordering::SeqCst
 );
-#[cfg(feature = "std")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicI16,
     ::core::sync::atomic::Ordering::SeqCst
 );
-#[cfg(feature = "std")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicU16,
     ::core::sync::atomic::Ordering::SeqCst
 );
-#[cfg(feature = "std")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicI8,
     ::core::sync::atomic::Ordering::SeqCst
 );
-#[cfg(feature = "std")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicU8,
     ::core::sync::atomic::Ordering::SeqCst
 );
-#[cfg(feature = "std")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicBool,
     ::core::sync::atomic::Ordering::SeqCst
