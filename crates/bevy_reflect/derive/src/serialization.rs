@@ -2,7 +2,7 @@ use crate::{
     derive_data::StructField,
     field_attributes::{DefaultBehavior, ReflectIgnoreBehavior},
 };
-use bevy_macro_utils::fq_std::{FQBox, FQDefault};
+use bevy_macro_utils::{fq_std::FQDefault, BevyManifest};
 use quote::quote;
 use std::collections::HashMap;
 use syn::{spanned::Spanned, Path};
@@ -77,13 +77,14 @@ pub(crate) struct SkippedFieldDef {
 impl SkippedFieldDef {
     pub fn new(field: &StructField<'_>) -> Result<Self, syn::Error> {
         let ty = &field.data.ty;
+        let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
 
         let default_fn = match &field.attrs.default {
             DefaultBehavior::Func(func) => quote! {
-              || { #FQBox::new(#func()) }
+              || { #bevy_reflect_path::__macro_exports::Box::new(#func()) }
             },
             _ => quote! {
-              || { #FQBox::new(<#ty as #FQDefault>::default()) }
+              || { #bevy_reflect_path::__macro_exports::Box::new(<#ty as #FQDefault>::default()) }
             },
         };
 

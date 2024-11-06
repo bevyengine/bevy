@@ -12,6 +12,7 @@ use crate::{
     },
     PartialReflect, ReflectDeserialize, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
 };
+use alloc::boxed::Box;
 use core::{fmt, fmt::Formatter};
 use serde::de::{DeserializeSeed, Error, IgnoredAny, MapAccess, Visitor};
 
@@ -178,7 +179,7 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
 /// # Example
 ///
 /// ```
-/// # use std::any::TypeId;
+/// # use core::any::TypeId;
 /// # use serde::de::DeserializeSeed;
 /// # use bevy_reflect::prelude::*;
 /// # use bevy_reflect::{DynamicStruct, TypeRegistry, serde::TypedReflectDeserializer};

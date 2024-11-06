@@ -2,6 +2,9 @@ use crate::func::{args::ArgError, Return};
 use alloc::borrow::Cow;
 use derive_more::derive::{Display, Error, From};
 
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, vec};
+
 /// An error that occurs when calling a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// [`DynamicFunction`]: crate::func::DynamicFunction

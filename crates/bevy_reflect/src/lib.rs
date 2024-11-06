@@ -553,6 +553,8 @@
 //! [`ArgList`]: crate::func::ArgList
 //! [derive `Reflect`]: derive@crate::Reflect
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
 extern crate alloc;
 
 mod array;
@@ -650,6 +652,10 @@ pub mod __macro_exports {
         DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
         DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
     };
+
+    pub use alloc::borrow::Cow;
+    pub use alloc::boxed::Box;
+    pub use alloc::string::ToString;
 
     /// A wrapper trait around [`GetTypeRegistration`].
     ///

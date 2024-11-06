@@ -6,6 +6,7 @@ use crate::{
     DynamicTuple, TupleInfo, TupleStructInfo, TupleVariantInfo, TypeRegistration, TypeRegistry,
     UnnamedField,
 };
+use alloc::string::ToString;
 use serde::de::{Error, SeqAccess};
 
 pub(super) trait TupleLikeInfo {

@@ -1,5 +1,5 @@
 use bevy_macro_utils::{
-    fq_std::{FQBox, FQClone, FQOption, FQResult},
+    fq_std::{FQClone, FQOption, FQResult},
     BevyManifest,
 };
 use proc_macro::TokenStream;
@@ -57,7 +57,7 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
         #trait_vis struct #reflect_trait_ident {
             get_func: fn(&dyn #bevy_reflect_path::Reflect) -> #FQOption<&dyn #trait_ident>,
             get_mut_func: fn(&mut dyn #bevy_reflect_path::Reflect) -> #FQOption<&mut dyn #trait_ident>,
-            get_boxed_func: fn(#FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<#FQBox<dyn #trait_ident>, #FQBox<dyn #bevy_reflect_path::Reflect>>,
+            get_boxed_func: fn(#bevy_reflect_path::__macro_exports::Box<dyn #bevy_reflect_path::Reflect>) -> #FQResult<#bevy_reflect_path::__macro_exports::Box<dyn #trait_ident>, #bevy_reflect_path::__macro_exports::Box<dyn #bevy_reflect_path::Reflect>>,
         }
 
         impl #reflect_trait_ident {
@@ -72,7 +72,7 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
             }
 
             #[doc = #get_box_doc]
-            pub fn get_boxed(&self, reflect_value: #FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<#FQBox<dyn #trait_ident>, #FQBox<dyn #bevy_reflect_path::Reflect>> {
+            pub fn get_boxed(&self, reflect_value: #bevy_reflect_path::__macro_exports::Box<dyn #bevy_reflect_path::Reflect>) -> #FQResult<#bevy_reflect_path::__macro_exports::Box<dyn #trait_ident>, #bevy_reflect_path::__macro_exports::Box<dyn #bevy_reflect_path::Reflect>> {
                 (self.get_boxed_func)(reflect_value)
             }
         }
@@ -87,7 +87,7 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
                         <dyn #bevy_reflect_path::Reflect>::downcast_mut::<T>(reflect_value).map(|value| value as &mut dyn #trait_ident)
                     },
                     get_boxed_func: |reflect_value| {
-                        <dyn #bevy_reflect_path::Reflect>::downcast::<T>(reflect_value).map(|value| value as #FQBox<dyn #trait_ident>)
+                        <dyn #bevy_reflect_path::Reflect>::downcast::<T>(reflect_value).map(|value| value as #bevy_reflect_path::__macro_exports::Box<dyn #trait_ident>)
                     }
                 }
             }

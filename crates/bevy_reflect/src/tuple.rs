@@ -8,6 +8,7 @@ use crate::{
     ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
     Typed, UnnamedField,
 };
+use alloc::{boxed::Box, vec, vec::Vec};
 use core::{
     any::Any,
     fmt::{Debug, Formatter},
@@ -376,7 +377,7 @@ impl FromIterator<Box<dyn PartialReflect>> for DynamicTuple {
 
 impl IntoIterator for DynamicTuple {
     type Item = Box<dyn PartialReflect>;
-    type IntoIter = alloc::vec::IntoIter<Self::Item>;
+    type IntoIter = vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.fields.into_iter()
@@ -694,41 +695,51 @@ macro_rules! impl_type_path_tuple {
     };
 
     ($(#[$meta:meta])* $param:ident) => {
-        $(#[$meta])*
-        impl <$param: TypePath> TypePath for ($param,) {
-            fn type_path() -> &'static str {
-                static CELL: GenericTypePathCell = GenericTypePathCell::new();
-                CELL.get_or_insert::<Self, _>(|| {
-                    "(".to_owned() + $param::type_path() + ",)"
-                })
-            }
+        const _: () = {
+            extern crate alloc;
+            use alloc::borrow::ToOwned;
 
-            fn short_type_path() -> &'static str {
-                static CELL: GenericTypePathCell = GenericTypePathCell::new();
-                CELL.get_or_insert::<Self, _>(|| {
-                    "(".to_owned() + $param::short_type_path() + ",)"
-                })
+            $(#[$meta])*
+            impl <$param: TypePath> TypePath for ($param,) {
+                fn type_path() -> &'static str {
+                    static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                    CELL.get_or_insert::<Self, _>(|| {
+                        "(".to_owned() + $param::type_path() + ",)"
+                    })
+                }
+
+                fn short_type_path() -> &'static str {
+                    static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                    CELL.get_or_insert::<Self, _>(|| {
+                        "(".to_owned() + $param::short_type_path() + ",)"
+                    })
+                }
             }
-        }
+        };
     };
 
     ($(#[$meta:meta])* $last:ident $(,$param:ident)*) => {
-        $(#[$meta])*
-        impl <$($param: TypePath,)* $last: TypePath> TypePath for ($($param,)* $last) {
-            fn type_path() -> &'static str {
-                static CELL: GenericTypePathCell = GenericTypePathCell::new();
-                CELL.get_or_insert::<Self, _>(|| {
-                    "(".to_owned() $(+ $param::type_path() + ", ")* + $last::type_path() + ")"
-                })
-            }
+        const _: () = {
+            extern crate alloc;
+            use alloc::borrow::ToOwned;
 
-            fn short_type_path() -> &'static str {
-                static CELL: GenericTypePathCell = GenericTypePathCell::new();
-                CELL.get_or_insert::<Self, _>(|| {
-                    "(".to_owned() $(+ $param::short_type_path() + ", ")* + $last::short_type_path() + ")"
-                })
+            $(#[$meta])*
+            impl <$($param: TypePath,)* $last: TypePath> TypePath for ($($param,)* $last) {
+                fn type_path() -> &'static str {
+                    static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                    CELL.get_or_insert::<Self, _>(|| {
+                        "(".to_owned() $(+ $param::type_path() + ", ")* + $last::type_path() + ")"
+                    })
+                }
+
+                fn short_type_path() -> &'static str {
+                    static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                    CELL.get_or_insert::<Self, _>(|| {
+                        "(".to_owned() $(+ $param::short_type_path() + ", ")* + $last::short_type_path() + ")"
+                    })
+                }
             }
-        }
+        };
     };
 }
 
