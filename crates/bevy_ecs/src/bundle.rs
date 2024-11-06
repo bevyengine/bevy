@@ -401,15 +401,15 @@ impl BundleInfo {
         }
 
         let explicit_components_len = component_ids.len();
-        let mut required_components = RelatedComponents::default();
+        let mut related_components = RelatedComponents::default();
         for component_id in component_ids.iter().copied() {
             // SAFETY: caller has verified that all ids are valid
             let info = unsafe { components.get_info_unchecked(component_id) };
-            required_components.merge(info.required_components());
+            related_components.merge(info.related_components());
         }
-        required_components.remove_explicit_components(&component_ids);
-        let required_components = required_components
-            .0
+        related_components.remove_explicit_components(&component_ids);
+        let required_components = related_components
+            .required_components
             .into_iter()
             .map(|(component_id, v)| {
                 // This adds required components to the component_ids list _after_ using that list to remove explicitly provided

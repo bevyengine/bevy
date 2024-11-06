@@ -523,13 +523,13 @@ impl World {
     pub fn get_required_components<C: Component>(&self) -> Option<&RelatedComponents> {
         let id = self.components().component_id::<C>()?;
         let component_info = self.components().get_info(id)?;
-        Some(component_info.required_components())
+        Some(component_info.related_components())
     }
 
     /// Retrieves the [related components](RelatedComponents) for the component of the given [`ComponentId`], if it exists.
     pub fn get_required_components_by_id(&self, id: ComponentId) -> Option<&RelatedComponents> {
         let component_info = self.components().get_info(id)?;
-        Some(component_info.required_components())
+        Some(component_info.related_components())
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.

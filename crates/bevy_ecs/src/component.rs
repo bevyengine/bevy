@@ -700,7 +700,7 @@ impl ComponentInfo {
 
     /// Retrieves the [`RelatedComponents`] collection, which contains all required components (and their constructors)
     /// needed by this component. This includes _recursive_ required components.
-    pub fn required_components(&self) -> &RelatedComponents {
+    pub fn related_components(&self) -> &RelatedComponents {
         &self.required_components
     }
 }
@@ -1011,7 +1011,7 @@ impl Components {
     }
 
     #[inline]
-    pub(crate) fn get_required_components_mut(
+    pub(crate) fn get_related_components_mut(
         &mut self,
         id: ComponentId,
     ) -> Option<&mut RelatedComponents> {
@@ -1044,14 +1044,14 @@ impl Components {
         constructor: fn() -> R,
     ) -> Result<(), RelatedComponentsError> {
         // SAFETY: The caller ensures that the `requiree` is valid.
-        let required_components = unsafe {
-            self.get_required_components_mut(requiree)
+        let related_components = unsafe {
+            self.get_related_components_mut(requiree)
                 .debug_checked_unwrap()
         };
 
         // Cannot directly require the same component twice.
-        if required_components
-            .0
+        if related_components
+            .required_components
             .get(&required)
             .is_some_and(|c| c.inheritance_depth == 0)
         {
@@ -1062,7 +1062,7 @@ impl Components {
 
         // Register the required component for the requiree.
         // This is a direct requirement with a depth of `0`.
-        required_components.register_by_id(required, constructor, 0);
+        related_components.register_by_id(required, constructor, 0);
 
         // Add the requiree to the list of components that require the required component.
         // SAFETY: The component is in the list of required components, so it must exist already.
@@ -1078,7 +1078,7 @@ impl Components {
             for &required_by_id in required_by.iter() {
                 // SAFETY: The component is in the list of required components, so it must exist already.
                 let required_components = unsafe {
-                    self.get_required_components_mut(required_by_id)
+                    self.get_related_components_mut(required_by_id)
                         .debug_checked_unwrap()
                 };
 
@@ -1120,8 +1120,8 @@ impl Components {
         // SAFETY: The caller ensures that the `required` component is valid.
         let required_component_info = unsafe { self.get_info(required).debug_checked_unwrap() };
         let inherited_requirements: Vec<(ComponentId, RelatedComponent)> = required_component_info
-            .required_components()
-            .0
+            .related_components()
+            .required_components
             .iter()
             .map(|(component_id, required_component)| {
                 (
@@ -1140,7 +1140,7 @@ impl Components {
         for (component_id, component) in inherited_requirements.iter().cloned() {
             // SAFETY: The caller ensures that the `requiree` is valid.
             let required_components = unsafe {
-                self.get_required_components_mut(requiree)
+                self.get_related_components_mut(requiree)
                     .debug_checked_unwrap()
             };
 
@@ -1721,12 +1721,14 @@ pub struct RelatedComponent {
 /// For usage information, see the "Related Components" section of [`Component`].
 /// For the metadata associated with a relayed component, see [`RelatedComponent`].
 #[derive(Default, Clone)]
-pub struct RelatedComponents(pub(crate) HashMap<ComponentId, RelatedComponent>);
+pub struct RelatedComponents {
+    pub(crate) required_components: HashMap<ComponentId, RelatedComponent>,
+}
 
 impl Debug for RelatedComponents {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("RelatedComponents")
-            .field(&self.0.keys())
+            .field(&self.required_components.keys())
             .finish()
     }
 }
@@ -1795,7 +1797,7 @@ impl RelatedComponents {
         constructor: RelatedComponentConstructor,
         inheritance_depth: u16,
     ) {
-        self.0
+        self.required_components
             .entry(component_id)
             .and_modify(|component| {
                 if component.inheritance_depth > inheritance_depth {
@@ -1874,24 +1876,26 @@ impl RelatedComponents {
 
     /// Iterates the ids of all related components. This includes recursive related components.
     pub fn iter_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.0.keys().copied()
+        self.required_components.keys().copied()
     }
 
     /// Removes components that are explicitly provided in a given [`Bundle`]. These components should
     /// be logically treated as normal components, not "required components".
     ///
     /// [`Bundle`]: crate::bundle::Bundle
-    pub(crate) fn remove_explicit_components(&mut self, components: &[ComponentId]) {
-        for component in components {
-            self.0.remove(component);
+    pub(crate) fn remove_explicit_components(&mut self, explicit_components: &[ComponentId]) {
+        for component in explicit_components {
+            self.required_components.remove(component);
         }
     }
 
     // Merges `required_components` into this collection. This only inserts a required component
     // if it _did not already exist_.
     pub(crate) fn merge(&mut self, required_components: &RelatedComponents) {
-        for (id, constructor) in &required_components.0 {
-            self.0.entry(*id).or_insert_with(|| constructor.clone());
+        for (id, constructor) in &required_components.required_components {
+            self.required_components
+                .entry(*id)
+                .or_insert_with(|| constructor.clone());
         }
     }
 }

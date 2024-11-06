@@ -2419,9 +2419,9 @@ mod tests {
 
         /// Returns the component IDs and inheritance depths of the required components
         /// in ascending order based on the component ID.
-        fn to_vec(required: &RelatedComponents) -> Vec<(ComponentId, u16)> {
-            let mut vec = required
-                .0
+        fn to_vec(related: &RelatedComponents) -> Vec<(ComponentId, u16)> {
+            let mut vec = related
+                .required_components
                 .iter()
                 .map(|(id, component)| (*id, component.inheritance_depth))
                 .collect::<Vec<_>>();
