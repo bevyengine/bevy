@@ -2,7 +2,7 @@ use crate::{
     derive_data::StructField,
     field_attributes::{DefaultBehavior, ReflectIgnoreBehavior},
 };
-use bevy_macro_utils::{fq_std::FQDefault, BevyManifest};
+use bevy_macro_utils::fq_std::FQDefault;
 use quote::quote;
 use std::collections::HashMap;
 use syn::{spanned::Spanned, Path};
@@ -20,7 +20,10 @@ impl SerializationDataDef {
     ///
     /// Returns `Ok(Some(data))` if there are any fields needing to be skipped during serialization.
     /// Otherwise, returns `Ok(None)`.
-    pub fn new(fields: &[StructField<'_>]) -> Result<Option<Self>, syn::Error> {
+    pub fn new(
+        fields: &[StructField<'_>],
+        bevy_reflect_path: &Path,
+    ) -> Result<Option<Self>, syn::Error> {
         let mut skipped = HashMap::default();
 
         for field in fields {
@@ -33,7 +36,7 @@ impl SerializationDataDef {
                                 "internal error: field is missing a reflection index",
                             )
                         })?,
-                        SkippedFieldDef::new(field)?,
+                        SkippedFieldDef::new(field, bevy_reflect_path)?,
                     );
                 }
                 _ => continue,
@@ -75,9 +78,8 @@ pub(crate) struct SkippedFieldDef {
 }
 
 impl SkippedFieldDef {
-    pub fn new(field: &StructField<'_>) -> Result<Self, syn::Error> {
+    pub fn new(field: &StructField<'_>, bevy_reflect_path: &Path) -> Result<Self, syn::Error> {
         let ty = &field.data.ty;
-        let bevy_reflect_path = BevyManifest::default().get_path("bevy_reflect");
 
         let default_fn = match &field.attrs.default {
             DefaultBehavior::Func(func) => quote! {

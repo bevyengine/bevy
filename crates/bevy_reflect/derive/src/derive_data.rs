@@ -280,9 +280,11 @@ impl<'a> ReflectDerive<'a> {
         match &input.data {
             Data::Struct(data) => {
                 let fields = Self::collect_struct_fields(&data.fields)?;
+                let serialization_data =
+                    SerializationDataDef::new(&fields, &meta.bevy_reflect_path)?;
                 let reflect_struct = ReflectStruct {
                     meta,
-                    serialization_data: SerializationDataDef::new(&fields)?,
+                    serialization_data,
                     fields,
                 };
 
