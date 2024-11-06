@@ -11,7 +11,6 @@ use bevy_ecs::component::Component;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     entity::Entity,
-    event::EventReader,
     prelude::{ReflectComponent, With},
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
@@ -30,7 +29,7 @@ use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, Textu
 use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashSet;
-use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
+use bevy_window::{PrimaryWindow, Window;
 
 /// [`Text2dBundle`] was removed in favor of required components.
 /// The core component is now [`Text2d`] which can contain a single text segment.
