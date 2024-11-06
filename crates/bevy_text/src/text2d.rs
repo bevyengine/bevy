@@ -263,7 +263,7 @@ pub fn update_text2d_layout(
 
     let inverse_scale_factor = scale_factor.recip();
 
-    let factor_changed = last_scale_factor != scale_factor;
+    let factor_changed = *last_scale_factor != scale_factor;
     *last_scale_factor = scale_factor;
 
     for (entity, block, bounds, text_layout_info, mut computed) in &mut text_query {
