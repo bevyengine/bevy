@@ -182,7 +182,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ))
                         .with_children(|parent| {
                             parent.spawn((
-                                UiImage::new(asset_server.load("branding/bevy_logo_light.png")),
+                                ImageNode::new(asset_server.load("branding/bevy_logo_light.png")),
                                 // Uses the transform to rotate the logo image by 45 degrees
                                 Transform::from_rotation(Quat::from_rotation_z(0.25 * PI)),
                                 BorderRadius::all(Val::Px(10.)),
@@ -294,7 +294,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     // bevy logo (image)
                     parent
                         .spawn((
-                            UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png"))
+                            ImageNode::new(asset_server.load("branding/bevy_logo_dark_big.png"))
                                 .with_mode(NodeImageMode::Stretch),
                             Node {
                                 width: Val::Px(500.0),
@@ -334,15 +334,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         [(false, false), (false, true), (true, true), (true, false)]
                     {
                         parent.spawn((
-                            Node {
-                                // The height will be chosen automatically to preserve the image's aspect ratio
-                                width: Val::Px(75.),
-                                ..default()
-                            },
-                            UiImage {
+                            ImageNode {
                                 image: asset_server.load("branding/icon.png"),
                                 flip_x,
                                 flip_y,
+                                ..default()
+                            },
+                            Node {
+                                // The height will be chosen automatically to preserve the image's aspect ratio
+                                width: Val::Px(75.),
                                 ..default()
                             },
                         ));

@@ -20,7 +20,7 @@ fn main() {
 
 fn button_system(
     mut interaction_query: Query<
-        (&Interaction, &Children, &mut UiImage),
+        (&Interaction, &Children, &mut ImageNode),
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
@@ -82,7 +82,7 @@ fn setup(
                 parent
                     .spawn((
                         Button,
-                        UiImage::from_atlas_image(
+                        ImageNode::from_atlas_image(
                             texture_handle.clone(),
                             TextureAtlas {
                                 index: idx,
