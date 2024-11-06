@@ -154,7 +154,11 @@ fn update_cursors(
                     CursorSource::Custom((cache_key, source))
                 }
             }
-            #[cfg(all(target_family = "wasm", target_os = "unknown"))]
+            #[cfg(all(
+                feature = "custom_cursor",
+                target_family = "wasm",
+                target_os = "unknown"
+            ))]
             CursorIcon::Custom(CustomCursor::Url { url, hotspot }) => {
                 let cache_key = CustomCursorCacheKey::Url(url.clone());
 
