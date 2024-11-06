@@ -101,7 +101,17 @@ use derive_more::derive::{Display, Error};
 ///
 /// # Related Components
 ///
-/// Components can specify Related Components. If some [`Component`] `A` requires [`Component`] `B`,  then when `A` is inserted,
+/// Components can specify Related Components, which are intended to work together.
+/// There are three levels of [`Relatedness`] whose functionality builds on previous levels, ranging from "helpful suggestion" to "manadatory":
+///
+/// 1. [`Relatedness::Suggested`]: These components work well together, check it out!
+/// 2. [`Relatedness::Included`]: These components are typically used together, so we'll include them for you upon insertion.
+/// 3. [`Relatedness::Required`]: These components must be used together. Not only are they included upon insertion, you can't opt out.
+///
+/// When using the `suggests`/`includes`/`required` attributes as part of the derive macro,
+/// documentation will automatically be generated for the [`Component`] impl of your type.
+///
+/// Additionally, if some [`Component`] `A` requires or includes [`Component`] `B`,  then when `A` is inserted,
 /// `B` will _also_ be initialized and inserted (if it was not manually specified).
 ///
 /// The [`Default`] constructor will be used to initialize the component, by default:
@@ -1719,6 +1729,52 @@ impl Debug for RelatedComponents {
             .field(&self.0.keys())
             .finish()
     }
+}
+
+/// The strictness of the relationship between components.
+///
+/// These enum variants are ordered from least strict to most strict.
+///
+/// Related components are unidirectional: if `A` requires `B`, `B` does not necessarily require `A`.
+/// These variants describe the strength of the relationship from `A` to `B`, where `A` is the component
+/// that you are registering related components for.
+///
+/// In many cases, you might create an included/required component relationship in one direction,
+/// but merely suggest the relationship in the other direction to help users discover the connection.
+///
+/// For usage information, see the "Related Components" section of [`Component`].
+/// For the collection of metadata associated with a specific component, see [`RelatedComponents`].
+/// For a single piece of metadata associated with a related component, see [`RelatedComponent`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Relatedness {
+    /// This component has a helpful interaction with the related component.
+    ///
+    /// At this level, documentation is automatically generated (when used as part of the derive macro),
+    /// and runtime metadata linking the components is stored for use with tooling.
+    ///
+    /// This level is appropriate to link components that have a helpful, optional effect when used together.
+    Suggested,
+    /// This component should typically be used with the related component.
+    ///
+    /// In addition to the features of [`Relatedness::Suggested`],
+    /// whenever this component is added to an entity, the related component will also be added if it was not already provided.
+    ///
+    /// This level is appropriate to link components that should almost always be used together,
+    /// but where power users may wish to opt-out of this behavior.
+    Included,
+    /// This component must be used with the related component.
+    ///
+    /// In addition to the features of [`Relatedness::Suggested`],
+    /// whenever this component is added to an entity, the relationship between these components cannot be removed.
+    /// In the future, we intend to this level to enforce even stricter guarantees, such as removing this component
+    /// if any of its required component is removed.
+    ///
+    /// This level is appropriate for strict correctness requirements,
+    /// where the related component is a fundamental part of the component's functionality
+    /// and removing it would break the component's behavior.
+    /// It cannot currently be relied on for soundness however,
+    /// as the required component can be removed without removing the requiring component.
+    Required,
 }
 
 impl RelatedComponents {
