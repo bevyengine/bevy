@@ -4036,7 +4036,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // This should pass, but it currently fails due to limitations in our access model.
     fn ref_compatible_with_resource_mut() {
         fn borrow_system(_: Query<EntityRef>, _: ResMut<R>) {}
 
@@ -4067,7 +4066,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // This should pass, but it currently fails due to limitations in our access model.
     fn mut_compatible_with_resource() {
         fn borrow_mut_system(_: Res<R>, _: Query<EntityMut>) {}
 
@@ -4075,7 +4073,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // This should pass, but it currently fails due to limitations in our access model.
     fn mut_compatible_with_resource_mut() {
         fn borrow_mut_system(_: ResMut<R>, _: Query<EntityMut>) {}
 
