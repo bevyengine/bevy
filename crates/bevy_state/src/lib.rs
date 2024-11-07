@@ -41,8 +41,7 @@ pub mod condition;
 /// Provides definitions for the basic traits required by the state system
 pub mod state;
 
-/// Provides [`DespawnOnStateExit`](crate::state_scoped::DespawnOnStateExit) and
-/// [`clear_state_scoped_entities`](crate::state_scoped::clear_state_scoped_entities) for managing lifetime of entities.
+/// Provides managing lifetime of entities based on state transitions.
 pub mod state_scoped;
 #[cfg(feature = "bevy_app")]
 /// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with methods for registering
@@ -74,6 +73,6 @@ pub mod prelude {
             OnExit, OnTransition, State, StateSet, StateTransition, StateTransitionEvent, States,
             SubStates, TransitionSchedules,
         },
-        state_scoped::DespawnOnStateExit,
+        state_scoped::{DespawnOnStateEnter, DespawnOnStateExit},
     };
 }

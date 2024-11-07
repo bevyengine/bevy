@@ -91,7 +91,6 @@ pub fn clear_despawn_on_state_exit_entities<S: States>(
     }
 }
 
-
 /// Entities marked with this component will be removed
 /// when the world's state of the matching type matches the supplied value.
 ///

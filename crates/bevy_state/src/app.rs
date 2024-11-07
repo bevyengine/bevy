@@ -58,7 +58,7 @@ pub trait AppExtStates {
 
     /// Enable state-scoped entity clearing for state `S`.
     ///
-    /// For more information refer to [`DespawnOnStateExit`](crate::state_scoped::DespawnOnStateExit).
+    /// For more information refer to [`state_scoped`](crate::state_scoped).
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
 
     #[cfg(feature = "bevy_reflect")]
