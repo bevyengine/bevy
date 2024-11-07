@@ -2,7 +2,7 @@
 
 use bevy::{
     a11y::{
-        accesskit::{NodeBuilder, Role},
+        accesskit::{Node as Accessible, Role},
         AccessibilityNode,
     },
     input::mouse::{MouseScrollUnit, MouseWheel},
@@ -79,7 +79,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             ..default()
                                         },
                                     Label,
-                                    AccessibilityNode(NodeBuilder::new(Role::ListItem)),
+                                    AccessibilityNode(Accessible::new(Role::ListItem)),
                                 ))
                                 .insert(Node {
                                     min_width: Val::Px(200.),
@@ -167,7 +167,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                             ..default()
                                                         },
                                                         Label,
-                                                        AccessibilityNode(NodeBuilder::new(
+                                                        AccessibilityNode(Accessible::new(
                                                             Role::ListItem,
                                                         )),
                                                     ))
@@ -234,7 +234,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                                 ..default()
                                                             },
                                                             Label,
-                                                            AccessibilityNode(NodeBuilder::new(
+                                                            AccessibilityNode(Accessible::new(
                                                                 Role::ListItem,
                                                             )),
                                                         ))
@@ -310,7 +310,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                                 ..default()
                                                             },
                                                             Label,
-                                                            AccessibilityNode(NodeBuilder::new(
+                                                            AccessibilityNode(Accessible::new(
                                                                 Role::ListItem,
                                                             )),
                                                         ))

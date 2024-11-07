@@ -1651,6 +1651,8 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 /// Use [`Option<Single<D, F>>`] instead if zero or one matching entities can exist.
 ///
 /// See [`Query`] for more details.
+///
+/// [System parameter]: crate::system::SystemParam
 pub struct Single<'w, D: QueryData, F: QueryFilter = ()> {
     pub(crate) item: D::Item<'w>,
     pub(crate) _filter: PhantomData<F>,
@@ -1687,6 +1689,8 @@ impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
 /// which must individually check each query result for a match.
 ///
 /// See [`Query`] for more details.
+///
+/// [System parameter]: crate::system::SystemParam
 pub struct Populated<'w, 's, D: QueryData, F: QueryFilter = ()>(pub(crate) Query<'w, 's, D, F>);
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Deref for Populated<'w, 's, D, F> {

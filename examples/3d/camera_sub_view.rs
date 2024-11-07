@@ -253,13 +253,9 @@ fn move_camera_view(
 
 // To ensure viewports remain the same at any window size
 fn resize_viewports(
-    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    window: Single<&Window, With<bevy::window::PrimaryWindow>>,
     mut viewports: Query<(&mut Camera, &ExampleViewports)>,
 ) {
-    let Ok(window) = windows.get_single() else {
-        return;
-    };
-
     let window_size = window.physical_size();
 
     let small_height = window_size.y / 5;
