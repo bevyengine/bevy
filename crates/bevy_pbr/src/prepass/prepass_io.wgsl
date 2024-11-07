@@ -70,6 +70,10 @@ struct VertexOutput {
 #ifdef VERTEX_COLORS
     @location(8) color: vec4<f32>,
 #endif
+
+#ifdef VISIBILITY_RANGE_DITHER
+    @location(9) @interpolate(flat) visibility_range_dither: i32,
+#endif  // VISIBILITY_RANGE_DITHER
 }
 
 #ifdef PREPASS_FRAGMENT

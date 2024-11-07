@@ -161,6 +161,11 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.instance_index = vertex_no_morph.instance_index;
 #endif
 
+#ifdef VISIBILITY_RANGE_DITHER
+    out.visibility_range_dither = mesh_functions::get_visibility_range_dither_level(
+        vertex_no_morph.instance_index, world_from_local[3]);
+#endif  // VISIBILITY_RANGE_DITHER
+
     return out;
 }
 
