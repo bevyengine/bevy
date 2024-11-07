@@ -120,7 +120,7 @@ impl Animatable for Vec3 {
 impl<T: Asset> Animatable for Handle<T> {
     #[inline]
     fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
-        util::step_unclamped(*a, *b, t)
+        util::step_unclamped(a.clone(), b.clone(), t)
     }
 
     #[inline]
