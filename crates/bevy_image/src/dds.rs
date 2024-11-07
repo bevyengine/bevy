@@ -1,6 +1,4 @@
-//! `DirectDraw` Surface functionality.
-//!
-//! <https://en.wikipedia.org/wiki/DirectDraw_Surface>
+//! [DirectDraw Surface](https://en.wikipedia.org/wiki/DirectDraw_Surface) functionality.
 
 #[cfg(debug_assertions)]
 use bevy_utils::warn_once;
