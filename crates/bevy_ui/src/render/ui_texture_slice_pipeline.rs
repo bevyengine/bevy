@@ -30,7 +30,7 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
-use widget::UiImage;
+use widget::ImageNode;
 
 pub const UI_SLICER_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11156288772117983964);
 
@@ -256,7 +256,7 @@ pub fn extract_ui_texture_slices(
             &ViewVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
-            &UiImage,
+            &ImageNode,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
