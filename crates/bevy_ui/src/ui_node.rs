@@ -1,15 +1,13 @@
-use crate::{widget::UiImageSize, ContentSize, FocusPolicy, UiRect, Val};
-use bevy_asset::Handle;
+use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    texture::{Image, TRANSPARENT_IMAGE_HANDLE},
     view::Visibility,
 };
-use bevy_sprite::{BorderRect, TextureAtlas, TextureSlicer};
+use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
@@ -2041,168 +2039,6 @@ impl Outline {
         }
     }
 }
-
-/// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
-#[require(Node, UiImageSize, ContentSize)]
-pub struct UiImage {
-    /// The tint color used to draw the image.
-    ///
-    /// This is multiplied by the color of each pixel in the image.
-    /// The field value defaults to solid white, which will pass the image through unmodified.
-    pub color: Color,
-    /// Handle to the texture.
-    ///
-    /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
-    pub image: Handle<Image>,
-    /// The (optional) texture atlas used to render the image
-    pub texture_atlas: Option<TextureAtlas>,
-    /// Whether the image should be flipped along its x-axis
-    pub flip_x: bool,
-    /// Whether the image should be flipped along its y-axis
-    pub flip_y: bool,
-    /// An optional rectangle representing the region of the image to render, instead of rendering
-    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`].
-    ///
-    /// When used with a [`TextureAtlas`], the rect
-    /// is offset by the atlas's minimal (top-left) corner position.
-    pub rect: Option<Rect>,
-    /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space to allocate for the image.
-    pub image_mode: NodeImageMode,
-}
-
-impl Default for UiImage {
-    /// A transparent 1x1 image with a solid white tint.
-    ///
-    /// # Warning
-    ///
-    /// This will be invisible by default.
-    /// To set this to a visible image, you need to set the `texture` field to a valid image handle,
-    /// or use [`Handle<Image>`]'s default 1x1 solid white texture (as is done in [`UiImage::solid_color`]).
-    fn default() -> Self {
-        UiImage {
-            // This should be white because the tint is multiplied with the image,
-            // so if you set an actual image with default tint you'd want its original colors
-            color: Color::WHITE,
-            texture_atlas: None,
-            // This texture needs to be transparent by default, to avoid covering the background color
-            image: TRANSPARENT_IMAGE_HANDLE,
-            flip_x: false,
-            flip_y: false,
-            rect: None,
-            image_mode: NodeImageMode::Auto,
-        }
-    }
-}
-
-impl UiImage {
-    /// Create a new [`UiImage`] with the given texture.
-    pub fn new(texture: Handle<Image>) -> Self {
-        Self {
-            image: texture,
-            color: Color::WHITE,
-            ..Default::default()
-        }
-    }
-
-    /// Create a solid color [`UiImage`].
-    ///
-    /// This is primarily useful for debugging / mocking the extents of your image.
-    pub fn solid_color(color: Color) -> Self {
-        Self {
-            image: Handle::default(),
-            color,
-            flip_x: false,
-            flip_y: false,
-            texture_atlas: None,
-            rect: None,
-            image_mode: NodeImageMode::Auto,
-        }
-    }
-
-    /// Create a [`UiImage`] from an image, with an associated texture atlas
-    pub fn from_atlas_image(image: Handle<Image>, atlas: TextureAtlas) -> Self {
-        Self {
-            image,
-            texture_atlas: Some(atlas),
-            ..Default::default()
-        }
-    }
-
-    /// Set the color tint
-    #[must_use]
-    pub const fn with_color(mut self, color: Color) -> Self {
-        self.color = color;
-        self
-    }
-
-    /// Flip the image along its x-axis
-    #[must_use]
-    pub const fn with_flip_x(mut self) -> Self {
-        self.flip_x = true;
-        self
-    }
-
-    /// Flip the image along its y-axis
-    #[must_use]
-    pub const fn with_flip_y(mut self) -> Self {
-        self.flip_y = true;
-        self
-    }
-
-    #[must_use]
-    pub const fn with_rect(mut self, rect: Rect) -> Self {
-        self.rect = Some(rect);
-        self
-    }
-
-    #[must_use]
-    pub const fn with_mode(mut self, mode: NodeImageMode) -> Self {
-        self.image_mode = mode;
-        self
-    }
-}
-
-impl From<Handle<Image>> for UiImage {
-    fn from(texture: Handle<Image>) -> Self {
-        Self::new(texture)
-    }
-}
-
-/// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space in the layout for the image
-#[derive(Default, Debug, Clone, Reflect)]
-pub enum NodeImageMode {
-    /// The image will be sized automatically by taking the size of the source image and applying any layout constraints.
-    #[default]
-    Auto,
-    /// The image will be resized to match the size of the node. The image's original size and aspect ratio will be ignored.
-    Stretch,
-    /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
-    Sliced(TextureSlicer),
-    /// The texture will be repeated if stretched beyond `stretched_value`
-    Tiled {
-        /// Should the image repeat horizontally
-        tile_x: bool,
-        /// Should the image repeat vertically
-        tile_y: bool,
-        /// The texture will repeat when the ratio between the *drawing dimensions* of texture and the
-        /// *original texture size* are above this value.
-        stretch_value: f32,
-    },
-}
-
-impl NodeImageMode {
-    /// Returns true if this mode uses slices internally ([`NodeImageMode::Sliced`] or [`NodeImageMode::Tiled`])
-    #[inline]
-    pub fn uses_slices(&self) -> bool {
-        matches!(
-            self,
-            NodeImageMode::Sliced(..) | NodeImageMode::Tiled { .. }
-        )
-    }
-}
-
 /// The calculated clip of the node
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]

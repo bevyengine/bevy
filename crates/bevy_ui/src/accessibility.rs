@@ -1,8 +1,8 @@
 use crate::{
     experimental::UiChildren,
     prelude::{Button, Label},
-    widget::TextUiReader,
-    ComputedNode, UiImage,
+    widget::{ImageNode, TextUiReader},
+    ComputedNode,
 };
 use bevy_a11y::{
     accesskit::{NodeBuilder, Rect, Role},
@@ -92,7 +92,10 @@ fn button_changed(
 
 fn image_changed(
     mut commands: Commands,
-    mut query: Query<(Entity, Option<&mut AccessibilityNode>), (Changed<UiImage>, Without<Button>)>,
+    mut query: Query<
+        (Entity, Option<&mut AccessibilityNode>),
+        (Changed<ImageNode>, Without<Button>),
+    >,
     ui_children: UiChildren,
     mut text_reader: TextUiReader,
 ) {
