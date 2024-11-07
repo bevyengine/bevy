@@ -361,7 +361,7 @@ fn setup_animation_graph_once_loaded(
                         .from_asset("models/animated/Fox.glb"),
                 );
                 let mask = if animation_index == 0 { 0 } else { 0x3f };
-                animation_graph.add_clip_with_mask(handle, mask, 0.0, blend_node)
+                animation_graph.add_clip_with_mask(handle, mask, 1.0, blend_node)
             });
 
         // Create each mask group.
