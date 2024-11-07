@@ -734,7 +734,7 @@ impl<'w> EntityMut<'w> {
     /// the current entity, based on the given [`ComponentId`].
     ///
     /// Unlike [`EntityMut::get_mut_by_id`], this method borrows &self instead of
-    /// mut &self, allowing the caller to access multiple components simultaneously.
+    /// &mut self, allowing the caller to access multiple components simultaneously.
     ///
     /// # Errors
     ///
