@@ -80,7 +80,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         BackgroundColor(LIGHT_CYAN.into()),
                                     ))
                                     .with_child((
-                                        UiImage::new(image.clone()),
+                                        ImageNode::new(image.clone()),
                                         Node {
                                             min_width: Val::Px(100.),
                                             min_height: Val::Px(100.),
