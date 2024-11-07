@@ -19,9 +19,9 @@ pub fn dds_buffer_to_image(
     is_srgb: bool,
 ) -> Result<Image, TextureError> {
     let mut cursor = Cursor::new(buffer);
-    let dds = Dds::read(&mut cursor).map_err(|error| TextureError::InvalidData(
-        format!("Failed to parse DDS file: {}", error.to_string()),
-    ))?;
+    let dds = Dds::read(&mut cursor).map_err(|error| {
+        TextureError::InvalidData(format!("Failed to parse DDS file: {}", error.to_string()))
+    })?;
     let texture_format = dds_format_to_texture_format(&dds, is_srgb)?;
     if !supported_compressed_formats.supports(texture_format) {
         return Err(TextureError::UnsupportedTextureFormat(format!(
