@@ -743,9 +743,8 @@ impl<'w> EntityMut<'w> {
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - Exclusive access to all components of this entity,
-    /// - or simultaneous access to multiple components that are mutually
-    /// - independent.
+    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
+    /// - no other references to the component exist at the same time
     #[inline]
     pub unsafe fn get_mut_by_id_unchecked(
         &self,
