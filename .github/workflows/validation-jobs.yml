@@ -244,7 +244,7 @@ jobs:
 
       - name: First Wasm build
         run: |
-          cargo build --release --example ui --target wasm32-unknown-unknown
+          cargo build --release --example testbed_ui --target wasm32-unknown-unknown
 
       - name: Run examples
         shell: bash
