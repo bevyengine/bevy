@@ -932,9 +932,9 @@ where
                 }]
                 .into_iter(),
             );
-            self.blend_register = Some((scaled_value, weight))
+            self.blend_register = Some((scaled_value, weight));
         } else {
-            self.blend_register = Some((value, weight))
+            self.blend_register = Some((value, weight));
         }
     }
 
