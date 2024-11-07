@@ -80,6 +80,30 @@ macro_rules! impl_color_animatable {
     };
 }
 
+macro_rules! impl_int_animatable {
+    ($ty: ty, $base: ty) => {
+        impl Animatable for $ty {
+            #[inline]
+            fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
+                let a = *a as $base;
+                let b = *b as $base;
+
+                let target = $base::interpolate(&a, &b, time);
+
+                target.max(0.0).floor() as $ty
+            }
+
+            #[inline]
+            fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
+                inputs
+                    .max_by(|a, b| FloatOrd(a.weight).cmp(&FloatOrd(b.weight)))
+                    .map(|input| input.value)
+                    .unwrap_or(0)
+            }
+        }
+    };
+}
+
 impl_float_animatable!(f32, f32);
 impl_float_animatable!(Vec2, f32);
 impl_float_animatable!(Vec3A, f32);
@@ -95,6 +119,13 @@ impl_color_animatable!(Laba);
 impl_color_animatable!(Oklaba);
 impl_color_animatable!(Srgba);
 impl_color_animatable!(Xyza);
+
+impl_int_animatable!(usize, f32);
+impl_int_animatable!(u8, f32);
+impl_int_animatable!(u16, f32);
+impl_int_animatable!(u32, f32);
+
+impl_int_animatable!(u64, f64);
 
 // Vec3 is special cased to use Vec3A internally for blending
 impl Animatable for Vec3 {
