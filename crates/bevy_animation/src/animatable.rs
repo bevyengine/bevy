@@ -81,16 +81,16 @@ macro_rules! impl_color_animatable {
 }
 
 macro_rules! impl_int_animatable {
-    ($ty: ty, $base: ty) => {
+    ($ty: ident, $base: ident) => {
         impl Animatable for $ty {
             #[inline]
             fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
                 let a = *a as $base;
                 let b = *b as $base;
 
-                let target = $base::interpolate(&a, &b, time);
+                let target = $base::interpolate(&a, &b, t);
 
-                target.max(0.0).floor() as $ty
+                target.max(0.0).floor() as Self
             }
 
             #[inline]
