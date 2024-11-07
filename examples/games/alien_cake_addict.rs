@@ -349,7 +349,6 @@ fn spawn_bonus(
                 SceneRoot(game.bonus.handle.clone()),
             ))
             .with_child((
-                StateScoped(GameState::Playing),
                 PointLight {
                     color: Color::srgb(1.0, 1.0, 0.0),
                     intensity: 500_000.0,
@@ -401,7 +400,6 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
             },
         ))
         .with_child((
-            StateScoped(GameState::GameOver),
             Text::new(format!("Cake eaten: {}", game.cake_eaten)),
             TextFont {
                 font_size: 67.0,
