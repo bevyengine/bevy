@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 enum GameState {
     #[default]
     Playing,
@@ -25,6 +25,7 @@ fn main() {
             TimerMode::Repeating,
         )))
         .init_state::<GameState>()
+        .enable_state_scoped_entities::<GameState>()
         .add_systems(Startup, setup_cameras)
         .add_systems(OnEnter(GameState::Playing), setup)
         .add_systems(
@@ -38,13 +39,11 @@ fn main() {
             )
                 .run_if(in_state(GameState::Playing)),
         )
-        .add_systems(OnExit(GameState::Playing), teardown)
         .add_systems(OnEnter(GameState::GameOver), display_score)
         .add_systems(
             Update,
             gameover_keyboard.run_if(in_state(GameState::GameOver)),
         )
-        .add_systems(OnExit(GameState::GameOver), teardown)
         .run();
 }
 
@@ -122,6 +121,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.move_cooldown = Timer::from_seconds(0.3, TimerMode::Once);
 
     commands.spawn((
+        StateScoped(GameState::Playing),
         PointLight {
             intensity: 2_000_000.0,
             shadows_enabled: true,
@@ -140,6 +140,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                 .map(|i| {
                     let height = rng.gen_range(-0.1..0.1);
                     commands.spawn((
+                        StateScoped(GameState::Playing),
                         Transform::from_xyz(i as f32, height - 0.2, j as f32),
                         SceneRoot(cell_scene.clone()),
                     ));
@@ -153,6 +154,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.entity = Some(
         commands
             .spawn((
+                StateScoped(GameState::Playing),
                 Transform {
                     translation: Vec3::new(
                         game.player.i as f32,
@@ -176,6 +178,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
 
     // scoreboard
     commands.spawn((
+        StateScoped(GameState::Playing),
         Text::new("Score:"),
         TextFont {
             font_size: 33.0,
@@ -191,13 +194,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     ));
 
     commands.insert_resource(Random(rng));
-}
-
-// remove all entities that are not a camera or window
-fn teardown(mut commands: Commands, entities: Query<Entity, (Without<Camera>, Without<Window>)>) {
-    for entity in &entities {
-        commands.entity(entity).despawn();
-    }
 }
 
 // control the game character
@@ -344,6 +340,7 @@ fn spawn_bonus(
     game.bonus.entity = Some(
         commands
             .spawn((
+                StateScoped(GameState::Playing),
                 Transform::from_xyz(
                     game.bonus.i as f32,
                     game.board[game.bonus.j][game.bonus.i].height + 0.2,
@@ -393,12 +390,15 @@ fn gameover_keyboard(
 // display the number of cake eaten before losing
 fn display_score(mut commands: Commands, game: Res<Game>) {
     commands
-        .spawn(Node {
-            width: Val::Percent(100.),
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
-            ..default()
-        })
+        .spawn((
+            StateScoped(GameState::GameOver),
+            Node {
+                width: Val::Percent(100.),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+        ))
         .with_child((
             Text::new(format!("Cake eaten: {}", game.cake_eaten)),
             TextFont {
