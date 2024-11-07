@@ -157,11 +157,11 @@ pub fn clear_despawn_on_state_enter_entities<S: States>(
     if transition.entered == transition.exited {
         return;
     }
-    let Some(exited) = &transition.exited else {
+    let Some(entered) = &transition.entered else {
         return;
     };
     for (entity, binding) in &query {
-        if binding.0 != *exited {
+        if binding.0 == *entered {
             #[cfg(feature = "bevy_hierarchy")]
             commands.entity(entity).despawn_recursive();
             #[cfg(not(feature = "bevy_hierarchy"))]
