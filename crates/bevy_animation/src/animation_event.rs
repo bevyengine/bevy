@@ -45,20 +45,20 @@ pub(crate) fn trigger_animation_event(
 /// fn setup_animation(
 ///     mut commands: Commands,
 ///     mut animations: ResMut<Assets<AnimationClip>>,
-///     mut graphs: ResMut<Assets<AnimationGraph>>,
+///     mut graphs: ResMut<Assets<BlendGraph>>,
 /// ) {
 ///     // Create a new animation and add an event at 1.0s.
 ///     let mut animation = AnimationClip::default();
 ///     animation.add_event(1.0, Say("Hello".into()));
-///     
+///
 ///     // Create an animation graph.
-///     let (graph, animation_index) = AnimationGraph::from_clip(animations.add(animation));
+///     let (graph, animation_index) = BlendGraph::from_clip(animations.add(animation));
 ///
 ///     // Start playing the animation.
 ///     let mut player = AnimationPlayer::default();
 ///     player.play(animation_index).repeat();
-///     
-///     commands.spawn((AnimationGraphHandle(graphs.add(graph)), player));
+///
+///     commands.spawn((BlendGraphHandle(graphs.add(graph)), player));
 /// }
 /// #
 /// # bevy_ecs::system::assert_is_system(setup_animation);

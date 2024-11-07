@@ -345,13 +345,13 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
 fn setup_animation_graph_once_loaded(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    mut animation_graphs: ResMut<Assets<BlendGraph>>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
     targets: Query<(Entity, &AnimationTarget)>,
 ) {
     for (entity, mut player) in &mut players {
         // Load the animation clip from the glTF file.
-        let mut animation_graph = AnimationGraph::new();
+        let mut animation_graph = BlendGraph::new();
         let blend_node = animation_graph.add_additive_blend(1.0, animation_graph.root);
 
         let animation_graph_nodes: [AnimationNodeIndex; 3] =
@@ -388,7 +388,7 @@ fn setup_animation_graph_once_loaded(
         let animation_graph = animation_graphs.add(animation_graph);
         commands
             .entity(entity)
-            .insert(AnimationGraphHandle(animation_graph));
+            .insert(BlendGraphHandle(animation_graph));
 
         // Remove animation targets that aren't in any of the mask groups. If we
         // don't do that, those bones will play all animations at once, which is
@@ -413,8 +413,8 @@ fn setup_animation_graph_once_loaded(
 // off.
 fn handle_button_toggles(
     mut interactions: Query<(&Interaction, &mut AnimationControl), Changed<Interaction>>,
-    mut animation_players: Query<&AnimationGraphHandle, With<AnimationPlayer>>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    mut animation_players: Query<&BlendGraphHandle, With<AnimationPlayer>>,
+    mut animation_graphs: ResMut<Assets<BlendGraph>>,
     mut animation_nodes: Option<ResMut<AnimationNodes>>,
     mut app_state: ResMut<AppState>,
 ) {

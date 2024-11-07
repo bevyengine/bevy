@@ -23,7 +23,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut animations: ResMut<Assets<AnimationClip>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut graphs: ResMut<Assets<BlendGraph>>,
 ) {
     // Camera
     commands.spawn((
@@ -124,7 +124,7 @@ fn setup(
     );
 
     // Create the animation graph
-    let (graph, animation_index) = AnimationGraph::from_clip(animations.add(animation));
+    let (graph, animation_index) = BlendGraph::from_clip(animations.add(animation));
 
     // Create the animation player, and set it to repeat
     let mut player = AnimationPlayer::default();
@@ -138,7 +138,7 @@ fn setup(
             MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
             // Add the animation graph and player
             planet,
-            AnimationGraphHandle(graphs.add(graph)),
+            BlendGraphHandle(graphs.add(graph)),
             player,
         ))
         .id();

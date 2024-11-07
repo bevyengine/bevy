@@ -28,7 +28,7 @@ use core::{
 use graph::AnimationNodeType;
 use prelude::AnimationCurveEvaluator;
 
-use crate::graph::{AnimationGraphHandle, ThreadedAnimationGraphs};
+use crate::graph::{BlendGraphHandle, ThreadedBlendGraphs};
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets};
@@ -75,7 +75,7 @@ pub mod prelude {
 
 use crate::{
     animation_curves::AnimationCurve,
-    graph::{AnimationGraph, AnimationGraphAssetLoader, AnimationNodeIndex},
+    graph::{AnimationNodeIndex, BlendGraph, BlendGraphAssetLoader},
     transition::{advance_transitions, expire_completed_transitions, AnimationTransitions},
 };
 
@@ -557,7 +557,7 @@ pub enum AnimationEvaluationError {
 /// An stopped animation is considered no longer active.
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct ActiveAnimation {
-    /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
+    /// The factor by which the weight from the [`BlendGraph`] is multiplied.
     weight: f32,
     repeat: RepeatAnimation,
     speed: f32,
@@ -956,8 +956,8 @@ impl AnimationPlayer {
 fn trigger_untargeted_animation_events(
     mut commands: Commands,
     clips: Res<Assets<AnimationClip>>,
-    graphs: Res<Assets<AnimationGraph>>,
-    players: Query<(Entity, &AnimationPlayer, &AnimationGraphHandle)>,
+    graphs: Res<Assets<BlendGraph>>,
+    players: Query<(Entity, &AnimationPlayer, &BlendGraphHandle)>,
 ) {
     for (entity, player, graph_id) in &players {
         // The graph might not have loaded yet. Safely bail.
@@ -1003,8 +1003,8 @@ fn trigger_untargeted_animation_events(
 pub fn advance_animations(
     time: Res<Time>,
     animation_clips: Res<Assets<AnimationClip>>,
-    animation_graphs: Res<Assets<AnimationGraph>>,
-    mut players: Query<(&mut AnimationPlayer, &AnimationGraphHandle)>,
+    animation_graphs: Res<Assets<BlendGraph>>,
+    mut players: Query<(&mut AnimationPlayer, &BlendGraphHandle)>,
 ) {
     let delta_seconds = time.delta_secs();
     players
@@ -1045,7 +1045,7 @@ pub type AnimationEntityMut<'w> = EntityMutExcept<
         AnimationTarget,
         Transform,
         AnimationPlayer,
-        AnimationGraphHandle,
+        BlendGraphHandle,
     ),
 >;
 
@@ -1054,9 +1054,9 @@ pub type AnimationEntityMut<'w> = EntityMutExcept<
 pub fn animate_targets(
     par_commands: ParallelCommands,
     clips: Res<Assets<AnimationClip>>,
-    graphs: Res<Assets<AnimationGraph>>,
-    threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
-    players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
+    graphs: Res<Assets<BlendGraph>>,
+    threaded_animation_graphs: Res<ThreadedBlendGraphs>,
+    players: Query<(&AnimationPlayer, &BlendGraphHandle)>,
     mut targets: Query<(
         Entity,
         &AnimationTarget,
@@ -1263,17 +1263,17 @@ pub struct AnimationPlugin;
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<AnimationClip>()
-            .init_asset::<AnimationGraph>()
-            .init_asset_loader::<AnimationGraphAssetLoader>()
+            .init_asset::<BlendGraph>()
+            .init_asset_loader::<BlendGraphAssetLoader>()
             .register_asset_reflect::<AnimationClip>()
-            .register_asset_reflect::<AnimationGraph>()
+            .register_asset_reflect::<BlendGraph>()
             .register_type::<AnimationPlayer>()
             .register_type::<AnimationTarget>()
             .register_type::<AnimationTransitions>()
-            .register_type::<AnimationGraphHandle>()
+            .register_type::<BlendGraphHandle>()
             .register_type::<NodeIndex>()
-            .register_type::<ThreadedAnimationGraphs>()
-            .init_resource::<ThreadedAnimationGraphs>()
+            .register_type::<ThreadedBlendGraphs>()
+            .init_resource::<ThreadedBlendGraphs>()
             .add_systems(
                 PostUpdate,
                 (

@@ -65,7 +65,7 @@ fn setup_animations(
     mut commands: Commands,
     mut players: Query<(Entity, &Name, &mut AnimationPlayer)>,
     morph_data: Res<MorphData>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut graphs: ResMut<Assets<BlendGraph>>,
 ) {
     if *has_setup {
         return;
@@ -76,10 +76,10 @@ fn setup_animations(
             continue;
         }
 
-        let (graph, animation) = AnimationGraph::from_clip(morph_data.the_wave.clone());
+        let (graph, animation) = BlendGraph::from_clip(morph_data.the_wave.clone());
         commands
             .entity(entity)
-            .insert(AnimationGraphHandle(graphs.add(graph)));
+            .insert(BlendGraphHandle(graphs.add(graph)));
 
         player.play(animation).repeat();
         *has_setup = true;

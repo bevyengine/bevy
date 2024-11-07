@@ -66,15 +66,15 @@
 //!     - [`RotationCurve`], which uses `Quat` output to animate [`Transform::rotation`]
 //!     - [`ScaleCurve`], which uses `Vec3` output to animate [`Transform::scale`]
 //!
-//! ## Animatable properties
+//! ## Blendable properties
 //!
-//! Animation of arbitrary components can be accomplished using [`AnimatableProperty`] in
-//! conjunction with [`AnimatableCurve`]. See the documentation [there] for details.
+//! Animation of arbitrary components can be accomplished using [`BlendableProperty`] in
+//! conjunction with [`BlendableCurve`]. See the documentation [there] for details.
 //!
 //! [using a function]: bevy_math::curve::function_curve
 //! [translation component of a `Transform`]: bevy_transform::prelude::Transform::translation
 //! [`AnimationClip`]: crate::AnimationClip
-//! [there]: AnimatableProperty
+//! [there]: BlendableProperty
 
 use core::{
     any::TypeId,
@@ -97,7 +97,7 @@ use bevy_transform::prelude::Transform;
 
 use crate::{
     graph::AnimationNodeIndex,
-    prelude::{Animatable, BlendInput},
+    prelude::{BlendInput, Blendable},
     AnimationEntityMut, AnimationEvaluationError,
 };
 
@@ -105,17 +105,17 @@ use crate::{
 ///
 /// You can implement this trait on a unit struct in order to support animating
 /// custom components other than transforms and morph weights. Use that type in
-/// conjunction with [`AnimatableCurve`] (and perhaps [`AnimatableKeyframeCurve`]
+/// conjunction with [`BlendableCurve`] (and perhaps [`BlendableKeyframeCurve`]
 /// to define the animation itself).
 /// For example, in order to animate field of view, you might use:
 ///
-///     # use bevy_animation::prelude::AnimatableProperty;
+///     # use bevy_animation::prelude::BlendableProperty;
 ///     # use bevy_reflect::Reflect;
 ///     # use bevy_render::camera::PerspectiveProjection;
 ///     #[derive(Reflect)]
 ///     struct FieldOfViewProperty;
 ///
-///     impl AnimatableProperty for FieldOfViewProperty {
+///     impl BlendableProperty for FieldOfViewProperty {
 ///         type Component = PerspectiveProjection;
 ///         type Property = f32;
 ///         fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
@@ -126,14 +126,14 @@ use crate::{
 /// You can then create an [`AnimationClip`] to animate this property like so:
 ///
 ///     # use bevy_animation::{AnimationClip, AnimationTargetId, VariableCurve};
-///     # use bevy_animation::prelude::{AnimatableProperty, AnimatableKeyframeCurve, AnimatableCurve};
+///     # use bevy_animation::prelude::{BlendableProperty, BlendableKeyframeCurve, BlendableCurve};
 ///     # use bevy_core::Name;
 ///     # use bevy_reflect::Reflect;
 ///     # use bevy_render::camera::PerspectiveProjection;
 ///     # let animation_target_id = AnimationTargetId::from(&Name::new("Test"));
 ///     # #[derive(Reflect)]
 ///     # struct FieldOfViewProperty;
-///     # impl AnimatableProperty for FieldOfViewProperty {
+///     # impl BlendableProperty for FieldOfViewProperty {
 ///     #     type Component = PerspectiveProjection;
 ///     #     type Property = f32;
 ///     #     fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
@@ -143,29 +143,29 @@ use crate::{
 ///     let mut animation_clip = AnimationClip::default();
 ///     animation_clip.add_curve_to_target(
 ///         animation_target_id,
-///         AnimatableKeyframeCurve::new(
+///         BlendableKeyframeCurve::new(
 ///             [
 ///                 (0.0, core::f32::consts::PI / 4.0),
 ///                 (1.0, core::f32::consts::PI / 3.0),
 ///             ]
 ///         )
-///         .map(AnimatableCurve::<FieldOfViewProperty, _>::from_curve)
+///         .map(BlendableCurve::<FieldOfViewProperty, _>::from_curve)
 ///         .expect("Failed to create font size curve")
 ///     );
 ///
-/// Here, the use of [`AnimatableKeyframeCurve`] creates a curve out of the given keyframe time-value
-/// pairs, using the [`Animatable`] implementation of `f32` to interpolate between them. The
-/// invocation of [`AnimatableCurve::from_curve`] with `FieldOfViewProperty` indicates that the `f32`
+/// Here, the use of [`BlendableKeyframeCurve`] creates a curve out of the given keyframe time-value
+/// pairs, using the [`Blendable`] implementation of `f32` to interpolate between them. The
+/// invocation of [`BlendableCurve::from_curve`] with `FieldOfViewProperty` indicates that the `f32`
 /// output from that curve is to be used to animate the font size of a `PerspectiveProjection` component (as
 /// configured above).
 ///
 /// [`AnimationClip`]: crate::AnimationClip
-pub trait AnimatableProperty: Reflect + TypePath {
+pub trait BlendableProperty: Reflect + TypePath {
     /// The type of the component that the property lives on.
     type Component: Component;
 
     /// The type of the property to be animated.
-    type Property: Animatable + FromReflect + Reflectable + Clone + Sync + Debug;
+    type Property: Blendable + FromReflect + Reflectable + Clone + Sync + Debug;
 
     /// Given a reference to the component, returns a reference to the property.
     ///
@@ -180,13 +180,13 @@ pub trait AnimationCompatibleCurve<T>: Curve<T> + Debug + Clone + Reflectable {}
 impl<T, C> AnimationCompatibleCurve<T> for C where C: Curve<T> + Debug + Clone + Reflectable {}
 
 /// This type allows the conversion of a [curve] valued in the [property type] of an
-/// [`AnimatableProperty`] into an [`AnimationCurve`] which animates that property.
+/// [`BlendableProperty`] into an [`AnimationCurve`] which animates that property.
 ///
 /// [curve]: Curve
-/// [property type]: AnimatableProperty::Property
+/// [property type]: BlendableProperty::Property
 #[derive(Reflect, FromReflect)]
 #[reflect(from_reflect = false)]
-pub struct AnimatableCurve<P, C> {
+pub struct BlendableCurve<P, C> {
     /// The inner [curve] whose values are used to animate the property.
     ///
     /// [curve]: Curve
@@ -195,29 +195,29 @@ pub struct AnimatableCurve<P, C> {
     _phantom: PhantomData<P>,
 }
 
-/// An [`AnimatableCurveEvaluator`] for [`AnimatableProperty`] instances.
+/// An [`BlendableCurveEvaluator`] for [`BlendableProperty`] instances.
 ///
 /// You shouldn't ordinarily need to instantiate one of these manually. Bevy
-/// will automatically do so when you use an [`AnimatableCurve`] instance.
+/// will automatically do so when you use an [`BlendableCurve`] instance.
 #[derive(Reflect)]
-pub struct AnimatableCurveEvaluator<P>
+pub struct BlendableCurveEvaluator<P>
 where
-    P: AnimatableProperty,
+    P: BlendableProperty,
 {
     evaluator: BasicAnimationCurveEvaluator<P::Property>,
     #[reflect(ignore)]
     phantom: PhantomData<P>,
 }
 
-impl<P, C> AnimatableCurve<P, C>
+impl<P, C> BlendableCurve<P, C>
 where
-    P: AnimatableProperty,
+    P: BlendableProperty,
     C: AnimationCompatibleCurve<P::Property>,
 {
-    /// Create an [`AnimatableCurve`] (and thus an [`AnimationCurve`]) from a curve
+    /// Create an [`BlendableCurve`] (and thus an [`AnimationCurve`]) from a curve
     /// valued in an [animatable property].
     ///
-    /// [animatable property]: AnimatableProperty::Property
+    /// [animatable property]: BlendableProperty::Property
     pub fn from_curve(curve: C) -> Self {
         Self {
             curve,
@@ -226,7 +226,7 @@ where
     }
 }
 
-impl<P, C> Clone for AnimatableCurve<P, C>
+impl<P, C> Clone for BlendableCurve<P, C>
 where
     C: Clone,
 {
@@ -238,20 +238,20 @@ where
     }
 }
 
-impl<P, C> Debug for AnimatableCurve<P, C>
+impl<P, C> Debug for BlendableCurve<P, C>
 where
     C: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("AnimatableCurve")
+        f.debug_struct("BlendableCurve")
             .field("curve", &self.curve)
             .finish()
     }
 }
 
-impl<P, C> AnimationCurve for AnimatableCurve<P, C>
+impl<P, C> AnimationCurve for BlendableCurve<P, C>
 where
-    P: AnimatableProperty,
+    P: BlendableProperty,
     C: AnimationCompatibleCurve<P::Property>,
 {
     fn clone_value(&self) -> Box<dyn AnimationCurve> {
@@ -263,11 +263,11 @@ where
     }
 
     fn evaluator_type(&self) -> TypeId {
-        TypeId::of::<AnimatableCurveEvaluator<P>>()
+        TypeId::of::<BlendableCurveEvaluator<P>>()
     }
 
     fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
-        Box::new(AnimatableCurveEvaluator {
+        Box::new(BlendableCurveEvaluator {
             evaluator: BasicAnimationCurveEvaluator::default(),
             phantom: PhantomData::<P>,
         })
@@ -281,7 +281,7 @@ where
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
         let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
-            .downcast_mut::<AnimatableCurveEvaluator<P>>()
+            .downcast_mut::<BlendableCurveEvaluator<P>>()
             .unwrap();
         let value = self.curve.sample_clamped(t);
         curve_evaluator
@@ -296,9 +296,9 @@ where
     }
 }
 
-impl<P> AnimationCurveEvaluator for AnimatableCurveEvaluator<P>
+impl<P> AnimationCurveEvaluator for BlendableCurveEvaluator<P>
 where
-    P: AnimatableProperty,
+    P: BlendableProperty,
 {
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
         self.evaluator.combine(graph_node, /*additive=*/ false)
@@ -330,7 +330,7 @@ where
             .evaluator
             .stack
             .pop()
-            .ok_or_else(inconsistent::<AnimatableCurveEvaluator<P>>)?
+            .ok_or_else(inconsistent::<BlendableCurveEvaluator<P>>)?
             .value;
         Ok(())
     }
@@ -826,7 +826,7 @@ impl AnimationCurveEvaluator for WeightsCurveEvaluator {
 #[derive(Reflect)]
 struct BasicAnimationCurveEvaluator<A>
 where
-    A: Animatable,
+    A: Blendable,
 {
     stack: Vec<BasicAnimationCurveEvaluatorStackElement<A>>,
     blend_register: Option<(A, f32)>,
@@ -835,7 +835,7 @@ where
 #[derive(Reflect)]
 struct BasicAnimationCurveEvaluatorStackElement<A>
 where
-    A: Animatable,
+    A: Blendable,
 {
     value: A,
     weight: f32,
@@ -844,7 +844,7 @@ where
 
 impl<A> Default for BasicAnimationCurveEvaluator<A>
 where
-    A: Animatable,
+    A: Blendable,
 {
     fn default() -> Self {
         BasicAnimationCurveEvaluator {
@@ -856,7 +856,7 @@ where
 
 impl<A> BasicAnimationCurveEvaluator<A>
 where
-    A: Animatable,
+    A: Blendable,
 {
     fn combine(
         &mut self,
@@ -932,9 +932,9 @@ where
 /// to entities by the animation system.
 ///
 /// Typically, this will not need to be implemented manually, since it is
-/// automatically implemented by [`AnimatableCurve`] and other curves used by
+/// automatically implemented by [`BlendableCurve`] and other curves used by
 /// the animation system (e.g. those that animate parts of transforms or morph
-/// weights). However, this can be implemented manually when `AnimatableCurve`
+/// weights). However, this can be implemented manually when `BlendableCurve`
 /// is not sufficiently expressive.
 ///
 /// In many respects, this behaves like a type-erased form of [`Curve`], where
@@ -989,21 +989,21 @@ pub trait AnimationCurve: Reflect + Debug + Send + Sync {
 /// A low-level trait for use in [`crate::VariableCurve`] that provides fine
 /// control over how animations are evaluated.
 ///
-/// You can implement this trait when the generic [`AnimatableCurveEvaluator`]
+/// You can implement this trait when the generic [`BlendableCurveEvaluator`]
 /// isn't sufficiently-expressive for your needs. For example, [`MorphWeights`]
-/// implements this trait instead of using [`AnimatableCurveEvaluator`] because
+/// implements this trait instead of using [`BlendableCurveEvaluator`] because
 /// it needs to animate arbitrarily many weights at once, which can't be done
-/// with [`Animatable`] as that works on fixed-size values only.
+/// with [`Blendable`] as that works on fixed-size values only.
 ///
 /// If you implement this trait, you should also implement [`AnimationCurve`] on
 /// your curve type, as that trait allows creating instances of this one.
 ///
-/// Implementations of [`AnimatableCurveEvaluator`] should maintain a *stack* of
+/// Implementations of [`BlendableCurveEvaluator`] should maintain a *stack* of
 /// (value, weight, node index) triples, as well as a *blend register*, which is
 /// either a (value, weight) pair or empty. *Value* here refers to an instance
 /// of the value being animated: for example, [`Vec3`] in the case of
 /// translation keyframes.  The stack stores intermediate values generated while
-/// evaluating the [`crate::graph::AnimationGraph`], while the blend register
+/// evaluating the [`crate::graph::BlendGraph`], while the blend register
 /// stores the result of a blend operation.
 pub trait AnimationCurveEvaluator: Reflect {
     /// Blends the top element of the stack with the blend register.
@@ -1075,18 +1075,18 @@ pub trait AnimationCurveEvaluator: Reflect {
 
 /// A [curve] defined by keyframes with values in an [animatable] type.
 ///
-/// The keyframes are interpolated using the type's [`Animatable::interpolate`] implementation.
+/// The keyframes are interpolated using the type's [`Blendable::interpolate`] implementation.
 ///
 /// [curve]: Curve
-/// [animatable]: Animatable
+/// [animatable]: Blendable
 #[derive(Debug, Clone, Reflect)]
-pub struct AnimatableKeyframeCurve<T> {
+pub struct BlendableKeyframeCurve<T> {
     core: UnevenCore<T>,
 }
 
-impl<T> Curve<T> for AnimatableKeyframeCurve<T>
+impl<T> Curve<T> for BlendableKeyframeCurve<T>
 where
-    T: Animatable + Clone,
+    T: Blendable + Clone,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -1096,7 +1096,7 @@ where
     #[inline]
     fn sample_clamped(&self, t: f32) -> T {
         // `UnevenCore::sample_with` is implicitly clamped.
-        self.core.sample_with(t, <T as Animatable>::interpolate)
+        self.core.sample_with(t, <T as Blendable>::interpolate)
     }
 
     #[inline]
@@ -1105,13 +1105,13 @@ where
     }
 }
 
-impl<T> AnimatableKeyframeCurve<T>
+impl<T> BlendableKeyframeCurve<T>
 where
-    T: Animatable,
+    T: Blendable,
 {
-    /// Create a new [`AnimatableKeyframeCurve`] from the given `keyframes`. The values of this
+    /// Create a new [`BlendableKeyframeCurve`] from the given `keyframes`. The values of this
     /// curve are interpolated from the keyframes using the output type's implementation of
-    /// [`Animatable::interpolate`].
+    /// [`Blendable::interpolate`].
     ///
     /// There must be at least two samples in order for this method to succeed.
     pub fn new(keyframes: impl IntoIterator<Item = (f32, T)>) -> Result<Self, UnevenCoreError> {
