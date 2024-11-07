@@ -877,7 +877,9 @@ where
         } = self.stack.pop().unwrap();
 
         match self.blend_register.take() {
-            None => self.blend_register = Some((value_to_blend, weight_to_blend)),
+            None => {
+                self.initialize_blend_register(value_to_blend, weight_to_blend, additive);
+            }
             Some((mut current_value, mut current_weight)) => {
                 current_weight += weight_to_blend;
 
@@ -910,6 +912,22 @@ where
         }
 
         Ok(())
+    }
+
+    fn initialize_blend_register(&mut self, value: A, weight: f32, additive: bool) {
+        if additive {
+            let scaled_value = A::blend(
+                [BlendInput {
+                    weight,
+                    value,
+                    additive: true,
+                }]
+                .into_iter(),
+            );
+            self.blend_register = Some((scaled_value, weight))
+        } else {
+            self.blend_register = Some((value, weight))
+        }
     }
 
     fn push_blend_register(
