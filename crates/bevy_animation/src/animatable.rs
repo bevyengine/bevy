@@ -1,6 +1,7 @@
 //! Traits and type for interpolating between values.
 
 use crate::util;
+use bevy_asset::Handle;
 use bevy_color::{Laba, LinearRgba, Oklaba, Srgba, Xyza};
 use bevy_math::*;
 use bevy_reflect::Reflect;
@@ -113,6 +114,21 @@ impl Animatable for Vec3 {
             }
         }
         Self::from(value)
+    }
+}
+
+impl<T> Animatable for Handle<T> {
+    #[inline]
+    fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
+        util::step_unclamped(*a, *b, t)
+    }
+
+    #[inline]
+    fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
+        inputs
+            .max_by(|a, b| FloatOrd(a.weight).cmp(&FloatOrd(b.weight)))
+            .map(|input| input.value)
+            .unwrap_or(Default::default())
     }
 }
 
