@@ -22,7 +22,7 @@ use {
 };
 
 /// Where to find the serialized animation graph.
-static ANIMATION_GRAPH_PATH: &str = "animation_graphs/Fox.animgraph.ron";
+static blend_graph_PATH: &str = "blend_graphs/Fox.animgraph.ron";
 
 /// The indices of the nodes containing animation clips in the graph.
 static CLIP_NODE_INDICES: [u32; 3] = [2, 3, 4];
@@ -107,10 +107,10 @@ struct Args {
     save: bool,
 }
 
-/// The [`AnimationGraph`] asset, which specifies how the animations are to
+/// The [`BlendGraph`] asset, which specifies how the animations are to
 /// be blended together.
 #[derive(Clone, Resource)]
-struct ExampleAnimationGraph(Handle<AnimationGraph>);
+struct ExampleBlendGraph(Handle<BlendGraph>);
 
 /// The current weights of the three playing animations.
 #[derive(Component)]
@@ -123,7 +123,7 @@ struct ExampleAnimationWeights {
 fn setup_assets(
     mut commands: Commands,
     mut asset_server: ResMut<AssetServer>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    mut blend_graphs: ResMut<Assets<BlendGraph>>,
     args: Res<Args>,
 ) {
     // Create or load the assets.
@@ -131,11 +131,11 @@ fn setup_assets(
         setup_assets_programmatically(
             &mut commands,
             &mut asset_server,
-            &mut animation_graphs,
+            &mut blend_graphs,
             args.save,
         );
     } else {
-        setup_assets_via_serialized_animation_graph(&mut commands, &mut asset_server);
+        setup_assets_via_serialized_blend_graph(&mut commands, &mut asset_server);
     }
 }
 
@@ -151,23 +151,23 @@ fn setup_ui(mut commands: Commands) {
 fn setup_assets_programmatically(
     commands: &mut Commands,
     asset_server: &mut AssetServer,
-    animation_graphs: &mut Assets<AnimationGraph>,
+    blend_graphs: &mut Assets<BlendGraph>,
     _save: bool,
 ) {
     // Create the nodes.
-    let mut animation_graph = AnimationGraph::new();
-    let blend_node = animation_graph.add_blend(0.5, animation_graph.root);
-    animation_graph.add_clip(
+    let mut blend_graph = BlendGraph::new();
+    let blend_node = blend_graph.add_blend(0.5, blend_graph.root);
+    blend_graph.add_clip(
         asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb")),
         1.0,
-        animation_graph.root,
+        blend_graph.root,
     );
-    animation_graph.add_clip(
+    blend_graph.add_clip(
         asset_server.load(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb")),
         1.0,
         blend_node,
     );
-    animation_graph.add_clip(
+    blend_graph.add_clip(
         asset_server.load(GltfAssetLabel::Animation(2).from_asset("models/animated/Fox.glb")),
         1.0,
         blend_node,
@@ -176,25 +176,25 @@ fn setup_assets_programmatically(
     // If asked to save, do so.
     #[cfg(not(target_arch = "wasm32"))]
     if _save {
-        let animation_graph = animation_graph.clone();
+        let blend_graph = blend_graph.clone();
 
         IoTaskPool::get()
             .spawn(async move {
                 use std::io::Write;
 
-                let animation_graph: SerializedAnimationGraph = animation_graph
+                let blend_graph: SerializedBlendGraph = blend_graph
                     .try_into()
                     .expect("The animation graph failed to convert to its serialized form");
 
                 let serialized_graph =
-                    ron::ser::to_string_pretty(&animation_graph, PrettyConfig::default())
+                    ron::ser::to_string_pretty(&blend_graph, PrettyConfig::default())
                         .expect("Failed to serialize the animation graph");
-                let mut animation_graph_writer = File::create(Path::join(
+                let mut blend_graph_writer = File::create(Path::join(
                     &FileAssetReader::get_base_path(),
-                    Path::join(Path::new("assets"), Path::new(ANIMATION_GRAPH_PATH)),
+                    Path::join(Path::new("assets"), Path::new(blend_graph_PATH)),
                 ))
                 .expect("Failed to open the animation graph asset");
-                animation_graph_writer
+                blend_graph_writer
                     .write_all(serialized_graph.as_bytes())
                     .expect("Failed to write the animation graph");
             })
@@ -202,19 +202,17 @@ fn setup_assets_programmatically(
     }
 
     // Add the graph.
-    let handle = animation_graphs.add(animation_graph);
+    let handle = blend_graphs.add(blend_graph);
 
     // Save the assets in a resource.
-    commands.insert_resource(ExampleAnimationGraph(handle));
+    commands.insert_resource(ExampleBlendGraph(handle));
 }
 
-fn setup_assets_via_serialized_animation_graph(
+fn setup_assets_via_serialized_blend_graph(
     commands: &mut Commands,
     asset_server: &mut AssetServer,
 ) {
-    commands.insert_resource(ExampleAnimationGraph(
-        asset_server.load(ANIMATION_GRAPH_PATH),
-    ));
+    commands.insert_resource(ExampleBlendGraph(asset_server.load(blend_graph_PATH)));
 }
 
 /// Spawns the animated fox.
@@ -379,7 +377,7 @@ fn setup_node_lines(commands: &mut Commands) {
 fn init_animations(
     mut commands: Commands,
     mut query: Query<(Entity, &mut AnimationPlayer)>,
-    animation_graph: Res<ExampleAnimationGraph>,
+    blend_graph: Res<ExampleBlendGraph>,
     mut done: Local<bool>,
 ) {
     if *done {
@@ -388,7 +386,7 @@ fn init_animations(
 
     for (entity, mut player) in query.iter_mut() {
         commands.entity(entity).insert((
-            AnimationGraphHandle(animation_graph.0.clone()),
+            BlendGraphHandle(blend_graph.0.clone()),
             ExampleAnimationWeights::default(),
         ));
         for &node_index in &CLIP_NODE_INDICES {

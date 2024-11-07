@@ -13,7 +13,7 @@ struct AnimationInfo {
     // The ID of the animation target, derived from the name.
     target_id: AnimationTargetId,
     // The animation graph asset.
-    graph: Handle<AnimationGraph>,
+    graph: Handle<BlendGraph>,
     // The index of the node within that graph.
     node_index: AnimationNodeIndex,
 }
@@ -31,7 +31,7 @@ fn main() {
 impl AnimationInfo {
     // Programmatically creates the UI animation.
     fn create(
-        animation_graphs: &mut Assets<AnimationGraph>,
+        blend_graphs: &mut Assets<BlendGraph>,
         animation_clips: &mut Assets<AnimationClip>,
     ) -> AnimationInfo {
         // Create an ID that identifies the text node we're going to animate.
@@ -44,9 +44,9 @@ impl AnimationInfo {
         // Create a curve that animates font size.
         animation_clip.add_curve_to_target(
             animation_target_id,
-            AnimatableCurve::new(
+            BlendableCurve::new(
                 TextFontSizeProperty,
-                AnimatableKeyframeCurve::new(
+                BlendableKeyframeCurve::new(
                     [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
                         .into_iter()
                         .zip([24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0]),
@@ -64,9 +64,9 @@ impl AnimationInfo {
         // that it is in the "srgba" format.
         animation_clip.add_curve_to_target(
             animation_target_id,
-            AnimatableCurve::new(
+            BlendableCurve::new(
                 TextColorProperty,
-                AnimatableKeyframeCurve::new([0.0, 1.0, 2.0, 3.0].into_iter().zip([
+                BlendableKeyframeCurve::new([0.0, 1.0, 2.0, 3.0].into_iter().zip([
                     Srgba::RED,
                     Srgba::GREEN,
                     Srgba::BLUE,
@@ -82,14 +82,13 @@ impl AnimationInfo {
         let animation_clip_handle = animation_clips.add(animation_clip);
 
         // Create an animation graph with that clip.
-        let (animation_graph, animation_node_index) =
-            AnimationGraph::from_clip(animation_clip_handle);
-        let animation_graph_handle = animation_graphs.add(animation_graph);
+        let (blend_graph, animation_node_index) = BlendGraph::from_clip(animation_clip_handle);
+        let blend_graph_handle = blend_graphs.add(blend_graph);
 
         AnimationInfo {
             target_name: animation_target_name,
             target_id: animation_target_id,
-            graph: animation_graph_handle,
+            graph: blend_graph_handle,
             node_index: animation_node_index,
         }
     }
@@ -99,16 +98,16 @@ impl AnimationInfo {
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    mut blend_graphs: ResMut<Assets<BlendGraph>>,
     mut animation_clips: ResMut<Assets<AnimationClip>>,
 ) {
     // Create the animation.
     let AnimationInfo {
         target_name: animation_target_name,
         target_id: animation_target_id,
-        graph: animation_graph,
+        graph: blend_graph,
         node_index: animation_node_index,
-    } = AnimationInfo::create(&mut animation_graphs, &mut animation_clips);
+    } = AnimationInfo::create(&mut blend_graphs, &mut animation_clips);
 
     // Build an animation player that automatically plays the UI animation.
     let mut animation_player = AnimationPlayer::default();
@@ -133,7 +132,7 @@ fn setup(
             ..default()
         },
         animation_player,
-        AnimationGraphHandle(animation_graph),
+        BlendGraphHandle(blend_graph),
     ));
 
     let player = entity.id();
@@ -158,7 +157,7 @@ fn setup(
 #[derive(Clone)]
 struct TextColorProperty;
 
-impl AnimatableProperty for TextColorProperty {
+impl BlendableProperty for TextColorProperty {
     type Property = Srgba;
 
     fn evaluator_id(&self) -> EvaluatorId<'_> {

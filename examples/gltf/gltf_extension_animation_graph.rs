@@ -36,7 +36,7 @@ fn main() {
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 struct AnimationToPlay {
-    graph_handle: Handle<AnimationGraph>,
+    graph_handle: Handle<BlendGraph>,
     index: AnimationNodeIndex,
 }
 
@@ -72,7 +72,7 @@ fn play_animation_when_ready(
         // connect the animation player to the mesh.
         commands
             .entity(child)
-            .insert(AnimationGraphHandle(animation_to_play.graph_handle.clone()));
+            .insert(BlendGraphHandle(animation_to_play.graph_handle.clone()));
     }
 }
 
@@ -180,12 +180,12 @@ impl GltfExtensionHandler for GltfExtensionHandlerAnimation {
         _world_root_id: Entity,
         world: &mut World,
     ) {
-        // Create an AnimationGraph from the desired clip
-        let (graph, index) = AnimationGraph::from_clip(self.clip.clone().unwrap());
+        // Create an BlendGraph from the desired clip
+        let (graph, index) = BlendGraph::from_clip(self.clip.clone().unwrap());
         // Store the animation graph as an asset with an arbitrary label
         // We only have one graph, so this label will be unique
         let graph_handle =
-            load_context.add_labeled_asset("MyAnimationGraphLabel".to_string(), graph);
+            load_context.add_labeled_asset("MyBlendGraphLabel".to_string(), graph);
 
         // Create a component that stores a reference to our animation
         let animation_to_play = AnimationToPlay {

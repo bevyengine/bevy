@@ -1,5 +1,5 @@
 use crate::{
-    animatable::Animatable,
+    animatable::Blendable,
     animation_curves::{AnimationCurve, AnimationCurveEvaluator, EvaluatorId},
     graph::AnimationNodeIndex,
     AnimationEntityMut, AnimationEvaluationError,

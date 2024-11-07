@@ -104,7 +104,7 @@ struct ExampleAssets {
     fox: Handle<Scene>,
 
     // The graph containing the animation that the fox will play.
-    fox_animation_graph: Handle<AnimationGraph>,
+    fox_blend_graph: Handle<BlendGraph>,
 
     // The node within the animation graph containing the animation.
     fox_animation_node: AnimationNodeIndex,
@@ -485,8 +485,8 @@ impl FromWorld for ExampleAssets {
     fn from_world(world: &mut World) -> Self {
         let fox_animation =
             world.load_asset(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb"));
-        let (fox_animation_graph, fox_animation_node) =
-            AnimationGraph::from_clip(fox_animation.clone());
+        let (fox_blend_graph, fox_animation_node) =
+            BlendGraph::from_clip(fox_animation.clone());
 
         ExampleAssets {
             main_sphere: world.add_asset(Sphere::default().mesh().uv(32, 18)),
@@ -497,7 +497,7 @@ impl FromWorld for ExampleAssets {
                     .from_asset("models/IrradianceVolumeExample/IrradianceVolumeExample.glb"),
             ),
             irradiance_volume: world.load_asset("irradiance_volumes/Example.vxgi.ktx2"),
-            fox_animation_graph: world.add_asset(fox_animation_graph),
+            fox_blend_graph: world.add_asset(fox_blend_graph),
             fox_animation_node,
             voxel_cube: world.add_asset(Cuboid::default()),
             // Just use a specular map for the skybox since it's not too blurry.
@@ -512,12 +512,12 @@ impl FromWorld for ExampleAssets {
 fn play_animations(
     mut commands: Commands,
     assets: Res<ExampleAssets>,
-    mut players: Query<(Entity, &mut AnimationPlayer), Without<AnimationGraphHandle>>,
+    mut players: Query<(Entity, &mut AnimationPlayer), Without<BlendGraphHandle>>,
 ) {
     for (entity, mut player) in players.iter_mut() {
         commands
             .entity(entity)
-            .insert(AnimationGraphHandle(assets.fox_animation_graph.clone()));
+            .insert(BlendGraphHandle(assets.fox_blend_graph.clone()));
         player.play(assets.fox_animation_node).repeat();
     }
 }

@@ -618,10 +618,10 @@ fn play_fox_animation(
     mut commands: Commands,
     mut animation_players_query: Query<
         (Entity, &mut AnimationPlayer),
-        Without<AnimationGraphHandle>,
+        Without<BlendGraphHandle>,
     >,
     asset_server: Res<AssetServer>,
-    mut animation_graphs: ResMut<Assets<AnimationGraph>>,
+    mut blend_graphs: ResMut<Assets<BlendGraph>>,
 ) {
     // Only pick up animation players that don't already have an animation graph
     // handle.
@@ -631,14 +631,14 @@ fn play_fox_animation(
     }
 
     let fox_animation = asset_server.load(GltfAssetLabel::Animation(0).from_asset(FOX_ASSET_PATH));
-    let (fox_animation_graph, fox_animation_node) =
-        AnimationGraph::from_clip(fox_animation.clone());
-    let fox_animation_graph = animation_graphs.add(fox_animation_graph);
+    let (fox_blend_graph, fox_animation_node) =
+        BlendGraph::from_clip(fox_animation.clone());
+    let fox_blend_graph = blend_graphs.add(fox_blend_graph);
 
     for (entity, mut animation_player) in animation_players_query.iter_mut() {
         commands
             .entity(entity)
-            .insert(AnimationGraphHandle(fox_animation_graph.clone()));
+            .insert(BlendGraphHandle(fox_blend_graph.clone()));
         animation_player.play(fox_animation_node).repeat();
     }
 }

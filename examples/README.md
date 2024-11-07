@@ -216,7 +216,7 @@ Example | Description
 [Animated Transform](../examples/animation/animated_transform.rs) | Create and play an animation defined by code that operates on the `Transform` component
 [Animated UI](../examples/animation/animated_ui.rs) | Shows how to use animation clips to animate UI properties
 [Animation Events](../examples/animation/animation_events.rs) | Demonstrate how to use animation events
-[Animation Graph](../examples/animation/animation_graph.rs) | Blends multiple animations together with a graph
+[Blend Graph](../examples/animation/blend_graph.rs) | Blends multiple animations together with a graph
 [Animation Masks](../examples/animation/animation_masks.rs) | Demonstrates animation masks
 [Color animation](../examples/animation/color_animation.rs) | Demonstrates how to animate colors using mixing and splines in different color spaces
 [Custom Skinned Mesh](../examples/animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code
@@ -655,7 +655,7 @@ Example | Description
 [Query glTF primitives](../examples/gltf/query_gltf_primitives.rs) | Query primitives in a glTF scene
 [Update glTF Scene](../examples/gltf/update_gltf_scene.rs) | Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene
 [glTF Skinned Mesh](../examples/gltf/gltf_skinned_mesh.rs) | Skinned mesh example with mesh and joints data loaded from a glTF file
-[glTF extension AnimationGraph](../examples/gltf/gltf_extension_animation_graph.rs) | Uses glTF data to build an AnimationGraph via extension processing
+[glTF extension BlendGraph](../examples/gltf/gltf_extension_blend_graph.rs) | Uses glTF data to build an BlendGraph via extension processing
 [glTF extension processing to build Mesh2ds from glTF data](../examples/gltf/gltf_extension_mesh_2d.rs) | Uses glTF extension data to convert incoming Mesh3d/MeshMaterial3d assets to 2d
 
 ## Tests

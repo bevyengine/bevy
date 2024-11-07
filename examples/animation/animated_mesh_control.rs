@@ -23,7 +23,7 @@ fn main() {
 #[derive(Resource)]
 struct Animations {
     animations: Vec<AnimationNodeIndex>,
-    graph_handle: Handle<AnimationGraph>,
+    graph_handle: Handle<BlendGraph>,
 }
 
 fn setup(
@@ -31,10 +31,10 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut graphs: ResMut<Assets<BlendGraph>>,
 ) {
     // Build the animation graph
-    let (graph, node_indices) = AnimationGraph::from_clips([
+    let (graph, node_indices) = BlendGraph::from_clips([
         asset_server.load(GltfAssetLabel::Animation(2).from_asset(FOX_PATH)),
         asset_server.load(GltfAssetLabel::Animation(1).from_asset(FOX_PATH)),
         asset_server.load(GltfAssetLabel::Animation(0).from_asset(FOX_PATH)),
@@ -120,7 +120,7 @@ fn setup_scene_once_loaded(
 
         commands
             .entity(entity)
-            .insert(AnimationGraphHandle(animations.graph_handle.clone()))
+            .insert(BlendGraphHandle(animations.graph_handle.clone()))
             .insert(transitions);
     }
 }

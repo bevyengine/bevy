@@ -33,7 +33,7 @@ use graph::AnimationNodeType;
 use prelude::AnimationCurveEvaluator;
 
 use crate::{
-    graph::{AnimationGraphHandle, ThreadedAnimationGraphs},
+    graph::{BlendGraphHandle, ThreadedBlendGraphs},
     prelude::EvaluatorId,
 };
 
@@ -64,7 +64,7 @@ pub mod prelude {
 
 use crate::{
     animation_curves::AnimationCurve,
-    graph::{AnimationGraph, AnimationGraphAssetLoader, AnimationNodeIndex},
+    graph::{BlendGraph, BlendGraphAssetLoader, AnimationNodeIndex},
     transition::{advance_transitions, expire_completed_transitions},
 };
 use alloc::sync::Arc;
@@ -464,7 +464,7 @@ pub enum AnimationEvaluationError {
 #[derive(Debug, Clone, Copy, Reflect)]
 #[reflect(Clone, Default)]
 pub struct ActiveAnimation {
-    /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
+    /// The factor by which the weight from the [`BlendGraph`] is multiplied.
     weight: f32,
     repeat: RepeatAnimation,
     speed: f32,
@@ -936,8 +936,8 @@ impl AnimationPlayer {
 fn trigger_untargeted_animation_events(
     mut commands: Commands,
     clips: Res<Assets<AnimationClip>>,
-    graphs: Res<Assets<AnimationGraph>>,
-    players: Query<(Entity, &AnimationPlayer, &AnimationGraphHandle)>,
+    graphs: Res<Assets<BlendGraph>>,
+    players: Query<(Entity, &AnimationPlayer, &BlendGraphHandle)>,
 ) {
     for (entity, player, graph_id) in &players {
         // The graph might not have loaded yet. Safely bail.
@@ -978,14 +978,14 @@ fn trigger_untargeted_animation_events(
 pub fn advance_animations(
     time: Res<Time>,
     animation_clips: Res<Assets<AnimationClip>>,
-    animation_graphs: Res<Assets<AnimationGraph>>,
-    mut players: Query<(&mut AnimationPlayer, &AnimationGraphHandle)>,
+    blend_graphs: Res<Assets<BlendGraph>>,
+    mut players: Query<(&mut AnimationPlayer, &BlendGraphHandle)>,
 ) {
     let delta_seconds = time.delta_secs();
     players
         .par_iter_mut()
         .for_each(|(mut player, graph_handle)| {
-            let Some(animation_graph) = animation_graphs.get(graph_handle) else {
+            let Some(blend_graph) = blend_graphs.get(graph_handle) else {
                 return;
             };
 
@@ -996,8 +996,8 @@ pub fn advance_animations(
                 ..
             } = *player;
 
-            for node_index in animation_graph.graph.node_indices() {
-                let node = &animation_graph[node_index];
+            for node_index in blend_graph.graph.node_indices() {
+                let node = &blend_graph[node_index];
 
                 if let Some(active_animation) = active_animations.get_mut(&node_index) {
                     // Tick the animation if necessary.
@@ -1020,7 +1020,7 @@ pub type AnimationEntityMut<'w, 's> = EntityMutExcept<
         AnimationTargetId,
         AnimatedBy,
         AnimationPlayer,
-        AnimationGraphHandle,
+        BlendGraphHandle,
     ),
 >;
 
@@ -1029,9 +1029,9 @@ pub type AnimationEntityMut<'w, 's> = EntityMutExcept<
 pub fn animate_targets(
     par_commands: ParallelCommands,
     clips: Res<Assets<AnimationClip>>,
-    graphs: Res<Assets<AnimationGraph>>,
-    threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
-    players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
+    graphs: Res<Assets<BlendGraph>>,
+    threaded_blend_graphs: Res<ThreadedBlendGraphs>,
+    players: Query<(&AnimationPlayer, &BlendGraphHandle)>,
     mut targets: Query<(Entity, &AnimationTargetId, &AnimatedBy, AnimationEntityMut)>,
     animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
@@ -1039,7 +1039,7 @@ pub fn animate_targets(
     targets
         .par_iter_mut()
         .for_each(|(entity, &target_id, &AnimatedBy(player_id), entity_mut)| {
-            let (animation_player, animation_graph_id) =
+            let (animation_player, blend_graph_id) =
                 if let Ok((player, graph_handle)) = players.get(player_id) {
                     (player, graph_handle.id())
                 } else {
@@ -1054,18 +1054,18 @@ pub fn animate_targets(
                 };
 
             // The graph might not have loaded yet. Safely bail.
-            let Some(animation_graph) = graphs.get(animation_graph_id) else {
+            let Some(blend_graph) = graphs.get(blend_graph_id) else {
                 return;
             };
 
-            let Some(threaded_animation_graph) =
-                threaded_animation_graphs.0.get(&animation_graph_id)
+            let Some(threaded_blend_graph) =
+                threaded_blend_graphs.0.get(&blend_graph_id)
             else {
                 return;
             };
 
             // Determine which mask groups this animation target belongs to.
-            let target_mask = animation_graph
+            let target_mask = blend_graph
                 .mask_groups
                 .get(&target_id)
                 .cloned()
@@ -1075,29 +1075,29 @@ pub fn animate_targets(
             let evaluation_state = &mut *evaluation_state;
 
             // Evaluate the graph.
-            for &animation_graph_node_index in threaded_animation_graph.threaded_graph.iter() {
-                let Some(animation_graph_node) = animation_graph.get(animation_graph_node_index)
+            for &blend_graph_node_index in threaded_blend_graph.threaded_graph.iter() {
+                let Some(blend_graph_node) = blend_graph.get(blend_graph_node_index)
                 else {
                     continue;
                 };
 
-                match animation_graph_node.node_type {
+                match blend_graph_node.node_type {
                     AnimationNodeType::Blend => {
                         // This is a blend node.
-                        for edge_index in threaded_animation_graph.sorted_edge_ranges
-                            [animation_graph_node_index.index()]
+                        for edge_index in threaded_blend_graph.sorted_edge_ranges
+                            [blend_graph_node_index.index()]
                         .clone()
                         {
                             if let Err(err) = evaluation_state.blend_all(
-                                threaded_animation_graph.sorted_edges[edge_index as usize],
+                                threaded_blend_graph.sorted_edges[edge_index as usize],
                             ) {
                                 warn!("Failed to blend animation: {:?}", err);
                             }
                         }
 
                         if let Err(err) = evaluation_state.push_blend_register_all(
-                            animation_graph_node.weight,
-                            animation_graph_node_index,
+                            blend_graph_node.weight,
+                            blend_graph_node_index,
                         ) {
                             warn!("Animation blending failed: {:?}", err);
                         }
@@ -1105,20 +1105,20 @@ pub fn animate_targets(
 
                     AnimationNodeType::Add => {
                         // This is an additive blend node.
-                        for edge_index in threaded_animation_graph.sorted_edge_ranges
-                            [animation_graph_node_index.index()]
+                        for edge_index in threaded_blend_graph.sorted_edge_ranges
+                            [blend_graph_node_index.index()]
                         .clone()
                         {
                             if let Err(err) = evaluation_state
-                                .add_all(threaded_animation_graph.sorted_edges[edge_index as usize])
+                                .add_all(threaded_blend_graph.sorted_edges[edge_index as usize])
                             {
                                 warn!("Failed to blend animation: {:?}", err);
                             }
                         }
 
                         if let Err(err) = evaluation_state.push_blend_register_all(
-                            animation_graph_node.weight,
-                            animation_graph_node_index,
+                            blend_graph_node.weight,
+                            blend_graph_node_index,
                         ) {
                             warn!("Animation blending failed: {:?}", err);
                         }
@@ -1128,7 +1128,7 @@ pub fn animate_targets(
                         // This is a clip node.
                         let Some(active_animation) = animation_player
                             .active_animations
-                            .get(&animation_graph_node_index)
+                            .get(&blend_graph_node_index)
                         else {
                             continue;
                         };
@@ -1137,8 +1137,8 @@ pub fn animate_targets(
                         // masked out, stop here.
                         if active_animation.weight == 0.0
                             || (target_mask
-                                & threaded_animation_graph.computed_masks
-                                    [animation_graph_node_index.index()])
+                                & threaded_blend_graph.computed_masks
+                                    [blend_graph_node_index.index()])
                                 != 0
                         {
                             continue;
@@ -1175,7 +1175,7 @@ pub fn animate_targets(
                             continue;
                         };
 
-                        let weight = active_animation.weight * animation_graph_node.weight;
+                        let weight = active_animation.weight * blend_graph_node.weight;
                         let seek_time = active_animation.seek_time;
 
                         for curve in curves {
@@ -1202,7 +1202,7 @@ pub fn animate_targets(
                                 curve_evaluator,
                                 seek_time,
                                 weight,
-                                animation_graph_node_index,
+                                blend_graph_node_index,
                             ) {
                                 warn!("Animation application failed: {:?}", err);
                             }
@@ -1224,15 +1224,15 @@ pub struct AnimationPlugin;
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<AnimationClip>()
-            .init_asset::<AnimationGraph>()
-            .init_asset_loader::<AnimationGraphAssetLoader>()
+            .init_asset::<BlendGraph>()
+            .init_asset_loader::<BlendGraphAssetLoader>()
             .register_asset_reflect::<AnimationClip>()
-            .register_asset_reflect::<AnimationGraph>()
-            .init_resource::<ThreadedAnimationGraphs>()
+            .register_asset_reflect::<BlendGraph>()
+            .init_resource::<ThreadedBlendGraphs>()
             .add_systems(
                 PostUpdate,
                 (
-                    graph::thread_animation_graphs.before(AssetEventSystems),
+                    graph::thread_blend_graphs.before(AssetEventSystems),
                     advance_transitions,
                     advance_animations,
                     // TODO: `animate_targets` can animate anything, so
