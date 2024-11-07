@@ -1,7 +1,7 @@
 //! Traits and type for interpolating between values.
 
 use crate::util;
-use bevy_asset::Handle;
+use bevy_asset::{Asset, Handle};
 use bevy_color::{Laba, LinearRgba, Oklaba, Srgba, Xyza};
 use bevy_math::*;
 use bevy_reflect::Reflect;
@@ -117,7 +117,7 @@ impl Animatable for Vec3 {
     }
 }
 
-impl<T> Animatable for Handle<T> {
+impl<T: Asset> Animatable for Handle<T> {
     #[inline]
     fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
         util::step_unclamped(*a, *b, t)
