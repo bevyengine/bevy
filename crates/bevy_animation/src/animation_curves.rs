@@ -746,7 +746,15 @@ impl WeightsCurveEvaluator {
             None => {
                 self.blend_register_blend_weight = Some(weight_to_blend);
                 self.blend_register_morph_target_weights.clear();
-                self.blend_register_morph_target_weights.extend(stack_iter);
+
+                // In the additive case, the values pushed onto the blend register need
+                // to be scaled by the weight.
+                if additive {
+                    self.blend_register_morph_target_weights
+                        .extend(stack_iter.map(|m| m * weight_to_blend));
+                } else {
+                    self.blend_register_morph_target_weights.extend(stack_iter);
+                }
             }
 
             Some(ref mut current_weight) => {
