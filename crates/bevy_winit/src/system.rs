@@ -281,8 +281,10 @@ pub(crate) fn changed_windows(
             winit_window.set_cursor(converters::convert_cursor_icon(window.cursor.icon));
         }
 
-        if window.cursor.grab_mode != cache.window.cursor.grab_mode {
-            crate::winit_windows::attempt_grab(winit_window, window.cursor.grab_mode);
+        if window.cursor.grab_mode != cache.window.cursor.grab_mode
+            && crate::winit_windows::attempt_grab(winit_window, window.cursor.grab_mode).is_err()
+        {
+            window.cursor.grab_mode = cache.window.cursor.grab_mode;
         }
 
         if window.cursor.visible != cache.window.cursor.visible {
