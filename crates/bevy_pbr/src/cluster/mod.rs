@@ -14,7 +14,7 @@ use bevy_ecs::{
 use bevy_math::{AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::Camera,
+    camera::RenderSurface,
     render_resource::{
         BindingResource, BufferBindingType, ShaderSize as _, ShaderType, StorageBuffer,
         UniformBuffer,
@@ -360,7 +360,7 @@ impl Clusters {
 
 pub fn add_clusters(
     mut commands: Commands,
-    cameras: Query<(Entity, Option<&ClusterConfig>, &Camera), (Without<Clusters>, With<Camera3d>)>,
+    cameras: Query<(Entity, Option<&ClusterConfig>, &RenderSurface), (Without<Clusters>, With<Camera3d>)>,
 ) {
     for (entity, config, camera) in &cameras {
         if !camera.is_active {
@@ -531,7 +531,7 @@ pub(crate) fn clusterable_object_order(
 /// Extracts clusters from the main world from the render world.
 pub fn extract_clusters(
     mut commands: Commands,
-    views: Extract<Query<(RenderEntity, &Clusters, &Camera)>>,
+    views: Extract<Query<(RenderEntity, &Clusters, &RenderSurface)>>,
     mapper: Extract<Query<RenderEntity>>,
 ) {
     for (entity, clusters, camera) in &views {

@@ -97,7 +97,7 @@ fn instructions(mut commands: Commands) {
 }
 
 fn orbit(
-    mut camera: Single<&mut Transform, With<Camera>>,
+    mut camera: Single<&mut Transform, With<RenderSurface>>,
     camera_settings: Res<CameraSettings>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     mouse_motion: Res<AccumulatedMouseMotion>,

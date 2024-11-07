@@ -171,7 +171,7 @@ fn draw_shapes(mut gizmos: Gizmos, mines: Query<&Mine>) {
 // Trigger `ExplodeMines` at the position of a given click
 fn handle_click(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    camera: Single<(&Camera, &GlobalTransform)>,
+    camera: Single<(&RenderSurface, &GlobalTransform)>,
     windows: Single<&Window>,
     mut commands: Commands,
 ) {

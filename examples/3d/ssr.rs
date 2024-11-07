@@ -228,7 +228,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         .spawn((
             Camera3d::default(),
             Transform::from_translation(vec3(-1.25, 2.25, 4.5)).looking_at(Vec3::ZERO, Vec3::Y),
-            Camera {
+            RenderSurface {
                 hdr: true,
                 ..default()
             },
@@ -300,7 +300,7 @@ fn rotate_model(
 fn move_camera(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut mouse_wheel_input: EventReader<MouseWheel>,
-    mut cameras: Query<&mut Transform, With<Camera>>,
+    mut cameras: Query<&mut Transform, With<RenderSurface>>,
 ) {
     let (mut distance_delta, mut theta_delta) = (0.0, 0.0);
 
@@ -345,7 +345,7 @@ fn adjust_app_settings(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut app_settings: ResMut<AppSettings>,
-    mut cameras: Query<Entity, With<Camera>>,
+    mut cameras: Query<Entity, With<RenderSurface>>,
     mut cube_models: Query<&mut Visibility, (With<CubeModel>, Without<FlightHelmetModel>)>,
     mut flight_helmet_models: Query<&mut Visibility, (Without<CubeModel>, With<FlightHelmetModel>)>,
     mut text: Query<&mut Text>,

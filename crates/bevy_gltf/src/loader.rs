@@ -22,7 +22,7 @@ use bevy_pbr::{
 };
 use bevy_render::{
     alpha::AlphaMode,
-    camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
+    camera::{RenderSurface, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
     mesh::{
         morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -1425,7 +1425,7 @@ fn load_node(
                 Camera3d::default(),
                 projection,
                 transform,
-                Camera {
+                RenderSurface {
                     is_active: !*active_camera_found,
                     ..Default::default()
                 },

@@ -222,7 +222,7 @@ fn handle_keypress(
 fn handle_mouse(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut button_events: EventReader<MouseButtonInput>,
-    mut camera_transform: Single<&mut Transform, With<Camera>>,
+    mut camera_transform: Single<&mut Transform, With<RenderSurface>>,
     mut mouse_pressed: ResMut<MousePressed>,
 ) {
     // Store left-pressed state in the MousePressed resource

@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     let mut camera = commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 4.5, 8.25).looking_at(Vec3::ZERO, Vec3::Y),
-        Camera {
+        RenderSurface {
             hdr: true,
             ..default()
         },
@@ -163,7 +163,7 @@ impl Default for AppSettings {
 /// Writes the depth of field settings into the camera.
 fn update_dof_settings(
     mut commands: Commands,
-    view_targets: Query<Entity, With<Camera>>,
+    view_targets: Query<Entity, With<RenderSurface>>,
     app_settings: Res<AppSettings>,
 ) {
     let depth_of_field: Option<DepthOfField> = (*app_settings).into();

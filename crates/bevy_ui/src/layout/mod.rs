@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
-use bevy_render::camera::{Camera, NormalizedRenderTarget};
+use bevy_render::camera::{RenderSurface, NormalizedRenderTarget};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
@@ -82,7 +82,7 @@ pub enum LayoutError {
 #[doc(hidden)]
 #[derive(SystemParam)]
 pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
-    removed_cameras: RemovedComponents<'w, 's, Camera>,
+    removed_cameras: RemovedComponents<'w, 's, RenderSurface>,
     removed_children: RemovedComponents<'w, 's, Children>,
     removed_content_sizes: RemovedComponents<'w, 's, ContentSize>,
     removed_nodes: RemovedComponents<'w, 's, Node>,
@@ -109,7 +109,7 @@ pub fn ui_layout_system(
     mut commands: Commands,
     mut buffers: Local<UiLayoutSystemBuffers>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
-    camera_data: (Query<(Entity, &Camera)>, DefaultUiCamera),
+    camera_data: (Query<(Entity, &RenderSurface)>, DefaultUiCamera),
     ui_scale: Res<UiScale>,
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut resize_events: EventReader<bevy_window::WindowResized>,
@@ -150,7 +150,7 @@ pub fn ui_layout_system(
 
     resized_windows.clear();
     resized_windows.extend(resize_events.read().map(|event| event.window));
-    let mut calculate_camera_layout_info = |camera: &Camera| {
+    let mut calculate_camera_layout_info = |camera: &RenderSurface| {
         let size = camera.physical_viewport_size().unwrap_or(UVec2::ZERO);
         let scale_factor = camera.target_scaling_factor().unwrap_or(1.0);
         let camera_target = camera
@@ -466,7 +466,7 @@ mod tests {
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_render::{
         camera::{ManualTextureViews, OrthographicProjection},
-        prelude::Camera,
+        prelude::RenderSurface,
         texture::Image,
     };
     use bevy_transform::{
@@ -601,7 +601,7 @@ mod tests {
 
         // despawn all cameras so we can reset ui_surface back to a fresh state
         let camera_entities = world
-            .query_filtered::<Entity, With<Camera>>()
+            .query_filtered::<Entity, With<RenderSurface>>()
             .iter(&world)
             .collect::<Vec<_>>();
         for camera_entity in camera_entities {
@@ -851,7 +851,7 @@ mod tests {
 
         fn update_camera_viewports(
             primary_window_query: Query<&Window, With<PrimaryWindow>>,
-            mut cameras: Query<&mut Camera>,
+            mut cameras: Query<&mut RenderSurface>,
         ) {
             let primary_window = primary_window_query
                 .get_single()
@@ -874,7 +874,7 @@ mod tests {
         fn move_ui_node(
             In(pos): In<Vec2>,
             mut commands: Commands,
-            cameras: Query<(Entity, &Camera)>,
+            cameras: Query<(Entity, &RenderSurface)>,
             moving_ui_query: Query<Entity, With<MovingUiNode>>,
         ) {
             let (target_camera_entity, _) = cameras
@@ -933,7 +933,7 @@ mod tests {
 
         world.spawn((
             Camera2d,
-            Camera {
+            RenderSurface {
                 order: 1,
                 ..default()
             },
@@ -952,7 +952,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let pos_inc = Vec2::splat(1.);
-        let total_cameras = world.query::<&Camera>().iter(&world).len();
+        let total_cameras = world.query::<&RenderSurface>().iter(&world).len();
         // add total cameras - 1 (the assumed default) to get an idea for how many nodes we should expect
         let expected_max_taffy_node_count = get_taffy_node_count(&world) + total_cameras - 1;
 
@@ -961,7 +961,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let viewport_rects = world
-            .query::<(Entity, &Camera)>()
+            .query::<(Entity, &RenderSurface)>()
             .iter(&world)
             .map(|(e, c)| (e, c.logical_viewport_rect().expect("missing viewport")))
             .collect::<Vec<_>>();

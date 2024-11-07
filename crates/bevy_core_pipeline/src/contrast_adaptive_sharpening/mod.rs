@@ -9,7 +9,7 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
-    prelude::Camera,
+    prelude::RenderSurface,
     render_graph::RenderGraphApp,
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -71,7 +71,7 @@ impl Default for ContrastAdaptiveSharpening {
 #[reflect(Component, Default)]
 pub struct DenoiseCas(bool);
 
-/// The uniform struct extracted from [`ContrastAdaptiveSharpening`] attached to a [`Camera`].
+/// The uniform struct extracted from [`ContrastAdaptiveSharpening`] attached to a [`RenderSurface`].
 /// Will be available for use in the CAS shader.
 #[doc(hidden)]
 #[derive(Component, ShaderType, Clone)]
@@ -81,7 +81,7 @@ pub struct CasUniform {
 
 impl ExtractComponent for ContrastAdaptiveSharpening {
     type QueryData = &'static Self;
-    type QueryFilter = With<Camera>;
+    type QueryFilter = With<RenderSurface>;
     type Out = (DenoiseCas, CasUniform);
 
     fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {

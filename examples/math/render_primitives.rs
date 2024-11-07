@@ -293,7 +293,7 @@ const CIRCULAR_SEGMENT: CircularSegment = CircularSegment {
 
 fn setup_cameras(mut commands: Commands) {
     let start_in_2d = true;
-    let make_camera = |is_active| Camera {
+    let make_camera = |is_active| RenderSurface {
         is_active,
         ..Default::default()
     };
@@ -332,8 +332,8 @@ pub struct HeaderNode;
 
 fn update_active_cameras(
     state: Res<State<CameraActive>>,
-    camera_2d: Single<(Entity, &mut Camera), With<Camera2d>>,
-    camera_3d: Single<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
+    camera_2d: Single<(Entity, &mut RenderSurface), With<Camera2d>>,
+    camera_3d: Single<(Entity, &mut RenderSurface), (With<Camera3d>, Without<Camera2d>)>,
     mut text: Query<&mut TargetCamera, With<HeaderNode>>,
 ) {
     let (entity_2d, mut cam_2d) = camera_2d.into_inner();
@@ -362,7 +362,7 @@ fn switch_cameras(current: Res<State<CameraActive>>, mut next: ResMut<NextState<
     next.set(next_state);
 }
 
-fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
+fn setup_text(mut commands: Commands, cameras: Query<(Entity, &RenderSurface)>) {
     let active_camera = cameras
         .iter()
         .find_map(|(entity, camera)| camera.is_active.then_some(entity))

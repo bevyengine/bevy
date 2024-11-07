@@ -23,7 +23,7 @@ use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::{
-    camera::Camera,
+    camera::RenderSurface,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
@@ -537,7 +537,7 @@ pub fn extract_default_ui_camera_view(
         Query<
             (
                 RenderEntity,
-                &Camera,
+                &RenderSurface,
                 Option<&UiAntiAlias>,
                 Option<&UiBoxShadowSamples>,
             ),
@@ -625,7 +625,7 @@ pub fn extract_default_ui_camera_view(
 pub fn extract_text_sections(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<&Camera>>,
+    camera_query: Extract<Query<&RenderSurface>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     ui_scale: Extract<Res<UiScale>>,
@@ -671,7 +671,7 @@ pub fn extract_text_sections(
         let scale_factor = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(Camera::target_scaling_factor)
+            .and_then(RenderSurface::target_scaling_factor)
             .unwrap_or(1.0)
             * ui_scale.0;
         let inverse_scale_factor = scale_factor.recip();

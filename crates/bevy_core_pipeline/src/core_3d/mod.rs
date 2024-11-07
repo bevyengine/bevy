@@ -76,7 +76,7 @@ use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
-    camera::{Camera, ExtractedCamera},
+    camera::{RenderSurface, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
@@ -528,7 +528,7 @@ pub fn extract_core_3d_camera_phases(
     mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    cameras_3d: Extract<Query<(RenderEntity, &Camera), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(RenderEntity, &RenderSurface), With<Camera3d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
@@ -563,7 +563,7 @@ pub fn extract_camera_prepass_phase(
         Query<
             (
                 RenderEntity,
-                &Camera,
+                &RenderSurface,
                 Has<DepthPrepass>,
                 Has<NormalPrepass>,
                 Has<MotionVectorPrepass>,
@@ -793,7 +793,7 @@ pub fn prepare_core_3d_transmission_textures(
 }
 
 // Disable MSAA and warn if using deferred rendering
-pub fn check_msaa(mut deferred_views: Query<&mut Msaa, (With<Camera>, With<DeferredPrepass>)>) {
+pub fn check_msaa(mut deferred_views: Query<&mut Msaa, (With<RenderSurface>, With<DeferredPrepass>)>) {
     for mut msaa in deferred_views.iter_mut() {
         match *msaa {
             Msaa::Off => (),

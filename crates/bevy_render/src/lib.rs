@@ -52,7 +52,7 @@ pub mod prelude {
     pub use crate::{
         alpha::AlphaMode,
         camera::{
-            Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
+            RenderSurface, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
         },
         mesh::{

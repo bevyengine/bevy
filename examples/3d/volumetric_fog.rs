@@ -65,7 +65,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     commands
         .spawn((
             Camera3d::default(),
-            Camera {
+            RenderSurface {
                 hdr: true,
                 ..default()
             },

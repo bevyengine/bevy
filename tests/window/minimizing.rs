@@ -62,7 +62,7 @@ fn setup_3d(
 fn setup_2d(mut commands: Commands) {
     commands.spawn((
         Camera2d,
-        Camera {
+        RenderSurface {
             // render the 2d camera after the 3d camera
             order: 1,
             // do not use a clear color

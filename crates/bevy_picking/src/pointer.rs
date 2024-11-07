@@ -11,7 +11,7 @@
 use bevy_ecs::prelude::*;
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
-use bevy_render::camera::{Camera, NormalizedRenderTarget};
+use bevy_render::camera::{RenderSurface, NormalizedRenderTarget};
 use bevy_utils::HashMap;
 use bevy_window::PrimaryWindow;
 
@@ -199,9 +199,9 @@ impl PointerLocation {
 ///
 /// Note that:
 /// - a pointer can move freely between render targets
-/// - a pointer is not associated with a [`Camera`] because multiple cameras can target the same
+/// - a pointer is not associated with a [`RenderSurface`] because multiple cameras can target the same
 ///   render target. It is up to picking backends to associate a Pointer's `Location` with a
-///   specific `Camera`, if any.
+///   specific `RenderSurface`, if any.
 #[derive(Debug, Clone, Component, Reflect, PartialEq)]
 #[reflect(Component, Debug, PartialEq)]
 pub struct Location {
@@ -212,13 +212,13 @@ pub struct Location {
 }
 
 impl Location {
-    /// Returns `true` if this pointer's [`Location`] is within the [`Camera`]'s viewport.
+    /// Returns `true` if this pointer's [`Location`] is within the [`RenderSurface`]'s viewport.
     ///
     /// Note this returns `false` if the location and camera have different render targets.
     #[inline]
     pub fn is_in_viewport(
         &self,
-        camera: &Camera,
+        camera: &RenderSurface,
         primary_window: &Query<Entity, With<PrimaryWindow>>,
     ) -> bool {
         if camera

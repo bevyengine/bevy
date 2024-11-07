@@ -20,7 +20,7 @@ use bevy_utils::{Parallel, TypeIdMap};
 use super::NoCpuCulling;
 use crate::sync_world::MainEntity;
 use crate::{
-    camera::{Camera, CameraProjection},
+    camera::{CameraProjection, RenderSurface},
     mesh::{Mesh, Mesh3d, MeshAabb},
     primitives::{Aabb, Frustum, Sphere},
 };
@@ -208,7 +208,7 @@ pub struct NoFrustumCulling;
 /// system set. Renderers can use the equivalent [`RenderVisibleEntities`] to optimize rendering of
 /// a particular view, to prevent drawing items not visible from that view.
 ///
-/// This component is intended to be attached to the same entity as the [`Camera`] and
+/// This component is intended to be attached to the same entity as the [`RenderSurface`] and
 /// the [`Frustum`] defining the view.
 #[derive(Clone, Component, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
@@ -485,7 +485,7 @@ pub fn check_visibility<QF>(
         &mut VisibleEntities,
         &Frustum,
         Option<&RenderLayers>,
-        &Camera,
+        &RenderSurface,
         Has<NoCpuCulling>,
     )>,
     mut visible_aabb_query: Query<

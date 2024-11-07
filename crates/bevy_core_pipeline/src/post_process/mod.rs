@@ -16,7 +16,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::Camera,
+    camera::RenderSurface,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::{RenderAssetUsages, RenderAssets},
     render_graph::{
@@ -488,7 +488,7 @@ pub fn prepare_post_processing_uniforms(
 impl ExtractComponent for ChromaticAberration {
     type QueryData = Read<ChromaticAberration>;
 
-    type QueryFilter = With<Camera>;
+    type QueryFilter = With<RenderSurface>;
 
     type Out = ChromaticAberration;
 

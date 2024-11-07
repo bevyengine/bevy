@@ -40,7 +40,7 @@ fn setup(
 
     commands.spawn((
         Camera3d::default(),
-        Camera {
+        RenderSurface {
             hdr: true,
             ..default()
         },

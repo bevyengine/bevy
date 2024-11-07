@@ -316,7 +316,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_translation(Vec3::new(0.0, 0.0, 5.0)).looking_at(Vec3::default(), Vec3::Y),
-        Camera {
+        RenderSurface {
             clear_color: Color::WHITE.into(),
             ..default()
         },

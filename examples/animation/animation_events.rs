@@ -54,7 +54,7 @@ fn setup(
     // Camera
     commands.spawn((
         Camera2d,
-        Camera {
+        RenderSurface {
             clear_color: ClearColorConfig::Custom(BLACK.into()),
             hdr: true,
             ..Default::default()

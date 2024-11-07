@@ -438,7 +438,7 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 fn move_camera(
     time: Res<Time>,
     args: Res<Args>,
-    mut camera_transform: Single<&mut Transform, With<Camera>>,
+    mut camera_transform: Single<&mut Transform, With<RenderSurface>>,
 ) {
     let delta = 0.15
         * if args.benchmark {

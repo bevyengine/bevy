@@ -9,7 +9,7 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    prelude::Camera,
+    prelude::RenderSurface,
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d},
@@ -49,10 +49,10 @@ impl Sensitivity {
 }
 
 /// A component for enabling Fast Approximate Anti-Aliasing (FXAA)
-/// for a [`bevy_render::camera::Camera`].
+/// for a [`bevy_render::camera::RenderSurface`].
 #[derive(Reflect, Component, Clone, ExtractComponent)]
 #[reflect(Component, Default)]
-#[extract_component_filter(With<Camera>)]
+#[extract_component_filter(With<RenderSurface>)]
 #[doc(alias = "FastApproximateAntiAliasing")]
 pub struct Fxaa {
     /// Enable render passes for FXAA.

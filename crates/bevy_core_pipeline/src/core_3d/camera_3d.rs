@@ -7,7 +7,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
-    camera::{Camera, CameraMainTextureUsages, CameraRenderGraph, Exposure, Projection},
+    camera::{CameraMainTextureUsages, CameraRenderGraph, Exposure, Projection, RenderSurface},
     extract_component::ExtractComponent,
     primitives::Frustum,
     render_resource::{LoadOp, TextureUsages},
@@ -17,15 +17,15 @@ use bevy_render::{
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
-/// A 3D camera component. Enables the main 3D render graph for a [`Camera`].
+/// A 3D camera component. Enables the main 3D render graph for a [`RenderSurface`].
 ///
 /// The camera coordinate space is right-handed X-right, Y-up, Z-back.
 /// This means "forward" is -Z.
 #[derive(Component, Reflect, Clone, ExtractComponent)]
-#[extract_component_filter(With<Camera>)]
+#[extract_component_filter(With<RenderSurface>)]
 #[reflect(Component, Default)]
 #[require(
-    Camera,
+    RenderSurface,
     DebandDither(|| DebandDither::Enabled),
     CameraRenderGraph(|| CameraRenderGraph::new(Core3d)),
     Projection,
@@ -156,7 +156,7 @@ pub enum ScreenSpaceTransmissionQuality {
     note = "Use the `Camera3d` component instead. Inserting it will now also insert the other components required by it automatically."
 )]
 pub struct Camera3dBundle {
-    pub camera: Camera,
+    pub camera: RenderSurface,
     pub camera_render_graph: CameraRenderGraph,
     pub projection: Projection,
     pub visible_entities: VisibleEntities,

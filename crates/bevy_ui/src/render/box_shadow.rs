@@ -20,7 +20,7 @@ use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::RenderApp;
 use bevy_render::{
-    camera::Camera,
+    camera::RenderSurface,
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
@@ -235,7 +235,7 @@ pub fn extract_shadows(
     mut extracted_box_shadows: ResMut<ExtractedBoxShadows>,
     default_ui_camera: Extract<DefaultUiCamera>,
     ui_scale: Extract<Res<UiScale>>,
-    camera_query: Extract<Query<(Entity, &Camera)>>,
+    camera_query: Extract<Query<(Entity, &RenderSurface)>>,
     box_shadow_query: Extract<
         Query<(
             Entity,

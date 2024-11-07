@@ -246,7 +246,7 @@ fn load_loading_screen(mut commands: Commands) {
     // Spawn the UI and Loading screen camera.
     commands.spawn((
         Camera2d,
-        Camera {
+        RenderSurface {
             order: 1,
             ..default()
         },

@@ -9,7 +9,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::sync_world::SyncToRenderWorld;
 use bevy_render::{
     camera::{
-        Camera, CameraMainTextureUsages, CameraProjection, CameraRenderGraph,
+        RenderSurface, CameraMainTextureUsages, CameraProjection, CameraRenderGraph,
         OrthographicProjection,
     },
     extract_component::ExtractComponent,
@@ -19,12 +19,12 @@ use bevy_render::{
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-/// A 2D camera component. Enables the 2D render graph for a [`Camera`].
+/// A 2D camera component. Enables the 2D render graph for a [`RenderSurface`].
 #[derive(Component, Default, Reflect, Clone, ExtractComponent)]
-#[extract_component_filter(With<Camera>)]
+#[extract_component_filter(With<RenderSurface>)]
 #[reflect(Component, Default)]
 #[require(
-    Camera,
+    RenderSurface,
     DebandDither,
     CameraRenderGraph(|| CameraRenderGraph::new(Core2d)),
     OrthographicProjection(OrthographicProjection::default_2d),
@@ -39,7 +39,7 @@ pub struct Camera2d;
     note = "Use the `Camera2d` component instead. Inserting it will now also insert the other components required by it automatically."
 )]
 pub struct Camera2dBundle {
-    pub camera: Camera,
+    pub camera: RenderSurface,
     pub camera_render_graph: CameraRenderGraph,
     pub projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
@@ -67,7 +67,7 @@ impl Default for Camera2dBundle {
             frustum,
             transform,
             global_transform: Default::default(),
-            camera: Camera::default(),
+            camera: RenderSurface::default(),
             camera_2d: Camera2d,
             tonemapping: Tonemapping::None,
             deband_dither: DebandDither::Disabled,
@@ -101,7 +101,7 @@ impl Camera2dBundle {
             frustum,
             transform,
             global_transform: Default::default(),
-            camera: Camera::default(),
+            camera: RenderSurface::default(),
             camera_2d: Camera2d,
             tonemapping: Tonemapping::None,
             deband_dither: DebandDither::Disabled,

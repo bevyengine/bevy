@@ -72,7 +72,7 @@ impl Plugin for MeshPickingPlugin {
 pub fn update_hits(
     backend_settings: Res<MeshPickingSettings>,
     ray_map: Res<RayMap>,
-    picking_cameras: Query<(&Camera, Option<&RayCastPickable>, Option<&RenderLayers>)>,
+    picking_cameras: Query<(&RenderSurface, Option<&RayCastPickable>, Option<&RenderLayers>)>,
     pickables: Query<&PickingBehavior>,
     marked_targets: Query<&RayCastPickable>,
     layers: Query<&RenderLayers>,

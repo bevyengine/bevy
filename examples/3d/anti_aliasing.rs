@@ -45,7 +45,7 @@ fn modify_aa(
             Option<&TemporalAntiAliasing>,
             &mut Msaa,
         ),
-        With<Camera>,
+        With<RenderSurface>,
     >,
     mut commands: Commands,
 ) {
@@ -185,7 +185,7 @@ fn update_ui(
             &ContrastAdaptiveSharpening,
             &Msaa,
         ),
-        With<Camera>,
+        With<RenderSurface>,
     >,
     mut ui: Single<&mut Text>,
 ) {
@@ -300,7 +300,7 @@ fn setup(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Camera {
+        RenderSurface {
             hdr: true,
             ..default()
         },

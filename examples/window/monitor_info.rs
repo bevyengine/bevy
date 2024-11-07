@@ -55,7 +55,7 @@ fn update(
         let camera = commands
             .spawn((
                 Camera2d,
-                Camera {
+                RenderSurface {
                     target: RenderTarget::Window(WindowRef::Entity(window)),
                     ..default()
                 },

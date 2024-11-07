@@ -136,7 +136,7 @@ fn setup(
     }
 }
 
-fn rotate_camera(mut transform: Single<&mut Transform, With<Camera>>, time: Res<Time>) {
+fn rotate_camera(mut transform: Single<&mut Transform, With<RenderSurface>>, time: Res<Time>) {
     transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_secs() / 2.));
 }
 

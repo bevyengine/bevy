@@ -57,7 +57,7 @@ fn setup(
     // The main perspective image to use as a comparison for the sub views.
     commands.spawn((
         Camera3d::default(),
-        Camera::default(),
+        RenderSurface::default(),
         ExampleViewports::PerspectiveMain,
         transform,
     ));
@@ -72,7 +72,7 @@ fn setup(
     // axis.
     commands.spawn((
         Camera3d::default(),
-        Camera {
+        RenderSurface {
             sub_camera_view: Some(SubCameraView {
                 // The values of `full_size` and `size` do not have to be the
                 // exact values of your physical viewport. The important part is
@@ -99,7 +99,7 @@ fn setup(
     // `full_size`, so the image will appear zoomed in.
     commands.spawn((
         Camera3d::default(),
-        Camera {
+        RenderSurface {
             sub_camera_view: Some(SubCameraView {
                 full_size: UVec2::new(500, 500),
                 offset: Vec2::ZERO,
@@ -122,7 +122,7 @@ fn setup(
     // full perspective image.
     commands.spawn((
         Camera3d::default(),
-        Camera {
+        RenderSurface {
             sub_camera_view: Some(SubCameraView {
                 full_size: UVec2::new(800, 800),
                 offset: Vec2::ZERO,
@@ -146,7 +146,7 @@ fn setup(
             },
             ..OrthographicProjection::default_3d()
         }),
-        Camera {
+        RenderSurface {
             order: 4,
             ..default()
         },
@@ -168,7 +168,7 @@ fn setup(
             },
             ..OrthographicProjection::default_3d()
         }),
-        Camera {
+        RenderSurface {
             sub_camera_view: Some(SubCameraView {
                 full_size: UVec2::new(2, 2),
                 offset: Vec2::ZERO,
@@ -196,7 +196,7 @@ fn setup(
             },
             ..OrthographicProjection::default_3d()
         }),
-        Camera {
+        RenderSurface {
             sub_camera_view: Some(SubCameraView {
                 full_size: UVec2::new(500, 500),
                 offset: Vec2::ZERO,
@@ -225,7 +225,7 @@ fn setup(
             },
             ..OrthographicProjection::default_3d()
         }),
-        Camera {
+        RenderSurface {
             sub_camera_view: Some(SubCameraView {
                 full_size: UVec2::new(200, 200),
                 offset: Vec2::ZERO,
@@ -240,7 +240,7 @@ fn setup(
 }
 
 fn move_camera_view(
-    mut movable_camera_query: Query<&mut Camera, With<MovingCameraMarker>>,
+    mut movable_camera_query: Query<&mut RenderSurface, With<MovingCameraMarker>>,
     time: Res<Time>,
 ) {
     for mut camera in movable_camera_query.iter_mut() {
@@ -254,7 +254,7 @@ fn move_camera_view(
 // To ensure viewports remain the same at any window size
 fn resize_viewports(
     window: Single<&Window, With<bevy::window::PrimaryWindow>>,
-    mut viewports: Query<(&mut Camera, &ExampleViewports)>,
+    mut viewports: Query<(&mut RenderSurface, &ExampleViewports)>,
 ) {
     let window_size = window.physical_size();
 

@@ -4,7 +4,7 @@ use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::Camera,
+    camera::RenderSurface,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::{RenderAssetUsages, RenderAssets},
@@ -134,11 +134,11 @@ pub struct TonemappingPipeline {
     sampler: Sampler,
 }
 
-/// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
+/// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`RenderSurface`] entity.
 #[derive(
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
-#[extract_component_filter(With<Camera>)]
+#[extract_component_filter(With<RenderSurface>)]
 #[reflect(Component, Debug, Hash, Default, PartialEq)]
 pub enum Tonemapping {
     /// Bypass tonemapping.
@@ -389,11 +389,11 @@ pub fn prepare_view_tonemapping_pipelines(
             .insert(ViewTonemappingPipeline(pipeline));
     }
 }
-/// Enables a debanding shader that applies dithering to mitigate color banding in the final image for a given [`Camera`] entity.
+/// Enables a debanding shader that applies dithering to mitigate color banding in the final image for a given [`RenderSurface`] entity.
 #[derive(
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
-#[extract_component_filter(With<Camera>)]
+#[extract_component_filter(With<RenderSurface>)]
 #[reflect(Component, Debug, Hash, Default, PartialEq)]
 pub enum DebandDither {
     #[default]

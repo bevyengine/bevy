@@ -119,7 +119,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Camera {
+        RenderSurface {
             hdr: true,
             ..default()
         },
@@ -189,7 +189,7 @@ fn movement(
 }
 
 fn rotation(
-    mut transform: Single<&mut Transform, With<Camera>>,
+    mut transform: Single<&mut Transform, With<RenderSurface>>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {

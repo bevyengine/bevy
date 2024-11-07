@@ -191,7 +191,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn((
             Camera3d::default(),
-            Camera {
+            RenderSurface {
                 hdr: true,
                 ..default()
             },

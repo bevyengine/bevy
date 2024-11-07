@@ -308,7 +308,7 @@ fn handle_mouse_press(
     mouse_position: Res<MousePosition>,
     mut edit_move: ResMut<MouseEditMove>,
     mut control_points: ResMut<ControlPoints>,
-    camera: Single<(&Camera, &GlobalTransform)>,
+    camera: Single<(&RenderSurface, &GlobalTransform)>,
 ) {
     let Some(mouse_pos) = mouse_position.0 else {
         return;
@@ -363,7 +363,7 @@ fn draw_edit_move(
     edit_move: Res<MouseEditMove>,
     mouse_position: Res<MousePosition>,
     mut gizmos: Gizmos,
-    camera: Single<(&Camera, &GlobalTransform)>,
+    camera: Single<(&RenderSurface, &GlobalTransform)>,
 ) {
     let Some(start) = edit_move.start else {
         return;

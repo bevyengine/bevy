@@ -6,7 +6,7 @@ use bevy_ecs::{
 };
 use bevy_math::{ops, Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _};
 use bevy_render::{
-    camera::Camera,
+    camera::RenderSurface,
     primitives::{Aabb, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
@@ -58,7 +58,7 @@ pub(crate) fn assign_objects_to_clusters(
     mut views: Query<(
         Entity,
         &GlobalTransform,
-        &Camera,
+        &RenderSurface,
         &Frustum,
         &ClusterConfig,
         &mut Clusters,

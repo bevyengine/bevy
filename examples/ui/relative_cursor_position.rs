@@ -17,7 +17,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera2d,
-        Camera {
+        RenderSurface {
             // Cursor position will take the viewport offset into account
             viewport: Some(Viewport {
                 physical_position: [200, 100].into(),

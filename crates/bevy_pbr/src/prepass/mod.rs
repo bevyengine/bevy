@@ -21,7 +21,7 @@ use bevy_ecs::{
 use bevy_math::Affine3A;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
-    prelude::{Camera, Mesh},
+    prelude::{RenderSurface, Mesh},
     render_asset::RenderAssets,
     render_phase::*,
     render_resource::*,
@@ -205,7 +205,7 @@ type PreviousViewFilter = Or<(With<Camera3d>, With<ShadowView>)>;
 
 pub fn update_previous_view_data(
     mut commands: Commands,
-    query: Query<(Entity, &Camera, &GlobalTransform), PreviousViewFilter>,
+    query: Query<(Entity, &RenderSurface, &GlobalTransform), PreviousViewFilter>,
 ) {
     for (entity, camera, camera_transform) in &query {
         let view_from_world = camera_transform.compute_matrix().inverse();
@@ -226,7 +226,7 @@ type PreviousMeshFilter = Or<(With<Mesh3d>, With<MeshletMesh3d>)>;
 
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
-    views: Query<&Camera, PreviousViewFilter>,
+    views: Query<&RenderSurface, PreviousViewFilter>,
     meshes: Query<(Entity, &GlobalTransform), PreviousMeshFilter>,
 ) {
     let should_run = views.iter().any(|camera| camera.is_active);
@@ -585,7 +585,7 @@ where
 // Extract the render phases for the prepass
 pub fn extract_camera_previous_view_data(
     mut commands: Commands,
-    cameras_3d: Extract<Query<(RenderEntity, &Camera, Option<&PreviousViewData>), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(RenderEntity, &RenderSurface, Option<&PreviousViewData>), With<Camera3d>>>,
 ) {
     for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
         let mut entity = commands

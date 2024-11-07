@@ -60,7 +60,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn((
         Camera3d::default(),
-        Camera {
+        RenderSurface {
             hdr: true,
             ..default()
         },

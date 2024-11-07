@@ -22,7 +22,7 @@ use bevy_render::{
         },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
-    camera::Camera,
+    camera::RenderSurface,
     mesh::*,
     primitives::Aabb,
     render_asset::RenderAssets,
@@ -983,7 +983,7 @@ pub fn extract_meshes_for_gpu_building(
             Has<VisibilityRange>,
         )>,
     >,
-    cameras_query: Extract<Query<(), (With<Camera>, With<GpuCulling>)>>,
+    cameras_query: Extract<Query<(), (With<RenderSurface>, With<GpuCulling>)>>,
 ) {
     let any_gpu_culling = !cameras_query.is_empty();
     for render_mesh_instance_queue in render_mesh_instance_queues.iter_mut() {
