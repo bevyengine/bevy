@@ -4,10 +4,7 @@ use crate::{
     widget::{ImageNode, TextUiReader},
     ComputedNode,
 };
-use bevy_a11y::{
-    accesskit::{Node, Rect, Role},
-    AccessibilityNode,
-};
+use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity},
@@ -18,6 +15,8 @@ use bevy_ecs::{
 };
 use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
 use bevy_transform::prelude::GlobalTransform;
+
+use accesskit::{Node, Rect, Role};
 
 fn calc_label(
     text_reader: &mut TextUiReader,
