@@ -66,11 +66,6 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
     indices: Option<&[I]>,
     backface_culling: Backfaces,
 ) -> Option<RayMeshHit> {
-    // The ray cast can hit the same mesh many times, so we need to track which hit is
-    // closest to the camera, and record that.
-    let mut closest_hit_distance = f32::MAX;
-    let mut closest_hit = None;
-
     let world_to_mesh = mesh_transform.inverse();
 
     let ray = Ray3d::new(
@@ -78,54 +73,66 @@ pub fn ray_mesh_intersection<I: TryInto<usize> + Clone + Copy>(
         Dir3::new(world_to_mesh.transform_vector3(*ray.direction)).ok()?,
     );
 
-    if let Some(indices) = indices {
+    let closest_hit = if let Some(indices) = indices {
         // The index list must be a multiple of three. If not, the mesh is malformed and the raycast
         // result might be nonsensical.
         if indices.len() % 3 != 0 {
             return None;
         }
 
-        indices.chunks_exact(3).for_each(|triangle| {
-            let [Ok(a), Ok(b), Ok(c)] = [
-                triangle[0].try_into(),
-                triangle[1].try_into(),
-                triangle[2].try_into(),
-            ] else {
-                return;
-            };
+        indices
+            .chunks_exact(3)
+            .fold(
+                (f32::MAX, None),
+                |(closest_distance, closest_hit), triangle| {
+                    let [Ok(a), Ok(b), Ok(c)] = [
+                        triangle[0].try_into(),
+                        triangle[1].try_into(),
+                        triangle[2].try_into(),
+                    ] else {
+                        return (closest_distance, closest_hit);
+                    };
 
-            let tri_vertices = match [positions.get(a), positions.get(b), positions.get(c)] {
-                [Some(a), Some(b), Some(c)] => [Vec3::from(*a), Vec3::from(*b), Vec3::from(*c)],
-                _ => return,
-            };
+                    let tri_vertices = match [positions.get(a), positions.get(b), positions.get(c)]
+                    {
+                        [Some(a), Some(b), Some(c)] => {
+                            [Vec3::from(*a), Vec3::from(*b), Vec3::from(*c)]
+                        }
+                        _ => return (closest_distance, closest_hit),
+                    };
 
-            if let Some(hit) = ray_triangle_intersection(&ray, &tri_vertices, backface_culling) {
-                if hit.distance >= 0. && hit.distance < closest_hit_distance {
-                    closest_hit_distance = hit.distance;
-                    closest_hit = Some((a, hit));
-                }
-            }
-        });
+                    match ray_triangle_intersection(&ray, &tri_vertices, backface_culling) {
+                        Some(hit) if hit.distance >= 0. && hit.distance < closest_distance => {
+                            (hit.distance, Some((a, hit)))
+                        }
+                        _ => (closest_distance, closest_hit),
+                    }
+                },
+            )
+            .1
     } else {
         positions
             .chunks_exact(3)
             .enumerate()
-            .for_each(|(tri_idx, triangle)| {
-                let tri_vertices = [
-                    Vec3::from(triangle[0]),
-                    Vec3::from(triangle[1]),
-                    Vec3::from(triangle[2]),
-                ];
+            .fold(
+                (f32::MAX, None),
+                |(closest_distance, closest_hit), (tri_idx, triangle)| {
+                    let tri_vertices = [
+                        Vec3::from(triangle[0]),
+                        Vec3::from(triangle[1]),
+                        Vec3::from(triangle[2]),
+                    ];
 
-                if let Some(hit) = ray_triangle_intersection(&ray, &tri_vertices, backface_culling)
-                {
-                    if hit.distance >= 0. && hit.distance < closest_hit_distance {
-                        closest_hit_distance = hit.distance;
-                        closest_hit = Some((tri_idx, hit));
+                    match ray_triangle_intersection(&ray, &tri_vertices, backface_culling) {
+                        Some(hit) if hit.distance >= 0. && hit.distance < closest_distance => {
+                            (hit.distance, Some((tri_idx, hit)))
+                        }
+                        _ => (closest_distance, closest_hit),
                     }
-                }
-            });
-    }
+                },
+            )
+            .1
+    };
 
     closest_hit.and_then(|(tri_idx, hit)| {
         let [a, b, c] = match indices {
