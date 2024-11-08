@@ -2020,6 +2020,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 alpha_to_coverage_enabled,
             },
             label: Some(label),
+            zero_initialize_workgroup_memory: false,
         })
     }
 }

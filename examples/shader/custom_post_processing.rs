@@ -287,6 +287,7 @@ impl FromWorld for PostProcessPipeline {
                 depth_stencil: None,
                 multisample: MultisampleState::default(),
                 push_constant_ranges: vec![],
+                zero_initialize_workgroup_memory: false,
             });
 
         Self {
