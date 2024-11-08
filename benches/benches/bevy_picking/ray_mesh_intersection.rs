@@ -56,7 +56,7 @@ fn ray_mesh_intersection(c: &mut Criterion) {
                 "{} triangles ({} positions, {} indices)",
                 underscore_separate_number(tri_count),
                 underscore_separate_number(mesh.positions.len()),
-                underscore_separate_number(mesh.indices.len() / 3)
+                underscore_separate_number(mesh.indices.len())
             ),
             &(ray, mesh_to_world, mesh),
             |b, (ray, mesh_to_world, mesh)| {
@@ -91,7 +91,7 @@ fn ray_mesh_intersection_no_cull(c: &mut Criterion) {
                 "{} triangles ({} positions, {} indices)",
                 underscore_separate_number(tri_count),
                 underscore_separate_number(mesh.positions.len()),
-                underscore_separate_number(mesh.indices.len() / 3)
+                underscore_separate_number(mesh.indices.len())
             ),
             &(ray, mesh_to_world, mesh),
             |b, (ray, mesh_to_world, mesh)| {
@@ -126,7 +126,7 @@ fn ray_mesh_intersection_no_intersection(c: &mut Criterion) {
                 "{} triangles ({} positions, {} indices)",
                 underscore_separate_number(tri_count),
                 underscore_separate_number(mesh.positions.len()),
-                underscore_separate_number(mesh.indices.len() / 3)
+                underscore_separate_number(mesh.indices.len())
             ),
             &(ray, mesh_to_world, mesh),
             |b, (ray, mesh_to_world, mesh)| {
@@ -145,92 +145,69 @@ fn ray_mesh_intersection_no_intersection(c: &mut Criterion) {
     }
 }
 
-fn ray_mesh_intersection_no_indices(c: &mut Criterion) {
-    let mut group = c.benchmark_group("ray_mesh_intersection_no_indices");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-
-    for vertices_per_side in [10_u32, 100, 1000] {
-        let ray = Ray3d::new(Vec3::new(0.0, 1.0, 0.0), Dir3::NEG_Y);
-        let mesh_to_world = Mat4::IDENTITY;
-        let mesh = mesh_creation(vertices_per_side);
-        let tri_count = mesh.positions.len() as u64;
-
-        group.throughput(Throughput::Elements(tri_count));
-        group.bench_with_input(
-            format!(
-                "{} triangles ({} positions)",
-                underscore_separate_number(tri_count),
-                underscore_separate_number(mesh.positions.len()),
-            ),
-            &(ray, mesh_to_world, mesh),
-            |b, (ray, mesh_to_world, mesh)| {
-                b.iter(|| {
-                    black_box(ray_cast::ray_mesh_intersection(
-                        *ray,
-                        mesh_to_world,
-                        &mesh.positions,
-                        Some(&mesh.normals),
-                        Option::<&[u32]>::None,
-                        ray_cast::Backfaces::Cull,
-                    ));
-                });
-            },
-        );
-    }
-}
-
 fn ray_mesh_intersection_single_plane(c: &mut Criterion) {
-    let mut group = c.benchmark_group("ray_mesh_intersection_single_plane");
-    group.warm_up_time(std::time::Duration::from_millis(500));
+    for (benchmark_group_name, use_indices) in [
+        ("ray_mesh_intersection_single_plane_indices", true),
+        ("ray_mesh_intersection_single_plane_no_indices", false),
+    ] {
+        let mut group = c.benchmark_group(benchmark_group_name);
+        group.warm_up_time(std::time::Duration::from_millis(500));
 
-    for subdivisions in [10_u32, 100, 1000] {
-        let ray = Ray3d::new(Vec3::new(0.01, 1.0, 0.0), Dir3::NEG_Y);
-        let mesh_to_world = Mat4::IDENTITY;
-        let mesh = PlaneMeshBuilder::new(Dir3::Y, Vec2::ONE)
-            .subdivisions(subdivisions)
-            .build();
+        for subdivisions in [10_u32, 100, 1000] {
+            let ray = Ray3d::new(Vec3::new(0.01, 1.0, 0.0), Dir3::NEG_Y);
+            let mesh_to_world = Mat4::IDENTITY;
+            let mut mesh = PlaneMeshBuilder::new(Dir3::Y, Vec2::ONE)
+                .subdivisions(subdivisions)
+                .build();
 
-        let positions = mesh
-            .attribute(Mesh::ATTRIBUTE_POSITION)
-            .unwrap()
-            .as_float3()
-            .unwrap();
+            if !use_indices {
+                mesh.duplicate_vertices();
+            }
 
-        let normals = mesh
-            .attribute(Mesh::ATTRIBUTE_NORMAL)
-            .unwrap()
-            .as_float3()
-            .unwrap();
+            let positions = mesh
+                .attribute(Mesh::ATTRIBUTE_POSITION)
+                .unwrap()
+                .as_float3()
+                .unwrap();
 
-        let indices = mesh.indices();
+            let normals = mesh
+                .attribute(Mesh::ATTRIBUTE_NORMAL)
+                .unwrap()
+                .as_float3()
+                .unwrap();
 
-        let tri_count = positions.len() as u64;
+            let indices = mesh.indices();
 
-        group.throughput(Throughput::Elements(tri_count));
-        group.bench_with_input(
-            format!(
-                "{} triangles ({} positions, {} indices)",
-                underscore_separate_number(tri_count),
-                underscore_separate_number(positions.len()),
-                underscore_separate_number(indices.unwrap().len() / 3)
-            ),
-            &(ray, mesh_to_world, positions, normals, indices),
-            |b, (ray, mesh_to_world, positions, normals, indices)| {
-                b.iter(|| {
-                    black_box(ray_cast::ray_mesh_intersection(
-                        *ray,
-                        mesh_to_world,
-                        positions,
-                        Some(normals),
-                        match indices {
-                            Some(Indices::U32(indices)) => Some(indices),
-                            _ => None,
-                        },
-                        ray_cast::Backfaces::Cull,
-                    ));
-                });
-            },
-        );
+            let tri_count = indices
+                .map(|i| i.len() as u64 / 3)
+                .unwrap_or(positions.len() as u64 / 3);
+
+            group.throughput(Throughput::Elements(tri_count));
+            group.bench_with_input(
+                format!(
+                    "{} triangles ({} positions, {} indices)",
+                    underscore_separate_number(tri_count),
+                    underscore_separate_number(positions.len()),
+                    underscore_separate_number(indices.map(|i| i.len()).unwrap_or_default())
+                ),
+                &(ray, mesh_to_world, positions, normals, indices),
+                |b, (ray, mesh_to_world, positions, normals, indices)| {
+                    b.iter(|| {
+                        black_box(ray_cast::ray_mesh_intersection(
+                            *ray,
+                            mesh_to_world,
+                            positions,
+                            Some(normals),
+                            match indices {
+                                Some(Indices::U32(indices)) => Some(indices),
+                                _ => None,
+                            },
+                            ray_cast::Backfaces::Cull,
+                        ));
+                    });
+                },
+            );
+        }
     }
 }
 
@@ -286,7 +263,9 @@ fn ray_mesh_intersection_overlapping_planes(c: &mut Criterion) {
 
             let indices = mesh.indices();
 
-            let tri_count = positions.len() as u64;
+            let tri_count = indices
+                .map(|i| i.len() as u64 / 3)
+                .unwrap_or(positions.len() as u64 / 3);
 
             group.throughput(Throughput::Elements(tri_count));
             group.bench_with_input(
@@ -294,7 +273,7 @@ fn ray_mesh_intersection_overlapping_planes(c: &mut Criterion) {
                     "{} triangles ({} positions, {} indices)",
                     underscore_separate_number(tri_count),
                     underscore_separate_number(positions.len()),
-                    underscore_separate_number(indices.unwrap().len() / 3)
+                    underscore_separate_number(indices.unwrap().len())
                 ),
                 &(ray, mesh_to_world, positions, normals, indices),
                 |b, (ray, mesh_to_world, positions, normals, indices)| {
@@ -334,7 +313,6 @@ criterion_group!(
     ray_mesh_intersection,
     ray_mesh_intersection_no_cull,
     ray_mesh_intersection_no_intersection,
-    ray_mesh_intersection_no_indices,
     ray_mesh_intersection_single_plane,
     ray_mesh_intersection_overlapping_planes,
 );
