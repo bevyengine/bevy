@@ -278,7 +278,12 @@ with UI components as a child of an entity without UI components, your UI layout
 
     let text_buffers = &mut buffer_query;
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
-    ui_surface.remove_entities(removed_components.removed_nodes.read());
+    ui_surface.remove_entities(
+        removed_components
+            .removed_nodes
+            .read()
+            .filter(|entity| !node_query.contains(*entity)),
+    );
 
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
     computed_node_query.iter().for_each(|(entity, _)| {
