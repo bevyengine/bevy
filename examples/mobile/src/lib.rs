@@ -160,7 +160,7 @@ fn button_handler(
 
 fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.spawn((
-        AudioPlayer::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
+        AudioPlayer::new(asset_server.load("sounds/Windless Slopes.ogg")),
         PlaybackSettings::LOOP,
     ));
 }
