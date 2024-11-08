@@ -2,11 +2,9 @@
 
 use std::f32::consts::PI;
 
+use accesskit::{Node as Accessible, Role};
 use bevy::{
-    a11y::{
-        accesskit::{Node as Accessible, Role},
-        AccessibilityNode,
-    },
+    a11y::AccessibilityNode,
     color::palettes::{basic::LIME, css::DARK_GRAY},
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::focus::HoverMap,
