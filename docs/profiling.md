@@ -133,7 +133,7 @@ For profiling GPU work, you should use the tool corresponding to your GPU's vend
 * Intel - [Graphics Frame Analyzer](https://www.intel.com/content/www/us/en/developer/tools/graphics-performance-analyzers/graphics-frame-analyzer.html)
 * Apple - [Xcode](https://developer.apple.com/documentation/xcode/optimizing-gpu-performance)
 
-Note that RenderDoc while is a great debugging tool, it is _not_ a profiler, and should not be used for this purpose.
+Note that while RenderDoc is a great debugging tool, it is _not_ a profiler, and should not be used for this purpose.
 
 ### Graphics work
 
