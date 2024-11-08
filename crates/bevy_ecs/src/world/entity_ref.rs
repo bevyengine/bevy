@@ -749,7 +749,7 @@ impl<'w> EntityMut<'w> {
     pub unsafe fn get_mut_by_id_unchecked(
         &self,
         component_id: ComponentId,
-    ) -> Result<MutUntyped<'w>, EntityComponentError> {
+    ) -> Result<MutUntyped<'_>, EntityComponentError> {
         // SAFETY:
         // - The caller must ensure simultaneous access is limited
         // - to components that are mutually independent.
