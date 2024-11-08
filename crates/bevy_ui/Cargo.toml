@@ -43,6 +43,7 @@ derive_more = { version = "1", default-features = false, features = [
 ] }
 nonmax = "0.5"
 smallvec = "1.11"
+accesskit = "0.17"
 
 [features]
 default = ["bevy_ui_picking_backend"]
