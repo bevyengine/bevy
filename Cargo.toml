@@ -3138,17 +3138,6 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "ui"
-path = "examples/ui/ui.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.ui]
-name = "UI"
-description = "Illustrates various features of Bevy UI"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
 name = "ui_scaling"
 path = "examples/ui/ui_scaling.rs"
 doc-scrape-examples = true
@@ -3858,6 +3847,13 @@ doc-scrape-examples = true
 [package.metadata.example.testbed_3d]
 hidden = true
 
+[[example]]
+name = "testbed_ui"
+path = "examples/testbed/ui.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.testbed_ui]
+hidden = true
 
 [[example]]
 name = "testbed_ui_layout_rounding"
