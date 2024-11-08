@@ -740,21 +740,22 @@ impl<'w> EntityMut<'w> {
     ///
     /// - Returns [`EntityComponentError::MissingComponent`] if the entity does
     ///   not have a component.
+    /// - Returns [`EntityComponentError::AliasedMutability`] if a component
+    ///   is requested multiple times.
     ///
     /// # Safety
     /// It is the callers responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
-    pub unsafe fn get_mut_by_id_unchecked(
+    pub unsafe fn get_mut_by_id_unchecked<F: DynamicComponentFetch>(
         &self,
-        component_id: ComponentId,
-    ) -> Result<MutUntyped<'_>, EntityComponentError> {
+        component_ids: F,
+    ) -> Result<F::Mut<'_>, EntityComponentError> {
         // SAFETY:
         // - The caller must ensure simultaneous access is limited
         // - to components that are mutually independent.
-        unsafe { self.0.get_mut_by_id(component_id) }
-            .ok_or(EntityComponentError::MissingComponent(component_id))
+        unsafe { component_ids.fetch_mut(self.0) }
     }
 
     /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
