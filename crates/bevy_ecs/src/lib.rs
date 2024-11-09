@@ -57,6 +57,7 @@ pub mod prelude {
             apply_deferred, common_conditions::*, Condition, IntoSystemConfigs, IntoSystemSet,
             IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
+        signal::Signal,
         system::{
             Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
             NonSend, NonSendMut, ParallelCommands, ParamSet, Populated, Query, ReadOnlySystem, Res,
