@@ -422,15 +422,16 @@ impl Transform {
         self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, back.into()));
     }
 
-    /// Returns a new [`Transform`] where translation, rotation and scale have been linearly interpolated towards the target
+    /// Returns a new [`Transform`] where translation, rotation and scale have been linearly interpolated towards the target.
     ///
-    /// Note that the value of `t` is not clamped by this function, so extrapolating outside
-    /// of the interval `[0,1]` is allowed.
+    /// Note that the value of `t` is not clamped by this function, so extrapolating outside of the interval `[0,1]` is allowed.
+    ///
+    /// The rotation interpolation uses spherical linear interpolation.
     #[inline]
     pub fn lerp(&self, rhs: Self, t: f32) -> Self {
         Transform {
             translation: self.translation.lerp(rhs.translation, t),
-            rotation: self.rotation.lerp(rhs.rotation, t),
+            rotation: self.rotation.slerp(rhs.rotation, t),
             scale: self.scale.lerp(rhs.scale, t),
         }
     }
