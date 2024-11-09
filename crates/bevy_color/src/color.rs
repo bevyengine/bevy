@@ -170,16 +170,44 @@ impl Color {
             alpha: 1.0,
         })
     }
-
+    
     /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with an alpha of 1.0.
     ///
     /// For example, a value of `0x000000` results in black, and a value of `0xff0000` results in red.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_color::Color;
+    /// let black = Color::srgb_u32(0x000000);
+    /// let red = Color::srgb_u32(0xff0000);
+    /// ```
     pub fn srgb_u32(color: u32) -> Self {
         Self::Srgba(Srgba {
             red: ((color >> 16) & 0xff) as f32 / 255.,
             green: ((color >> 8) & 0xff) as f32 / 255.,
             blue: (color & 0xff) as f32 / 255.,
             alpha: 1.0,
+        })
+    }
+    
+    /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with the alpha value extracted from the input.
+    ///
+    /// For example, a value of `0x000000ff` results in black with full opacity, and a value of `0xff000080` results in red with half opacity.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_color::Color;
+    /// let black = Color::srgba_u32(0x000000ff);
+    /// let semi_transparent_red = Color::srgba_u32(0xff000080);
+    /// ```
+    pub fn srgba_u32(color: u32) -> Self {
+        Self::Srgba(Srgba {
+            red: ((color >> 24) & 0xff) as f32 / 255.,
+            green: ((color >> 16) & 0xff) as f32 / 255.,
+            blue: ((color >> 8) & 0xff) as f32 / 255.,
+            alpha: (color & 0xff) as f32 / 255.,
         })
     }
 
