@@ -179,6 +179,7 @@ impl FromWorld for ComputePipeline {
             shader: shader.clone(),
             shader_defs: Vec::new(),
             entry_point: "main".into(),
+            zero_initialize_workgroup_memory: false,
         });
         ComputePipeline { layout, pipeline }
     }

@@ -262,6 +262,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 count: mesh_key.msaa_samples(),
                 ..MultisampleState::default()
             },
+            zero_initialize_workgroup_memory: false,
         })
     }
 }

@@ -497,6 +497,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
                 })],
             }),
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

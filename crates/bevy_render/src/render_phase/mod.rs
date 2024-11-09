@@ -101,7 +101,7 @@ where
     ///
     /// Each bin corresponds to a single batch set. For unbatchable entities,
     /// prefer `unbatchable_values` instead.
-    pub(crate) batchable_mesh_values: HashMap<BPI::BinKey, Vec<(Entity, MainEntity)>>,
+    pub batchable_mesh_values: HashMap<BPI::BinKey, Vec<(Entity, MainEntity)>>,
 
     /// A list of `BinKey`s for unbatchable items.
     ///
@@ -112,7 +112,7 @@ where
     /// The unbatchable bins.
     ///
     /// Each entity here is rendered in a separate drawcall.
-    pub(crate) unbatchable_mesh_values: HashMap<BPI::BinKey, UnbatchableBinnedEntities>,
+    pub unbatchable_mesh_values: HashMap<BPI::BinKey, UnbatchableBinnedEntities>,
 
     /// Items in the bin that aren't meshes at all.
     ///
@@ -155,9 +155,9 @@ pub struct BinnedRenderPhaseBatch {
 }
 
 /// Information about the unbatchable entities in a bin.
-pub(crate) struct UnbatchableBinnedEntities {
+pub struct UnbatchableBinnedEntities {
     /// The entities.
-    pub(crate) entities: Vec<(Entity, MainEntity)>,
+    pub entities: Vec<(Entity, MainEntity)>,
 
     /// The GPU array buffer indices of each unbatchable binned entity.
     pub(crate) buffer_indices: UnbatchableBinnedEntityIndexSet,

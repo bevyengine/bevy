@@ -342,6 +342,7 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

@@ -807,6 +807,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
                 },
                 targets,
             }),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
