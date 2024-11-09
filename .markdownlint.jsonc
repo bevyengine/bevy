@@ -47,7 +47,7 @@
         "code_blocks": true,
         "heading_line_length": 80,
         "headings": true,
-        "line_length": 600,
+        "line_length": 700,
         "stern": false,
         "strict": false,
         "tables": false
