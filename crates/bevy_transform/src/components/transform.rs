@@ -422,6 +422,19 @@ impl Transform {
         self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, back.into()));
     }
 
+    /// Returns a new [`Transform`] where translation, rotation and scale have been linearly interpolated towards the target
+    ///
+    /// Note that the value of `t` is not clamped by this function, so extrapolating outside
+    /// of the interval `[0,1]` is allowed.
+    #[inline]
+    pub fn lerp(&self, rhs: Self, t: f32) -> Self {
+        let mut transform = Transform::default();
+        transform.translation = self.translation.lerp(rhs.translation, t);
+        transform.rotation = self.rotation.lerp(rhs.rotation, t);
+        transform.scale = self.scale.lerp(rhs.scale, t);
+        transform
+    }
+
     /// Rotates this [`Transform`] so that the `main_axis` vector, reinterpreted in local coordinates, points
     /// in the given `main_direction`, while `secondary_axis` points towards `secondary_direction`.
     ///
