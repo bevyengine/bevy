@@ -3,16 +3,22 @@
 use crate::{
     component::{ComponentHooks, StorageType},
     prelude::{Component, Entity, Observer, Query, Trigger, World},
+    system::Commands,
     world::OnMutate,
 };
-use std::marker::PhantomData;
+use bevy_reflect::Reflect;
+use std::{marker::PhantomData, sync::Arc};
 
 impl World {
     /// Create a new [`Signal`] with an initial value.
     pub fn spawn_signal<S: Component>(&mut self, initial_value: S) -> Signal<S> {
-        let entity = self.spawn(initial_value).id();
+        let refcount = SignalRefcount::default();
+        let entity = self
+            .spawn((initial_value, SignalMarker, refcount.clone()))
+            .id();
         Signal {
             entity,
+            refcount,
             phantom_data: PhantomData,
         }
     }
@@ -21,9 +27,9 @@ impl World {
 /// A wrapper around a value that entities can subscribe to.
 ///
 /// TODO: Example
-#[derive(Clone, Copy)]
 pub struct Signal<S: Component> {
     entity: Entity,
+    refcount: SignalRefcount, // TODO: Signal can't be copy because of this
     phantom_data: PhantomData<S>,
 }
 
@@ -39,7 +45,7 @@ impl<S: Component> Signal<S> {
     ) -> SubscribedComponentSetup<S, C> {
         SubscribedComponentSetup {
             f: Box::new(f),
-            signal_entity: self.entity,
+            signal: self.clone(),
         }
     }
 
@@ -51,12 +57,22 @@ impl<S: Component> Signal<S> {
     }
 }
 
+impl<S: Component> Clone for Signal<S> {
+    fn clone(&self) -> Self {
+        Self {
+            entity: self.entity,
+            refcount: self.refcount.clone(),
+            phantom_data: PhantomData,
+        }
+    }
+}
+
 /// An intermediate component for setting up a subscribed component for an entity.
 ///
 /// Adding this component to an entity will initiate the setup for that entity, and then remove this component from it.
 pub struct SubscribedComponentSetup<S: Component, C: Component> {
     f: Box<dyn (Fn(&S) -> C) + 'static + Send + Sync>,
-    signal_entity: Entity,
+    signal: Signal<S>,
 }
 
 impl<S: Component, C: Component> Component for SubscribedComponentSetup<S, C> {
@@ -69,7 +85,7 @@ impl<S: Component, C: Component> Component for SubscribedComponentSetup<S, C> {
 
             // Get the signal entity
             let signal_entity = world
-                .get_entity(setup_info.signal_entity)
+                .get_entity(setup_info.signal.entity)
                 .expect("Tried to subscribe an entity's component to a signal that was despawned.");
 
             // Get the value the signal entity is holding
@@ -83,18 +99,53 @@ impl<S: Component, C: Component> Component for SubscribedComponentSetup<S, C> {
 
             // Setup an ongoing subscription to update the subscriber entity's component value whenever the signal value changes
             let f = setup_info.f;
-            world.spawn(Observer::new(move |signal_trigger: Trigger<OnMutate, S>, signal_query: Query<&S>, mut subscriber_query: Query<&mut C>| {
-                // Get the current value of the signal
-                let signal_value = signal_query.get(signal_trigger.entity()).expect("Signal component was removed");
+            world.spawn((
+                SignalSubscriptionMarker,
+                setup_info.signal.refcount,
+                Observer::new(move |signal_trigger: Trigger<OnMutate, S>, signal_query: Query<&S>, mut subscriber_query: Query<&mut C>| {
+                    // Get the current value of the signal
+                    let signal_value = signal_query.get(signal_trigger.entity()).expect("Signal component was removed");
 
-                // Call the subscription function to produce the subscribed component value
-                let signaled_component_value = (f)(signal_value);
+                    // Call the subscription function to produce the subscribed component value
+                    let signaled_component_value = (f)(signal_value);
 
-                // Update the subscribed entity's component value
-                *subscriber_query.get_mut(subscriber_entity).expect("Subscribed component was removed") = signaled_component_value;
-            })
-            .with_entity(setup_info.signal_entity));
+                    // Update the subscribed entity's component value
+                    *subscriber_query.get_mut(subscriber_entity).expect("Subscribed component was removed") = signaled_component_value;
+                }).with_entity(setup_info.signal.entity))
+            );
         }));
+    }
+}
+
+/// Marker component for an entity backing a [`Signal`].
+#[derive(Reflect)]
+pub struct SignalMarker;
+
+impl Component for SignalMarker {
+    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+}
+
+/// Marker component for an entity backing a [`Signal`] subscription.
+#[derive(Reflect)]
+pub struct SignalSubscriptionMarker;
+
+impl Component for SignalSubscriptionMarker {
+    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+}
+
+#[derive(Clone, Default)]
+struct SignalRefcount(Arc<()>);
+
+impl Component for SignalRefcount {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+}
+
+#[allow(private_interfaces)]
+pub(crate) fn signal_cleanup(signals: Query<(Entity, &SignalRefcount)>, mut commands: Commands) {
+    for (signal, refcount) in &signals {
+        if Arc::strong_count(&refcount.0) == 1 {
+            commands.entity(signal).despawn();
+        }
     }
 }
 
