@@ -2,9 +2,9 @@
 #![expect(deprecated)]
 
 use crate::{
-    widget::{Button, UiImageSize},
-    BackgroundColor, BorderColor, BorderRadius, ComputedNode, ContentSize, FocusPolicy,
-    Interaction, MaterialNode, Node, ScrollPosition, UiImage, UiMaterial, ZIndex,
+    widget::{Button, ImageNodeSize},
+    BackgroundColor, BorderColor, BorderRadius, ComputedNode, ContentSize, FocusPolicy, ImageNode,
+    Interaction, MaterialNode, Node, ScrollPosition, UiMaterial, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
@@ -57,16 +57,10 @@ pub struct NodeBundle {
 }
 
 /// A UI node that is an image
-///
-/// # Extra behaviors
-///
-/// You may add one or both of the following components to enable additional behaviors:
-/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
-/// - [`TextureAtlas`](bevy_sprite::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Debug, Default)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use the `UiImage` component instead. Inserting `UiImage` will also insert the other components required automatically."
+    note = "Use the `ImageNode` component instead. Inserting `ImageNode` will also insert the other components required automatically."
 )]
 pub struct ImageBundle {
     /// Describes the logical size of the node
@@ -79,7 +73,7 @@ pub struct ImageBundle {
     /// The image of the node.
     ///
     /// To tint the image, change the `color` field of this component.
-    pub image: UiImage,
+    pub image: ImageNode,
     /// The color of the background that will fill the containing node.
     pub background_color: BackgroundColor,
     /// The border radius of the node
@@ -87,7 +81,7 @@ pub struct ImageBundle {
     /// The size of the image in pixels
     ///
     /// This component is set automatically
-    pub image_size: UiImageSize,
+    pub image_size: ImageNodeSize,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
@@ -110,12 +104,6 @@ pub struct ImageBundle {
 }
 
 /// A UI node that is a button
-///
-/// # Extra behaviors
-///
-/// You may add one or both of the following components to enable additional behaviors:
-/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
-/// - [`TextureAtlas`](bevy_sprite::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Clone, Debug)]
 #[deprecated(
     since = "0.15.0",
@@ -138,7 +126,7 @@ pub struct ButtonBundle {
     /// The border radius of the node
     pub border_radius: BorderRadius,
     /// The image of the node
-    pub image: UiImage,
+    pub image: ImageNode,
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
     /// The transform of the node

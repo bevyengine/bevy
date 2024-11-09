@@ -32,7 +32,7 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-use super::{QUAD_INDICES, QUAD_VERTEX_POSITIONS};
+use super::{stack_z_offsets, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
 pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17717747047134343426);
 
@@ -206,6 +206,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("box_shadow_pipeline".into()),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -365,7 +366,7 @@ pub fn queue_shadows(
             pipeline,
             entity: (*entity, extracted_shadow.main_entity),
             sort_key: (
-                FloatOrd(extracted_shadow.stack_index as f32 - 0.1),
+                FloatOrd(extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW),
                 entity.index(),
             ),
             batch_range: 0..0,

@@ -141,7 +141,7 @@ fn spawn_image(
 ) {
     spawn_container(parent, update_transform, |parent| {
         parent.spawn((
-            UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
+            ImageNode::new(asset_server.load("branding/bevy_logo_dark_big.png")),
             Node {
                 height: Val::Px(100.),
                 position_type: PositionType::Absolute,

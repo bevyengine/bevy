@@ -205,6 +205,12 @@ impl AssetWriter for FileAssetWriter {
         Ok(())
     }
 
+    async fn create_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
+        let full_path = self.root_path.join(path);
+        std::fs::create_dir_all(full_path)?;
+        Ok(())
+    }
+
     async fn remove_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
         let full_path = self.root_path.join(path);
         std::fs::remove_dir_all(full_path)?;
