@@ -60,7 +60,7 @@ pub struct SubscribedComponentSetup<S: Component, C: Component> {
 }
 
 impl<S: Component, C: Component> Component for SubscribedComponentSetup<S, C> {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
+    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|mut world, subscriber_entity, _| world.commands().queue(move |world: &mut World| {
@@ -99,4 +99,32 @@ impl<S: Component, C: Component> Component for SubscribedComponentSetup<S, C> {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use crate as bevy_ecs;
+    use crate::prelude::*;
+    use crate::system::RunSystemOnce;
+
+    #[derive(Component)]
+    struct Foo(u32);
+
+    #[derive(Component, PartialEq, Eq, Debug)]
+    struct Bar(String);
+
+    #[test]
+    fn test_signal_subscription() {
+        let mut world = World::new();
+        let signal = world.spawn_signal(Foo(0));
+
+        let e = world.spawn(signal.subscribe(|s| Bar(s.0.to_string()))).id();
+        world.flush();
+
+        assert_eq!(world.entity(e).get::<Bar>(), Some(&Bar("0".to_string())));
+
+        world
+            .run_system_once(move |mut sq: Query<&mut Foo>| signal.set(Foo(17), &mut sq))
+            .unwrap();
+        world.flush();
+
+        assert_eq!(world.entity(e).get::<Bar>(), Some(&Bar("17".to_string())));
+    }
+}
