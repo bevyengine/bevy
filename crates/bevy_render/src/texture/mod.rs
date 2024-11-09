@@ -6,8 +6,6 @@ mod texture_cache;
 pub use crate::render_resource::DefaultImageSampler;
 #[cfg(feature = "basis-universal")]
 use bevy_image::CompressedImageSaver;
-#[cfg(feature = "exr")]
-pub use bevy_image::ExrTextureLoader;
 #[cfg(feature = "hdr")]
 use bevy_image::HdrTextureLoader;
 use bevy_image::{CompressedImageFormats, Image, ImageLoader, ImageSamplerDescriptor};
@@ -64,7 +62,7 @@ impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
         #[cfg(feature = "exr")]
         {
-            app.init_asset_loader::<ExrTextureLoader>();
+            app.init_asset_loader::<bevy_image::ExrTextureLoader>();
         }
 
         #[cfg(feature = "hdr")]
