@@ -1,0 +1,4 @@
+root = true
+
+[*.md]
+indent_size = 2

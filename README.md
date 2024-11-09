@@ -20,33 +20,33 @@ As a result, the Minimum Supported Rust Version (MSRV) is generally close to "th
 
 ## Design Goals
 
-* **Capable**: Offer a complete 2D and 3D feature set
-* **Simple**: Easy for newbies to pick up, but infinitely flexible for power users
-* **Data Focused**: Data-oriented architecture using the Entity Component System paradigm
-* **Modular**: Use only what you need. Replace what you don't like
-* **Fast**: App logic should run quickly, and when possible, in parallel
-* **Productive**: Changes should compile quickly ... waiting isn't fun
+- **Capable**: Offer a complete 2D and 3D feature set
+- **Simple**: Easy for newbies to pick up, but infinitely flexible for power users
+- **Data Focused**: Data-oriented architecture using the Entity Component System paradigm
+- **Modular**: Use only what you need. Replace what you don't like
+- **Fast**: App logic should run quickly, and when possible, in parallel
+- **Productive**: Changes should compile quickly ... waiting isn't fun
 
 ## About
 
-* **[Features](https://bevyengine.org):** A quick overview of Bevy's features.
-* **[News](https://bevyengine.org/news/)**: A development blog that covers our progress, plans and shiny new features.
+- **[Features](https://bevyengine.org):** A quick overview of Bevy's features.
+- **[News](https://bevyengine.org/news/)**: A development blog that covers our progress, plans and shiny new features.
 
 ## Docs
 
-* **[Quick Start Guide](https://bevyengine.org/learn/quick-start/introduction):** Bevy's official Quick Start Guide. The best place to start learning Bevy.
-* **[Bevy Rust API Docs](https://docs.rs/bevy):** Bevy's Rust API docs, which are automatically generated from the doc comments in this repo.
-* **[Official Examples](https://github.com/bevyengine/bevy/tree/latest/examples):** Bevy's dedicated, runnable examples, which are great for digging into specific concepts.
-* **[Community-Made Learning Resources](https://bevyengine.org/assets/#learning)**: More tutorials, documentation, and examples made by the Bevy community.
+- **[Quick Start Guide]:** Bevy's official Quick Start Guide. The best place to start learning Bevy.
+- **[Bevy Rust API Docs]:** Bevy's Rust API docs, which are automatically generated from the doc comments in this repo.
+- **[Official Examples]:** Bevy's dedicated, runnable examples, which are great for digging into specific concepts.
+- **[Community-Made Learning Resources]**: More tutorials, documentation, and examples made by the Bevy community.
 
 ## Community
 
 Before contributing or participating in discussions with the community, you should familiarize yourself with our [**Code of Conduct**](./CODE_OF_CONDUCT.md).
 
-* **[Discord](https://discord.gg/bevy):** Bevy's official discord server.
-* **[Reddit](https://reddit.com/r/bevy):** Bevy's official subreddit.
-* **[GitHub Discussions](https://github.com/bevyengine/bevy/discussions):** The best place for questions about Bevy, answered right here!
-* **[Bevy Assets](https://bevyengine.org/assets/):** A collection of awesome Bevy projects, tools, plugins and learning materials.
+- **[Discord](https://discord.gg/bevy):** Bevy's official discord server.
+- **[Reddit](https://reddit.com/r/bevy):** Bevy's official subreddit.
+- **[GitHub Discussions]:** The best place for questions about Bevy, answered right here!
+- **[Bevy Assets](https://bevyengine.org/assets/):** A collection of awesome Bevy projects, tools, plugins and learning materials.
 
 ### Contributing
 
@@ -63,7 +63,7 @@ We recommend checking out the [Quick Start Guide](https://bevyengine.org/learn/q
 Follow the [Setup guide](https://bevyengine.org/learn/quick-start/getting-started/setup) to ensure your development environment is set up correctly.
 Once set up, you can quickly try out the [examples](https://github.com/bevyengine/bevy/tree/latest/examples) by cloning this repo and running the following commands:
 
-```sh
+```bash
 # Switch to the correct version (latest release, default is main development branch)
 git checkout latest
 # Runs the "breakout" example
@@ -106,8 +106,8 @@ This project is tested with BrowserStack.
 Bevy is free, open source and permissively licensed!
 Except where noted (below and/or in individual files), all code in this repository is dual-licensed under either:
 
-* MIT License ([LICENSE-MIT](LICENSE-MIT) or [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
-* Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
+- MIT License ([LICENSE-MIT](LICENSE-MIT) or [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
 
 at your option.
 This means you can select the license you prefer!

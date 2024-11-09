@@ -1,0 +1,129 @@
+{
+    "blanks-around-fences": {
+        "list_items": true
+    },
+    "blanks-around-headings": {
+        "lines_above": 1,
+        "lines_below": 1
+    },
+    "code-block-style": {
+        "style": "fenced"
+    },
+    "code-fence-style": {
+        "style": "backtick"
+    },
+    "emphasis-style": {
+        "style": "asterisk"
+    },
+    "fenced-code-language": {
+        "allowed_languages": [
+            "bash",
+            "css",
+            "html",
+            "ignore",
+            "javascript",
+            "json",
+            "markdown",
+            "nix",
+            "rust",
+            "text",
+            "toml",
+            "yaml"
+        ],
+        "language_only": false
+    },
+    "first-line-h1": {
+        "front_matter_title": "^\\s*title\\s*[:=]",
+        "level": 1
+    },
+    "heading-style": {
+        "style": "atx"
+    },
+    "hr-style": {
+        "style": "---"
+    },
+    "line-length": {
+        "code_block_line_length": 500,
+        "code_blocks": true,
+        "heading_line_length": 80,
+        "headings": true,
+        "line_length": 600,
+        "stern": false,
+        "strict": false,
+        "tables": false
+    },
+    "link-image-reference-definitions": {
+        "ignored_definitions": [
+            "//"
+        ]
+    },
+    "link-image-style": {
+        "autolink": true,
+        "collapsed": true,
+        "full": true,
+        "inline": true,
+        "shortcut": true,
+        "url_inline": true
+    },
+    "list-marker-space": {
+        "ol_multi": 1,
+        "ol_single": 1,
+        "ul_multi": 1,
+        "ul_single": 1
+    },
+    "no-duplicate-heading": {
+        "siblings_only": false
+    },
+    "no-emphasis-as-heading": {
+        "punctuation": ".,;:。，；：！？"
+    },
+    "no-hard-tabs": {
+        "code_blocks": true,
+        "ignore_code_languages": [],
+        "spaces_per_tab": 2
+    },
+    "no-inline-html": {
+        "allowed_elements": [
+            "br" // Needed for lint breaks within tables
+        ]
+    },
+    "no-multiple-blanks": {
+        "maximum": 1
+    },
+    "no-trailing-punctuation": {
+        "punctuation": ".,;:。，；：！？"
+    },
+    "no-trailing-spaces": {
+        "br_spaces": 2,
+        "list_item_empty_lines": false,
+        "strict": true
+    },
+    "ol-prefix": {
+        "style": "ordered"
+    },
+    "proper-names": {
+        "code_blocks": false,
+        "names": []
+    },
+    "reference-links-images": {
+        "shortcut_syntax": false
+    },
+    "single-h1": {
+        "front_matter_title": "^\\s*title\\s*[:=]",
+        "level": 1
+    },
+    "strong-style": {
+        "style": "asterisk"
+    },
+    "table-pipe-style": {
+        "style": "leading_and_trailing"
+    },
+    "ul-indent": {
+        "indent": 2,
+        "start_indent": 2,
+        "start_indented": false
+    },
+    "ul-style": {
+        "style": "dash"
+    }
+}

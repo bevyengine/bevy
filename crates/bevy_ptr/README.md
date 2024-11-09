@@ -23,12 +23,12 @@ to choose what invariants to uphold for their pointer, with the intent to enable
 Correctly and safety converting a pointer into a valid borrow is at the core of all `unsafe` code in Rust. Looking at the documentation for
 [`(*const T)::as_ref`], a pointer must satisfy *all* of the following conditions:
 
-* The pointer must be properly aligned.
-* The pointer cannot be null, even for zero sized types.
-* The pointer must be within bounds of a valid allocated object (on the stack or the heap).
-* The pointer must point to an initialized instance of `T`.
-* The newly assigned lifetime should be valid for the value that the pointer is targeting.
-* The code must enforce Rust's aliasing rules. Only one mutable borrow or arbitrarily many read-only borrows may exist to a value at any given moment
+- The pointer must be properly aligned.
+- The pointer cannot be null, even for zero sized types.
+- The pointer must be within bounds of a valid allocated object (on the stack or the heap).
+- The pointer must point to an initialized instance of `T`.
+- The newly assigned lifetime should be valid for the value that the pointer is targeting.
+- The code must enforce Rust's aliasing rules. Only one mutable borrow or arbitrarily many read-only borrows may exist to a value at any given moment
   in time, and converting from `&T` to `&mut T` is never allowed.
 
 Note these rules aren't final and are still in flux as the Rust Project hashes out what exactly are the pointer aliasing rules, but the expectation is that the

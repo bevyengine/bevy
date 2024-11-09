@@ -6,7 +6,7 @@ This is a crate with a collection of benchmarks for Bevy.
 
 Benchmarks can be run through Cargo:
 
-```sh
+```bash
 # Run all benchmarks. (This will take a while!)
 cargo bench -p benches
 
