@@ -31,6 +31,7 @@ pub mod query;
 pub mod reflect;
 pub mod removal_detection;
 pub mod schedule;
+pub mod signal;
 pub mod storage;
 pub mod system;
 pub mod traversal;
