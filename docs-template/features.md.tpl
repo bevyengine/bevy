@@ -3,14 +3,11 @@
 
 ## Cargo Features
 
-Bevy exposes many features to customize the engine.
-Enabling them add functionalities but often come at the cost of longer compilation times and extra dependencies.
+Bevy exposes many features to customize the engine. Enabling them add functionalities but often come at the cost of longer compilation times and extra dependencies.
 
 ### Default Features
 
-The default feature set enables most of the expected features of a game engine,
-like rendering in both 2D and 3D, asset loading, audio and UI.
-To help reduce compilation time, consider disabling default features and enabling only those you need.
+The default feature set enables most of the expected features of a game engine, like rendering in both 2D and 3D, asset loading, audio and UI. To help reduce compilation time, consider disabling default features and enabling only those you need.
 
 |feature name|description|
 |-|-|
