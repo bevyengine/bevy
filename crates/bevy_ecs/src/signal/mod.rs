@@ -79,69 +79,91 @@ impl<S: Component, C: Component> Component for SubscribedComponentSetup<S, C> {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_add(|mut world, subscriber_entity, _| world.commands().queue(move |world: &mut World| {
-            // Get and remove the SubscribedComponentSetup component we just added to the subscriber entity
-            let setup_info = world.entity_mut(subscriber_entity).take::<Self>().unwrap();
-
-            // Get the signal entity
-            let signal_entity = world
-                .get_entity(setup_info.signal.entity)
-                .expect("Tried to subscribe an entity's component to a signal that was despawned.");
-
-            // Get the value the signal entity is holding
-            let signal_value = signal_entity.get::<S>().expect("Tried to subscribe an entity's component to a signal that had its component removed.");
-
-            // Call the subscription function to produce the initial subscribed component value
-            let signaled_component_initial_value = (setup_info.f)(signal_value);
-
-            // Add the initial subscription value to the subscriber entity
-            world.entity_mut(subscriber_entity).insert(signaled_component_initial_value);
-
-            // Setup an ongoing subscription to update the subscriber entity's component value whenever the signal value changes
-            let f = setup_info.f;
-            world.spawn((
-                SignalSubscriptionMarker,
-                setup_info.signal.refcount,
-                Observer::new(move |signal_trigger: Trigger<OnMutate, S>, signal_query: Query<&S>, mut subscriber_query: Query<&mut C>| {
-                    // Get the current value of the signal
-                    let signal_value = signal_query.get(signal_trigger.entity()).expect("Signal component was removed");
-
-                    // Call the subscription function to produce the subscribed component value
-                    let signaled_component_value = (f)(signal_value);
-
-                    // Update the subscribed entity's component value
-                    *subscriber_query.get_mut(subscriber_entity).expect("Subscribed component was removed") = signaled_component_value;
-                }).with_entity(setup_info.signal.entity))
-            );
-        }));
+        hooks.on_add(|mut world, subscriber_entity, _| {
+            world.commands().queue(move |world: &mut World| {
+                subscribed_component_setup::<S, C>(subscriber_entity, world);
+            })
+        });
     }
+}
+
+fn subscribed_component_setup<S: Component, C: Component>(
+    subscriber_entity: Entity,
+    world: &mut World,
+) {
+    // Get and remove the SubscribedComponentSetup component we just added to the subscriber entity
+    let setup_info = world
+        .entity_mut(subscriber_entity)
+        .take::<SubscribedComponentSetup<S, C>>()
+        .unwrap();
+
+    // Get the signal entity
+    let signal_entity = world
+        .get_entity(setup_info.signal.entity)
+        .expect("Tried to subscribe an entity's component to a signal that was despawned.");
+
+    // Get the value the signal entity is holding
+    let signal_value = signal_entity.get::<S>().expect(
+        "Tried to subscribe an entity's component to a signal that had its component removed.",
+    );
+
+    // Call the subscription function to produce the initial subscribed component value
+    let signaled_component_initial_value = (setup_info.f)(signal_value);
+
+    // Add the initial subscription value to the subscriber entity
+    world
+        .entity_mut(subscriber_entity)
+        .insert(signaled_component_initial_value);
+
+    // Setup an ongoing subscription to update the subscriber entity's component value whenever the signal value changes
+    let f = setup_info.f;
+    let subscription = move |signal_trigger: Trigger<OnMutate, S>,
+                             signal_query: Query<&S>,
+                             mut subscriber_query: Query<&mut C>| {
+        // Get the current value of the signal
+        let signal_value = signal_query
+            .get(signal_trigger.entity())
+            .expect("Signal component was removed");
+
+        // Call the subscription function to produce the subscribed component value
+        let signaled_component_value = (f)(signal_value);
+
+        // Update the subscribed entity's component value
+        *subscriber_query
+            .get_mut(subscriber_entity)
+            .expect("Subscribed component was removed") = signaled_component_value;
+    };
+    world.spawn((
+        SignalSubscriptionMarker,
+        setup_info.signal.refcount,
+        Observer::new(subscription).with_entity(setup_info.signal.entity),
+    ));
 }
 
 /// Marker component for an entity backing a [`Signal`].
 #[derive(Reflect)]
 pub struct SignalMarker;
-
 impl Component for SignalMarker {
-    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    const STORAGE_TYPE: StorageType = StorageType::Table;
 }
 
 /// Marker component for an entity backing a [`Signal`] subscription.
 #[derive(Reflect)]
 pub struct SignalSubscriptionMarker;
-
 impl Component for SignalSubscriptionMarker {
-    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    const STORAGE_TYPE: StorageType = StorageType::Table;
 }
 
-#[derive(Clone, Default)]
-struct SignalRefcount(Arc<()>);
-
+/// Refcount for tracking the lifetime of a [`Signal`].
+#[derive(Reflect, Clone, Default)]
+#[reflect(opaque)]
+pub struct SignalRefcount(Arc<()>);
 impl Component for SignalRefcount {
     const STORAGE_TYPE: StorageType = StorageType::Table;
 }
 
-#[allow(private_interfaces)]
-pub(crate) fn signal_cleanup(signals: Query<(Entity, &SignalRefcount)>, mut commands: Commands) {
+/// System to automatically clean up unused [`Signal`]s.
+pub fn signal_cleanup(signals: Query<(Entity, &SignalRefcount)>, mut commands: Commands) {
     for (signal, refcount) in &signals {
         if Arc::strong_count(&refcount.0) == 1 {
             commands.entity(signal).despawn();

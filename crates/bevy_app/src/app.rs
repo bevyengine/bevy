@@ -1,6 +1,6 @@
 use crate::{
-    First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
-    SubApps,
+    First, Last, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState,
+    SubApp, SubApps,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
@@ -104,6 +104,10 @@ impl Default for App {
                 .in_set(bevy_ecs::event::EventUpdates)
                 .run_if(bevy_ecs::event::event_update_condition),
         );
+        app.add_systems(Last, bevy_ecs::signal::signal_cleanup);
+        app.register_type::<bevy_ecs::signal::SignalMarker>();
+        app.register_type::<bevy_ecs::signal::SignalSubscriptionMarker>();
+        app.register_type::<bevy_ecs::signal::SignalRefcount>();
         app.add_event::<AppExit>();
 
         app
