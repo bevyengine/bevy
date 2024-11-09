@@ -776,6 +776,38 @@ mod tests {
         assert!(ui_surface.entity_to_taffy.is_empty());
     }
 
+    /// bugfix test, see https://github.com/bevyengine/bevy/pull/16288
+    #[test]
+    fn node_removal_and_reinsert_should_work() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        ui_schedule.run(&mut world);
+
+        // no UI entities in world, none in UiSurface
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.is_empty());
+
+        let ui_entity = world.spawn(Node::default()).id();
+
+        // `ui_layout_system` should map `ui_entity` to a ui node in `UiSurface::entity_to_taffy`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.contains_key(&ui_entity));
+        assert_eq!(ui_surface.entity_to_taffy.len(), 1);
+
+        // remove and re-insert Node to trigger removal code in `ui_layout_system`
+        world.entity_mut(ui_entity).remove::<Node>();
+        world.entity_mut(ui_entity).insert(Node::default());
+
+        // `ui_layout_system` should still have `ui_entity`
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.entity_to_taffy.contains_key(&ui_entity));
+        assert_eq!(ui_surface.entity_to_taffy.len(), 1);
+    }
+
     /// regression test for >=0.13.1 root node layouts
     /// ensure root nodes act like they are absolutely positioned
     /// without explicitly declaring it.
