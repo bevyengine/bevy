@@ -3,7 +3,7 @@
 #![allow(unsafe_code)]
 
 pub mod prelude {
-    pub use crate::{BevyDefault as _, Image, ImageFormat, TextureError};
+    pub use crate::{BevyDefault as _, Image, ImageFormat, TextureError, Volume};
 }
 
 mod image;
