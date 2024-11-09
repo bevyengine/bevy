@@ -6,7 +6,7 @@ use bevy::{
     color::palettes::css::{BLACK, WHITE},
     core_pipeline::{fxaa::Fxaa, Skybox},
     image::{
-        Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
+        ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
     },
     input::mouse::MouseWheel,

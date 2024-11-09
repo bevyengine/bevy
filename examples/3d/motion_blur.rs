@@ -3,7 +3,7 @@
 
 use bevy::{
     core_pipeline::motion_blur::MotionBlur,
-    image::{Image, ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
+    image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
     math::ops,
     prelude::*,
 };

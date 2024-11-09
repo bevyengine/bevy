@@ -9,7 +9,7 @@ use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},
     system::{Resource, SystemParam},
 };
-use bevy_image::{prelude::*, ImageSampler, TextureFormatPixelInfo};
+use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_utils::HashMap;
 
 /// A [`RenderApp`](crate::RenderApp) resource that contains the default "fallback image",

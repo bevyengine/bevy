@@ -9,7 +9,7 @@ use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
 };
-use bevy_image::prelude::*;
+use bevy_image::BevyDefault;
 use bevy_render::{
     render_resource::{
         binding_types::{storage_buffer_sized, texture_depth_2d, uniform_buffer},

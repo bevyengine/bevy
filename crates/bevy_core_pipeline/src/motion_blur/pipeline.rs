@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::FromWorld,
 };
-use bevy_image::prelude::*;
+use bevy_image::BevyDefault;
 use bevy_render::{
     globals::GlobalsUniform,
     render_resource::{

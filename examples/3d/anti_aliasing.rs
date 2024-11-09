@@ -10,7 +10,7 @@ use bevy::{
         prepass::{DepthPrepass, MotionVectorPrepass},
         smaa::{Smaa, SmaaPreset},
     },
-    image::{Image, ImageSampler, ImageSamplerDescriptor},
+    image::{ImageSampler, ImageSamplerDescriptor},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{

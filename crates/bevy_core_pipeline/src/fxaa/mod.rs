@@ -6,7 +6,7 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::prelude::*;
-use bevy_image::prelude::*;
+use bevy_image::BevyDefault;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
