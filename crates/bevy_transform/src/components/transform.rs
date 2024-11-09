@@ -428,11 +428,11 @@ impl Transform {
     /// of the interval `[0,1]` is allowed.
     #[inline]
     pub fn lerp(&self, rhs: Self, t: f32) -> Self {
-        let mut transform = Transform::default();
-        transform.translation = self.translation.lerp(rhs.translation, t);
-        transform.rotation = self.rotation.lerp(rhs.rotation, t);
-        transform.scale = self.scale.lerp(rhs.scale, t);
-        transform
+        Transform {
+            translation: self.translation.lerp(rhs.translation, t),
+            rotation: self.rotation.lerp(rhs.rotation, t),
+            scale: self.scale.lerp(rhs.scale, t)
+        }
     }
 
     /// Rotates this [`Transform`] so that the `main_axis` vector, reinterpreted in local coordinates, points
