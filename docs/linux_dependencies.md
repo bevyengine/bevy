@@ -29,7 +29,7 @@ With WSLg, a user's WSL instance can use X11 as well as Wayland.
 For more information, see WSLg [documentation](https://github.com/microsoft/wslg#wslg-architecture-overview).
 
 Prior to the release of [WSL Gui (WSLg)](https://en.wikipedia.org/wiki/Windows_Subsystem_for_Linux#WSLg)
-around 4/20/2021, users had to [manually set up servers](https://wiki.ubuntu.com/WSL#Advanced_Topics) on windows for graphic and audio.
+around 4/20/2021, users had to [manually set up servers] on windows for graphic and audio.
 Make note of the date for documentation found across the internet.
 Following advice from before WSLg's release can lead to additional conflicts.
 
@@ -64,7 +64,8 @@ sudo dnf install alsa-lib-devel.x86_64
 
 Or if there are errors such as:
 
-```txt
+<!-- markdownlint-disable MD013 -->
+```text
   --- stderr
   thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: "`\"pkg-config\" \"--libs\" \"--cflags\" \"libudev\"` did not exit successfully: exit status: 1\n--- stderr\nPackage libudev was not found in the pkg-config search path.\nPerhaps you should add the directory containing `libudev.pc'\nto the PKG_CONFIG_PATH environment variable\nNo package 'libudev' found\n"', /home/<user>/.cargo/registry/src/github.com-1ecc6299db9ec823/libudev-sys-0.1.4/build.rs:38:41
   stack backtrace:
@@ -84,10 +85,11 @@ Or if there are errors such as:
 warning: build failed, waiting for other jobs to finish...
 error: build failed
 ```
+<!-- markdownlint-enable MD013 -->
 
 Set the `PKG_CONFIG_PATH` env var to `/usr/lib/<target>/pkgconfig/`. For example on an x86_64 system:
 
-```txt
+```text
 export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig/"
 ```
 
@@ -161,7 +163,10 @@ is an example of packaging a Bevy program in nix.
 
 When using an AMD Radeon GPU, you may also need to emerge `amdgpu-pro-vulkan` to get Bevy to find the GPU.
 
-When using a NVIDIA GPU with the proprietary driver (eg. `x11-drivers/nvidia-drivers`), you may also need to emerge `media-libs/vulkan-loader` to get Bevy to find the GPU. NVIDIA Vulkan driver is included in `nvidia-driver`, but may need the loader to find the correct driver. See Gentoo [Documentation](https://wiki.gentoo.org/wiki/Vulkan) for details.
+When using a NVIDIA GPU with the proprietary driver (eg. `x11-drivers/nvidia-drivers`),
+you may also need to emerge `media-libs/vulkan-loader` to get Bevy to find the GPU.
+NVIDIA Vulkan driver is included in `nvidia-driver`, but may need the loader to find the correct driver.
+See Gentoo [Documentation](https://wiki.gentoo.org/wiki/Vulkan) for details.
 
 ## [Clear Linux OS](https://clearlinux.org/)
 
@@ -172,19 +177,29 @@ sudo swupd bundle-add devpkg-libgudev
 
 ## [Alpine Linux](https://alpinelinux.org/)
 
-Run the following command to install `GNU C compiler, standard C development libraries, pkg-config, X11 development libraries, ALSA development libraries, eudev development libraries`:
+In order to install:
 
-```sh
+- GNU C compiler
+- standard C development libraries
+- pkg-config
+- X11 development libraries
+- ALSA development libraries
+- eudev development libraries
+
+run the following command:
+
+```bash
 sudo apk add gcc libc-dev pkgconf libx11-dev alsa-lib-dev eudev-dev
 ```
 
 Install a GPU renderer for you graphics card. For Intel integrated GPUs:
 
-```sh
+```bash
 sudo apk add mesa-vulkan-intel
 ```
 
-If you have issues with `winit` such as `Failed to initialize backend!` or similar, try adding the following to your `~/.cargo/config.toml` (more information at the [issue #1818](https://github.com/rust-windowing/winit/issues/1818) of the [winit repository](https://github.com/rust-windowing/winit):
+If you have issues with `winit` such as `Failed to initialize backend!` or similar,
+try adding the following to your `~/.cargo/config.toml` (more information at the [issue #1818] of the [winit repository]):
 
 ```toml
 [build]
@@ -193,14 +208,14 @@ rustflags = ["-C", "target-feature=-crt-static"]
 
 ## [Solus](https://getsol.us)
 
-```sh
+```bash
 sudo eopkg it -c system.devel
 sudo eopkg it g++ libx11-devel alsa-lib-devel
 ```
 
 If using Wayland, you may also need to install
 
-```sh
+```bash
 sudo eopkg it wayland-devel libxkbcommon-devel
 ```
 
@@ -208,8 +223,14 @@ Compiling with clang is also possible - replace the `g++` package with `llvm-cla
 
 ## [FreeBSD](https://www.freebsd.org/)
 
-It is necessary to have the hgame module loaded in order to satisfy gli-rs. It will still throw an error, but the program should run successfully. You can make sure the kernel module is loaded on start up by adding the following line to /boot/loader.conf:
+It is necessary to have the hgame module loaded in order to satisfy gli-rs.
+It will still throw an error, but the program should run successfully.
+You can make sure the kernel module is loaded on start up by adding the following line to /boot/loader.conf:
 
-```sh
+```bash
 hgame_load="YES"
 ```
+
+[manually set up servers]: <https://wiki.ubuntu.com/WSL#Advanced_Topics>
+[issue #1818]: <https://github.com/rust-windowing/winit/issues/1818>
+[winit repository]: <https://github.com/rust-windowing/winit>

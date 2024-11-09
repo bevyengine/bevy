@@ -8,13 +8,13 @@
 
 This crate enables you to dynamically interact with Rust types:
 
-* Derive the `Reflect` traits
-* Interact with fields using their names (for named structs) or indices (for tuple structs)
-* "Patch" your types with new values
-* Look up nested fields using "path strings"
-* Iterate over struct fields
-* Automatically serialize and deserialize via Serde (without explicit serde impls)
-* Trait "reflection"
+- Derive the `Reflect` traits
+- Interact with fields using their names (for named structs) or indices (for tuple structs)
+- "Patch" your types with new values
+- Look up nested fields using "path strings"
+- Iterate over struct fields
+- Automatically serialize and deserialize via Serde (without explicit serde impls)
+- Trait "reflection"
 
 ## Features
 
@@ -167,6 +167,7 @@ println!("{}", my_trait.do_thing());
 
 The whole point of Rust is static safety! Why build something that makes it easy to throw it all away?
 
-* Some problems are inherently dynamic (scripting, some types of serialization / deserialization)
-* Sometimes the dynamic way is easier
-* Sometimes the dynamic way puts less burden on your users to derive a bunch of traits (this was a big motivator for the Bevy project)
+- Some problems are inherently dynamic (scripting, some types of serialization / deserialization)
+- Sometimes the dynamic way is easier
+- Sometimes the dynamic way puts less burden on your users to derive a bunch
+  of traits (this was a big motivator for the Bevy project)

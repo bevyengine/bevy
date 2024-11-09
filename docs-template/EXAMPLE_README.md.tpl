@@ -7,7 +7,7 @@
 These examples demonstrate the main features of Bevy and how to use them.
 To run an example, use the command `cargo run --example <Example>`, and add the option `--features x11` or `--features wayland` to force the example to run on a specific window compositor, e.g.
 
-```sh
+```bash
 cargo run --features wayland --example hello_world
 ```
 
@@ -90,7 +90,7 @@ Example | Description
 
 ### Setup
 
-```sh
+```bash
 rustup target add aarch64-linux-android
 cargo install cargo-ndk
 ```
@@ -105,13 +105,13 @@ Alternatively, you can install Android Studio.
 
 To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
-```sh
+```bash
 cargo ndk -t <target_name> -o <project_name>/app/src/main/jniLibs build
 ```
 
 For example, to compile to a 64-bit ARM platform:
 
-```sh
+```bash
 cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
 ```
 
@@ -121,7 +121,7 @@ See the `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other optio
 
 After this you can build it with `gradlew`:
 
-```sh
+```bash
 ./gradlew build
 ```
 
@@ -141,7 +141,7 @@ Alternatively, you can modify project files to include it when building an APK. 
 
 You can view the logs with the following command:
 
-```sh
+```bash
 adb logcat | grep 'RustStdoutStderr\|bevy\|wgpu'
 ```
 
@@ -149,7 +149,7 @@ In case of an error getting a GPU or setting it up, you can try settings logs of
 
 Sometimes, running the app complains about an unknown activity. This may be fixed by uninstalling the application:
 
-```sh
+```bash
 adb uninstall org.bevyengine.example
 ```
 
@@ -185,7 +185,7 @@ You need to install the correct rust targets:
 - `x86_64-apple-ios`: iOS simulator on x86 processors
 - `aarch64-apple-ios-sim`: iOS simulator on Apple processors
 
-```sh
+```bash
 rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 ```
 
@@ -193,7 +193,7 @@ rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 
 Using bash:
 
-```sh
+```bash
 cd examples/mobile
 make run
 ```
@@ -202,13 +202,13 @@ In an ideal world, this will boot up, install and run the app for the first
 iOS simulator in your `xcrun simctl list devices`. If this fails, you can
 specify the simulator device UUID via:
 
-```sh
+```bash
 DEVICE_ID=${YOUR_DEVICE_ID} make run
 ```
 
 If you'd like to see xcode do stuff, you can run
 
-```sh
+```bash
 open bevy_mobile_example.xcodeproj/
 ```
 
@@ -223,7 +223,7 @@ Example | File | Description
 
 ### Setup
 
-```sh
+```bash
 rustup target add wasm32-unknown-unknown
 cargo install wasm-bindgen-cli
 ```
@@ -233,7 +233,7 @@ cargo install wasm-bindgen-cli
 Following is an example for `lighting`. For other examples, change the `lighting` in the
 following commands.
 
-```sh
+```bash
 cargo build --release --example lighting --target wasm32-unknown-unknown
 wasm-bindgen --out-name wasm_example \
   --out-dir examples/wasm/target \
@@ -247,7 +247,7 @@ javascript bindings to this wasm file in the output file `examples/wasm/target/w
 
 Then serve `examples/wasm` directory to browser. i.e.
 
-```sh
+```bash
 # cargo install basic-http-server
 basic-http-server examples/wasm
 
@@ -285,14 +285,14 @@ the steps described in [the quick-start guide](https://bevyengine.org/learn/quic
 
 Now, when building the executable, use `--profile wasm-release` instead of `--release`:
 
-```sh
+```bash
 cargo build --profile wasm-release --example lighting --target wasm32-unknown-unknown
 ```
 
 To apply `wasm-opt`, first locate the `.wasm` file generated in the `--out-dir` of the
 earlier `wasm-bindgen-cli` command (the filename should end with `_bg.wasm`), then run:
 
-```sh
+```bash
 wasm-opt -Oz --output optimized.wasm examples/wasm/target/lighting_bg.wasm
 mv optimized.wasm examples/wasm/target/lighting_bg.wasm
 ```

@@ -14,19 +14,27 @@ It was created specifically for Bevy's needs, but it can easily be used as a sta
 
 ## ECS
 
-All app logic in Bevy uses the Entity Component System paradigm, which is often shortened to ECS. ECS is a software pattern that involves breaking your program up into Entities, Components, and Systems. Entities are unique "things" that are assigned groups of Components, which are then processed using Systems.
+All app logic in Bevy uses the Entity Component System paradigm, which is often shortened to ECS.
+ECS is a software pattern that involves breaking your program up into Entities, Components, and Systems.
+Entities are unique "things" that are assigned groups of Components, which are then processed using Systems.
 
-For example, one entity might have a `Position` and `Velocity` component, whereas another entity might have a `Position` and `UI` component. You might have a movement system that runs on all entities with a Position and Velocity component.
+For example, one entity might have a `Position` and `Velocity` component,
+whereas another entity might have a `Position` and `UI` component.
+You might have a movement system that runs on all entities with a Position and Velocity component.
 
-The ECS pattern encourages clean, decoupled designs by forcing you to break up your app data and logic into its core components. It also helps make your code faster by optimizing memory access patterns and making parallelism easier.
+The ECS pattern encourages clean, decoupled designs by forcing you to break up your app data and logic into its core components.
+It also helps make your code faster by optimizing memory access patterns and making parallelism easier.
 
 ## Concepts
 
-Bevy ECS is Bevy's implementation of the ECS pattern. Unlike other Rust ECS implementations, which often require complex lifetimes, traits, builder patterns, or macros, Bevy ECS uses normal Rust data types for all of these concepts:
+Bevy ECS is Bevy's implementation of the ECS pattern.
+Unlike other Rust ECS implementations, which often require complex lifetimes, traits,
+builder patterns, or macros, Bevy ECS uses normal Rust data types for all of these concepts:
 
 ### Components
 
-Components are normal Rust structs. They are data stored in a `World` and specific instances of Components correlate to Entities.
+Components are normal Rust `struct`s.
+They are data stored in a `World` and specific instances of Components correlate to Entities.
 
 ```rust
 use bevy_ecs::prelude::*;
@@ -37,7 +45,9 @@ struct Position { x: f32, y: f32 }
 
 ### Worlds
 
-Entities, Components, and Resources are stored in a `World`. Worlds, much like `std::collections`'s `HashSet` and `Vec`, expose operations to insert, read, write, and remove the data they store.
+Entities, Components, and Resources are stored in a `World`.
+Worlds, much like `std::collections`'s `HashSet` and `Vec`, expose
+operations to insert, read, write, and remove the data they store.
 
 ```rust
 use bevy_ecs::world::World;
@@ -70,7 +80,10 @@ let velocity = entity_ref.get::<Velocity>().unwrap();
 
 ### Systems
 
-Systems are normal Rust functions. Thanks to the Rust type system, Bevy ECS can use function parameter types to determine what data needs to be sent to the system. It also uses this "data access" information to determine what Systems can run in parallel with each other.
+Systems are normal Rust functions.
+Thanks to the Rust type system, Bevy ECS can use function parameter
+types to determine what data needs to be sent to the system.
+It also uses this "data access" information to determine what Systems can run in parallel with each other.
 
 ```rust
 use bevy_ecs::prelude::*;
@@ -87,7 +100,10 @@ fn print_position(query: Query<(Entity, &Position)>) {
 
 ### Resources
 
-Apps often require unique resources, such as asset collections, renderers, audio servers, time, etc. Bevy ECS makes this pattern a first class citizen. `Resource` is a special kind of component that does not belong to any entity. Instead, it is identified uniquely by its type:
+Apps often require unique resources, such as asset collections, renderers, audio servers, time, etc.
+Bevy ECS makes this pattern a first class citizen.
+`Resource` is a special kind of component that does not belong to any entity.
+Instead, it is identified uniquely by its type:
 
 ```rust
 use bevy_ecs::prelude::*;
@@ -114,7 +130,10 @@ fn print_time(time: Res<Time>) {
 Schedules run a set of Systems according to some execution strategy.
 Systems can be added to any number of System Sets, which are used to control their scheduling metadata.
 
-The built in "parallel executor" considers dependencies between systems and (by default) run as many of them in parallel as possible. This maximizes performance, while keeping the system execution safe. To control the system ordering, define explicit dependencies between systems and their sets.
+The built in "parallel executor" considers dependencies between systems and
+(by default) run as many of them in parallel as possible.
+This maximizes performance, while keeping the system execution safe.
+To control the system ordering, define explicit dependencies between systems and their sets.
 
 ## Using Bevy ECS
 
@@ -172,7 +191,7 @@ struct Player;
 struct Alive;
 
 // Gets the Position component of all Entities with Player component and without the Alive
-// component. 
+// component.
 fn system(query: Query<&Position, (With<Player>, Without<Alive>)>) {
     for position in &query {
     }
@@ -181,7 +200,7 @@ fn system(query: Query<&Position, (With<Player>, Without<Alive>)>) {
 
 ### Change Detection
 
-Bevy ECS tracks _all_ changes to Components and Resources.
+Bevy ECS tracks *all* changes to Components and Resources.
 
 Queries can filter for changed Components:
 
@@ -228,8 +247,9 @@ Bevy ECS supports multiple component storage types.
 
 Components can be stored in:
 
-* **Tables**: Fast and cache friendly iteration, but slower adding and removing of components. This is the default storage type.
-* **Sparse Sets**: Fast adding and removing of components, but slower iteration.
+- **Tables**: Fast and cache friendly iteration, but slower adding and removing of components.
+  This is the default storage type.
+- **Sparse Sets**: Fast adding and removing of components, but slower iteration.
 
 Component storage types are configurable, and they default to table storage if the storage is not manually defined.
 
@@ -279,7 +299,8 @@ world.spawn(PlayerBundle {
 
 ### Events
 
-Events offer a communication channel between one or more systems. Events can be sent using the system parameter `EventWriter` and received with `EventReader`.
+Events offer a communication channel between one or more systems.
+Events can be sent using the system parameter `EventWriter` and received with `EventReader`.
 
 ```rust
 use bevy_ecs::prelude::*;
@@ -326,7 +347,9 @@ world.trigger(MyEvent {
 });
 ```
 
-These differ from `EventReader` and `EventWriter` in that they are "reactive". Rather than happening at a specific point in a schedule, they happen _immediately_ whenever a trigger happens. Triggers can trigger other triggers, and they all will be evaluated at the same time!
+These differ from `EventReader` and `EventWriter` in that they are "reactive".
+Rather than happening at a specific point in a schedule, they happen *immediately* whenever a trigger happens.
+Triggers can trigger other triggers, and they all will be evaluated at the same time!
 
 Events can also be triggered to target specific entities:
 

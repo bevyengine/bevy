@@ -18,7 +18,8 @@
 
 ## Showcase
 
-> This section is optional. If this PR does not include a visual change or does not add a new feature, you can delete this section.
+> This section is optional.
+> If this PR does not include a visual change or does not add a new feature, you can delete this section.
 
 - Help others understand the result of this PR by showcasing your awesome work!
 - If this PR adds a new feature or public API, consider adding a brief pseudo-code snippet of it in action
@@ -27,9 +28,6 @@
 - If the Migration Guide adequately covers the changes, you can delete this section
 
 While a showcase should aim to be brief and digestible, you can use a toggleable section to save space on longer showcases:
-
-<details>
-  <summary>Click to view showcase</summary>
 
 ```rust
 println!("My super cool code.");
@@ -41,6 +39,7 @@ println!("My super cool code.");
 
 > This section is optional. If there are no breaking changes, you can delete this section.
 
-- If this PR is a breaking change (relative to the last release of Bevy), describe how a user might need to migrate their code to support these changes
+- If this PR is a breaking change (relative to the last release of Bevy),
+  describe how a user might need to migrate their code to support these changes
 - Simply adding new functionality is not a breaking change.
 - Fixing behavior that was definitely a bug, rather than a questionable design choice is not a breaking change.
