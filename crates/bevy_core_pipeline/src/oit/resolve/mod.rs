@@ -14,8 +14,8 @@ use bevy_render::{
         binding_types::{storage_buffer_sized, texture_depth_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendComponent,
         BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites, DownlevelFlags,
-        FragmentState, MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor,
-        Shader, ShaderDefVal, ShaderStages, TextureFormat,
+        FragmentState, MemoryInitialization, MultisampleState, PipelineCache, PrimitiveState,
+        RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderStages, TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::BevyDefault,
@@ -208,7 +208,7 @@ fn specialize_oit_resolve_pipeline(
         depth_stencil: None,
         multisample: MultisampleState::default(),
         push_constant_ranges: vec![],
-        zero_initialize_workgroup_memory: false,
+        workgroup_memory_initialization: MemoryInitialization::Uninitialized,
     }
 }
 

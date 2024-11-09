@@ -19,10 +19,11 @@ use bevy::{
         },
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
-            DepthStencilState, Face, FragmentState, FrontFace, MultisampleState, PipelineCache,
-            PolygonMode, PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor,
-            SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
-            TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+            DepthStencilState, Face, FragmentState, FrontFace, MemoryInitialization,
+            MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
+            RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines,
+            StencilFaceState, StencilState, TextureFormat, VertexBufferLayout, VertexFormat,
+            VertexState, VertexStepMode,
         },
         sync_world::MainEntityHashMap,
         texture::BevyDefault,
@@ -220,7 +221,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("colored_mesh2d_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

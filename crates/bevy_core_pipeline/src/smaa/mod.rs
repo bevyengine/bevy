@@ -57,8 +57,8 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
-        DynamicUniformBuffer, Extent3d, FilterMode, FragmentState, LoadOp, MultisampleState,
-        Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment,
+        DynamicUniformBuffer, Extent3d, FilterMode, FragmentState, LoadOp, MemoryInitialization,
+        MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment,
         RenderPassDepthStencilAttachment, RenderPassDescriptor, RenderPipeline,
         RenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal,
         ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
@@ -512,7 +512,7 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
                 bias: default(),
             }),
             multisample: MultisampleState::default(),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }
@@ -572,7 +572,7 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
                 bias: default(),
             }),
             multisample: MultisampleState::default(),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }
@@ -609,7 +609,7 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

@@ -13,10 +13,10 @@ use bevy_render::{
             texture_depth_2d_multisampled, uniform_buffer_sized,
         },
         BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
-        ColorWrites, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderDefVal,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureFormat, TextureSampleType,
+        ColorWrites, FragmentState, MemoryInitialization, MultisampleState, PipelineCache,
+        PrimitiveState, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor,
+        ShaderDefVal, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
     texture::BevyDefault,
@@ -141,7 +141,7 @@ impl SpecializedRenderPipeline for MotionBlurPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

@@ -30,10 +30,11 @@ use bevy_render::{
         BindGroupLayout, BindGroupLayoutEntries, BindingResource, BlendComponent, BlendFactor,
         BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites,
         DynamicBindGroupEntries, DynamicUniformBuffer, Face, FragmentState, LoadOp,
-        MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment,
-        RenderPassDescriptor, RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages,
-        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp, TextureFormat,
-        TextureSampleType, TextureUsages, VertexState,
+        MemoryInitialization, MultisampleState, Operations, PipelineCache, PrimitiveState,
+        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
+        SamplerBindingType, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, StoreOp, TextureFormat, TextureSampleType, TextureUsages,
+        VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
@@ -600,7 +601,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

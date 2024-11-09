@@ -12,8 +12,9 @@ use bevy_render::{
     render_resource::{
         binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, CachedRenderPipelineId, CompareFunction, DepthStencilState,
-        FragmentState, MultisampleState, PipelineCache, RenderPipelineDescriptor, Shader,
-        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        FragmentState, MemoryInitialization, MultisampleState, PipelineCache,
+        RenderPipelineDescriptor, Shader, ShaderStages, SpecializedRenderPipeline,
+        SpecializedRenderPipelines,
     },
     renderer::RenderDevice,
     view::{Msaa, ViewUniform, ViewUniforms},
@@ -105,7 +106,7 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
                 entry_point: "fragment".into(),
                 targets: prepass_target_descriptors(key.normal_prepass, true, false),
             }),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

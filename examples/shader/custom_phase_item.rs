@@ -24,8 +24,8 @@ use bevy::{
         },
         render_resource::{
             BufferUsages, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
-            FragmentState, IndexFormat, MultisampleState, PipelineCache, PrimitiveState,
-            RawBufferVec, RenderPipelineDescriptor, SpecializedRenderPipeline,
+            FragmentState, IndexFormat, MemoryInitialization, MultisampleState, PipelineCache,
+            PrimitiveState, RawBufferVec, RenderPipelineDescriptor, SpecializedRenderPipeline,
             SpecializedRenderPipelines, TextureFormat, VertexAttribute, VertexBufferLayout,
             VertexFormat, VertexState, VertexStepMode,
         },
@@ -343,7 +343,7 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

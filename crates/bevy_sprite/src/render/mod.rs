@@ -323,7 +323,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
             },
             label: Some("sprite_pipeline".into()),
             push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

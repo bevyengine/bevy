@@ -7,7 +7,7 @@ use crate::{
     render_resource::{
         binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, Buffer, BufferUsages, CachedRenderPipelineId, FragmentState,
-        PipelineCache, RenderPipelineDescriptor, SpecializedRenderPipeline,
+        MemoryInitialization, PipelineCache, RenderPipelineDescriptor, SpecializedRenderPipeline,
         SpecializedRenderPipelines, Texture, TextureUsages, TextureView, VertexState,
     },
     renderer::RenderDevice,
@@ -496,7 +496,7 @@ impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
                 })],
             }),
             push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

@@ -26,10 +26,10 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
         ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d, FilterMode, FragmentState,
-        Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureDimension, TextureFormat, TextureSampleType,
+        MemoryInitialization, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
+        SamplerDescriptor, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureDimension, TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{BevyDefault, GpuImage, Image},
@@ -344,7 +344,7 @@ impl SpecializedRenderPipeline for PostProcessingPipeline {
             depth_stencil: None,
             multisample: default(),
             push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

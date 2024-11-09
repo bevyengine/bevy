@@ -89,7 +89,7 @@ impl SpecializedComputePipeline for AutoExposurePipeline {
                 AutoExposurePass::Average => "compute_average".into(),
             },
             push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

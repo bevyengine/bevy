@@ -161,7 +161,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             },
             label: Some("LineGizmo Pipeline 2D".into()),
             push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }
@@ -262,7 +262,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             },
             label: Some("LineJointGizmo Pipeline 2D".into()),
             push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

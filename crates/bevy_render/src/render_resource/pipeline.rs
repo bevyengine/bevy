@@ -108,9 +108,8 @@ pub struct RenderPipelineDescriptor {
     pub multisample: MultisampleState,
     /// The compiled fragment stage, its entry point, and the color targets.
     pub fragment: Option<FragmentState>,
-    /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
-    /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
-    pub zero_initialize_workgroup_memory: bool,
+    /// How to initialize workgroup memory.
+    pub workgroup_memory_initialization: MemoryInitialization,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -150,7 +149,27 @@ pub struct ComputePipelineDescriptor {
     /// The name of the entry point in the compiled shader. There must be a
     /// function with this name in the shader.
     pub entry_point: Cow<'static, str>,
-    /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
-    /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
-    pub zero_initialize_workgroup_memory: bool,
+    /// How to initialize workgroup memory.
+    pub workgroup_memory_initialization: MemoryInitialization,
+}
+
+/// How to initialize workgroup memory.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub enum MemoryInitialization {
+    /// Zero-initialize workgroup memory. A safe choice.
+    /// If you're not sure which option to use, pick this one.
+    #[default]
+    Zeroed,
+    /// Do not initialize workgroup memory.
+    /// Reading from workgroup variables before writing to them will result in garbage values.
+    Uninitialized,
+}
+
+impl From<MemoryInitialization> for bool {
+    fn from(init: MemoryInitialization) -> bool {
+        match init {
+            MemoryInitialization::Zeroed => true,
+            MemoryInitialization::Uninitialized => false,
+        }
+    }
 }

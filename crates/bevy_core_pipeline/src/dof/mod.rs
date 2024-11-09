@@ -40,10 +40,11 @@ use bevy_render::{
         },
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, FilterMode, FragmentState, LoadOp,
-        Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        MemoryInitialization, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
+        SamplerDescriptor, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, StoreOp, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
     sync_component::SyncComponentPlugin,
@@ -806,7 +807,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
                 },
                 targets,
             }),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

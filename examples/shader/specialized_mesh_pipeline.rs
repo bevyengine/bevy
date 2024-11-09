@@ -24,9 +24,9 @@ use bevy::{
         },
         render_resource::{
             ColorTargetState, ColorWrites, CompareFunction, DepthStencilState, Face, FragmentState,
-            FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
-            RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-            SpecializedMeshPipelines, TextureFormat, VertexState,
+            FrontFace, MemoryInitialization, MultisampleState, PipelineCache, PolygonMode,
+            PrimitiveState, RenderPipelineDescriptor, SpecializedMeshPipeline,
+            SpecializedMeshPipelineError, SpecializedMeshPipelines, TextureFormat, VertexState,
         },
         texture::BevyDefault as _,
         view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilitySystems},
@@ -263,7 +263,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 count: mesh_key.msaa_samples(),
                 ..MultisampleState::default()
             },
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         })
     }
 }

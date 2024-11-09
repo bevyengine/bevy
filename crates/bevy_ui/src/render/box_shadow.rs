@@ -206,7 +206,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("box_shadow_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

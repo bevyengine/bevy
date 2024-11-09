@@ -233,7 +233,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

@@ -199,7 +199,7 @@ where
                 alpha_to_coverage_enabled: false,
             },
             label: Some("ui_material_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         };
         if let Some(vertex_shader) = &self.vertex_shader {
             descriptor.vertex.shader = vertex_shader.clone();

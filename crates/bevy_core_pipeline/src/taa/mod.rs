@@ -25,11 +25,12 @@ use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState,
-        Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, MemoryInitialization,
+        MultisampleState, Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment,
+        RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
+        SamplerDescriptor, Shader, ShaderStages, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
     sync_component::SyncComponentPlugin,
@@ -355,7 +356,7 @@ impl SpecializedRenderPipeline for TaaPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

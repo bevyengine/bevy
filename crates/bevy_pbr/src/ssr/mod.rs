@@ -30,10 +30,10 @@ use bevy_render::{
     render_resource::{
         binding_types, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
-        FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureFormat, TextureSampleType,
+        FragmentState, MemoryInitialization, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
+        SamplerDescriptor, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::BevyDefault as _,
@@ -560,7 +560,7 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             primitive: default(),
             depth_stencil: None,
             multisample: default(),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }

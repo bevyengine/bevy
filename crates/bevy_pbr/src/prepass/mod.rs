@@ -571,7 +571,7 @@ where
             },
             push_constant_ranges: vec![],
             label: Some("prepass_pipeline".into()),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         };
 
         // This is a bit risky because it's possible to change something that would

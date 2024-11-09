@@ -29,8 +29,8 @@ use bevy_render::{
         binding_types::{storage_buffer, storage_buffer_read_only, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindingResource, BufferBinding,
         CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
-        DynamicBindGroupLayoutEntries, PipelineCache, Shader, ShaderStages, ShaderType,
-        SpecializedComputePipeline, SpecializedComputePipelines,
+        DynamicBindGroupLayoutEntries, MemoryInitialization, PipelineCache, Shader, ShaderStages,
+        ShaderType, SpecializedComputePipeline, SpecializedComputePipelines,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     view::{GpuCulling, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -290,7 +290,7 @@ impl SpecializedComputePipeline for PreprocessPipeline {
             shader: MESH_PREPROCESS_SHADER_HANDLE,
             shader_defs,
             entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            workgroup_memory_initialization: MemoryInitialization::Uninitialized,
         }
     }
 }
