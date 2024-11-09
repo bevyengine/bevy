@@ -431,7 +431,7 @@ impl Transform {
         Transform {
             translation: self.translation.lerp(rhs.translation, t),
             rotation: self.rotation.lerp(rhs.rotation, t),
-            scale: self.scale.lerp(rhs.scale, t)
+            scale: self.scale.lerp(rhs.scale, t),
         }
     }
 
