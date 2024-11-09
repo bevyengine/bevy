@@ -1,5 +1,5 @@
 use crate::{
-    archetype::{Archetype, ArchetypeEntity, Archetypes},
+    archetype::{Archetype, ArchetypeEntity, ArchetypeId, Archetypes},
     component::Tick,
     entity::{Entities, Entity},
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
@@ -1122,6 +1122,7 @@ where
     entities: &'w Entities,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
+    previous_archetype_id: ArchetypeId,
     fetch: D::Fetch<'w>,
     query_state: &'s QueryState<D, F>,
 }
@@ -1151,6 +1152,7 @@ where
             tables: &world.storages().tables,
             fetch,
             entity_iter: entity_list.into_iter(),
+            previous_archetype_id: ArchetypeId::INVALID,
         }
     }
 
@@ -1158,28 +1160,34 @@ where
     /// `entity` must stem from `self.entity_iter`, and not have been passed before.
     #[inline(always)]
     unsafe fn fetch_next(&mut self, entity: Entity) -> D::Item<'w> {
-        let (location, archetype, table);
-        // SAFETY:
-        // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
-        // was initialized for.
-        unsafe {
-            location = self.entities.get(entity).debug_checked_unwrap();
-            archetype = self
-                .archetypes
-                .get(location.archetype_id)
-                .debug_checked_unwrap();
-            table = self.tables.get(location.table_id).debug_checked_unwrap();
-        }
+        let location = self.entities.get(entity).debug_checked_unwrap();
 
-        // SAFETY: `archetype` is from the world that `fetch` was created for,
-        // `fetch_state` is the state that `fetch` was initialized with
-        unsafe {
-            D::set_archetype(
-                &mut self.fetch,
-                &self.query_state.fetch_state,
-                archetype,
-                table,
-            );
+        if self.previous_archetype_id != location.archetype_id {
+            self.previous_archetype_id = location.archetype_id;
+
+            let (archetype, table);
+
+            // SAFETY:
+            // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
+            // was initialized for.
+            unsafe {
+                archetype = self
+                    .archetypes
+                    .get(location.archetype_id)
+                    .debug_checked_unwrap();
+                table = self.tables.get(location.table_id).debug_checked_unwrap();
+            }
+
+            // SAFETY: `archetype` is from the world that `fetch` was created for,
+            // `fetch_state` is the state that `fetch` was initialized with
+            unsafe {
+                D::set_archetype(
+                    &mut self.fetch,
+                    &self.query_state.fetch_state,
+                    archetype,
+                    table,
+                );
+            }
         }
 
         // The entity list has already been filtered by the query lens, so we forego filtering here.
@@ -1256,6 +1264,7 @@ pub struct QueryManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item:
     entities: &'w Entities,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
+    previous_archetype_id: ArchetypeId,
     fetch: D::Fetch<'w>,
     filter: F::Fetch<'w>,
     query_state: &'s QueryState<D, F>,
@@ -1283,6 +1292,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
             // SAFETY: We only access table data that has been registered in `query_state`.
             // This means `world` has permission to access the data we use.
             tables: &world.storages().tables,
+            previous_archetype_id: ArchetypeId::INVALID,
             fetch,
             filter,
             entity_iter: entity_list.into_iter(),
@@ -1303,6 +1313,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
         entities: &'w Entities,
         tables: &'w Tables,
         archetypes: &'w Archetypes,
+        previous_archetype_id: &mut ArchetypeId,
         fetch: &mut D::Fetch<'w>,
         filter: &mut F::Fetch<'w>,
         query_state: &'s QueryState<D, F>,
@@ -1313,25 +1324,29 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
                 continue;
             };
 
-            if !query_state
-                .matched_archetypes
-                .contains(location.archetype_id.index())
-            {
-                continue;
-            }
+            if *previous_archetype_id != location.archetype_id {
+                if !query_state
+                    .matched_archetypes
+                    .contains(location.archetype_id.index())
+                {
+                    continue;
+                }
 
-            let archetype = archetypes.get(location.archetype_id).debug_checked_unwrap();
-            let table = tables.get(location.table_id).debug_checked_unwrap();
+                *previous_archetype_id = location.archetype_id;
 
-            // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
-            // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-            unsafe {
-                D::set_archetype(fetch, &query_state.fetch_state, archetype, table);
-            }
-            // SAFETY: `table` is from the world that `fetch/filter` were created for,
-            // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-            unsafe {
-                F::set_archetype(filter, &query_state.filter_state, archetype, table);
+                let archetype = archetypes.get(location.archetype_id).debug_checked_unwrap();
+                let table = tables.get(location.table_id).debug_checked_unwrap();
+
+                // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
+                // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+                unsafe {
+                    D::set_archetype(fetch, &query_state.fetch_state, archetype, table);
+                }
+                // SAFETY: `table` is from the world that `fetch/filter` were created for,
+                // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
+                unsafe {
+                    F::set_archetype(filter, &query_state.filter_state, archetype, table);
+                }
             }
 
             // SAFETY: set_archetype was called prior.
@@ -1360,6 +1375,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
                 self.entities,
                 self.tables,
                 self.archetypes,
+                &mut self.previous_archetype_id,
                 &mut self.fetch,
                 &mut self.filter,
                 self.query_state,
@@ -1386,6 +1402,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item: Borrow<E
                 self.entities,
                 self.tables,
                 self.archetypes,
+                &mut self.previous_archetype_id,
                 &mut self.fetch,
                 &mut self.filter,
                 self.query_state,
@@ -1411,6 +1428,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: Borrow<Enti
                 self.entities,
                 self.tables,
                 self.archetypes,
+                &mut self.previous_archetype_id,
                 &mut self.fetch,
                 &mut self.filter,
                 self.query_state,
@@ -1443,6 +1461,7 @@ impl<
                 self.entities,
                 self.tables,
                 self.archetypes,
+                &mut self.previous_archetype_id,
                 &mut self.fetch,
                 &mut self.filter,
                 self.query_state,
