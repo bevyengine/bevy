@@ -2,7 +2,7 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_ecs::prelude::*;
-use bevy_image::{prelude::*, CompressedImageFormats, ImageSampler, ImageType};
+use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,

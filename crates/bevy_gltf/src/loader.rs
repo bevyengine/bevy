@@ -16,8 +16,8 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
 use bevy_image::{
-    prelude::*, CompressedImageFormats, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
-    ImageSampler, ImageSamplerDescriptor, ImageType,
+    CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
+    ImageSampler, ImageSamplerDescriptor, ImageType, TextureError,
 };
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{

@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use bevy_image::prelude::*;
+use bevy_image::BevyDefault;
 use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},

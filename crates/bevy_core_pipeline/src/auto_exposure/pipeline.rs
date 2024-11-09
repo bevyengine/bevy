@@ -3,7 +3,7 @@ use super::compensation_curve::{
 };
 use bevy_asset::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_image::prelude::*;
+use bevy_image::Image;
 use bevy_render::{
     globals::GlobalsUniform,
     render_resource::{binding_types::*, *},

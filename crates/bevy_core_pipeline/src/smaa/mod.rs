@@ -30,6 +30,10 @@
 //!
 //! [SMAA]: https://www.iryoku.com/smaa/
 
+use crate::{
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
+};
 use bevy_app::{App, Plugin};
 #[cfg(feature = "smaa_luts")]
 use bevy_asset::load_internal_binary_asset;
@@ -44,6 +48,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_image::{BevyDefault, Image};
 use bevy_math::{vec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -72,18 +77,6 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::prelude::default;
-#[cfg(feature = "smaa_luts")]
-use {
-    bevy_image::{prelude::*, CompressedImageFormats, ImageSampler, ImageType},
-    bevy_render::render_asset::RenderAssetUsages,
-};
-
-#[cfg(not(feature = "smaa_luts"))]
-use crate::tonemapping::lut_placeholder;
-use crate::{
-    core_2d::graph::{Core2d, Node2d},
-    core_3d::graph::{Core3d, Node3d},
-};
 
 /// The handle of the `smaa.wgsl` shader.
 const SMAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(12247928498010601081);
@@ -306,11 +299,11 @@ impl Plugin for SmaaPlugin {
                 #[cfg(all(debug_assertions, feature = "dds"))]
                 "SMAAAreaLUT".to_owned(),
                 bytes,
-                ImageType::Format(ImageFormat::Ktx2),
-                CompressedImageFormats::NONE,
+                bevy_image::ImageType::Format(bevy_image::ImageFormat::Ktx2),
+                bevy_image::CompressedImageFormats::NONE,
                 false,
-                ImageSampler::Default,
-                RenderAssetUsages::RENDER_WORLD,
+                bevy_image::ImageSampler::Default,
+                bevy_asset::RenderAssetUsages::RENDER_WORLD,
             )
             .expect("Failed to load SMAA area LUT")
         );
@@ -324,11 +317,11 @@ impl Plugin for SmaaPlugin {
                 #[cfg(all(debug_assertions, feature = "dds"))]
                 "SMAASearchLUT".to_owned(),
                 bytes,
-                ImageType::Format(ImageFormat::Ktx2),
-                CompressedImageFormats::NONE,
+                bevy_image::ImageType::Format(bevy_image::ImageFormat::Ktx2),
+                bevy_image::CompressedImageFormats::NONE,
                 false,
-                ImageSampler::Default,
-                RenderAssetUsages::RENDER_WORLD,
+                bevy_image::ImageSampler::Default,
+                bevy_asset::RenderAssetUsages::RENDER_WORLD,
             )
             .expect("Failed to load SMAA search LUT")
         );

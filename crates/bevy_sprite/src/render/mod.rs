@@ -18,7 +18,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_image::{prelude::*, ImageSampler, TextureFormatPixelInfo};
+use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::view::RenderVisibleEntities;

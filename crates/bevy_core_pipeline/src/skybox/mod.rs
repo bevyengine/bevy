@@ -6,7 +6,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_image::prelude::*;
+use bevy_image::{BevyDefault, Image};
 use bevy_math::{Mat4, Quat};
 use bevy_render::{
     camera::Exposure,

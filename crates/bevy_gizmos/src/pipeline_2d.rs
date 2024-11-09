@@ -13,7 +13,7 @@ use bevy_ecs::{
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_image::prelude::*;
+use bevy_image::BevyDefault;
 use bevy_math::FloatOrd;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
