@@ -171,7 +171,7 @@ impl Color {
             alpha: 1.0,
         })
     }
-    
+
     /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with an alpha of 1.0.
     ///
     /// For example, a value of `0x000000` results in black, and a value of `0xff0000` results in red.
@@ -191,7 +191,7 @@ impl Color {
             alpha: 1.0,
         })
     }
-    
+
     /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with the alpha value extracted from the input.
     ///
     /// For example, a value of `0x000000ff` results in black with full opacity, and a value of `0xff000080` results in red with half opacity.
