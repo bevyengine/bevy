@@ -7,14 +7,15 @@ use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::With,
+    query::{QueryItem, With},
     schedule::IntoSystemConfigs,
-    system::{Commands, Query},
+    system::{lifetimeless::Read, Commands, Query},
 };
 use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::Camera,
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, TextureFormat, TextureUsages},
     renderer::RenderAdapter,
@@ -109,6 +110,8 @@ impl Plugin for AtmospherePlugin {
         app.register_type::<Atmosphere>()
             .register_type::<AtmosphereSettings>()
             .add_plugins((
+                ExtractComponentPlugin::<Atmosphere>::default(),
+                ExtractComponentPlugin::<AtmosphereSettings>::default(),
                 UniformComponentPlugin::<Atmosphere>::default(),
                 UniformComponentPlugin::<AtmosphereSettings>::default(),
             ));
@@ -126,7 +129,7 @@ impl Plugin for AtmospherePlugin {
             .allowed_usages
             .contains(TextureUsages::STORAGE_BINDING)
         {
-            warn!("SkyPlugin not loaded. GPU lacks support: TextureFormat::Rgba16Float does not support TextureUsages::STORAGE_BINDING.");
+            warn!("AtmospherePlugin not loaded. GPU lacks support: TextureFormat::Rgba16Float does not support TextureUsages::STORAGE_BINDING.");
             return;
         }
 
@@ -134,7 +137,6 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<AtmosphereBindGroupLayouts>()
             .init_resource::<AtmosphereSamplers>()
             .init_resource::<AtmospherePipelines>()
-            .add_systems(ExtractSchedule, extract_atmosphere)
             .add_systems(
                 Render,
                 (
@@ -172,6 +174,7 @@ impl Plugin for AtmospherePlugin {
 
 //TODO: padding/alignment?
 #[derive(Clone, Component, Reflect, ShaderType)]
+#[require(AtmosphereSettings)]
 pub struct Atmosphere {
     /// Radius of the planet
     ///
@@ -202,6 +205,30 @@ impl Default for Atmosphere {
     }
 }
 
+impl ExtractComponent for Atmosphere {
+    type QueryData = Read<Atmosphere>;
+
+    type QueryFilter = With<Camera3d>;
+
+    type Out = Atmosphere;
+
+    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+        Some(item.clone())
+    }
+}
+
+impl ExtractComponent for AtmosphereSettings {
+    type QueryData = Read<AtmosphereSettings>;
+
+    type QueryFilter = (With<Camera3d>, With<Atmosphere>);
+
+    type Out = AtmosphereSettings;
+
+    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+        Some(item.clone())
+    }
+}
+
 impl Atmosphere {
     //TODO: check all these values before merge
     //TODO: UNITS
@@ -219,24 +246,6 @@ impl Atmosphere {
         ozone_layer_half_width: 15.0,
         ozone_absorption: Vec3::new(0.000650, 0.001881, 0.000085),
     };
-}
-
-fn extract_atmosphere(
-    mut commands: Commands,
-    cameras: Extract<
-        Query<(Entity, &Camera, &Atmosphere, Option<&AtmosphereSettings>), With<Camera3d>>,
-    >,
-) {
-    for (entity, camera, atmosphere, lut_settings) in &cameras {
-        if camera.is_active {
-            commands.get_or_spawn(entity).insert((
-                atmosphere.clone(),
-                lut_settings
-                    .cloned()
-                    .unwrap_or_else(|| AtmosphereSettings::from_camera(camera)),
-            ));
-        }
-    }
 }
 
 #[derive(Clone, Component, Reflect, ShaderType)]
@@ -260,24 +269,10 @@ impl Default for AtmosphereSettings {
             multiscattering_lut_size: UVec2::new(32, 32),
             multiscattering_lut_dirs: 64,
             multiscattering_lut_samples: 20,
-            sky_view_lut_size: UVec2::new(192, 108),
+            sky_view_lut_size: UVec2::new(200, 100),
             sky_view_lut_samples: 30,
             aerial_view_lut_size: UVec3::new(32, 32, 32),
-            aerial_view_lut_samples: 30,
-        }
-    }
-}
-
-impl AtmosphereSettings {
-    pub fn from_camera(camera: &Camera) -> Self {
-        //TODO: correct method?
-        if let Some(viewport_size) = camera.logical_viewport_size() {
-            Self {
-                sky_view_lut_size: viewport_size.as_uvec2() / 10,
-                ..Self::default()
-            }
-        } else {
-            Self::default()
+            aerial_view_lut_samples: 10,
         }
     }
 }

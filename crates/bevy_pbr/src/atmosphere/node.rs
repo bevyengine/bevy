@@ -1,4 +1,3 @@
-use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_ecs::{query::QueryItem, system::lifetimeless::Read, world::World};
 use bevy_render::{
     extract_component::DynamicUniformIndex,
@@ -8,7 +7,7 @@ use bevy_render::{
         RenderPassDescriptor, StoreOp,
     },
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ViewTarget, ViewUniformOffset},
 };
 
 use crate::ViewLightsUniformOffset;

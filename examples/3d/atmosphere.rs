@@ -10,6 +10,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    core_pipeline::auto_exposure::AutoExposure,
     pbr::{Atmosphere, CascadeShadowConfigBuilder},
     prelude::*,
 };
@@ -28,17 +29,19 @@ fn main() {
 
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            msaa: Msaa::Off,
-            tonemapping: Tonemapping::AcesFitted,
+        Camera3d::default(),
+        Camera {
+            hdr: true,
             ..default()
         },
+        Msaa::Off,
+        Tonemapping::AcesFitted,
+        Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
         Atmosphere::EARTH,
+        AutoExposure {
+            range: -200.0..=200.0,
+            ..Default::default()
+        },
     ));
 }
 
@@ -52,39 +55,36 @@ fn setup_terrain_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     .build();
 
     // Sun
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             color: Color::srgb(0.98, 0.95, 0.82),
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(1.0, -1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(1.0, -1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         cascade_shadow_config,
-        ..default()
-    });
+    ));
 
     // Terrain
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/terrain/Mountains.gltf")),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/terrain/Mountains.gltf"),
+    )));
 }
 
 //TODO: update this
 fn setup_instructions(mut commands: Commands) {
-    commands.spawn(
-        TextBundle::from_section(
-            "Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence.",
-            TextStyle::default(),
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-    );
+    // commands.spawn(
+    //     TextBundle::from_section(
+    //         "Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence.",
+    //         TextStyle::default(),
+    //     )
+    //     .with_style(Style {
+    //         position_type: PositionType::Absolute,
+    //         bottom: Val::Px(12.0),
+    //         left: Val::Px(12.0),
+    //         ..default()
+    //     }),
+    // );
 }
 
 // fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Query<&mut FogSettings>) {
@@ -102,5 +102,5 @@ fn setup_instructions(mut commands: Commands) {
 // }
 
 fn rotate_sun(mut sun: Query<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
-    sun.single_mut().rotate_z(time.delta_seconds() * PI / 30.0);
+    sun.single_mut().rotate_z(time.delta_secs() * PI / 30.0);
 }
