@@ -7,19 +7,19 @@ This is a crate with a collection of benchmarks for Bevy, separate from the rest
 1. Setup everything you need for Bevy with the [setup guide](https://bevyengine.org/learn/book/getting-started/setup/).
 2. Move into the `benches` directory (where this README is located).
 
-    ```sh
+    ```bash
     bevy $ cd benches
     ```
 
 3. Run the benchmarks with cargo (This will take a while)
 
-    ```sh
+    ```bash
     bevy/benches $ cargo bench
     ```
 
     If you'd like to only compile the benchmarks (without running them), you can do that like this:
 
-    ```sh
+    ```bash
     bevy/benches $ cargo bench --no-run
     ```
 

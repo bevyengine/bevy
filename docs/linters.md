@@ -18,7 +18,7 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 Explanation:
 
-* `-D warnings`: No warnings are allowed in the codebase.
+- `-D warnings`: No warnings are allowed in the codebase.
 
 ## [super-linter](https://github.com/github/super-linter)
 
