@@ -30,8 +30,8 @@
 //! ## Expressive Events
 //!
 //! The events in this module (see [`events`]) cannot be listened to with normal `EventReader`s.
-//! Instead, they are dispatched to *ovservers* attached to specific entities. When events are generated, they
-//! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is haulted
+//! Instead, they are dispatched to *observers* attached to specific entities. When events are generated, they
+//! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is halted
 //! with a call to [`Trigger::propagate`](bevy_ecs::observer::Trigger::propagate).
 //! See [`Observer`] for details.
 //!
@@ -73,8 +73,8 @@
 //!
 //! #### Input Agnostic
 //!
-//! Picking provides a generic Pointer abstracton, which is useful for reacting to many different
-//! types of input devices. Pointers can be controlled with anything, whether its the included mouse
+//! Picking provides a generic Pointer abstraction, which is useful for reacting to many different
+//! types of input devices. Pointers can be controlled with anything, whether it's the included mouse
 //! or touch inputs, or a custom gamepad input system you write yourself to control a virtual pointer.
 //!
 //! ## Robustness
@@ -381,6 +381,7 @@ impl Plugin for InteractionPlugin {
 
         app.init_resource::<focus::HoverMap>()
             .init_resource::<focus::PreviousHoverMap>()
+            .init_resource::<PointerState>()
             .add_event::<Pointer<Cancel>>()
             .add_event::<Pointer<Click>>()
             .add_event::<Pointer<Down>>()

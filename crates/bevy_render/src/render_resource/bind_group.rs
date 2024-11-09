@@ -45,6 +45,18 @@ impl From<wgpu::BindGroup> for BindGroup {
     }
 }
 
+impl<'a> From<&'a BindGroup> for Option<&'a wgpu::BindGroup> {
+    fn from(value: &'a BindGroup) -> Self {
+        Some(value.deref())
+    }
+}
+
+impl<'a> From<&'a mut BindGroup> for Option<&'a wgpu::BindGroup> {
+    fn from(value: &'a mut BindGroup) -> Self {
+        Some(&*value)
+    }
+}
+
 impl Deref for BindGroup {
     type Target = wgpu::BindGroup;
 
