@@ -15,10 +15,10 @@ use crate::{
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
+use alloc::sync::Arc;
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
-use std::sync::Arc;
 use wgpu::{
     Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
     RequestAdapterOptions,
@@ -46,6 +46,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         world,
         |encoder| {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
+            crate::gpu_readback::submit_readback_commands(world, encoder);
         },
     );
 
@@ -57,7 +58,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         Err(e) => {
             error!("Error running render graph:");
             {
-                let mut src: &dyn std::error::Error = &e;
+                let mut src: &dyn core::error::Error = &e;
                 loop {
                     error!("> {}", src);
                     match src.source() {
@@ -119,6 +120,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
 }
 
 /// A wrapper to safely make `wgpu` types Send / Sync on web with atomics enabled.
+///
 /// On web with `atomics` enabled the inner value can only be accessed
 /// or dropped on the `wgpu` thread or else a panic will occur.
 /// On other platforms the wrapper simply contains the wrapped value.
@@ -140,12 +142,20 @@ impl<T> WgpuWrapper<T> {
     pub fn new(t: T) -> Self {
         Self(t)
     }
+
+    pub fn into_inner(self) -> T {
+        self.0
+    }
 }
 
 #[cfg(all(target_arch = "wasm32", target_feature = "atomics"))]
 impl<T> WgpuWrapper<T> {
     pub fn new(t: T) -> Self {
         Self(send_wrapper::SendWrapper::new(t))
+    }
+
+    pub fn into_inner(self) -> T {
+        self.0.take()
     }
 }
 
@@ -195,22 +205,12 @@ pub async fn initialize_renderer(
         );
     }
 
-    #[cfg(feature = "wgpu_trace")]
-    let trace_path = {
-        let path = std::path::Path::new("wgpu_trace");
-        // ignore potential error, wgpu will log it
-        let _ = std::fs::create_dir(path);
-        Some(path)
-    };
-    #[cfg(not(feature = "wgpu_trace"))]
-    let trace_path = None;
-
     // Maybe get features and limits based on what is supported by the adapter/backend
     let mut features = wgpu::Features::empty();
     let mut limits = options.limits.clone();
     if matches!(options.priority, WgpuSettingsPriority::Functionality) {
         features = adapter.features();
-        if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
+        if adapter_info.device_type == DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
             // discrete GPUs due to having to transfer data across the PCI-E bus and so it
             // should not be automatically enabled in this case. It is however beneficial for
@@ -355,8 +355,9 @@ pub async fn initialize_renderer(
                 label: options.device_label.as_ref().map(AsRef::as_ref),
                 required_features: features,
                 required_limits: limits,
+                memory_hints: options.memory_hints.clone(),
             },
-            trace_path,
+            options.trace_path.as_deref(),
         )
         .await
         .unwrap();
@@ -431,7 +432,7 @@ impl<'w> RenderContext<'w> {
     /// configured using the provided `descriptor`.
     pub fn begin_tracked_render_pass<'a>(
         &'a mut self,
-        descriptor: RenderPassDescriptor<'a, '_>,
+        descriptor: RenderPassDescriptor<'_>,
     ) -> TrackedRenderPass<'a> {
         // Cannot use command_encoder() as we need to split the borrow on self
         let command_encoder = self.command_encoder.get_or_insert_with(|| {

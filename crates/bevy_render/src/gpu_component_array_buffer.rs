@@ -9,7 +9,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut},
 };
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// This plugin prepares the components of the corresponding type for the GPU
 /// by storing them in a [`GpuArrayBuffer`].

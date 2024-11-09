@@ -1,6 +1,8 @@
 //! In this example we add a counter resource and increase its value in one system,
 //! while a different system prints the current count to the console.
 
+#![expect(clippy::std_instead_of_core)]
+
 use bevy_ecs::prelude::*;
 use rand::Rng;
 use std::ops::Deref;

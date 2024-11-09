@@ -7,13 +7,9 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_utils::{all_tuples, TypeIdMap};
-use std::{
-    any::TypeId,
-    fmt::Debug,
-    hash::Hash,
-    sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
-};
-use thiserror::Error;
+use core::{any::TypeId, fmt::Debug, hash::Hash};
+use derive_more::derive::{Display, Error};
+use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// A draw function used to draw [`PhaseItem`]s.
 ///
@@ -38,13 +34,14 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     ) -> Result<(), DrawError>;
 }
 
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Display, Debug, PartialEq, Eq)]
 pub enum DrawError {
-    #[error("Failed to execute render command {0:?}")]
+    #[display("Failed to execute render command {_0:?}")]
+    #[error(ignore)]
     RenderCommandFailure(&'static str),
-    #[error("Failed to get execute view query")]
+    #[display("Failed to get execute view query")]
     InvalidViewQuery,
-    #[error("View entity not found")]
+    #[display("View entity not found")]
     ViewEntityNotFound,
 }
 
@@ -102,8 +99,8 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
         self.get_id::<T>().unwrap_or_else(|| {
             panic!(
                 "Draw function {} not found for {}",
-                std::any::type_name::<T>(),
-                std::any::type_name::<P>()
+                core::any::type_name::<T>(),
+                core::any::type_name::<P>()
             )
         })
     }
@@ -168,7 +165,7 @@ impl<P: PhaseItem> DrawFunctions<P> {
 /// # use bevy_render::render_phase::SetItemPipeline;
 /// # struct SetMeshViewBindGroup<const N: usize>;
 /// # struct SetMeshBindGroup<const N: usize>;
-/// # struct SetMaterialBindGroup<M, const N: usize>(core::marker::PhantomData<M>);
+/// # struct SetMaterialBindGroup<M, const N: usize>(std::marker::PhantomData<M>);
 /// # struct DrawMesh;
 /// pub type DrawMaterial<M> = (
 ///     SetItemPipeline,
@@ -228,7 +225,8 @@ pub enum RenderCommandResult {
 }
 
 macro_rules! render_command_tuple_impl {
-    ($(($name: ident, $view: ident, $entity: ident)),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $view: ident, $entity: ident)),*) => {
+        $(#[$meta])*
         impl<P: PhaseItem, $($name: RenderCommand<P>),*> RenderCommand<P> for ($($name,)*) {
             type Param = ($($name::Param,)*);
             type ViewQuery = ($($name::ViewQuery,)*);
@@ -268,7 +266,15 @@ macro_rules! render_command_tuple_impl {
     };
 }
 
-all_tuples!(render_command_tuple_impl, 0, 15, C, V, E);
+all_tuples!(
+    #[doc(fake_variadic)]
+    render_command_tuple_impl,
+    0,
+    15,
+    C,
+    V,
+    E
+);
 
 /// Wraps a [`RenderCommand`] into a state so that it can be used as a [`Draw`] function.
 ///
@@ -316,7 +322,8 @@ where
             Ok(view) => view,
             Err(err) => match err {
                 QueryEntityError::NoSuchEntity(_) => return Err(DrawError::ViewEntityNotFound),
-                QueryEntityError::QueryDoesNotMatch(_) | QueryEntityError::AliasedMutability(_) => {
+                QueryEntityError::QueryDoesNotMatch(_, _)
+                | QueryEntityError::AliasedMutability(_) => {
                     return Err(DrawError::InvalidViewQuery)
                 }
             },
@@ -356,7 +363,7 @@ impl AddRenderCommand for SubApp {
                 panic!(
                     "DrawFunctions<{}> must be added to the world as a resource \
                      before adding render commands to it",
-                    std::any::type_name::<P>(),
+                    core::any::type_name::<P>(),
                 );
             });
         draw_functions.write().add_with::<C, _>(draw_function);

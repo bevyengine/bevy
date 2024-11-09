@@ -1,5 +1,5 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
+#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
@@ -10,6 +10,8 @@
 //! This crate provides a straightforward solution for integrating diagnostics in the [Bevy game engine](https://bevyengine.org/).
 //! It allows users to easily add diagnostic functionality to their Bevy applications, enhancing
 //! their ability to monitor and optimize their game's.
+
+extern crate alloc;
 
 mod diagnostic;
 mod entity_count_diagnostics_plugin;
@@ -37,7 +39,7 @@ impl Plugin for DiagnosticsPlugin {
         app.init_resource::<DiagnosticsStore>();
 
         #[cfg(feature = "sysinfo_plugin")]
-        app.init_resource::<system_information_diagnostics_plugin::SystemInfo>();
+        app.init_resource::<SystemInfo>();
     }
 }
 

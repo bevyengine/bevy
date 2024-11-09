@@ -15,7 +15,7 @@
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
 #import bevy_pbr::mesh_view_bindings::screen_space_ambient_occlusion_texture
-#import bevy_pbr::gtao_utils::gtao_multibounce
+#import bevy_pbr::ssao_utils::ssao_multibounce
 #endif
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
@@ -89,12 +89,14 @@ fn pbr_input_from_standard_material(
     bias.mip_bias = view.mip_bias;
 #endif  // MESHLET_MESH_MATERIAL_PASS
 
+// TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
 #ifdef VERTEX_UVS
     let uv_transform = pbr_bindings::material.uv_transform;
 #ifdef VERTEX_UVS_A
     var uv = (uv_transform * vec3(in.uv, 1.0)).xy;
 #endif
 
+// TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
 #ifdef VERTEX_UVS_B
     var uv_b = (uv_transform * vec3(in.uv_b, 1.0)).xy;
 #else
@@ -104,12 +106,14 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_TANGENTS
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
         let V = pbr_input.V;
-        let N = in.world_normal;
-        let T = in.world_tangent.xyz;
-        let B = in.world_tangent.w * cross(N, T);
+        let TBN = pbr_functions::calculate_tbn_mikktspace(in.world_normal, in.world_tangent);
+        let T = TBN[0];
+        let B = TBN[1];
+        let N = TBN[2];
         // Transform V from fragment to camera in world space to tangent space.
         let Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
 #ifdef VERTEX_UVS_A
+        // TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
         uv = parallaxed_uv(
             pbr_bindings::material.parallax_depth_scale,
             pbr_bindings::material.max_parallax_layer_count,
@@ -123,6 +127,7 @@ fn pbr_input_from_standard_material(
 #endif
 
 #ifdef VERTEX_UVS_B
+        // TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
         uv_b = parallaxed_uv(
             pbr_bindings::material.parallax_depth_scale,
             pbr_bindings::material.max_parallax_layer_count,
@@ -339,7 +344,7 @@ fn pbr_input_from_standard_material(
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
-        let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
+        let ssao_multibounce = ssao_multibounce(ssao, pbr_input.material.base_color.rgb);
         diffuse_occlusion = min(diffuse_occlusion, ssao_multibounce);
         // Use SSAO to estimate the specular occlusion.
         // Lagarde and Rousiers 2014, "Moving Frostbite to Physically Based Rendering"

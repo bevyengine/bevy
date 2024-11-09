@@ -1,15 +1,18 @@
 //! Tool to run all examples or generate a showcase page for the Bevy website.
 
+use core::{
+    fmt::Display,
+    hash::{Hash, Hasher},
+    time::Duration,
+};
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
-    fmt::Display,
     fs::{self, File},
-    hash::{Hash, Hasher},
     io::Write,
     path::{Path, PathBuf},
     process::exit,
     thread,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
@@ -119,7 +122,7 @@ enum WebApi {
 }
 
 impl Display for WebApi {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             WebApi::Webgl2 => write!(f, "webgl2"),
             WebApi::Webgpu => write!(f, "webgpu"),
@@ -284,7 +287,7 @@ fn main() {
 
             let reports_path = "example-showcase-reports";
             if report_details {
-                std::fs::create_dir(reports_path)
+                fs::create_dir(reports_path)
                     .expect("Failed to create example-showcase-reports directory");
             }
 
@@ -502,18 +505,18 @@ header_message = \"Examples (WebGL2)\"
                     continue;
                 }
 
-                // This beautifys the path
+                // This beautifys the category name
                 // to make it a good looking URL
                 // rather than having weird whitespace
                 // and other characters that don't
                 // work well in a URL path.
-                let category_path = root_path.join(
-                    to_show
-                        .category
-                        .replace(['(', ')'], "")
-                        .replace(' ', "-")
-                        .to_lowercase(),
-                );
+                let beautified_category = to_show
+                    .category
+                    .replace(['(', ')'], "")
+                    .replace(' ', "-")
+                    .to_lowercase();
+
+                let category_path = root_path.join(&beautified_category);
 
                 if !categories.contains_key(&to_show.category) {
                     let _ = fs::create_dir_all(&category_path);
@@ -556,7 +559,7 @@ aliases = [\"/examples{}/{}/{}\"]
 
 [extra]
 technical_name = \"{}\"
-link = \"/examples{}/{}/{}\"
+link = \"/examples{}/{}/{}/\"
 image = \"../static/screenshots/{}/{}.png\"
 code_path = \"content/examples{}/{}\"
 shader_code_paths = {:?}
@@ -581,7 +584,7 @@ header_message = \"Examples ({})\"
                                 WebApi::Webgpu => "-webgpu",
                                 WebApi::Webgl2 => "",
                             },
-                            &to_show.category,
+                            &beautified_category,
                             &to_show.technical_name.replace('_', "-"),
                             &to_show.category,
                             &to_show.technical_name,
@@ -823,8 +826,8 @@ struct Example {
     description: String,
     /// Pretty category name, matching the folder containing the example
     category: String,
-    /// Does this example work in wasm?
-    // TODO: be able to differentiate between WebGL2, WebGPU, both, or neither (for examples that could run on wasm without a renderer)
+    /// Does this example work in Wasm?
+    // TODO: be able to differentiate between WebGL2, WebGPU, both, or neither (for examples that could run on Wasm without a renderer)
     wasm: bool,
     /// List of commands to run before the example. Can be used for example to specify data to download
     setup: Vec<Vec<String>>,

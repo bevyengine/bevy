@@ -1,5 +1,5 @@
+use core::any::TypeId;
 use fixedbitset::FixedBitSet;
-use std::any::TypeId;
 use std::collections::HashMap;
 
 use crate::{
@@ -7,10 +7,13 @@ use crate::{
     system::{IntoSystem, ResMut, Resource},
 };
 use bevy_utils::{
-    tracing::{error, info, warn},
+    tracing::{info, warn},
     TypeIdMap,
 };
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
+
+#[cfg(not(feature = "bevy_debug_stepping"))]
+use bevy_utils::tracing::error;
 
 #[cfg(test)]
 use bevy_utils::tracing::debug;
@@ -87,8 +90,8 @@ enum Update {
     ClearBehavior(InternedScheduleLabel, SystemIdentifier),
 }
 
-#[derive(Error, Debug)]
-#[error("not available until all configured schedules have been run; try again next frame")]
+#[derive(Error, Display, Debug)]
+#[display("not available until all configured schedules have been run; try again next frame")]
 pub struct NotReady;
 
 #[derive(Resource, Default)]
@@ -113,8 +116,8 @@ pub struct Stepping {
     updates: Vec<Update>,
 }
 
-impl std::fmt::Debug for Stepping {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Stepping {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "Stepping {{ action: {:?}, schedules: {:?}, order: {:?}",
@@ -691,7 +694,7 @@ impl ScheduleState {
         start: usize,
         mut action: Action,
     ) -> (FixedBitSet, Option<usize>) {
-        use std::cmp::Ordering;
+        use core::cmp::Ordering;
 
         // if our NodeId list hasn't been populated, copy it over from the
         // schedule
@@ -827,8 +830,7 @@ impl ScheduleState {
 #[cfg(all(test, feature = "bevy_debug_stepping"))]
 mod tests {
     use super::*;
-    use crate::prelude::*;
-    use crate::schedule::ScheduleLabel;
+    use crate::{prelude::*, schedule::ScheduleLabel};
 
     pub use crate as bevy_ecs;
 
@@ -868,7 +870,7 @@ mod tests {
             let systems: &Vec<&str> = $system_names;
 
             if (actual != expected) {
-                use std::fmt::Write as _;
+                use core::fmt::Write as _;
 
                 // mismatch, let's construct a human-readable message of what
                 // was returned
@@ -900,7 +902,7 @@ mod tests {
         ($schedule:expr, $skipped_systems:expr, $($system:expr),*) => {
             // pull an ordered list of systems in the schedule, and save the
             // system TypeId, and name.
-            let systems: Vec<(TypeId, std::borrow::Cow<'static, str>)> = $schedule.systems().unwrap()
+            let systems: Vec<(TypeId, alloc::borrow::Cow<'static, str>)> = $schedule.systems().unwrap()
                 .map(|(_, system)| {
                     (system.type_id(), system.name())
                 })

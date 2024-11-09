@@ -1,3 +1,4 @@
+#![expect(deprecated)]
 use bevy_ecs::bundle::Bundle;
 
 use crate::prelude::{GlobalTransform, Transform};
@@ -8,7 +9,9 @@ use crate::prelude::{GlobalTransform, Transform};
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
-///   * You may use the [`TransformBundle`] to guarantee this.
+///   * ~You may use the [`TransformBundle`] to guarantee this.~
+///     [`TransformBundle`] is now deprecated.
+///     [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
@@ -24,6 +27,10 @@ use crate::prelude::{GlobalTransform, Transform};
 /// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Clone, Copy, Debug, Default, Bundle)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Transform` component instead. Inserting `Transform` will now also insert a `GlobalTransform` automatically."
+)]
 pub struct TransformBundle {
     /// The transform of the entity.
     pub local: Transform,

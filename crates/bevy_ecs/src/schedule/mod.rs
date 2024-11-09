@@ -9,24 +9,22 @@ mod schedule;
 mod set;
 mod stepping;
 
-pub use self::condition::*;
-pub use self::config::*;
-pub use self::executor::*;
 use self::graph_utils::*;
-pub use self::schedule::*;
-pub use self::set::*;
+pub use self::{condition::*, config::*, executor::*, schedule::*, set::*};
 
 pub use self::graph_utils::NodeId;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU32, Ordering};
+    use core::sync::atomic::{AtomicU32, Ordering};
 
     pub use crate as bevy_ecs;
-    pub use crate::schedule::{Schedule, SystemSet};
-    pub use crate::system::{Res, ResMut};
-    pub use crate::{prelude::World, system::Resource};
+    pub use crate::{
+        prelude::World,
+        schedule::{Schedule, SystemSet},
+        system::{Res, ResMut, Resource},
+    };
 
     #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
     enum TestSet {
@@ -98,8 +96,9 @@ mod tests {
         #[test]
         #[cfg(not(miri))]
         fn parallel_execution() {
+            use alloc::sync::Arc;
             use bevy_tasks::{ComputeTaskPool, TaskPool};
-            use std::sync::{Arc, Barrier};
+            use std::sync::Barrier;
 
             let mut world = World::default();
             let mut schedule = Schedule::default();
@@ -717,7 +716,7 @@ mod tests {
     }
 
     mod system_ambiguity {
-        use std::collections::BTreeSet;
+        use alloc::collections::BTreeSet;
 
         use super::*;
         // Required to make the derive macro behave
@@ -737,6 +736,9 @@ mod tests {
         #[derive(Event)]
         struct E;
 
+        #[derive(Resource, Component)]
+        struct RC;
+
         fn empty_system() {}
         fn res_system(_res: Res<R>) {}
         fn resmut_system(_res: ResMut<R>) {}
@@ -746,6 +748,8 @@ mod tests {
         fn write_component_system(_query: Query<&mut A>) {}
         fn with_filtered_component_system(_query: Query<&mut A, With<B>>) {}
         fn without_filtered_component_system(_query: Query<&mut A, Without<B>>) {}
+        fn entity_ref_system(_query: Query<EntityRef>) {}
+        fn entity_mut_system(_query: Query<EntityMut>) {}
         fn event_reader_system(_reader: EventReader<E>) {}
         fn event_writer_system(_writer: EventWriter<E>) {}
         fn event_resource_system(_events: ResMut<Events<E>>) {}
@@ -788,6 +792,8 @@ mod tests {
                 nonsend_system,
                 read_component_system,
                 read_component_system,
+                entity_ref_system,
+                entity_ref_system,
                 event_reader_system,
                 event_reader_system,
                 read_world_system,
@@ -891,6 +897,73 @@ mod tests {
             let _ = schedule.initialize(&mut world);
 
             assert_eq!(schedule.graph().conflicting_systems().len(), 3);
+        }
+
+        /// Test that when a struct is both a Resource and a Component, they do not
+        /// conflict with each other.
+        #[test]
+        fn shared_resource_mut_component() {
+            let mut world = World::new();
+            world.insert_resource(RC);
+
+            let mut schedule = Schedule::default();
+            schedule.add_systems((|_: ResMut<RC>| {}, |_: Query<&mut RC>| {}));
+
+            let _ = schedule.initialize(&mut world);
+
+            assert_eq!(schedule.graph().conflicting_systems().len(), 0);
+        }
+
+        #[test]
+        fn resource_mut_and_entity_ref() {
+            let mut world = World::new();
+            world.insert_resource(R);
+
+            let mut schedule = Schedule::default();
+            schedule.add_systems((resmut_system, entity_ref_system));
+
+            let _ = schedule.initialize(&mut world);
+
+            assert_eq!(schedule.graph().conflicting_systems().len(), 0);
+        }
+
+        #[test]
+        fn resource_and_entity_mut() {
+            let mut world = World::new();
+            world.insert_resource(R);
+
+            let mut schedule = Schedule::default();
+            schedule.add_systems((res_system, nonsend_system, entity_mut_system));
+
+            let _ = schedule.initialize(&mut world);
+
+            assert_eq!(schedule.graph().conflicting_systems().len(), 0);
+        }
+
+        #[test]
+        fn write_component_and_entity_ref() {
+            let mut world = World::new();
+            world.insert_resource(R);
+
+            let mut schedule = Schedule::default();
+            schedule.add_systems((write_component_system, entity_ref_system));
+
+            let _ = schedule.initialize(&mut world);
+
+            assert_eq!(schedule.graph().conflicting_systems().len(), 1);
+        }
+
+        #[test]
+        fn read_component_and_entity_mut() {
+            let mut world = World::new();
+            world.insert_resource(R);
+
+            let mut schedule = Schedule::default();
+            schedule.add_systems((read_component_system, entity_mut_system));
+
+            let _ = schedule.initialize(&mut world);
+
+            assert_eq!(schedule.graph().conflicting_systems().len(), 1);
         }
 
         #[test]
@@ -1084,7 +1157,7 @@ mod tests {
             world.allow_ambiguous_resource::<R>();
             let mut schedule = Schedule::new(TestSchedule);
 
-            //check resource
+            // check resource
             schedule.add_systems((resmut_system, res_system));
             schedule.initialize(&mut world).unwrap();
             assert!(schedule.graph().conflicting_systems().is_empty());

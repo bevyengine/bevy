@@ -5,6 +5,7 @@ use bevy::{
     color::palettes::css::ORANGE_RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
+    text::TextColor,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -69,7 +70,7 @@ fn main() {
         focused_mode: UpdateMode::Continuous,
         unfocused_mode: UpdateMode::Continuous,
     })
-    .add_systems(Update, button_system);
+    .add_systems(Update, (button_system, set_text_colors_changed));
 
     if args.grid {
         app.add_systems(Startup, setup_grid);
@@ -78,10 +79,8 @@ fn main() {
     }
 
     if args.relayout {
-        app.add_systems(Update, |mut style_query: Query<&mut Style>| {
-            style_query
-                .iter_mut()
-                .for_each(|mut style| style.set_changed());
+        app.add_systems(Update, |mut nodes: Query<&mut Node>| {
+            nodes.iter_mut().for_each(|mut node| node.set_changed());
         });
     }
 
@@ -94,6 +93,12 @@ fn main() {
     }
 
     app.insert_resource(args).run();
+}
+
+fn set_text_colors_changed(mut colors: Query<&mut TextColor>) {
+    for mut text_color in colors.iter_mut() {
+        text_color.set_changed();
+    }
 }
 
 #[derive(Component)]
@@ -129,43 +134,38 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                ..default()
-            },
+        .spawn(Node {
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
             ..default()
         })
         .with_children(|commands| {
             for column in 0..args.buttons {
-                commands
-                    .spawn(NodeBundle::default())
-                    .with_children(|commands| {
-                        for row in 0..args.buttons {
-                            let color = as_rainbow(row % column.max(1));
-                            let border_color = Color::WHITE.with_alpha(0.5).into();
-                            spawn_button(
-                                commands,
-                                color,
-                                buttons_f,
-                                column,
-                                row,
-                                !args.no_text,
-                                border,
-                                border_color,
-                                image
-                                    .as_ref()
-                                    .filter(|_| (column + row) % args.image_freq == 0)
-                                    .cloned(),
-                            );
-                        }
-                    });
+                commands.spawn(Node::default()).with_children(|commands| {
+                    for row in 0..args.buttons {
+                        let color = as_rainbow(row % column.max(1));
+                        let border_color = Color::WHITE.with_alpha(0.5).into();
+                        spawn_button(
+                            commands,
+                            color,
+                            buttons_f,
+                            column,
+                            row,
+                            !args.no_text,
+                            border,
+                            border_color,
+                            image
+                                .as_ref()
+                                .filter(|_| (column + row) % args.image_freq == 0)
+                                .cloned(),
+                        );
+                    }
+                });
             }
         });
 }
@@ -186,17 +186,14 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                display: Display::Grid,
-                width: Val::Percent(100.),
-                height: Val::Percent(100.0),
-                grid_template_columns: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
-                grid_template_rows: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
-                ..default()
-            },
+        .spawn(Node {
+            display: Display::Grid,
+            width: Val::Percent(100.),
+            height: Val::Percent(100.0),
+            grid_template_columns: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
+            grid_template_rows: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
             ..default()
         })
         .with_children(|commands| {
@@ -239,36 +236,34 @@ fn spawn_button(
     let height = Val::Vh(90.0 / buttons);
     let margin = UiRect::axes(width * 0.05, height * 0.05);
     let mut builder = commands.spawn((
-        ButtonBundle {
-            style: Style {
-                width,
-                height,
-                margin,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                border,
-                ..default()
-            },
-            background_color: background_color.into(),
-            border_color,
+        Button,
+        Node {
+            width,
+            height,
+            margin,
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            border,
             ..default()
         },
+        BackgroundColor(background_color),
+        border_color,
         IdleColor(background_color),
     ));
 
     if let Some(image) = image {
-        builder.insert(UiImage::new(image));
+        builder.insert(ImageNode::new(image));
     }
 
     if spawn_text {
         builder.with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                format!("{column}, {row}"),
-                TextStyle {
+            parent.spawn((
+                Text(format!("{column}, {row}")),
+                TextFont {
                     font_size: FONT_SIZE,
-                    color: Color::srgb(0.2, 0.2, 0.2),
                     ..default()
                 },
+                TextColor(Color::srgb(0.2, 0.2, 0.2)),
             ));
         });
     }
