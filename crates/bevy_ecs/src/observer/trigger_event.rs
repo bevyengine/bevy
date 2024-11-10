@@ -127,26 +127,6 @@ impl TriggerTargets for Entity {
     }
 }
 
-impl TriggerTargets for Vec<Entity> {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
-        [].into_iter()
-    }
-
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone {
-        self.iter().copied()
-    }
-}
-
-impl<const N: usize> TriggerTargets for [Entity; N] {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
-        [].into_iter()
-    }
-
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone {
-        self.iter().copied()
-    }
-}
-
 impl TriggerTargets for ComponentId {
     fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
         core::iter::once(*self)
@@ -157,33 +137,33 @@ impl TriggerTargets for ComponentId {
     }
 }
 
-impl TriggerTargets for Vec<ComponentId> {
+impl<T: TriggerTargets> TriggerTargets for Vec<T> {
     fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
-        self.iter().copied()
+        self.iter().flat_map(T::components).collect::<Vec<_>>().into_iter()
     }
 
     fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone {
-        [].into_iter()
+        self.iter().flat_map(T::entities).collect::<Vec<_>>().into_iter()
     }
 }
 
-impl<const N: usize> TriggerTargets for [ComponentId; N] {
+impl<const N: usize, T: TriggerTargets> TriggerTargets for [T; N] {
     fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
-        self.iter().copied()
+        self.iter().flat_map(T::components).collect::<Vec<_>>().into_iter()
     }
 
     fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone {
-        [].into_iter()
+        self.iter().flat_map(T::entities).collect::<Vec<_>>().into_iter()
     }
 }
 
-impl TriggerTargets for &Vec<Entity> {
+impl<T: TriggerTargets> TriggerTargets for &[T] {
     fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
-        [].into_iter()
+        self.iter().flat_map(T::components).collect::<Vec<_>>().into_iter()
     }
 
     fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone {
-        self.iter().copied()
+        self.iter().flat_map(T::entities).collect::<Vec<_>>().into_iter()
     }
 }
 
