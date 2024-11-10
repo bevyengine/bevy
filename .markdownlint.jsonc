@@ -42,16 +42,7 @@
     "hr-style": {
         "style": "---"
     },
-    "line-length": {
-        "code_block_line_length": 500,
-        "code_blocks": true,
-        "heading_line_length": 80,
-        "headings": true,
-        "line_length": 700,
-        "stern": false,
-        "strict": false,
-        "tables": false
-    },
+    "MD013": false,
     "link-image-reference-definitions": {
         "ignored_definitions": [
             "//"
@@ -84,7 +75,9 @@
     },
     "no-inline-html": {
         "allowed_elements": [
-            "br" // Needed for lint breaks within tables
+            "br", // Needed for lint breaks within tables
+            "details", // Needed for PR template
+            "summary" // Needed for PR template
         ]
     },
     "no-multiple-blanks": {

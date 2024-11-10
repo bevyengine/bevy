@@ -18,8 +18,7 @@
 
 ## Showcase
 
-> This section is optional.
-> If this PR does not include a visual change or does not add a new feature, you can delete this section.
+> This section is optional. If this PR does not include a visual change or does not add a new feature, you can delete this section.
 
 - Help others understand the result of this PR by showcasing your awesome work!
 - If this PR adds a new feature or public API, consider adding a brief pseudo-code snippet of it in action
@@ -28,6 +27,8 @@
 - If the Migration Guide adequately covers the changes, you can delete this section
 
 While a showcase should aim to be brief and digestible, you can use a toggleable section to save space on longer showcases:
+<details>
+  <summary>Click to view showcase</summary>
 
 ```rust
 println!("My super cool code.");
