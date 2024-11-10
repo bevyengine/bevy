@@ -979,7 +979,7 @@ mod tests {
         world.add_observer(|_: Trigger<EventA, (A, B, (A, B))>, mut res: ResMut<R>| res.0 += 10000);
         world.add_observer(
             |_: Trigger<EventA, (A, B, (A, B), ((A, B), (A, B)))>, mut res: ResMut<R>| {
-                res.0 += 100000
+                res.0 += 100000;
             },
         );
         world.add_observer(
