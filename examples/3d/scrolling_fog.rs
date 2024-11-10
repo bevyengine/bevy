@@ -15,12 +15,12 @@ use bevy::{
         bloom::Bloom,
         experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
     },
-    pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
-    prelude::*,
-    render::texture::{
+    image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
     },
+    pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
+    prelude::*,
 };
 
 /// Initializes the example.

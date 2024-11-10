@@ -25,7 +25,6 @@ use bevy::{
             TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
         sync_world::MainEntityHashMap,
-        texture::BevyDefault,
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Extract, Render, RenderApp, RenderSet,
     },
