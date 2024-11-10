@@ -522,7 +522,7 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         event: ComponentId,
         mut entity: Entity,
-        components: &[ComponentId],
+        components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut E,
         mut propagate: bool,
     ) where
@@ -533,7 +533,7 @@ impl<'w> DeferredWorld<'w> {
                 self.reborrow(),
                 event,
                 entity,
-                components.iter().copied(),
+                components.clone(),
                 data,
                 &mut propagate,
             );
