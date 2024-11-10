@@ -3,24 +3,26 @@ use bevy_ecs::{
     system::{lifetimeless::SRes, SystemParamItem},
     world::{FromWorld, World},
 };
-use bevy_utils::HashMap;
 use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetId, AssetPath, AssetServer, Handle};
+use bevy_asset::{Asset, AssetApp, AssetId, AssetServer};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{Query, ResMut, Resource};
 use bevy_render::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin},
-    render_resource::{AsBindGroup, AsBindGroupError, BindGroupLayout, PreparedBindGroup, Shader},
+    render_resource::{AsBindGroup, AsBindGroupError, BindGroupLayout, PreparedBindGroup},
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
     view::ViewVisibility,
     Extract, ExtractSchedule, RenderApp,
 };
 
-use crate::component::MaterialComponent;
 use crate::material_pipeline::MaterialPipeline;
+use crate::{
+    component::MaterialComponent,
+    shaders::{LoadedShaders, Shaders},
+};
 
 pub enum SpecializeMaterialError {}
 
@@ -32,24 +34,6 @@ pub trait Material<P: MaterialPipeline>: BaseMaterial {
     fn properties(&self) -> P::MaterialProperties;
     fn shaders() -> Shaders<P>;
     fn specialize(ctx: P::PipelineContext<'_, Self>) -> Result<(), SpecializeMaterialError>;
-}
-
-#[derive(Deref)]
-pub struct Shaders<P: MaterialPipeline> {
-    shaders: HashMap<P::ShaderKey, AssetPath<'static>>,
-}
-
-impl<P: MaterialPipeline, A: Into<AssetPath<'static>>> FromIterator<(P::ShaderKey, A)>
-    for Shaders<P>
-{
-    fn from_iter<T: IntoIterator<Item = (P::ShaderKey, A)>>(iter: T) -> Self {
-        Self {
-            shaders: iter
-                .into_iter()
-                .map(|(key, path)| (key, path.into()))
-                .collect(),
-        }
-    }
 }
 
 pub struct MaterialPlugin<M: Material<P>, P: MaterialPipeline>(PhantomData<fn(M, P)>);
@@ -146,7 +130,7 @@ impl<M: BaseMaterial> RenderAsset for MaterialBindGroup<M> {
 pub struct MaterialProperties<M: Material<R>, R: MaterialPipeline> {
     #[deref]
     properties: R::MaterialProperties,
-    _data: PhantomData<M>,
+    _data: PhantomData<fn(M)>,
 }
 
 impl<M: Material<R>, R: MaterialPipeline> MaterialProperties<M, R> {
@@ -191,19 +175,18 @@ impl<M: BaseMaterial> FromWorld for MaterialLayout<M> {
 #[derive(Deref, Resource)]
 pub struct MaterialShaders<M: Material<P>, P: MaterialPipeline> {
     #[deref]
-    shaders: HashMap<P::ShaderKey, Handle<Shader>>,
+    shaders: LoadedShaders<P>,
     _data: PhantomData<fn(M)>,
 }
 
 impl<M: Material<P>, P: MaterialPipeline> FromWorld for MaterialShaders<M, P> {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
+        let mut shaders = P::default_shaders();
+        shaders.extend(M::shaders());
+
         Self {
-            shaders: M::shaders()
-                .shaders
-                .into_iter()
-                .map(|(key, path)| (key, asset_server.load(path)))
-                .collect(),
+            shaders: shaders.load(asset_server),
             _data: PhantomData,
         }
     }
