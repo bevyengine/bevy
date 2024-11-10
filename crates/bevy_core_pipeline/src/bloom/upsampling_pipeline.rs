@@ -124,6 +124,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

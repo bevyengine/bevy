@@ -3,8 +3,8 @@ use crate::{ExtractedSprite, Sprite, SpriteImageMode, TextureAtlasLayout};
 use super::TextureSlice;
 use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::prelude::*;
+use bevy_image::Image;
 use bevy_math::{Rect, Vec2};
-use bevy_render::texture::Image;
 use bevy_transform::prelude::*;
 use bevy_utils::HashSet;
 

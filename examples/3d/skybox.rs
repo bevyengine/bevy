@@ -5,11 +5,11 @@ mod camera_controller;
 
 use bevy::{
     core_pipeline::Skybox,
+    image::CompressedImageFormats,
     prelude::*,
     render::{
         render_resource::{TextureViewDescriptor, TextureViewDimension},
         renderer::RenderDevice,
-        texture::CompressedImageFormats,
     },
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
