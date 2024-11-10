@@ -16,7 +16,7 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_image::BevyDefault;
+use bevy_image::BevyDefault as _;
 use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::RenderApp;

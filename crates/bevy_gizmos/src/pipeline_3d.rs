@@ -17,7 +17,7 @@ use bevy_ecs::{
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_image::BevyDefault;
+use bevy_image::BevyDefault as _;
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{

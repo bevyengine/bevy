@@ -15,7 +15,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, Resource},
     world::{FromWorld, World},
 };
-use bevy_image::BevyDefault;
+use bevy_image::BevyDefault as _;
 use bevy_math::Vec4;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},

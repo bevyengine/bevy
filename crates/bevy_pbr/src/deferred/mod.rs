@@ -19,7 +19,7 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_image::BevyDefault;
+use bevy_image::BevyDefault as _;
 use bevy_render::{
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
