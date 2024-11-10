@@ -746,7 +746,15 @@ impl WeightsCurveEvaluator {
             None => {
                 self.blend_register_blend_weight = Some(weight_to_blend);
                 self.blend_register_morph_target_weights.clear();
-                self.blend_register_morph_target_weights.extend(stack_iter);
+
+                // In the additive case, the values pushed onto the blend register need
+                // to be scaled by the weight.
+                if additive {
+                    self.blend_register_morph_target_weights
+                        .extend(stack_iter.map(|m| m * weight_to_blend));
+                } else {
+                    self.blend_register_morph_target_weights.extend(stack_iter);
+                }
             }
 
             Some(ref mut current_weight) => {
@@ -877,7 +885,9 @@ where
         } = self.stack.pop().unwrap();
 
         match self.blend_register.take() {
-            None => self.blend_register = Some((value_to_blend, weight_to_blend)),
+            None => {
+                self.initialize_blend_register(value_to_blend, weight_to_blend, additive);
+            }
             Some((mut current_value, mut current_weight)) => {
                 current_weight += weight_to_blend;
 
@@ -910,6 +920,22 @@ where
         }
 
         Ok(())
+    }
+
+    fn initialize_blend_register(&mut self, value: A, weight: f32, additive: bool) {
+        if additive {
+            let scaled_value = A::blend(
+                [BlendInput {
+                    weight,
+                    value,
+                    additive: true,
+                }]
+                .into_iter(),
+            );
+            self.blend_register = Some((scaled_value, weight));
+        } else {
+            self.blend_register = Some((value, weight));
+        }
     }
 
     fn push_blend_register(

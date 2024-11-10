@@ -1512,8 +1512,11 @@ impl TickCells<'_> {
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct ComponentTicks {
-    pub(crate) added: Tick,
-    pub(crate) changed: Tick,
+    /// Tick recording the time this component or resource was added.
+    pub added: Tick,
+
+    /// Tick recording the time this component or resource was most recently changed.
+    pub changed: Tick,
 }
 
 impl ComponentTicks {
@@ -1531,19 +1534,8 @@ impl ComponentTicks {
         self.changed.is_newer_than(last_run, this_run)
     }
 
-    /// Returns the tick recording the time this component or resource was most recently changed.
-    #[inline]
-    pub fn last_changed_tick(&self) -> Tick {
-        self.changed
-    }
-
-    /// Returns the tick recording the time this component or resource was added.
-    #[inline]
-    pub fn added_tick(&self) -> Tick {
-        self.added
-    }
-
-    pub(crate) fn new(change_tick: Tick) -> Self {
+    /// Creates a new instance with the same change tick for `added` and `changed`.
+    pub fn new(change_tick: Tick) -> Self {
         Self {
             added: change_tick,
             changed: change_tick,

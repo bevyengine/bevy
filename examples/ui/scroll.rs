@@ -1,10 +1,8 @@
 //! This example illustrates scrolling in Bevy UI.
 
+use accesskit::{Node as Accessible, Role};
 use bevy::{
-    a11y::{
-        accesskit::{Node as Accessible, Role},
-        AccessibilityNode,
-    },
+    a11y::AccessibilityNode,
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::focus::HoverMap,
     prelude::*,
