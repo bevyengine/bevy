@@ -194,3 +194,13 @@ impl TriggerTargets for &Vec<Entity> {
         self.as_slice()
     }
 }
+
+impl<T1: TriggerTargets, T2: TriggerTargets> TriggerTargets for (T1, T2) {
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone {
+        self.0.components().chain(self.1.components())
+    }
+
+    fn entities(&self) -> impl Iterator<Item = Entity> {
+        self.0.entities().chain(self.1.entities())
+    }
+}
