@@ -2,6 +2,7 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_ecs::prelude::*;
+use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
@@ -13,7 +14,7 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    texture::{CompressedImageFormats, FallbackImage, GpuImage, Image, ImageSampler, ImageType},
+    texture::{FallbackImage, GpuImage},
     view::{ExtractedView, ViewTarget, ViewUniform},
     Render, RenderApp, RenderSet,
 };
@@ -433,14 +434,14 @@ pub fn get_lut_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 2] {
 // allow(dead_code) so it doesn't complain when the tonemapping_luts feature is disabled
 #[allow(dead_code)]
 fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
-    let image_sampler = ImageSampler::Descriptor(bevy_render::texture::ImageSamplerDescriptor {
+    let image_sampler = ImageSampler::Descriptor(bevy_image::ImageSamplerDescriptor {
         label: Some("Tonemapping LUT sampler".to_string()),
-        address_mode_u: bevy_render::texture::ImageAddressMode::ClampToEdge,
-        address_mode_v: bevy_render::texture::ImageAddressMode::ClampToEdge,
-        address_mode_w: bevy_render::texture::ImageAddressMode::ClampToEdge,
-        mag_filter: bevy_render::texture::ImageFilterMode::Linear,
-        min_filter: bevy_render::texture::ImageFilterMode::Linear,
-        mipmap_filter: bevy_render::texture::ImageFilterMode::Linear,
+        address_mode_u: bevy_image::ImageAddressMode::ClampToEdge,
+        address_mode_v: bevy_image::ImageAddressMode::ClampToEdge,
+        address_mode_w: bevy_image::ImageAddressMode::ClampToEdge,
+        mag_filter: bevy_image::ImageFilterMode::Linear,
+        min_filter: bevy_image::ImageFilterMode::Linear,
+        mipmap_filter: bevy_image::ImageFilterMode::Linear,
         ..default()
     });
     Image::from_buffer(
