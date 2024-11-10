@@ -41,6 +41,7 @@ enum BindingState<'a> {
 pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let manifest = BevyManifest::default();
     let render_path = manifest.get_path("bevy_render");
+    let image_path = manifest.get_path("bevy_image");
     let asset_path = manifest.get_path("bevy_asset");
     let ecs_path = manifest.get_path("bevy_ecs");
 
@@ -264,7 +265,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     binding_impls.insert(0, quote! {
                         ( #binding_index,
                           #render_path::render_resource::OwnedBindingResource::TextureView({
-                              let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
+                              let handle: Option<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
                               if let Some(handle) = handle {
                                   images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
                               } else {
@@ -305,7 +306,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         (
                             #binding_index,
                             #render_path::render_resource::OwnedBindingResource::TextureView({
-                                let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
+                                let handle: Option<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
                                 if let Some(handle) = handle {
                                     images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
                                 } else {
@@ -362,7 +363,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         (
                             #binding_index,
                             #render_path::render_resource::OwnedBindingResource::Sampler({
-                                let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
+                                let handle: Option<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
                                 if let Some(handle) = handle {
                                     let image = images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?;
 

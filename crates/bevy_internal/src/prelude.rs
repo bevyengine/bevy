@@ -6,6 +6,10 @@ pub use crate::{
     MinimalPlugins,
 };
 
+#[doc(hidden)]
+#[cfg(feature = "bevy_image")]
+pub use crate::image::prelude::*;
+
 pub use bevy_derive::{bevy_main, Deref, DerefMut};
 
 #[doc(hidden)]
