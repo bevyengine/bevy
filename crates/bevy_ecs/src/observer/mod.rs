@@ -975,6 +975,17 @@ mod tests {
         world.add_observer(|_: Trigger<EventA>, mut res: ResMut<R>| res.0 += 100);
         // targets any entity, and components A or B
         world.add_observer(|_: Trigger<EventA, (A, B)>, mut res: ResMut<R>| res.0 += 1000);
+        // test all tuples
+        world.add_observer(|_: Trigger<EventA, (A, B, (A, B))>, mut res: ResMut<R>| res.0 += 10000);
+        world.add_observer(
+            |_: Trigger<EventA, (A, B, (A, B), ((A, B), (A, B)))>, mut res: ResMut<R>| {
+                res.0 += 100000
+            },
+        );
+        world.add_observer(
+            |_: Trigger<EventA, (A, B, (A, B), (B, A), (A, B, ((A, B), (B, A))))>,
+             mut res: ResMut<R>| res.0 += 1000000,
+        );
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
@@ -1003,6 +1014,33 @@ mod tests {
         world.trigger_targets(EventA, ((component_a, component_b), (entity_1, entity_2)));
         world.flush();
         assert_eq!(2211, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger to test complex tuples: (A, B, (A, B))
+        world.trigger_targets(EventA, (component_a, component_b, (component_a, component_b)));
+        world.flush();
+        assert_eq!(1111101, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger to test complex tuples: (A, B, (A, B), ((A, B), (A, B)))
+        world.trigger_targets(EventA, (component_a, component_b, (component_a, component_b), ((component_a, component_b), (component_a, component_b))));
+        world.flush();
+        assert_eq!(1111101, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger to test the most complex tuple: (A, B, (A, B), (B, A), (A, B, ((A, B), (B, A))))
+        world.trigger_targets(
+            EventA,
+            (
+                component_a,
+                component_b,
+                (component_a, component_b),
+                (component_b, component_a),
+                (component_a, component_b, ((component_a, component_b), (component_b, component_a))),
+            ),
+        );
+        world.flush();
+        assert_eq!(1111101, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
     }
 

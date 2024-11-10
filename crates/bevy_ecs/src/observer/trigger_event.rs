@@ -1,3 +1,5 @@
+use bevy_utils::all_tuples;
+
 use crate::{
     component::ComponentId,
     entity::Entity,
@@ -115,16 +117,6 @@ pub trait TriggerTargets {
     fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone;
 }
 
-impl TriggerTargets for () {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
-        [].into_iter()
-    }
-
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone {
-        [].into_iter()
-    }
-}
-
 impl TriggerTargets for Entity {
     fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
         [].into_iter()
@@ -195,20 +187,37 @@ impl TriggerTargets for &Vec<Entity> {
     }
 }
 
-impl<T1: TriggerTargets, T2: TriggerTargets> TriggerTargets for (T1, T2) {
-    fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
-        self.0
-            .components()
-            .chain(self.1.components())
-            .collect::<Vec<_>>()
-            .into_iter()
-    }
+macro_rules! impl_trigger_targets_tuples {
+    ($(#[$meta:meta])* $($trigger_targets: ident),*) => {
+        #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
+        $(#[$meta])*
+        impl<$($trigger_targets: TriggerTargets),*> TriggerTargets for ($($trigger_targets,)*)
+        {
+            fn components(&self) -> impl ExactSizeIterator<Item = ComponentId> + Clone {
+                let iter = [].into_iter();
+                let ($($trigger_targets,)*) = self;
+                $(
+                    let iter = iter.chain($trigger_targets.components());
+                )*
+                iter.collect::<Vec<_>>().into_iter()
+            }
 
-    fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone {
-        self.0
-            .entities()
-            .chain(self.1.entities()) // `Chain` is never `ExactSizeIterator`
-            .collect::<Vec<_>>()
-            .into_iter()
+            fn entities(&self) -> impl ExactSizeIterator<Item = Entity> + Clone {
+                let iter = [].into_iter();
+                let ($($trigger_targets,)*) = self;
+                $(
+                    let iter = iter.chain($trigger_targets.entities());
+                )*
+                iter.collect::<Vec<_>>().into_iter()
+            }
+        }
     }
 }
+
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_trigger_targets_tuples,
+    0,
+    15,
+    T
+);
