@@ -331,7 +331,17 @@ impl Rot2 {
 
     /// Returns the angle in radians needed to make `self` and `other` coincide.
     #[inline]
+    #[deprecated(
+        since = "0.15.0",
+        note = "Use angle_to() instead, the semantics of angle_between will change in the future."
+    )]
     pub fn angle_between(self, other: Self) -> f32 {
+        (other * self.inverse()).as_radians()
+    }
+
+    /// Returns the angle in radians needed to make `self` and `other` coincide.
+    #[inline]
+    pub fn angle_to(self, other: Self) -> f32 {
         (other * self.inverse()).as_radians()
     }
 
@@ -424,7 +434,7 @@ impl Rot2 {
     /// ```
     #[inline]
     pub fn slerp(self, end: Self, s: f32) -> Self {
-        self * Self::radians(self.angle_between(end) * s)
+        self * Self::radians(self.angle_to(end) * s)
     }
 }
 
@@ -567,10 +577,7 @@ mod tests {
         assert_relative_eq!((rotation1 * rotation2.inverse()).as_degrees(), 45.0);
 
         // This should be equivalent to the above
-        assert_relative_eq!(
-            rotation2.angle_between(rotation1),
-            core::f32::consts::FRAC_PI_4
-        );
+        assert_relative_eq!(rotation2.angle_to(rotation1), core::f32::consts::FRAC_PI_4);
     }
 
     #[test]
