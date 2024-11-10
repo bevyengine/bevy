@@ -20,7 +20,7 @@
 fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let lat_long = sky_view_lut_uv_to_lat_long(in.uv);
     let view_dir = get_ray_direction(lat_long);
-    let r = atmosphere.bottom_radius; //we center the sky view on the planet ground
+    let r = view.world_position.y / 1000.0 + atmosphere.bottom_radius; //we center the sky view on the planet ground
     let mu = view_dir.y;
 
     let atmosphere_dist = distance_to_top_atmosphere_boundary(r, mu);

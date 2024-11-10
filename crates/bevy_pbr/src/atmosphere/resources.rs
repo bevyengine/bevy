@@ -12,18 +12,19 @@ use bevy_render::{
     extract_component::ComponentUniforms,
     render_resource::{
         binding_types::{
-            sampler, texture_2d, texture_storage_2d, texture_storage_3d, uniform_buffer,
+            sampler, texture_2d, texture_3d, texture_storage_2d, texture_storage_3d, uniform_buffer,
         },
         AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
-        CachedComputePipelineId, CachedRenderPipelineId, ColorTargetState, ColorWrites,
-        ComputePipelineDescriptor, Extent3d, FilterMode, FragmentState, MultisampleState,
-        PipelineCache, PrimitiveState, RenderPipelineDescriptor, Sampler, SamplerBindingType,
-        SamplerDescriptor, ShaderStages, StorageTextureAccess, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureSampleType, TextureUsages,
+        BlendComponent, BlendFactor, BlendOperation, BlendState, CachedComputePipelineId,
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, ComputePipelineDescriptor, Extent3d,
+        FilterMode, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
+        StorageTextureAccess, StoreOp, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsages,
     },
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
-    view::{ViewUniform, ViewUniforms},
+    view::{ViewDepthTexture, ViewTarget, ViewUniform, ViewUniforms},
 };
 
 use crate::{GpuLights, LightMeta};
@@ -121,9 +122,23 @@ impl FromWorld for AtmosphereBindGroupLayouts {
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::FRAGMENT,
                 (
+                    (0, uniform_buffer::<Atmosphere>(true)),
                     (2, uniform_buffer::<ViewUniform>(true)),
-                    (8, texture_2d(TextureSampleType::Float { filterable: true })),
+                    (4, texture_2d(TextureSampleType::Float { filterable: true })), //transmittance lut and sampler
+                    (5, sampler(SamplerBindingType::Filtering)),
+                    (8, texture_2d(TextureSampleType::Float { filterable: true })), //sky view lut and sampler
                     (9, sampler(SamplerBindingType::Filtering)),
+                    (
+                        // aerial view lut and sampler
+                        10,
+                        texture_3d(TextureSampleType::Float { filterable: true }),
+                    ),
+                    (11, sampler(SamplerBindingType::Filtering)),
+                    (
+                        //view depth texture
+                        12,
+                        texture_2d(TextureSampleType::Depth),
+                    ),
                 ),
             ),
         );
@@ -279,7 +294,18 @@ impl FromWorld for AtmospherePipelines {
                 entry_point: "main".into(),
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::Rgba16Float,
-                    blend: None,
+                    blend: Some(BlendState {
+                        color: BlendComponent {
+                            src_factor: BlendFactor::One,
+                            dst_factor: BlendFactor::OneMinusSrcAlpha,
+                            operation: BlendOperation::Add,
+                        },
+                        alpha: BlendComponent {
+                            src_factor: BlendFactor::Zero,
+                            dst_factor: BlendFactor::One,
+                            operation: BlendOperation::Add,
+                        },
+                    }),
                     write_mask: ColorWrites::ALL,
                 })],
             }),
@@ -404,7 +430,10 @@ pub(crate) struct AtmosphereBindGroups {
 
 #[expect(clippy::too_many_arguments)]
 pub(super) fn prepare_atmosphere_bind_groups(
-    views: Query<(Entity, &AtmosphereTextures), (With<Camera3d>, With<Atmosphere>)>,
+    views: Query<
+        (Entity, &AtmosphereTextures, &ViewDepthTexture),
+        (With<Camera3d>, With<Atmosphere>),
+    >,
     render_device: Res<RenderDevice>,
     layouts: Res<AtmosphereBindGroupLayouts>,
     samplers: Res<AtmosphereSamplers>,
@@ -412,6 +441,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
     lights_uniforms: Res<LightMeta>,
     atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
     settings_uniforms: Res<ComponentUniforms<AtmosphereSettings>>,
+
     mut commands: Commands,
 ) {
     let atmosphere_binding = atmosphere_uniforms
@@ -432,7 +462,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .binding()
         .expect("Failed to prepare atmosphere bind groups. Lights uniform buffer missing");
 
-    for (entity, textures) in &views {
+    for (entity, textures, view_depth_texture) in &views {
         let transmittance_lut = render_device.create_bind_group(
             "transmittance_lut_bind_group",
             &layouts.transmittance_lut,
@@ -489,9 +519,15 @@ pub(super) fn prepare_atmosphere_bind_groups(
             "render_sky_bind_group",
             &layouts.render_sky,
             &BindGroupEntries::with_indices((
+                (0, atmosphere_binding.clone()),
                 (2, view_binding.clone()),
+                (4, &textures.transmittance_lut.default_view),
+                (5, &samplers.transmittance_lut),
                 (8, &textures.sky_view_lut.default_view),
                 (9, &samplers.sky_view_lut),
+                (10, &textures.aerial_view_lut.default_view),
+                (11, &samplers.aerial_view_lut),
+                (12, view_depth_texture.view()),
             )),
         );
 

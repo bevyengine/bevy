@@ -196,7 +196,7 @@ fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
 fn ray_dir_to_lat_long(ray_dir: vec3<f32>) -> vec2<f32> {
     let view_dir = -view.world_from_view[2].xyz;
     let lat = asin(ray_dir.y);
-    let long = atan2(view_dir.x * ray_dir.z - view_dir.z * ray_dir.x, view_dir.x * ray_dir.x + view_dir.z + ray_dir.z); //TODO: explain
+    let long = atan2(view_dir.z, view_dir.x) - atan2(ray_dir.z, ray_dir.x); //TODO: explain
     return vec2(lat, long);
 }
 

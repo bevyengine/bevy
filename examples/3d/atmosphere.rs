@@ -10,11 +10,13 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::auto_exposure::AutoExposure,
+    core_pipeline::{auto_exposure::AutoExposure, core_3d::Camera3dDepthTextureUsage},
     pbr::{Atmosphere, CascadeShadowConfigBuilder},
     prelude::*,
 };
 use bevy_internal::core_pipeline::tonemapping::Tonemapping;
+use bevy_render::render_resource::TextureUsages;
+use light_consts::lux;
 
 fn main() {
     App::new()
@@ -29,7 +31,12 @@ fn main() {
 
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
-        Camera3d::default(),
+        Camera3d {
+            depth_texture_usages: Camera3dDepthTextureUsage::from(
+                TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+            ),
+            ..Default::default()
+        },
         Camera {
             hdr: true,
             ..default()
@@ -39,7 +46,7 @@ fn setup_camera_fog(mut commands: Commands) {
         Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
         Atmosphere::EARTH,
         AutoExposure {
-            range: -200.0..=200.0,
+            range: -500.0..=500.0,
             ..Default::default()
         },
     ));
@@ -59,6 +66,7 @@ fn setup_terrain_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         DirectionalLight {
             color: Color::srgb(0.98, 0.95, 0.82),
             shadows_enabled: true,
+            illuminance: 10.0,
             ..default()
         },
         Transform::from_xyz(1.0, -1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),

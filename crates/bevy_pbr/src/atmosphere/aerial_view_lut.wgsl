@@ -36,7 +36,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             let view_z = depth_ndc_to_view_z(ndc_z) / view_dir.w / 1000.0;
 
             //subtraction is flipped because z values in front of the camera are negative
-            let step_length = (prev_view_z - view_z) ;
+            let step_length = (prev_view_z - view_z);
             prev_view_z = view_z;
 
             let local_r = get_local_r(r, mu, view_z);
