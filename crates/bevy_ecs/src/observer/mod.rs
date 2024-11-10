@@ -987,45 +987,49 @@ mod tests {
              mut res: ResMut<R>| res.0 += 1000000,
         );
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
-        // and therefore does not automatically flush.
+        // WorldEntityMut does not automatically flush.
         world.flush();
 
         // trigger for an entity and a component
         world.trigger_targets(EventA, (entity_1, component_a));
         world.flush();
-        assert_eq!(1101, world.resource::<R>().0);
+        // only observer that doesn't trigger is the one only watching entity_2
+        assert_eq!(1111101, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
 
         // trigger for both entities, but no components: trigger once per entity target
         world.trigger_targets(EventA, (entity_1, entity_2));
         world.flush();
+        // only the observer that doesn't require components triggers - once per entity
         assert_eq!(200, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
 
         // trigger for both components, but no entities: trigger once
         world.trigger_targets(EventA, (component_a, component_b));
         world.flush();
-        assert_eq!(1100, world.resource::<R>().0);
+        // all component observers trigger, entities are not observed
+        assert_eq!(1111100, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
 
         // trigger for both entities and both components: trigger once per entity target
-        // we only get 2211 and not 4211 because a given observer can trigger only once per entity target
+        // we only get 2222211 because a given observer can trigger only once per entity target
         world.trigger_targets(EventA, ((component_a, component_b), (entity_1, entity_2)));
         world.flush();
-        assert_eq!(2211, world.resource::<R>().0);
+        assert_eq!(2222211, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
 
         // trigger to test complex tuples: (A, B, (A, B))
         world.trigger_targets(EventA, (component_a, component_b, (component_a, component_b)));
         world.flush();
-        assert_eq!(1111101, world.resource::<R>().0);
+        // the duplicate components in the tuple don't cause multiple triggers
+        assert_eq!(1111100, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
 
         // trigger to test complex tuples: (A, B, (A, B), ((A, B), (A, B)))
         world.trigger_targets(EventA, (component_a, component_b, (component_a, component_b), ((component_a, component_b), (component_a, component_b))));
         world.flush();
-        assert_eq!(1111101, world.resource::<R>().0);
+        // the duplicate components in the tuple don't cause multiple triggers
+        assert_eq!(1111100, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
 
         // trigger to test the most complex tuple: (A, B, (A, B), (B, A), (A, B, ((A, B), (B, A))))
@@ -1040,7 +1044,8 @@ mod tests {
             ),
         );
         world.flush();
-        assert_eq!(1111101, world.resource::<R>().0);
+        // the duplicate components in the tuple don't cause multiple triggers
+        assert_eq!(1111100, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
     }
 
