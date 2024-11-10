@@ -14,21 +14,21 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// Returns the parent [`Entity`] of the given `entity`, if any.
     fn parent(&'w self, entity: Entity) -> Option<Entity>
     where
-        D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>;
+        D::ReadOnly: WorldQuery<Item<'w, 's> = &'w Parent>;
 
     /// Returns a slice over the [`Children`] of the given `entity`.
     ///
     /// This may be empty if the `entity` has no children.
     fn children(&'w self, entity: Entity) -> &'w [Entity]
     where
-        D::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
+        D::ReadOnly: WorldQuery<Item<'w, 's> = &'w Children>;
 
     /// Returns the topmost ancestor of the given `entity`.
     ///
     /// This may be the entity itself if it has no parent.
     fn root_ancestor(&'w self, entity: Entity) -> Entity
     where
-        D::ReadOnly: WorldQuery<Item<'w> = &'w Parent>;
+        D::ReadOnly: WorldQuery<Item<'w, 's> = &'w Parent>;
 
     /// Returns an [`Iterator`] of [`Entity`]s over the leaves of the hierarchy that are underneath this `entity`.
     ///
@@ -39,14 +39,14 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// Traverses the hierarchy depth-first.
     fn iter_leaves(&'w self, entity: Entity) -> impl Iterator<Item = Entity> + 'w
     where
-        D::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
+        D::ReadOnly: WorldQuery<Item<'w, 's> = &'w Children>;
 
     /// Returns an [`Iterator`] of [`Entity`]s over the `entity`s immediate siblings, who share the same parent.
     ///
     /// The entity itself is not included in the iterator.
     fn iter_siblings(&'w self, entity: Entity) -> impl Iterator<Item = Entity>
     where
-        D::ReadOnly: WorldQuery<Item<'w> = (Option<&'w Parent>, Option<&'w Children>)>;
+        D::ReadOnly: WorldQuery<Item<'w, 's> = (Option<&'w Parent>, Option<&'w Children>)>;
 
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s descendants.
     ///
@@ -81,7 +81,7 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
         entity: Entity,
     ) -> DescendantDepthFirstIter<'w, 's, D, F>
     where
-        D::ReadOnly: WorldQuery<Item<'w> = &'w Children>;
+        D::ReadOnly: WorldQuery<Item<'w, 's> = &'w Children>;
 
     /// Returns an [`Iterator`] of [`Entity`]s over all of `entity`s ancestors.
     ///
@@ -109,14 +109,14 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
 impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Query<'w, 's, D, F> {
     fn parent(&'w self, entity: Entity) -> Option<Entity>
     where
-        <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+        <D as QueryData>::ReadOnly: WorldQuery<Item<'w, 's> = &'w Parent>,
     {
         self.get(entity).map(Parent::get).ok()
     }
 
     fn children(&'w self, entity: Entity) -> &'w [Entity]
     where
-        <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+        <D as QueryData>::ReadOnly: WorldQuery<Item<'w, 's> = &'w Children>,
     {
         self.get(entity)
             .map_or(&[] as &[Entity], |children| children)
@@ -124,7 +124,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
 
     fn root_ancestor(&'w self, entity: Entity) -> Entity
     where
-        <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+        <D as QueryData>::ReadOnly: WorldQuery<Item<'w, 's> = &'w Parent>,
     {
         // Recursively search up the tree until we're out of parents
         match self.get(entity) {
@@ -135,7 +135,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
 
     fn iter_leaves(&'w self, entity: Entity) -> impl Iterator<Item = Entity>
     where
-        <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+        <D as QueryData>::ReadOnly: WorldQuery<Item<'w, 's> = &'w Children>,
     {
         self.iter_descendants_depth_first(entity).filter(|entity| {
             self.get(*entity)
@@ -148,7 +148,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
 
     fn iter_siblings(&'w self, entity: Entity) -> impl Iterator<Item = Entity>
     where
-        D::ReadOnly: WorldQuery<Item<'w> = (Option<&'w Parent>, Option<&'w Children>)>,
+        D::ReadOnly: WorldQuery<Item<'w, 's> = (Option<&'w Parent>, Option<&'w Children>)>,
     {
         self.get(entity)
             .ok()
@@ -172,7 +172,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> HierarchyQueryExt<'w, 's, D, F> for Q
         entity: Entity,
     ) -> DescendantDepthFirstIter<'w, 's, D, F>
     where
-        D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+        D::ReadOnly: WorldQuery<Item<'w, 's> = &'w Children>,
     {
         DescendantDepthFirstIter::new(self, entity)
     }
@@ -236,7 +236,7 @@ where
 /// Traverses the hierarchy depth-first.
 pub struct DescendantDepthFirstIter<'w, 's, D: QueryData, F: QueryFilter>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+    D::ReadOnly: WorldQuery<Item<'w, 's> = &'w Children>,
 {
     children_query: &'w Query<'w, 's, D, F>,
     stack: SmallVec<[Entity; 8]>,
@@ -244,7 +244,7 @@ where
 
 impl<'w, 's, D: QueryData, F: QueryFilter> DescendantDepthFirstIter<'w, 's, D, F>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+    D::ReadOnly: WorldQuery<Item<'w, 's> = &'w Children>,
 {
     /// Returns a new [`DescendantDepthFirstIter`].
     pub fn new(children_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
@@ -261,7 +261,7 @@ where
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for DescendantDepthFirstIter<'w, 's, D, F>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w Children>,
+    D::ReadOnly: WorldQuery<Item<'w, 's> = &'w Children>,
 {
     type Item = Entity;
 

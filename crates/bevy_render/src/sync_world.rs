@@ -266,27 +266,29 @@ mod render_entities_world_query_impls {
     /// SAFETY: defers completely to `&RenderEntity` implementation,
     /// and then only modifies the output safely.
     unsafe impl WorldQuery for RenderEntity {
-        type Item<'w> = Entity;
-        type Fetch<'w> = <&'static RenderEntity as WorldQuery>::Fetch<'w>;
+        type Item<'w, 's> = Entity;
+        type Fetch<'w, 's> = <&'static RenderEntity as WorldQuery>::Fetch<'w, 's>;
         type State = <&'static RenderEntity as WorldQuery>::State;
 
-        fn shrink<'wlong: 'wshort, 'wshort>(item: Entity) -> Entity {
+        fn shrink<'wlong: 'wshort, 'wshort, 's>(
+            item: Self::Item<'wlong, 's>,
+        ) -> Self::Item<'wshort, 's> {
             item
         }
 
-        fn shrink_fetch<'wlong: 'wshort, 'wshort>(
-            fetch: Self::Fetch<'wlong>,
-        ) -> Self::Fetch<'wshort> {
+        fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
+            fetch: Self::Fetch<'wlong, 's>,
+        ) -> Self::Fetch<'wshort, 's> {
             fetch
         }
 
         #[inline]
-        unsafe fn init_fetch<'w>(
+        unsafe fn init_fetch<'w, 's>(
             world: UnsafeWorldCell<'w>,
-            component_id: &ComponentId,
+            component_id: &'s ComponentId,
             last_run: Tick,
             this_run: Tick,
-        ) -> Self::Fetch<'w> {
+        ) -> Self::Fetch<'w, 's> {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
             unsafe {
                 <&RenderEntity as WorldQuery>::init_fetch(world, component_id, last_run, this_run)
@@ -296,9 +298,9 @@ mod render_entities_world_query_impls {
         const IS_DENSE: bool = <&'static RenderEntity as WorldQuery>::IS_DENSE;
 
         #[inline]
-        unsafe fn set_archetype<'w>(
-            fetch: &mut Self::Fetch<'w>,
-            component_id: &ComponentId,
+        unsafe fn set_archetype<'w, 's>(
+            fetch: &mut Self::Fetch<'w, 's>,
+            component_id: &'s ComponentId,
             archetype: &'w Archetype,
             table: &'w Table,
         ) {
@@ -309,9 +311,9 @@ mod render_entities_world_query_impls {
         }
 
         #[inline]
-        unsafe fn set_table<'w>(
-            fetch: &mut Self::Fetch<'w>,
-            &component_id: &ComponentId,
+        unsafe fn set_table<'w, 's>(
+            fetch: &mut Self::Fetch<'w, 's>,
+            &component_id: &'s ComponentId,
             table: &'w Table,
         ) {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
@@ -319,11 +321,11 @@ mod render_entities_world_query_impls {
         }
 
         #[inline(always)]
-        unsafe fn fetch<'w>(
-            fetch: &mut Self::Fetch<'w>,
+        unsafe fn fetch<'w, 's>(
+            fetch: &mut Self::Fetch<'w, 's>,
             entity: Entity,
             table_row: TableRow,
-        ) -> Self::Item<'w> {
+        ) -> Self::Item<'w, 's> {
             // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
             let component =
                 unsafe { <&RenderEntity as WorldQuery>::fetch(fetch, entity, table_row) };
@@ -365,27 +367,29 @@ mod render_entities_world_query_impls {
     /// SAFETY: defers completely to `&RenderEntity` implementation,
     /// and then only modifies the output safely.
     unsafe impl WorldQuery for MainEntity {
-        type Item<'w> = Entity;
-        type Fetch<'w> = <&'static MainEntity as WorldQuery>::Fetch<'w>;
+        type Item<'w, 's> = Entity;
+        type Fetch<'w, 's> = <&'static MainEntity as WorldQuery>::Fetch<'w, 's>;
         type State = <&'static MainEntity as WorldQuery>::State;
 
-        fn shrink<'wlong: 'wshort, 'wshort>(item: Entity) -> Entity {
+        fn shrink<'wlong: 'wshort, 'wshort, 's>(
+            item: Self::Item<'wlong, 's>,
+        ) -> Self::Item<'wshort, 's> {
             item
         }
 
-        fn shrink_fetch<'wlong: 'wshort, 'wshort>(
-            fetch: Self::Fetch<'wlong>,
-        ) -> Self::Fetch<'wshort> {
+        fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
+            fetch: Self::Fetch<'wlong, 's>,
+        ) -> Self::Fetch<'wshort, 's> {
             fetch
         }
 
         #[inline]
-        unsafe fn init_fetch<'w>(
+        unsafe fn init_fetch<'w, 's>(
             world: UnsafeWorldCell<'w>,
-            component_id: &ComponentId,
+            component_id: &'s ComponentId,
             last_run: Tick,
             this_run: Tick,
-        ) -> Self::Fetch<'w> {
+        ) -> Self::Fetch<'w, 's> {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
             unsafe {
                 <&MainEntity as WorldQuery>::init_fetch(world, component_id, last_run, this_run)
@@ -395,8 +399,8 @@ mod render_entities_world_query_impls {
         const IS_DENSE: bool = <&'static MainEntity as WorldQuery>::IS_DENSE;
 
         #[inline]
-        unsafe fn set_archetype<'w>(
-            fetch: &mut Self::Fetch<'w>,
+        unsafe fn set_archetype<'w, 's>(
+            fetch: &mut Self::Fetch<'w, 's>,
             component_id: &ComponentId,
             archetype: &'w Archetype,
             table: &'w Table,
@@ -408,9 +412,9 @@ mod render_entities_world_query_impls {
         }
 
         #[inline]
-        unsafe fn set_table<'w>(
-            fetch: &mut Self::Fetch<'w>,
-            &component_id: &ComponentId,
+        unsafe fn set_table<'w, 's>(
+            fetch: &mut Self::Fetch<'w, 's>,
+            &component_id: &'s ComponentId,
             table: &'w Table,
         ) {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
@@ -418,11 +422,11 @@ mod render_entities_world_query_impls {
         }
 
         #[inline(always)]
-        unsafe fn fetch<'w>(
-            fetch: &mut Self::Fetch<'w>,
+        unsafe fn fetch<'w, 's>(
+            fetch: &mut Self::Fetch<'w, 's>,
             entity: Entity,
             table_row: TableRow,
-        ) -> Self::Item<'w> {
+        ) -> Self::Item<'w, 's> {
             // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
             let component = unsafe { <&MainEntity as WorldQuery>::fetch(fetch, entity, table_row) };
             component.id()
