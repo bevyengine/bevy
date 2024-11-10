@@ -1019,14 +1019,25 @@ mod tests {
         world.resource_mut::<R>().0 = 0;
 
         // trigger to test complex tuples: (A, B, (A, B))
-        world.trigger_targets(EventA, (component_a, component_b, (component_a, component_b)));
+        world.trigger_targets(
+            EventA,
+            (component_a, component_b, (component_a, component_b)),
+        );
         world.flush();
         // the duplicate components in the tuple don't cause multiple triggers
         assert_eq!(1111100, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
 
         // trigger to test complex tuples: (A, B, (A, B), ((A, B), (A, B)))
-        world.trigger_targets(EventA, (component_a, component_b, (component_a, component_b), ((component_a, component_b), (component_a, component_b))));
+        world.trigger_targets(
+            EventA,
+            (
+                component_a,
+                component_b,
+                (component_a, component_b),
+                ((component_a, component_b), (component_a, component_b)),
+            ),
+        );
         world.flush();
         // the duplicate components in the tuple don't cause multiple triggers
         assert_eq!(1111100, world.resource::<R>().0);
@@ -1040,7 +1051,11 @@ mod tests {
                 component_b,
                 (component_a, component_b),
                 (component_b, component_a),
-                (component_a, component_b, ((component_a, component_b), (component_b, component_a))),
+                (
+                    component_a,
+                    component_b,
+                    ((component_a, component_b), (component_b, component_a)),
+                ),
             ),
         );
         world.flush();
