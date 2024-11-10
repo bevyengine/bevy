@@ -64,7 +64,6 @@ sudo dnf install alsa-lib-devel.x86_64
 
 Or if there are errors such as:
 
-<!-- markdownlint-disable MD013 -->
 ```text
   --- stderr
   thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: "`\"pkg-config\" \"--libs\" \"--cflags\" \"libudev\"` did not exit successfully: exit status: 1\n--- stderr\nPackage libudev was not found in the pkg-config search path.\nPerhaps you should add the directory containing `libudev.pc'\nto the PKG_CONFIG_PATH environment variable\nNo package 'libudev' found\n"', /home/<user>/.cargo/registry/src/github.com-1ecc6299db9ec823/libudev-sys-0.1.4/build.rs:38:41
@@ -85,7 +84,6 @@ Or if there are errors such as:
 warning: build failed, waiting for other jobs to finish...
 error: build failed
 ```
-<!-- markdownlint-enable MD013 -->
 
 Set the `PKG_CONFIG_PATH` env var to `/usr/lib/<target>/pkgconfig/`. For example on an x86_64 system:
 
