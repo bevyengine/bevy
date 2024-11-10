@@ -29,9 +29,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Scrolling Fog".into(),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(TemporalAntiAliasPlugin)
@@ -53,7 +53,7 @@ fn setup(
         Transform::from_xyz(0.0, 2.0, 0.0).looking_at(Vec3::new(-5.0, 3.5, -6.0), Vec3::Y),
         Camera {
             hdr: true,
-            ..default()
+            ..<_>::default()
         },
         Msaa::Off,
         TemporalAntiAliasing::default(),
@@ -61,7 +61,7 @@ fn setup(
         VolumetricFog {
             ambient_intensity: 0.0,
             jitter: 0.5,
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -69,7 +69,7 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(-5.0, 5.0, -7.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         VolumetricLight,
@@ -81,7 +81,7 @@ fn setup(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::BLACK,
             perceptual_roughness: 1.0,
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_xyz(0.0, -0.5, 0.0),
     ));
@@ -105,9 +105,9 @@ fn setup(
                 mag_filter: ImageFilterMode::Linear,
                 min_filter: ImageFilterMode::Linear,
                 mipmap_filter: ImageFilterMode::Linear,
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }
     });
 
@@ -117,7 +117,7 @@ fn setup(
         FogVolume {
             density_texture: Some(noise_texture),
             density_factor: 0.05,
-            ..default()
+            ..<_>::default()
         },
     ));
 }

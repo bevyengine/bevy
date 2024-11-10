@@ -16,9 +16,9 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     present_mode: PresentMode::AutoNoVsync,
-                    ..default()
+                    ..<_>::default()
                 }),
-                ..default()
+                ..<_>::default()
             }),
             FrameTimeDiagnosticsPlugin,
         ))
@@ -40,7 +40,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             width: Val::Percent(100.),
             height: Val::Percent(100.),
             justify_content: JustifyContent::SpaceBetween,
-            ..default()
+            ..<_>::default()
         })
         .id();
 
@@ -51,14 +51,14 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             align_items: AlignItems::Start,
             flex_grow: 1.,
             margin: UiRect::axes(Val::Px(15.), Val::Px(5.)),
-            ..default()
+            ..<_>::default()
         }).with_children(|builder| {
         builder.spawn((
             Text::new("This is\ntext with\nline breaks\nin the top left."),
             TextFont {
                 font: font.clone(),
                 font_size: 25.0,
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(background_color)
         ));
@@ -69,13 +69,13 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextFont {
                 font: font.clone(),
                 font_size: 25.0,
-                ..default()
+                ..<_>::default()
             },
             TextColor(YELLOW.into()),
             TextLayout::new_with_justify(JustifyText::Right),
             Node {
                 max_width: Val::Px(300.),
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(background_color)
         ));
@@ -85,11 +85,11 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextFont {
                 font: font.clone(),
                 font_size: 25.0,
-                ..default()
+                ..<_>::default()
             },
             Node {
                 max_width: Val::Px(300.),
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(background_color)
         )
@@ -103,7 +103,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             align_items: AlignItems::End,
             flex_grow: 1.,
             margin: UiRect::axes(Val::Px(15.), Val::Px(5.)),
-            ..default()
+            ..<_>::default()
         })
         .with_children(|builder| {
             builder.spawn((
@@ -111,13 +111,13 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextFont {
                     font: font.clone(),
                     font_size: 33.0,
-                    ..default()
+                    ..<_>::default()
                 },
                 TextColor(Color::srgb(0.8, 0.2, 0.7)),
                 TextLayout::new_with_justify(JustifyText::Center),
                 Node {
                     max_width: Val::Px(400.),
-                    ..default()
+                    ..<_>::default()
                 },
                 BackgroundColor(background_color),
             ));
@@ -127,13 +127,13 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextFont {
                     font: font.clone(),
                     font_size: 29.0,
-                    ..default()
+                    ..<_>::default()
                 },
                 TextColor(YELLOW.into()),
                 TextLayout::new_with_justify(JustifyText::Left),
                 Node {
                     max_width: Val::Px(300.),
-                    ..default()
+                    ..<_>::default()
                 },
                 BackgroundColor(background_color),
             ));
@@ -143,13 +143,13 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextFont {
                     font: font.clone(),
                     font_size: 29.0,
-                    ..default()
+                    ..<_>::default()
                 },
                 TextLayout::new_with_justify(JustifyText::Justified),
                 TextColor(GREEN_YELLOW.into()),
                 Node {
                     max_width: Val::Px(300.),
-                    ..default()
+                    ..<_>::default()
                 },
                 BackgroundColor(background_color),
             ));
@@ -160,7 +160,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextFont {
                         font: font.clone(),
                         font_size: 21.0,
-                        ..default()
+                        ..<_>::default()
                     },
                     TextChanges,
                     BackgroundColor(background_color),
@@ -171,7 +171,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 21.0,
-                            ..default()
+                            ..<_>::default()
                         },
                     ));
                     p.spawn((
@@ -179,7 +179,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 0.0,
-                            ..default()
+                            ..<_>::default()
                         },
                         TextColor(BLUE.into()),
                     ));
@@ -188,7 +188,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 21.0,
-                            ..default()
+                            ..<_>::default()
                         },
                         TextColor(RED.into()),
                     ));
@@ -197,7 +197,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 21.0,
-                            ..default()
+                            ..<_>::default()
                         },
                         TextColor(ORANGE_RED.into()),
                     ));
@@ -206,7 +206,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 10.0,
-                            ..default()
+                            ..<_>::default()
                         },
                         TextColor(YELLOW.into()),
                     ));
@@ -215,7 +215,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 21.0,
-                            ..default()
+                            ..<_>::default()
                         },
                         TextColor(LIME.into()),
                     ));
@@ -224,7 +224,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: 42.0,
-                            ..default()
+                            ..<_>::default()
                         },
                         TextColor(BLUE.into()),
                     ));
@@ -233,7 +233,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font.clone(),
                             font_size: -42.0,
-                            ..default()
+                            ..<_>::default()
                         },
                         TextColor(BLUE.into()),
                     ));

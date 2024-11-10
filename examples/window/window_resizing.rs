@@ -37,14 +37,14 @@ fn setup_ui(mut commands: Commands) {
     commands
         .spawn(Node {
             width: Val::Percent(100.),
-            ..default()
+            ..<_>::default()
         })
         // Text where we display current resolution
         .with_child((
             Text::new("Resolution"),
             TextFont {
                 font_size: 42.0,
-                ..default()
+                ..<_>::default()
             },
             ResolutionText,
         ));

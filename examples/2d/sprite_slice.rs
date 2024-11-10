@@ -40,7 +40,7 @@ fn spawn_sprites(
             SpriteImageMode::Sliced(TextureSlicer {
                 border: BorderRect::square(slice_border),
                 center_scale_mode: SliceScaleMode::Stretch,
-                ..default()
+                ..<_>::default()
             }),
         ),
         // Scaled sliced sprite
@@ -52,7 +52,7 @@ fn spawn_sprites(
                 border: BorderRect::square(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.5 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
-                ..default()
+                ..<_>::default()
             }),
         ),
         // Scaled sliced sprite horizontally
@@ -64,7 +64,7 @@ fn spawn_sprites(
                 border: BorderRect::square(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.3 },
-                ..default()
+                ..<_>::default()
             }),
         ),
         // Scaled sliced sprite horizontally with max scale
@@ -88,7 +88,7 @@ fn spawn_sprites(
                 image: texture_handle.clone(),
                 custom_size: Some(size),
                 image_mode: scale_mode,
-                ..default()
+                ..<_>::default()
             },
             Transform::from_translation(position),
         ));
@@ -110,7 +110,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let style = TextFont {
         font: font.clone(),
-        ..default()
+        ..<_>::default()
     };
 
     // Load textures

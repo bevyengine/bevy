@@ -13,7 +13,7 @@ fn main() {
     App::new()
         .insert_resource(AmbientLight {
             brightness: 1000.,
-            ..default()
+            ..<_>::default()
         })
         .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
         .add_systems(Startup, setup)
@@ -30,7 +30,7 @@ fn setup(
         Camera3d::default(),
         Camera {
             hdr: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
         Msaa::Off,
@@ -42,7 +42,7 @@ fn setup(
         base_color: Color::srgb(0.5, 0.5, 0.5),
         perceptual_roughness: 1.0,
         reflectance: 0.0,
-        ..default()
+        ..<_>::default()
     });
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
@@ -65,7 +65,7 @@ fn setup(
             base_color: Color::srgb(0.4, 0.4, 0.4),
             perceptual_roughness: 1.0,
             reflectance: 0.0,
-            ..default()
+            ..<_>::default()
         })),
         SphereMarker,
     ));
@@ -73,7 +73,7 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
     ));
@@ -84,7 +84,7 @@ fn setup(
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

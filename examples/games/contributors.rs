@@ -122,7 +122,7 @@ fn setup_contributor_selection(
                     custom_size: Some(Vec2::splat(SPRITE_SIZE)),
                     color: DESELECTED.with_hue(hue).into(),
                     flip_x: flipped,
-                    ..default()
+                    ..<_>::default()
                 },
                 transform,
             ))
@@ -140,7 +140,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_style = TextFont {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 60.0,
-        ..default()
+        ..<_>::default()
     };
 
     commands
@@ -152,7 +152,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.),
                 left: Val::Px(12.),
-                ..default()
+                ..<_>::default()
             },
         ))
         .with_child((

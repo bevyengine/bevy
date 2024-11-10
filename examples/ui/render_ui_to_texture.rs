@@ -33,7 +33,7 @@ fn setup(
     let size = Extent3d {
         width: 512,
         height: 512,
-        ..default()
+        ..<_>::default()
     };
 
     // This is the texture that will be rendered to.
@@ -58,7 +58,7 @@ fn setup(
             Camera2d,
             Camera {
                 target: RenderTarget::Image(image_handle.clone()),
-                ..default()
+                ..<_>::default()
             },
         ))
         .id();
@@ -72,7 +72,7 @@ fn setup(
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(GOLD.into()),
             TargetCamera(texture_camera),
@@ -82,7 +82,7 @@ fn setup(
                 Text::new("This is a cube"),
                 TextFont {
                     font_size: 40.0,
-                    ..default()
+                    ..<_>::default()
                 },
                 TextColor::BLACK,
             ));
@@ -97,7 +97,7 @@ fn setup(
         reflectance: 0.02,
         unlit: false,
 
-        ..default()
+        ..<_>::default()
     });
 
     // Cube with material containing the rendered UI texture.

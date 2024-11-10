@@ -18,7 +18,6 @@ use bevy_render::{
     renderer::RenderDevice,
     view::{Msaa, ViewUniform, ViewUniforms},
 };
-use bevy_utils::prelude::default;
 
 use crate::{
     core_3d::CORE_3D_DEPTH_FORMAT,
@@ -86,13 +85,13 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
             layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: vec![],
             vertex: crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state(),
-            primitive: default(),
+            primitive: <_>::default(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::GreaterEqual,
-                stencil: default(),
-                bias: default(),
+                stencil: <_>::default(),
+                bias: <_>::default(),
             }),
             multisample: MultisampleState {
                 count: key.samples,

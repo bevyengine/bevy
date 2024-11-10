@@ -62,7 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         DirectionalLight {
             illuminance: 32000.0,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(0.0, 2.0, 0.0).with_rotation(Quat::from_rotation_x(-PI / 4.)),
     ));
@@ -76,7 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Skybox {
             image: skybox_handle.clone(),
             brightness: 1000.0,
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -154,7 +154,7 @@ fn asset_loaded(
             image.reinterpret_stacked_2d_as_array(image.height() / image.width());
             image.texture_view_descriptor = Some(TextureViewDescriptor {
                 dimension: Some(TextureViewDimension::Cube),
-                ..default()
+                ..<_>::default()
             });
         }
 

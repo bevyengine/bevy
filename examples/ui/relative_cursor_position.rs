@@ -22,9 +22,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             viewport: Some(Viewport {
                 physical_position: [200, 100].into(),
                 physical_size: [600, 600].into(),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -35,7 +35,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             flex_direction: FlexDirection::Column,
-            ..default()
+            ..<_>::default()
         })
         .with_children(|parent| {
             parent
@@ -44,7 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         width: Val::Px(250.),
                         height: Val::Px(250.),
                         margin: UiRect::bottom(Val::Px(15.)),
-                        ..default()
+                        ..<_>::default()
                     },
                     BackgroundColor(Color::srgb(235., 35., 12.)),
                 ))
@@ -55,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextFont {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 33.0,
-                    ..default()
+                    ..<_>::default()
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
             ));

@@ -29,9 +29,9 @@ fn main() {
                     recognize_rotation_gesture: true,
                     // Only has an effect on iOS
                     prefers_home_indicator_hidden: true,
-                    ..default()
+                    ..<_>::default()
                 }),
-                ..default()
+                ..<_>::default()
             }),
     )
     .add_systems(Startup, (setup_scene, setup_music))
@@ -100,7 +100,7 @@ fn setup_scene(
             // https://github.com/bevyengine/bevy/issues/8214
             #[cfg(not(target_os = "android"))]
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
@@ -125,14 +125,14 @@ fn setup_scene(
                 left: Val::Px(50.0),
                 right: Val::Px(50.0),
                 bottom: Val::Px(50.0),
-                ..default()
+                ..<_>::default()
             },
         ))
         .with_child((
             Text::new("Test Button"),
             TextFont {
                 font_size: 30.0,
-                ..default()
+                ..<_>::default()
             },
             TextColor::BLACK,
             TextLayout::new_with_justify(JustifyText::Center),

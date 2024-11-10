@@ -55,7 +55,7 @@ fn setup_instructions(mut commands: Commands) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }
@@ -65,7 +65,7 @@ fn setup_camera(mut commands: Commands) {
         Camera2d,
         Camera {
             hdr: true, // HDR is required for the bloom effect
-            ..default()
+            ..<_>::default()
         },
         Bloom::NATURAL,
     ));

@@ -80,7 +80,7 @@ mod splash {
                     justify_content: JustifyContent::Center,
                     width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
-                    ..default()
+                    ..<_>::default()
                 },
                 OnSplashScreen,
             ))
@@ -90,7 +90,7 @@ mod splash {
                     Node {
                         // This will set the logo to be 200px wide, and auto adjust its height
                         width: Val::Px(200.0),
-                        ..default()
+                        ..<_>::default()
                     },
                 ));
             });
@@ -146,7 +146,7 @@ mod game {
                     // center children
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    ..default()
+                    ..<_>::default()
                 },
                 OnGameScreen,
             ))
@@ -161,7 +161,7 @@ mod game {
                             // vertical (column), so the cross axis is horizontal. This will center the
                             // children
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..<_>::default()
                         },
                         BackgroundColor(Color::BLACK),
                     ))
@@ -170,19 +170,19 @@ mod game {
                             Text::new("Will be back to the menu shortly..."),
                             TextFont {
                                 font_size: 67.0,
-                                ..default()
+                                ..<_>::default()
                             },
                             TextColor(TEXT_COLOR),
                             Node {
                                 margin: UiRect::all(Val::Px(50.0)),
-                                ..default()
+                                ..<_>::default()
                             },
                         ));
                         p.spawn((
                             Text::default(),
                             Node {
                                 margin: UiRect::all(Val::Px(50.0)),
-                                ..default()
+                                ..<_>::default()
                             },
                         ))
                         .with_children(|p| {
@@ -190,7 +190,7 @@ mod game {
                                 TextSpan(format!("quality: {:?}", *display_quality)),
                                 TextFont {
                                     font_size: 50.0,
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 TextColor(BLUE.into()),
                             ));
@@ -198,7 +198,7 @@ mod game {
                                 TextSpan::new(" - "),
                                 TextFont {
                                     font_size: 50.0,
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 TextColor(TEXT_COLOR),
                             ));
@@ -206,7 +206,7 @@ mod game {
                                 TextSpan(format!("volume: {:?}", *volume)),
                                 TextFont {
                                     font_size: 50.0,
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 TextColor(LIME.into()),
                             ));
@@ -380,7 +380,7 @@ mod menu {
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            ..default()
+            ..<_>::default()
         };
         let button_icon_node = Node {
             width: Val::Px(30.0),
@@ -388,11 +388,11 @@ mod menu {
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
             left: Val::Px(10.0),
-            ..default()
+            ..<_>::default()
         };
         let button_text_font = TextFont {
             font_size: 33.0,
-            ..default()
+            ..<_>::default()
         };
 
         commands
@@ -402,7 +402,7 @@ mod menu {
                     height: Val::Percent(100.0),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    ..default()
+                    ..<_>::default()
                 },
                 OnMainMenuScreen,
             ))
@@ -412,7 +412,7 @@ mod menu {
                         Node {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..<_>::default()
                         },
                         BackgroundColor(CRIMSON.into()),
                     ))
@@ -422,12 +422,12 @@ mod menu {
                             Text::new("Bevy Game Menu UI"),
                             TextFont {
                                 font_size: 67.0,
-                                ..default()
+                                ..<_>::default()
                             },
                             TextColor(TEXT_COLOR),
                             Node {
                                 margin: UiRect::all(Val::Px(50.0)),
-                                ..default()
+                                ..<_>::default()
                             },
                         ));
 
@@ -494,13 +494,13 @@ mod menu {
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            ..default()
+            ..<_>::default()
         };
 
         let button_text_style = (
             TextFont {
                 font_size: 33.0,
-                ..default()
+                ..<_>::default()
             },
             TextColor(TEXT_COLOR),
         );
@@ -512,7 +512,7 @@ mod menu {
                     height: Val::Percent(100.0),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    ..default()
+                    ..<_>::default()
                 },
                 OnSettingsMenuScreen,
             ))
@@ -522,7 +522,7 @@ mod menu {
                         Node {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..<_>::default()
                         },
                         BackgroundColor(CRIMSON.into()),
                     ))
@@ -554,12 +554,12 @@ mod menu {
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            ..default()
+            ..<_>::default()
         };
         let button_text_style = (
             TextFont {
                 font_size: 33.0,
-                ..default()
+                ..<_>::default()
             },
             TextColor(TEXT_COLOR),
         );
@@ -571,7 +571,7 @@ mod menu {
                     height: Val::Percent(100.0),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    ..default()
+                    ..<_>::default()
                 },
                 OnDisplaySettingsMenuScreen,
             ))
@@ -581,7 +581,7 @@ mod menu {
                         Node {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..<_>::default()
                         },
                         BackgroundColor(CRIMSON.into()),
                     ))
@@ -592,7 +592,7 @@ mod menu {
                             .spawn((
                                 Node {
                                     align_items: AlignItems::Center,
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 BackgroundColor(CRIMSON.into()),
                             ))
@@ -651,12 +651,12 @@ mod menu {
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            ..default()
+            ..<_>::default()
         };
         let button_text_style = (
             TextFont {
                 font_size: 33.0,
-                ..default()
+                ..<_>::default()
             },
             TextColor(TEXT_COLOR),
         );
@@ -668,7 +668,7 @@ mod menu {
                     height: Val::Percent(100.0),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    ..default()
+                    ..<_>::default()
                 },
                 OnSoundSettingsMenuScreen,
             ))
@@ -678,7 +678,7 @@ mod menu {
                         Node {
                             flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..<_>::default()
                         },
                         BackgroundColor(CRIMSON.into()),
                     ))
@@ -687,7 +687,7 @@ mod menu {
                             .spawn((
                                 Node {
                                     align_items: AlignItems::Center,
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 BackgroundColor(CRIMSON.into()),
                             ))

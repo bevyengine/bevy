@@ -23,7 +23,7 @@ fn main() {
                         // Here we define size of our overlay
                         font_size: 42.0,
                         // If we want, we can use a custom font
-                        font: default(),
+                        font: <_>::default(),
                         // We could also disable font smoothing,
                         font_smoothing: FontSmoothing::default(),
                     },
@@ -55,7 +55,7 @@ fn setup(mut commands: Commands) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.),
             left: Val::Px(12.),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

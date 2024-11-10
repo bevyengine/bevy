@@ -67,9 +67,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Visibility Range Example".into(),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .init_resource::<AppStatus>()
         .add_systems(Startup, setup)
@@ -124,13 +124,13 @@ fn setup(
         DirectionalLight {
             illuminance: FULL_DAYLIGHT,
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
         CascadeShadowConfigBuilder {
             maximum_distance: 30.0,
             first_cascade_far_bound: 0.9,
-            ..default()
+            ..<_>::default()
         }
         .build(),
     ));
@@ -145,7 +145,7 @@ fn setup(
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 150.0,
-            ..default()
+            ..<_>::default()
         });
 
     // Create the text.
@@ -155,7 +155,7 @@ fn setup(
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

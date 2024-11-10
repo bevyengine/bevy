@@ -77,9 +77,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Animation Graph Example".into(),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .add_systems(Startup, (setup_assets, setup_scene, setup_ui))
         .add_systems(Update, init_animations)
@@ -226,7 +226,7 @@ fn setup_scene(
         PointLight {
             intensity: 10_000_000.0,
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(-4.0, 8.0, 13.0),
     ));
@@ -255,7 +255,7 @@ fn setup_help_text(commands: &mut Commands) {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }
@@ -273,7 +273,7 @@ fn setup_node_rects(commands: &mut Commands) {
                 Text::new(node_string),
                 TextFont {
                     font_size: 16.0,
-                    ..default()
+                    ..<_>::default()
                 },
                 TextColor(ANTIQUE_WHITE.into()),
                 TextLayout::new_with_justify(JustifyText::Center),
@@ -292,7 +292,7 @@ fn setup_node_rects(commands: &mut Commands) {
                     justify_items: JustifyItems::Center,
                     align_content: AlignContent::Center,
                     justify_content: JustifyContent::Center,
-                    ..default()
+                    ..<_>::default()
                 },
                 BorderColor(WHITE.into()),
                 Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
@@ -319,7 +319,7 @@ fn setup_node_rects(commands: &mut Commands) {
                         left: Val::Px(0.),
                         height: Val::Px(node_rect.height),
                         width: Val::Px(node_rect.width),
-                        ..default()
+                        ..<_>::default()
                     },
                     BackgroundColor(DARK_GREEN.into()),
                 ))
@@ -346,7 +346,7 @@ fn setup_node_lines(commands: &mut Commands) {
                 height: Val::Px(0.0),
                 width: Val::Px(line.length),
                 border: UiRect::bottom(Val::Px(1.0)),
-                ..default()
+                ..<_>::default()
             },
             BorderColor(WHITE.into()),
         ));
@@ -361,7 +361,7 @@ fn setup_node_lines(commands: &mut Commands) {
                 height: Val::Px(line.length),
                 width: Val::Px(0.0),
                 border: UiRect::left(Val::Px(1.0)),
-                ..default()
+                ..<_>::default()
             },
             BorderColor(WHITE.into()),
         ));

@@ -97,9 +97,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Animation Masks Example".into(),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .add_systems(Startup, (setup_scene, setup_ui))
         .add_systems(Update, setup_animation_graph_once_loaded)
@@ -132,7 +132,7 @@ fn setup_scene(
         PointLight {
             intensity: 10_000_000.0,
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(-4.0, 8.0, 13.0),
     ));
@@ -162,7 +162,7 @@ fn setup_ui(mut commands: Commands) {
             position_type: PositionType::Absolute,
             left: Val::Px(12.0),
             top: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -174,13 +174,13 @@ fn setup_ui(mut commands: Commands) {
             row_gap: Val::Px(6.0),
             left: Val::Px(12.0),
             bottom: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         })
         .with_children(|parent| {
             let row_node = Node {
                 flex_direction: FlexDirection::Row,
                 column_gap: Val::Px(6.0),
-                ..default()
+                ..<_>::default()
             };
 
             add_mask_group_control(parent, "Head", Val::Auto, MASK_GROUP_HEAD);
@@ -227,7 +227,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
     let button_text_style = (
         TextFont {
             font_size: 14.0,
-            ..default()
+            ..<_>::default()
         },
         TextColor::WHITE,
     );
@@ -247,7 +247,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                 align_items: AlignItems::Center,
                 padding: UiRect::ZERO,
                 margin: UiRect::ZERO,
-                ..default()
+                ..<_>::default()
             },
             BorderColor(Color::WHITE),
             BorderRadius::all(Val::Px(3.0)),
@@ -263,7 +263,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                         align_items: AlignItems::Center,
                         padding: UiRect::ZERO,
                         margin: UiRect::ZERO,
-                        ..default()
+                        ..<_>::default()
                     },
                     BackgroundColor(Color::BLACK),
                 ))
@@ -272,7 +272,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                     label_text_style.clone(),
                     Node {
                         margin: UiRect::vertical(Val::Px(3.0)),
-                        ..default()
+                        ..<_>::default()
                     },
                 ));
 
@@ -284,7 +284,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         border: UiRect::top(Val::Px(1.0)),
-                        ..default()
+                        ..<_>::default()
                     },
                     BorderColor(Color::WHITE),
                 ))
@@ -313,7 +313,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                                     } else {
                                         UiRect::ZERO
                                     },
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 BorderColor(Color::WHITE),
                                 AnimationControl {
@@ -332,7 +332,7 @@ fn add_mask_group_control(parent: &mut ChildBuilder, label: &str, width: Val, ma
                                 Node {
                                     flex_grow: 1.0,
                                     margin: UiRect::vertical(Val::Px(3.0)),
-                                    ..default()
+                                    ..<_>::default()
                                 },
                             ));
                     }

@@ -68,7 +68,7 @@ fn setup(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
@@ -84,7 +84,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

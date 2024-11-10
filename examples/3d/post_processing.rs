@@ -29,9 +29,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Chromatic Aberration Example".into(),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .add_systems(Startup, setup)
         .add_systems(Update, handle_keyboard_input)
@@ -62,7 +62,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         Camera3d::default(),
         Camera {
             hdr: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         DistanceFog {
@@ -71,13 +71,13 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
                 start: 1.0,
                 end: 8.0,
             },
-            ..default()
+            ..<_>::default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
-            ..default()
+            ..<_>::default()
         },
         // Include the `ChromaticAberration` component.
         ChromaticAberration::default(),
@@ -108,13 +108,13 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
         DirectionalLight {
             illuminance: 15000.0,
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
         CascadeShadowConfigBuilder {
             maximum_distance: 3.0,
             first_cascade_far_bound: 0.9,
-            ..default()
+            ..<_>::default()
         }
         .build(),
     ));
@@ -128,7 +128,7 @@ fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

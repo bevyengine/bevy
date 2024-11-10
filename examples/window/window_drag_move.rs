@@ -44,9 +44,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 decorations: false,
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .insert_resource(ResizeDir(7))
         .insert_resource(LeftClickAction::Move)
@@ -65,7 +65,7 @@ fn setup(mut commands: Commands) {
             Node {
                 position_type: PositionType::Absolute,
                 padding: UiRect::all(Val::Px(5.0)),
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::BLACK.with_alpha(0.75)),
             GlobalZIndex(i32::MAX),

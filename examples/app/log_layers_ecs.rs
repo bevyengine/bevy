@@ -131,7 +131,7 @@ fn setup(mut commands: Commands) {
             height: Val::Vh(100.0),
             flex_direction: FlexDirection::Column,
             padding: UiRect::all(Val::Px(12.)),
-            ..default()
+            ..<_>::default()
         },
         LogViewerRoot,
     ));

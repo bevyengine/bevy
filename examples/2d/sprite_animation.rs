@@ -107,7 +107,7 @@ fn setup(
                 layout: texture_atlas_layout.clone(),
                 index: animation_config_1.first_sprite_index,
             }),
-            ..default()
+            ..<_>::default()
         },
         Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(-50.0, 0.0, 0.0)),
         LeftSprite,
@@ -139,7 +139,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

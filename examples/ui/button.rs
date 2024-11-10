@@ -60,7 +60,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             height: Val::Percent(100.0),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
-            ..default()
+            ..<_>::default()
         })
         .with_children(|parent| {
             parent
@@ -74,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         justify_content: JustifyContent::Center,
                         // vertically center child text
                         align_items: AlignItems::Center,
-                        ..default()
+                        ..<_>::default()
                     },
                     BorderColor(Color::BLACK),
                     BorderRadius::MAX,
@@ -85,7 +85,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 33.0,
-                        ..default()
+                        ..<_>::default()
                     },
                     TextColor(Color::srgb(0.9, 0.9, 0.9)),
                 ));

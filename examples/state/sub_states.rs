@@ -162,7 +162,7 @@ mod ui {
                 height: Val::Percent(100.),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                ..default()
+                ..<_>::default()
             })
             .with_children(|parent| {
                 parent
@@ -175,7 +175,7 @@ mod ui {
                             justify_content: JustifyContent::Center,
                             // vertically center child text
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..<_>::default()
                         },
                         BackgroundColor(NORMAL_BUTTON),
                     ))
@@ -184,7 +184,7 @@ mod ui {
                             Text::new("Play"),
                             TextFont {
                                 font_size: 33.0,
-                                ..default()
+                                ..<_>::default()
                             },
                             TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
@@ -210,7 +210,7 @@ mod ui {
                     align_items: AlignItems::Center,
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(10.),
-                    ..default()
+                    ..<_>::default()
                 },
             ))
             .with_children(|parent| {
@@ -223,7 +223,7 @@ mod ui {
                             justify_content: JustifyContent::Center,
                             // vertically center child text
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..<_>::default()
                         },
                         BackgroundColor(NORMAL_BUTTON),
                     ))
@@ -232,7 +232,7 @@ mod ui {
                             Text::new("Paused"),
                             TextFont {
                                 font_size: 33.0,
-                                ..default()
+                                ..<_>::default()
                             },
                             TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));

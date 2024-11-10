@@ -80,7 +80,7 @@ fn setup(mut commands: Commands) {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),
-            ..default()
+            ..<_>::default()
         },
     ));
 

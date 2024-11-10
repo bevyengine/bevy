@@ -56,7 +56,7 @@ use bevy_render::{
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{info_once, prelude::default, warn_once};
+use bevy_utils::{info_once, warn_once};
 use smallvec::SmallVec;
 
 use crate::{
@@ -415,7 +415,7 @@ impl ViewNode for DepthOfFieldNode {
                 view: postprocess.destination,
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Clear(default()),
+                    load: LoadOp::Clear(<_>::default()),
                     store: StoreOp::Store,
                 },
             }));
@@ -433,7 +433,7 @@ impl ViewNode for DepthOfFieldNode {
                     view: &auxiliary_dof_texture.default_view,
                     resolve_target: None,
                     ops: Operations {
-                        load: LoadOp::Clear(default()),
+                        load: LoadOp::Clear(<_>::default()),
                         store: StoreOp::Store,
                     },
                 }));
@@ -442,7 +442,7 @@ impl ViewNode for DepthOfFieldNode {
             let render_pass_descriptor = RenderPassDescriptor {
                 label: Some(pipeline_render_info.pass_label),
                 color_attachments: &color_attachments,
-                ..default()
+                ..<_>::default()
             };
 
             let mut render_pass = render_context
@@ -494,7 +494,7 @@ impl DepthOfField {
         DepthOfField {
             sensor_height: camera.sensor_height,
             aperture_f_stops: camera.aperture_f_stops,
-            ..default()
+            ..<_>::default()
         }
     }
 }
@@ -523,7 +523,7 @@ impl FromWorld for DepthOfFieldGlobalBindGroupLayout {
             label: Some("depth of field sampler"),
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
-            ..default()
+            ..<_>::default()
         });
 
         DepthOfFieldGlobalBindGroupLayout {
@@ -793,9 +793,9 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
             layout,
             push_constant_ranges: vec![],
             vertex: fullscreen_shader_vertex_state(),
-            primitive: default(),
+            primitive: <_>::default(),
             depth_stencil: None,
-            multisample: default(),
+            multisample: <_>::default(),
             fragment: Some(FragmentState {
                 shader: DOF_SHADER_HANDLE,
                 shader_defs,

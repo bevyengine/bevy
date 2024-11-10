@@ -41,7 +41,7 @@ fn setup(mut commands: Commands) {
                 padding: UiRect::all(Val::Px(30.)),
                 column_gap: Val::Px(30.),
                 flex_wrap: FlexWrap::Wrap,
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(DEEP_SKY_BLUE.into()),
         ))
@@ -204,7 +204,7 @@ fn box_shadow_node_bundle(
             width: Val::Px(size.x),
             height: Val::Px(size.y),
             border: UiRect::all(Val::Px(4.)),
-            ..default()
+            ..<_>::default()
         },
         BorderColor(LIGHT_SKY_BLUE.into()),
         border_radius,

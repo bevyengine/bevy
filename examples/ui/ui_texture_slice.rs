@@ -61,7 +61,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             height: Val::Percent(100.0),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
-            ..default()
+            ..<_>::default()
         })
         .with_children(|parent| {
             for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
@@ -71,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ImageNode {
                             image: image.clone(),
                             image_mode: NodeImageMode::Sliced(slicer.clone()),
-                            ..default()
+                            ..<_>::default()
                         },
                         Node {
                             width: Val::Px(w),
@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             // vertically center child text
                             align_items: AlignItems::Center,
                             margin: UiRect::all(Val::Px(20.0)),
-                            ..default()
+                            ..<_>::default()
                         },
                     ))
                     .with_child((
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 33.0,
-                            ..default()
+                            ..<_>::default()
                         },
                         TextColor(Color::srgb(0.9, 0.9, 0.9)),
                     ));

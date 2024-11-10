@@ -61,7 +61,7 @@ fn setup(
         Camera3d::default(),
         Camera {
             hdr: true,
-            ..default()
+            ..<_>::default()
         },
         camera_transform.0,
         DistanceFog {
@@ -70,13 +70,13 @@ fn setup(
                 start: 1.0,
                 end: 8.0,
             },
-            ..default()
+            ..<_>::default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -87,7 +87,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }
@@ -116,13 +116,13 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         DirectionalLight {
             illuminance: 15_000.,
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
         CascadeShadowConfigBuilder {
             maximum_distance: 3.0,
             first_cascade_far_bound: 0.9,
-            ..default()
+            ..<_>::default()
         }
         .build(),
         SceneNumber(1),
@@ -162,7 +162,7 @@ fn setup_image_viewer_scene(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color_texture: None,
             unlit: true,
-            ..default()
+            ..<_>::default()
         })),
         transform,
         Visibility::Hidden,
@@ -174,14 +174,14 @@ fn setup_image_viewer_scene(
         Text::new("Drag and drop an HDR or EXR file"),
         TextFont {
             font_size: 36.0,
-            ..default()
+            ..<_>::default()
         },
         TextColor(Color::BLACK),
         TextLayout::new_with_justify(JustifyText::Center),
         Node {
             align_self: AlignSelf::Center,
             margin: UiRect::all(Val::Auto),
-            ..default()
+            ..<_>::default()
         },
         SceneNumber(3),
         Visibility::Hidden,
@@ -543,26 +543,26 @@ impl PerMethodSettings {
             Tonemapping::Reinhard | Tonemapping::ReinhardLuminance => ColorGrading {
                 global: ColorGradingGlobal {
                     exposure: 0.5,
-                    ..default()
+                    ..<_>::default()
                 },
-                ..default()
+                ..<_>::default()
             },
             Tonemapping::AcesFitted => ColorGrading {
                 global: ColorGradingGlobal {
                     exposure: 0.35,
-                    ..default()
+                    ..<_>::default()
                 },
-                ..default()
+                ..<_>::default()
             },
             Tonemapping::AgX => ColorGrading::with_identical_sections(
                 ColorGradingGlobal {
                     exposure: -0.2,
                     post_saturation: 1.1,
-                    ..default()
+                    ..<_>::default()
                 },
                 ColorGradingSection {
                     saturation: 1.1,
-                    ..default()
+                    ..<_>::default()
                 },
             ),
             _ => ColorGrading::default(),

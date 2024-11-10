@@ -56,7 +56,7 @@ fn setup(
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 150.0,
-            ..default()
+            ..<_>::default()
         },
         CameraController::default(),
     ));
@@ -65,12 +65,12 @@ fn setup(
         DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         CascadeShadowConfigBuilder {
             num_cascades: 1,
             maximum_distance: 15.0,
-            ..default()
+            ..<_>::default()
         }
         .build(),
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
@@ -96,7 +96,7 @@ fn setup(
                     _ => unreachable!(),
                 },
                 perceptual_roughness: (x + 2) as f32 / 4.0,
-                ..default()
+                ..<_>::default()
             })),
             Transform::default()
                 .with_scale(Vec3::splat(0.2))
@@ -119,7 +119,7 @@ fn setup(
         MeshMaterial3d(standard_materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
-            ..default()
+            ..<_>::default()
         })),
     ));
 }

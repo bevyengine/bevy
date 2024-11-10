@@ -43,7 +43,7 @@ fn setup(
         Camera2d,
         Camera {
             clear_color: ClearColorConfig::Custom(DARK_SLATE_GREY.into()),
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -72,7 +72,7 @@ fn setup(
             Transform {
                 translation: Vec3::new(FIRST_X + OFFSET * i as f32, 2.0 * UPPER_Y, 0.0),
                 rotation: Quat::from_rotation_z(sector_angle),
-                ..default()
+                ..<_>::default()
             },
             DrawBounds(sector),
         ));
@@ -96,7 +96,7 @@ fn setup(
             Transform {
                 translation: Vec3::new(FIRST_X + OFFSET * i as f32, LOWER_Y, 0.0),
                 rotation: Quat::from_rotation_z(segment_angle),
-                ..default()
+                ..<_>::default()
             },
             DrawBounds(segment),
         ));

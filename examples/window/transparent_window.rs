@@ -20,9 +20,9 @@ fn main() {
                 composite_alpha_mode: CompositeAlphaMode::PostMultiplied,
                 #[cfg(target_os = "linux")]
                 composite_alpha_mode: CompositeAlphaMode::PreMultiplied,
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         // ClearColor must have 0 alpha, otherwise some color will bleed through
         .insert_resource(ClearColor(Color::NONE))

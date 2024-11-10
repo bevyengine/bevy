@@ -163,7 +163,7 @@ impl WallBundle {
                 // or their ordering will be affected in surprising ways.
                 // See https://github.com/bevyengine/bevy/issues/4149
                 scale: location.size().extend(1.0),
-                ..default()
+                ..<_>::default()
             },
             collider: Collider,
         }
@@ -199,7 +199,7 @@ fn setup(
         Transform {
             translation: Vec3::new(0.0, paddle_y, 0.0),
             scale: PADDLE_SIZE.extend(1.0),
-            ..default()
+            ..<_>::default()
         },
         Paddle,
         Collider,
@@ -221,7 +221,7 @@ fn setup(
             Text::new("Score: "),
             TextFont {
                 font_size: SCOREBOARD_FONT_SIZE,
-                ..default()
+                ..<_>::default()
             },
             TextColor(TEXT_COLOR),
             ScoreboardUi,
@@ -229,14 +229,14 @@ fn setup(
                 position_type: PositionType::Absolute,
                 top: SCOREBOARD_TEXT_PADDING,
                 left: SCOREBOARD_TEXT_PADDING,
-                ..default()
+                ..<_>::default()
             },
         ))
         .with_child((
             TextSpan::default(),
             TextFont {
                 font_size: SCOREBOARD_FONT_SIZE,
-                ..default()
+                ..<_>::default()
             },
             TextColor(SCORE_COLOR),
         ));
@@ -285,12 +285,12 @@ fn setup(
             commands.spawn((
                 Sprite {
                     color: BRICK_COLOR,
-                    ..default()
+                    ..<_>::default()
                 },
                 Transform {
                     translation: brick_position.extend(0.0),
                     scale: Vec3::new(BRICK_SIZE.x, BRICK_SIZE.y, 1.0),
-                    ..default()
+                    ..<_>::default()
                 },
                 Brick,
                 Collider,

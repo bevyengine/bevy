@@ -309,7 +309,6 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
 
 #[cfg(test)]
 mod tests {
-    use bevy_utils::default;
     use core::any::TypeId;
 
     use crate::{
@@ -1692,13 +1691,13 @@ mod tests {
         let mut sys = IntoSystem::into_system(first.pipe(second));
         sys.initialize(&mut world);
 
-        sys.run(default(), &mut world);
+        sys.run(<_>::default(), &mut world);
 
         // The second system should observe a change made in the first system.
         let info = sys.run(
             Info {
                 do_first: true,
-                ..default()
+                ..<_>::default()
             },
             &mut world,
         );
@@ -1710,11 +1709,11 @@ mod tests {
         let info1 = sys.run(
             Info {
                 do_second: true,
-                ..default()
+                ..<_>::default()
             },
             &mut world,
         );
-        let info2 = sys.run(default(), &mut world);
+        let info2 = sys.run(<_>::default(), &mut world);
         assert!(!info1.first_flag);
         assert!(!info1.second_flag);
         assert!(info2.first_flag);

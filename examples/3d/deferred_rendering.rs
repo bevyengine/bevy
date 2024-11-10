@@ -38,7 +38,7 @@ fn setup(
         Camera {
             // Deferred both supports both hdr: true and hdr: false
             hdr: false,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         // MSAA needs to be off for Deferred rendering
@@ -49,13 +49,13 @@ fn setup(
                 start: 1.0,
                 end: 8.0,
             },
-            ..default()
+            ..<_>::default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
-            ..default()
+            ..<_>::default()
         },
         DepthPrepass,
         MotionVectorPrepass,
@@ -67,12 +67,12 @@ fn setup(
         DirectionalLight {
             illuminance: 15_000.,
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         CascadeShadowConfigBuilder {
             num_cascades: 3,
             maximum_distance: 10.0,
-            ..default()
+            ..<_>::default()
         }
         .build(),
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 0.0, -FRAC_PI_4)),
@@ -131,7 +131,7 @@ fn setup(
             radius: 0.125,
             shadows_enabled: true,
             color: sphere_color,
-            ..default()
+            ..<_>::default()
         },
         sphere_pos,
     ));
@@ -145,21 +145,21 @@ fn setup(
                 base_color: Color::srgb(s_val, s_val, 1.0),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
-                ..default()
+                ..<_>::default()
             })
         } else if j == 1 {
             materials.add(StandardMaterial {
                 base_color: Color::srgb(s_val, 1.0, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
-                ..default()
+                ..<_>::default()
             })
         } else {
             materials.add(StandardMaterial {
                 base_color: Color::srgb(1.0, s_val, s_val),
                 perceptual_roughness: 0.089,
                 metallic: 0.0,
-                ..default()
+                ..<_>::default()
             })
         };
         commands.spawn((
@@ -180,7 +180,7 @@ fn setup(
             base_color: Srgba::hex("888888").unwrap().into(),
             unlit: true,
             cull_mode: None,
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_scale(Vec3::splat(1_000_000.0)),
         NotShadowCaster,
@@ -194,7 +194,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }
@@ -247,7 +247,7 @@ fn setup_parallax(
         parallax_depth_scale: 0.09,
         parallax_mapping_method: ParallaxMappingMethod::Relief { max_steps: 4 },
         max_parallax_layer_count: ops::exp2(5.0f32),
-        ..default()
+        ..<_>::default()
     });
     commands.spawn((
         Mesh3d(meshes.add(cube)),

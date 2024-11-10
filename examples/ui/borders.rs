@@ -21,7 +21,7 @@ fn setup(mut commands: Commands) {
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::FlexStart,
                 align_content: AlignContent::FlexStart,
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
         ))
@@ -37,7 +37,7 @@ fn setup(mut commands: Commands) {
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::FlexStart,
                 align_content: AlignContent::FlexStart,
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
         ))
@@ -126,7 +126,7 @@ fn setup(mut commands: Commands) {
                 Node {
                     width: Val::Px(10.),
                     height: Val::Px(10.),
-                    ..default()
+                    ..<_>::default()
                 },
                 BackgroundColor(YELLOW.into()),
             ))
@@ -140,7 +140,7 @@ fn setup(mut commands: Commands) {
                     margin: UiRect::all(Val::Px(20.)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    ..default()
+                    ..<_>::default()
                 },
                 BackgroundColor(MAROON.into()),
                 BorderColor(RED.into()),
@@ -165,7 +165,7 @@ fn setup(mut commands: Commands) {
             .spawn(Node {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
-                ..default()
+                ..<_>::default()
             })
             .add_children(&[border_node, label_node])
             .id();
@@ -178,7 +178,7 @@ fn setup(mut commands: Commands) {
                 Node {
                     width: Val::Px(10.),
                     height: Val::Px(10.),
-                    ..default()
+                    ..<_>::default()
                 },
                 BorderRadius::MAX,
                 BackgroundColor(YELLOW.into()),
@@ -201,7 +201,7 @@ fn setup(mut commands: Commands) {
                     margin: UiRect::all(Val::Px(20.)),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    ..default()
+                    ..<_>::default()
                 },
                 BackgroundColor(MAROON.into()),
                 BorderColor(RED.into()),
@@ -227,7 +227,7 @@ fn setup(mut commands: Commands) {
             .spawn(Node {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
-                ..default()
+                ..<_>::default()
             })
             .add_children(&[border_node, label_node])
             .id();
@@ -243,7 +243,7 @@ fn setup(mut commands: Commands) {
                     top: Val::Px(25.0),
                     bottom: Val::Px(0.0),
                 },
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
         ))
@@ -267,7 +267,7 @@ fn setup(mut commands: Commands) {
                     top: Val::Px(25.0),
                     bottom: Val::Px(0.0),
                 },
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
         ))
@@ -293,7 +293,7 @@ fn setup(mut commands: Commands) {
                 justify_content: JustifyContent::FlexStart,
                 align_items: AlignItems::FlexStart,
                 align_content: AlignContent::FlexStart,
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
         ))

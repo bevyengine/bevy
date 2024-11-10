@@ -38,9 +38,9 @@ fn main() {
                             .into(),
                         // uncomment for unthrottled FPS
                         // present_mode: bevy::window::PresentMode::AutoNoVsync,
-                        ..default()
+                        ..<_>::default()
                     }),
-                    ..default()
+                    ..<_>::default()
                 })
                 .set(ImagePlugin::default_nearest()),
             GameOfLifeComputePlugin,
@@ -71,7 +71,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         Sprite {
             image: image0.clone(),
             custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)),
-            ..default()
+            ..<_>::default()
         },
         Transform::from_scale(Vec3::splat(DISPLAY_FACTOR as f32)),
     ));

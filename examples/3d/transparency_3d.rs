@@ -35,7 +35,7 @@ fn setup(
             // Mask sets a cutoff for transparency. Alpha values below are fully transparent,
             // alpha values above are fully opaque.
             alpha_mode: AlphaMode::Mask(0.5),
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_xyz(1.0, 0.5, -1.5),
     ));
@@ -47,7 +47,7 @@ fn setup(
             base_color: Color::srgba(0.2, 0.7, 0.1, 0.0),
             alpha_mode: AlphaMode::Mask(0.5),
             unlit: true,
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_xyz(-1.0, 0.5, -1.5),
     ));
@@ -68,7 +68,7 @@ fn setup(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::srgba(0.5, 1.0, 0.5, 0.0),
             alpha_mode: AlphaMode::AlphaToCoverage,
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_xyz(-1.5, 0.5, 0.0),
     ));
@@ -84,7 +84,7 @@ fn setup(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));

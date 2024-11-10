@@ -344,7 +344,7 @@ mod ui {
                 align_items: AlignItems::Center,
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(10.),
-                ..default()
+                ..<_>::default()
             })
             .with_children(|parent| {
                 parent
@@ -357,7 +357,7 @@ mod ui {
                             justify_content: JustifyContent::Center,
                             // vertically center child text
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..<_>::default()
                         },
                         BackgroundColor(NORMAL_BUTTON),
                         MenuButton::Play,
@@ -367,7 +367,7 @@ mod ui {
                             Text::new("Play"),
                             TextFont {
                                 font_size: 33.0,
-                                ..default()
+                                ..<_>::default()
                             },
                             TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
@@ -383,7 +383,7 @@ mod ui {
                             justify_content: JustifyContent::Center,
                             // vertically center child text
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..<_>::default()
                         },
                         BackgroundColor(match tutorial_state.get() {
                             TutorialState::Active => ACTIVE_BUTTON,
@@ -396,7 +396,7 @@ mod ui {
                             Text::new("Tutorial"),
                             TextFont {
                                 font_size: 33.0,
-                                ..default()
+                                ..<_>::default()
                             },
                             TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
@@ -465,7 +465,7 @@ mod ui {
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(10.),
                     position_type: PositionType::Absolute,
-                    ..default()
+                    ..<_>::default()
                 },
             ))
             .with_children(|parent| {
@@ -478,7 +478,7 @@ mod ui {
                             justify_content: JustifyContent::Center,
                             // vertically center child text
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..<_>::default()
                         },
                         BackgroundColor(NORMAL_BUTTON),
                         MenuButton::Play,
@@ -488,7 +488,7 @@ mod ui {
                             Text::new("Paused"),
                             TextFont {
                                 font_size: 33.0,
-                                ..default()
+                                ..<_>::default()
                             },
                             TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));
@@ -509,7 +509,7 @@ mod ui {
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(10.),
                     position_type: PositionType::Absolute,
-                    ..default()
+                    ..<_>::default()
                 },
             ))
             .with_children(|parent| {
@@ -517,7 +517,7 @@ mod ui {
                     Text::new("TURBO MODE"),
                     TextFont {
                         font_size: 33.0,
-                        ..default()
+                        ..<_>::default()
                     },
                     TextColor(Color::srgb(0.9, 0.3, 0.1)),
                 ));
@@ -548,7 +548,7 @@ mod ui {
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(10.),
                     position_type: PositionType::Absolute,
-                    ..default()
+                    ..<_>::default()
                 },
             ))
             .with_children(|parent| {
@@ -556,7 +556,7 @@ mod ui {
                     Text::new("Move the bevy logo with the arrow keys"),
                     TextFont {
                         font_size: 33.0,
-                        ..default()
+                        ..<_>::default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
@@ -564,7 +564,7 @@ mod ui {
                     Text::new("Press T to enter TURBO MODE"),
                     TextFont {
                         font_size: 33.0,
-                        ..default()
+                        ..<_>::default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
@@ -573,7 +573,7 @@ mod ui {
                     Text::new("Press SPACE to pause"),
                     TextFont {
                         font_size: 33.0,
-                        ..default()
+                        ..<_>::default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
@@ -582,7 +582,7 @@ mod ui {
                     Text::new("Press ESCAPE to return to the menu"),
                     TextFont {
                         font_size: 33.0,
-                        ..default()
+                        ..<_>::default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
@@ -602,7 +602,7 @@ mod ui {
                     flex_direction: FlexDirection::Column,
                     row_gap: Val::Px(10.),
                     position_type: PositionType::Absolute,
-                    ..default()
+                    ..<_>::default()
                 },
             ))
             .with_children(|parent| {
@@ -610,7 +610,7 @@ mod ui {
                     Text::new("Press SPACE to resume"),
                     TextFont {
                         font_size: 33.0,
-                        ..default()
+                        ..<_>::default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));
@@ -619,7 +619,7 @@ mod ui {
                     Text::new("Press ESCAPE to return to the menu"),
                     TextFont {
                         font_size: 33.0,
-                        ..default()
+                        ..<_>::default()
                     },
                     TextColor(Color::srgb(0.3, 0.3, 0.7)),
                 ));

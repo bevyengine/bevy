@@ -1135,7 +1135,6 @@ impl App {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
-    /// # use bevy_utils::default;
     ///
     /// #[derive(Component)]
     /// struct A;
@@ -1147,7 +1146,7 @@ impl App {
     /// let mut app = App::new();
     /// app.configure_schedules(ScheduleBuildSettings {
     ///   ambiguity_detection: LogLevel::Error,
-    ///   ..default()
+    ///   ..<_>::default()
     /// });
     ///
     /// app.add_systems(Update, ( system_1, system_2 ));
@@ -1173,7 +1172,6 @@ impl App {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::schedule::{LogLevel, ScheduleBuildSettings};
-    /// # use bevy_utils::default;
     ///
     /// #[derive(Resource)]
     /// struct R;
@@ -1185,7 +1183,7 @@ impl App {
     /// let mut app = App::new();
     /// app.configure_schedules(ScheduleBuildSettings {
     ///   ambiguity_detection: LogLevel::Error,
-    ///   ..default()
+    ///   ..<_>::default()
     /// });
     /// app.insert_resource(R);
     ///
@@ -1251,7 +1249,6 @@ impl App {
     /// ```rust
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
-    /// # use bevy_utils::default;
     /// #
     /// # let mut app = App::new();
     /// #

@@ -36,7 +36,7 @@ fn setup(
     let size = Extent3d {
         width: 512,
         height: 512,
-        ..default()
+        ..<_>::default()
     };
 
     // This is the texture that will be rendered to.
@@ -58,7 +58,7 @@ fn setup(
         base_color: Color::srgb(0.8, 0.7, 0.6),
         reflectance: 0.02,
         unlit: false,
-        ..default()
+        ..<_>::default()
     });
 
     // This specifies the layer used for the first pass, which will be attached to the first pass camera and cube.
@@ -88,7 +88,7 @@ fn setup(
         Camera {
             target: image_handle.clone().into(),
             clear_color: Color::WHITE.into(),
-            ..default()
+            ..<_>::default()
         },
         Transform::from_translation(Vec3::new(0.0, 0.0, 15.0)).looking_at(Vec3::ZERO, Vec3::Y),
         first_pass_layer,
@@ -102,7 +102,7 @@ fn setup(
         base_color_texture: Some(image_handle),
         reflectance: 0.02,
         unlit: false,
-        ..default()
+        ..<_>::default()
     });
 
     // Main pass cube, with material containing the rendered first pass texture.

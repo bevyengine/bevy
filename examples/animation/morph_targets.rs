@@ -15,13 +15,13 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "morph targets".to_string(),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .insert_resource(AmbientLight {
             brightness: 150.0,
-            ..default()
+            ..<_>::default()
         })
         .add_systems(Startup, setup)
         .add_systems(Update, (name_morphs, setup_animations))

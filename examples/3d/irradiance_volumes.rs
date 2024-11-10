@@ -150,9 +150,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Irradiance Volumes Example".into(),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .add_plugins(MaterialPlugin::<VoxelVisualizationMaterial>::default())
         .init_resource::<AppStatus>()
@@ -237,7 +237,7 @@ fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
         Skybox {
             image: assets.skybox.clone(),
             brightness: 150.0,
-            ..default()
+            ..<_>::default()
         },
     ));
 }
@@ -258,7 +258,7 @@ fn spawn_light(commands: &mut Commands) {
         PointLight {
             intensity: 250000.0,
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0762, 5.9039, 1.0055),
     ));
@@ -294,7 +294,7 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

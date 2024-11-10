@@ -69,7 +69,7 @@ fn setup_scene(
         DirectionalLight {
             illuminance: 3_000.0,
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::default().looking_to(Vec3::new(-1.0, -0.7, -1.0), Vec3::X),
     ));
@@ -79,7 +79,7 @@ fn setup_scene(
         MeshMaterial3d(materials.add(StandardMaterial {
             unlit: true,
             base_color: Color::linear_rgb(0.1, 0.6, 1.0),
-            ..default()
+            ..<_>::default()
         })),
         Transform::default().with_scale(Vec3::splat(-4000.0)),
     ));
@@ -94,7 +94,7 @@ fn setup_scene(
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
             base_color_texture: Some(images.add(uv_debug_texture())),
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(80.)),
     ));
@@ -117,13 +117,13 @@ fn spawn_cars(
     let wheel_matl = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         base_color_texture: Some(logo.clone()),
-        ..default()
+        ..<_>::default()
     });
 
     let mut matl = |color| {
         materials.add(StandardMaterial {
             base_color: color,
-            ..default()
+            ..<_>::default()
         })
     };
 
@@ -182,7 +182,7 @@ fn spawn_barriers(
     let matl = materials.add(StandardMaterial {
         base_color: Color::srgb_u8(255, 87, 51),
         reflectance: 1.0,
-        ..default()
+        ..<_>::default()
     });
     let mut spawn_with_offset = |offset: f32| {
         for i in 0..N_CONES {
@@ -243,7 +243,7 @@ fn setup_ui(mut commands: Commands) {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
-                ..default()
+                ..<_>::default()
             },
         ))
         .with_children(|p| {

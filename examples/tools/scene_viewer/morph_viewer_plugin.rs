@@ -255,7 +255,7 @@ fn detect_morphs(
     detected.truncate(AVAILABLE_KEYS.len());
     let style = TextFont {
         font_size: 13.0,
-        ..default()
+        ..<_>::default()
     };
     let mut spans = vec![
         ("Morph Target Controls\n".into(), style.clone()),
@@ -272,7 +272,7 @@ fn detect_morphs(
                 position_type: PositionType::Absolute,
                 top: Val::Px(10.0),
                 left: Val::Px(10.0),
-                ..default()
+                ..<_>::default()
             },
         ))
         .with_children(|p| {

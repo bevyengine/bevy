@@ -86,7 +86,7 @@ fn main() {
                 // replaces the bevy_winit app runner and so a window is never created.
                 .set(WindowPlugin {
                     primary_window: None,
-                    ..default()
+                    ..<_>::default()
                 })
                 // WinitPlugin will panic in environments without a display server.
                 .disable::<WinitPlugin>(),
@@ -180,7 +180,7 @@ fn setup(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
@@ -190,7 +190,7 @@ fn setup(
         Camera {
             // render to image
             target: render_target,
-            ..default()
+            ..<_>::default()
         },
         Tonemapping::None,
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),

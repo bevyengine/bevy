@@ -22,7 +22,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             height: Val::Percent(100.0),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceAround,
-            ..default()
+            ..<_>::default()
         })
         .with_children(|parent| {
             parent
@@ -33,7 +33,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         height: Val::Px(65.0),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        ..default()
+                        ..<_>::default()
                     },
                     BackgroundColor(Color::srgb(0.1, 0.5, 0.1)),
                 ))
@@ -43,7 +43,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font_handle.clone(),
                             font_size: 33.0,
-                            ..default()
+                            ..<_>::default()
                         },
                         // Alpha channel of the color controls transparency.
                         TextColor(Color::srgba(1.0, 1.0, 1.0, 0.2)),
@@ -60,7 +60,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         height: Val::Px(65.0),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        ..default()
+                        ..<_>::default()
                     },
                     BackgroundColor(Color::srgb(0.5, 0.1, 0.5)),
                 ))
@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: font_handle.clone(),
                             font_size: 33.0,
-                            ..default()
+                            ..<_>::default()
                         },
                         // Alpha channel of the color controls transparency.
                         TextColor(Color::srgba(1.0, 1.0, 1.0, 0.2)),

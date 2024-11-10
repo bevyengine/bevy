@@ -176,7 +176,7 @@ fn setup_ui(mut commands: Commands) {
             position_type: PositionType::Absolute,
             left: Val::Px(12.0),
             top: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }
@@ -196,7 +196,7 @@ fn setup_scene(
     commands.spawn((
         DirectionalLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
     ));

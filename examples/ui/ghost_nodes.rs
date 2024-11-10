@@ -46,7 +46,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             height: Val::Percent(100.0),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
-            ..default()
+            ..<_>::default()
         })
         .with_children(|parent| {
             parent
@@ -84,7 +84,7 @@ fn create_button() -> impl Bundle {
             justify_content: JustifyContent::Center,
             // vertically center child text
             align_items: AlignItems::Center,
-            ..default()
+            ..<_>::default()
         },
         BorderColor(Color::BLACK),
         BorderRadius::MAX,
@@ -98,7 +98,7 @@ fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont, TextColor) {
         TextFont {
             font,
             font_size: 33.0,
-            ..default()
+            ..<_>::default()
         },
         TextColor(Color::srgb(0.9, 0.9, 0.9)),
     )

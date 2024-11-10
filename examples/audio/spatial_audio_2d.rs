@@ -15,7 +15,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(AudioPlugin {
             default_spatial_scale: SpatialScale::new_2d(AUDIO_SCALE),
-            ..default()
+            ..<_>::default()
         }))
         .add_systems(Startup, setup)
         .add_systems(Update, update_emitters)
@@ -70,7 +70,7 @@ fn setup(
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 

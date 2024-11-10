@@ -32,13 +32,13 @@ fn main() {
             .set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "bevy scene viewer".to_string(),
-                    ..default()
+                    ..<_>::default()
                 }),
-                ..default()
+                ..<_>::default()
             })
             .set(AssetPlugin {
                 file_path: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
-                ..default()
+                ..<_>::default()
             }),
         CameraControllerPlugin,
         SceneViewerPlugin,
@@ -119,7 +119,7 @@ fn setup_scene_after_load(
         let camera_controller = CameraController {
             walk_speed,
             run_speed: 3.0 * walk_speed,
-            ..default()
+            ..<_>::default()
         };
 
         // Display the controls of the scene viewer
@@ -133,7 +133,7 @@ fn setup_scene_after_load(
                 .looking_at(Vec3::from(aabb.center), Vec3::Y),
             Camera {
                 is_active: false,
-                ..default()
+                ..<_>::default()
             },
             EnvironmentMapLight {
                 diffuse_map: asset_server
@@ -141,7 +141,7 @@ fn setup_scene_after_load(
                 specular_map: asset_server
                     .load("assets/environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
                 intensity: 150.0,
-                ..default()
+                ..<_>::default()
             },
             camera_controller,
         ));

@@ -117,7 +117,7 @@ fn spawn_view_model(
                 Camera3d::default(),
                 Projection::from(PerspectiveProjection {
                     fov: 90.0_f32.to_radians(),
-                    ..default()
+                    ..<_>::default()
                 }),
             ));
 
@@ -127,11 +127,11 @@ fn spawn_view_model(
                 Camera {
                     // Bump the order to render on top of the world model.
                     order: 1,
-                    ..default()
+                    ..<_>::default()
                 },
                 Projection::from(PerspectiveProjection {
                     fov: 70.0_f32.to_radians(),
-                    ..default()
+                    ..<_>::default()
                 }),
                 // Only render objects belonging to the view model.
                 RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
@@ -182,7 +182,7 @@ fn spawn_lights(mut commands: Commands) {
         PointLight {
             color: Color::from(tailwind::ROSE_300),
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(-2.0, 4.0, -0.75),
         // The light source illuminates both the world model and the view model.
@@ -196,7 +196,7 @@ fn spawn_text(mut commands: Commands) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         })
         .with_child(Text::new(concat!(
             "Move the camera with your mouse.\n",

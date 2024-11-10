@@ -4,7 +4,6 @@ use core::fmt::{Debug, Write};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{
-    default,
     tracing::{error, info, warn},
     HashMap, HashSet,
 };
@@ -634,7 +633,7 @@ impl ScheduleGraph {
             conflicting_systems: Vec::new(),
             anonymous_sets: 0,
             changed: false,
-            settings: default(),
+            settings: <_>::default(),
             no_sync_edges: BTreeSet::new(),
             auto_sync_node_ids: HashMap::new(),
         }

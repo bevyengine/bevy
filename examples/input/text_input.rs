@@ -41,7 +41,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
-                ..default()
+                ..<_>::default()
             },
         ))
         .with_children(|p| {
@@ -57,7 +57,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextSpan::new("\n"),
                 TextFont {
                     font: font.clone(),
-                    ..default()
+                    ..<_>::default()
                 },
             ));
         });
@@ -67,7 +67,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         TextFont {
             font,
             font_size: 100.0,
-            ..default()
+            ..<_>::default()
         },
     ));
 }

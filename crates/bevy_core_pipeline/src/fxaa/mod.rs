@@ -20,7 +20,6 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::default;
 
 mod node;
 
@@ -149,7 +148,7 @@ impl FromWorld for FxaaPipeline {
             mipmap_filter: FilterMode::Linear,
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
-            ..default()
+            ..<_>::default()
         });
 
         FxaaPipeline {

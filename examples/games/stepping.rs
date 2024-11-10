@@ -118,7 +118,7 @@ fn build_ui(
             TextSpan(format!("{label:?}\n")),
             TextFont {
                 font: asset_server.load(FONT_BOLD),
-                ..default()
+                ..<_>::default()
             },
             TextColor(FONT_COLOR),
         ));
@@ -170,7 +170,7 @@ fn build_ui(
                 top: state.ui_top,
                 left: state.ui_left,
                 padding: UiRect::all(Val::Px(10.0)),
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.33)),
             Visibility::Hidden,
@@ -194,14 +194,14 @@ fn build_stepping_hint(mut commands: Commands) {
         Text::new(hint_text),
         TextFont {
             font_size: 15.0,
-            ..default()
+            ..<_>::default()
         },
         TextColor(FONT_COLOR),
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
             left: Val::Px(5.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

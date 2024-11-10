@@ -10,7 +10,6 @@ use bevy_ecs::{
 };
 use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_transform::TransformPoint;
-use bevy_utils::default;
 
 use crate::{
     config::{DefaultGizmoConfigGroup, GizmoConfigGroup, GizmoConfigStore},
@@ -30,10 +29,10 @@ pub struct GizmoStorage<Config, Clear> {
 impl<Config, Clear> Default for GizmoStorage<Config, Clear> {
     fn default() -> Self {
         Self {
-            list_positions: default(),
-            list_colors: default(),
-            strip_positions: default(),
-            strip_colors: default(),
+            list_positions: <_>::default(),
+            list_colors: <_>::default(),
+            strip_positions: <_>::default(),
+            strip_colors: <_>::default(),
             marker: PhantomData,
         }
     }
@@ -255,10 +254,10 @@ where
 {
     fn default() -> Self {
         Self {
-            list_positions: default(),
-            list_colors: default(),
-            strip_positions: default(),
-            strip_colors: default(),
+            list_positions: <_>::default(),
+            list_colors: <_>::default(),
+            strip_positions: <_>::default(),
+            strip_colors: <_>::default(),
             marker: PhantomData,
         }
     }

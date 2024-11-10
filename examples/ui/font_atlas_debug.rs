@@ -54,7 +54,7 @@ fn atlas_render_system(
                     position_type: PositionType::Absolute,
                     top: Val::ZERO,
                     left: Val::Px(512.0 * x_offset),
-                    ..default()
+                    ..<_>::default()
                 },
             ));
         }
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
             Node {
                 position_type: PositionType::Absolute,
                 bottom: Val::ZERO,
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::NONE),
         ))
@@ -99,7 +99,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
                 TextFont {
                     font: font_handle,
                     font_size: 50.0,
-                    ..default()
+                    ..<_>::default()
                 },
                 TextColor(YELLOW.into()),
             ));

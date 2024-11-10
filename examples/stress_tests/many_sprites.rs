@@ -38,9 +38,9 @@ fn main() {
                     present_mode: PresentMode::AutoNoVsync,
                     resolution: WindowResolution::new(1920.0, 1080.0)
                         .with_scale_factor_override(1.0),
-                    ..default()
+                    ..<_>::default()
                 }),
-                ..default()
+                ..<_>::default()
             }),
         ))
         .insert_resource(WinitSettings {
@@ -90,7 +90,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
                     } else {
                         Color::WHITE
                     },
-                    ..default()
+                    ..<_>::default()
                 },
                 Transform {
                     translation,

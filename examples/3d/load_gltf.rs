@@ -23,14 +23,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 250.0,
-            ..default()
+            ..<_>::default()
         },
     ));
 
     commands.spawn((
         DirectionalLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         // This is a relatively small scene, so use tighter shadow
         // cascade bounds than the default for better quality.
@@ -39,7 +39,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         CascadeShadowConfigBuilder {
             num_cascades: 1,
             maximum_distance: 1.6,
-            ..default()
+            ..<_>::default()
         }
         .build(),
     ));

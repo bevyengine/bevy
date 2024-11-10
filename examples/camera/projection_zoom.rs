@@ -71,7 +71,7 @@ fn setup(
             base_color: Color::srgb(0.3, 0.5, 0.3),
             // Turning off culling keeps the plane visible when viewed from beneath.
             cull_mode: None,
-            ..default()
+            ..<_>::default()
         })),
     ));
 
@@ -103,7 +103,7 @@ fn instructions(mut commands: Commands) {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),
-            ..default()
+            ..<_>::default()
         },
     ));
 }
@@ -118,7 +118,7 @@ fn switch_projection(
         **camera = match **camera {
             Projection::Orthographic(_) => Projection::Perspective(PerspectiveProjection {
                 fov: camera_settings.perspective_zoom_range.start,
-                ..default()
+                ..<_>::default()
             }),
             Projection::Perspective(_) => Projection::Orthographic(OrthographicProjection {
                 scaling_mode: ScalingMode::FixedVertical {

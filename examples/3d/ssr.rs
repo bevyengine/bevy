@@ -100,9 +100,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Screen Space Reflections Example".into(),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .add_plugins(MaterialPlugin::<ExtendedMaterial<StandardMaterial, Water>>::default())
         .add_systems(Startup, setup)
@@ -151,7 +151,7 @@ fn spawn_cube(
             MeshMaterial3d(standard_materials.add(StandardMaterial {
                 base_color: Color::from(WHITE),
                 base_color_texture: Some(asset_server.load("branding/icon.png")),
-                ..default()
+                ..<_>::default()
             })),
             Transform::from_xyz(0.0, 0.5, 0.0),
         ))
@@ -184,7 +184,7 @@ fn spawn_water(
             base: StandardMaterial {
                 base_color: BLACK.into(),
                 perceptual_roughness: 0.0,
-                ..default()
+                ..<_>::default()
             },
             extension: Water {
                 normals: asset_server.load_with_settings::<Image, ImageLoaderSettings>(
@@ -196,7 +196,7 @@ fn spawn_water(
                             address_mode_v: ImageAddressMode::Repeat,
                             mag_filter: ImageFilterMode::Linear,
                             min_filter: ImageFilterMode::Linear,
-                            ..default()
+                            ..<_>::default()
                         });
                     },
                 ),
@@ -228,7 +228,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
             Transform::from_translation(vec3(-1.25, 2.25, 4.5)).looking_at(Vec3::ZERO, Vec3::Y),
             Camera {
                 hdr: true,
-                ..default()
+                ..<_>::default()
             },
             Msaa::Off,
         ))
@@ -236,12 +236,12 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 5000.0,
-            ..default()
+            ..<_>::default()
         })
         .insert(Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 5000.0,
-            ..default()
+            ..<_>::default()
         })
         .insert(ScreenSpaceReflections::default())
         .insert(Fxaa::default());
@@ -255,7 +255,7 @@ fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }
@@ -409,7 +409,7 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             ssr_on: true,
-            displayed_model: default(),
+            displayed_model: <_>::default(),
         }
     }
 }

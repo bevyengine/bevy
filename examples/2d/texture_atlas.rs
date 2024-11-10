@@ -104,7 +104,7 @@ fn setup(
         Transform {
             translation: Vec3::new(-250.0, -130.0, 0.0),
             scale: Vec3::splat(0.8),
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -114,7 +114,7 @@ fn setup(
         Transform {
             translation: Vec3::new(250.0, -130.0, 0.0),
             scale: Vec3::splat(0.8),
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -124,7 +124,7 @@ fn setup(
     let text_style: TextFont = TextFont {
         font: font.clone(),
         font_size: 42.0,
-        ..default()
+        ..<_>::default()
     };
 
     // labels to indicate padding
@@ -187,7 +187,7 @@ fn setup(
     let sampling_label_style = TextFont {
         font,
         font_size: 25.0,
-        ..default()
+        ..<_>::default()
     };
 
     let base_y = 170.0; // y position of the sprites
@@ -261,7 +261,7 @@ fn create_sprite_from_atlas(
         Transform {
             translation: Vec3::new(translation.0, translation.1, translation.2),
             scale: Vec3::splat(3.0),
-            ..default()
+            ..<_>::default()
         },
         Sprite::from_atlas_image(
             atlas_texture,
@@ -283,7 +283,7 @@ fn create_label(
         TextLayout::new_with_justify(JustifyText::Center),
         Transform {
             translation: Vec3::new(translation.0, translation.1, translation.2),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

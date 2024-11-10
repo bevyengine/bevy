@@ -30,7 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Sprite {
                     image: texture.clone(),
                     color: BLUE.into(),
-                    ..default()
+                    ..<_>::default()
                 },
             ));
         })
@@ -44,7 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Sprite {
                 image: texture,
                 color: LIME.into(),
-                ..default()
+                ..<_>::default()
             },
             Transform::from_xyz(0.0, 250.0, 0.0).with_scale(Vec3::splat(0.75)),
         ))

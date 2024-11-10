@@ -10,14 +10,14 @@ fn main() {
     //Specify Window Size.
     let window = Window {
         resolution: (WINDOW_WIDTH, WINDOW_HEIGHT).into(),
-        ..default()
+        ..<_>::default()
     };
     let primary_window = Some(window);
 
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window,
-            ..default()
+            ..<_>::default()
         }))
         .add_systems(Startup, startup)
         .add_systems(Update, toggle_window_mode)
@@ -31,12 +31,12 @@ fn startup(mut cmds: Commands) {
     let viewport = Some(Viewport {
         physical_position,
         physical_size,
-        ..default()
+        ..<_>::default()
     });
 
     cmds.spawn(Camera2d).insert(Camera {
         viewport,
-        ..default()
+        ..<_>::default()
     });
 }
 

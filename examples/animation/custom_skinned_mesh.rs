@@ -22,7 +22,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             brightness: 3000.0,
-            ..default()
+            ..<_>::default()
         })
         .add_systems(Startup, setup)
         .add_systems(Update, joint_animation)
@@ -174,7 +174,7 @@ fn setup(
                     rng.gen_range(0.0..1.0),
                 ),
                 base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
-                ..default()
+                ..<_>::default()
             })),
             SkinnedMesh {
                 inverse_bindposes: inverse_bindposes.clone(),

@@ -149,13 +149,13 @@ fn spawn_text(mut commands: Commands) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         })
         .with_child((
             Text::new("Move the player with WASD"),
             TextFont {
                 font_size: 25.0,
-                ..default()
+                ..<_>::default()
             },
         ));
 }

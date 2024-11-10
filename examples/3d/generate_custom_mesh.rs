@@ -41,7 +41,7 @@ fn setup(
         Mesh3d(cube_mesh_handle),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color_texture: Some(custom_texture_handle),
-            ..default()
+            ..<_>::default()
         })),
         CustomUV,
     ));
@@ -63,7 +63,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

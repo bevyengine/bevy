@@ -99,7 +99,7 @@ fn user_input(
             Sprite {
                 image: texture,
                 color: bevy::color::palettes::tailwind::RED_800.into(),
-                ..default()
+                ..<_>::default()
             },
             Transform::from_translation(Vec3::ZERO),
         ));

@@ -44,7 +44,7 @@ fn setup(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
-            ..default()
+            ..<_>::default()
         })),
     ));
 
@@ -56,7 +56,7 @@ fn setup(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: INDIGO.into(),
             perceptual_roughness: 1.0,
-            ..default()
+            ..<_>::default()
         })),
         transform,
     ));
@@ -68,7 +68,7 @@ fn setup(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: INDIGO.into(),
             perceptual_roughness: 1.0,
-            ..default()
+            ..<_>::default()
         })),
         transform,
     ));
@@ -83,7 +83,7 @@ fn setup(
             perceptual_roughness: 1.0,
             alpha_mode: AlphaMode::Mask(0.5),
             cull_mode: None,
-            ..default()
+            ..<_>::default()
         })),
         transform,
         Movable,
@@ -94,7 +94,7 @@ fn setup(
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: DEEP_PINK.into(),
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_xyz(0.0, 0.5, 0.0),
         Movable,
@@ -104,7 +104,7 @@ fn setup(
         Mesh3d(meshes.add(Sphere::new(0.5).mesh().uv(32, 18))),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: LIMEGREEN.into(),
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_xyz(1.5, 1.0, 1.5),
         Movable,
@@ -123,7 +123,7 @@ fn setup(
                 intensity: 100_000.0,
                 color: RED.into(),
                 shadows_enabled: true,
-                ..default()
+                ..<_>::default()
             },
             Transform::from_xyz(1.0, 2.0, 0.0),
         ))
@@ -133,7 +133,7 @@ fn setup(
                 MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: RED.into(),
                     emissive: LinearRgba::new(4.0, 0.0, 0.0, 0.0),
-                    ..default()
+                    ..<_>::default()
                 })),
             ));
         });
@@ -147,7 +147,7 @@ fn setup(
                 shadows_enabled: true,
                 inner_angle: 0.6,
                 outer_angle: 0.8,
-                ..default()
+                ..<_>::default()
             },
             Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
         ))
@@ -156,7 +156,7 @@ fn setup(
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color: LIME.into(),
                 emissive: LinearRgba::new(0.0, 4.0, 0.0, 0.0),
-                ..default()
+                ..<_>::default()
             })),
             Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
         ));
@@ -168,7 +168,7 @@ fn setup(
                 intensity: 100_000.0,
                 color: BLUE.into(),
                 shadows_enabled: true,
-                ..default()
+                ..<_>::default()
             },
             Transform::from_xyz(0.0, 4.0, 0.0),
         ))
@@ -178,7 +178,7 @@ fn setup(
                 MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: BLUE.into(),
                     emissive: LinearRgba::new(0.0, 0.0, 713.0, 0.0),
-                    ..default()
+                    ..<_>::default()
                 })),
             ));
         });
@@ -188,12 +188,12 @@ fn setup(
         DirectionalLight {
             illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform {
             translation: Vec3::new(0.0, 2.0, 0.0),
             rotation: Quat::from_rotation_x(-PI / 4.),
-            ..default()
+            ..<_>::default()
         },
         // The default cascade config is designed to handle large scenes.
         // As this example has a much smaller world, we can tighten the shadow
@@ -201,7 +201,7 @@ fn setup(
         CascadeShadowConfigBuilder {
             first_cascade_far_bound: 4.0,
             maximum_distance: 10.0,
-            ..default()
+            ..<_>::default()
         }
         .build(),
     ));
@@ -215,7 +215,7 @@ fn setup(
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
-                ..default()
+                ..<_>::default()
             },
         ))
         .with_children(|p| {

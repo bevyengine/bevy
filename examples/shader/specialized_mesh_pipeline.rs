@@ -245,7 +245,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
                 polygon_mode: PolygonMode::Fill,
-                ..default()
+                ..<_>::default()
             },
             // Note that if your view has no depth buffer this will need to be
             // changed.
@@ -253,8 +253,8 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::GreaterEqual,
-                stencil: default(),
-                bias: default(),
+                stencil: <_>::default(),
+                bias: <_>::default(),
             }),
             // It's generally recommended to specialize your pipeline for MSAA,
             // but it's not always possible

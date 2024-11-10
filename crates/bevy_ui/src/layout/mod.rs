@@ -473,7 +473,7 @@ mod tests {
         prelude::GlobalTransform,
         systems::{propagate_transforms, sync_simple_transforms},
     };
-    use bevy_utils::{prelude::default, HashMap};
+    use bevy_utils::HashMap;
     use bevy_window::{
         PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
         WindowScaleFactorChanged,
@@ -510,7 +510,7 @@ mod tests {
         world.spawn((
             Window {
                 resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-                ..default()
+                ..<_>::default()
             },
             PrimaryWindow,
         ));
@@ -542,7 +542,7 @@ mod tests {
             .spawn(Node {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
-                ..default()
+                ..<_>::default()
             })
             .id();
 
@@ -550,7 +550,7 @@ mod tests {
             .spawn(Node {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
-                ..default()
+                ..<_>::default()
             })
             .id();
 
@@ -785,7 +785,7 @@ mod tests {
             // position_type: PositionType::Absolute,
             width: Val::Px(size),
             height: Val::Px(size),
-            ..default()
+            ..<_>::default()
         });
 
         size -= 50.;
@@ -794,7 +794,7 @@ mod tests {
             // position_type: PositionType::Absolute,
             width: Val::Px(size),
             height: Val::Px(size),
-            ..default()
+            ..<_>::default()
         });
 
         size -= 50.;
@@ -803,7 +803,7 @@ mod tests {
             // position_type: PositionType::Absolute,
             width: Val::Px(size),
             height: Val::Px(size),
-            ..default()
+            ..<_>::default()
         });
 
         ui_schedule.run(&mut world);
@@ -866,7 +866,7 @@ mod tests {
                 camera.viewport = Some(bevy_render::camera::Viewport {
                     physical_position,
                     physical_size,
-                    ..default()
+                    ..<_>::default()
                 });
             }
         }
@@ -896,7 +896,7 @@ mod tests {
                         position_type: PositionType::Absolute,
                         top: Val::Px(pos.y),
                         left: Val::Px(pos.x),
-                        ..default()
+                        ..<_>::default()
                     });
             }
         }
@@ -935,7 +935,7 @@ mod tests {
             Camera2d,
             Camera {
                 order: 1,
-                ..default()
+                ..<_>::default()
             },
         ));
 
@@ -944,7 +944,7 @@ mod tests {
                 position_type: PositionType::Absolute,
                 top: Val::Px(0.),
                 left: Val::Px(0.),
-                ..default()
+                ..<_>::default()
             },
             MovingUiNode,
         ));
@@ -995,7 +995,7 @@ mod tests {
             .spawn((
                 Node {
                     align_self: AlignSelf::Start,
-                    ..default()
+                    ..<_>::default()
                 },
                 ContentSize::fixed_size(content_size),
             ))
@@ -1060,7 +1060,7 @@ mod tests {
                 display: Display::Grid,
                 grid_template_columns: RepeatedGridTrack::min_content(2),
                 margin: UiRect::all(Val::Px(4.0)),
-                ..default()
+                ..<_>::default()
             })
             .with_children(|commands| {
                 for _ in 0..2 {
@@ -1068,7 +1068,7 @@ mod tests {
                         display: Display::Grid,
                         width: Val::Px(160.),
                         height: Val::Px(160.),
-                        ..default()
+                        ..<_>::default()
                     });
                 }
             })
@@ -1123,7 +1123,7 @@ mod tests {
         world.spawn((
             Window {
                 resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-                ..default()
+                ..<_>::default()
             },
             PrimaryWindow,
         ));
@@ -1144,7 +1144,7 @@ mod tests {
             .spawn(Node {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
-                ..default()
+                ..<_>::default()
             })
             .id();
 
@@ -1152,7 +1152,7 @@ mod tests {
             .spawn(Node {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
-                ..default()
+                ..<_>::default()
             })
             .id();
 

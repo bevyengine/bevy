@@ -59,9 +59,9 @@ fn main() {
             primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
                 resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }),
         FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::default(),
@@ -142,7 +142,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
             align_items: AlignItems::Center,
             width: Val::Percent(100.),
             height: Val::Percent(100.),
-            ..default()
+            ..<_>::default()
         })
         .with_children(|commands| {
             for column in 0..args.buttons {
@@ -194,7 +194,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
             height: Val::Percent(100.0),
             grid_template_columns: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
             grid_template_rows: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
-            ..default()
+            ..<_>::default()
         })
         .with_children(|commands| {
             for column in 0..args.buttons {
@@ -244,7 +244,7 @@ fn spawn_button(
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             border,
-            ..default()
+            ..<_>::default()
         },
         BackgroundColor(background_color),
         border_color,
@@ -261,7 +261,7 @@ fn spawn_button(
                 Text(format!("{column}, {row}")),
                 TextFont {
                     font_size: FONT_SIZE,
-                    ..default()
+                    ..<_>::default()
                 },
                 TextColor(Color::srgb(0.2, 0.2, 0.2)),
             ));

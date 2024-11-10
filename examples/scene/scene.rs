@@ -150,11 +150,11 @@ fn infotext_system(mut commands: Commands) {
         Text::new("Nothing to see in this window! Check the console output!"),
         TextFont {
             font_size: 42.0,
-            ..default()
+            ..<_>::default()
         },
         Node {
             align_self: AlignSelf::FlexEnd,
-            ..default()
+            ..<_>::default()
         },
     ));
 }

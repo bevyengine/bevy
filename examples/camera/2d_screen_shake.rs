@@ -69,7 +69,7 @@ fn setup_instructions(mut commands: Commands) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }
@@ -84,7 +84,7 @@ fn setup_camera(mut commands: Commands) {
                 size: UVec2::new(1000, 700),
             }),
             order: 1,
-            ..default()
+            ..<_>::default()
         },
     ));
 }

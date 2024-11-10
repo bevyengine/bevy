@@ -11,7 +11,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: None,
             exit_condition: ExitCondition::DontExit,
-            ..default()
+            ..<_>::default()
         }))
         .add_systems(Update, (update, close_on_esc))
         .run();
@@ -46,7 +46,7 @@ fn update(
                     title: name.clone(),
                     mode: WindowMode::Fullscreen(MonitorSelection::Entity(entity)),
                     position: WindowPosition::Centered(MonitorSelection::Entity(entity)),
-                    ..default()
+                    ..<_>::default()
                 },
                 MonitorRef(entity),
             ))
@@ -57,7 +57,7 @@ fn update(
                 Camera2d,
                 Camera {
                     target: RenderTarget::Window(WindowRef::Entity(window)),
-                    ..default()
+                    ..<_>::default()
                 },
             ))
             .id();
@@ -71,7 +71,7 @@ fn update(
                 position_type: PositionType::Relative,
                 height: Val::Percent(100.0),
                 width: Val::Percent(100.0),
-                ..default()
+                ..<_>::default()
             },
             TargetCamera(camera),
             MonitorRef(entity),

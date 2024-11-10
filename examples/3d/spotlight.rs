@@ -22,7 +22,7 @@ fn main() {
     App::new()
         .insert_resource(AmbientLight {
             brightness: 20.0,
-            ..default()
+            ..<_>::default()
         })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
@@ -75,12 +75,12 @@ fn setup(
     let red_emissive = materials.add(StandardMaterial {
         base_color: RED.into(),
         emissive: LinearRgba::new(1.0, 0.0, 0.0, 0.0),
-        ..default()
+        ..<_>::default()
     });
     let maroon_emissive = materials.add(StandardMaterial {
         base_color: MAROON.into(),
         emissive: LinearRgba::new(0.369, 0.0, 0.0, 0.0),
-        ..default()
+        ..<_>::default()
     });
 
     for x in 0..4 {
@@ -96,7 +96,7 @@ fn setup(
                         shadows_enabled: true,
                         inner_angle: PI / 4.0 * 0.85,
                         outer_angle: PI / 4.0,
-                        ..default()
+                        ..<_>::default()
                     },
                     Transform::from_xyz(1.0 + x, 2.0, z)
                         .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
@@ -121,7 +121,7 @@ fn setup(
         Camera3d::default(),
         Camera {
             hdr: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
@@ -132,7 +132,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

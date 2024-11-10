@@ -334,8 +334,8 @@ impl SpecializedRenderPipeline for CustomPhasePipeline {
                 format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::Always,
-                stencil: default(),
-                bias: default(),
+                stencil: <_>::default(),
+                bias: <_>::default(),
             }),
             multisample: MultisampleState {
                 count: msaa.samples(),

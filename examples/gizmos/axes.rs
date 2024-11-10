@@ -50,7 +50,7 @@ fn setup(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(2., 6., 0.),
     ));
@@ -67,7 +67,7 @@ fn setup(
         MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
         ShowAxes,
         TransformTracking {
-            initial_transform: default(),
+            initial_transform: <_>::default(),
             target_transform: random_transform(&mut rng),
             progress: 0.0,
         },
@@ -78,7 +78,7 @@ fn setup(
         MeshMaterial3d(materials.add(Color::srgb(0.6, 0.7, 0.8))),
         ShowAxes,
         TransformTracking {
-            initial_transform: default(),
+            initial_transform: <_>::default(),
             target_transform: random_transform(&mut rng),
             progress: 0.0,
         },

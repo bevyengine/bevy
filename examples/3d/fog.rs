@@ -41,7 +41,7 @@ fn setup_camera_fog(mut commands: Commands) {
                 start: 5.0,
                 end: 20.0,
             },
-            ..default()
+            ..<_>::default()
         },
     ));
 }
@@ -54,7 +54,7 @@ fn setup_pyramid_scene(
     let stone = materials.add(StandardMaterial {
         base_color: Srgba::hex("28221B").unwrap().into(),
         perceptual_roughness: 1.0,
-        ..default()
+        ..<_>::default()
     });
 
     // pillars
@@ -75,7 +75,7 @@ fn setup_pyramid_scene(
             perceptual_roughness: 0.0,
             metallic: 0.5,
             alpha_mode: AlphaMode::Blend,
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_scale(Vec3::splat(1.75)).with_translation(Vec3::new(0.0, 4.0, 0.0)),
         NotShadowCaster,
@@ -100,7 +100,7 @@ fn setup_pyramid_scene(
             base_color: Srgba::hex("888888").unwrap().into(),
             unlit: true,
             cull_mode: None,
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_scale(Vec3::splat(1_000_000.0)),
     ));
@@ -109,7 +109,7 @@ fn setup_pyramid_scene(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(0.0, 1.0, 0.0),
     ));
@@ -122,7 +122,7 @@ fn setup_instructions(mut commands: Commands) {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

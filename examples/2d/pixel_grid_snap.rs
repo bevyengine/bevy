@@ -86,7 +86,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let canvas_size = Extent3d {
         width: RES_WIDTH,
         height: RES_HEIGHT,
-        ..default()
+        ..<_>::default()
     };
 
     // this Image serves as a canvas representing the low-resolution game screen
@@ -103,7 +103,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
                 | TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         },
-        ..default()
+        ..<_>::default()
     };
 
     // fill image.data with zeroes
@@ -118,7 +118,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             // render before the "main pass" camera
             order: -1,
             target: RenderTarget::Image(image_handle.clone()),
-            ..default()
+            ..<_>::default()
         },
         Msaa::Off,
         InGameCamera,

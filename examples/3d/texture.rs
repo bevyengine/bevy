@@ -31,7 +31,7 @@ fn setup(
         base_color_texture: Some(texture_handle.clone()),
         alpha_mode: AlphaMode::Blend,
         unlit: true,
-        ..default()
+        ..<_>::default()
     });
 
     // this material modulates the texture to make it red (and slightly transparent)
@@ -40,7 +40,7 @@ fn setup(
         base_color_texture: Some(texture_handle.clone()),
         alpha_mode: AlphaMode::Blend,
         unlit: true,
-        ..default()
+        ..<_>::default()
     });
 
     // and lets make this one blue! (and also slightly transparent)
@@ -49,7 +49,7 @@ fn setup(
         base_color_texture: Some(texture_handle),
         alpha_mode: AlphaMode::Blend,
         unlit: true,
-        ..default()
+        ..<_>::default()
     });
 
     // textured quad - normal

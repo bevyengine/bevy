@@ -28,7 +28,7 @@ fn setup(
         Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color_texture: Some(image_with_default_sampler.clone()),
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_translation(Vec3::ZERO),
     ));
@@ -45,9 +45,9 @@ fn setup(
                             // rewriting mode to repeat image,
                             address_mode_u: ImageAddressMode::Repeat,
                             address_mode_v: ImageAddressMode::Repeat,
-                            ..default()
+                            ..<_>::default()
                         }),
-                        ..default()
+                        ..<_>::default()
                     }
                 },
             )),
@@ -55,7 +55,7 @@ fn setup(
             // uv_transform used here for proportions only, but it is full Affine2
             // that's why you can use rotation and shift also
             uv_transform: Affine2::from_scale(Vec2::new(2., 3.)),
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_xyz(-1.5, 0.0, 0.0),
     ));
@@ -72,7 +72,7 @@ fn setup(
             // uv_transform used here for proportions only, but it is full Affine2
             // that's why you can use rotation and shift also
             uv_transform: Affine2::from_scale(Vec2::new(2., 3.)),
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_xyz(1.5, 0.0, 0.0),
     ));
@@ -81,7 +81,7 @@ fn setup(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));

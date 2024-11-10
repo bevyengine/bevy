@@ -1,16 +1,12 @@
-use core::fmt;
-
-use taffy::TaffyTree;
-
+use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     prelude::Resource,
 };
 use bevy_math::{UVec2, Vec2};
-use bevy_utils::default;
-
-use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
 use bevy_text::CosmicFontSystem;
+use core::fmt;
+use taffy::TaffyTree;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootNodePair {
@@ -159,7 +155,7 @@ impl UiSurface {
             },
             align_items: Some(taffy::style::AlignItems::Start),
             justify_items: Some(taffy::style::JustifyItems::Start),
-            ..default()
+            ..<_>::default()
         };
 
         let camera_root_node_map = self.camera_entity_to_taffy.entry(camera_id).or_default();

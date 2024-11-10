@@ -32,7 +32,7 @@ fn setup(
                     // vary key PBR parameters on a grid of spheres to show the effect
                     metallic: y01,
                     perceptual_roughness: x01,
-                    ..default()
+                    ..<_>::default()
                 })),
                 Transform::from_xyz(x as f32, y as f32 + 0.5, 0.0),
             ));
@@ -45,7 +45,7 @@ fn setup(
             base_color: Srgba::hex("#ffd891").unwrap().into(),
             // vary key PBR parameters on a grid of spheres to show the effect
             unlit: true,
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_xyz(-5.0, -2.5, 0.0),
     ));
@@ -53,7 +53,7 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: 1_500.,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(50.0, 50.0, 50.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
@@ -63,13 +63,13 @@ fn setup(
         Text::new("Perceptual Roughness"),
         TextFont {
             font_size: 30.0,
-            ..default()
+            ..<_>::default()
         },
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(20.0),
             left: Val::Px(100.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -77,17 +77,17 @@ fn setup(
         Text::new("Metallic"),
         TextFont {
             font_size: 30.0,
-            ..default()
+            ..<_>::default()
         },
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(130.0),
             right: Val::ZERO,
-            ..default()
+            ..<_>::default()
         },
         Transform {
             rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -95,13 +95,13 @@ fn setup(
         Text::new("Loading Environment Map..."),
         TextFont {
             font_size: 30.0,
-            ..default()
+            ..<_>::default()
         },
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(20.0),
             right: Val::Px(20.0),
-            ..default()
+            ..<_>::default()
         },
         EnvironmentMapLabel,
     ));
@@ -119,7 +119,7 @@ fn setup(
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 900.0,
-            ..default()
+            ..<_>::default()
         },
     ));
 }

@@ -25,7 +25,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 justify_content: JustifyContent::Center,
                 row_gap: Val::Px(40.),
                 flex_direction: FlexDirection::Column,
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(ANTIQUE_WHITE.into()),
         ))
@@ -40,7 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     .spawn(Node {
                         flex_direction: FlexDirection::Row,
                         column_gap: Val::Px(20.),
-                        ..default()
+                        ..<_>::default()
                     })
                     .with_children(|parent| {
                         parent
@@ -48,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Node {
                                     padding: UiRect::all(Val::Px(10.)),
                                     margin: UiRect::bottom(Val::Px(25.)),
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
                             ))
@@ -64,7 +64,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     border: UiRect::all(Val::Px(5.)),
                                     overflow: Overflow::clip(),
                                     overflow_clip_margin,
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 BackgroundColor(GRAY.into()),
                                 BorderColor(Color::BLACK),
@@ -75,7 +75,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         Node {
                                             min_width: Val::Px(50.),
                                             min_height: Val::Px(50.),
-                                            ..default()
+                                            ..<_>::default()
                                         },
                                         BackgroundColor(LIGHT_CYAN.into()),
                                     ))
@@ -84,7 +84,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         Node {
                                             min_width: Val::Px(100.),
                                             min_height: Val::Px(100.),
-                                            ..default()
+                                            ..<_>::default()
                                         },
                                     ));
                             });

@@ -67,7 +67,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
             Camera3d::default(),
             Camera {
                 hdr: true,
-                ..default()
+                ..<_>::default()
             },
             Transform::from_xyz(-1.7, 1.5, 4.5).looking_at(vec3(-1.5, 1.7, 3.5), Vec3::Y),
             Tonemapping::TonyMcMapface,
@@ -76,12 +76,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
         .insert(Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 1000.0,
-            ..default()
+            ..<_>::default()
         })
         .insert(VolumetricFog {
             // This value is explicitly set to 0 since we have no environment map light
             ambient_intensity: 0.0,
-            ..default()
+            ..<_>::default()
         });
 
     // Add the point light
@@ -92,7 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
             range: 150.0,
             color: RED.into(),
             intensity: 1000.0,
-            ..default()
+            ..<_>::default()
         },
         VolumetricLight,
         MoveBackAndForthHorizontally {
@@ -111,7 +111,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
             shadows_enabled: true,
             inner_angle: 0.76,
             outer_angle: 0.94,
-            ..default()
+            ..<_>::default()
         },
         VolumetricLight,
     ));
@@ -129,7 +129,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

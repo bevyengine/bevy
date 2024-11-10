@@ -50,7 +50,7 @@ fn setup_terrain_scene(
     let cascade_shadow_config = CascadeShadowConfigBuilder {
         first_cascade_far_bound: 0.3,
         maximum_distance: 3.0,
-        ..default()
+        ..<_>::default()
     }
     .build();
 
@@ -59,7 +59,7 @@ fn setup_terrain_scene(
         DirectionalLight {
             color: Color::srgb(0.98, 0.95, 0.82),
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(-0.15, -0.05, 0.25), Vec3::Y),
         cascade_shadow_config,
@@ -77,7 +77,7 @@ fn setup_terrain_scene(
             base_color: Srgba::hex("888888").unwrap().into(),
             unlit: true,
             cull_mode: None,
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_scale(Vec3::splat(20.0)),
         NotShadowCaster,
@@ -90,7 +90,7 @@ fn setup_instructions(mut commands: Commands) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         })
     );
 }

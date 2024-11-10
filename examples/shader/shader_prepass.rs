@@ -22,14 +22,14 @@ fn main() {
                 // but you can disable it if you need to.
                 //
                 // prepass_enabled: false,
-                ..default()
+                ..<_>::default()
             }),
             MaterialPlugin::<CustomMaterial>::default(),
             MaterialPlugin::<PrepassOutputMaterial> {
                 // This material only needs to read the prepass textures,
                 // but the meshes using it should not contribute to the prepass render, so we can disable it.
                 prepass_enabled: false,
-                ..default()
+                ..<_>::default()
             },
         ))
         .add_systems(Startup, setup)
@@ -97,7 +97,7 @@ fn setup(
         MeshMaterial3d(std_materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Mask(1.0),
             base_color_texture: Some(asset_server.load("branding/icon.png")),
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_xyz(0.0, 0.5, 0.0),
     ));
@@ -118,7 +118,7 @@ fn setup(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
@@ -130,7 +130,7 @@ fn setup(
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
-                ..default()
+                ..<_>::default()
             },
         ))
         .with_children(|p| {

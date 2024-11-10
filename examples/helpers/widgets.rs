@@ -32,7 +32,7 @@ pub fn main_ui_node() -> Node {
         row_gap: Val::Px(6.0),
         left: Val::Px(10.0),
         bottom: Val::Px(10.0),
-        ..default()
+        ..<_>::default()
     }
 }
 
@@ -69,7 +69,7 @@ pub fn spawn_option_button<T>(
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-                ..default()
+                ..<_>::default()
             },
             BorderColor(Color::WHITE),
             BorderRadius::ZERO
@@ -99,12 +99,12 @@ where
     parent
         .spawn(Node {
             align_items: AlignItems::Center,
-            ..default()
+            ..<_>::default()
         })
         .with_children(|parent| {
             spawn_ui_text(parent, title, Color::BLACK).insert(Node {
                 width: Val::Px(125.0),
-                ..default()
+                ..<_>::default()
             });
 
             for (option_index, (option_value, option_name)) in options.iter().cloned().enumerate() {
@@ -133,7 +133,7 @@ pub fn spawn_ui_text<'a>(
         Text::new(label),
         TextFont {
             font_size: 18.0,
-            ..default()
+            ..<_>::default()
         },
         TextColor(color),
     ))

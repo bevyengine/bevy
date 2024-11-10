@@ -27,9 +27,9 @@ fn main() {
                     present_mode: PresentMode::AutoNoVsync,
                     resolution: WindowResolution::new(1920.0, 1080.0)
                         .with_scale_factor_override(1.0),
-                    ..default()
+                    ..<_>::default()
                 }),
-                ..default()
+                ..<_>::default()
             }),
         ))
         .insert_resource(WinitSettings {
@@ -86,7 +86,7 @@ fn setup(
                     image: texture_handle.clone(),
                     texture_atlas: Some(TextureAtlas::from(texture_atlas_handle.clone())),
                     custom_size: Some(tile_size),
-                    ..default()
+                    ..<_>::default()
                 },
                 Transform {
                     translation,

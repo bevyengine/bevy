@@ -39,7 +39,7 @@ fn setup(
     commands.spawn((
         PointLight {
             shadows_enabled: false,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
         RenderLayers::layer(1),
@@ -53,7 +53,7 @@ fn setup(
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
-                ..default()
+                ..<_>::default()
             },
             RenderLayers::layer(1),
         ))
@@ -142,7 +142,7 @@ fn spawn_spheres(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: RED.with_alpha(alpha).into(),
             alpha_mode: AlphaMode::Blend,
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_translation(pos_a + offset),
         render_layers.clone(),
@@ -152,7 +152,7 @@ fn spawn_spheres(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: GREEN.with_alpha(alpha).into(),
             alpha_mode: AlphaMode::Blend,
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_translation(pos_b + offset),
         render_layers.clone(),
@@ -162,7 +162,7 @@ fn spawn_spheres(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: BLUE.with_alpha(alpha).into(),
             alpha_mode: AlphaMode::Blend,
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_translation(pos_c + offset),
         render_layers.clone(),
@@ -196,7 +196,7 @@ fn spawn_occlusion_test(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: RED.with_alpha(0.5).into(),
             alpha_mode: AlphaMode::Blend,
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_xyz(x, 0., 0.),
         render_layers.clone(),
@@ -214,7 +214,7 @@ fn spawn_occlusion_test(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: RED.with_alpha(0.5).into(),
             alpha_mode: AlphaMode::Blend,
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_xyz(0., 0., 0.),
         render_layers.clone(),
@@ -233,7 +233,7 @@ fn spawn_occlusion_test(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: RED.with_alpha(0.5).into(),
             alpha_mode: AlphaMode::Blend,
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_xyz(x, 0., 0.),
         render_layers.clone(),

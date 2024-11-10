@@ -28,7 +28,7 @@ fn setup(
             height: Val::Percent(100.0),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
-            ..default()
+            ..<_>::default()
         })
         .with_children(|parent| {
             let banner_scale_factor = 0.5;
@@ -44,7 +44,7 @@ fn setup(
                     width: Val::Px(905.0 * banner_scale_factor),
                     height: Val::Px(363.0 * banner_scale_factor),
                     border: UiRect::all(Val::Px(10.)),
-                    ..default()
+                    ..<_>::default()
                 },
             ));
         });

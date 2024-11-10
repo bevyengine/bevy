@@ -48,7 +48,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_font = TextFont {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         font_size: 12.0,
-        ..default()
+        ..<_>::default()
     };
 
     let root = commands
@@ -57,7 +57,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
                 flex_direction: FlexDirection::Column,
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::BLACK),
         ))
@@ -76,7 +76,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 width: Val::Percent(100.),
                 height: Val::Percent(50.),
-                ..default()
+                ..<_>::default()
             })
             .id();
 
@@ -99,7 +99,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                         width: Val::Percent(16.),
                         height: Val::Percent(95.),
                         overflow: Overflow::clip_x(),
-                        ..default()
+                        ..<_>::default()
                     },
                     BackgroundColor(Color::srgb(0.5, c, 1.0 - c)),
                 ))

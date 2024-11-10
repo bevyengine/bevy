@@ -40,7 +40,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder
                 .spawn(Node {
                     flex_direction: FlexDirection::Row,
-                    ..default()
+                    ..<_>::default()
                 })
                 .with_children(|builder| {
                     spawn_nested_text_bundle(
@@ -65,7 +65,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     height: Val::Percent(100.),
                     flex_direction: FlexDirection::Column,
                     row_gap: MARGIN,
-                    ..default()
+                    ..<_>::default()
                 })
                 .with_children(|builder| {
                     // spawn one child node for each combination of `AlignItems` and `JustifyContent`
@@ -122,7 +122,7 @@ fn spawn_child_node(
                 justify_content,
                 width: Val::Percent(100.),
                 height: Val::Percent(100.),
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
         ))
@@ -156,14 +156,17 @@ fn spawn_nested_text_bundle(
             Node {
                 margin,
                 padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(background_color),
         ))
         .with_children(|builder| {
             builder.spawn((
                 Text::new(text),
-                TextFont { font, ..default() },
+                TextFont {
+                    font,
+                    ..<_>::default()
+                },
                 TextColor::BLACK,
             ));
         });

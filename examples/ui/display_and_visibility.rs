@@ -78,7 +78,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let text_font = TextFont {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-        ..default()
+        ..<_>::default()
     };
 
     commands.spawn(Camera2d);
@@ -108,7 +108,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn(Node {
                     width: Val::Percent(100.),
-                    ..default()
+                    ..<_>::default()
                 })
                 .with_children(|parent| {
                     let mut target_ids = vec![];
@@ -117,7 +117,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             width: Val::Percent(50.),
                             height: Val::Px(520.),
                             justify_content: JustifyContent::Center,
-                            ..default()
+                            ..<_>::default()
                         })
                         .with_children(|parent| {
                             target_ids = spawn_left_panel(parent, &palette);
@@ -127,7 +127,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         .spawn(Node {
                             width: Val::Percent(50.),
                             justify_content: JustifyContent::Center,
-                            ..default()
+                            ..<_>::default()
                         })
                         .with_children(|parent| {
                             spawn_right_panel(parent, text_font, &palette, target_ids);
@@ -140,12 +140,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     align_items: AlignItems::Start,
                     justify_content: JustifyContent::Start,
                     column_gap: Val::Px(10.),
-                    ..default()
+                    ..<_>::default()
                 })
                 .with_children(|builder| {
                     let text_font = TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
+                        ..<_>::default()
                     };
 
                     builder.spawn((
@@ -171,7 +171,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
         .spawn((
             Node {
                 padding: UiRect::all(Val::Px(10.)),
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::WHITE),
         ))
@@ -184,7 +184,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                             Node {
                                 align_items: AlignItems::FlexEnd,
                                 justify_content: JustifyContent::FlexEnd,
-                                ..default()
+                                ..<_>::default()
                             },
                             BackgroundColor(palette[0]),
                             Outline {
@@ -197,7 +197,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                             parent.spawn(Node {
                                 width: Val::Px(100.),
                                 height: Val::Px(500.),
-                                ..default()
+                                ..<_>::default()
                             });
 
                             let id = parent
@@ -206,7 +206,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                         height: Val::Px(400.),
                                         align_items: AlignItems::FlexEnd,
                                         justify_content: JustifyContent::FlexEnd,
-                                        ..default()
+                                        ..<_>::default()
                                     },
                                     BackgroundColor(palette[1]),
                                 ))
@@ -214,7 +214,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                     parent.spawn(Node {
                                         width: Val::Px(100.),
                                         height: Val::Px(400.),
-                                        ..default()
+                                        ..<_>::default()
                                     });
 
                                     let id = parent
@@ -223,7 +223,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                                 height: Val::Px(300.),
                                                 align_items: AlignItems::FlexEnd,
                                                 justify_content: JustifyContent::FlexEnd,
-                                                ..default()
+                                                ..<_>::default()
                                             },
                                             BackgroundColor(palette[2]),
                                         ))
@@ -231,7 +231,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                             parent.spawn(Node {
                                                 width: Val::Px(100.),
                                                 height: Val::Px(300.),
-                                                ..default()
+                                                ..<_>::default()
                                             });
 
                                             let id = parent
@@ -239,7 +239,7 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
                                                     Node {
                                                         width: Val::Px(200.),
                                                         height: Val::Px(200.),
-                                                        ..default()
+                                                        ..<_>::default()
                                                     },
                                                     BackgroundColor(palette[3]),
                                                 ))
@@ -273,7 +273,7 @@ fn spawn_right_panel(
         .spawn((
             Node {
                 padding: UiRect::all(Val::Px(10.)),
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::WHITE),
         ))
@@ -289,9 +289,9 @@ fn spawn_right_panel(
                         padding: UiRect {
                             left: Val::Px(5.),
                             top: Val::Px(5.),
-                            ..default()
+                            ..<_>::default()
                         },
-                        ..default()
+                        ..<_>::default()
                     },
                     BackgroundColor(palette[0]),
                     Outline {
@@ -314,9 +314,9 @@ fn spawn_right_panel(
                                 padding: UiRect {
                                     left: Val::Px(5.),
                                     top: Val::Px(5.),
-                                    ..default()
+                                    ..<_>::default()
                                 },
-                                ..default()
+                                ..<_>::default()
                             },
                             BackgroundColor(palette[1]),
                         ))
@@ -334,9 +334,9 @@ fn spawn_right_panel(
                                         padding: UiRect {
                                             left: Val::Px(5.),
                                             top: Val::Px(5.),
-                                            ..default()
+                                            ..<_>::default()
                                         },
-                                        ..default()
+                                        ..<_>::default()
                                     },
                                     BackgroundColor(palette[2]),
                                 ))
@@ -354,9 +354,9 @@ fn spawn_right_panel(
                                                 padding: UiRect {
                                                     left: Val::Px(5.),
                                                     top: Val::Px(5.),
-                                                    ..default()
+                                                    ..<_>::default()
                                                 },
-                                                ..default()
+                                                ..<_>::default()
                                             },
                                             BackgroundColor(palette[3]),
                                         ))
@@ -366,7 +366,7 @@ fn spawn_right_panel(
                                             parent.spawn(Node {
                                                 width: Val::Px(100.),
                                                 height: Val::Px(100.),
-                                                ..default()
+                                                ..<_>::default()
                                             });
                                         });
                                 });
@@ -386,7 +386,7 @@ where
             Node {
                 align_self: AlignSelf::FlexStart,
                 padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::BLACK.with_alpha(0.5)),
             Target::<T>::new(target),

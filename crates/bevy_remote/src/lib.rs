@@ -309,7 +309,7 @@ use bevy_ecs::{
     system::{Commands, In, IntoSystem, ResMut, Resource, System, SystemId},
     world::World,
 };
-use bevy_utils::{prelude::default, HashMap};
+use bevy_utils::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::RwLock;
@@ -504,7 +504,7 @@ pub struct RemoteMethods(HashMap<String, RemoteMethodSystemId>);
 impl RemoteMethods {
     /// Creates a new [`RemoteMethods`] resource with no methods registered in it.
     pub fn new() -> Self {
-        default()
+        <_>::default()
     }
 
     /// Adds a new method, replacing any existing method with that name.

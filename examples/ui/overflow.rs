@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     border: UiRect::all(Val::Px(5.)),
                                     overflow,
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 BorderColor(Color::BLACK),
                                 BackgroundColor(GRAY.into()),
@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     Node {
                                         min_width: Val::Px(100.),
                                         min_height: Val::Px(100.),
-                                        ..default()
+                                        ..<_>::default()
                                     },
                                     Interaction::default(),
                                     Outline {

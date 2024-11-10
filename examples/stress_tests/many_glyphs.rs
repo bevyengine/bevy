@@ -21,9 +21,9 @@ fn main() {
             primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
                 resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }),
         FrameTimeDiagnosticsPlugin,
         LogDiagnosticsPlugin::default(),
@@ -60,7 +60,7 @@ fn setup(mut commands: Commands) {
             width: Val::Percent(100.),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
-            ..default()
+            ..<_>::default()
         })
         .with_children(|commands| {
             commands

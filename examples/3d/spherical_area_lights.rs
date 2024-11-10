@@ -6,7 +6,7 @@ fn main() {
     App::new()
         .insert_resource(AmbientLight {
             brightness: 60.0,
-            ..default()
+            ..<_>::default()
         })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
@@ -30,7 +30,7 @@ fn setup(
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::srgb(0.2, 0.2, 0.2),
             perceptual_roughness: 0.08,
-            ..default()
+            ..<_>::default()
         })),
     ));
 
@@ -52,7 +52,7 @@ fn setup(
                 MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: Color::srgb(0.5, 0.5, 1.0),
                     unlit: true,
-                    ..default()
+                    ..<_>::default()
                 })),
                 Transform::from_xyz(position_range.start + percent * pos_len, 0.3, 0.0)
                     .with_scale(Vec3::splat(radius)),
@@ -60,7 +60,7 @@ fn setup(
             .with_child(PointLight {
                 radius,
                 color: Color::srgb(0.2, 0.2, 1.0),
-                ..default()
+                ..<_>::default()
             });
     }
 }

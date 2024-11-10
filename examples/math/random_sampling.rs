@@ -75,7 +75,7 @@ fn setup(
             base_color: Color::srgba(0.2, 0.1, 0.6, 0.3),
             alpha_mode: AlphaMode::Blend,
             cull_mode: None,
-            ..default()
+            ..<_>::default()
         })),
     ));
 
@@ -83,7 +83,7 @@ fn setup(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
@@ -105,7 +105,7 @@ fn setup(
     commands.insert_resource(PointMaterial(materials.add(StandardMaterial {
         base_color: Color::srgb(1.0, 0.8, 0.8),
         metallic: 0.8,
-        ..default()
+        ..<_>::default()
     })));
 
     // Instructions for the example:
@@ -122,7 +122,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 

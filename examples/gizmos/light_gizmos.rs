@@ -68,7 +68,7 @@ fn setup(
                 shadows_enabled: true,
                 range: 2.0,
                 color: DARK_CYAN.into(),
-                ..default()
+                ..<_>::default()
             },
             Transform::from_xyz(0.0, 1.5, 0.0),
         ));
@@ -79,7 +79,7 @@ fn setup(
                 color: PURPLE.into(),
                 outer_angle: PI / 4.0,
                 inner_angle: PI / 4.0 * 0.8,
-                ..default()
+                ..<_>::default()
             },
             Transform::from_xyz(4.0, 2.0, 0.0).looking_at(Vec3::X * 1.5, Vec3::Y),
         ));
@@ -88,7 +88,7 @@ fn setup(
                 color: GOLD.into(),
                 illuminance: DirectionalLight::default().illuminance * 0.05,
                 shadows_enabled: true,
-                ..default()
+                ..<_>::default()
             },
             Transform::from_xyz(-4.0, 2.0, 0.0).looking_at(Vec3::NEG_X * 1.5, Vec3::Y),
         ));
@@ -113,7 +113,7 @@ fn setup(
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
-                ..default()
+                ..<_>::default()
             },
         ));
 
@@ -129,7 +129,7 @@ fn setup(
                     position_type: PositionType::Absolute,
                     bottom: Val::Px(12.0),
                     left: Val::Px(12.0),
-                    ..default()
+                    ..<_>::default()
                 },
             ))
             .with_child(TextSpan(gizmo_color_text(light_config)));

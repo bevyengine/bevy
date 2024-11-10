@@ -138,9 +138,9 @@ fn main() {
                     resolution: WindowResolution::new(1920.0, 1080.0)
                         .with_scale_factor_override(1.0),
                     present_mode: PresentMode::AutoNoVsync,
-                    ..default()
+                    ..<_>::default()
                 }),
-                ..default()
+                ..<_>::default()
             }),
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
@@ -264,7 +264,7 @@ fn setup(
             Node {
                 position_type: PositionType::Absolute,
                 padding: UiRect::all(Val::Px(5.0)),
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::BLACK.with_alpha(0.75)),
             GlobalZIndex(i32::MAX),
@@ -441,7 +441,7 @@ fn spawn_birds(
                                 .unwrap()
                                 .clone(),
                             color,
-                            ..default()
+                            ..<_>::default()
                         },
                         transform,
                         Bird { velocity },

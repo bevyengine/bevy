@@ -69,7 +69,7 @@ fn setup(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0, 7.0, -4.0),
     ));
@@ -87,7 +87,7 @@ fn setup(
         ),
         Ship {
             target_transform: random_axes_target_alignment(&RandomAxes(first, second)),
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -107,7 +107,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
         Instructions,
     ));

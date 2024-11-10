@@ -40,7 +40,7 @@ fn setup(
     let white_handle = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         perceptual_roughness: 1.0,
-        ..default()
+        ..<_>::default()
     });
     let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
@@ -55,13 +55,13 @@ fn setup(
                 shadow_depth_bias: 0.0,
                 shadow_normal_bias: 0.0,
                 shadows_enabled: true,
-                ..default()
+                ..<_>::default()
             });
             builder.spawn(DirectionalLight {
                 shadow_depth_bias: 0.0,
                 shadow_normal_bias: 0.0,
                 shadows_enabled: true,
-                ..default()
+                ..<_>::default()
             });
         });
 
@@ -101,7 +101,7 @@ fn setup(
             Node {
                 position_type: PositionType::Absolute,
                 padding: UiRect::all(Val::Px(5.0)),
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::BLACK.with_alpha(0.75)),
             GlobalZIndex(i32::MAX),

@@ -71,7 +71,7 @@ fn setup(
         Text2d::default(),
         TextFont {
             font_size: 119.0,
-            ..default()
+            ..<_>::default()
         },
         TextColor(Color::NONE),
     ));

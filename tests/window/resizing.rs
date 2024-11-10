@@ -25,9 +25,9 @@ fn main() {
                     resolution: WindowResolution::new(MAX_WIDTH as f32, MAX_HEIGHT as f32)
                         .with_scale_factor_override(1.0),
                     title: "Resizing".into(),
-                    ..default()
+                    ..<_>::default()
                 }),
-                ..default()
+                ..<_>::default()
             }),
         )
         .insert_resource(Dimensions {
@@ -123,7 +123,7 @@ fn setup_3d(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
@@ -143,7 +143,7 @@ fn setup_2d(mut commands: Commands) {
             order: 1,
             // do not use a clear color
             clear_color: ClearColorConfig::None,
-            ..default()
+            ..<_>::default()
         },
     ));
     commands.spawn(Sprite::from_color(

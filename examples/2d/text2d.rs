@@ -38,7 +38,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let text_font = TextFont {
         font: font.clone(),
         font_size: 50.0,
-        ..default()
+        ..<_>::default()
     };
     let text_justification = JustifyText::Center;
     // 2d camera
@@ -69,7 +69,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let slightly_smaller_text_font = TextFont {
         font,
         font_size: 35.0,
-        ..default()
+        ..<_>::default()
     };
     let box_size = Vec2::new(300.0, 200.0);
     let box_position = Vec2::new(0.0, -250.0);

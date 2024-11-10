@@ -26,9 +26,9 @@ fn main() {
             primary_window: Some(Window {
                 // Turn off vsync to maximize CPU/GPU usage
                 present_mode: PresentMode::AutoNoVsync,
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .add_systems(Startup, test_setup::setup)
         .add_systems(
@@ -193,7 +193,7 @@ pub(crate) mod test_setup {
                     position_type: PositionType::Absolute,
                     top: Val::Px(12.0),
                     left: Val::Px(12.0),
-                    ..default()
+                    ..<_>::default()
                 },
                 ModeText,
             ))

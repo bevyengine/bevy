@@ -98,7 +98,7 @@ fn setup(
     // Add a material asset directly to the materials storage
     let material_handle = materials.add(StandardMaterial {
         base_color: Color::srgb(0.6, 0.8, 0.6),
-        ..default()
+        ..<_>::default()
     });
 
     commands.spawn((
@@ -142,7 +142,7 @@ fn spawn_text(mut commands: Commands) {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

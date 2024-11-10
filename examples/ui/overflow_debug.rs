@@ -93,7 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
-                ..default()
+                ..<_>::default()
             },
             Instructions,
         ))
@@ -110,7 +110,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             height: Val::Percent(100.),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            ..default()
+            ..<_>::default()
         })
         .with_children(|parent| {
             parent
@@ -120,7 +120,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     grid_template_rows: RepeatedGridTrack::px(2, CONTAINER_SIZE),
                     row_gap: Val::Px(80.),
                     column_gap: Val::Px(80.),
-                    ..default()
+                    ..<_>::default()
                 })
                 .with_children(|parent| {
                     spawn_image(parent, &asset_server, Move);
@@ -147,7 +147,7 @@ fn spawn_image(
                 position_type: PositionType::Absolute,
                 top: Val::Px(-50.),
                 left: Val::Px(-200.),
-                ..default()
+                ..<_>::default()
             },
         ));
     });
@@ -164,7 +164,7 @@ fn spawn_text(
             TextFont {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 100.0,
-                ..default()
+                ..<_>::default()
             },
         ));
     });
@@ -187,7 +187,7 @@ fn spawn_container(
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 overflow: Overflow::clip(),
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
             Container(0),
@@ -200,7 +200,7 @@ fn spawn_container(
                         justify_content: JustifyContent::Center,
                         top: Val::Px(transform.translation.x),
                         left: Val::Px(transform.translation.y),
-                        ..default()
+                        ..<_>::default()
                     },
                     transform,
                     update_transform,

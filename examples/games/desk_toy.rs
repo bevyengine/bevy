@@ -24,9 +24,9 @@ fn main() {
                 transparent: true,
                 #[cfg(target_os = "macos")]
                 composite_alpha_mode: CompositeAlphaMode::PostMultiplied,
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .insert_resource(ClearColor(WINDOW_CLEAR_COLOR))
         .insert_resource(WindowTransparency(false))
@@ -110,7 +110,7 @@ fn setup(
     let text_style = TextFont {
         font: font.clone(),
         font_size: 25.0,
-        ..default()
+        ..<_>::default()
     };
     commands.spawn((
         Text2d::new("Press Space to play on your desktop! Press it again to return.\nRight click Bevy logo to exit."),

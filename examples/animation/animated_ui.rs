@@ -160,7 +160,7 @@ fn setup(
                 bottom: Val::Px(0.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                ..default()
+                ..<_>::default()
             },
             animation_player,
             AnimationGraphHandle(animation_graph),
@@ -174,7 +174,7 @@ fn setup(
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 24.0,
-                        ..default()
+                        ..<_>::default()
                     },
                     TextColor(Color::Srgba(Srgba::RED)),
                     TextLayout::new_with_justify(JustifyText::Center),

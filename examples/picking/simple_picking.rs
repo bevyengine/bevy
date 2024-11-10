@@ -22,7 +22,7 @@ fn setup_scene(
                 position_type: PositionType::Absolute,
                 top: Val::Percent(12.0),
                 left: Val::Percent(12.0),
-                ..default()
+                ..<_>::default()
             },
         ))
         .observe(on_click_spawn_cube)
@@ -50,7 +50,7 @@ fn setup_scene(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));

@@ -27,7 +27,6 @@ use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::{
-    default,
     tracing::{error, info, warn},
     HashSet,
 };
@@ -280,7 +279,7 @@ fn prepare_screenshots(
                 let size = Extent3d {
                     width: surface_data.configuration.width,
                     height: surface_data.configuration.height,
-                    ..default()
+                    ..<_>::default()
                 };
                 let (texture_view, state) = prepare_screenshot_state(
                     size,
@@ -305,7 +304,7 @@ fn prepare_screenshots(
                 let size = Extent3d {
                     width: gpu_image.size.x,
                     height: gpu_image.size.y,
-                    ..default()
+                    ..<_>::default()
                 };
                 let (texture_view, state) = prepare_screenshot_state(
                     size,
@@ -333,7 +332,7 @@ fn prepare_screenshots(
                 let size = Extent3d {
                     width: manual_texture_view.size.x,
                     height: manual_texture_view.size.y,
-                    ..default()
+                    ..<_>::default()
                 };
                 let (texture_view, state) = prepare_screenshot_state(
                     size,

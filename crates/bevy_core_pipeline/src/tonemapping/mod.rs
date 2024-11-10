@@ -24,7 +24,6 @@ use bitflags::bitflags;
 
 mod node;
 
-use bevy_utils::default;
 pub use node::TonemappingNode;
 
 const TONEMAPPING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17015368199668024512);
@@ -376,7 +375,7 @@ pub fn prepare_view_tonemapping_pipelines(
             TonemappingPipelineKeyFlags::SECTIONAL_COLOR_GRADING,
             view.color_grading
                 .all_sections()
-                .any(|section| *section != default()),
+                .any(|section| *section != <_>::default()),
         );
 
         let key = TonemappingPipelineKey {
@@ -442,7 +441,7 @@ fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
         mag_filter: bevy_image::ImageFilterMode::Linear,
         min_filter: bevy_image::ImageFilterMode::Linear,
         mipmap_filter: bevy_image::ImageFilterMode::Linear,
-        ..default()
+        ..<_>::default()
     });
     Image::from_buffer(
         #[cfg(all(debug_assertions, feature = "dds"))]

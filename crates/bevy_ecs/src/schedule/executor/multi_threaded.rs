@@ -3,11 +3,11 @@ use core::any::Any;
 use std::sync::{Mutex, MutexGuard};
 
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
+use bevy_utils::syncunsafecell::SyncUnsafeCell;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Span;
-use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
 use core::panic::AssertUnwindSafe;
 
 use concurrent_queue::ConcurrentQueue;
@@ -165,7 +165,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         state.system_task_metadata = Vec::with_capacity(sys_count);
         for index in 0..sys_count {
             state.system_task_metadata.push(SystemTaskMetadata {
-                archetype_component_access: default(),
+                archetype_component_access: <_>::default(),
                 dependents: schedule.system_dependents[index].clone(),
                 is_send: schedule.systems[index].is_send(),
                 is_exclusive: schedule.systems[index].is_exclusive(),
@@ -339,7 +339,7 @@ impl ExecutorState {
             system_task_metadata: Vec::new(),
             num_running_systems: 0,
             num_dependencies_remaining: Vec::new(),
-            active_access: default(),
+            active_access: <_>::default(),
             local_thread_running: false,
             exclusive_running: false,
             evaluated_sets: FixedBitSet::new(),

@@ -35,7 +35,7 @@ fn setup(
     let white_handle = materials.add(StandardMaterial {
         base_color: Color::WHITE,
         perceptual_roughness: 1.0,
-        ..default()
+        ..<_>::default()
     });
     let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
@@ -77,7 +77,7 @@ fn setup(
             range: spawn_plane_depth,
             color: Color::WHITE,
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(5.0, 5.0, 0.0),
     ));
@@ -86,13 +86,13 @@ fn setup(
         DirectionalLight {
             illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 2., -PI / 4.)),
         CascadeShadowConfigBuilder {
             first_cascade_far_bound: 7.0,
             maximum_distance: 25.0,
-            ..default()
+            ..<_>::default()
         }
         .build(),
     ));

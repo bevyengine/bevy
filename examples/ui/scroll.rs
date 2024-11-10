@@ -33,7 +33,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             height: Val::Percent(100.0),
             justify_content: JustifyContent::SpaceBetween,
             flex_direction: FlexDirection::Column,
-            ..default()
+            ..<_>::default()
         })
         .insert(PickingBehavior::IGNORE)
         .with_children(|parent| {
@@ -42,7 +42,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn(Node {
                     width: Val::Percent(100.),
                     flex_direction: FlexDirection::Column,
-                    ..default()
+                    ..<_>::default()
                 })
                 .with_children(|parent| {
                     // header
@@ -51,7 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: FONT_SIZE,
-                            ..default()
+                            ..<_>::default()
                         },
                         Label,
                     ));
@@ -64,7 +64,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 margin: UiRect::all(Val::Px(10.)),
                                 flex_direction: FlexDirection::Row,
                                 overflow: Overflow::scroll_x(), // n.b.
-                                ..default()
+                                ..<_>::default()
                             },
                             BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
                         ))
@@ -74,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         TextFont {
                                             font: asset_server
                                                 .load("fonts/FiraSans-Bold.ttf"),
-                                            ..default()
+                                            ..<_>::default()
                                         },
                                     Label,
                                     AccessibilityNode(Accessible::new(Role::ListItem)),
@@ -82,11 +82,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 .insert(Node {
                                     min_width: Val::Px(200.),
                                     align_content: AlignContent::Center,
-                                    ..default()
+                                    ..<_>::default()
                                 })
                                 .insert(PickingBehavior {
                                     should_block_lower: false,
-                                    ..default()
+                                    ..<_>::default()
                                 })
                                 .observe(|
                                     trigger: Trigger<Pointer<Down>>,
@@ -107,7 +107,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     height: Val::Percent(100.),
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceBetween,
-                    ..default()
+                    ..<_>::default()
                 })
                 .with_children(|parent| {
                     // vertical scroll example
@@ -117,7 +117,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             width: Val::Px(200.),
-                            ..default()
+                            ..<_>::default()
                         })
                         .with_children(|parent| {
                             // Title
@@ -126,7 +126,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 TextFont {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     font_size: FONT_SIZE,
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 Label,
                             ));
@@ -138,7 +138,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         align_self: AlignSelf::Stretch,
                                         height: Val::Percent(50.),
                                         overflow: Overflow::scroll_y(), // n.b.
-                                        ..default()
+                                        ..<_>::default()
                                     },
                                     BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
                                 ))
@@ -149,11 +149,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             .spawn(Node {
                                                 min_height: Val::Px(LINE_HEIGHT),
                                                 max_height: Val::Px(LINE_HEIGHT),
-                                                ..default()
+                                                ..<_>::default()
                                             })
                                             .insert(PickingBehavior {
                                                 should_block_lower: false,
-                                                ..default()
+                                                ..<_>::default()
                                             })
                                             .with_children(|parent| {
                                                 parent
@@ -162,7 +162,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                         TextFont {
                                                             font: asset_server
                                                                 .load("fonts/FiraSans-Bold.ttf"),
-                                                            ..default()
+                                                            ..<_>::default()
                                                         },
                                                         Label,
                                                         AccessibilityNode(Accessible::new(
@@ -171,7 +171,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                     ))
                                                     .insert(PickingBehavior {
                                                         should_block_lower: false,
-                                                        ..default()
+                                                        ..<_>::default()
                                                     });
                                             });
                                     }
@@ -185,7 +185,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             width: Val::Px(200.),
-                            ..default()
+                            ..<_>::default()
                         })
                         .with_children(|parent| {
                             // Title
@@ -194,7 +194,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 TextFont {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     font_size: FONT_SIZE,
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 Label,
                             ));
@@ -206,7 +206,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         align_self: AlignSelf::Stretch,
                                         height: Val::Percent(50.),
                                         overflow: Overflow::scroll(), // n.b.
-                                        ..default()
+                                        ..<_>::default()
                                     },
                                     BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
                                 ))
@@ -216,7 +216,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         parent
                                             .spawn(Node {
                                                 flex_direction: FlexDirection::Row,
-                                                ..default()
+                                                ..<_>::default()
                                             })
                                             .insert(PickingBehavior::IGNORE)
                                             .with_children(|parent| {
@@ -229,7 +229,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                                 font: asset_server.load(
                                                                     "fonts/FiraSans-Bold.ttf",
                                                                 ),
-                                                                ..default()
+                                                                ..<_>::default()
                                                             },
                                                             Label,
                                                             AccessibilityNode(Accessible::new(
@@ -238,7 +238,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                         ))
                                                         .insert(PickingBehavior {
                                                             should_block_lower: false,
-                                                            ..default()
+                                                            ..<_>::default()
                                                         });
                                                 }
                                             });
@@ -253,7 +253,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
                             width: Val::Px(200.),
-                            ..default()
+                            ..<_>::default()
                         })
                         .with_children(|parent| {
                             // Title
@@ -262,7 +262,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 TextFont {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     font_size: FONT_SIZE,
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 Label,
                             ));
@@ -275,7 +275,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         align_self: AlignSelf::Stretch,
                                         height: Val::Percent(50.),
                                         overflow: Overflow::scroll_x(), // n.b.
-                                        ..default()
+                                        ..<_>::default()
                                     },
                                     BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
                                 ))
@@ -288,13 +288,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                     flex_direction: FlexDirection::Column,
                                                     align_self: AlignSelf::Stretch,
                                                     overflow: Overflow::scroll_y(),
-                                                    ..default()
+                                                    ..<_>::default()
                                                 },
                                                 BackgroundColor(Color::srgb(0.05, 0.05, 0.05)),
                                             ))
                                             .insert(PickingBehavior {
                                                 should_block_lower: false,
-                                                ..default()
+                                                ..<_>::default()
                                             })
                                             .with_children(|parent| {
                                                 for i in 0..25 {
@@ -305,7 +305,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                                 font: asset_server.load(
                                                                     "fonts/FiraSans-Bold.ttf",
                                                                 ),
-                                                                ..default()
+                                                                ..<_>::default()
                                                             },
                                                             Label,
                                                             AccessibilityNode(Accessible::new(
@@ -314,7 +314,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                         ))
                                                         .insert(PickingBehavior {
                                                             should_block_lower: false,
-                                                            ..default()
+                                                            ..<_>::default()
                                                         });
                                                 }
                                             });

@@ -31,7 +31,7 @@ fn setup_scene(
         Camera3d::default(),
         Camera {
             hdr: true, // 1. HDR is required for bloom
-            ..default()
+            ..<_>::default()
         },
         Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -41,19 +41,19 @@ fn setup_scene(
 
     let material_emissive1 = materials.add(StandardMaterial {
         emissive: LinearRgba::rgb(13.99, 5.32, 2.0), // 4. Put something bright in a dark environment to see the effect
-        ..default()
+        ..<_>::default()
     });
     let material_emissive2 = materials.add(StandardMaterial {
         emissive: LinearRgba::rgb(2.0, 13.99, 5.32),
-        ..default()
+        ..<_>::default()
     });
     let material_emissive3 = materials.add(StandardMaterial {
         emissive: LinearRgba::rgb(5.32, 2.0, 13.99),
-        ..default()
+        ..<_>::default()
     });
     let material_non_emissive = materials.add(StandardMaterial {
         base_color: GRAY.into(),
-        ..default()
+        ..<_>::default()
     });
 
     let mesh = meshes.add(Sphere::new(0.5).mesh().ico(5).unwrap());
@@ -90,7 +90,7 @@ fn setup_scene(
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

@@ -223,7 +223,7 @@ fn setup(
         .spawn((
             PointLight {
                 shadows_enabled: true,
-                ..default()
+                ..<_>::default()
             },
             Transform::from_xyz(2.0, 1.0, -1.1),
         ))
@@ -259,7 +259,7 @@ fn setup(
         parallax_depth_scale,
         parallax_mapping_method: parallax_mapping_method.0,
         max_parallax_layer_count,
-        ..default()
+        ..<_>::default()
     });
     commands.spawn((
         Mesh3d(
@@ -302,7 +302,7 @@ fn setup(
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
-                ..default()
+                ..<_>::default()
             },
         ))
         .with_children(|p| {

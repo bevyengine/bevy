@@ -12,7 +12,6 @@ use bevy_ecs::{
 };
 use bevy_tasks::Task;
 use bevy_utils::{
-    default,
     hashbrown::hash_map::EntryRef,
     tracing::{debug, error},
     HashMap, HashSet,
@@ -428,7 +427,7 @@ impl LayoutCache {
                     &PipelineLayoutDescriptor {
                         bind_group_layouts: &bind_group_layouts,
                         push_constant_ranges,
-                        ..default()
+                        ..<_>::default()
                     },
                 )))
             })
@@ -481,10 +480,10 @@ impl PipelineCache {
         Self {
             shader_cache: Arc::new(Mutex::new(ShaderCache::new(&device, &render_adapter))),
             device,
-            layout_cache: default(),
-            waiting_pipelines: default(),
-            new_pipelines: default(),
-            pipelines: default(),
+            layout_cache: <_>::default(),
+            waiting_pipelines: <_>::default(),
+            new_pipelines: <_>::default(),
+            pipelines: <_>::default(),
             synchronous_pipeline_compilation,
         }
     }
@@ -734,7 +733,7 @@ impl PipelineCache {
 
                 // TODO: Expose the rest of this somehow
                 let compilation_options = PipelineCompilationOptions {
-                    constants: &default(),
+                    constants: &<_>::default(),
                     zero_initialize_workgroup_memory: descriptor.zero_initialize_workgroup_memory,
                 };
 
@@ -816,7 +815,7 @@ impl PipelineCache {
                     entry_point: Some(&descriptor.entry_point),
                     // TODO: Expose the rest of this somehow
                     compilation_options: PipelineCompilationOptions {
-                        constants: &default(),
+                        constants: &<_>::default(),
                         zero_initialize_workgroup_memory: descriptor
                             .zero_initialize_workgroup_memory,
                     },

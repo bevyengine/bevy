@@ -36,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // This font is loaded and will be used instead of the default font.
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 67.0,
-            ..default()
+            ..<_>::default()
         },
         // Set the justification of the Text
         TextLayout::new_with_justify(JustifyText::Center),
@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
             right: Val::Px(5.0),
-            ..default()
+            ..<_>::default()
         },
         AnimatedText,
     ));
@@ -59,7 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 // This font is loaded and will be used instead of the default font.
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 42.0,
-                ..default()
+                ..<_>::default()
             },
         ))
         .with_child((
@@ -69,7 +69,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     TextFont {
                         font_size: 33.0,
                         // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
-                        ..default()
+                        ..<_>::default()
                     },
                     TextColor(GOLD.into()),
                 )
@@ -96,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
             left: Val::Px(15.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -105,13 +105,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new("Default font disabled"),
         TextFont {
             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            ..default()
+            ..<_>::default()
         },
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.0),
             left: Val::Px(15.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

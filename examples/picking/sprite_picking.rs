@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             custom_size: Some(sprite_size),
                             color: Color::srgb(1.0, 0.0, 0.0),
                             anchor: anchor.to_owned(),
-                            ..default()
+                            ..<_>::default()
                         },
                         // 3x3 grid of anchor examples by changing transform
                         Transform::from_xyz(i * len - len, j * len - len, 0.0)

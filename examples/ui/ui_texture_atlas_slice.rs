@@ -71,7 +71,7 @@ fn setup(
             height: Val::Percent(100.0),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
-            ..default()
+            ..<_>::default()
         })
         .with_children(|parent| {
             for (idx, [w, h]) in [
@@ -98,7 +98,7 @@ fn setup(
                             // vertically center child text
                             align_items: AlignItems::Center,
                             margin: UiRect::all(Val::Px(20.0)),
-                            ..default()
+                            ..<_>::default()
                         },
                     ))
                     .with_children(|parent| {
@@ -107,7 +107,7 @@ fn setup(
                             TextFont {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 33.0,
-                                ..default()
+                                ..<_>::default()
                             },
                             TextColor(Color::srgb(0.9, 0.9, 0.9)),
                         ));

@@ -296,7 +296,7 @@ fn setup_sticks(
                 // text
                 let style = TextFont {
                     font_size: 13.,
-                    ..default()
+                    ..<_>::default()
                 };
                 parent
                     .spawn((
@@ -361,7 +361,7 @@ fn setup_triggers(
                     Text(format!("{:.3}", 0.)),
                     TextFont {
                         font_size: 13.,
-                        ..default()
+                        ..<_>::default()
                     },
                     TextWithButtonValue(button_type),
                 ));
@@ -381,7 +381,7 @@ fn setup_connected(mut commands: Commands) {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.),
                 left: Val::Px(12.),
-                ..default()
+                ..<_>::default()
             },
             ConnectedGamepadsText,
         ))

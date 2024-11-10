@@ -71,7 +71,7 @@ enum SelectedColorGradingOption {
 
 impl Default for SelectedColorGradingOption {
     fn default() -> Self {
-        Self::Global(default())
+        Self::Global(<_>::default())
     }
 }
 
@@ -144,7 +144,7 @@ fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &Col
             row_gap: Val::Px(6.0),
             left: Val::Px(12.0),
             bottom: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         })
         .with_children(|parent| {
             // Create the first row, which contains the global controls.
@@ -173,7 +173,7 @@ fn add_buttons_for_global_controls(
         // Add some placeholder text to fill this column.
         parent.spawn(Node {
             width: Val::Px(125.0),
-            ..default()
+            ..<_>::default()
         });
 
         // Add each global color grading option button.
@@ -205,13 +205,13 @@ fn add_buttons_for_section(
     parent
         .spawn(Node {
             align_items: AlignItems::Center,
-            ..default()
+            ..<_>::default()
         })
         .with_children(|parent| {
             // Spawn the label ("Highlights", etc.)
             add_text(parent, &section.to_string(), font, Color::WHITE).insert(Node {
                 width: Val::Px(125.0),
-                ..default()
+                ..<_>::default()
             });
 
             // Spawn the buttons.
@@ -250,7 +250,7 @@ fn add_button_for_value(
                 align_items: AlignItems::Center,
                 padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
                 margin: UiRect::right(Val::Px(12.0)),
-                ..default()
+                ..<_>::default()
             },
             BorderColor(Color::WHITE),
             BorderRadius::MAX,
@@ -274,7 +274,7 @@ fn add_button_for_value(
             // Add a spacer.
             parent.spawn(Node {
                 flex_grow: 1.0,
-                ..default()
+                ..<_>::default()
             });
 
             // Add the value text.
@@ -301,13 +301,13 @@ fn add_help_text(
         Text::new(create_help_text(currently_selected_option)),
         TextFont {
             font: font.clone(),
-            ..default()
+            ..<_>::default()
         },
         Node {
             position_type: PositionType::Absolute,
             left: Val::Px(12.0),
             top: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
         HelpText,
     ));
@@ -325,7 +325,7 @@ fn add_text<'a>(
         TextFont {
             font: font.clone(),
             font_size: 15.0,
-            ..default()
+            ..<_>::default()
         },
         TextColor(color),
     ))
@@ -336,7 +336,7 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
         Camera3d::default(),
         Camera {
             hdr: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         color_grading,
@@ -346,13 +346,13 @@ fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading
                 start: 1.0,
                 end: 8.0,
             },
-            ..default()
+            ..<_>::default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
-            ..default()
+            ..<_>::default()
         },
     ));
 }
@@ -377,13 +377,13 @@ fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
         DirectionalLight {
             illuminance: 15000.0,
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
         CascadeShadowConfigBuilder {
             maximum_distance: 3.0,
             first_cascade_far_bound: 0.9,
-            ..default()
+            ..<_>::default()
         }
         .build(),
     ));

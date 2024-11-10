@@ -47,7 +47,7 @@ fn setup(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
@@ -84,7 +84,7 @@ fn setup(
                 size: UVec2::new(5, 10),
             }),
             order: 1,
-            ..default()
+            ..<_>::default()
         },
         ExampleViewports::PerspectiveStretched,
         transform,
@@ -106,7 +106,7 @@ fn setup(
                 size: UVec2::new(100, 100),
             }),
             order: 2,
-            ..default()
+            ..<_>::default()
         },
         transform,
         ExampleViewports::PerspectiveMoving,
@@ -129,7 +129,7 @@ fn setup(
                 size: UVec2::new(800, 400),
             }),
             order: 3,
-            ..default()
+            ..<_>::default()
         },
         ExampleViewports::PerspectiveControl,
         transform,
@@ -148,7 +148,7 @@ fn setup(
         }),
         Camera {
             order: 4,
-            ..default()
+            ..<_>::default()
         },
         ExampleViewports::OrthographicMain,
         transform,
@@ -175,7 +175,7 @@ fn setup(
                 size: UVec2::new(1, 2),
             }),
             order: 5,
-            ..default()
+            ..<_>::default()
         },
         ExampleViewports::OrthographicStretched,
         transform,
@@ -203,7 +203,7 @@ fn setup(
                 size: UVec2::new(100, 100),
             }),
             order: 6,
-            ..default()
+            ..<_>::default()
         },
         transform,
         ExampleViewports::OrthographicMoving,
@@ -232,7 +232,7 @@ fn setup(
                 size: UVec2::new(200, 100),
             }),
             order: 7,
-            ..default()
+            ..<_>::default()
         },
         ExampleViewports::OrthographicControl,
         transform,

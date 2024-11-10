@@ -47,9 +47,9 @@ fn main() {
                     present_mode: PresentMode::AutoNoVsync,
                     resolution: WindowResolution::new(1920.0, 1080.0)
                         .with_scale_factor_override(1.0),
-                    ..default()
+                    ..<_>::default()
                 }),
-                ..default()
+                ..<_>::default()
             }),
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
@@ -211,12 +211,12 @@ fn setup(
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         DirectionalLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         CascadeShadowConfigBuilder {
             first_cascade_far_bound: 0.9 * radius,
             maximum_distance: 2.8 * radius,
-            ..default()
+            ..<_>::default()
         }
         .build(),
     ));

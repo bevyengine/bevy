@@ -42,17 +42,17 @@ fn setup(
         Camera3d::default(),
         Camera {
             hdr: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(1.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         AutoExposure {
             metering_mask: metering_mask.clone(),
-            ..default()
+            ..<_>::default()
         },
         Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: light_consts::lux::DIRECT_SUNLIGHT,
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -94,7 +94,7 @@ fn setup(
                         0.75 - level as f32 * 0.25,
                         0.5 + side.z * 0.5,
                     ),
-                    ..default()
+                    ..<_>::default()
                 })),
                 Transform::from_translation(side * 2.0 + height).looking_at(height, Vec3::Y),
             ));
@@ -109,7 +109,7 @@ fn setup(
     commands.spawn((
         PointLight {
             intensity: 2000.0,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(0.0, 0.0, 0.0),
     ));
@@ -117,12 +117,12 @@ fn setup(
     commands.spawn((
         ImageNode {
             image: metering_mask,
-            ..default()
+            ..<_>::default()
         },
         Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -133,7 +133,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         })
     );
 
@@ -144,7 +144,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             right: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
         ExampleDisplay,
     ));

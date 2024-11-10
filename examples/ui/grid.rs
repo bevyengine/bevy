@@ -7,9 +7,9 @@ fn main() {
             primary_window: Some(Window {
                 resolution: [800., 600.].into(),
                 title: "Bevy CSS Grid Layout Example".to_string(),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .add_systems(Startup, spawn_layout)
         .run();
@@ -41,7 +41,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     GridTrack::flex(1.0),
                     GridTrack::px(20.),
                 ],
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::WHITE),
         ))
@@ -54,7 +54,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         // Make this node span two grid columns so that it takes up the entire top tow
                         grid_column: GridPlacement::span(2),
                         padding: UiRect::all(Val::Px(6.0)),
-                        ..default()
+                        ..<_>::default()
                     },
                 )
                 .with_children(|builder| {
@@ -83,7 +83,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         // Set a 12px gap/gutter between rows and columns
                         row_gap: Val::Px(12.0),
                         column_gap: Val::Px(12.0),
-                        ..default()
+                        ..<_>::default()
                     },
                     BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
                 ))
@@ -127,7 +127,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         grid_template_rows: vec![GridTrack::auto(), GridTrack::auto(), GridTrack::fr(1.0)],
                         // Add a 10px gap between rows
                         row_gap: Val::Px(10.),
-                        ..default()
+                        ..<_>::default()
                     },
                     BackgroundColor(BLACK.into()),
                 ))
@@ -135,14 +135,14 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     builder.spawn((Text::new("Sidebar"),
                         TextFont {
                             font: font.clone(),
-                            ..default()
+                            ..<_>::default()
                         },
                     ));
                     builder.spawn((Text::new("A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely."),
                         TextFont {
                             font: font.clone(),
                             font_size: 13.0,
-                            ..default()
+                            ..<_>::default()
                         },
                     ));
                     builder.spawn(Node::default());
@@ -153,7 +153,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Node {
                     // Make this node span two grid column so that it takes up the entire bottom row
                     grid_column: GridPlacement::span(2),
-                    ..default()
+                    ..<_>::default()
                 },
                 BackgroundColor(WHITE.into()),
             ));
@@ -171,7 +171,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     width: Val::Percent(60.),
                     height: Val::Px(300.),
                     max_width: Val::Px(600.),
-                    ..default()
+                    ..<_>::default()
                 },
                 Visibility::Hidden,
                 BackgroundColor(Color::WHITE.with_alpha(0.8)),
@@ -188,7 +188,7 @@ fn item_rect(builder: &mut ChildBuilder, color: Srgba) {
             Node {
                 display: Display::Grid,
                 padding: UiRect::all(Val::Px(3.0)),
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(BLACK.into()),
         ))
@@ -200,7 +200,10 @@ fn item_rect(builder: &mut ChildBuilder, color: Srgba) {
 fn spawn_nested_text_bundle(builder: &mut ChildBuilder, font: Handle<Font>, text: &str) {
     builder.spawn((
         Text::new(text),
-        TextFont { font, ..default() },
+        TextFont {
+            font,
+            ..<_>::default()
+        },
         TextColor::BLACK,
     ));
 }

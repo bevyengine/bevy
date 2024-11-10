@@ -24,9 +24,9 @@ fn main() {
                         .with_scale_factor_override(1.0),
                     title: "many_lights".into(),
                     present_mode: PresentMode::AutoNoVsync,
-                    ..default()
+                    ..<_>::default()
                 }),
-                ..default()
+                ..<_>::default()
             }),
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
@@ -62,7 +62,7 @@ fn setup(
     let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
         base_color: DEEP_PINK.into(),
-        ..default()
+        ..<_>::default()
     });
 
     // NOTE: This pattern is good for testing performance of culling as it provides roughly
@@ -82,7 +82,7 @@ fn setup(
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
                 color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
-                ..default()
+                ..<_>::default()
             },
             Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
         )
@@ -110,7 +110,7 @@ fn setup(
         Transform {
             translation: Vec3::new(0.0, RADIUS, 0.0),
             scale: Vec3::splat(5.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

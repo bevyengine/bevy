@@ -26,9 +26,9 @@ fn main() {
                 render_creation: RenderCreation::Automatic(WgpuSettings {
                     // WARN this is a native only feature. It will not work with webgl or webgpu
                     features: WgpuFeatures::POLYGON_MODE_LINE,
-                    ..default()
+                    ..<_>::default()
                 }),
-                ..default()
+                ..<_>::default()
             }),
             // You need to add this plugin to enable wireframe rendering
             Wireframe2dPlugin,
@@ -94,7 +94,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

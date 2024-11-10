@@ -58,7 +58,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::BLACK),
         ))
@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    ..default()
+                    ..<_>::default()
                 })
                 .with_children(|parent| {
                     parent.spawn((
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 align_items: AlignItems::Stretch,
                                 padding: UiRect::all(Val::Px(10.)),
                                 margin: UiRect::top(Val::Px(50.)),
-                                ..default()
+                                ..<_>::default()
                             },
                             BackgroundColor(YELLOW.into()),
                         ))
@@ -114,7 +114,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                 flex_basis: Val::Percent(100.0),
                 align_self: AlignSelf::Stretch,
                 padding: UiRect::all(Val::Px(10.)),
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(YELLOW.into()),
         ))
@@ -126,7 +126,7 @@ fn spawn_bar(parent: &mut ChildBuilder) {
                         width: Val::Percent(100.),
                         height: Val::Px(100.),
                         padding: UiRect::all(Val::Px(4.)),
-                        ..default()
+                        ..<_>::default()
                     },
                     BackgroundColor(Color::BLACK),
                 ))
@@ -154,7 +154,7 @@ fn spawn_button_row(
                 flex_direction: FlexDirection::Column,
                 padding: UiRect::all(Val::Px(2.)),
                 align_items: AlignItems::Stretch,
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::BLACK),
         ))
@@ -164,7 +164,7 @@ fn spawn_button_row(
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::End,
                     padding: UiRect::all(Val::Px(2.)),
-                    ..default()
+                    ..<_>::default()
                 })
                 .with_children(|parent| {
                     // spawn row label
@@ -174,7 +174,7 @@ fn spawn_button_row(
                             max_width: Val::Px(200.),
                             justify_content: JustifyContent::Center,
                             align_items: AlignItems::Center,
-                            ..default()
+                            ..<_>::default()
                         },))
                         .with_child((Text::new(label), text_style.clone()));
 
@@ -235,7 +235,7 @@ fn spawn_button(
                     Node {
                         width: Val::Px(100.),
                         justify_content: JustifyContent::Center,
-                        ..default()
+                        ..<_>::default()
                     },
                     BackgroundColor(if active {
                         ACTIVE_INNER_COLOR

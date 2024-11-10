@@ -54,9 +54,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Depth of Field Example".to_string(),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .add_systems(Startup, setup)
         .add_systems(Update, tweak_scene)
@@ -75,7 +75,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
         Transform::from_xyz(0.0, 4.5, 8.25).looking_at(Vec3::ZERO, Vec3::Y),
         Camera {
             hdr: true,
-            ..default()
+            ..<_>::default()
         },
         Tonemapping::TonyMcMapface,
         Bloom::NATURAL,
@@ -98,7 +98,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }
@@ -201,7 +201,7 @@ fn tweak_scene(
             materials.get_mut(material).unwrap().lightmap_exposure = 10000.0;
             commands.entity(entity).insert(Lightmap {
                 image: asset_server.load("models/DepthOfFieldExample/CircuitBoardLightmap.hdr"),
-                ..default()
+                ..<_>::default()
             });
         }
     }
@@ -226,7 +226,7 @@ impl From<AppSettings> for Option<DepthOfField> {
             focal_distance: app_settings.focal_distance,
             aperture_f_stops: app_settings.aperture_f_stops,
             max_depth: 14.0,
-            ..default()
+            ..<_>::default()
         })
     }
 }

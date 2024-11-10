@@ -126,7 +126,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
             intensity: 2_000_000.0,
             shadows_enabled: true,
             range: 30.0,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0, 10.0, 4.0),
     ));
@@ -162,7 +162,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                         game.player.j as f32,
                     ),
                     rotation: Quat::from_rotation_y(-PI / 2.),
-                    ..default()
+                    ..<_>::default()
                 },
                 SceneRoot(
                     asset_server
@@ -182,14 +182,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         Text::new("Score:"),
         TextFont {
             font_size: 33.0,
-            ..default()
+            ..<_>::default()
         },
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(5.0),
             left: Val::Px(5.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -247,7 +247,7 @@ fn move_player(
                     game.player.j as f32,
                 ),
                 rotation: Quat::from_rotation_y(rotation),
-                ..default()
+                ..<_>::default()
             };
         }
     }
@@ -353,7 +353,7 @@ fn spawn_bonus(
                     color: Color::srgb(1.0, 1.0, 0.0),
                     intensity: 500_000.0,
                     range: 10.0,
-                    ..default()
+                    ..<_>::default()
                 },
                 Transform::from_xyz(0.0, 2.0, 0.0),
             ))
@@ -396,14 +396,14 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
                 width: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                ..default()
+                ..<_>::default()
             },
         ))
         .with_child((
             Text::new(format!("Cake eaten: {}", game.cake_eaten)),
             TextFont {
                 font_size: 67.0,
-                ..default()
+                ..<_>::default()
             },
             TextColor(Color::srgb(0.5, 0.5, 1.0)),
         ));

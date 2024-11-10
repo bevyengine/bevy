@@ -58,7 +58,7 @@ fn setup(
             shadows_enabled: true,
             intensity: 10_000_000.,
             range: 100.0,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(8., 16., 8.),
     ));

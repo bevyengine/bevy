@@ -40,7 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             justify_content: JustifyContent::SpaceBetween,
-            ..default()
+            ..<_>::default()
         })
         .insert(PickingBehavior::IGNORE)
         .with_children(|parent| {
@@ -50,7 +50,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         width: Val::Px(200.),
                         border: UiRect::all(Val::Px(2.)),
-                        ..default()
+                        ..<_>::default()
                     },
                     BackgroundColor(Color::srgb(0.65, 0.65, 0.65)),
                 ))
@@ -63,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 flex_direction: FlexDirection::Column,
                                 padding: UiRect::all(Val::Px(5.)),
                                 row_gap: Val::Px(5.),
-                                ..default()
+                                ..<_>::default()
                             },
                             BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
                         ))
@@ -74,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 TextFont {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     font_size: 25.0,
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 // Because this is a distinct label widget and
                                 // not button/list item text, this is necessary
@@ -88,7 +88,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("Press Space to enable debug outlines."),
                                 TextFont {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 Label,
                             ));
@@ -98,7 +98,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Text::new("Try enabling feature \"bevy_dev_tools\"."),
                                 TextFont {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 Label,
                             ));
@@ -111,7 +111,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     width: Val::Px(200.),
-                    ..default()
+                    ..<_>::default()
                 })
                 .with_children(|parent| {
                     // Title
@@ -120,7 +120,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextFont {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 21.,
-                            ..default()
+                            ..<_>::default()
                         },
                         Label,
                     ));
@@ -132,7 +132,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 align_self: AlignSelf::Stretch,
                                 height: Val::Percent(50.),
                                 overflow: Overflow::scroll_y(),
-                                ..default()
+                                ..<_>::default()
                             },
                             BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
                         ))
@@ -144,14 +144,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         Text(format!("Item {i}")),
                                         TextFont {
                                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                            ..default()
+                                            ..<_>::default()
                                         },
                                         Label,
                                         AccessibilityNode(Accessible::new(Role::ListItem)),
                                     ))
                                     .insert(PickingBehavior {
                                         should_block_lower: false,
-                                        ..default()
+                                        ..<_>::default()
                                     });
                             }
                         });
@@ -162,7 +162,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     left: Val::Px(210.),
                     bottom: Val::Px(10.),
                     position_type: PositionType::Absolute,
-                    ..default()
+                    ..<_>::default()
                 })
                 .with_children(|parent| {
                     parent
@@ -173,7 +173,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 border: UiRect::all(Val::Px(20.)),
                                 flex_direction: FlexDirection::Column,
                                 justify_content: JustifyContent::Center,
-                                ..default()
+                                ..<_>::default()
                             },
                             BorderColor(LIME.into()),
                             BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
@@ -198,7 +198,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 blur_radius: Val::Px(2.),
                 x_offset: Val::Px(10.),
                 y_offset: Val::Px(10.),
-                ..default()
+                ..<_>::default()
             };
 
             // render order test: reddest in the back, whitest in the front (flex center)
@@ -209,7 +209,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     position_type: PositionType::Absolute,
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    ..default()
+                    ..<_>::default()
                 })
                 .insert(PickingBehavior::IGNORE)
                 .with_children(|parent| {
@@ -218,7 +218,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             Node {
                                 width: Val::Px(100.0),
                                 height: Val::Px(100.0),
-                                ..default()
+                                ..<_>::default()
                             },
                             BackgroundColor(Color::srgb(1.0, 0.0, 0.)),
                             shadow,
@@ -232,7 +232,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     position_type: PositionType::Absolute,
                                     left: Val::Px(20.),
                                     bottom: Val::Px(20.),
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 BackgroundColor(Color::srgb(1.0, 0.3, 0.3)),
                                 shadow,
@@ -244,7 +244,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     position_type: PositionType::Absolute,
                                     left: Val::Px(40.),
                                     bottom: Val::Px(40.),
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 BackgroundColor(Color::srgb(1.0, 0.5, 0.5)),
                                 shadow,
@@ -256,7 +256,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     position_type: PositionType::Absolute,
                                     left: Val::Px(60.),
                                     bottom: Val::Px(60.),
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 BackgroundColor(Color::srgb(0.0, 0.7, 0.7)),
                                 shadow,
@@ -269,7 +269,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     position_type: PositionType::Absolute,
                                     left: Val::Px(80.),
                                     bottom: Val::Px(80.),
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 BackgroundColor(Color::srgba(1.0, 0.9, 0.9, 0.4)),
                                 BoxShadow {
@@ -286,7 +286,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     position_type: PositionType::Absolute,
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::FlexStart,
-                    ..default()
+                    ..<_>::default()
                 })
                 .with_children(|parent| {
                     // bevy logo (image)
@@ -298,7 +298,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 width: Val::Px(500.0),
                                 height: Val::Px(125.0),
                                 margin: UiRect::top(Val::VMin(5.)),
-                                ..default()
+                                ..<_>::default()
                             },
                         ))
                         .with_children(|parent| {
@@ -308,7 +308,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent.spawn((
                                 Node {
                                     display: Display::None,
-                                    ..default()
+                                    ..<_>::default()
                                 },
                                 Text::new("Bevy logo"),
                             ));
@@ -325,7 +325,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     align_items: AlignItems::FlexEnd,
                     column_gap: Val::Px(10.),
                     padding: UiRect::all(Val::Px(10.)),
-                    ..default()
+                    ..<_>::default()
                 })
                 .with_children(|parent| {
                     for (flip_x, flip_y) in
@@ -336,12 +336,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 image: asset_server.load("branding/icon.png"),
                                 flip_x,
                                 flip_y,
-                                ..default()
+                                ..<_>::default()
                             },
                             Node {
                                 // The height will be chosen automatically to preserve the image's aspect ratio
                                 width: Val::Px(75.),
-                                ..default()
+                                ..<_>::default()
                             },
                         ));
                     }

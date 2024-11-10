@@ -30,7 +30,7 @@ mod rangefinder;
 
 use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
-use bevy_utils::{default, hashbrown::hash_map::Entry, HashMap};
+use bevy_utils::{hashbrown::hash_map::Entry, HashMap};
 pub use draw::*;
 pub use draw_state::*;
 use encase::{internal::WriteInto, ShaderSize};
@@ -249,7 +249,7 @@ where
     BPI: BinnedPhaseItem,
 {
     fn default() -> Self {
-        Self(default())
+        Self(<_>::default())
     }
 }
 
@@ -261,7 +261,7 @@ where
         match self.entry(entity) {
             Entry::Occupied(mut entry) => entry.get_mut().clear(),
             Entry::Vacant(entry) => {
-                entry.insert(default());
+                entry.insert(<_>::default());
             }
         }
     }
@@ -300,7 +300,7 @@ where
                         self.unbatchable_mesh_keys.push(key);
                         entry.insert(UnbatchableBinnedEntities {
                             entities: vec![entity],
-                            buffer_indices: default(),
+                            buffer_indices: <_>::default(),
                         });
                     }
                 }
@@ -590,7 +590,7 @@ where
     SPI: SortedPhaseItem,
 {
     fn default() -> Self {
-        Self(default())
+        Self(<_>::default())
     }
 }
 
@@ -602,7 +602,7 @@ where
         match self.entry(entity) {
             Entry::Occupied(mut entry) => entry.get_mut().clear(),
             Entry::Vacant(entry) => {
-                entry.insert(default());
+                entry.insert(<_>::default());
             }
         }
     }

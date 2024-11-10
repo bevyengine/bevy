@@ -9,9 +9,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Minimizing".into(),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .add_systems(Startup, (setup_3d, setup_2d))
         .add_systems(Update, minimize_automatically)
@@ -47,7 +47,7 @@ fn setup_3d(
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
@@ -67,7 +67,7 @@ fn setup_2d(mut commands: Commands) {
             order: 1,
             // do not use a clear color
             clear_color: ClearColorConfig::None,
-            ..default()
+            ..<_>::default()
         },
     ));
     commands.spawn(Sprite::from_color(

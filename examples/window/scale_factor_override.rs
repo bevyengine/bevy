@@ -11,9 +11,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 resolution: WindowResolution::new(500., 300.).with_scale_factor_override(1.0),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .add_systems(Startup, setup)
         .add_systems(
@@ -32,7 +32,7 @@ fn setup(mut commands: Commands) {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             justify_content: JustifyContent::SpaceBetween,
-            ..default()
+            ..<_>::default()
         })
         .with_children(|parent| {
             // left vertical fill (border)
@@ -42,7 +42,7 @@ fn setup(mut commands: Commands) {
                         width: Val::Px(300.0),
                         height: Val::Percent(100.0),
                         border: UiRect::all(Val::Px(2.0)),
-                        ..default()
+                        ..<_>::default()
                     },
                     BackgroundColor(Color::srgb(0.65, 0.65, 0.65)),
                 ))
@@ -51,11 +51,11 @@ fn setup(mut commands: Commands) {
                     Text::new("Example text"),
                     TextFont {
                         font_size: 25.0,
-                        ..default()
+                        ..<_>::default()
                     },
                     Node {
                         align_self: AlignSelf::FlexEnd,
-                        ..default()
+                        ..<_>::default()
                     },
                 ));
         });

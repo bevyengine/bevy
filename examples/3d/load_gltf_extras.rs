@@ -24,7 +24,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn(DirectionalLight {
         shadows_enabled: true,
-        ..default()
+        ..<_>::default()
     });
 
     // a barebones scene containing one of each gltf_extra type
@@ -37,13 +37,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::default(),
         TextFont {
             font_size: 15.,
-            ..default()
+            ..<_>::default()
         },
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
         ExampleDisplay,
     ));

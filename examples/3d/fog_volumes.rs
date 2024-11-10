@@ -17,9 +17,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Fog Volumes Example".into(),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .insert_resource(AmbientLight::NONE)
         .add_systems(Startup, setup)
@@ -38,7 +38,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // Scatter as much of the light as possible, to brighten the bunny
             // up.
             scattering: 1.0,
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -48,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         DirectionalLight {
             shadows_enabled: true,
             illuminance: 32000.0,
-            ..default()
+            ..<_>::default()
         },
         // Make sure to add this for the light to interact with the fog.
         VolumetricLight,
@@ -60,14 +60,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_xyz(-0.75, 1.0, 2.0).looking_at(vec3(0.0, 0.0, 0.0), Vec3::Y),
         Camera {
             hdr: true,
-            ..default()
+            ..<_>::default()
         },
         VolumetricFog {
             // Make this relatively high in order to increase the fog quality.
             step_count: 64,
             // Disable ambient light.
             ambient_intensity: 0.0,
-            ..default()
+            ..<_>::default()
         },
     ));
 }

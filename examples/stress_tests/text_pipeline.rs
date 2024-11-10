@@ -19,9 +19,9 @@ fn main() {
                     present_mode: PresentMode::AutoNoVsync,
                     resolution: WindowResolution::new(1920.0, 1080.0)
                         .with_scale_factor_override(1.0),
-                    ..default()
+                    ..<_>::default()
                 }),
-                ..default()
+                ..<_>::default()
             }),
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
@@ -56,7 +56,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextFont {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: (4 + i % 11) as f32,
-                    ..default()
+                    ..<_>::default()
                 },
                 TextColor(YELLOW.into()),
             ),

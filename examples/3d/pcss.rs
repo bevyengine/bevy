@@ -63,8 +63,8 @@ struct AppStatus {
 impl Default for AppStatus {
     fn default() -> Self {
         Self {
-            light_type: default(),
-            shadow_filter: default(),
+            light_type: <_>::default(),
+            shadow_filter: <_>::default(),
             soft_shadows: true,
         }
     }
@@ -116,9 +116,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Percentage Closer Soft Shadows Example".into(),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .add_plugins(TemporalAntiAliasPlugin)
         .add_event::<WidgetClickEvent<AppSetting>>()
@@ -377,7 +377,7 @@ fn create_directional_light(app_status: &AppStatus) -> DirectionalLight {
             None
         },
         shadow_depth_bias: DIRECTIONAL_SHADOW_DEPTH_BIAS,
-        ..default()
+        ..<_>::default()
     }
 }
 
@@ -391,7 +391,7 @@ fn create_point_light(app_status: &AppStatus) -> PointLight {
         soft_shadows_enabled: app_status.soft_shadows,
         shadow_depth_bias: POINT_SHADOW_DEPTH_BIAS,
         shadow_map_near_z: SHADOW_MAP_NEAR_Z,
-        ..default()
+        ..<_>::default()
     }
 }
 
@@ -405,6 +405,6 @@ fn create_spot_light(app_status: &AppStatus) -> SpotLight {
         soft_shadows_enabled: app_status.soft_shadows,
         shadow_depth_bias: DIRECTIONAL_SHADOW_DEPTH_BIAS,
         shadow_map_near_z: SHADOW_MAP_NEAR_Z,
-        ..default()
+        ..<_>::default()
     }
 }

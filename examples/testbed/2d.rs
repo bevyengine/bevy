@@ -117,7 +117,7 @@ mod bloom {
             Camera2d,
             Camera {
                 hdr: true,
-                ..default()
+                ..<_>::default()
             },
             Tonemapping::TonyMcMapface,
             Bloom::default(),
@@ -146,7 +146,7 @@ mod text {
     pub fn setup(mut commands: Commands) {
         let text_font = TextFont {
             font_size: 50.0,
-            ..default()
+            ..<_>::default()
         };
         let text_justification = JustifyText::Center;
         commands.spawn((Camera2d, StateScoped(super::Scene::Text)));

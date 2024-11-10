@@ -77,7 +77,7 @@ mod light {
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color: Color::WHITE,
                 perceptual_roughness: 1.0,
-                ..default()
+                ..<_>::default()
             })),
             StateScoped(CURRENT_SCENE),
         ));
@@ -86,7 +86,7 @@ mod light {
             Mesh3d(meshes.add(Cuboid::default())),
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color: DEEP_PINK.into(),
-                ..default()
+                ..<_>::default()
             })),
             Transform::from_xyz(0.0, 1.0, 0.0),
             StateScoped(CURRENT_SCENE),
@@ -97,7 +97,7 @@ mod light {
                 intensity: 100_000.0,
                 color: RED.into(),
                 shadows_enabled: true,
-                ..default()
+                ..<_>::default()
             },
             Transform::from_xyz(1.0, 2.0, 0.0),
             StateScoped(CURRENT_SCENE),
@@ -110,7 +110,7 @@ mod light {
                 shadows_enabled: true,
                 inner_angle: 0.6,
                 outer_angle: 0.8,
-                ..default()
+                ..<_>::default()
             },
             Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
             StateScoped(CURRENT_SCENE),
@@ -120,12 +120,12 @@ mod light {
             DirectionalLight {
                 illuminance: light_consts::lux::OVERCAST_DAY,
                 shadows_enabled: true,
-                ..default()
+                ..<_>::default()
             },
             Transform {
                 translation: Vec3::new(0.0, 2.0, 0.0),
                 rotation: Quat::from_rotation_x(-PI / 4.),
-                ..default()
+                ..<_>::default()
             },
             StateScoped(CURRENT_SCENE),
         ));
@@ -155,7 +155,7 @@ mod bloom {
             Camera3d::default(),
             Camera {
                 hdr: true,
-                ..default()
+                ..<_>::default()
             },
             Tonemapping::TonyMcMapface,
             Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -165,11 +165,11 @@ mod bloom {
 
         let material_emissive1 = materials.add(StandardMaterial {
             emissive: LinearRgba::rgb(13.99, 5.32, 2.0),
-            ..default()
+            ..<_>::default()
         });
         let material_emissive2 = materials.add(StandardMaterial {
             emissive: LinearRgba::rgb(2.0, 13.99, 5.32),
-            ..default()
+            ..<_>::default()
         });
 
         let mesh = meshes.add(Sphere::new(0.5).mesh().ico(5).unwrap());
@@ -204,7 +204,7 @@ mod gltf {
                 diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
                 specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
                 intensity: 250.0,
-                ..default()
+                ..<_>::default()
             },
             StateScoped(CURRENT_SCENE),
         ));
@@ -212,7 +212,7 @@ mod gltf {
         commands.spawn((
             DirectionalLight {
                 shadows_enabled: true,
-                ..default()
+                ..<_>::default()
             },
             StateScoped(CURRENT_SCENE),
         ));
@@ -264,7 +264,7 @@ mod animation {
             Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
             DirectionalLight {
                 shadows_enabled: true,
-                ..default()
+                ..<_>::default()
             },
             StateScoped(CURRENT_SCENE),
         ));

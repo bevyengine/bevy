@@ -25,7 +25,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let text_font = TextFont {
         font_size: 13.,
-        ..default()
+        ..<_>::default()
     };
 
     commands
@@ -38,7 +38,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 top: Val::Percent(25.),
                 justify_content: JustifyContent::SpaceAround,
                 align_items: AlignItems::Center,
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(ANTIQUE_WHITE.into()),
         ))
@@ -48,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     Node {
                         width: Val::Px(40.0),
                         height: Val::Px(40.0),
-                        ..default()
+                        ..<_>::default()
                     },
                     BackgroundColor(RED.into()),
                 ))
@@ -59,7 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Node {
                     width: Val::Percent(15.0),
                     height: Val::Percent(15.0),
-                    ..default()
+                    ..<_>::default()
                 },
                 BackgroundColor(BLUE.into()),
             ));
@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Node {
                     width: Val::Px(30.0),
                     height: Val::Px(30.0),
-                    ..default()
+                    ..<_>::default()
                 },
             ));
         });

@@ -249,7 +249,7 @@ fn setup_menu(mut commands: Commands) {
             height: Val::Percent(100.),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            ..default()
+            ..<_>::default()
         })
         .with_children(|parent| {
             parent
@@ -262,7 +262,7 @@ fn setup_menu(mut commands: Commands) {
                         justify_content: JustifyContent::Center,
                         // vertically center child text
                         align_items: AlignItems::Center,
-                        ..default()
+                        ..<_>::default()
                     },
                     BackgroundColor(NORMAL_BUTTON),
                 ))
@@ -271,7 +271,7 @@ fn setup_menu(mut commands: Commands) {
                         Text::new("Play"),
                         TextFont {
                             font_size: 33.0,
-                            ..default()
+                            ..<_>::default()
                         },
                         TextColor(Color::srgb(0.9, 0.9, 0.9)),
                     ));

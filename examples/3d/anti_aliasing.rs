@@ -264,7 +264,7 @@ fn setup(
 
     let cube_material = materials.add(StandardMaterial {
         base_color_texture: Some(images.add(uv_debug_texture())),
-        ..default()
+        ..<_>::default()
     });
 
     // Cubes
@@ -286,13 +286,13 @@ fn setup(
         DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
         CascadeShadowConfigBuilder {
             maximum_distance: 3.0,
             first_cascade_far_bound: 0.9,
-            ..default()
+            ..<_>::default()
         }
         .build(),
     ));
@@ -302,18 +302,18 @@ fn setup(
         Camera3d::default(),
         Camera {
             hdr: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ContrastAdaptiveSharpening {
             enabled: false,
-            ..default()
+            ..<_>::default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 150.0,
-            ..default()
+            ..<_>::default()
         },
         DistanceFog {
             color: Color::srgba_u8(43, 44, 47, 255),
@@ -321,7 +321,7 @@ fn setup(
                 start: 1.0,
                 end: 4.0,
             },
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -332,7 +332,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

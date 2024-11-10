@@ -87,7 +87,7 @@ fn main() {
     // register the audio source so that it can be used
     app.add_plugins(DefaultPlugins.set(AudioPlugin {
         global_volume: GlobalVolume::new(0.2),
-        ..default()
+        ..<_>::default()
     }))
     .add_audio_source::<SineAudio>()
     .add_systems(Startup, setup)

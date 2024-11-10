@@ -98,7 +98,7 @@ fn setup_ui(mut commands: Commands) {
             Node {
                 align_self: AlignSelf::Center,
                 justify_self: JustifySelf::Center,
-                ..default()
+                ..<_>::default()
             },
         ))
         .with_children(|p| {

@@ -32,7 +32,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     let second_window = commands
         .spawn(Window {
             title: "Second window".to_owned(),
-            ..default()
+            ..<_>::default()
         })
         .id();
 
@@ -42,7 +42,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
             Camera {
                 target: RenderTarget::Window(WindowRef::Entity(second_window)),
-                ..default()
+                ..<_>::default()
             },
         ))
         .id();
@@ -51,7 +51,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         position_type: PositionType::Absolute,
         top: Val::Px(12.0),
         left: Val::Px(12.0),
-        ..default()
+        ..<_>::default()
     };
 
     commands.spawn((

@@ -133,7 +133,7 @@ fn setup_scene(
             intensity: 10_000_000.,
             range: 100.0,
             shadow_depth_bias: 0.2,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(8.0, 16.0, 8.0),
     ));
@@ -151,7 +151,7 @@ fn setup_scene(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

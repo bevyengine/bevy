@@ -40,7 +40,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::{info_once, prelude::default};
+use bevy_utils::info_once;
 
 use crate::{
     binding_arrays_are_usable, graph::NodePbr, prelude::EnvironmentMapLight,
@@ -377,7 +377,7 @@ impl FromWorld for ScreenSpaceReflectionsPipeline {
             address_mode_v: AddressMode::ClampToEdge,
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
-            ..default()
+            ..<_>::default()
         });
 
         let depth_linear_sampler = render_device.create_sampler(&SamplerDescriptor {
@@ -386,7 +386,7 @@ impl FromWorld for ScreenSpaceReflectionsPipeline {
             address_mode_v: AddressMode::ClampToEdge,
             mag_filter: FilterMode::Linear,
             min_filter: FilterMode::Linear,
-            ..default()
+            ..<_>::default()
         });
 
         let depth_nearest_sampler = render_device.create_sampler(&SamplerDescriptor {
@@ -395,7 +395,7 @@ impl FromWorld for ScreenSpaceReflectionsPipeline {
             address_mode_v: AddressMode::ClampToEdge,
             mag_filter: FilterMode::Nearest,
             min_filter: FilterMode::Nearest,
-            ..default()
+            ..<_>::default()
         });
 
         Self {
@@ -557,9 +557,9 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
                 })],
             }),
             push_constant_ranges: vec![],
-            primitive: default(),
+            primitive: <_>::default(),
             depth_stencil: None,
-            multisample: default(),
+            multisample: <_>::default(),
             zero_initialize_workgroup_memory: false,
         }
     }

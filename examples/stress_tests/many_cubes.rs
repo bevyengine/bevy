@@ -107,9 +107,9 @@ fn main() {
                     present_mode: PresentMode::AutoNoVsync,
                     resolution: WindowResolution::new(1920.0, 1080.0)
                         .with_scale_factor_override(1.0),
-                    ..default()
+                    ..<_>::default()
                 }),
-                ..default()
+                ..<_>::default()
             }),
             FrameTimeDiagnosticsPlugin,
             LogDiagnosticsPlugin::default(),
@@ -244,7 +244,7 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             shadows_enabled: args.shadows,
-            ..default()
+            ..<_>::default()
         },
         Transform::IDENTITY.looking_at(Vec3::new(0.0, -1.0, -1.0), Vec3::Y),
     ));
@@ -294,7 +294,7 @@ fn init_materials(
     materials.push(assets.add(StandardMaterial {
         base_color: Color::WHITE,
         base_color_texture: textures.first().cloned(),
-        ..default()
+        ..<_>::default()
     }));
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
@@ -306,7 +306,7 @@ fn init_materials(
             assets.add(StandardMaterial {
                 base_color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
                 base_color_texture: textures.choose(&mut texture_rng).cloned(),
-                ..default()
+                ..<_>::default()
             })
         })
         .take(capacity - materials.len()),

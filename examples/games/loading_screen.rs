@@ -79,14 +79,14 @@ fn setup(mut commands: Commands) {
     // Spawns the UI that will show the user prompts.
     let text_style = TextFont {
         font_size: 42.0,
-        ..default()
+        ..<_>::default()
     };
     commands
         .spawn((
             Node {
                 justify_self: JustifySelf::Center,
                 align_self: AlignSelf::FlexEnd,
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::NONE),
         ))
@@ -154,7 +154,7 @@ fn load_level_1(
     commands.spawn((
         DirectionalLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         LevelComponents,
@@ -185,7 +185,7 @@ fn load_level_2(
     commands.spawn((
         DirectionalLight {
             shadows_enabled: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(3.0, 3.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         LevelComponents,
@@ -240,7 +240,7 @@ struct LoadingScreen;
 fn load_loading_screen(mut commands: Commands) {
     let text_style = TextFont {
         font_size: 67.0,
-        ..default()
+        ..<_>::default()
     };
 
     // Spawn the UI and Loading screen camera.
@@ -248,7 +248,7 @@ fn load_loading_screen(mut commands: Commands) {
         Camera2d,
         Camera {
             order: 1,
-            ..default()
+            ..<_>::default()
         },
         LoadingScreen,
     ));
@@ -261,7 +261,7 @@ fn load_loading_screen(mut commands: Commands) {
                 width: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                ..default()
+                ..<_>::default()
             },
             BackgroundColor(Color::BLACK),
             LoadingScreen,

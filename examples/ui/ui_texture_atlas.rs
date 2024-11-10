@@ -40,7 +40,7 @@ fn setup(
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             row_gap: Val::Px(text_font.font_size * 2.),
-            ..default()
+            ..<_>::default()
         })
         .with_children(|parent| {
             parent.spawn((
@@ -51,7 +51,7 @@ fn setup(
                 Node {
                     width: Val::Px(256.),
                     height: Val::Px(256.),
-                    ..default()
+                    ..<_>::default()
                 },
                 BackgroundColor(ANTIQUE_WHITE.into()),
                 Outline::new(Val::Px(8.0), Val::ZERO, CRIMSON.into()),

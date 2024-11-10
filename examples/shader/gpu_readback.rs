@@ -84,7 +84,7 @@ fn setup(
     let size = Extent3d {
         width: BUFFER_LEN as u32,
         height: 1,
-        ..default()
+        ..<_>::default()
     };
     let mut image = Image::new_fill(
         size,
@@ -209,7 +209,7 @@ impl render_graph::Node for ComputeNode {
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
                         label: Some("GPU readback compute pass"),
-                        ..default()
+                        ..<_>::default()
                     });
 
             pass.set_bind_group(0, &bind_group.0, &[]);

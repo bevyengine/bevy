@@ -107,7 +107,7 @@ fn spawn_camera(commands: &mut Commands) {
         Camera3d::default(),
         Camera {
             hdr: true,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
     ));
@@ -142,7 +142,7 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
             diffuse_map: cubemaps.diffuse.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),
             intensity: 5000.0,
-            ..default()
+            ..<_>::default()
         },
         // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
         Transform::from_scale(Vec3::splat(2.0)),
@@ -158,7 +158,7 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }
@@ -178,7 +178,7 @@ fn add_environment_map_to_camera(
             .insert(Skybox {
                 image: cubemaps.skybox.clone(),
                 brightness: 5000.0,
-                ..default()
+                ..<_>::default()
             });
     }
 }
@@ -288,7 +288,7 @@ fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLig
         diffuse_map: cubemaps.diffuse.clone(),
         specular_map: cubemaps.specular_environment_map.clone(),
         intensity: 5000.0,
-        ..default()
+        ..<_>::default()
     }
 }
 

@@ -50,9 +50,9 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Anisotropy Example".into(),
-                ..default()
+                ..<_>::default()
             }),
-            ..default()
+            ..<_>::default()
         }))
         .add_systems(Startup, setup)
         .add_systems(Update, create_material_variants)
@@ -87,7 +87,7 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }
@@ -238,13 +238,13 @@ fn add_skybox_and_environment_map(
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            ..default()
+            ..<_>::default()
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2500.0,
-            ..default()
+            ..<_>::default()
         });
 }
 
@@ -253,7 +253,7 @@ fn spawn_directional_light(commands: &mut Commands) {
     commands.spawn(DirectionalLight {
         color: WHITE.into(),
         illuminance: 3000.0,
-        ..default()
+        ..<_>::default()
     });
 }
 
@@ -262,7 +262,7 @@ fn spawn_point_light(commands: &mut Commands) {
     commands.spawn(PointLight {
         color: WHITE.into(),
         intensity: 200000.0,
-        ..default()
+        ..<_>::default()
     });
 }
 
@@ -294,7 +294,7 @@ impl AppStatus {
 impl Default for AppStatus {
     fn default() -> Self {
         Self {
-            light_mode: default(),
+            light_mode: <_>::default(),
             anisotropy_enabled: true,
         }
     }

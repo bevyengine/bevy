@@ -46,7 +46,7 @@ fn setup(
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Opaque,
-                ..default()
+                ..<_>::default()
             })),
             Transform::from_xyz(-4.0, 0.0, 0.0),
             ExampleControls {
@@ -63,7 +63,7 @@ fn setup(
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Blend,
-                ..default()
+                ..<_>::default()
             })),
             Transform::from_xyz(-2.0, 0.0, 0.0),
             ExampleControls {
@@ -80,7 +80,7 @@ fn setup(
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Premultiplied,
-                ..default()
+                ..<_>::default()
             })),
             Transform::from_xyz(0.0, 0.0, 0.0),
             ExampleControls {
@@ -97,7 +97,7 @@ fn setup(
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Add,
-                ..default()
+                ..<_>::default()
             })),
             Transform::from_xyz(2.0, 0.0, 0.0),
             ExampleControls {
@@ -114,7 +114,7 @@ fn setup(
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Multiply,
-                ..default()
+                ..<_>::default()
             })),
             Transform::from_xyz(4.0, 0.0, 0.0),
             ExampleControls {
@@ -162,7 +162,7 @@ fn setup(
     // We need the full version of this font so we can use box drawing characters.
     let text_style = TextFont {
         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-        ..default()
+        ..<_>::default()
     };
 
     let label_text_style = (text_style.clone(), TextColor(ORANGE.into()));
@@ -173,7 +173,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         })
     );
 
@@ -184,7 +184,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             right: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
         ExampleDisplay,
     ));
@@ -194,7 +194,7 @@ fn setup(
             .spawn((
                 Node {
                     position_type: PositionType::Absolute,
-                    ..default()
+                    ..<_>::default()
                 },
                 ExampleLabel { entity },
             ))
@@ -205,7 +205,7 @@ fn setup(
                     Node {
                         position_type: PositionType::Absolute,
                         bottom: Val::ZERO,
-                        ..default()
+                        ..<_>::default()
                     },
                     TextLayout::default().with_no_wrap(),
                 ));

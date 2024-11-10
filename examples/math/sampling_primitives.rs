@@ -288,7 +288,7 @@ fn setup(
             base_color: Color::srgb(0.3, 0.5, 0.3),
             perceptual_roughness: 0.95,
             metallic: 0.0,
-            ..default()
+            ..<_>::default()
         })),
         Transform::from_xyz(0.0, -2.5, 0.0),
     ));
@@ -298,7 +298,7 @@ fn setup(
         reflectance: 0.0,
         alpha_mode: AlphaMode::Blend,
         cull_mode: None,
-        ..default()
+        ..<_>::default()
     });
 
     // Spawn shapes to be sampled
@@ -318,7 +318,7 @@ fn setup(
                 intensity: 1.0,
                 shadows_enabled: false,
                 color: Color::LinearRgba(INSIDE_POINT_COLOR),
-                ..default()
+                ..<_>::default()
             },
             Transform::from_translation(*translation),
             FireflyLights,
@@ -331,7 +331,7 @@ fn setup(
             color: SKY_COLOR,
             intensity: 2_000.0,
             shadows_enabled: false,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
@@ -342,7 +342,7 @@ fn setup(
         Camera {
             hdr: true, // HDR is required for bloom
             clear_color: ClearColorConfig::Custom(SKY_COLOR),
-            ..default()
+            ..<_>::default()
         },
         Tonemapping::TonyMcMapface,
         Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -364,13 +364,13 @@ fn setup(
             base_color: Color::BLACK,
             reflectance: 0.05,
             emissive: 2.5 * INSIDE_POINT_COLOR,
-            ..default()
+            ..<_>::default()
         }),
         boundary: materials.add(StandardMaterial {
             base_color: Color::BLACK,
             reflectance: 0.05,
             emissive: 1.5 * BOUNDARY_POINT_COLOR,
-            ..default()
+            ..<_>::default()
         }),
     });
 
@@ -392,7 +392,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 

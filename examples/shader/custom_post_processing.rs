@@ -318,13 +318,13 @@ fn setup(
         Transform::from_translation(Vec3::new(0.0, 0.0, 5.0)).looking_at(Vec3::default(), Vec3::Y),
         Camera {
             clear_color: Color::WHITE.into(),
-            ..default()
+            ..<_>::default()
         },
         // Add the setting to the camera.
         // This component is also used to determine on which camera to run the post processing effect.
         PostProcessSettings {
             intensity: 0.02,
-            ..default()
+            ..<_>::default()
         },
     ));
 
@@ -338,7 +338,7 @@ fn setup(
     // light
     commands.spawn(DirectionalLight {
         illuminance: 1_000.,
-        ..default()
+        ..<_>::default()
     });
 }
 

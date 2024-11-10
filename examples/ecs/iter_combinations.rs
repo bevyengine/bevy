@@ -84,7 +84,7 @@ fn generate_bodies(
             Transform {
                 translation: position,
                 scale: Vec3::splat(radius),
-                ..default()
+                ..<_>::default()
             },
         ));
     }
@@ -98,11 +98,11 @@ fn generate_bodies(
                 material: MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: ORANGE_RED.into(),
                     emissive: LinearRgba::from(ORANGE_RED) * 2.,
-                    ..default()
+                    ..<_>::default()
                 })),
 
                 mass: Mass(500.0),
-                ..default()
+                ..<_>::default()
             },
             Transform::from_scale(Vec3::splat(star_radius)),
             Star,
@@ -111,7 +111,7 @@ fn generate_bodies(
             color: Color::WHITE,
             range: 100.0,
             radius: star_radius,
-            ..default()
+            ..<_>::default()
         });
     commands.spawn((
         Camera3d::default(),

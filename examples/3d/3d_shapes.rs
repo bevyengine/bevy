@@ -52,7 +52,7 @@ fn setup(
 ) {
     let debug_material = materials.add(StandardMaterial {
         base_color_texture: Some(images.add(uv_debug_texture())),
-        ..default()
+        ..<_>::default()
     });
 
     let shapes = [
@@ -116,7 +116,7 @@ fn setup(
             intensity: 10_000_000.,
             range: 100.0,
             shadow_depth_bias: 0.2,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(8.0, 16.0, 8.0),
     ));
@@ -139,7 +139,7 @@ fn setup(
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }

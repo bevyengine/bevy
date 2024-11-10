@@ -2,8 +2,7 @@
 pub use crate::{
     app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*, input::prelude::*,
     log::prelude::*, math::prelude::*, reflect::prelude::*, time::prelude::*,
-    transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins, HeadlessPlugins,
-    MinimalPlugins,
+    transform::prelude::*, window::prelude::*, DefaultPlugins, HeadlessPlugins, MinimalPlugins,
 };
 
 #[doc(hidden)]

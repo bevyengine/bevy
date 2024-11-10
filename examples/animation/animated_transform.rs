@@ -35,7 +35,7 @@ fn setup(
     commands.spawn((
         PointLight {
             intensity: 500_000.0,
-            ..default()
+            ..<_>::default()
         },
         Transform::from_xyz(0.0, 2.5, 0.0),
     ));

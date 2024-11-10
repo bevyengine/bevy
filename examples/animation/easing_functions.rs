@@ -18,7 +18,7 @@ fn setup(mut commands: Commands) {
 
     let text_font = TextFont {
         font_size: 10.0,
-        ..default()
+        ..<_>::default()
     };
 
     for (i, functions) in [
@@ -92,7 +92,7 @@ fn setup(mut commands: Commands) {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
-            ..default()
+            ..<_>::default()
         },
     ));
 }
