@@ -776,7 +776,7 @@ mod tests {
         assert!(ui_surface.entity_to_taffy.is_empty());
     }
 
-    /// bugfix test, see https://github.com/bevyengine/bevy/pull/16288
+    /// bugfix test, see [#16288](https://github.com/bevyengine/bevy/pull/16288)
     #[test]
     fn node_removal_and_reinsert_should_work() {
         let (mut world, mut ui_schedule) = setup_ui_test_world();
