@@ -463,11 +463,11 @@ mod tests {
     use bevy_hierarchy::{
         despawn_with_children_recursive, BuildChildren, ChildBuild, Children, Parent,
     };
+    use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_render::{
         camera::{ManualTextureViews, OrthographicProjection},
         prelude::Camera,
-        texture::Image,
     };
     use bevy_transform::{
         prelude::GlobalTransform,
