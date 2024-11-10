@@ -20,7 +20,7 @@ Explanation:
 
 - `-D warnings`: No warnings are allowed in the codebase.
 
-## [super-linter](https://github.com/github/super-linter)
+## [super-linter](https://github.com/super-linter/super-linter)
 
 `super-linter` provides easy access to many different Linters.
 
@@ -31,6 +31,6 @@ Its configuration is saved in [.markdownlint.jsonc](../.markdownlint.jsonc) with
 
 The provided rules are documented [here](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md) and information about setting the config can be seen [here](https://github.com/DavidAnson/markdownlint#optionsconfig).
 
-### Other Linters provided by [super-linter](https://github.com/github/super-linter)
+### Other Linters provided by [super-linter](https://github.com/super-linter/super-linter)
 
-All other linters not mentioned in this file are not activated and can be seen [here](https://github.com/github/super-linter#supported-linters).
+All other linters not mentioned in this file are not activated and can be seen [here](https://github.com/super-linter/super-linter#supported-linters).
