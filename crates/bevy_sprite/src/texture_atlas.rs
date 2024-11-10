@@ -1,9 +1,9 @@
 use bevy_asset::{Asset, AssetId, Assets, Handle};
+use bevy_image::Image;
 use bevy_math::{URect, UVec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_render::texture::Image;
 use bevy_utils::HashMap;
 
 /// Stores a mapping from sub texture handles to the related area index.

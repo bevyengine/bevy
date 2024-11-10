@@ -5,6 +5,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::FromWorld,
 };
+use bevy_image::BevyDefault as _;
 use bevy_render::{
     globals::GlobalsUniform,
     render_resource::{
@@ -19,7 +20,6 @@ use bevy_render::{
         TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
-    texture::BevyDefault,
     view::{ExtractedView, Msaa, ViewTarget},
 };
 

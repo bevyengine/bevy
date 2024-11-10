@@ -1,9 +1,8 @@
 //! Shows how to modify texture assets after spawning.
 
 use bevy::{
-    input::common_conditions::input_just_pressed,
-    prelude::*,
-    render::{render_asset::RenderAssetUsages, texture::ImageLoaderSettings},
+    image::ImageLoaderSettings, input::common_conditions::input_just_pressed, prelude::*,
+    render::render_asset::RenderAssetUsages,
 };
 
 fn main() {

@@ -7,13 +7,13 @@ use bevy::{
         fxaa::Fxaa,
         prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     },
+    image::ImageLoaderSettings,
     math::ops,
     pbr::{
         CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
         NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
     },
     prelude::*,
-    render::texture::ImageLoaderSettings,
 };
 
 fn main() {
