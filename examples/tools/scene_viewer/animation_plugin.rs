@@ -145,7 +145,7 @@ fn assign_clips(
         commands
             .entity(player_entity)
             .insert(animations)
-            .insert(graph);
+            .insert(AnimationGraphHandle(graph));
     }
 }
 

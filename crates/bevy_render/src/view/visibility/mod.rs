@@ -9,7 +9,7 @@ pub use range::*;
 pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, query::QueryFilter};
 use bevy_hierarchy::{Children, Parent};
@@ -17,13 +17,13 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
 use bevy_utils::{Parallel, TypeIdMap};
 
+use super::NoCpuCulling;
+use crate::sync_world::MainEntity;
 use crate::{
     camera::{Camera, CameraProjection},
-    mesh::Mesh,
+    mesh::{Mesh, Mesh3d, MeshAabb},
     primitives::{Aabb, Frustum, Sphere},
 };
-
-use super::NoCpuCulling;
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
 ///
@@ -205,8 +205,8 @@ pub struct NoFrustumCulling;
 ///
 /// This component contains all entities which are visible from the currently
 /// rendered view. The collection is updated automatically by the [`VisibilitySystems::CheckVisibility`]
-/// system set, and renderers can use it to optimize rendering of a particular view, to
-/// prevent drawing items not visible from that view.
+/// system set. Renderers can use the equivalent [`RenderVisibleEntities`] to optimize rendering of
+/// a particular view, to prevent drawing items not visible from that view.
 ///
 /// This component is intended to be attached to the same entity as the [`Camera`] and
 /// the [`Frustum`] defining the view.
@@ -271,9 +271,48 @@ impl VisibleEntities {
     }
 }
 
-/// A convenient alias for `With<Handle<Mesh>>`, for use with
-/// [`VisibleEntities`].
-pub type WithMesh = With<Handle<Mesh>>;
+/// Collection of entities visible from the current view.
+///
+/// This component is extracted from [`VisibleEntities`].
+#[derive(Clone, Component, Default, Debug, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct RenderVisibleEntities {
+    #[reflect(ignore)]
+    pub entities: TypeIdMap<Vec<(Entity, MainEntity)>>,
+}
+
+impl RenderVisibleEntities {
+    pub fn get<QF>(&self) -> &[(Entity, MainEntity)]
+    where
+        QF: 'static,
+    {
+        match self.entities.get(&TypeId::of::<QF>()) {
+            Some(entities) => &entities[..],
+            None => &[],
+        }
+    }
+
+    pub fn iter<QF>(&self) -> impl DoubleEndedIterator<Item = &(Entity, MainEntity)>
+    where
+        QF: 'static,
+    {
+        self.get::<QF>().iter()
+    }
+
+    pub fn len<QF>(&self) -> usize
+    where
+        QF: 'static,
+    {
+        self.get::<QF>().len()
+    }
+
+    pub fn is_empty<QF>(&self) -> bool
+    where
+        QF: 'static,
+    {
+        self.get::<QF>().is_empty()
+    }
+}
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum VisibilitySystems {
@@ -312,20 +351,20 @@ impl Plugin for VisibilityPlugin {
             (
                 calculate_bounds.in_set(CalculateBounds),
                 (visibility_propagate_system, reset_view_visibility).in_set(VisibilityPropagate),
-                check_visibility::<WithMesh>.in_set(CheckVisibility),
+                check_visibility::<With<Mesh3d>>.in_set(CheckVisibility),
             ),
         );
     }
 }
 
 /// Computes and adds an [`Aabb`] component to entities with a
-/// [`Handle<Mesh>`](Mesh) component and without a [`NoFrustumCulling`] component.
+/// [`Mesh3d`] component and without a [`NoFrustumCulling`] component.
 ///
 /// This system is used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    without_aabb: Query<(Entity, &Handle<Mesh>), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    without_aabb: Query<(Entity, &Mesh3d), (Without<Aabb>, Without<NoFrustumCulling>)>,
 ) {
     for (entity, mesh_handle) in &without_aabb {
         if let Some(mesh) = meshes.get(mesh_handle) {

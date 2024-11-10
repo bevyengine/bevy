@@ -364,9 +364,9 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
 /// # #[derive(Component, Debug)]
 /// # struct Color {};
 /// # #[derive(Component)]
-/// # struct Style {};
+/// # struct Node {};
 /// #
-/// fn print_cool_entity_system(query: Query<Entity, Or<(Changed<Color>, Changed<Style>)>>) {
+/// fn print_cool_entity_system(query: Query<Entity, Or<(Changed<Color>, Changed<Node>)>>) {
 ///     for entity in &query {
 ///         println!("Entity {:?} got a new style or color", entity);
 ///     }
@@ -391,7 +391,8 @@ impl<T: WorldQuery> Clone for OrFetch<'_, '_, T> {
 }
 
 macro_rules! impl_or_query_filter {
-    ($(($filter: ident, $state: ident)),*) => {
+    ($(#[$meta:meta])* $(($filter: ident, $state: ident)),*) => {
+        $(#[$meta])*
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
@@ -509,6 +510,7 @@ macro_rules! impl_or_query_filter {
             }
         }
 
+            $(#[$meta])*
             // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
             unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
@@ -558,7 +560,14 @@ all_tuples!(
     15,
     F
 );
-all_tuples!(impl_or_query_filter, 0, 15, F, S);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_or_query_filter,
+    0,
+    15,
+    F,
+    S
+);
 
 /// A filter on a component that only retains results the first time after they have been added.
 ///
@@ -1064,7 +1073,8 @@ macro_rules! impl_archetype_filter_tuple {
 }
 
 macro_rules! impl_archetype_or_filter_tuple {
-    ($($filter: ident),*) => {
+    ($(#[$meta:meta])* $($filter: ident),*) => {
+        $(#[$meta])*
         impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for Or<($($filter,)*)> {}
     };
 }
@@ -1077,4 +1087,10 @@ all_tuples!(
     F
 );
 
-all_tuples!(impl_archetype_or_filter_tuple, 0, 15, F);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_archetype_or_filter_tuple,
+    0,
+    15,
+    F
+);

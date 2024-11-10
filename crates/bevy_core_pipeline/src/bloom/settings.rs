@@ -226,7 +226,9 @@ impl ExtractComponent for Bloom {
             camera.is_active,
             camera.hdr,
         ) {
-            (Some(URect { min: origin, .. }), Some(size), Some(target_size), true, true) => {
+            (Some(URect { min: origin, .. }), Some(size), Some(target_size), true, true)
+                if size.x != 0 && size.y != 0 =>
+            {
                 let threshold = bloom.prefilter.threshold;
                 let threshold_softness = bloom.prefilter.threshold_softness;
                 let knee = threshold * threshold_softness.clamp(0.0, 1.0);

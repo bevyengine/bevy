@@ -24,12 +24,12 @@ pub trait AssetSaver: Send + Sync + 'static {
     type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
 
     /// Saves the given runtime [`Asset`] by writing it to a byte format using `writer`. The passed in `settings` can influence how the
-    /// `asset` is saved.  
-    fn save<'a>(
-        &'a self,
-        writer: &'a mut Writer,
-        asset: SavedAsset<'a, Self::Asset>,
-        settings: &'a Self::Settings,
+    /// `asset` is saved.
+    fn save(
+        &self,
+        writer: &mut Writer,
+        asset: SavedAsset<'_, Self::Asset>,
+        settings: &Self::Settings,
     ) -> impl ConditionalSendFuture<
         Output = Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error>,
     >;
@@ -38,7 +38,7 @@ pub trait AssetSaver: Send + Sync + 'static {
 /// A type-erased dynamic variant of [`AssetSaver`] that allows callers to save assets without knowing the actual type of the [`AssetSaver`].
 pub trait ErasedAssetSaver: Send + Sync + 'static {
     /// Saves the given runtime [`ErasedLoadedAsset`] by writing it to a byte format using `writer`. The passed in `settings` can influence how the
-    /// `asset` is saved.  
+    /// `asset` is saved.
     fn save<'a>(
         &'a self,
         writer: &'a mut Writer,

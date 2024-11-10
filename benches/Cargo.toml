@@ -14,6 +14,7 @@ bevy_app = { path = "../crates/bevy_app" }
 bevy_ecs = { path = "../crates/bevy_ecs", features = ["multi_threaded"] }
 bevy_hierarchy = { path = "../crates/bevy_hierarchy" }
 bevy_math = { path = "../crates/bevy_math" }
+bevy_picking = { path = "../crates/bevy_picking", features = ["bevy_mesh"] }
 bevy_reflect = { path = "../crates/bevy_reflect", features = ["functions"] }
 bevy_render = { path = "../crates/bevy_render" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
@@ -35,6 +36,11 @@ harness = false
 [[bench]]
 name = "ecs"
 path = "benches/bevy_ecs/benches.rs"
+harness = false
+
+[[bench]]
+name = "ray_mesh_intersection"
+path = "benches/bevy_picking/ray_mesh_intersection.rs"
 harness = false
 
 [[bench]]

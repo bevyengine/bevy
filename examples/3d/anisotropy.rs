@@ -64,37 +64,32 @@ fn main() {
 
 /// Creates the initial scene.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res<AppStatus>) {
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_translation(CAMERA_INITIAL_POSITION)
-            .looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_translation(CAMERA_INITIAL_POSITION).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     spawn_directional_light(&mut commands);
 
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0"),
-        transform: Transform::from_xyz(0.0, 0.07, -0.13),
-        ..default()
-    });
+    commands.spawn((
+        SceneRoot(asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0")),
+        Transform::from_xyz(0.0, 0.07, -0.13),
+    ));
 
     spawn_text(&mut commands, &app_status);
 }
 
 /// Spawns the help text.
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
-    commands.spawn(
-        TextBundle {
-            text: app_status.create_help_text(),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        app_status.create_help_text(),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 /// For each material, creates a version with the anisotropy removed.
@@ -104,8 +99,11 @@ fn create_material_variants(
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
     new_meshes: Query<
-        (Entity, &Handle<StandardMaterial>),
-        (Added<Handle<StandardMaterial>>, Without<MaterialVariants>),
+        (Entity, &MeshMaterial3d<StandardMaterial>),
+        (
+            Added<MeshMaterial3d<StandardMaterial>>,
+            Without<MaterialVariants>,
+        ),
     >,
 ) {
     for (entity, anisotropic_material_handle) in new_meshes.iter() {
@@ -114,7 +112,7 @@ fn create_material_variants(
         };
 
         commands.entity(entity).insert(MaterialVariants {
-            anisotropic: anisotropic_material_handle.clone(),
+            anisotropic: anisotropic_material_handle.0.clone(),
             isotropic: materials.add(StandardMaterial {
                 anisotropy_texture: None,
                 anisotropy_strength: 0.0,
@@ -130,7 +128,7 @@ fn animate_light(
     mut lights: Query<&mut Transform, Or<(With<DirectionalLight>, With<PointLight>)>>,
     time: Res<Time>,
 ) {
-    let now = time.elapsed_seconds();
+    let now = time.elapsed_secs();
     for mut transform in lights.iter_mut() {
         transform.translation = vec3(ops::cos(now), 1.0, ops::sin(now)) * vec3(3.0, 4.0, 3.0);
         transform.look_at(Vec3::ZERO, Vec3::Y);
@@ -163,7 +161,7 @@ fn handle_input(
     asset_server: Res<AssetServer>,
     cameras: Query<Entity, With<Camera>>,
     lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>)>>,
-    mut meshes: Query<(&mut Handle<StandardMaterial>, &MaterialVariants)>,
+    mut meshes: Query<(&mut MeshMaterial3d<StandardMaterial>, &MaterialVariants)>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
 ) {
@@ -213,7 +211,7 @@ fn handle_input(
 
         // Go through each mesh and alter its material.
         for (mut material_handle, material_variants) in meshes.iter_mut() {
-            *material_handle = if app_status.anisotropy_enabled {
+            material_handle.0 = if app_status.anisotropy_enabled {
                 material_variants.anisotropic.clone()
             } else {
                 material_variants.isotropic.clone()
@@ -252,24 +250,18 @@ fn add_skybox_and_environment_map(
 
 /// Spawns a rotating directional light.
 fn spawn_directional_light(commands: &mut Commands) {
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            color: WHITE.into(),
-            illuminance: 3000.0,
-            ..default()
-        },
+    commands.spawn(DirectionalLight {
+        color: WHITE.into(),
+        illuminance: 3000.0,
         ..default()
     });
 }
 
 /// Spawns a rotating point light.
 fn spawn_point_light(commands: &mut Commands) {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            color: WHITE.into(),
-            intensity: 200000.0,
-            ..default()
-        },
+    commands.spawn(PointLight {
+        color: WHITE.into(),
+        intensity: 200000.0,
         ..default()
     });
 }
@@ -292,10 +284,10 @@ impl AppStatus {
         };
 
         // Build the `Text` object.
-        Text::from_section(
-            format!("{}\n{}", material_variant_help_text, light_help_text),
-            TextStyle::default(),
-        )
+        Text(format!(
+            "{}\n{}",
+            material_variant_help_text, light_help_text
+        ))
     }
 }
 

@@ -6,7 +6,7 @@ use bevy_utils::HashMap;
 use core::slice::Iter;
 
 use alloc::sync::Arc;
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
 
 /// Describes the form of an enum variant.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -40,12 +40,12 @@ pub enum VariantType {
 }
 
 /// A [`VariantInfo`]-specific error.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub enum VariantInfoError {
     /// Caused when a variant was expected to be of a certain [type], but was not.
     ///
     /// [type]: VariantType
-    #[error("variant type mismatch: expected {expected:?}, received {received:?}")]
+    #[display("variant type mismatch: expected {expected:?}, received {received:?}")]
     TypeMismatch {
         expected: VariantType,
         received: VariantType,

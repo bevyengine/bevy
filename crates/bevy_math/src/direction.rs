@@ -4,6 +4,7 @@ use crate::{
 };
 
 use core::f32::consts::FRAC_1_SQRT_2;
+use derive_more::derive::Into;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -356,7 +357,7 @@ impl approx::UlpsEq for Dir2 {
 }
 
 /// A normalized vector pointing in a direction in 3D space
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Into)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 #[cfg_attr(
@@ -531,12 +532,6 @@ impl TryFrom<Vec3> for Dir3 {
 
     fn try_from(value: Vec3) -> Result<Self, Self::Error> {
         Self::new(value)
-    }
-}
-
-impl From<Dir3> for Vec3 {
-    fn from(value: Dir3) -> Self {
-        value.0
     }
 }
 

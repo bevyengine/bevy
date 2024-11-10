@@ -65,13 +65,10 @@ const SCENE_FILE_PATH: &str = "scenes/load_scene_example.scn.ron";
 const NEW_SCENE_FILE_PATH: &str = "scenes/load_scene_example-new.scn.ron";
 
 fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // "Spawning" a scene bundle creates a new entity and spawns new instances
+    // Spawning a DynamicSceneRoot creates a new entity and spawns new instances
     // of the given scene's entities as children of that entity.
-    commands.spawn(DynamicSceneBundle {
-        // Scenes are loaded just like any other asset.
-        scene: asset_server.load(SCENE_FILE_PATH),
-        ..default()
-    });
+    // Scenes can be loaded just like any other asset.
+    commands.spawn(DynamicSceneRoot(asset_server.load(SCENE_FILE_PATH)));
 }
 
 // This system logs all ComponentA components in our world. Try making a change to a ComponentA in
@@ -148,18 +145,16 @@ fn save_scene_system(world: &mut World) {
 // This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone
 // text example.
 fn infotext_system(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
-    commands.spawn(
-        TextBundle::from_section(
-            "Nothing to see in this window! Check the console output!",
-            TextStyle {
-                font_size: 42.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+    commands.spawn(Camera2d);
+    commands.spawn((
+        Text::new("Nothing to see in this window! Check the console output!"),
+        TextFont {
+            font_size: 42.0,
+            ..default()
+        },
+        Node {
             align_self: AlignSelf::FlexEnd,
             ..default()
-        }),
-    );
+        },
+    ));
 }

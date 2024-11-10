@@ -6,6 +6,7 @@ use crate::{
 };
 use alloc::borrow::Cow;
 use core::ops::Deref;
+use derive_more::derive::{AsRef, Display, Into};
 
 /// [`SystemParam`] that returns the name of the system which it is used in.
 ///
@@ -33,7 +34,8 @@ use core::ops::Deref;
 ///     logger.log("Hello");
 /// }
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Into, Display, AsRef)]
+#[as_ref(str)]
 pub struct SystemName<'s>(&'s str);
 
 impl<'s> SystemName<'s> {
@@ -47,25 +49,6 @@ impl<'s> Deref for SystemName<'s> {
     type Target = str;
     fn deref(&self) -> &Self::Target {
         self.name()
-    }
-}
-
-impl<'s> AsRef<str> for SystemName<'s> {
-    fn as_ref(&self) -> &str {
-        self.name()
-    }
-}
-
-impl<'s> From<SystemName<'s>> for &'s str {
-    fn from(name: SystemName<'s>) -> &'s str {
-        name.0
-    }
-}
-
-impl<'s> core::fmt::Display for SystemName<'s> {
-    #[inline(always)]
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        core::fmt::Display::fmt(&self.name(), f)
     }
 }
 
@@ -141,7 +124,7 @@ mod tests {
         let mut world = World::default();
         let system =
             IntoSystem::into_system(|name: SystemName| name.name().to_owned()).with_name("testing");
-        let name = world.run_system_once(system);
+        let name = world.run_system_once(system).unwrap();
         assert_eq!(name, "testing");
     }
 
@@ -151,7 +134,7 @@ mod tests {
         let system =
             IntoSystem::into_system(|_world: &mut World, name: SystemName| name.name().to_owned())
                 .with_name("testing");
-        let name = world.run_system_once(system);
+        let name = world.run_system_once(system).unwrap();
         assert_eq!(name, "testing");
     }
 }

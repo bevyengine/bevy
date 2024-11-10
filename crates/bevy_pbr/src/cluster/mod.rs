@@ -20,6 +20,7 @@ use bevy_render::{
         UniformBuffer,
     },
     renderer::{RenderDevice, RenderQueue},
+    sync_world::RenderEntity,
     Extract,
 };
 use bevy_utils::{hashbrown::HashSet, tracing::warn};
@@ -32,8 +33,13 @@ mod assign;
 #[cfg(test)]
 mod test;
 
-// NOTE: this must be kept in sync with the same constants in pbr.frag
-pub const MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS: usize = 256;
+// NOTE: this must be kept in sync with the same constants in
+// `mesh_view_types.wgsl`.
+pub const MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS: usize = 204;
+// Make sure that the clusterable object buffer doesn't overflow the maximum
+// size of a UBO on WebGL 2.
+const _: () =
+    assert!(size_of::<GpuClusterableObject>() * MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS <= 16384);
 
 // NOTE: Clustered-forward rendering requires 3 storage buffer bindings so check that
 // at least that many are supported using this constant and SupportedBindingType::from_device()
@@ -491,6 +497,13 @@ impl Default for GpuClusterableObjectsUniform {
     }
 }
 
+pub(crate) struct ClusterableObjectOrderData<'a> {
+    pub(crate) entity: &'a Entity,
+    pub(crate) shadows_enabled: &'a bool,
+    pub(crate) is_volumetric_light: &'a bool,
+    pub(crate) is_spot_light: &'a bool,
+}
+
 #[allow(clippy::too_many_arguments)]
 // Sort clusterable objects by:
 //
@@ -505,22 +518,28 @@ impl Default for GpuClusterableObjectsUniform {
 //   clusterable objects are chosen if the clusterable object count limit is
 //   exceeded.
 pub(crate) fn clusterable_object_order(
-    (entity_1, shadows_enabled_1, is_spot_light_1): (&Entity, &bool, &bool),
-    (entity_2, shadows_enabled_2, is_spot_light_2): (&Entity, &bool, &bool),
+    a: ClusterableObjectOrderData,
+    b: ClusterableObjectOrderData,
 ) -> core::cmp::Ordering {
-    is_spot_light_1
-        .cmp(is_spot_light_2) // pointlights before spot lights
-        .then_with(|| shadows_enabled_2.cmp(shadows_enabled_1)) // shadow casters before non-casters
-        .then_with(|| entity_1.cmp(entity_2)) // stable
+    a.is_spot_light
+        .cmp(b.is_spot_light) // pointlights before spot lights
+        .then_with(|| b.shadows_enabled.cmp(a.shadows_enabled)) // shadow casters before non-casters
+        .then_with(|| b.is_volumetric_light.cmp(a.is_volumetric_light)) // volumetric lights before non-volumetric lights
+        .then_with(|| a.entity.cmp(b.entity)) // stable
 }
 
 /// Extracts clusters from the main world from the render world.
 pub fn extract_clusters(
     mut commands: Commands,
-    views: Extract<Query<(Entity, &Clusters, &Camera)>>,
+    views: Extract<Query<(RenderEntity, &Clusters, &Camera)>>,
+    mapper: Extract<Query<RenderEntity>>,
 ) {
     for (entity, clusters, camera) in &views {
+        let mut entity_commands = commands
+            .get_entity(entity)
+            .expect("Clusters entity wasn't synced.");
         if !camera.is_active {
+            entity_commands.remove::<(ExtractedClusterableObjects, ExtractedClusterConfig)>();
             continue;
         }
 
@@ -536,13 +555,15 @@ pub fn extract_clusters(
                 cluster_objects.spot_light_count as u32,
             ));
             for clusterable_entity in &cluster_objects.entities {
-                data.push(ExtractedClusterableObjectElement::ClusterableObjectEntity(
-                    *clusterable_entity,
-                ));
+                if let Ok(entity) = mapper.get(*clusterable_entity) {
+                    data.push(ExtractedClusterableObjectElement::ClusterableObjectEntity(
+                        entity,
+                    ));
+                }
             }
         }
 
-        commands.get_or_spawn(entity).insert((
+        entity_commands.insert((
             ExtractedClusterableObjects { data },
             ExtractedClusterConfig {
                 near: clusters.near,
@@ -605,7 +626,7 @@ pub fn prepare_clusters(
 
         view_clusters_bindings.write_buffers(render_device, &render_queue);
 
-        commands.get_or_spawn(entity).insert(view_clusters_bindings);
+        commands.entity(entity).insert(view_clusters_bindings);
     }
 }
 
@@ -795,8 +816,8 @@ impl ViewClusterBuffers {
 }
 
 // NOTE: With uniform buffer max binding size as 16384 bytes
-// that means we can fit 256 clusterable objects in one uniform
-// buffer, which means the count can be at most 256 so it
+// that means we can fit 204 clusterable objects in one uniform
+// buffer, which means the count can be at most 204 so it
 // needs 9 bits.
 // The array of indices can also use u8 and that means the
 // offset in to the array of indices needs to be able to address

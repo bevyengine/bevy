@@ -420,7 +420,7 @@ impl ShapeSample for Cylinder {
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
-        // This uses the area of the ends divided by the overall surface area (optimised)
+        // This uses the area of the ends divided by the overall surface area (optimized)
         // [2 (\pi r^2)]/[2 (\pi r^2) + 2 \pi r h] = r/(r + h)
         if self.radius + 2.0 * self.half_height > 0.0 {
             if rng.gen_bool((self.radius / (self.radius + 2.0 * self.half_height)) as f64) {
@@ -450,8 +450,7 @@ impl ShapeSample for Capsule2d {
         if capsule_area > 0.0 {
             // Check if the random point should be inside the rectangle
             if rng.gen_bool((rectangle_area / capsule_area) as f64) {
-                let rectangle = Rectangle::new(self.radius * 2.0, self.half_length * 2.0);
-                rectangle.sample_interior(rng)
+                self.to_inner_rectangle().sample_interior(rng)
             } else {
                 let circle = Circle::new(self.radius);
                 let point = circle.sample_interior(rng);

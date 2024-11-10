@@ -220,7 +220,8 @@ impl InfinitePlane3d {
     /// `point`. The result is a signed value; it's positive if the point lies in the half-space
     /// that the plane's normal vector points towards.
     #[inline]
-    pub fn signed_distance(&self, isometry: Isometry3d, point: Vec3) -> f32 {
+    pub fn signed_distance(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> f32 {
+        let isometry = isometry.into();
         self.normal.dot(isometry.inverse() * point)
     }
 
@@ -228,7 +229,7 @@ impl InfinitePlane3d {
     ///
     /// This projects the point orthogonally along the shortest path onto the plane.
     #[inline]
-    pub fn project_point(&self, isometry: Isometry3d, point: Vec3) -> Vec3 {
+    pub fn project_point(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> Vec3 {
         point - self.normal * self.signed_distance(isometry, point)
     }
 
@@ -1374,36 +1375,36 @@ mod tests {
 
         let point_in_plane = Vec3::X + Vec3::Z;
         assert_eq!(
-            plane.signed_distance(Isometry3d::from_translation(origin), point_in_plane),
+            plane.signed_distance(origin, point_in_plane),
             0.0,
             "incorrect distance"
         );
         assert_eq!(
-            plane.project_point(Isometry3d::from_translation(origin), point_in_plane),
+            plane.project_point(origin, point_in_plane),
             point_in_plane,
             "incorrect point"
         );
 
         let point_outside = Vec3::Y;
         assert_eq!(
-            plane.signed_distance(Isometry3d::from_translation(origin), point_outside),
+            plane.signed_distance(origin, point_outside),
             -1.0,
             "incorrect distance"
         );
         assert_eq!(
-            plane.project_point(Isometry3d::from_translation(origin), point_outside),
+            plane.project_point(origin, point_outside),
             Vec3::ZERO,
             "incorrect point"
         );
 
         let point_outside = Vec3::NEG_Y;
         assert_eq!(
-            plane.signed_distance(Isometry3d::from_translation(origin), point_outside),
+            plane.signed_distance(origin, point_outside),
             1.0,
             "incorrect distance"
         );
         assert_eq!(
-            plane.project_point(Isometry3d::from_translation(origin), point_outside),
+            plane.project_point(origin, point_outside),
             Vec3::ZERO,
             "incorrect point"
         );

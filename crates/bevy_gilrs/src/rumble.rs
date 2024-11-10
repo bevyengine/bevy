@@ -10,11 +10,11 @@ use bevy_utils::{
     tracing::{debug, warn},
     Duration, HashMap,
 };
+use derive_more::derive::{Display, Error, From};
 use gilrs::{
     ff::{self, BaseEffect, BaseEffectType, Repeat, Replay},
     GamepadId,
 };
-use thiserror::Error;
 
 /// A rumble effect that is currently in effect.
 struct RunningRumble {
@@ -27,12 +27,12 @@ struct RunningRumble {
     effect: SyncCell<ff::Effect>,
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 enum RumbleError {
-    #[error("gamepad not found")]
+    #[display("gamepad not found")]
     GamepadNotFound,
-    #[error("gilrs error while rumbling gamepad: {0}")]
-    GilrsError(#[from] ff::Error),
+    #[display("gilrs error while rumbling gamepad: {_0}")]
+    GilrsError(ff::Error),
 }
 
 /// Contains the gilrs rumble effects that are currently running for each gamepad

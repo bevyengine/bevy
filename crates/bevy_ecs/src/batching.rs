@@ -101,7 +101,7 @@ impl BatchingStrategy {
         );
         let batches = thread_count * self.batches_per_thread;
         // Round up to the nearest batch size.
-        let batch_size = (max_items() + batches - 1) / batches;
+        let batch_size = max_items().div_ceil(batches);
         batch_size.clamp(self.batch_size_limits.start, self.batch_size_limits.end)
     }
 }

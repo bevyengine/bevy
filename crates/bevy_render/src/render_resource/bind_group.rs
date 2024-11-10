@@ -1,19 +1,20 @@
+use crate::renderer::WgpuWrapper;
 use crate::{
     define_atomic_id,
     render_asset::RenderAssets,
-    render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
+    render_resource::{BindGroupLayout, Buffer, Sampler, TextureView},
     renderer::RenderDevice,
     texture::GpuImage,
 };
+use alloc::sync::Arc;
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
 use core::ops::Deref;
+use derive_more::derive::{Display, Error};
 use encase::ShaderType;
-use thiserror::Error;
 use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource};
 
 define_atomic_id!(BindGroupId);
-render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
 
 /// Bind groups are responsible for binding render resources (e.g. buffers, textures, samplers)
 /// to a [`TrackedRenderPass`](crate::render_phase::TrackedRenderPass).
@@ -24,7 +25,7 @@ render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
 #[derive(Clone, Debug)]
 pub struct BindGroup {
     id: BindGroupId,
-    value: ErasedBindGroup,
+    value: Arc<WgpuWrapper<wgpu::BindGroup>>,
 }
 
 impl BindGroup {
@@ -39,8 +40,20 @@ impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
             id: BindGroupId::new(),
-            value: ErasedBindGroup::new(value),
+            value: Arc::new(WgpuWrapper::new(value)),
         }
+    }
+}
+
+impl<'a> From<&'a BindGroup> for Option<&'a wgpu::BindGroup> {
+    fn from(value: &'a BindGroup) -> Self {
+        Some(value.deref())
+    }
+}
+
+impl<'a> From<&'a mut BindGroup> for Option<&'a wgpu::BindGroup> {
+    fn from(value: &'a mut BindGroup) -> Self {
+        Some(&*value)
     }
 }
 
@@ -65,7 +78,7 @@ impl Deref for BindGroup {
 /// ok to do "expensive" work here, such as creating a [`Buffer`] for a uniform.
 ///
 /// If for some reason a [`BindGroup`] cannot be created yet (for example, the [`Texture`](crate::render_resource::Texture)
-/// for an [`Image`](crate::texture::Image) hasn't loaded yet), just return [`AsBindGroupError::RetryNextUpdate`], which signals that the caller
+/// for an [`Image`](bevy_image::Image) hasn't loaded yet), just return [`AsBindGroupError::RetryNextUpdate`], which signals that the caller
 /// should retry again later.
 ///
 /// # Deriving
@@ -74,7 +87,8 @@ impl Deref for BindGroup {
 /// what their binding type is, and what index they should be bound at:
 ///
 /// ```
-/// # use bevy_render::{render_resource::*, texture::Image};
+/// # use bevy_render::render_resource::*;
+/// # use bevy_image::Image;
 /// # use bevy_color::LinearRgba;
 /// # use bevy_asset::Handle;
 /// # use bevy_render::storage::ShaderStorageBuffer;
@@ -120,7 +134,7 @@ impl Deref for BindGroup {
 ///         GPU resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///         most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///         [`None`], the [`crate::texture::FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
-///         (with a different binding index) if a binding of the sampler for the [`Image`](crate::texture::Image) is also required.
+///         (with a different binding index) if a binding of the sampler for the [`Image`](bevy_image::Image) is also required.
 ///
 /// | Arguments             | Values                                                                  | Default              |
 /// |-----------------------|-------------------------------------------------------------------------|----------------------|
@@ -148,7 +162,7 @@ impl Deref for BindGroup {
 ///         resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///         most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///         [`None`], the [`crate::texture::FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
-///         (with a different binding index) if a binding of the texture for the [`Image`](crate::texture::Image) is also required.
+///         (with a different binding index) if a binding of the texture for the [`Image`](bevy_image::Image) is also required.
 ///
 /// | Arguments              | Values                                                                  | Default                |
 /// |------------------------|-------------------------------------------------------------------------|------------------------|
@@ -181,9 +195,10 @@ impl Deref for BindGroup {
 ///
 ///  As mentioned above, [`Option<Handle<Image>>`] is also supported:
 /// ```
-/// # use bevy_render::{render_resource::AsBindGroup, texture::Image};
-/// # use bevy_color::LinearRgba;
 /// # use bevy_asset::Handle;
+/// # use bevy_color::LinearRgba;
+/// # use bevy_image::Image;
+/// # use bevy_render::render_resource::AsBindGroup;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
 ///     #[uniform(0)]
@@ -353,12 +368,12 @@ pub trait AsBindGroup {
 }
 
 /// An error that occurs during [`AsBindGroup::as_bind_group`] calls.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Display)]
 pub enum AsBindGroupError {
     /// The bind group could not be generated. Try again next frame.
-    #[error("The bind group could not be generated")]
+    #[display("The bind group could not be generated")]
     RetryNextUpdate,
-    #[error("At binding index{0}, the provided image sampler `{1}` does not match the required sampler type(s) `{2}`.")]
+    #[display("At binding index {_0}, the provided image sampler `{_1}` does not match the required sampler type(s) `{_2}`.")]
     InvalidSamplerType(u32, String, String),
 }
 
@@ -420,8 +435,9 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{self as bevy_render, prelude::Image};
+    use crate as bevy_render;
     use bevy_asset::Handle;
+    use bevy_image::Image;
 
     #[test]
     fn texture_visibility() {

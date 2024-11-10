@@ -172,6 +172,14 @@ fn calculate_tbn_mikktspace(world_normal: vec3<f32>, world_tangent: vec4<f32>) -
     var T: vec3<f32> = world_tangent.xyz;
     var B: vec3<f32> = world_tangent.w * cross(N, T);
 
+#ifdef MESHLET_MESH_MATERIAL_PASS
+    // https://www.jeremyong.com/graphics/2023/12/16/surface-gradient-bump-mapping/#a-note-on-mikktspace-usage
+    let inverse_length_n = 1.0 / length(N);
+    T *= inverse_length_n;
+    B *= inverse_length_n;
+    N *= inverse_length_n;
+#endif
+
     return mat3x3(T, B, N);
 }
 

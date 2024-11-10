@@ -11,8 +11,8 @@ use bevy_reflect::{Reflect, TypePath};
 use bevy_utils::HashMap;
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
+use derive_more::derive::{Display, Error};
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use uuid::Uuid;
 
 /// A generational runtime-only identifier for a specific [`Asset`] stored in [`Assets`]. This is optimized for efficient runtime
@@ -613,8 +613,8 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
     }
 }
 
-#[derive(Error, Debug)]
-#[error("AssetIndex {index:?} has an invalid generation. The current generation is: '{current_generation}'.")]
+#[derive(Error, Display, Debug)]
+#[display("AssetIndex {index:?} has an invalid generation. The current generation is: '{current_generation}'.")]
 pub struct InvalidGenerationError {
     index: AssetIndex,
     current_generation: u32,

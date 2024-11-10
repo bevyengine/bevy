@@ -1,13 +1,14 @@
-use crate::{define_atomic_id, render_resource::resource_macros::render_resource_wrapper};
+use crate::define_atomic_id;
+use crate::renderer::WgpuWrapper;
+use alloc::sync::Arc;
 use core::ops::{Bound, Deref, RangeBounds};
 
 define_atomic_id!(BufferId);
-render_resource_wrapper!(ErasedBuffer, wgpu::Buffer);
 
 #[derive(Clone, Debug)]
 pub struct Buffer {
     id: BufferId,
-    value: ErasedBuffer,
+    value: Arc<WgpuWrapper<wgpu::Buffer>>,
     size: wgpu::BufferAddress,
 }
 
@@ -48,7 +49,7 @@ impl From<wgpu::Buffer> for Buffer {
         Buffer {
             id: BufferId::new(),
             size: value.size(),
-            value: ErasedBuffer::new(value),
+            value: Arc::new(WgpuWrapper::new(value)),
         }
     }
 }

@@ -1,18 +1,17 @@
 use crate::{DynamicScene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap},
+    entity::{Entity, EntityHashMap, SceneEntityMapper},
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
-use bevy_reflect::TypePath;
+use bevy_reflect::{PartialReflect, TypePath};
 
+/// A composition of [`World`] objects.
+///
 /// To spawn a scene, you can use either:
 /// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)
-/// * adding the [`SceneBundle`](crate::SceneBundle) to an entity
-/// * adding the [`Handle<Scene>`](bevy_asset::Handle) to an entity (the scene will only be
-///     visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
-///     [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
+/// * adding the [`SceneRoot`](crate::components::SceneRoot) component to an entity.
 #[derive(Asset, TypePath, Debug)]
 pub struct Scene {
     /// The world of the scene, containing its entities and resources.
@@ -90,11 +89,22 @@ impl Scene {
             reflect_resource.copy(&self.world, world, &type_registry);
         }
 
+        // Ensure that all scene entities have been allocated in the destination
+        // world before handling components that may contain references that need mapping.
         for archetype in self.world.archetypes().iter() {
             for scene_entity in archetype.entities() {
-                let entity = entity_map
+                entity_map
                     .entry(scene_entity.id())
                     .or_insert_with(|| world.spawn_empty().id());
+            }
+        }
+
+        for archetype in self.world.archetypes().iter() {
+            for scene_entity in archetype.entities() {
+                let entity = *entity_map
+                    .get(&scene_entity.id())
+                    .expect("should have previously spawned an entity");
+
                 for component_id in archetype.components() {
                     let component_info = self
                         .world
@@ -102,32 +112,38 @@ impl Scene {
                         .get_info(component_id)
                         .expect("component_ids in archetypes should have ComponentInfo");
 
-                    let reflect_component = type_registry
+                    let registration = type_registry
                         .get(component_info.type_id().unwrap())
                         .ok_or_else(|| SceneSpawnError::UnregisteredType {
                             std_type_name: component_info.name().to_string(),
-                        })
-                        .and_then(|registration| {
-                            registration.data::<ReflectComponent>().ok_or_else(|| {
-                                SceneSpawnError::UnregisteredComponent {
-                                    type_path: registration.type_info().type_path().to_string(),
-                                }
-                            })
                         })?;
-                    reflect_component.copy(
-                        &self.world,
-                        world,
-                        scene_entity.id(),
-                        *entity,
+                    let reflect_component =
+                        registration.data::<ReflectComponent>().ok_or_else(|| {
+                            SceneSpawnError::UnregisteredComponent {
+                                type_path: registration.type_info().type_path().to_string(),
+                            }
+                        })?;
+
+                    let Some(mut component) = reflect_component
+                        .reflect(self.world.entity(scene_entity.id()))
+                        .map(PartialReflect::clone_value)
+                    else {
+                        continue;
+                    };
+
+                    // If this component references entities in the scene,
+                    // update them to the entities in the world.
+                    if let Some(map_entities) = registration.data::<ReflectMapEntities>() {
+                        SceneEntityMapper::world_scope(entity_map, world, |_, mapper| {
+                            map_entities.map_entities(component.as_partial_reflect_mut(), mapper);
+                        });
+                    }
+                    reflect_component.apply_or_insert(
+                        &mut world.entity_mut(entity),
+                        component.as_partial_reflect(),
                         &type_registry,
                     );
                 }
-            }
-        }
-
-        for registration in type_registry.iter() {
-            if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
-                map_entities_reflect.map_all_entities(world, entity_map);
             }
         }
 

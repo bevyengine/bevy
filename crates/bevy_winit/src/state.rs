@@ -1,5 +1,7 @@
 use approx::relative_eq;
 use bevy_app::{App, AppExit, PluginsState};
+#[cfg(feature = "custom_cursor")]
+use bevy_asset::AssetId;
 use bevy_ecs::{
     change_detection::{DetectChanges, NonSendMut, Res},
     entity::Entity,
@@ -8,16 +10,19 @@ use bevy_ecs::{
     system::SystemState,
     world::FromWorld,
 };
+#[cfg(feature = "custom_cursor")]
+use bevy_image::Image;
 use bevy_input::{
     gestures::*,
-    keyboard::KeyboardFocusLost,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
 use bevy_log::{error, trace, warn};
 use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
-use bevy_utils::{HashMap, Instant};
+#[cfg(feature = "custom_cursor")]
+use bevy_utils::HashMap;
+use bevy_utils::Instant;
 use core::marker::PhantomData;
 use winit::{
     application::ApplicationHandler,
@@ -89,6 +94,7 @@ struct WinitAppRunnerState<T: Event> {
 
 impl<T: Event> WinitAppRunnerState<T> {
     fn new(mut app: App) -> Self {
+        #[cfg(feature = "custom_cursor")]
         app.add_event::<T>().init_resource::<CustomCursorCache>();
 
         let event_writer_system_state: SystemState<(
@@ -135,27 +141,30 @@ impl<T: Event> WinitAppRunnerState<T> {
     }
 }
 
+#[cfg(feature = "custom_cursor")]
 /// Identifiers for custom cursors used in caching.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum CustomCursorCacheKey {
-    /// u64 is used instead of `AssetId`, because `bevy_asset` can't be imported here.
-    AssetIndex(u64),
-    /// u128 is used instead of `AssetId`, because `bevy_asset` can't be imported here.
-    AssetUuid(u128),
-    /// A URL to a cursor.
+    /// An `AssetId` to a cursor.
+    Asset(AssetId<Image>),
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
+    /// An URL to a cursor.
     Url(String),
 }
 
+#[cfg(feature = "custom_cursor")]
 /// Caches custom cursors. On many platforms, creating custom cursors is expensive, especially on
 /// the web.
 #[derive(Debug, Clone, Default, Resource)]
 pub struct CustomCursorCache(pub HashMap<CustomCursorCacheKey, winit::window::CustomCursor>);
 
-/// A source for a cursor. Is created in `bevy_render` and consumed by the winit event loop.
+/// A source for a cursor. Consumed by the winit event loop.
 #[derive(Debug)]
 pub enum CursorSource {
+    #[cfg(feature = "custom_cursor")]
     /// A custom cursor was identified to be cached, no reason to recreate it.
     CustomCached(CustomCursorCacheKey),
+    #[cfg(feature = "custom_cursor")]
     /// A custom cursor was not cached, so it needs to be created by the winit event loop.
     Custom((CustomCursorCacheKey, winit::window::CustomCursorSource)),
     /// A system cursor was requested.
@@ -267,18 +276,14 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 .send(WindowCloseRequested { window }),
             WindowEvent::KeyboardInput {
                 ref event,
-                is_synthetic,
+                // On some platforms, winit sends "synthetic" key press events when the window
+                // gains or loses focus. These should not be handled, so we only process key
+                // events if they are not synthetic key presses.
+                is_synthetic: false,
                 ..
             } => {
-                // Winit sends "synthetic" key press events when the window gains focus. These
-                // should not be handled, so we only process key events if they are not synthetic
-                // key presses. "synthetic" key release events should still be handled though, for
-                // properly releasing keys when the window loses focus.
-                if !(is_synthetic && event.state.is_pressed()) {
-                    // Process the keyboard input event, as long as it's not a synthetic key press.
-                    self.bevy_window_events
-                        .send(converters::convert_keyboard_input(event, window));
-                }
+                self.bevy_window_events
+                    .send(converters::convert_keyboard_input(event, window));
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let physical_position = DVec2::new(position.x, position.y);
@@ -354,9 +359,6 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 win.focused = focused;
                 self.bevy_window_events
                     .send(WindowFocused { window, focused });
-                if !focused {
-                    self.bevy_window_events.send(KeyboardFocusLost);
-                }
             }
             WindowEvent::Occluded(occluded) => {
                 self.bevy_window_events
@@ -473,6 +475,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             self.lifecycle = AppLifecycle::Suspended;
             // Trigger one last update to enter the suspended state
             should_update = true;
+            self.ran_update_since_last_redraw = false;
 
             #[cfg(target_os = "android")]
             {
@@ -555,7 +558,10 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             // This is a temporary solution, full solution is mentioned here: https://github.com/bevyengine/bevy/issues/1343#issuecomment-770091684
             if !self.ran_update_since_last_redraw || all_invisible {
                 self.run_app_update();
+                #[cfg(feature = "custom_cursor")]
                 self.update_cursors(event_loop);
+                #[cfg(not(feature = "custom_cursor"))]
+                self.update_cursors();
                 self.ran_update_since_last_redraw = true;
             } else {
                 self.redraw_requested = true;
@@ -783,14 +789,23 @@ impl<T: Event> WinitAppRunnerState<T> {
             .send_batch(buffered_events);
     }
 
-    fn update_cursors(&mut self, event_loop: &ActiveEventLoop) {
+    fn update_cursors(&mut self, #[cfg(feature = "custom_cursor")] event_loop: &ActiveEventLoop) {
+        #[cfg(feature = "custom_cursor")]
         let mut windows_state: SystemState<(
             NonSendMut<WinitWindows>,
             ResMut<CustomCursorCache>,
             Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
         )> = SystemState::new(self.world_mut());
+        #[cfg(feature = "custom_cursor")]
         let (winit_windows, mut cursor_cache, mut windows) =
             windows_state.get_mut(self.world_mut());
+        #[cfg(not(feature = "custom_cursor"))]
+        let mut windows_state: SystemState<(
+            NonSendMut<WinitWindows>,
+            Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
+        )> = SystemState::new(self.world_mut());
+        #[cfg(not(feature = "custom_cursor"))]
+        let (winit_windows, mut windows) = windows_state.get_mut(self.world_mut());
 
         for (entity, mut pending_cursor) in windows.iter_mut() {
             let Some(winit_window) = winit_windows.get_window(entity) else {
@@ -801,6 +816,7 @@ impl<T: Event> WinitAppRunnerState<T> {
             };
 
             let final_cursor: winit::window::Cursor = match pending_cursor {
+                #[cfg(feature = "custom_cursor")]
                 CursorSource::CustomCached(cache_key) => {
                     let Some(cached_cursor) = cursor_cache.0.get(&cache_key) else {
                         error!("Cursor should have been cached, but was not found");
@@ -808,6 +824,7 @@ impl<T: Event> WinitAppRunnerState<T> {
                     };
                     cached_cursor.clone().into()
                 }
+                #[cfg(feature = "custom_cursor")]
                 CursorSource::Custom((cache_key, cursor)) => {
                     let custom_cursor = event_loop.create_custom_cursor(cursor);
                     cursor_cache.0.insert(cache_key, custom_cursor.clone());

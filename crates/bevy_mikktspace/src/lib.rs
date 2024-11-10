@@ -11,6 +11,9 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
 
 use glam::{Vec2, Vec3};
 

@@ -8,8 +8,9 @@ use bevy_ecs::{
     world::{Command, Mut, World},
 };
 use bevy_hierarchy::{AddChild, BuildChildren, DespawnRecursiveExt, Parent};
-use bevy_utils::{tracing::error, HashMap, HashSet};
-use thiserror::Error;
+use bevy_reflect::Reflect;
+use bevy_utils::{HashMap, HashSet};
+use derive_more::derive::{Display, Error};
 use uuid::Uuid;
 
 /// Triggered on a scene's parent entity when [`crate::SceneInstance`] becomes ready to use.
@@ -17,7 +18,8 @@ use uuid::Uuid;
 /// See also [`Trigger`], [`SceneSpawner::instance_is_ready`].
 ///
 /// [`Trigger`]: bevy_ecs::observer::Trigger
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Event)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Event, Reflect)]
+#[reflect(Debug, PartialEq)]
 pub struct SceneInstanceReady {
     /// Instance which has been spawned.
     pub instance_id: InstanceId,
@@ -31,7 +33,8 @@ pub struct InstanceInfo {
 }
 
 /// Unique id identifying a scene instance.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Reflect)]
+#[reflect(Debug, PartialEq, Hash)]
 pub struct InstanceId(Uuid);
 
 impl InstanceId {
@@ -72,22 +75,22 @@ pub struct SceneSpawner {
 }
 
 /// Errors that can occur when spawning a scene.
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug)]
 pub enum SceneSpawnError {
     /// Scene contains an unregistered component type.
-    #[error("scene contains the unregistered component `{type_path}`. consider adding `#[reflect(Component)]` to your type")]
+    #[display("scene contains the unregistered component `{type_path}`. consider adding `#[reflect(Component)]` to your type")]
     UnregisteredComponent {
         /// Type of the unregistered component.
         type_path: String,
     },
     /// Scene contains an unregistered resource type.
-    #[error("scene contains the unregistered resource `{type_path}`. consider adding `#[reflect(Resource)]` to your type")]
+    #[display("scene contains the unregistered resource `{type_path}`. consider adding `#[reflect(Resource)]` to your type")]
     UnregisteredResource {
         /// Type of the unregistered resource.
         type_path: String,
     },
     /// Scene contains an unregistered type.
-    #[error(
+    #[display(
         "scene contains the unregistered type `{std_type_name}`. \
         consider reflecting it with `#[derive(Reflect)]` \
         and registering the type using `app.register_type::<T>()`"
@@ -97,7 +100,7 @@ pub enum SceneSpawnError {
         std_type_name: String,
     },
     /// Scene contains an unregistered type which has a `TypePath`.
-    #[error(
+    #[display(
         "scene contains the reflected type `{type_path}` but it was not found in the type registry. \
         consider registering the type using `app.register_type::<T>()``"
     )]
@@ -106,19 +109,19 @@ pub enum SceneSpawnError {
         type_path: String,
     },
     /// Scene contains a proxy without a represented type.
-    #[error("scene contains dynamic type `{type_path}` without a represented type. consider changing this using `set_represented_type`.")]
+    #[display("scene contains dynamic type `{type_path}` without a represented type. consider changing this using `set_represented_type`.")]
     NoRepresentedType {
         /// The dynamic instance type.
         type_path: String,
     },
     /// Dynamic scene with the given id does not exist.
-    #[error("scene does not exist")]
+    #[display("scene does not exist")]
     NonExistentScene {
         /// Id of the non-existent dynamic scene.
         id: AssetId<DynamicScene>,
     },
     /// Scene with the given id does not exist.
-    #[error("scene does not exist")]
+    #[display("scene does not exist")]
     NonExistentRealScene {
         /// Id of the non-existent scene.
         id: AssetId<Scene>,
@@ -191,7 +194,7 @@ impl SceneSpawner {
     pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
         if let Some(instance) = self.spawned_instances.remove(instance_id) {
             for &entity in instance.entity_map.values() {
-                if let Some(mut entity_mut) = world.get_entity_mut(entity) {
+                if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
                     entity_mut.remove_parent();
                     entity_mut.despawn_recursive();
                 };
@@ -427,7 +430,7 @@ pub fn scene_spawner_system(world: &mut World) {
         scene_spawner
             .scenes_with_parent
             .retain(|(instance, parent)| {
-                let retain = world.get_entity(*parent).is_some();
+                let retain = world.get_entity(*parent).is_ok();
 
                 if !retain {
                     dead_instances.insert(*instance);
@@ -482,7 +485,7 @@ mod tests {
     };
     use bevy_reflect::Reflect;
 
-    use crate::{DynamicSceneBuilder, ScenePlugin};
+    use crate::{DynamicSceneBuilder, DynamicSceneRoot, ScenePlugin};
 
     use super::*;
 
@@ -557,16 +560,18 @@ mod tests {
     }
 
     fn build_scene(app: &mut App) -> Handle<Scene> {
-        app.world_mut().run_system_once(
-            |world: &World,
-             type_registry: Res<'_, AppTypeRegistry>,
-             asset_server: Res<'_, AssetServer>| {
-                asset_server.add(
-                    Scene::from_dynamic_scene(&DynamicScene::from_world(world), &type_registry)
-                        .unwrap(),
-                )
-            },
-        )
+        app.world_mut()
+            .run_system_once(
+                |world: &World,
+                 type_registry: Res<'_, AppTypeRegistry>,
+                 asset_server: Res<'_, AssetServer>| {
+                    asset_server.add(
+                        Scene::from_dynamic_scene(&DynamicScene::from_world(world), &type_registry)
+                            .unwrap(),
+                    )
+                },
+            )
+            .expect("Failed to run scene builder system.")
     }
 
     fn build_dynamic_scene(app: &mut App) -> Handle<DynamicScene> {
@@ -574,11 +579,12 @@ mod tests {
             .run_system_once(|world: &World, asset_server: Res<'_, AssetServer>| {
                 asset_server.add(DynamicScene::from_world(world))
             })
+            .expect("Failed to run dynamic scene builder system.")
     }
 
     fn observe_trigger(app: &mut App, scene_id: InstanceId, scene_entity: Entity) {
         // Add observer
-        app.world_mut().observe(
+        app.world_mut().add_observer(
             move |trigger: Trigger<SceneInstanceReady>,
                   scene_spawner: Res<SceneSpawner>,
                   mut trigger_count: ResMut<TriggerCount>| {
@@ -608,7 +614,8 @@ mod tests {
                     trigger_count.0, 1,
                     "wrong number of `SceneInstanceReady` triggers"
                 );
-            });
+            })
+            .unwrap();
     }
 
     #[test]
@@ -619,11 +626,12 @@ mod tests {
         let scene = build_scene(&mut app);
 
         // Spawn scene.
-        let scene_id =
-            app.world_mut()
-                .run_system_once(move |mut scene_spawner: ResMut<'_, SceneSpawner>| {
-                    scene_spawner.spawn(scene.clone())
-                });
+        let scene_id = app
+            .world_mut()
+            .run_system_once(move |mut scene_spawner: ResMut<'_, SceneSpawner>| {
+                scene_spawner.spawn(scene.clone())
+            })
+            .unwrap();
 
         // Check trigger.
         observe_trigger(&mut app, scene_id, Entity::PLACEHOLDER);
@@ -637,11 +645,12 @@ mod tests {
         let scene = build_dynamic_scene(&mut app);
 
         // Spawn scene.
-        let scene_id =
-            app.world_mut()
-                .run_system_once(move |mut scene_spawner: ResMut<'_, SceneSpawner>| {
-                    scene_spawner.spawn_dynamic(scene.clone())
-                });
+        let scene_id = app
+            .world_mut()
+            .run_system_once(move |mut scene_spawner: ResMut<'_, SceneSpawner>| {
+                scene_spawner.spawn_dynamic(scene.clone())
+            })
+            .unwrap();
 
         // Check trigger.
         observe_trigger(&mut app, scene_id, Entity::PLACEHOLDER);
@@ -655,13 +664,17 @@ mod tests {
         let scene = build_scene(&mut app);
 
         // Spawn scene as child.
-        let (scene_id, scene_entity) = app.world_mut().run_system_once(
-            move |mut commands: Commands<'_, '_>, mut scene_spawner: ResMut<'_, SceneSpawner>| {
-                let entity = commands.spawn_empty().id();
-                let id = scene_spawner.spawn_as_child(scene.clone(), entity);
-                (id, entity)
-            },
-        );
+        let (scene_id, scene_entity) = app
+            .world_mut()
+            .run_system_once(
+                move |mut commands: Commands<'_, '_>,
+                      mut scene_spawner: ResMut<'_, SceneSpawner>| {
+                    let entity = commands.spawn_empty().id();
+                    let id = scene_spawner.spawn_as_child(scene.clone(), entity);
+                    (id, entity)
+                },
+            )
+            .unwrap();
 
         // Check trigger.
         observe_trigger(&mut app, scene_id, scene_entity);
@@ -675,13 +688,17 @@ mod tests {
         let scene = build_dynamic_scene(&mut app);
 
         // Spawn scene as child.
-        let (scene_id, scene_entity) = app.world_mut().run_system_once(
-            move |mut commands: Commands<'_, '_>, mut scene_spawner: ResMut<'_, SceneSpawner>| {
-                let entity = commands.spawn_empty().id();
-                let id = scene_spawner.spawn_dynamic_as_child(scene.clone(), entity);
-                (id, entity)
-            },
-        );
+        let (scene_id, scene_entity) = app
+            .world_mut()
+            .run_system_once(
+                move |mut commands: Commands<'_, '_>,
+                      mut scene_spawner: ResMut<'_, SceneSpawner>| {
+                    let entity = commands.spawn_empty().id();
+                    let id = scene_spawner.spawn_dynamic_as_child(scene.clone(), entity);
+                    (id, entity)
+                },
+            )
+            .unwrap();
 
         // Check trigger.
         observe_trigger(&mut app, scene_id, scene_entity);
@@ -711,20 +728,23 @@ mod tests {
 
         // Spawn scene.
         for _ in 0..count {
-            app.world_mut().spawn((ComponentA, scene.clone()));
+            app.world_mut()
+                .spawn((ComponentA, DynamicSceneRoot(scene.clone())));
         }
 
         app.update();
         check(app.world_mut(), count);
 
         // Despawn scene.
-        app.world_mut().run_system_once(
-            |mut commands: Commands, query: Query<Entity, With<ComponentA>>| {
-                for entity in query.iter() {
-                    commands.entity(entity).despawn_recursive();
-                }
-            },
-        );
+        app.world_mut()
+            .run_system_once(
+                |mut commands: Commands, query: Query<Entity, With<ComponentA>>| {
+                    for entity in query.iter() {
+                        commands.entity(entity).despawn_recursive();
+                    }
+                },
+            )
+            .unwrap();
 
         app.update();
         check(app.world_mut(), 0);

@@ -27,7 +27,7 @@ impl Plugin for EmbeddedAssetPlugin {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Each example is its own crate (with name from [[example]] in Cargo.toml).
     let crate_name = "embedded_asset";
@@ -48,8 +48,5 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         "embedded://embedded_asset/files/bevy_pixel_light.png".into()
     );
 
-    commands.spawn(SpriteBundle {
-        texture: asset_server.load(asset_path),
-        ..default()
-    });
+    commands.spawn(Sprite::from_image(asset_server.load(asset_path)));
 }

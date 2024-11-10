@@ -29,9 +29,15 @@ impl Command for AddChildInPlace {
         hierarchy_command.apply(world);
         // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
         let mut update_transform = || {
-            let parent = *world.get_entity(self.parent)?.get::<GlobalTransform>()?;
-            let child_global = *world.get_entity(self.child)?.get::<GlobalTransform>()?;
-            let mut child_entity = world.get_entity_mut(self.child)?;
+            let parent = *world
+                .get_entity(self.parent)
+                .ok()?
+                .get::<GlobalTransform>()?;
+            let child_global = *world
+                .get_entity(self.child)
+                .ok()?
+                .get::<GlobalTransform>()?;
+            let mut child_entity = world.get_entity_mut(self.child).ok()?;
             let mut child = child_entity.get_mut::<Transform>()?;
             *child = child_global.reparented_to(&parent);
             Some(())
@@ -54,8 +60,11 @@ impl Command for RemoveParentInPlace {
         hierarchy_command.apply(world);
         // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
         let mut update_transform = || {
-            let child_global = *world.get_entity(self.child)?.get::<GlobalTransform>()?;
-            let mut child_entity = world.get_entity_mut(self.child)?;
+            let child_global = *world
+                .get_entity(self.child)
+                .ok()?
+                .get::<GlobalTransform>()?;
+            let mut child_entity = world.get_entity_mut(self.child).ok()?;
             let mut child = child_entity.get_mut::<Transform>()?;
             *child = child_global.compute_transform();
             Some(())

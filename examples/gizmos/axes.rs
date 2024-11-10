@@ -47,28 +47,24 @@ fn setup(
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
 
     // Lights...
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(2., 6., 0.),
-        ..default()
-    });
+        Transform::from_xyz(2., 6., 0.),
+    ));
 
     // Camera...
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0., 1.5, -8.).looking_at(Vec3::new(0., -0.5, 0.), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0., 1.5, -8.).looking_at(Vec3::new(0., -0.5, 0.), Vec3::Y),
+    ));
 
     // Action! (Our cubes that are going to move)
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::new(1., 1., 1.)),
-            material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::new(1., 1., 1.))),
+        MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
         ShowAxes,
         TransformTracking {
             initial_transform: default(),
@@ -78,11 +74,8 @@ fn setup(
     ));
 
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-            material: materials.add(Color::srgb(0.6, 0.7, 0.8)),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
+        MeshMaterial3d(materials.add(Color::srgb(0.6, 0.7, 0.8))),
         ShowAxes,
         TransformTracking {
             initial_transform: default(),
@@ -92,12 +85,11 @@ fn setup(
     ));
 
     // A plane to give a sense of place
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(20., 20.)),
-        material: materials.add(Color::srgb(0.1, 0.1, 0.1)),
-        transform: Transform::from_xyz(0., -2., 0.),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(20., 20.))),
+        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.1, 0.1))),
+        Transform::from_xyz(0., -2., 0.),
+    ));
 
     commands.insert_resource(SeededRng(rng));
 }
@@ -125,7 +117,7 @@ fn move_cubes(
         );
 
         if tracking.progress < TRANSITION_DURATION {
-            tracking.progress += time.delta_seconds();
+            tracking.progress += time.delta_secs();
         } else {
             tracking.initial_transform = *transform;
             tracking.target_transform = random_transform(&mut rng.0);

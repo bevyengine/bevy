@@ -8,9 +8,10 @@ use alloc::sync::{Arc, Weak};
 use bevy_ecs::world::World;
 use bevy_tasks::Task;
 use bevy_utils::{tracing::warn, Entry, HashMap, HashSet, TypeIdMap};
-use core::any::TypeId;
+use core::{any::TypeId, task::Waker};
 use crossbeam_channel::Sender;
-use thiserror::Error;
+use derive_more::derive::{Display, Error, From};
+use either::Either;
 
 #[derive(Debug)]
 pub(crate) struct AssetInfo {
@@ -23,8 +24,8 @@ pub(crate) struct AssetInfo {
     failed_dependencies: HashSet<UntypedAssetId>,
     loading_rec_dependencies: HashSet<UntypedAssetId>,
     failed_rec_dependencies: HashSet<UntypedAssetId>,
-    dependants_waiting_on_load: HashSet<UntypedAssetId>,
-    dependants_waiting_on_recursive_dep_load: HashSet<UntypedAssetId>,
+    dependents_waiting_on_load: HashSet<UntypedAssetId>,
+    dependents_waiting_on_recursive_dep_load: HashSet<UntypedAssetId>,
     /// The asset paths required to load this asset. Hashes will only be set for processed assets.
     /// This is set using the value from [`LoadedAsset`].
     /// This will only be populated if [`AssetInfos::watching_for_changes`] is set to `true` to
@@ -35,6 +36,8 @@ pub(crate) struct AssetInfo {
     /// The number of handle drops to skip for this asset.
     /// See usage (and comments) in `get_or_create_path_handle` for context.
     handle_drops_to_skip: usize,
+    /// List of tasks waiting for this asset to complete loading
+    pub(crate) waiting_tasks: Vec<Waker>,
 }
 
 impl AssetInfo {
@@ -50,9 +53,10 @@ impl AssetInfo {
             loading_rec_dependencies: HashSet::default(),
             failed_rec_dependencies: HashSet::default(),
             loader_dependencies: HashMap::default(),
-            dependants_waiting_on_load: HashSet::default(),
-            dependants_waiting_on_recursive_dep_load: HashSet::default(),
+            dependents_waiting_on_load: HashSet::default(),
+            dependents_waiting_on_recursive_dep_load: HashSet::default(),
             handle_drops_to_skip: 0,
+            waiting_tasks: Vec::new(),
         }
     }
 }
@@ -61,12 +65,12 @@ impl AssetInfo {
 pub(crate) struct AssetInfos {
     path_to_id: HashMap<AssetPath<'static>, TypeIdMap<UntypedAssetId>>,
     infos: HashMap<UntypedAssetId, AssetInfo>,
-    /// If set to `true`, this informs [`AssetInfos`] to track data relevant to watching for changes (such as `load_dependants`)
+    /// If set to `true`, this informs [`AssetInfos`] to track data relevant to watching for changes (such as `load_dependents`)
     /// This should only be set at startup.
     pub(crate) watching_for_changes: bool,
     /// Tracks assets that depend on the "key" asset path inside their asset loaders ("loader dependencies")
     /// This should only be set when watching for changes to avoid unnecessary work.
-    pub(crate) loader_dependants: HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
+    pub(crate) loader_dependents: HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
     /// Tracks living labeled assets for a given source asset.
     /// This should only be set when watching for changes to avoid unnecessary work.
     pub(crate) living_labeled_assets: HashMap<AssetPath<'static>, HashSet<Box<str>>>,
@@ -103,7 +107,7 @@ impl AssetInfos {
                 None,
                 true,
             ),
-            type_name,
+            Either::Left(type_name),
         )
         .unwrap()
     }
@@ -162,15 +166,15 @@ impl AssetInfos {
         );
         // it is ok to unwrap because TypeId was specified above
         let (handle, should_load) =
-            unwrap_with_context(result, core::any::type_name::<A>()).unwrap();
+            unwrap_with_context(result, Either::Left(core::any::type_name::<A>())).unwrap();
         (handle.typed_unchecked(), should_load)
     }
 
-    pub(crate) fn get_or_create_path_handle_untyped(
+    pub(crate) fn get_or_create_path_handle_erased(
         &mut self,
         path: AssetPath<'static>,
         type_id: TypeId,
-        type_name: &'static str,
+        type_name: Option<&str>,
         loading_mode: HandleLoadingMode,
         meta_transform: Option<MetaTransform>,
     ) -> (UntypedHandle, bool) {
@@ -180,8 +184,12 @@ impl AssetInfos {
             loading_mode,
             meta_transform,
         );
-        // it is ok to unwrap because TypeId was specified above
-        unwrap_with_context(result, type_name).unwrap()
+        let type_info = match type_name {
+            Some(type_name) => Either::Left(type_name),
+            None => Either::Right(type_id),
+        };
+        unwrap_with_context(result, type_info)
+            .expect("type should be correct since the `TypeId` is specified above")
     }
 
     /// Retrieves asset tracking data, or creates it if it doesn't exist.
@@ -282,7 +290,7 @@ impl AssetInfos {
 
     pub(crate) fn get_path_and_type_id_handle(
         &self,
-        path: &AssetPath,
+        path: &AssetPath<'_>,
         type_id: TypeId,
     ) -> Option<UntypedHandle> {
         let id = self.path_to_id.get(path)?.get(&type_id)?;
@@ -291,7 +299,7 @@ impl AssetInfos {
 
     pub(crate) fn get_path_ids<'a>(
         &'a self,
-        path: &'a AssetPath<'a>,
+        path: &'a AssetPath<'_>,
     ) -> impl Iterator<Item = UntypedAssetId> + 'a {
         /// Concrete type to allow returning an `impl Iterator` even if `self.path_to_id.get(&path)` is `None`
         enum HandlesByPathIterator<T> {
@@ -322,7 +330,7 @@ impl AssetInfos {
 
     pub(crate) fn get_path_handles<'a>(
         &'a self,
-        path: &'a AssetPath<'a>,
+        path: &'a AssetPath<'_>,
     ) -> impl Iterator<Item = UntypedHandle> + 'a {
         self.get_path_ids(path)
             .filter_map(|id| self.get_id_handle(id))
@@ -364,7 +372,7 @@ impl AssetInfos {
         Self::process_handle_drop_internal(
             &mut self.infos,
             &mut self.path_to_id,
-            &mut self.loader_dependants,
+            &mut self.loader_dependents,
             &mut self.living_labeled_assets,
             &mut self.pending_tasks,
             self.watching_for_changes,
@@ -372,7 +380,7 @@ impl AssetInfos {
         )
     }
 
-    /// Updates [`AssetInfo`] / load state for an asset that has finished loading (and relevant dependencies / dependants).
+    /// Updates [`AssetInfo`] / load state for an asset that has finished loading (and relevant dependencies / dependents).
     pub(crate) fn process_asset_load(
         &mut self,
         loaded_asset_id: UntypedAssetId,
@@ -399,7 +407,7 @@ impl AssetInfos {
                     | RecursiveDependencyLoadState::NotLoaded => {
                         // If dependency is loading, wait for it.
                         dep_info
-                            .dependants_waiting_on_recursive_dep_load
+                            .dependents_waiting_on_recursive_dep_load
                             .insert(loaded_asset_id);
                     }
                     RecursiveDependencyLoadState::Loaded => {
@@ -417,7 +425,7 @@ impl AssetInfos {
                 match dep_info.load_state {
                     LoadState::NotLoaded | LoadState::Loading => {
                         // If dependency is loading, wait for it.
-                        dep_info.dependants_waiting_on_load.insert(loaded_asset_id);
+                        dep_info.dependents_waiting_on_load.insert(loaded_asset_id);
                         true
                     }
                     LoadState::Loaded => {
@@ -461,7 +469,7 @@ impl AssetInfos {
             (_loading, _failed) => RecursiveDependencyLoadState::Failed(rec_dep_error.unwrap()),
         };
 
-        let (dependants_waiting_on_load, dependants_waiting_on_rec_load) = {
+        let (dependents_waiting_on_load, dependents_waiting_on_rec_load) = {
             let watching_for_changes = self.watching_for_changes;
             // if watching for changes, track reverse loader dependencies for hot reloading
             if watching_for_changes {
@@ -471,11 +479,11 @@ impl AssetInfos {
                     .expect("Asset info should always exist at this point");
                 if let Some(asset_path) = &info.path {
                     for loader_dependency in loaded_asset.loader_dependencies.keys() {
-                        let dependants = self
-                            .loader_dependants
+                        let dependents = self
+                            .loader_dependents
                             .entry(loader_dependency.clone())
                             .or_default();
-                        dependants.insert(asset_path.clone());
+                        dependents.insert(asset_path.clone());
                     }
                 }
             }
@@ -493,49 +501,45 @@ impl AssetInfos {
                 info.loader_dependencies = loaded_asset.loader_dependencies;
             }
 
-            let dependants_waiting_on_rec_load = if matches!(
-                rec_dep_load_state,
-                RecursiveDependencyLoadState::Loaded | RecursiveDependencyLoadState::Failed(_)
-            ) {
-                Some(core::mem::take(
-                    &mut info.dependants_waiting_on_recursive_dep_load,
-                ))
-            } else {
-                None
-            };
+            let dependents_waiting_on_rec_load =
+                if rec_dep_load_state.is_loaded() || rec_dep_load_state.is_failed() {
+                    Some(core::mem::take(
+                        &mut info.dependents_waiting_on_recursive_dep_load,
+                    ))
+                } else {
+                    None
+                };
 
             (
-                core::mem::take(&mut info.dependants_waiting_on_load),
-                dependants_waiting_on_rec_load,
+                core::mem::take(&mut info.dependents_waiting_on_load),
+                dependents_waiting_on_rec_load,
             )
         };
 
-        for id in dependants_waiting_on_load {
+        for id in dependents_waiting_on_load {
             if let Some(info) = self.get_mut(id) {
                 info.loading_dependencies.remove(&loaded_asset_id);
-                if info.loading_dependencies.is_empty()
-                    && !matches!(info.dep_load_state, DependencyLoadState::Failed(_))
-                {
+                if info.loading_dependencies.is_empty() && !info.dep_load_state.is_failed() {
                     // send dependencies loaded event
                     info.dep_load_state = DependencyLoadState::Loaded;
                 }
             }
         }
 
-        if let Some(dependants_waiting_on_rec_load) = dependants_waiting_on_rec_load {
+        if let Some(dependents_waiting_on_rec_load) = dependents_waiting_on_rec_load {
             match rec_dep_load_state {
                 RecursiveDependencyLoadState::Loaded => {
-                    for dep_id in dependants_waiting_on_rec_load {
+                    for dep_id in dependents_waiting_on_rec_load {
                         Self::propagate_loaded_state(self, loaded_asset_id, dep_id, sender);
                     }
                 }
                 RecursiveDependencyLoadState::Failed(ref error) => {
-                    for dep_id in dependants_waiting_on_rec_load {
+                    for dep_id in dependents_waiting_on_rec_load {
                         Self::propagate_failed_state(self, loaded_asset_id, dep_id, error);
                     }
                 }
                 RecursiveDependencyLoadState::Loading | RecursiveDependencyLoadState::NotLoaded => {
-                    // dependants_waiting_on_rec_load should be None in this case
+                    // dependents_waiting_on_rec_load should be None in this case
                     unreachable!("`Loading` and `NotLoaded` state should never be propagated.")
                 }
             }
@@ -549,17 +553,17 @@ impl AssetInfos {
         waiting_id: UntypedAssetId,
         sender: &Sender<InternalAssetEvent>,
     ) {
-        let dependants_waiting_on_rec_load = if let Some(info) = infos.get_mut(waiting_id) {
+        let dependents_waiting_on_rec_load = if let Some(info) = infos.get_mut(waiting_id) {
             info.loading_rec_dependencies.remove(&loaded_id);
             if info.loading_rec_dependencies.is_empty() && info.failed_rec_dependencies.is_empty() {
                 info.rec_dep_load_state = RecursiveDependencyLoadState::Loaded;
-                if info.load_state == LoadState::Loaded {
+                if info.load_state.is_loaded() {
                     sender
                         .send(InternalAssetEvent::LoadedWithDependencies { id: waiting_id })
                         .unwrap();
                 }
                 Some(core::mem::take(
-                    &mut info.dependants_waiting_on_recursive_dep_load,
+                    &mut info.dependents_waiting_on_recursive_dep_load,
                 ))
             } else {
                 None
@@ -568,8 +572,8 @@ impl AssetInfos {
             None
         };
 
-        if let Some(dependants_waiting_on_rec_load) = dependants_waiting_on_rec_load {
-            for dep_id in dependants_waiting_on_rec_load {
+        if let Some(dependents_waiting_on_rec_load) = dependents_waiting_on_rec_load {
+            for dep_id in dependents_waiting_on_rec_load {
                 Self::propagate_loaded_state(infos, waiting_id, dep_id, sender);
             }
         }
@@ -582,19 +586,19 @@ impl AssetInfos {
         waiting_id: UntypedAssetId,
         error: &Arc<AssetLoadError>,
     ) {
-        let dependants_waiting_on_rec_load = if let Some(info) = infos.get_mut(waiting_id) {
+        let dependents_waiting_on_rec_load = if let Some(info) = infos.get_mut(waiting_id) {
             info.loading_rec_dependencies.remove(&failed_id);
             info.failed_rec_dependencies.insert(failed_id);
             info.rec_dep_load_state = RecursiveDependencyLoadState::Failed(error.clone());
             Some(core::mem::take(
-                &mut info.dependants_waiting_on_recursive_dep_load,
+                &mut info.dependents_waiting_on_recursive_dep_load,
             ))
         } else {
             None
         };
 
-        if let Some(dependants_waiting_on_rec_load) = dependants_waiting_on_rec_load {
-            for dep_id in dependants_waiting_on_rec_load {
+        if let Some(dependents_waiting_on_rec_load) = dependents_waiting_on_rec_load {
+            for dep_id in dependents_waiting_on_rec_load {
                 Self::propagate_failed_state(infos, waiting_id, dep_id, error);
             }
         }
@@ -607,7 +611,7 @@ impl AssetInfos {
         }
 
         let error = Arc::new(error);
-        let (dependants_waiting_on_load, dependants_waiting_on_rec_load) = {
+        let (dependents_waiting_on_load, dependents_waiting_on_rec_load) = {
             let Some(info) = self.get_mut(failed_id) else {
                 // The asset was already dropped.
                 return;
@@ -615,37 +619,40 @@ impl AssetInfos {
             info.load_state = LoadState::Failed(error.clone());
             info.dep_load_state = DependencyLoadState::Failed(error.clone());
             info.rec_dep_load_state = RecursiveDependencyLoadState::Failed(error.clone());
+            for waker in info.waiting_tasks.drain(..) {
+                waker.wake();
+            }
             (
-                core::mem::take(&mut info.dependants_waiting_on_load),
-                core::mem::take(&mut info.dependants_waiting_on_recursive_dep_load),
+                core::mem::take(&mut info.dependents_waiting_on_load),
+                core::mem::take(&mut info.dependents_waiting_on_recursive_dep_load),
             )
         };
 
-        for waiting_id in dependants_waiting_on_load {
+        for waiting_id in dependents_waiting_on_load {
             if let Some(info) = self.get_mut(waiting_id) {
                 info.loading_dependencies.remove(&failed_id);
                 info.failed_dependencies.insert(failed_id);
                 // don't overwrite DependencyLoadState if already failed to preserve first error
-                if !(matches!(info.dep_load_state, DependencyLoadState::Failed(_))) {
+                if !info.dep_load_state.is_failed() {
                     info.dep_load_state = DependencyLoadState::Failed(error.clone());
                 }
             }
         }
 
-        for waiting_id in dependants_waiting_on_rec_load {
+        for waiting_id in dependents_waiting_on_rec_load {
             Self::propagate_failed_state(self, failed_id, waiting_id, &error);
         }
     }
 
-    fn remove_dependants_and_labels(
+    fn remove_dependents_and_labels(
         info: &AssetInfo,
-        loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
+        loader_dependents: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
         path: &AssetPath<'static>,
         living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
     ) {
         for loader_dependency in info.loader_dependencies.keys() {
-            if let Some(dependants) = loader_dependants.get_mut(loader_dependency) {
-                dependants.remove(path);
+            if let Some(dependents) = loader_dependents.get_mut(loader_dependency) {
+                dependents.remove(path);
             }
         }
 
@@ -669,7 +676,7 @@ impl AssetInfos {
     fn process_handle_drop_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         path_to_id: &mut HashMap<AssetPath<'static>, TypeIdMap<UntypedAssetId>>,
-        loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
+        loader_dependents: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
         living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
         pending_tasks: &mut HashMap<UntypedAssetId, Task<()>>,
         watching_for_changes: bool,
@@ -696,9 +703,9 @@ impl AssetInfos {
         };
 
         if watching_for_changes {
-            Self::remove_dependants_and_labels(
+            Self::remove_dependents_and_labels(
                 &info,
-                loader_dependants,
+                loader_dependents,
                 path,
                 living_labeled_assets,
             );
@@ -728,7 +735,7 @@ impl AssetInfos {
                     Self::process_handle_drop_internal(
                         &mut self.infos,
                         &mut self.path_to_id,
-                        &mut self.loader_dependants,
+                        &mut self.loader_dependents,
                         &mut self.living_labeled_assets,
                         &mut self.pending_tasks,
                         self.watching_for_changes,
@@ -750,29 +757,35 @@ pub(crate) enum HandleLoadingMode {
     Force,
 }
 
-#[derive(Error, Debug)]
-#[error("Cannot allocate a handle because no handle provider exists for asset type {0:?}")]
+#[derive(Error, Display, Debug)]
+#[display("Cannot allocate a handle because no handle provider exists for asset type {_0:?}")]
+#[error(ignore)]
 pub struct MissingHandleProviderError(TypeId);
 
 /// An error encountered during [`AssetInfos::get_or_create_path_handle_internal`].
-#[derive(Error, Debug)]
+#[derive(Error, Display, Debug, From)]
 pub(crate) enum GetOrCreateHandleInternalError {
-    #[error(transparent)]
-    MissingHandleProviderError(#[from] MissingHandleProviderError),
-    #[error("Handle does not exist but TypeId was not specified.")]
+    MissingHandleProviderError(MissingHandleProviderError),
+    #[display("Handle does not exist but TypeId was not specified.")]
     HandleMissingButTypeIdNotSpecified,
 }
 
 pub(crate) fn unwrap_with_context<T>(
     result: Result<T, GetOrCreateHandleInternalError>,
-    type_name: &'static str,
+    type_info: Either<&str, TypeId>,
 ) -> Option<T> {
     match result {
         Ok(value) => Some(value),
         Err(GetOrCreateHandleInternalError::HandleMissingButTypeIdNotSpecified) => None,
-        Err(GetOrCreateHandleInternalError::MissingHandleProviderError(_)) => {
-            panic!("Cannot allocate an Asset Handle of type '{type_name}' because the asset type has not been initialized. \
-                    Make sure you have called app.init_asset::<{type_name}>()")
-        }
+        Err(GetOrCreateHandleInternalError::MissingHandleProviderError(_)) => match type_info {
+            Either::Left(type_name) => {
+                panic!("Cannot allocate an Asset Handle of type '{type_name}' because the asset type has not been initialized. \
+                    Make sure you have called `app.init_asset::<{type_name}>()`");
+            }
+            Either::Right(type_id) => {
+                panic!("Cannot allocate an AssetHandle of type '{type_id:?}' because the asset type has not been initialized. \
+                    Make sure you have called `app.init_asset::<(actual asset type)>()`")
+            }
+        },
     }
 }

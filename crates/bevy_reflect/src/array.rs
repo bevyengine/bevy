@@ -1,7 +1,8 @@
+use crate::generics::impl_generic_info_methods;
 use crate::{
     self as bevy_reflect, type_info::impl_type_methods, utility::reflect_hasher, ApplyError,
-    MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
-    TypeInfo, TypePath,
+    Generics, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, Type, TypeInfo, TypePath,
 };
 use bevy_reflect_derive::impl_type_path;
 use core::{
@@ -73,12 +74,18 @@ pub trait Array: PartialReflect {
             values: self.iter().map(PartialReflect::clone_value).collect(),
         }
     }
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_array_info(&self) -> Option<&'static ArrayInfo> {
+        self.get_represented_type_info()?.as_array().ok()
+    }
 }
 
 /// A container for compile-time array info.
 #[derive(Clone, Debug)]
 pub struct ArrayInfo {
     ty: Type,
+    generics: Generics,
     item_info: fn() -> Option<&'static TypeInfo>,
     item_ty: Type,
     capacity: usize,
@@ -97,6 +104,7 @@ impl ArrayInfo {
     ) -> Self {
         Self {
             ty: Type::of::<TArray>(),
+            generics: Generics::new(),
             item_info: TItem::maybe_type_info,
             item_ty: Type::of::<TItem>(),
             capacity,
@@ -138,6 +146,8 @@ impl ArrayInfo {
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_generic_info_methods!(generics);
 }
 
 /// A fixed-size list of reflected values.

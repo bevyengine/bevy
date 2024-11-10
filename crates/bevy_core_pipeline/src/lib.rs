@@ -19,6 +19,7 @@ pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod motion_blur;
 pub mod msaa_writeback;
+pub mod oit;
 pub mod post_process;
 pub mod prepass;
 mod skybox;
@@ -33,8 +34,8 @@ pub use skybox::Skybox;
 ///
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 pub mod experimental {
+    #[expect(deprecated)]
     pub mod taa {
-        #[allow(deprecated)]
         pub use crate::taa::{
             TemporalAntiAliasBundle, TemporalAntiAliasNode, TemporalAntiAliasPlugin,
             TemporalAntiAliasSettings, TemporalAntiAliasing,
@@ -45,6 +46,7 @@ pub mod experimental {
 /// The core pipeline prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
+#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -74,6 +76,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;
 use bevy_render::prelude::Shader;
+use oit::OrderIndependentTransparencyPlugin;
 
 #[derive(Default)]
 pub struct CorePipelinePlugin;
@@ -106,6 +109,7 @@ impl Plugin for CorePipelinePlugin {
                 DepthOfFieldPlugin,
                 SmaaPlugin,
                 PostProcessingPlugin,
+                OrderIndependentTransparencyPlugin,
             ));
     }
 }
