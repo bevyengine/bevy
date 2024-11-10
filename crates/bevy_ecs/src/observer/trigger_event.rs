@@ -72,7 +72,8 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
     targets: Targets,
 ) {
     let mut world = DeferredWorld::from(world);
-    if targets.entities().is_empty() {
+    let mut entity_targets = targets.entities().into_iter().peekable();
+    if entity_targets.peek().is_none() {
         // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
         unsafe {
             world.trigger_observers_with_data::<_, E::Traversal>(
@@ -84,12 +85,12 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
             );
         };
     } else {
-        for target in targets.entities() {
+        for target_entity in entity_targets {
             // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
             unsafe {
                 world.trigger_observers_with_data::<_, E::Traversal>(
                     event_type,
-                    *target,
+                    *target_entity,
                     targets.components(),
                     event_data,
                     E::AUTO_PROPAGATE,
