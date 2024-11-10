@@ -14,6 +14,7 @@ use core::hash::Hash;
 use derive_more::derive::{Display, Error, From};
 use serde::{Deserialize, Serialize};
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
+
 pub trait BevyDefault {
     fn bevy_default() -> Self;
 }

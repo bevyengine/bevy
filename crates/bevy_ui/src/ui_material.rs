@@ -30,8 +30,9 @@ use derive_more::derive::From;
 /// ```
 /// # use bevy_ui::prelude::*;
 /// # use bevy_ecs::prelude::*;
+/// # use bevy_image::Image;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image};
+/// # use bevy_render::render_resource::{AsBindGroup, ShaderRef};
 /// # use bevy_color::LinearRgba;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 ///
