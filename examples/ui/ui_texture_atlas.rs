@@ -44,7 +44,10 @@ fn setup(
         })
         .with_children(|parent| {
             parent.spawn((
-                UiImage::from_atlas_image(texture_handle, TextureAtlas::from(texture_atlas_handle)),
+                ImageNode::from_atlas_image(
+                    texture_handle,
+                    TextureAtlas::from(texture_atlas_handle),
+                ),
                 Node {
                     width: Val::Px(256.),
                     height: Val::Px(256.),
@@ -64,10 +67,13 @@ fn setup(
         });
 }
 
-fn increment_atlas_index(mut ui_images: Query<&mut UiImage>, keyboard: Res<ButtonInput<KeyCode>>) {
+fn increment_atlas_index(
+    mut image_nodes: Query<&mut ImageNode>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+) {
     if keyboard.just_pressed(KeyCode::Space) {
-        for mut ui_image in &mut ui_images {
-            if let Some(atlas) = &mut ui_image.texture_atlas {
+        for mut image_node in &mut image_nodes {
+            if let Some(atlas) = &mut image_node.texture_atlas {
                 atlas.index = (atlas.index + 1) % 6;
             }
         }

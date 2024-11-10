@@ -8,7 +8,7 @@
 
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
-//! Spawn UI elements with [`widget::Button`], [`UiImage`], [`Text`](prelude::Text) and [`Node`]
+//! Spawn UI elements with [`widget::Button`], [`ImageNode`], [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod measurement;
@@ -40,7 +40,7 @@ pub use measurement::*;
 pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;
-use widget::{UiImage, UiImageSize};
+use widget::{ImageNode, ImageNodeSize};
 
 /// The UI prelude.
 ///
@@ -58,7 +58,7 @@ pub mod prelude {
             node_bundles::*,
             ui_material::*,
             ui_node::*,
-            widget::{Button, Label, UiImage},
+            widget::{Button, ImageNode, Label},
             Interaction, MaterialNode, UiMaterialPlugin, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
@@ -155,8 +155,8 @@ impl Plugin for UiPlugin {
             .register_type::<RelativeCursorPosition>()
             .register_type::<ScrollPosition>()
             .register_type::<TargetCamera>()
-            .register_type::<UiImage>()
-            .register_type::<UiImageSize>()
+            .register_type::<ImageNode>()
+            .register_type::<ImageNodeSize>()
             .register_type::<UiRect>()
             .register_type::<UiScale>()
             .register_type::<BorderColor>()
@@ -208,7 +208,7 @@ impl Plugin for UiPlugin {
                 update_clipping_system.after(TransformSystem::TransformPropagate),
                 // Potential conflicts: `Assets<Image>`
                 // They run independently since `widget::image_node_system` will only ever observe
-                // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
+                // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
                 // will never modify a pre-existing `Image` asset.
                 widget::update_image_content_size_system
                     .in_set(UiSystem::Prepare)
@@ -265,7 +265,7 @@ fn build_text_interop(app: &mut App) {
                 // Since both systems will only ever insert new [`Image`] assets,
                 // they will never observe each other's effects.
                 .ambiguous_with(bevy_text::update_text2d_layout)
-                // We assume Text is on disjoint UI entities to UiImage and UiTextureAtlasImage
+                // We assume Text is on disjoint UI entities to ImageNode and UiTextureAtlasImage
                 // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(widget::update_image_content_size_system),
             widget::text_system

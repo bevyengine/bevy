@@ -560,6 +560,7 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
             primitive: default(),
             depth_stencil: None,
             multisample: default(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

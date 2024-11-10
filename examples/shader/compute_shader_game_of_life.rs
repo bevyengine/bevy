@@ -179,6 +179,7 @@ impl FromWorld for GameOfLifePipeline {
             shader: shader.clone(),
             shader_defs: vec![],
             entry_point: Cow::from("init"),
+            zero_initialize_workgroup_memory: false,
         });
         let update_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: None,
@@ -187,6 +188,7 @@ impl FromWorld for GameOfLifePipeline {
             shader,
             shader_defs: vec![],
             entry_point: Cow::from("update"),
+            zero_initialize_workgroup_memory: false,
         });
 
         GameOfLifePipeline {

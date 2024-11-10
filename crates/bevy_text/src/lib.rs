@@ -116,6 +116,8 @@ impl Plugin for TextPlugin {
             .register_type::<TextColor>()
             .register_type::<TextSpan>()
             .register_type::<TextBounds>()
+            .register_type::<TextLayout>()
+            .register_type::<ComputedTextBlock>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
             .init_resource::<TextPipeline>()

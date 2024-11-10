@@ -674,6 +674,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some(label.into()),
+            zero_initialize_workgroup_memory: false,
         })
     }
 }

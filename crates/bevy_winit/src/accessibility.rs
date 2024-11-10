@@ -3,12 +3,12 @@
 use alloc::{collections::VecDeque, sync::Arc};
 use std::sync::Mutex;
 
+use accesskit::{
+    ActionHandler, ActionRequest, ActivationHandler, DeactivationHandler, Node, NodeId, Role, Tree,
+    TreeUpdate,
+};
 use accesskit_winit::Adapter;
 use bevy_a11y::{
-    accesskit::{
-        ActionHandler, ActionRequest, ActivationHandler, DeactivationHandler, Node, NodeId, Role,
-        Tree, TreeUpdate,
-    },
     AccessibilityNode, AccessibilityRequested, AccessibilitySystem,
     ActionRequest as ActionRequestWrapper, Focus, ManageAccessibilityUpdates,
 };

@@ -248,7 +248,7 @@ pub(crate) enum ConvertAttributeError {
         "Vertex attribute {_0} has format {_1:?} but expected {_3:?} for target attribute {_2}"
     )]
     WrongFormat(String, VertexFormat, String, VertexFormat),
-    #[display("{0} in accessor {_1}")]
+    #[display("{_0} in accessor {_1}")]
     AccessFailed(AccessFailed, usize),
     #[display("Unknown vertex attribute {_0}")]
     UnknownName(String),

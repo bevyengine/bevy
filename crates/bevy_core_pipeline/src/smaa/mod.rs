@@ -512,6 +512,7 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
                 bias: default(),
             }),
             multisample: MultisampleState::default(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -571,6 +572,7 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
                 bias: default(),
             }),
             multisample: MultisampleState::default(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -607,6 +609,7 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

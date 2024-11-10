@@ -290,6 +290,7 @@ impl SpecializedComputePipeline for PreprocessPipeline {
             shader: MESH_PREPROCESS_SHADER_HANDLE,
             shader_defs,
             entry_point: "main".into(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

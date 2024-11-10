@@ -669,6 +669,7 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
+
         create_pipeline_task(
             async move {
                 let mut shader_cache = shader_cache.lock().unwrap();
@@ -731,10 +732,10 @@ impl PipelineCache {
                     )
                 });
 
-                // TODO: Expose this somehow
+                // TODO: Expose the rest of this somehow
                 let compilation_options = PipelineCompilationOptions {
-                    constants: &std::collections::HashMap::new(),
-                    zero_initialize_workgroup_memory: false,
+                    constants: &default(),
+                    zero_initialize_workgroup_memory: descriptor.zero_initialize_workgroup_memory,
                 };
 
                 let descriptor = RawRenderPipelineDescriptor {
@@ -779,6 +780,7 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
+
         create_pipeline_task(
             async move {
                 let mut shader_cache = shader_cache.lock().unwrap();
@@ -812,10 +814,11 @@ impl PipelineCache {
                     layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
                     module: &compute_module,
                     entry_point: Some(&descriptor.entry_point),
-                    // TODO: Expose this somehow
+                    // TODO: Expose the rest of this somehow
                     compilation_options: PipelineCompilationOptions {
-                        constants: &std::collections::HashMap::new(),
-                        zero_initialize_workgroup_memory: false,
+                        constants: &default(),
+                        zero_initialize_workgroup_memory: descriptor
+                            .zero_initialize_workgroup_memory,
                     },
                     cache: None,
                 };

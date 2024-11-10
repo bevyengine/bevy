@@ -20,7 +20,7 @@ fn main() {
 
 fn button_system(
     mut interaction_query: Query<
-        (&Interaction, &Children, &mut UiImage),
+        (&Interaction, &Children, &mut ImageNode),
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
@@ -68,6 +68,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 parent
                     .spawn((
                         Button,
+                        ImageNode {
+                            image: image.clone(),
+                            image_mode: NodeImageMode::Sliced(slicer.clone()),
+                            ..default()
+                        },
                         Node {
                             width: Val::Px(w),
                             height: Val::Px(h),
@@ -78,8 +83,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             margin: UiRect::all(Val::Px(20.0)),
                             ..default()
                         },
-                        UiImage::new(image.clone())
-                            .with_mode(NodeImageMode::Sliced(slicer.clone())),
                     ))
                     .with_child((
                         Text::new("Button"),

@@ -217,9 +217,8 @@ pub enum AnimationNodeType {
     /// additively.
     ///
     /// The weights of all the children of this node are *not* normalized to
-    /// 1.0. Rather, the first child is used as a base, ignoring its weight,
-    /// while the others are multiplied by their respective weights and then
-    /// added in sequence to the base.
+    /// 1.0. Rather, each child is multiplied by its respective weight and
+    /// added in sequence.
     ///
     /// Add nodes are primarily useful for superimposing an animation for a
     /// portion of a rig on top of the main animation. For example, an add node

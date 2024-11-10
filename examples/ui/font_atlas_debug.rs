@@ -49,7 +49,7 @@ fn atlas_render_system(
             let font_atlas = &font_atlas[state.atlas_count as usize];
             state.atlas_count += 1;
             commands.spawn((
-                UiImage::new(font_atlas.texture.clone()),
+                ImageNode::new(font_atlas.texture.clone()),
                 Node {
                     position_type: PositionType::Absolute,
                     top: Val::ZERO,
