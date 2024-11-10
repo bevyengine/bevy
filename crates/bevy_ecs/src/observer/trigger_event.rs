@@ -72,7 +72,7 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
     targets: Targets,
 ) {
     let mut world = DeferredWorld::from(world);
-    let mut entity_targets = targets.entities().into_iter().peekable();
+    let mut entity_targets = targets.entities().peekable();
     if entity_targets.peek().is_none() {
         // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
         unsafe {
