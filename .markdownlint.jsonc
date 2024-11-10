@@ -75,9 +75,7 @@
     },
     "no-inline-html": {
         "allowed_elements": [
-            "br", // Needed for lint breaks within tables
-            "details", // Needed for PR template
-            "summary" // Needed for PR template
+            "br" // Needed for lint breaks within tables
         ]
     },
     "no-multiple-blanks": {
