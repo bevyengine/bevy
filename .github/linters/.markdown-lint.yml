@@ -1,0 +1,7 @@
+extends: "../../.markdownlint.jsonc"
+no-duplicate-heading:
+  siblings_only: true
+no-inline-html:
+  allowed_elements:
+    - details
+    - summary
