@@ -2,11 +2,9 @@
 //! This example shows how to configure it to repeat the image instead.
 
 use bevy::{
+    image::{ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
     math::Affine2,
     prelude::*,
-    render::texture::{
-        ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
-    },
 };
 
 fn main() {

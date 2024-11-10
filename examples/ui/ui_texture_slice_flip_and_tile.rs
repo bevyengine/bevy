@@ -1,8 +1,8 @@
 //! This example illustrates how to how to flip and tile images with 9-slicing in the UI.
 
 use bevy::{
+    image::{ImageLoaderSettings, ImageSampler},
     prelude::*,
-    render::texture::{ImageLoaderSettings, ImageSampler},
     ui::widget::NodeImageMode,
     winit::WinitSettings,
 };

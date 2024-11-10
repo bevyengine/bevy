@@ -37,6 +37,8 @@ pub use bevy_gizmos as gizmos;
 #[cfg(feature = "bevy_gltf")]
 pub use bevy_gltf as gltf;
 pub use bevy_hierarchy as hierarchy;
+#[cfg(feature = "bevy_image")]
+pub use bevy_image as image;
 pub use bevy_input as input;
 pub use bevy_log as log;
 pub use bevy_math as math;

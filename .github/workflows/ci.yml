@@ -72,8 +72,7 @@ jobs:
         run: cargo run -p ci -- lints
 
   miri:
-    # Explicitly use macOS 14 to take advantage of M1 chip.
-    runs-on: macos-14
+    runs-on: macos-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -254,8 +253,7 @@ jobs:
           echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tekumara.typos-vscode'
 
   run-examples-macos-metal:
-    # Explicitly use macOS 14 to take advantage of M1 chip.
-    runs-on: macos-14
+    runs-on: macos-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
