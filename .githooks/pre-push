@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# Exit on error, undefined variables, and prevent command masking
+set -euo pipefail
+
+# Set file permissions to read-write for all files
+echo "Setting file permissions to read-write for all files..."
+find . -type f -exec chmod 644 {} \;
+
+# Run cargo fmt to ensure code is formatted
+echo "Running cargo fmt check..."
+if ! cargo fmt --all --check; then
+    echo "Error: Code is not formatted. Run 'cargo fmt --all' to format it."
+    exit 1
+fi
+
+# Build templated pages for features and examples
+echo "Building templated pages for features..."
+cargo run -p build-templated-pages -- features
+
+echo "Building templated pages for examples..."
+cargo run -p build-templated-pages -- examples
+
+# Check if the README.md files in examples or features are dirty
+if [[ -n $(git status --porcelain -- examples/README.md docs/cargo_features.md) ]]; then
+    echo "Error: The files examples/README.md or features/README.md were modified but not committed."
+    exit 1
+fi
+
+echo "All checks passed!"

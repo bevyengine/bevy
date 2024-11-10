@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# Exit on error, undefined variables, and prevent command masking
+set -euo pipefail
+
+# Set file permissions to read-write for all files
+echo "Setting file permissions to read-write for all files..."
+git ls-files -z | xargs -0 chmod 644
+
+# Run cargo fmt to ensure code is formatted
+echo "Running cargo fmt check..."
+if ! cargo fmt --all --check; then
+    echo "Error: Code is not formatted. Run 'cargo fmt --all' to format it."
+    exit 1
+fi
