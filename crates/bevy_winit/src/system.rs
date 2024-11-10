@@ -385,8 +385,11 @@ pub(crate) fn changed_windows(
             }
         }
 
-        if window.cursor_options.grab_mode != cache.window.cursor_options.grab_mode {
-            crate::winit_windows::attempt_grab(winit_window, window.cursor_options.grab_mode);
+        if window.cursor_options.grab_mode != cache.window.cursor_options.grab_mode
+            && crate::winit_windows::attempt_grab(winit_window, window.cursor_options.grab_mode)
+                .is_err()
+        {
+            window.cursor_options.grab_mode = cache.window.cursor_options.grab_mode;
         }
 
         if window.cursor_options.visible != cache.window.cursor_options.visible {

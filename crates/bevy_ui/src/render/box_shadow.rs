@@ -16,6 +16,7 @@ use bevy_ecs::{
         *,
     },
 };
+use bevy_image::BevyDefault as _;
 use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::RenderApp;
@@ -25,7 +26,6 @@ use bevy_render::{
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     sync_world::{RenderEntity, TemporaryRenderEntity},
-    texture::BevyDefault,
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
@@ -206,6 +206,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("box_shadow_pipeline".into()),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

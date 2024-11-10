@@ -4,7 +4,7 @@ mod render_pass;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
-use crate::widget::UiImage;
+use crate::widget::ImageNode;
 use crate::{
     experimental::UiChildren, BackgroundColor, BorderColor, CalculatedClip, ComputedNode,
     DefaultUiCamera, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples,
@@ -18,6 +18,7 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
+use bevy_image::Image;
 use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::sync_world::MainEntity;
@@ -29,7 +30,6 @@ use bevy_render::{
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::Image,
     view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
@@ -110,7 +110,7 @@ pub fn build_ui_render(app: &mut App) {
 
     render_app
         .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
-        .init_resource::<UiImageBindGroups>()
+        .init_resource::<ImageNodeBindGroups>()
         .init_resource::<UiMeta>()
         .init_resource::<ExtractedUiNodes>()
         .allow_ambiguous_resource::<ExtractedUiNodes>()
@@ -208,7 +208,7 @@ pub enum ExtractedUiItem {
         flip_x: bool,
         flip_y: bool,
         /// Border radius of the UI node.
-        /// Ordering: top left, top right, bottom right, bottom left.   
+        /// Ordering: top left, top right, bottom right, bottom left.
         border_radius: ResolvedBorderRadius,
         /// Border thickness of the UI node.
         /// Ordering: left, top, right, bottom.
@@ -318,7 +318,7 @@ pub fn extract_uinode_images(
             &ViewVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
-            &UiImage,
+            &ImageNode,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
@@ -874,7 +874,7 @@ pub fn queue_uinodes(
 }
 
 #[derive(Resource, Default)]
-pub struct UiImageBindGroups {
+pub struct ImageNodeBindGroups {
     pub values: HashMap<AssetId<Image>, BindGroup>,
 }
 
@@ -887,7 +887,7 @@ pub fn prepare_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
-    mut image_bind_groups: ResMut<UiImageBindGroups>,
+    mut image_bind_groups: ResMut<ImageNodeBindGroups>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     events: Res<SpriteAssetEvents>,
