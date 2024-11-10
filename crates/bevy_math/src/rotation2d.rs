@@ -333,7 +333,7 @@ impl Rot2 {
     #[inline]
     #[deprecated(
         since = "0.15.0",
-        note = "Use angle_to() instead, the semantics of angle_between will change in the future."
+        note = "Use `angle_to` instead, the semantics of `angle_between` will change in the future."
     )]
     pub fn angle_between(self, other: Self) -> f32 {
         (other * self.inverse()).as_radians()
