@@ -146,9 +146,9 @@ impl PointerPress {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 pub enum PressDirection {
     /// The pointer button was just pressed
-    Down,
+    Pressed,
     /// The pointer button was just released
-    Up,
+    Released,
 }
 
 /// The button that was just pressed or released
@@ -249,7 +249,7 @@ impl Location {
 pub enum PointerAction {
     /// A button has been pressed on the pointer.
     Pressed {
-        /// The press direction, either down or up.
+        /// The press state, either pressed or released.
         direction: PressDirection,
         /// The button that was pressed.
         button: PointerButton,
@@ -290,7 +290,7 @@ impl PointerInput {
     #[inline]
     pub fn button_just_pressed(&self, target_button: PointerButton) -> bool {
         if let PointerAction::Pressed { direction, button } = self.action {
-            direction == PressDirection::Down && button == target_button
+            direction == PressDirection::Pressed && button == target_button
         } else {
             false
         }
@@ -300,7 +300,7 @@ impl PointerInput {
     #[inline]
     pub fn button_just_released(&self, target_button: PointerButton) -> bool {
         if let PointerAction::Pressed { direction, button } = self.action {
-            direction == PressDirection::Up && button == target_button
+            direction == PressDirection::Released && button == target_button
         } else {
             false
         }
@@ -318,11 +318,11 @@ impl PointerInput {
                         .iter_mut()
                         .for_each(|(pointer_id, _, mut pointer)| {
                             if *pointer_id == event.pointer_id {
-                                let is_down = direction == PressDirection::Down;
+                                let is_pressed = direction == PressDirection::Pressed;
                                 match button {
-                                    PointerButton::Primary => pointer.primary = is_down,
-                                    PointerButton::Secondary => pointer.secondary = is_down,
-                                    PointerButton::Middle => pointer.middle = is_down,
+                                    PointerButton::Primary => pointer.primary = is_pressed,
+                                    PointerButton::Secondary => pointer.secondary = is_pressed,
+                                    PointerButton::Middle => pointer.middle = is_pressed,
                                 }
                             }
                         });

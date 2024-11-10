@@ -132,7 +132,7 @@ pub struct Out {
 
 /// Fires when a pointer button is pressed over the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
-pub struct Down {
+pub struct Pressed {
     /// Pointer button pressed to trigger this event.
     pub button: PointerButton,
     /// Information about the picking intersection.
@@ -141,14 +141,14 @@ pub struct Down {
 
 /// Fires when a pointer button is released over the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
-pub struct Up {
+pub struct Released {
     /// Pointer button lifted to trigger this event.
     pub button: PointerButton,
     /// Information about the picking intersection.
     pub hit: HitData,
 }
 
-/// Fires when a pointer sends a pointer down event followed by a pointer up event, with the same
+/// Fires when a pointer sends a pointer pressed event followed by a pointer released event, with the same
 /// `target` entity for both events.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 pub struct Click {
@@ -169,7 +169,7 @@ pub struct Move {
     pub delta: Vec2,
 }
 
-/// Fires when the `target` entity receives a pointer down event followed by a pointer move event.
+/// Fires when the `target` entity receives a pointer pressed event followed by a pointer move event.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 pub struct DragStart {
     /// Pointer button pressed and moved to trigger this event.
@@ -189,10 +189,10 @@ pub struct Drag {
     pub delta: Vec2,
 }
 
-/// Fires when a pointer is dragging the `target` entity and a pointer up event is received.
+/// Fires when a pointer is dragging the `target` entity and a pointer released event is received.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 pub struct DragEnd {
-    /// Pointer button pressed, moved, and lifted to trigger this event.
+    /// Pointer button pressed, moved, and released to trigger this event.
     pub button: PointerButton,
     /// The vector of drag movement measured from start to final pointer position.
     pub distance: Vec2,
@@ -234,7 +234,7 @@ pub struct DragLeave {
 /// Fires when a pointer drops the `dropped` entity onto the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 pub struct DragDrop {
-    /// Pointer button lifted to drop.
+    /// Pointer button released to drop.
     pub button: PointerButton,
     /// The entity that was dropped onto the `target` entity.
     pub dropped: Entity,
@@ -304,7 +304,7 @@ impl PointerState {
 pub struct PickingEventWriters<'w> {
     cancel_events: EventWriter<'w, Pointer<Cancel>>,
     click_events: EventWriter<'w, Pointer<Click>>,
-    down_events: EventWriter<'w, Pointer<Down>>,
+    pressed_events: EventWriter<'w, Pointer<Pressed>>,
     drag_drop_events: EventWriter<'w, Pointer<DragDrop>>,
     drag_end_events: EventWriter<'w, Pointer<DragEnd>>,
     drag_enter_events: EventWriter<'w, Pointer<DragEnter>>,
@@ -315,7 +315,7 @@ pub struct PickingEventWriters<'w> {
     move_events: EventWriter<'w, Pointer<Move>>,
     out_events: EventWriter<'w, Pointer<Out>>,
     over_events: EventWriter<'w, Pointer<Over>>,
-    up_events: EventWriter<'w, Pointer<Up>>,
+    released_events: EventWriter<'w, Pointer<Released>>,
 }
 
 /// Dispatches interaction events to the target entities.
@@ -324,7 +324,7 @@ pub struct PickingEventWriters<'w> {
 /// + The sequence [`DragEnter`], [`Over`].
 /// + Any number of any of the following:
 ///   + For each movement: The sequence [`DragStart`], [`Drag`], [`DragOver`], [`Move`].
-///   + For each button press: Either [`Down`], or the sequence [`Click`], [`Up`], [`DragDrop`], [`DragEnd`], [`DragLeave`].
+///   + For each button press: Either [`Pressed`], or the sequence [`Click`], [`Released`], [`DragDrop`], [`DragEnd`], [`DragLeave`].
 ///   + For each pointer cancellation: Simply [`Cancel`].
 /// + Finally the sequence  [`Out`], [`DragLeave`].
 ///
@@ -332,7 +332,7 @@ pub struct PickingEventWriters<'w> {
 ///
 /// Additionally, across multiple frames, the following are also strictly ordered by the interaction state machine:
 /// + When a pointer moves over the target: [`Over`], [`Move`], [`Out`].
-/// + When a pointer presses buttons on the target: [`Down`], [`Up`], [`Click`].
+/// + When a pointer presses buttons on the target: [`Pressed`], [`Released`], [`Click`].
 /// + When a pointer drags the target: [`DragStart`], [`Drag`], [`DragEnd`].
 /// + When a pointer drags something over the target: [`DragEnter`], [`DragOver`], [`DragDrop`], [`DragLeave`].
 /// + When a pointer is canceled: No other events will follow the [`Cancel`] event for that pointer.
@@ -436,31 +436,31 @@ pub fn pointer_events(
 
                 // The sequence of events emitted depends on if this is a press or a release
                 match direction {
-                    PressDirection::Down => {
-                        // If it's a press, emit a Down event and mark the hovered entities as pressed
+                    PressDirection::Pressed => {
+                        // If it's a press, emit a Pressed event and mark the hovered entities as pressed
                         for (hovered_entity, hit) in hover_map
                             .get(&pointer_id)
                             .iter()
                             .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.clone())))
                         {
-                            let down_event = Pointer::new(
+                            let pressed_event = Pointer::new(
                                 pointer_id,
                                 location.clone(),
                                 hovered_entity,
-                                Down {
+                                Pressed {
                                     button,
                                     hit: hit.clone(),
                                 },
                             );
-                            commands.trigger_targets(down_event.clone(), hovered_entity);
-                            event_writers.down_events.send(down_event);
+                            commands.trigger_targets(pressed_event.clone(), hovered_entity);
+                            event_writers.pressed_events.send(pressed_event);
                             // Also insert the press into the state
                             state
                                 .pressing
                                 .insert(hovered_entity, (location.clone(), now, hit));
                         }
                     }
-                    PressDirection::Up => {
+                    PressDirection::Released => {
                         // Emit Click and Up events on all the previously hovered entities.
                         for (hovered_entity, hit) in previous_hover_map
                             .get(&pointer_id)
@@ -483,18 +483,18 @@ pub fn pointer_events(
                                 commands.trigger_targets(click_event.clone(), hovered_entity);
                                 event_writers.click_events.send(click_event);
                             }
-                            // Always send the Up event
-                            let up_event = Pointer::new(
+                            // Always send the Released event
+                            let released_event = Pointer::new(
                                 pointer_id,
                                 location.clone(),
                                 hovered_entity,
-                                Up {
+                                Released {
                                     button,
                                     hit: hit.clone(),
                                 },
                             );
-                            commands.trigger_targets(up_event.clone(), hovered_entity);
-                            event_writers.up_events.send(up_event);
+                            commands.trigger_targets(released_event.clone(), hovered_entity);
+                            event_writers.released_events.send(released_event);
                         }
 
                         // Then emit the drop events.
