@@ -9,3 +9,7 @@ If you find it annoying to wait for CI on GitHub to tell you that you forgot to 
 ```bash
 git config --local core.hooksPath .githooks
 ```
+
+## Disabling the hooks
+
+Delete the `hooksPath` from `.git/config`.
