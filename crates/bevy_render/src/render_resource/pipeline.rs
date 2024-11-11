@@ -158,10 +158,12 @@ pub struct ComputePipelineDescriptor {
 pub enum MemoryInitialization {
     /// Zero-initialize workgroup memory. A safe choice.
     /// If you're not sure which option to use, pick this one.
+    /// This will perform worse than leaving memory uninitialized, but has predictable behavior across platforms.
     #[default]
     Zeroed,
     /// Do not initialize workgroup memory.
     /// Reading from workgroup variables before writing to them will result in garbage values.
+    /// If you are looking for maximum performance, use this option.
     Uninitialized,
 }
 
