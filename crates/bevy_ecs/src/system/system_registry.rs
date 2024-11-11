@@ -544,6 +544,32 @@ where
     }
 }
 
+/// The [`Command`] type for removing one shot systems from [`Commands`](crate::system::Commands).
+pub struct RemoveSystem<I: SystemInput + 'static, O: 'static> {
+    system_id: SystemId<I, O>,
+}
+
+impl<I, O> RemoveSystem<I, O>
+where
+    I: SystemInput + 'static,
+    O: 'static,
+{
+    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands).
+    pub fn new(system_id: SystemId<I, O>) -> Self {
+        Self { system_id }
+    }
+}
+
+impl<I, O> Command for RemoveSystem<I, O>
+where
+    I: SystemInput + 'static,
+    O: 'static,
+{
+    fn apply(self, world: &mut World) {
+        let _ = world.remove_system(self.system_id);
+    }
+}
+
 /// The [`Command`] type for running a cached one-shot system from
 /// [`Commands`](crate::system::Commands).
 ///
