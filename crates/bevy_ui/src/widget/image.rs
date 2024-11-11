@@ -270,7 +270,7 @@ pub fn update_image_content_size_system(
 
     for (mut content_size, image, mut image_size) in &mut query {
         if !matches!(image.image_mode, NodeImageMode::Auto)
-            || image.image == TRANSPARENT_IMAGE_HANDLE
+            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
             if image.is_changed() {
                 // Mutably derefs, marking the `ContentSize` as changed ensuring `ui_layout_system` will remove the node's measure func if present.
