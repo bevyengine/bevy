@@ -112,7 +112,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///     }
     /// }
     /// ```
-    pub fn remaining_mut(&mut self) -> QueryIter<'_, 's, D, F> {
+    pub fn remaining_mut(&mut self) -> QueryIter<'w, 's, D, F> {
         QueryIter {
             world: self.world,
             tables: self.tables,
@@ -1716,7 +1716,7 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
     current_row: usize,
 }
 
-impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'w, 's, D, F> {
     fn clone(&self) -> Self {
         Self {
             is_dense: self.is_dense,
@@ -1770,7 +1770,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         }
     }
 
-    fn reborrow(&mut self) -> QueryIterationCursor<'_, 's, D, F> {
+    fn reborrow(&mut self) -> QueryIterationCursor<'w, 's, D, F> {
         QueryIterationCursor {
             is_dense: self.is_dense,
             fetch: D::shrink_fetch(self.fetch.clone()),

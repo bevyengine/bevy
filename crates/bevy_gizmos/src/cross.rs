@@ -7,7 +7,7 @@ use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
 use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
 
-impl<Config> Gizmos<'_, '_, Config>
+impl<'w, 's, Config> Gizmos<'w, 's, Config>
 where
     Config: GizmoConfigGroup,
 {

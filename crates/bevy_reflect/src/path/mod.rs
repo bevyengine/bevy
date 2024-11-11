@@ -37,7 +37,7 @@ pub enum ReflectPathError<'a> {
     },
 }
 
-impl<'a> core::error::Error for ReflectPathError<'a> {}
+impl core::error::Error for ReflectPathError<'_> {}
 
 /// Something that can be interpreted as a reflection path in [`GetPath`].
 pub trait ReflectPath<'a>: Sized {

@@ -164,7 +164,7 @@ impl<'a> Iterator for TupleStructFieldIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for TupleStructFieldIter<'a> {}
+impl ExactSizeIterator for TupleStructFieldIter<'_> {}
 
 /// A convenience trait which combines fetching and downcasting of tuple
 /// struct fields.

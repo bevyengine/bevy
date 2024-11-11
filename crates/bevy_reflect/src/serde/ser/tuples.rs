@@ -13,7 +13,7 @@ impl<'a> TupleSerializer<'a> {
     }
 }
 
-impl<'a> Serialize for TupleSerializer<'a> {
+impl Serialize for TupleSerializer<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

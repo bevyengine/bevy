@@ -210,7 +210,7 @@ impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
     }
 }
 
-impl<'a, R: TextRoot> Drop for TextSpanIter<'a, R> {
+impl<R: TextRoot> Drop for TextSpanIter<'_, R> {
     fn drop(&mut self) {
         // Return the internal stack.
         let stack = core::mem::take(&mut self.stack);

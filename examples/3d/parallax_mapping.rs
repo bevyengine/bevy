@@ -54,7 +54,7 @@ impl Default for CurrentMethod {
     }
 }
 impl fmt::Display for CurrentMethod {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0 {
             ParallaxMappingMethod::Occlusion => write!(f, "Parallax Occlusion Mapping"),
             ParallaxMappingMethod::Relief { max_steps } => {

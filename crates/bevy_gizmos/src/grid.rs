@@ -36,7 +36,7 @@ where
     color: Color,
 }
 
-impl<Config, Clear> GridBuilder3d<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> GridBuilder3d<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -92,7 +92,7 @@ where
     }
 }
 
-impl<Config, Clear> GridBuilder2d<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> GridBuilder2d<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -136,7 +136,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for GridBuilder3d<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for GridBuilder3d<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -155,7 +155,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for GridBuilder2d<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for GridBuilder2d<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -348,8 +348,8 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn draw_grid<Config, Clear>(
-    gizmos: &mut Gizmos<'_, '_, Config, Clear>,
+fn draw_grid<'w, 's, Config, Clear>(
+    gizmos: &mut Gizmos<'w, 's, Config, Clear>,
     isometry: Isometry3d,
     spacing: Vec3,
     cell_count: UVec3,

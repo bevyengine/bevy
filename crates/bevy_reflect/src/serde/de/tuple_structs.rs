@@ -30,10 +30,10 @@ impl<'a> TupleStructVisitor<'a> {
     }
 }
 
-impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
+impl<'de> Visitor<'de> for TupleStructVisitor<'_> {
     type Value = DynamicTupleStruct;
 
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str("reflected tuple struct value")
     }
 

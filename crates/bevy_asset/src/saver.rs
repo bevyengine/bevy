@@ -79,7 +79,7 @@ pub struct SavedAsset<'a, A: Asset> {
     labeled_assets: &'a HashMap<CowArc<'static, str>, LabeledAsset>,
 }
 
-impl<'a, A: Asset> Deref for SavedAsset<'a, A> {
+impl<A: Asset> Deref for SavedAsset<'_, A> {
     type Target = A;
 
     fn deref(&self) -> &Self::Target {

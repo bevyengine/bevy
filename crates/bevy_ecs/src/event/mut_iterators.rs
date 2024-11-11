@@ -39,7 +39,7 @@ impl<'a, E: Event> Iterator for EventMutIterator<'a, E> {
     }
 }
 
-impl<'a, E: Event> ExactSizeIterator for EventMutIterator<'a, E> {
+impl<E: Event> ExactSizeIterator for EventMutIterator<'_, E> {
     fn len(&self) -> usize {
         self.iter.len()
     }
@@ -135,7 +135,7 @@ impl<'a, E: Event> Iterator for EventMutIteratorWithId<'a, E> {
     }
 }
 
-impl<'a, E: Event> ExactSizeIterator for EventMutIteratorWithId<'a, E> {
+impl<E: Event> ExactSizeIterator for EventMutIteratorWithId<'_, E> {
     fn len(&self) -> usize {
         self.unread
     }

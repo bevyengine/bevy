@@ -489,7 +489,7 @@ impl<'a> ReflectMeta<'a> {
     }
 }
 
-impl<'a> StructField<'a> {
+impl StructField<'_> {
     /// Generates a `TokenStream` for `NamedField` or `UnnamedField` construction.
     pub fn to_info_tokens(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
         let name = match &self.data.ident {
@@ -1197,7 +1197,7 @@ impl<'a> ReflectTypePath<'a> {
     }
 }
 
-impl<'a> ToTokens for ReflectTypePath<'a> {
+impl ToTokens for ReflectTypePath<'_> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         match self {
             Self::Internal { ident, .. } | Self::Primitive(ident) => ident.to_tokens(tokens),

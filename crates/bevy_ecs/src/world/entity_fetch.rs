@@ -174,7 +174,7 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
 // - No aliased mutability is caused because the array is checked for duplicates.
 // - No mutable references are returned by `fetch_ref`.
 // - No structurally-mutable references are returned by `fetch_deferred_mut`.
-unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
+unsafe impl<const N: usize> WorldEntityFetch for &[Entity; N] {
     type Ref<'w> = [EntityRef<'w>; N];
     type Mut<'w> = [EntityMut<'w>; N];
     type DeferredMut<'w> = [EntityMut<'w>; N];
@@ -235,7 +235,7 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
 // - No aliased mutability is caused because the slice is checked for duplicates.
 // - No mutable references are returned by `fetch_ref`.
 // - No structurally-mutable references are returned by `fetch_deferred_mut`.
-unsafe impl WorldEntityFetch for &'_ [Entity] {
+unsafe impl WorldEntityFetch for &[Entity] {
     type Ref<'w> = Vec<EntityRef<'w>>;
     type Mut<'w> = Vec<EntityMut<'w>>;
     type DeferredMut<'w> = Vec<EntityMut<'w>>;
@@ -290,7 +290,7 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
 // - No aliased mutability is caused because `EntityHashSet` guarantees no duplicates.
 // - No mutable references are returned by `fetch_ref`.
 // - No structurally-mutable references are returned by `fetch_deferred_mut`.
-unsafe impl WorldEntityFetch for &'_ EntityHashSet {
+unsafe impl WorldEntityFetch for &EntityHashSet {
     type Ref<'w> = EntityHashMap<EntityRef<'w>>;
     type Mut<'w> = EntityHashMap<EntityMut<'w>>;
     type DeferredMut<'w> = EntityHashMap<EntityMut<'w>>;

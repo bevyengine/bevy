@@ -246,7 +246,7 @@ where
     outer_resolution: u32,
 }
 
-impl<Config, Clear> Annulus2dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Annulus2dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -299,7 +299,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Annulus2dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Annulus2dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -446,7 +446,7 @@ where
     draw_arrow: bool, // decides whether to indicate the direction of the line with an arrow
 }
 
-impl<Config, Clear> Line2dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Line2dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -484,7 +484,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Line2dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Line2dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -586,7 +586,7 @@ where
     draw_arrow: bool, // decides whether to draw just a line or an arrow
 }
 
-impl<Config, Clear> Segment2dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Segment2dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -627,7 +627,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Segment2dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Segment2dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,

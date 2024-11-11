@@ -192,7 +192,7 @@ pub enum ArgValue<'a> {
     Mut(&'a mut dyn PartialReflect),
 }
 
-impl<'a> Deref for ArgValue<'a> {
+impl Deref for ArgValue<'_> {
     type Target = dyn PartialReflect;
 
     fn deref(&self) -> &Self::Target {

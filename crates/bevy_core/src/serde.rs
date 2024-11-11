@@ -27,7 +27,7 @@ struct EntityVisitor;
 impl<'de> Visitor<'de> for EntityVisitor {
     type Value = Name;
 
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str(any::type_name::<Name>())
     }
 
@@ -58,7 +58,7 @@ struct FrameVisitor;
 impl<'de> Visitor<'de> for FrameVisitor {
     type Value = FrameCount;
 
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str(any::type_name::<FrameCount>())
     }
 

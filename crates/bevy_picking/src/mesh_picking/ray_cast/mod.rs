@@ -75,7 +75,7 @@ impl<'a> RayCastSettings<'a> {
     }
 }
 
-impl<'a> Default for RayCastSettings<'a> {
+impl Default for RayCastSettings<'_> {
     fn default() -> Self {
         Self {
             visibility: RayCastVisibility::VisibleInView,

@@ -106,7 +106,7 @@ where
     spacing: Vec2,
 }
 
-impl<Config, Clear> Plane3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Plane3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -151,7 +151,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Plane3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Plane3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -412,7 +412,7 @@ where
     resolution: u32,
 }
 
-impl<Config, Clear> Cylinder3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Cylinder3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -451,7 +451,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Cylinder3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Cylinder3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -498,7 +498,7 @@ where
     resolution: u32,
 }
 
-impl<Config, Clear> Capsule3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Capsule3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -537,7 +537,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Capsule3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Capsule3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -619,7 +619,7 @@ where
     height_resolution: u32,
 }
 
-impl<Config, Clear> Cone3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Cone3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -678,7 +678,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Cone3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Cone3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -740,7 +740,7 @@ where
     resolution: u32,
 }
 
-impl<Config, Clear> ConicalFrustum3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> ConicalFrustum3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -780,7 +780,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for ConicalFrustum3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for ConicalFrustum3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -838,7 +838,7 @@ where
     major_resolution: u32,
 }
 
-impl<Config, Clear> Torus3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Torus3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -884,7 +884,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Torus3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Torus3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,

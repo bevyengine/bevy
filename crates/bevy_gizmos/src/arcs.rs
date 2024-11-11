@@ -80,7 +80,7 @@ where
     resolution: Option<u32>,
 }
 
-impl<Config, Clear> Arc2dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Arc2dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -92,7 +92,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Arc2dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Arc2dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -470,7 +470,7 @@ where
     resolution: Option<u32>,
 }
 
-impl<Config, Clear> Arc3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Arc3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -482,7 +482,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Arc3dBuilder<'_, '_, '_, Config, Clear>
+impl<'w, 's, Config, Clear> Drop for Arc3dBuilder<'_, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,

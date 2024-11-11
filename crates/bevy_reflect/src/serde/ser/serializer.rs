@@ -58,7 +58,7 @@ impl<'a> ReflectSerializer<'a> {
     }
 }
 
-impl<'a> Serialize for ReflectSerializer<'a> {
+impl Serialize for ReflectSerializer<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -144,7 +144,7 @@ impl<'a> TypedReflectSerializer<'a> {
     }
 }
 
-impl<'a> Serialize for TypedReflectSerializer<'a> {
+impl Serialize for TypedReflectSerializer<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

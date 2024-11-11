@@ -407,7 +407,7 @@ impl World {
     pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
-    ) -> EntityWorldMut {
+    ) -> EntityWorldMut<'_> {
         self.spawn(Observer::new(system))
     }
 
@@ -614,7 +614,7 @@ mod tests {
     #[derive(Component)]
     struct Parent(Entity);
 
-    impl Traversal for &'_ Parent {
+    impl Traversal for &Parent {
         fn traverse(item: Self::Item<'_>) -> Option<Entity> {
             Some(item.0)
         }

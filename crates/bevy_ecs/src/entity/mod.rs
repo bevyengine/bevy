@@ -471,7 +471,7 @@ pub struct ReserveEntitiesIterator<'a> {
     new_indices: core::ops::Range<u32>,
 }
 
-impl<'a> Iterator for ReserveEntitiesIterator<'a> {
+impl Iterator for ReserveEntitiesIterator<'_> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -489,8 +489,8 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for ReserveEntitiesIterator<'a> {}
-impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
+impl ExactSizeIterator for ReserveEntitiesIterator<'_> {}
+impl core::iter::FusedIterator for ReserveEntitiesIterator<'_> {}
 
 /// A [`World`]'s internal metadata store on all of its entities.
 ///

@@ -185,10 +185,10 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
 
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
-pub async fn initialize_renderer(
+pub async fn initialize_renderer<'w, 's>(
     instance: &Instance,
     options: &WgpuSettings,
-    request_adapter_options: &RequestAdapterOptions<'_, '_>,
+    request_adapter_options: &RequestAdapterOptions<'w, 's>,
 ) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
     let adapter = instance
         .request_adapter(request_adapter_options)

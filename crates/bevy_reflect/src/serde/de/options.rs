@@ -23,10 +23,10 @@ impl<'a> OptionVisitor<'a> {
     }
 }
 
-impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
+impl<'de> Visitor<'de> for OptionVisitor<'_> {
     type Value = DynamicEnum;
 
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str("reflected option value of type ")?;
         formatter.write_str(self.enum_info.type_path())
     }
