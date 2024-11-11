@@ -761,7 +761,11 @@ impl<T: SparseSetIndex> Access<T> {
         self.archetypal.ones().map(T::get_sparse_set_index)
     }
 
-    /// Returns an iterator over the component IDs and their [`AccessKind`].
+    /// Returns an iterator over the component IDs and their [`ComponentAccessKind`].
+    ///
+    /// Returns `Err(UnboundedAccess)` if the access is unbounded.
+    /// This typically occurs when an [`Access`] is marked as accessing all
+    /// components, and then adding exceptions.
     pub fn try_iter_component_access(
         &self,
     ) -> Result<impl Iterator<Item = ComponentAccessKind<T>> + '_, UnboundedAccess> {
