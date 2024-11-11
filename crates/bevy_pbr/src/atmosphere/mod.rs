@@ -6,22 +6,20 @@ use bevy_asset::load_internal_asset;
 use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
     component::Component,
-    entity::Entity,
     query::{QueryItem, With},
     schedule::IntoSystemConfigs,
-    system::{lifetimeless::Read, Commands, Query},
+    system::lifetimeless::Read,
 };
 use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::Reflect;
+use bevy_render::{extract_component::UniformComponentPlugin, render_resource::ShaderType};
 use bevy_render::{
-    camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, TextureFormat, TextureUsages},
     renderer::RenderAdapter,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSet,
 };
-use bevy_render::{extract_component::UniformComponentPlugin, render_resource::ShaderType};
 use bevy_utils::tracing::warn;
 
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};

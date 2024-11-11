@@ -120,6 +120,7 @@ fn sample_atmosphere(r: f32) -> AtmosphereSample {
     return sample;
 }
 
+
 fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_to_sample: vec3<f32>, ray_dir: vec3<f32>, local_r: f32, local_up: vec3<f32>) -> vec3<f32> {
     var rayleigh_scattering = vec3(0.0);
     var mie_scattering = vec3(0.0);
@@ -138,7 +139,21 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_t
         rayleigh_scattering += (transmittance_to_sample * shadow_factor * rayleigh_phase + psi_ms) * (*light).color.rgb;
         mie_scattering += (transmittance_to_sample * shadow_factor * mie_phase + psi_ms) * (*light).color.rgb;
     }
-    return local_atmosphere.rayleigh_scattering * rayleigh_scattering + local_atmosphere.mie_scattering * mie_scattering;
+    return (local_atmosphere.rayleigh_scattering * rayleigh_scattering + local_atmosphere.mie_scattering * mie_scattering) * view.exposure;
+}
+
+//TODO: make pr to specify light angular size on struct itself
+const SUN_ANGULAR_SIZE: f32 = 0.00436332; //angular radius of sun in radians
+
+fn sample_sun_disk(ray_dir: vec3<f32>, transmittance: vec3<f32>) -> vec3<f32> {
+    var sun_contribution = vec3(0.0);
+    for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
+        let light = &lights.directional_lights[light_i];
+        let neg_LdotV = dot((*light).direction_to_light, ray_dir);
+        let angle_to_light = acos(neg_LdotV);
+        sun_contribution += (*light).color.rgb * f32(angle_to_light <= SUN_ANGULAR_SIZE);
+    }
+    return sun_contribution * transmittance * view.exposure;
 }
 
 // TRANSFORM UTILITIES
@@ -154,8 +169,10 @@ fn get_local_up(r: f32, t: f32, ray_dir: vec3<f32>) -> vec3<f32> {
     return normalize(vec3(0.0, r, 0.0) + t * ray_dir);
 }
 
-fn get_local_r(view_r: f32, view_mu: f32, dist: f32) -> f32 {
-    return sqrt(dist * dist + 2.0 * view_r * view_mu * dist + view_r * view_r);
+//given a ray starting at radius r, with cos(zenith angle) of mu,
+//and a distance along the ray of t, gives the new radius at point t
+fn get_local_r(r: f32, mu: f32, t: f32) -> f32 {
+    return sqrt(t * t + 2.0 * r * mu * t + r * r);
 }
 
 // Convert uv [0.0 .. 1.0] coordinate to ndc space xy [-1.0 .. 1.0]

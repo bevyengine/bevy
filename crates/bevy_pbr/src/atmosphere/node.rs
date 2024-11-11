@@ -195,14 +195,23 @@ impl ViewNode for RenderSkyNode {
         Read<AtmosphereBindGroups>,
         Read<ViewTarget>,
         Read<DynamicUniformIndex<Atmosphere>>,
+        Read<DynamicUniformIndex<AtmosphereSettings>>,
         Read<ViewUniformOffset>,
+        Read<ViewLightsUniformOffset>,
     );
 
     fn run<'w>(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (atmosphere_bind_groups, view_target, atmosphere_uniforms_offset, view_uniforms_offset): QueryItem<'w, Self::ViewQuery>,
+        (
+            atmosphere_bind_groups,
+            view_target,
+            atmosphere_uniforms_offset,
+            settings_uniforms_offset,
+            view_uniforms_offset,
+            lights_uniforms_offset,
+        ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
@@ -237,7 +246,9 @@ impl ViewNode for RenderSkyNode {
             &atmosphere_bind_groups.render_sky,
             &[
                 atmosphere_uniforms_offset.index(),
+                settings_uniforms_offset.index(),
                 view_uniforms_offset.offset,
+                lights_uniforms_offset.offset,
             ],
         );
         render_sky_pass.draw(0..3, 0..1);

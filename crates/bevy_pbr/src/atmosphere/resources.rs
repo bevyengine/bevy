@@ -19,12 +19,12 @@ use bevy_render::{
         CachedRenderPipelineId, ColorTargetState, ColorWrites, ComputePipelineDescriptor, Extent3d,
         FilterMode, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
-        StorageTextureAccess, StoreOp, TextureDescriptor, TextureDimension, TextureFormat,
+        StorageTextureAccess, TextureDescriptor, TextureDimension, TextureFormat,
         TextureSampleType, TextureUsages,
     },
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
-    view::{ViewDepthTexture, ViewTarget, ViewUniform, ViewUniforms},
+    view::{ViewDepthTexture, ViewUniform, ViewUniforms},
 };
 
 use crate::{GpuLights, LightMeta};
@@ -123,7 +123,9 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                 ShaderStages::FRAGMENT,
                 (
                     (0, uniform_buffer::<Atmosphere>(true)),
+                    (1, uniform_buffer::<AtmosphereSettings>(true)),
                     (2, uniform_buffer::<ViewUniform>(true)),
+                    (3, uniform_buffer::<GpuLights>(true)),
                     (4, texture_2d(TextureSampleType::Float { filterable: true })), //transmittance lut and sampler
                     (5, sampler(SamplerBindingType::Filtering)),
                     (8, texture_2d(TextureSampleType::Float { filterable: true })), //sky view lut and sampler
@@ -525,7 +527,9 @@ pub(super) fn prepare_atmosphere_bind_groups(
             &layouts.render_sky,
             &BindGroupEntries::with_indices((
                 (0, atmosphere_binding.clone()),
+                (1, settings_binding.clone()),
                 (2, view_binding.clone()),
+                (3, lights_binding.clone()),
                 (4, &textures.transmittance_lut.default_view),
                 (5, &samplers.transmittance_lut),
                 (8, &textures.sky_view_lut.default_view),
