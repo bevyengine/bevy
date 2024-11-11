@@ -772,7 +772,7 @@ impl<T: SparseSetIndex> Access<T> {
     /// `Access`, it's not recommended. Prefer to manage your own lists of
     /// accessible components if your application needs to do that.
     #[doc(hidden)]
-    #[deprecated]
+    // TODO: this should be deprecated and removed, see https://github.com/bevyengine/bevy/issues/16339
     pub fn component_reads_and_writes(&self) -> (impl Iterator<Item = T> + '_, bool) {
         (
             self.component_read_and_writes
