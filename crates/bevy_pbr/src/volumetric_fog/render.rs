@@ -16,6 +16,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_image::{BevyDefault, Image};
 use bevy_math::{vec4, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles as _};
 use bevy_render::{
     mesh::{
@@ -36,7 +37,8 @@ use bevy_render::{
         TextureSampleType, TextureUsages, VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    texture::{BevyDefault as _, GpuImage, Image},
+    sync_world::RenderEntity,
+    texture::GpuImage,
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
     Extract,
 };
@@ -270,27 +272,43 @@ impl FromWorld for VolumetricFogPipeline {
 /// from the main world to the render world.
 pub fn extract_volumetric_fog(
     mut commands: Commands,
-    view_targets: Extract<Query<(Entity, &VolumetricFog)>>,
-    fog_volumes: Extract<Query<(Entity, &FogVolume, &GlobalTransform)>>,
-    volumetric_lights: Extract<Query<(Entity, &VolumetricLight)>>,
+    view_targets: Extract<Query<(RenderEntity, &VolumetricFog)>>,
+    fog_volumes: Extract<Query<(RenderEntity, &FogVolume, &GlobalTransform)>>,
+    volumetric_lights: Extract<Query<(RenderEntity, &VolumetricLight)>>,
 ) {
     if volumetric_lights.is_empty() {
+        // TODO: needs better way to handle clean up in render world
+        for (entity, ..) in view_targets.iter() {
+            commands
+                .entity(entity)
+                .remove::<(VolumetricFog, ViewVolumetricFogPipelines, ViewVolumetricFog)>();
+        }
+        for (entity, ..) in fog_volumes.iter() {
+            commands.entity(entity).remove::<FogVolume>();
+        }
         return;
     }
 
     for (entity, volumetric_fog) in view_targets.iter() {
-        commands.get_or_spawn(entity).insert(*volumetric_fog);
+        commands
+            .get_entity(entity)
+            .expect("Volumetric fog entity wasn't synced.")
+            .insert(*volumetric_fog);
     }
 
     for (entity, fog_volume, fog_transform) in fog_volumes.iter() {
         commands
-            .get_or_spawn(entity)
+            .get_entity(entity)
+            .expect("Fog volume entity wasn't synced.")
             .insert((*fog_volume).clone())
             .insert(*fog_transform);
     }
 
     for (entity, volumetric_light) in volumetric_lights.iter() {
-        commands.get_or_spawn(entity).insert(*volumetric_light);
+        commands
+            .get_entity(entity)
+            .expect("Volumetric light entity wasn't synced.")
+            .insert(*volumetric_light);
     }
 }
 
@@ -583,6 +601,7 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

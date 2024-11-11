@@ -151,16 +151,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
 /// Spawns the camera, with the initial shadow filtering method.
 fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
     commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-12.912 * 0.7, 4.466 * 0.7, -10.624 * 0.7)
-                .with_rotation(Quat::from_euler(
-                    EulerRot::YXZ,
-                    -134.76 / 180.0 * PI,
-                    -0.175,
-                    0.0,
-                )),
-            ..default()
-        })
+        .spawn((
+            Camera3d::default(),
+            Transform::from_xyz(-12.912 * 0.7, 4.466 * 0.7, -10.624 * 0.7).with_rotation(
+                Quat::from_euler(EulerRot::YXZ, -134.76 / 180.0 * PI, -0.175, 0.0),
+            ),
+        ))
         .insert(ShadowFilteringMethod::Gaussian)
         // `TemporalJitter` is needed for TAA. Note that it does nothing without
         // `TemporalAntiAliasSettings`.
@@ -185,17 +181,16 @@ fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
     // light depending on the settings, we add the union of the components
     // necessary for this light to behave as all three of those.
     commands
-        .spawn(DirectionalLightBundle {
-            directional_light: create_directional_light(app_status),
-            transform: Transform::from_rotation(Quat::from_array([
+        .spawn((
+            create_directional_light(app_status),
+            Transform::from_rotation(Quat::from_array([
                 0.6539259,
                 -0.34646285,
                 0.36505926,
                 -0.5648683,
             ]))
             .with_translation(vec3(57.693, 34.334, -6.422)),
-            ..default()
-        })
+        ))
         // These two are needed for point lights.
         .insert(CubemapVisibleEntities::default())
         .insert(CubemapFrusta::default())
@@ -206,19 +201,15 @@ fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
 
 /// Loads and spawns the glTF palm tree scene.
 fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/PalmTree/PalmTree.gltf#Scene0"),
-        ..default()
-    });
+    commands.spawn(SceneRoot(
+        asset_server.load("models/PalmTree/PalmTree.gltf#Scene0"),
+    ));
 }
 
 /// Spawns all the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
     commands
-        .spawn(NodeBundle {
-            style: widgets::main_ui_style(),
-            ..default()
-        })
+        .spawn(widgets::main_ui_node())
         .with_children(|parent| {
             widgets::spawn_option_buttons(
                 parent,
@@ -256,15 +247,17 @@ fn spawn_buttons(commands: &mut Commands) {
 fn update_radio_buttons(
     mut widgets: Query<
         (
+            Entity,
             Option<&mut BackgroundColor>,
-            Option<&mut Text>,
+            Has<Text>,
             &WidgetClickSender<AppSetting>,
         ),
         Or<(With<RadioButton>, With<RadioButtonText>)>,
     >,
     app_status: Res<AppStatus>,
+    mut writer: TextUiWriter,
 ) {
-    for (image, text, sender) in widgets.iter_mut() {
+    for (entity, image, has_text, sender) in widgets.iter_mut() {
         let selected = match **sender {
             AppSetting::LightType(light_type) => light_type == app_status.light_type,
             AppSetting::ShadowFilter(shadow_filter) => shadow_filter == app_status.shadow_filter,
@@ -274,8 +267,8 @@ fn update_radio_buttons(
         if let Some(mut bg_color) = image {
             widgets::update_ui_radio_button(&mut bg_color, selected);
         }
-        if let Some(mut text) = text {
-            widgets::update_ui_radio_button_text(&mut text, selected);
+        if has_text {
+            widgets::update_ui_radio_button_text(entity, &mut writer, selected);
         }
     }
 }
@@ -294,8 +287,8 @@ fn handle_light_type_change(
         app_status.light_type = light_type;
 
         for light in lights.iter_mut() {
-            let light_commands = commands
-                .entity(light)
+            let mut light_commands = commands.entity(light);
+            light_commands
                 .remove::<DirectionalLight>()
                 .remove::<PointLight>()
                 .remove::<SpotLight>();

@@ -2,10 +2,7 @@
 //! and with gizmos
 #![allow(clippy::match_same_arms)]
 
-use bevy::{
-    input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*,
-    sprite::MaterialMesh2dBundle,
-};
+use bevy::{input::common_conditions::input_just_pressed, math::Isometry2d, prelude::*};
 
 const LEFT_RIGHT_OFFSET_2D: f32 = 200.0;
 const LEFT_RIGHT_OFFSET_3D: f32 = 2.0;
@@ -301,16 +298,13 @@ fn setup_cameras(mut commands: Commands) {
         ..Default::default()
     };
 
-    commands.spawn(Camera2dBundle {
-        camera: make_camera(start_in_2d),
-        ..Default::default()
-    });
+    commands.spawn((Camera2d, make_camera(start_in_2d)));
 
-    commands.spawn(Camera3dBundle {
-        camera: make_camera(!start_in_2d),
-        transform: Transform::from_xyz(0.0, 10.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
-        ..Default::default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        make_camera(!start_in_2d),
+        Transform::from_xyz(0.0, 10.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
+    ));
 }
 
 fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
@@ -318,15 +312,14 @@ fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
 }
 
 fn setup_lights(mut commands: Commands) {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 5000.0,
             ..default()
         },
-        transform: Transform::from_translation(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 2.0, 0.0))
+        Transform::from_translation(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 2.0, 0.0))
             .looking_at(Vec3::new(-LEFT_RIGHT_OFFSET_3D, 0.0, 0.0), Vec3::Y),
-        ..default()
-    });
+    ));
 }
 
 /// Marker component for header text
@@ -339,12 +332,12 @@ pub struct HeaderNode;
 
 fn update_active_cameras(
     state: Res<State<CameraActive>>,
-    mut camera_2d: Query<(Entity, &mut Camera), With<Camera2d>>,
-    mut camera_3d: Query<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
+    camera_2d: Single<(Entity, &mut Camera), With<Camera2d>>,
+    camera_3d: Single<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
     mut text: Query<&mut TargetCamera, With<HeaderNode>>,
 ) {
-    let (entity_2d, mut cam_2d) = camera_2d.single_mut();
-    let (entity_3d, mut cam_3d) = camera_3d.single_mut();
+    let (entity_2d, mut cam_2d) = camera_2d.into_inner();
+    let (entity_3d, mut cam_3d) = camera_3d.into_inner();
     let is_camera_2d_active = matches!(*state.get(), CameraActive::Dim2);
 
     cam_2d.is_active = is_camera_2d_active;
@@ -374,51 +367,50 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
         .iter()
         .find_map(|(entity, camera)| camera.is_active.then_some(entity))
         .expect("run condition ensures existence");
-    let text = format!("{text}", text = PrimitiveSelected::default());
-    let style = TextStyle::default();
-    let instructions = "Press 'C' to switch between 2D and 3D mode\n\
-        Press 'Up' or 'Down' to switch to the next/previous primitive";
-    let text = [
-        TextSection::new("Primitive: ", style.clone()),
-        TextSection::new(text, style.clone()),
-        TextSection::new("\n\n", style.clone()),
-        TextSection::new(instructions, style.clone()),
-        TextSection::new("\n\n", style.clone()),
-        TextSection::new(
-            "(If nothing is displayed, there's no rendering support yet)",
-            style.clone(),
-        ),
-    ];
-
     commands
         .spawn((
             HeaderNode,
-            NodeBundle {
-                style: Style {
-                    justify_self: JustifySelf::Center,
-                    top: Val::Px(5.0),
-                    ..Default::default()
-                },
+            Node {
+                justify_self: JustifySelf::Center,
+                top: Val::Px(5.0),
                 ..Default::default()
             },
             TargetCamera(active_camera),
         ))
-        .with_children(|parent| {
-            parent.spawn((
+        .with_children(|p| {
+            p.spawn((
+                Text::default(),
                 HeaderText,
-                TextBundle::from_sections(text).with_text_justify(JustifyText::Center),
-            ));
+                TextLayout::new_with_justify(JustifyText::Center),
+            ))
+            .with_children(|p| {
+                p.spawn(TextSpan::new("Primitive: "));
+                p.spawn(TextSpan(format!(
+                    "{text}",
+                    text = PrimitiveSelected::default()
+                )));
+                p.spawn(TextSpan::new("\n\n"));
+                p.spawn(TextSpan::new(
+                    "Press 'C' to switch between 2D and 3D mode\n\
+                    Press 'Up' or 'Down' to switch to the next/previous primitive",
+                ));
+                p.spawn(TextSpan::new("\n\n"));
+                p.spawn(TextSpan::new(
+                    "(If nothing is displayed, there's no rendering support yet)",
+                ));
+            });
         });
 }
 
 fn update_text(
     primitive_state: Res<State<PrimitiveSelected>>,
-    mut header: Query<&mut Text, With<HeaderText>>,
+    header: Query<Entity, With<HeaderText>>,
+    mut writer: TextUiWriter,
 ) {
     let new_text = format!("{text}", text = primitive_state.get());
-    header.iter_mut().for_each(|mut header_text| {
-        if let Some(kind) = header_text.sections.get_mut(1) {
-            kind.value.clone_from(&new_text);
+    header.iter().for_each(|header_text| {
+        if let Some(mut text) = writer.get_text(header_text, 2) {
+            (*text).clone_from(&new_text);
         };
     });
 }
@@ -445,7 +437,7 @@ fn in_mode(active: CameraActive) -> impl Fn(Res<State<CameraActive>>) -> bool {
 
 fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time: Res<Time>) {
     const POSITION: Vec2 = Vec2::new(-LEFT_RIGHT_OFFSET_2D, 0.0);
-    let angle = time.elapsed_seconds();
+    let angle = time.elapsed_secs();
     let isometry = Isometry2d::new(POSITION, Rot2::radians(angle));
     let color = Color::WHITE;
 
@@ -535,12 +527,9 @@ fn spawn_primitive_2d(
                     camera_mode,
                     primitive_state: state,
                 },
-                MaterialMesh2dBundle {
-                    mesh: meshes.add(mesh).into(),
-                    material: material.clone(),
-                    transform: Transform::from_translation(POSITION),
-                    ..Default::default()
-                },
+                Mesh2d(meshes.add(mesh)),
+                MeshMaterial2d(material.clone()),
+                Transform::from_translation(POSITION),
             ));
         }
     });
@@ -582,12 +571,9 @@ fn spawn_primitive_3d(
                     camera_mode,
                     primitive_state: state,
                 },
-                PbrBundle {
-                    mesh: meshes.add(mesh),
-                    material: material.clone(),
-                    transform: Transform::from_translation(POSITION),
-                    ..Default::default()
-                },
+                Mesh3d(meshes.add(mesh)),
+                MeshMaterial3d(material.clone()),
+                Transform::from_translation(POSITION),
             ));
         }
     });
@@ -616,7 +602,7 @@ fn rotate_primitive_2d_meshes(
     >,
     time: Res<Time>,
 ) {
-    let rotation_2d = Quat::from_mat3(&Mat3::from_angle(time.elapsed_seconds()));
+    let rotation_2d = Quat::from_mat3(&Mat3::from_angle(time.elapsed_secs()));
     primitives_2d
         .iter_mut()
         .filter(|(_, vis)| vis.get())
@@ -635,9 +621,9 @@ fn rotate_primitive_3d_meshes(
     let rotation_3d = Quat::from_rotation_arc(
         Vec3::Z,
         Vec3::new(
-            ops::sin(time.elapsed_seconds()),
-            ops::cos(time.elapsed_seconds()),
-            ops::sin(time.elapsed_seconds()) * 0.5,
+            ops::sin(time.elapsed_secs()),
+            ops::cos(time.elapsed_secs()),
+            ops::sin(time.elapsed_secs()) * 0.5,
         )
         .try_normalize()
         .unwrap_or(Vec3::Z),
@@ -655,9 +641,9 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
     let rotation = Quat::from_rotation_arc(
         Vec3::Z,
         Vec3::new(
-            ops::sin(time.elapsed_seconds()),
-            ops::cos(time.elapsed_seconds()),
-            ops::sin(time.elapsed_seconds()) * 0.5,
+            ops::sin(time.elapsed_secs()),
+            ops::cos(time.elapsed_secs()),
+            ops::sin(time.elapsed_secs()) * 0.5,
         )
         .try_normalize()
         .unwrap_or(Vec3::Z),

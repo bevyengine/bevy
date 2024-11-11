@@ -16,10 +16,7 @@ use bevy::{
         settings::{RenderCreation, WgpuSettings},
         RenderPlugin,
     },
-    sprite::{
-        MaterialMesh2dBundle, NoWireframe2d, Wireframe2d, Wireframe2dColor, Wireframe2dConfig,
-        Wireframe2dPlugin,
-    },
+    sprite::{NoWireframe2d, Wireframe2d, Wireframe2dColor, Wireframe2dConfig, Wireframe2dPlugin},
 };
 
 fn main() {
@@ -59,35 +56,26 @@ fn setup(
 ) {
     // Triangle: Never renders a wireframe
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes
-                .add(Triangle2d::new(
-                    Vec2::new(0.0, 50.0),
-                    Vec2::new(-50.0, -50.0),
-                    Vec2::new(50.0, -50.0),
-                ))
-                .into(),
-            material: materials.add(Color::BLACK),
-            transform: Transform::from_xyz(-150.0, 0.0, 0.0),
-            ..default()
-        },
+        Mesh2d(meshes.add(Triangle2d::new(
+            Vec2::new(0.0, 50.0),
+            Vec2::new(-50.0, -50.0),
+            Vec2::new(50.0, -50.0),
+        ))),
+        MeshMaterial2d(materials.add(Color::BLACK)),
+        Transform::from_xyz(-150.0, 0.0, 0.0),
         NoWireframe2d,
     ));
     // Rectangle: Follows global wireframe setting
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(Rectangle::new(100.0, 100.0)).into(),
-        material: materials.add(Color::BLACK),
-        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh2d(meshes.add(Rectangle::new(100.0, 100.0))),
+        MeshMaterial2d(materials.add(Color::BLACK)),
+        Transform::from_xyz(0.0, 0.0, 0.0),
+    ));
     // Circle: Always renders a wireframe
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(Circle::new(50.0)).into(),
-            material: materials.add(Color::BLACK),
-            transform: Transform::from_xyz(150.0, 0.0, 0.0),
-            ..default()
-        },
+        Mesh2d(meshes.add(Circle::new(50.0))),
+        MeshMaterial2d(materials.add(Color::BLACK)),
+        Transform::from_xyz(150.0, 0.0, 0.0),
         Wireframe2d,
         // This lets you configure the wireframe color of this entity.
         // If not set, this will use the color in `WireframeConfig`
@@ -97,17 +85,18 @@ fn setup(
     ));
 
     // Camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Text used to show controls
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 /// This system lets you toggle various wireframe settings
@@ -115,9 +104,9 @@ fn update_colors(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<Wireframe2dConfig>,
     mut wireframe_colors: Query<&mut Wireframe2dColor>,
-    mut text: Query<&mut Text>,
+    mut text: Single<&mut Text>,
 ) {
-    text.single_mut().sections[0].value = format!(
+    text.0 = format!(
         "Controls
 ---------------
 Z - Toggle global

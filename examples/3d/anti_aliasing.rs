@@ -5,18 +5,18 @@ use std::{f32::consts::PI, fmt::Write};
 use bevy::{
     core_pipeline::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
-        experimental::taa::{
-            TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasing,
-        },
+        experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
         fxaa::{Fxaa, Sensitivity},
+        prepass::{DepthPrepass, MotionVectorPrepass},
         smaa::{Smaa, SmaaPreset},
     },
+    image::{ImageSampler, ImageSamplerDescriptor},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
+        camera::TemporalJitter,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        texture::{ImageSampler, ImageSamplerDescriptor},
     },
 };
 
@@ -28,9 +28,16 @@ fn main() {
         .run();
 }
 
+type TaaComponents = (
+    TemporalAntiAliasing,
+    TemporalJitter,
+    DepthPrepass,
+    MotionVectorPrepass,
+);
+
 fn modify_aa(
     keys: Res<ButtonInput<KeyCode>>,
-    mut camera: Query<
+    camera: Single<
         (
             Entity,
             Option<&mut Fxaa>,
@@ -42,24 +49,24 @@ fn modify_aa(
     >,
     mut commands: Commands,
 ) {
-    let (camera_entity, fxaa, smaa, taa, mut msaa) = camera.single_mut();
+    let (camera_entity, fxaa, smaa, taa, mut msaa) = camera.into_inner();
     let mut camera = commands.entity(camera_entity);
 
     // No AA
     if keys.just_pressed(KeyCode::Digit1) {
         *msaa = Msaa::Off;
-        camera = camera
+        camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
-            .remove::<TemporalAntiAliasBundle>();
+            .remove::<TaaComponents>();
     }
 
     // MSAA
     if keys.just_pressed(KeyCode::Digit2) && *msaa == Msaa::Off {
-        camera = camera
+        camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
-            .remove::<TemporalAntiAliasBundle>();
+            .remove::<TaaComponents>();
 
         *msaa = Msaa::Sample4;
     }
@@ -80,9 +87,9 @@ fn modify_aa(
     // FXAA
     if keys.just_pressed(KeyCode::Digit3) && fxaa.is_none() {
         *msaa = Msaa::Off;
-        camera = camera
+        camera
             .remove::<Smaa>()
-            .remove::<TemporalAntiAliasBundle>()
+            .remove::<TaaComponents>()
             .insert(Fxaa::default());
     }
 
@@ -113,9 +120,9 @@ fn modify_aa(
     // SMAA
     if keys.just_pressed(KeyCode::Digit4) && smaa.is_none() {
         *msaa = Msaa::Off;
-        camera = camera
+        camera
             .remove::<Fxaa>()
-            .remove::<TemporalAntiAliasBundle>()
+            .remove::<TaaComponents>()
             .insert(Smaa::default());
     }
 
@@ -141,7 +148,7 @@ fn modify_aa(
         camera
             .remove::<Fxaa>()
             .remove::<Smaa>()
-            .insert(TemporalAntiAliasBundle::default());
+            .insert(TemporalAntiAliasing::default());
     }
 }
 
@@ -170,7 +177,7 @@ fn modify_sharpening(
 }
 
 fn update_ui(
-    camera: Query<
+    camera: Single<
         (
             Option<&Fxaa>,
             Option<&Smaa>,
@@ -180,13 +187,11 @@ fn update_ui(
         ),
         With<Camera>,
     >,
-    mut ui: Query<&mut Text>,
+    mut ui: Single<&mut Text>,
 ) {
-    let (fxaa, smaa, taa, cas, msaa) = camera.single();
+    let (fxaa, smaa, taa, cas, msaa) = *camera;
 
-    let mut ui = ui.single_mut();
-    let ui = &mut ui.sections[0].value;
-
+    let ui = &mut ui.0;
     *ui = "Antialias Method\n".to_string();
 
     draw_selectable_menu_item(
@@ -252,11 +257,10 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // Plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.2, 0.1))),
+    ));
 
     let cube_material = materials.add(StandardMaterial {
         base_color_texture: Some(images.add(uv_debug_texture())),
@@ -265,54 +269,42 @@ fn setup(
 
     // Cubes
     for i in 0..5 {
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(0.25, 0.25, 0.25)),
-            material: cube_material.clone(),
-            transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
-            ..default()
-        });
+        commands.spawn((
+            Mesh3d(meshes.add(Cuboid::new(0.25, 0.25, 0.25))),
+            MeshMaterial3d(cube_material.clone()),
+            Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
+        ));
     }
 
     // Flight Helmet
-    commands.spawn(SceneBundle {
-        scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+    )));
 
     // Light
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI * -0.15,
-            PI * -0.15,
-        )),
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+        CascadeShadowConfigBuilder {
             maximum_distance: 3.0,
             first_cascade_far_bound: 0.9,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 
     // Camera
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        Camera3d::default(),
+        Camera {
+            hdr: true,
             ..default()
         },
+        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
         ContrastAdaptiveSharpening {
             enabled: false,
             ..default()
@@ -334,14 +326,15 @@ fn setup(
     ));
 
     // example instructions
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 /// Writes a simple menu item that can be on or off.

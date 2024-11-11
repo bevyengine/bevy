@@ -4,6 +4,7 @@ use super::Transform;
 use bevy_math::{Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A};
 #[cfg(all(feature = "bevy-support", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use derive_more::derive::From;
 #[cfg(feature = "bevy-support")]
 use {
     bevy_ecs::{component::Component, reflect::ReflectComponent},
@@ -39,7 +40,7 @@ use {
 /// - [`transform`][transform_example]
 ///
 /// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy-support",
@@ -210,6 +211,36 @@ impl GlobalTransform {
         self.0.translation
     }
 
+    /// Get the rotation as a [`Quat`].
+    ///
+    /// The transform is expected to be non-degenerate and without shearing, or the output will be invalid.
+    ///
+    /// # Warning
+    ///
+    /// This is calculated using `to_scale_rotation_translation`, meaning that you
+    /// should probably use it directly if you also need translation or scale.
+    #[inline]
+    pub fn rotation(&self) -> Quat {
+        self.to_scale_rotation_translation().1
+    }
+
+    /// Get the scale as a [`Vec3`].
+    ///
+    /// The transform is expected to be non-degenerate and without shearing, or the output will be invalid.
+    ///
+    /// Some of the computations overlap with `to_scale_rotation_translation`, which means you should use
+    /// it instead if you also need rotation.
+    #[inline]
+    pub fn scale(&self) -> Vec3 {
+        //Formula based on glam's implementation https://github.com/bitshifter/glam-rs/blob/2e4443e70c709710dfb25958d866d29b11ed3e2b/src/f32/affine3a.rs#L290
+        let det = self.0.matrix3.determinant();
+        Vec3::new(
+            self.0.matrix3.x_axis.length() * det.signum(),
+            self.0.matrix3.y_axis.length(),
+            self.0.matrix3.z_axis.length(),
+        )
+    }
+
     /// Get an upper bound of the radius from the given `extents`.
     #[inline]
     pub fn radius_vec3a(&self, extents: Vec3A) -> f32 {
@@ -271,12 +302,6 @@ impl Default for GlobalTransform {
 impl From<Transform> for GlobalTransform {
     fn from(transform: Transform) -> Self {
         Self(transform.compute_affine())
-    }
-}
-
-impl From<Affine3A> for GlobalTransform {
-    fn from(affine: Affine3A) -> Self {
-        Self(affine)
     }
 }
 
@@ -367,5 +392,19 @@ mod test {
             t1.compute_transform(),
             t1_prime.compute_transform(),
         );
+    }
+
+    #[test]
+    fn scale() {
+        let test_values = [-42.42, 0., 42.42];
+        for x in test_values {
+            for y in test_values {
+                for z in test_values {
+                    let scale = Vec3::new(x, y, z);
+                    let gt = GlobalTransform::from_scale(scale);
+                    assert_eq!(gt.scale(), gt.to_scale_rotation_translation().0);
+                }
+            }
+        }
     }
 }

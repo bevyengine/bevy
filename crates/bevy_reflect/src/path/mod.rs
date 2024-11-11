@@ -10,24 +10,23 @@ use parse::PathParser;
 
 use crate::{PartialReflect, Reflect};
 use core::fmt;
-use thiserror::Error;
+use derive_more::derive::{Display, From};
 
 type PathResult<'a, T> = Result<T, ReflectPathError<'a>>;
 
 /// An error returned from a failed path string query.
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, PartialEq, Eq, Display, From)]
 pub enum ReflectPathError<'a> {
     /// An error caused by trying to access a path that's not able to be accessed,
     /// see [`AccessError`] for details.
-    #[error(transparent)]
     InvalidAccess(AccessError<'a>),
 
     /// An error that occurs when a type cannot downcast to a given type.
-    #[error("Can't downcast result of access to the given type")]
+    #[display("Can't downcast result of access to the given type")]
     InvalidDowncast,
 
     /// An error caused by an invalid path string that couldn't be parsed.
-    #[error("Encountered an error at offset {offset} while parsing `{path}`: {error}")]
+    #[display("Encountered an error at offset {offset} while parsing `{path}`: {error}")]
     ParseError {
         /// Position in `path`.
         offset: usize,
@@ -37,11 +36,8 @@ pub enum ReflectPathError<'a> {
         error: ParseError<'a>,
     },
 }
-impl<'a> From<AccessError<'a>> for ReflectPathError<'a> {
-    fn from(value: AccessError<'a>) -> Self {
-        Self::InvalidAccess(value)
-    }
-}
+
+impl<'a> core::error::Error for ReflectPathError<'a> {}
 
 /// Something that can be interpreted as a reflection path in [`GetPath`].
 pub trait ReflectPath<'a>: Sized {
@@ -355,7 +351,7 @@ impl From<Access<'static>> for OffsetAccess {
 /// ];
 /// let my_path = ParsedPath::from(path_elements);
 /// ```
-#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash, From)]
 pub struct ParsedPath(
     /// This is a vector of pre-parsed [`OffsetAccess`]es.
     pub Vec<OffsetAccess>,
@@ -445,11 +441,6 @@ impl<'a> ReflectPath<'a> for &'a ParsedPath {
             root = access.element_mut(root, *offset)?;
         }
         Ok(root)
-    }
-}
-impl From<Vec<OffsetAccess>> for ParsedPath {
-    fn from(value: Vec<OffsetAccess>) -> Self {
-        ParsedPath(value)
     }
 }
 impl<const N: usize> From<[OffsetAccess; N]> for ParsedPath {

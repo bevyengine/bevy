@@ -36,16 +36,13 @@ fn setup(
     // Create and save a handle to the mesh.
     let cube_mesh_handle: Handle<Mesh> = meshes.add(create_cube_mesh());
 
-    // Render the mesh with the custom texture using a PbrBundle, add the marker.
+    // Render the mesh with the custom texture, and add the marker.
     commands.spawn((
-        PbrBundle {
-            mesh: cube_mesh_handle,
-            material: materials.add(StandardMaterial {
-                base_color_texture: Some(custom_texture_handle),
-                ..default()
-            }),
+        Mesh3d(cube_mesh_handle),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color_texture: Some(custom_texture_handle),
             ..default()
-        },
+        })),
         CustomUV,
     ));
 
@@ -54,37 +51,28 @@ fn setup(
         Transform::from_xyz(1.8, 1.8, 1.8).looking_at(Vec3::ZERO, Vec3::Y);
 
     // Camera in 3D space.
-    commands.spawn(Camera3dBundle {
-        transform: camera_and_light_transform,
-        ..default()
-    });
+    commands.spawn((Camera3d::default(), camera_and_light_transform));
 
     // Light up the scene.
-    commands.spawn(PointLightBundle {
-        transform: camera_and_light_transform,
-        ..default()
-    });
+    commands.spawn((PointLight::default(), camera_and_light_transform));
 
     // Text to describe the controls.
-    commands.spawn(
-        TextBundle::from_section(
-            "Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::new("Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation"),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // System to receive input from the user,
 // check out examples/input/ for more examples about user input.
 fn input_handler(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mesh_query: Query<&Handle<Mesh>, With<CustomUV>>,
+    mesh_query: Query<&Mesh3d, With<CustomUV>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut query: Query<&mut Transform, With<CustomUV>>,
     time: Res<Time>,
@@ -96,17 +84,17 @@ fn input_handler(
     }
     if keyboard_input.pressed(KeyCode::KeyX) {
         for mut transform in &mut query {
-            transform.rotate_x(time.delta_seconds() / 1.2);
+            transform.rotate_x(time.delta_secs() / 1.2);
         }
     }
     if keyboard_input.pressed(KeyCode::KeyY) {
         for mut transform in &mut query {
-            transform.rotate_y(time.delta_seconds() / 1.2);
+            transform.rotate_y(time.delta_secs() / 1.2);
         }
     }
     if keyboard_input.pressed(KeyCode::KeyZ) {
         for mut transform in &mut query {
-            transform.rotate_z(time.delta_seconds() / 1.2);
+            transform.rotate_z(time.delta_secs() / 1.2);
         }
     }
     if keyboard_input.pressed(KeyCode::KeyR) {

@@ -48,12 +48,10 @@ fn setup(
 ) {
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
-            msaa: Msaa::Off,
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
+        Msaa::Off,
         // To enable the prepass you need to add the components associated with the ones you need
         // This will write the depth buffer to a texture that you can use in the main pass
         DepthPrepass,
@@ -64,95 +62,84 @@ fn setup(
     ));
 
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: std_materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(std_materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
 
     // A quad that shows the outputs of the prepass
     // To make it easy, we just draw a big quad right in front of the camera.
     // For a real application, this isn't ideal.
     commands.spawn((
-        MaterialMeshBundle {
-            mesh: meshes.add(Rectangle::new(20.0, 20.0)),
-            material: depth_materials.add(PrepassOutputMaterial {
-                settings: ShowPrepassSettings::default(),
-            }),
-            transform: Transform::from_xyz(-0.75, 1.25, 3.0)
-                .looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
-            ..default()
-        },
+        Mesh3d(meshes.add(Rectangle::new(20.0, 20.0))),
+        MeshMaterial3d(depth_materials.add(PrepassOutputMaterial {
+            settings: ShowPrepassSettings::default(),
+        })),
+        Transform::from_xyz(-0.75, 1.25, 3.0).looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
         NotShadowCaster,
     ));
 
     // Opaque cube
     commands.spawn((
-        MaterialMeshBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(CustomMaterial {
-                color: LinearRgba::WHITE,
-                color_texture: Some(asset_server.load("branding/icon.png")),
-                alpha_mode: AlphaMode::Opaque,
-            }),
-            transform: Transform::from_xyz(-1.0, 0.5, 0.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {
+            color: LinearRgba::WHITE,
+            color_texture: Some(asset_server.load("branding/icon.png")),
+            alpha_mode: AlphaMode::Opaque,
+        })),
+        Transform::from_xyz(-1.0, 0.5, 0.0),
         Rotates,
     ));
 
     // Cube with alpha mask
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: std_materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(std_materials.add(StandardMaterial {
             alpha_mode: AlphaMode::Mask(1.0),
             base_color_texture: Some(asset_server.load("branding/icon.png")),
             ..default()
-        }),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 
     // Cube with alpha blending.
     // Transparent materials are ignored by the prepass
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: materials.add(CustomMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {
             color: LinearRgba::WHITE,
             color_texture: Some(asset_server.load("branding/icon.png")),
             alpha_mode: AlphaMode::Blend,
-        }),
-        transform: Transform::from_xyz(1.0, 0.5, 0.0),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(1.0, 0.5, 0.0),
+    ));
 
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
-    let style = TextStyle::default();
-
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new("Prepass Output: transparent\n", style.clone()),
-            TextSection::new("\n\n", style.clone()),
-            TextSection::new("Controls\n", style.clone()),
-            TextSection::new("---------------\n", style.clone()),
-            TextSection::new("Space - Change output\n", style),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-    );
+    commands
+        .spawn((
+            Text::default(),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+        ))
+        .with_children(|p| {
+            p.spawn(TextSpan::new("Prepass Output: transparent\n"));
+            p.spawn(TextSpan::new("\n\n"));
+            p.spawn(TextSpan::new("Controls\n"));
+            p.spawn(TextSpan::new("---------------\n"));
+            p.spawn(TextSpan::new("Space - Change output\n"));
+        });
 }
 
 // This is the struct that will be passed to your shader
@@ -189,7 +176,7 @@ struct Rotates;
 
 fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
     for mut t in q.iter_mut() {
-        let rot = (ops::sin(time.elapsed_seconds()) * 0.5 + 0.5) * std::f32::consts::PI * 2.0;
+        let rot = (ops::sin(time.elapsed_secs()) * 0.5 + 0.5) * std::f32::consts::PI * 2.0;
         t.rotation = Quat::from_rotation_z(rot);
     }
 }
@@ -225,9 +212,10 @@ impl Material for PrepassOutputMaterial {
 fn toggle_prepass_view(
     mut prepass_view: Local<u32>,
     keycode: Res<ButtonInput<KeyCode>>,
-    material_handle: Query<&Handle<PrepassOutputMaterial>>,
+    material_handle: Single<&MeshMaterial3d<PrepassOutputMaterial>>,
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
-    mut text: Query<&mut Text>,
+    text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
 ) {
     if keycode.just_pressed(KeyCode::Space) {
         *prepass_view = (*prepass_view + 1) % 4;
@@ -239,14 +227,13 @@ fn toggle_prepass_view(
             3 => "motion vectors",
             _ => unreachable!(),
         };
-        let mut text = text.single_mut();
-        text.sections[0].value = format!("Prepass Output: {label}\n");
-        for section in &mut text.sections {
-            section.style.color = Color::WHITE;
-        }
+        let text = *text;
+        *writer.text(text, 1) = format!("Prepass Output: {label}\n");
+        writer.for_each_color(text, |mut color| {
+            color.0 = Color::WHITE;
+        });
 
-        let handle = material_handle.single();
-        let mat = materials.get_mut(handle).unwrap();
+        let mat = materials.get_mut(*material_handle).unwrap();
         mat.settings.show_depth = (*prepass_view == 1) as u32;
         mat.settings.show_normals = (*prepass_view == 2) as u32;
         mat.settings.show_motion_vectors = (*prepass_view == 3) as u32;

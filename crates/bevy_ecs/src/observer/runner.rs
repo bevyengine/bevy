@@ -88,7 +88,7 @@ impl Component for ObserverState {
 /// Type for function that is run when an observer is triggered.
 ///
 /// Typically refers to the default runner that runs the system stored in the associated [`Observer`] component,
-/// but can be overridden for custom behaviour.
+/// but can be overridden for custom behavior.
 pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: &mut bool);
 
 /// An [`Observer`] system. Add this [`Component`] to an [`Entity`] to turn it into an "observer".
@@ -111,7 +111,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 ///     message: String,
 /// }
 ///
-/// world.observe(|trigger: Trigger<Speak>| {
+/// world.add_observer(|trigger: Trigger<Speak>| {
 ///     println!("{}", trigger.event().message);
 /// });
 ///
@@ -124,7 +124,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// });
 /// ```
 ///
-/// Notice that we used [`World::observe`]. This is just a shorthand for spawning an [`Observer`] manually:
+/// Notice that we used [`World::add_observer`]. This is just a shorthand for spawning an [`Observer`] manually:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -132,7 +132,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # #[derive(Event)]
 /// # struct Speak;
 /// // These are functionally the same:
-/// world.observe(|trigger: Trigger<Speak>| {});
+/// world.add_observer(|trigger: Trigger<Speak>| {});
 /// world.spawn(Observer::new(|trigger: Trigger<Speak>| {}));
 /// ```
 ///
@@ -145,7 +145,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # struct PrintNames;
 /// # #[derive(Component, Debug)]
 /// # struct Name;
-/// world.observe(|trigger: Trigger<PrintNames>, names: Query<&Name>| {
+/// world.add_observer(|trigger: Trigger<PrintNames>, names: Query<&Name>| {
 ///     for name in &names {
 ///         println!("{name:?}");
 ///     }
@@ -163,7 +163,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # struct SpawnThing;
 /// # #[derive(Component, Debug)]
 /// # struct Thing;
-/// world.observe(|trigger: Trigger<SpawnThing>, mut commands: Commands| {
+/// world.add_observer(|trigger: Trigger<SpawnThing>, mut commands: Commands| {
 ///     commands.spawn(Thing);
 /// });
 /// ```
@@ -177,7 +177,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # struct A;
 /// # #[derive(Event)]
 /// # struct B;
-/// world.observe(|trigger: Trigger<A>, mut commands: Commands| {
+/// world.add_observer(|trigger: Trigger<A>, mut commands: Commands| {
 ///     commands.trigger(B);
 /// });
 /// ```
@@ -195,7 +195,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// #[derive(Event)]
 /// struct Explode;
 ///
-/// world.observe(|trigger: Trigger<Explode>, mut commands: Commands| {
+/// world.add_observer(|trigger: Trigger<Explode>, mut commands: Commands| {
 ///     println!("Entity {:?} goes BOOM!", trigger.entity());
 ///     commands.entity(trigger.entity()).despawn();
 /// });

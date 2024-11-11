@@ -515,7 +515,7 @@ mod tests {
         DynamicScene, DynamicSceneBuilder,
     };
     use bevy_ecs::{
-        entity::{Entity, EntityHashMap, EntityMapper, MapEntities},
+        entity::{Entity, EntityHashMap, VisitEntities, VisitEntitiesMut},
         prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
         query::{With, Without},
         reflect::{AppTypeRegistry, ReflectMapEntities},
@@ -584,15 +584,9 @@ mod tests {
         foo: i32,
     }
 
-    #[derive(Clone, Component, Reflect, PartialEq)]
+    #[derive(Clone, Component, Reflect, PartialEq, VisitEntities, VisitEntitiesMut)]
     #[reflect(Component, MapEntities, PartialEq)]
     struct MyEntityRef(Entity);
-
-    impl MapEntities for MyEntityRef {
-        fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-            self.0 = entity_mapper.map_entity(self.0);
-        }
-    }
 
     impl FromWorld for MyEntityRef {
         fn from_world(_world: &mut World) -> Self {
@@ -781,7 +775,7 @@ mod tests {
         assert!(dst_world
             .query_filtered::<&MyEntityRef, With<Foo>>()
             .iter(&dst_world)
-            .all(|r| world.get_entity(r.0).is_none()));
+            .all(|r| world.get_entity(r.0).is_err()));
     }
 
     #[test]
@@ -970,7 +964,7 @@ mod tests {
         }
     }
 
-    /// These tests just verify that that the [`assert_scene_eq`] function is working properly for our tests.
+    /// These tests just verify that the [`assert_scene_eq`] function is working properly for our tests.
     mod assert_scene_eq_tests {
         use super::*;
 

@@ -1,12 +1,10 @@
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
     line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmo,
-    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE,
-    LINE_SHADER_HANDLE,
+    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmoUniformBindgroupLayout,
+    SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::Handle;
 use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
 
 use bevy_ecs::{
@@ -15,7 +13,9 @@ use bevy_ecs::{
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_image::BevyDefault as _;
 use bevy_math::FloatOrd;
+use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -23,7 +23,6 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -162,6 +161,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             },
             label: Some("LineGizmo Pipeline 2D".into()),
             push_constant_ranges: vec![],
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -262,6 +262,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             },
             label: Some("LineJointGizmo Pipeline 2D".into()),
             push_constant_ranges: vec![],
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -285,7 +286,7 @@ fn queue_line_gizmos_2d(
     pipeline: Res<LineGizmoPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
+    line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
@@ -301,12 +302,12 @@ fn queue_line_gizmos_2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         let render_layers = render_layers.unwrap_or_default();
-        for (entity, handle, config) in &line_gizmos {
+        for (entity, main_entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
                 continue;
             }
 
-            let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
+            let Some(line_gizmo) = line_gizmo_assets.get(&config.handle) else {
                 continue;
             };
 
@@ -321,7 +322,7 @@ fn queue_line_gizmos_2d(
             );
 
             transparent_phase.add(Transparent2d {
-                entity,
+                entity: (entity, *main_entity),
                 draw_function,
                 pipeline,
                 sort_key: FloatOrd(f32::INFINITY),
@@ -338,7 +339,7 @@ fn queue_line_joint_gizmos_2d(
     pipeline: Res<LineJointGizmoPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LineJointGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
+    line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
@@ -357,12 +358,12 @@ fn queue_line_joint_gizmos_2d(
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         let render_layers = render_layers.unwrap_or_default();
-        for (entity, handle, config) in &line_gizmos {
+        for (entity, main_entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
                 continue;
             }
 
-            let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
+            let Some(line_gizmo) = line_gizmo_assets.get(&config.handle) else {
                 continue;
             };
 
@@ -379,7 +380,7 @@ fn queue_line_joint_gizmos_2d(
                 },
             );
             transparent_phase.add(Transparent2d {
-                entity,
+                entity: (entity, *main_entity),
                 draw_function,
                 pipeline,
                 sort_key: FloatOrd(f32::INFINITY),

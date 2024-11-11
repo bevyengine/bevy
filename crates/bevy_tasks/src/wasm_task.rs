@@ -3,7 +3,7 @@ use core::{
     future::{Future, IntoFuture},
     panic::{AssertUnwindSafe, UnwindSafe},
     pin::Pin,
-    task::Poll,
+    task::{Context, Poll},
 };
 
 use futures_channel::oneshot;
@@ -53,10 +53,7 @@ impl<T: 'static> Task<T> {
 
 impl<T> Future for Task<T> {
     type Output = T;
-    fn poll(
-        mut self: core::pin::Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match Pin::new(&mut self.0).poll(cx) {
             Poll::Ready(Ok(Ok(value))) => Poll::Ready(value),
             // NOTE: Propagating the panic here sorta has parity with the async_executor behavior.
@@ -76,7 +73,7 @@ struct CatchUnwind<F: UnwindSafe>(#[pin] F);
 
 impl<F: Future + UnwindSafe> Future for CatchUnwind<F> {
     type Output = Result<F::Output, Panic>;
-    fn poll(self: core::pin::Pin<&mut Self>, cx: &mut core::task::Context) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         std::panic::catch_unwind(AssertUnwindSafe(|| self.project().0.poll(cx)))?.map(Ok)
     }
 }

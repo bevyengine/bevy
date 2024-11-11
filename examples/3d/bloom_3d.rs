@@ -28,15 +28,13 @@ fn setup_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true, // 1. HDR is required for bloom
-                ..default()
-            },
-            tonemapping: Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
-            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Camera3d::default(),
+        Camera {
+            hdr: true, // 1. HDR is required for bloom
             ..default()
         },
+        Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         // 3. Enable bloom for the camera
         Bloom::NATURAL,
     ));
@@ -77,44 +75,40 @@ fn setup_scene(
             };
 
             commands.spawn((
-                PbrBundle {
-                    mesh: mesh.clone(),
-                    material,
-                    transform: Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0),
-                    ..default()
-                },
+                Mesh3d(mesh.clone()),
+                MeshMaterial3d(material),
+                Transform::from_xyz(x as f32 * 2.0, 0.0, z as f32 * 2.0),
                 Bouncing,
             ));
         }
     }
 
     // example instructions
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // ------------------------------------------------------------------------------------------------
 
 fn update_bloom_settings(
-    mut camera: Query<(Entity, Option<&mut Bloom>), With<Camera>>,
-    mut text: Query<&mut Text>,
+    camera: Single<(Entity, Option<&mut Bloom>), With<Camera>>,
+    mut text: Single<&mut Text>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let bloom = camera.single_mut();
-    let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
+    let bloom = camera.into_inner();
 
     match bloom {
         (entity, Some(mut bloom)) => {
-            *text = "Bloom (Toggle: Space)\n".to_string();
+            text.0 = "Bloom (Toggle: Space)\n".to_string();
             text.push_str(&format!("(Q/A) Intensity: {}\n", bloom.intensity));
             text.push_str(&format!(
                 "(W/S) Low-frequency boost: {}\n",
@@ -145,7 +139,7 @@ fn update_bloom_settings(
                 commands.entity(entity).remove::<Bloom>();
             }
 
-            let dt = time.delta_seconds();
+            let dt = time.delta_secs();
 
             if keycode.pressed(KeyCode::KeyA) {
                 bloom.intensity -= dt / 10.0;
@@ -205,7 +199,7 @@ fn update_bloom_settings(
         }
 
         (entity, None) => {
-            *text = "Bloom: Off (Toggle: Space)".to_string();
+            text.0 = "Bloom: Off (Toggle: Space)".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).insert(Bloom::NATURAL);
@@ -220,6 +214,6 @@ struct Bouncing;
 fn bounce_spheres(time: Res<Time>, mut query: Query<&mut Transform, With<Bouncing>>) {
     for mut transform in query.iter_mut() {
         transform.translation.y =
-            ops::sin(transform.translation.x + transform.translation.z + time.elapsed_seconds());
+            ops::sin(transform.translation.x + transform.translation.z + time.elapsed_secs());
     }
 }

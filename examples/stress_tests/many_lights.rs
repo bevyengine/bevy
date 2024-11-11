@@ -53,12 +53,11 @@ fn setup(
     const RADIUS: f32 = 50.0;
     const N_LIGHTS: usize = 100_000;
 
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap()),
-        material: materials.add(Color::WHITE),
-        transform: Transform::from_scale(Vec3::NEG_ONE),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Sphere::new(RADIUS).mesh().ico(9).unwrap())),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::from_scale(Vec3::NEG_ONE),
+    ));
 
     let mesh = meshes.add(Cuboid::default());
     let material = materials.add(StandardMaterial {
@@ -78,43 +77,42 @@ fn setup(
         let spherical_polar_theta_phi = fibonacci_spiral_on_sphere(golden_ratio, i, N_LIGHTS);
         let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
 
-        PointLightBundle {
-            point_light: PointLight {
+        (
+            PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
                 color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
                 ..default()
             },
-            transform: Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
-            ..default()
-        }
+            Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
+        )
     }));
 
     // camera
     match std::env::args().nth(1).as_deref() {
-        Some("orthographic") => commands.spawn(Camera3dBundle {
-            projection: OrthographicProjection {
-                scaling_mode: ScalingMode::FixedHorizontal(20.0),
+        Some("orthographic") => commands.spawn((
+            Camera3d::default(),
+            Projection::from(OrthographicProjection {
+                scaling_mode: ScalingMode::FixedHorizontal {
+                    viewport_width: 20.0,
+                },
                 ..OrthographicProjection::default_3d()
-            }
-            .into(),
-            ..default()
-        }),
-        _ => commands.spawn(Camera3dBundle::default()),
+            }),
+        )),
+        _ => commands.spawn(Camera3d::default()),
     };
 
     // add one cube, the only one with strong handles
     // also serves as a reference point during rotation
-    commands.spawn(PbrBundle {
-        mesh,
-        material,
-        transform: Transform {
+    commands.spawn((
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
+        Transform {
             translation: Vec3::new(0.0, RADIUS, 0.0),
             scale: Vec3::splat(5.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 }
 
 // NOTE: This epsilon value is apparently optimal for optimizing for the average
@@ -137,9 +135,8 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 }
 
 // System for rotating the camera
-fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
-    let mut camera_transform = camera_query.single_mut();
-    let delta = time.delta_seconds() * 0.15;
+fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<Camera>>) {
+    let delta = time.delta_secs() * 0.15;
     camera_transform.rotate_z(delta);
     camera_transform.rotate_x(delta);
 }

@@ -138,7 +138,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError};
+/// # use bevy_reflect::{DynamicTypePath, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, TypePath, UnnamedField, ApplyError, Generics, TypeParamInfo};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T>(T);
@@ -148,7 +148,8 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {
 ///             let fields = [UnnamedField::new::<T>(0)];
-///             let info = TupleStructInfo::new::<Self>(&fields);
+///             let info = TupleStructInfo::new::<Self>(&fields)
+///                 .with_generics(Generics::from_iter([TypeParamInfo::new::<T>("T")]));
 ///             TypeInfo::TupleStruct(info)
 ///         })
 ///     }

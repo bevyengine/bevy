@@ -45,50 +45,42 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // A plane:
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(12.0, 12.0)),
-        material: materials.add(Color::srgb(0.3, 0.15, 0.3)),
-        transform: Transform::from_xyz(0.0, -2.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(12.0, 12.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.15, 0.3))),
+        Transform::from_xyz(0.0, -2.5, 0.0),
+    ));
 
     // The target sphere:
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Sphere::new(0.3)),
-            material: materials.add(Color::srgb(0.3, 0.15, 0.9)),
-            ..default()
-        },
+        Mesh3d(meshes.add(Sphere::new(0.3))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.15, 0.9))),
         TargetSphere,
     ));
 
     // The sphere that follows it:
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Sphere::new(0.3)),
-            material: materials.add(Color::srgb(0.9, 0.3, 0.3)),
-            transform: Transform::from_translation(vec3(0.0, -2.0, 0.0)),
-            ..default()
-        },
+        Mesh3d(meshes.add(Sphere::new(0.3))),
+        MeshMaterial3d(materials.add(Color::srgb(0.9, 0.3, 0.3))),
+        Transform::from_translation(vec3(0.0, -2.0, 0.0)),
         FollowingSphere,
     ));
 
     // A light:
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 15_000_000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
     // A camera:
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // Set starting values for resources used by the systems:
     commands.insert_resource(TargetSphereSpeed(5.0));
@@ -98,19 +90,17 @@ fn setup(
 }
 
 fn move_target(
-    mut target: Query<&mut Transform, With<TargetSphere>>,
+    mut target: Single<&mut Transform, With<TargetSphere>>,
     target_speed: Res<TargetSphereSpeed>,
     mut target_pos: ResMut<TargetPosition>,
     time: Res<Time>,
     mut rng: ResMut<RandomSource>,
 ) {
-    let mut target = target.single_mut();
-
     match Dir3::new(target_pos.0 - target.translation) {
         // The target and the present position of the target sphere are far enough to have a well-
         // defined direction between them, so let's move closer:
         Ok(dir) => {
-            let delta_time = time.delta_seconds();
+            let delta_time = time.delta_secs();
             let abs_delta = (target_pos.0 - target.translation).norm();
 
             // Avoid overshooting in case of high values of `delta_time`:
@@ -127,15 +117,13 @@ fn move_target(
 }
 
 fn move_follower(
-    mut following: Query<&mut Transform, With<FollowingSphere>>,
-    target: Query<&Transform, (With<TargetSphere>, Without<FollowingSphere>)>,
+    mut following: Single<&mut Transform, With<FollowingSphere>>,
+    target: Single<&Transform, (With<TargetSphere>, Without<FollowingSphere>)>,
     decay_rate: Res<DecayRate>,
     time: Res<Time>,
 ) {
-    let target = target.single();
-    let mut following = following.single_mut();
     let decay_rate = decay_rate.0;
-    let delta_time = time.delta_seconds();
+    let delta_time = time.delta_secs();
 
     // Calling `smooth_nudge` is what moves the following sphere smoothly toward the target.
     following

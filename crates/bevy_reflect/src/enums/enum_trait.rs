@@ -1,7 +1,8 @@
+use crate::generics::impl_generic_info_methods;
 use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     type_info::impl_type_methods,
-    DynamicEnum, PartialReflect, Type, TypePath, VariantInfo, VariantType,
+    DynamicEnum, Generics, PartialReflect, Type, TypePath, VariantInfo, VariantType,
 };
 use alloc::sync::Arc;
 use bevy_utils::HashMap;
@@ -132,12 +133,20 @@ pub trait Enum: PartialReflect {
     fn variant_path(&self) -> String {
         format!("{}::{}", self.reflect_type_path(), self.variant_name())
     }
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    ///
+    /// [`TypeInfo`]: crate::TypeInfo
+    fn get_represented_enum_info(&self) -> Option<&'static EnumInfo> {
+        self.get_represented_type_info()?.as_enum().ok()
+    }
 }
 
 /// A container for compile-time enum info, used by [`TypeInfo`](crate::TypeInfo).
 #[derive(Clone, Debug)]
 pub struct EnumInfo {
     ty: Type,
+    generics: Generics,
     variants: Box<[VariantInfo]>,
     variant_names: Box<[&'static str]>,
     variant_indices: HashMap<&'static str, usize>,
@@ -163,6 +172,7 @@ impl EnumInfo {
 
         Self {
             ty: Type::of::<TEnum>(),
+            generics: Generics::new(),
             variants: variants.to_vec().into_boxed_slice(),
             variant_names,
             variant_indices,
@@ -239,6 +249,8 @@ impl EnumInfo {
     }
 
     impl_custom_attribute_methods!(self.custom_attributes, "enum");
+
+    impl_generic_info_methods!(generics);
 }
 
 /// An iterator over the fields in the current enum variant.

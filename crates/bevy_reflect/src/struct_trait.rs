@@ -1,9 +1,10 @@
+use crate::generics::impl_generic_info_methods;
 use crate::{
     self as bevy_reflect,
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     type_info::impl_type_methods,
-    ApplyError, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, Type, TypeInfo, TypePath,
+    ApplyError, Generics, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_reflect_derive::impl_type_path;
@@ -43,7 +44,6 @@ use core::{
 ///
 /// [struct-like]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html
 /// [reflection]: crate
-
 /// [unit structs]: https://doc.rust-lang.org/book/ch05-01-defining-structs.html#unit-like-structs-without-any-fields
 pub trait Struct: PartialReflect {
     /// Returns a reference to the value of the field named `name` as a `&dyn
@@ -73,12 +73,18 @@ pub trait Struct: PartialReflect {
 
     /// Clones the struct into a [`DynamicStruct`].
     fn clone_dynamic(&self) -> DynamicStruct;
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_struct_info(&self) -> Option<&'static StructInfo> {
+        self.get_represented_type_info()?.as_struct().ok()
+    }
 }
 
 /// A container for compile-time named struct info.
 #[derive(Clone, Debug)]
 pub struct StructInfo {
     ty: Type,
+    generics: Generics,
     fields: Box<[NamedField]>,
     field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
@@ -104,6 +110,7 @@ impl StructInfo {
 
         Self {
             ty: Type::of::<T>(),
+            generics: Generics::new(),
             fields: fields.to_vec().into_boxed_slice(),
             field_names,
             field_indices,
@@ -168,6 +175,8 @@ impl StructInfo {
     }
 
     impl_custom_attribute_methods!(self.custom_attributes, "struct");
+
+    impl_generic_info_methods!(generics);
 }
 
 /// An iterator over the field values of a struct.

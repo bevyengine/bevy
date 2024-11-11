@@ -58,44 +58,41 @@ fn setup(
     commands.insert_resource(RandomSource(seeded_rng));
 
     // Make a plane for establishing space.
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(12.0, 12.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        transform: Transform::from_xyz(0.0, -2.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(12.0, 12.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+        Transform::from_xyz(0.0, -2.5, 0.0),
+    ));
 
     // Store the shape we sample from in a resource:
     let shape = Cuboid::from_length(2.9);
     commands.insert_resource(SampledShape(shape));
 
     // The sampled shape shown transparently:
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(shape)),
+        MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::srgba(0.2, 0.1, 0.6, 0.3),
             alpha_mode: AlphaMode::Blend,
             cull_mode: None,
             ..default()
-        }),
-        ..default()
-    });
+        })),
+    ));
 
     // A light:
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
 
     // A camera:
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // Store the mesh and material for sample points in resources:
     commands.insert_resource(PointMesh(
@@ -112,23 +109,22 @@ fn setup(
     })));
 
     // Instructions for the example:
-    commands.spawn(
-        TextBundle::from_section(
+    commands.spawn((
+        Text::new(
             "Controls:\n\
             M: Toggle between sampling boundary and interior.\n\
             R: Restart (erase all samples).\n\
             S: Add one random sample.\n\
             D: Add 100 random samples.\n\
             Rotate camera by holding left mouse and panning left/right.",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+        ),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 
     // The mode starts with interior points.
     commands.insert_resource(Mode::Interior);
@@ -168,12 +164,9 @@ fn handle_keypress(
 
         // Spawn a sphere at the random location:
         commands.spawn((
-            PbrBundle {
-                mesh: sample_mesh.0.clone(),
-                material: sample_material.0.clone(),
-                transform: Transform::from_translation(sample),
-                ..default()
-            },
+            Mesh3d(sample_mesh.0.clone()),
+            MeshMaterial3d(sample_material.0.clone()),
+            Transform::from_translation(sample),
             SamplePoint,
         ));
 
@@ -205,12 +198,9 @@ fn handle_keypress(
         // For each sample point, spawn a sphere:
         for sample in samples {
             commands.spawn((
-                PbrBundle {
-                    mesh: sample_mesh.0.clone(),
-                    material: sample_material.0.clone(),
-                    transform: Transform::from_translation(sample),
-                    ..default()
-                },
+                Mesh3d(sample_mesh.0.clone()),
+                MeshMaterial3d(sample_material.0.clone()),
+                Transform::from_translation(sample),
                 SamplePoint,
             ));
         }
@@ -232,7 +222,7 @@ fn handle_keypress(
 fn handle_mouse(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut button_events: EventReader<MouseButtonInput>,
-    mut camera: Query<&mut Transform, With<Camera>>,
+    mut camera_transform: Single<&mut Transform, With<Camera>>,
     mut mouse_pressed: ResMut<MousePressed>,
 ) {
     // Store left-pressed state in the MousePressed resource
@@ -249,7 +239,6 @@ fn handle_mouse(
     }
     if accumulated_mouse_motion.delta != Vec2::ZERO {
         let displacement = accumulated_mouse_motion.delta.x;
-        let mut camera_transform = camera.single_mut();
         camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(-displacement / 150.));
     }
 }

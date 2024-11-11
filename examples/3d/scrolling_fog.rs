@@ -13,14 +13,14 @@
 use bevy::{
     core_pipeline::{
         bloom::Bloom,
-        experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+        experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
     },
-    pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
-    prelude::*,
-    render::texture::{
+    image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
     },
+    pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
+    prelude::*,
 };
 
 /// Initializes the example.
@@ -49,17 +49,14 @@ fn setup(
 ) {
     // Spawn camera with temporal anti-aliasing and a VolumetricFog configuration.
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 2.0, 0.0)
-                .looking_at(Vec3::new(-5.0, 3.5, -6.0), Vec3::Y),
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            msaa: Msaa::Off,
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 2.0, 0.0).looking_at(Vec3::new(-5.0, 3.5, -6.0), Vec3::Y),
+        Camera {
+            hdr: true,
             ..default()
         },
-        TemporalAntiAliasBundle::default(),
+        Msaa::Off,
+        TemporalAntiAliasing::default(),
         Bloom::default(),
         VolumetricFog {
             ambient_intensity: 0.0,
@@ -70,37 +67,31 @@ fn setup(
 
     // Spawn a directional light shining at the camera with the VolumetricLight component.
     commands.spawn((
-        DirectionalLightBundle {
-            transform: Transform::from_xyz(-5.0, 5.0, -7.0)
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-            directional_light: DirectionalLight {
-                shadows_enabled: true,
-                ..default()
-            },
+        DirectionalLight {
+            shadows_enabled: true,
             ..default()
         },
+        Transform::from_xyz(-5.0, 5.0, -7.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         VolumetricLight,
     ));
 
     // Spawn ground mesh.
-    commands.spawn(PbrBundle {
-        transform: Transform::from_xyz(0.0, -0.5, 0.0),
-        mesh: meshes.add(Cuboid::new(64.0, 1.0, 64.0)),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(64.0, 1.0, 64.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::BLACK,
             perceptual_roughness: 1.0,
             ..default()
-        }),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, -0.5, 0.0),
+    ));
 
     // Spawn pillar standing between the camera and the sun.
-    commands.spawn(PbrBundle {
-        transform: Transform::from_xyz(-10.0, 4.5, -11.0),
-        mesh: meshes.add(Cuboid::new(2.0, 9.0, 2.0)),
-        material: materials.add(Color::BLACK),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(2.0, 9.0, 2.0))),
+        MeshMaterial3d(materials.add(Color::BLACK)),
+        Transform::from_xyz(-10.0, 4.5, -11.0),
+    ));
 
     // Load a repeating 3d noise texture. Make sure to set ImageAddressMode to Repeat
     // so that the texture wraps around as the density texture offset is moved along.
@@ -122,11 +113,7 @@ fn setup(
 
     // Spawn a FogVolume and use the repeating noise texture as its density texture.
     commands.spawn((
-        SpatialBundle {
-            visibility: Visibility::Visible,
-            transform: Transform::from_xyz(0.0, 32.0, 0.0).with_scale(Vec3::splat(64.0)),
-            ..default()
-        },
+        Transform::from_xyz(0.0, 32.0, 0.0).with_scale(Vec3::splat(64.0)),
         FogVolume {
             density_texture: Some(noise_texture),
             density_factor: 0.05,
@@ -138,6 +125,6 @@ fn setup(
 /// Moves fog density texture offset every frame.
 fn scroll_fog(time: Res<Time>, mut query: Query<&mut FogVolume>) {
     for mut fog_volume in query.iter_mut() {
-        fog_volume.density_texture_offset += Vec3::new(0.0, 0.0, 0.04) * time.delta_seconds();
+        fog_volume.density_texture_offset += Vec3::new(0.0, 0.0, 0.04) * time.delta_secs();
     }
 }

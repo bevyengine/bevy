@@ -13,7 +13,7 @@ use bevy::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
-    sprite::{AlphaMode2d, MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::AlphaMode2d,
     utils::Duration,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -180,13 +180,11 @@ struct BirdScheduled {
 fn scheduled_spawner(
     mut commands: Commands,
     args: Res<Args>,
-    windows: Query<&Window>,
+    window: Single<&Window>,
     mut scheduled: ResMut<BirdScheduled>,
     mut counter: ResMut<BevyCounter>,
     bird_resources: ResMut<BirdResources>,
 ) {
-    let window = windows.single();
-
     if scheduled.waves > 0 {
         let bird_resources = bird_resources.into_inner();
         spawn_birds(
@@ -208,7 +206,7 @@ fn scheduled_spawner(
 struct BirdResources {
     textures: Vec<Handle<Image>>,
     materials: Vec<Handle<ColorMaterial>>,
-    quad: Mesh2dHandle,
+    quad: Handle<Mesh>,
     color_rng: ChaCha8Rng,
     material_rng: ChaCha8Rng,
     velocity_rng: ChaCha8Rng,
@@ -226,7 +224,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     material_assets: ResMut<Assets<ColorMaterial>>,
     images: ResMut<Assets<Image>>,
-    windows: Query<&Window>,
+    window: Single<&Window>,
     counter: ResMut<BevyCounter>,
 ) {
     warn!(include_str!("warning_string.txt"));
@@ -246,9 +244,7 @@ fn setup(
     let mut bird_resources = BirdResources {
         textures,
         materials,
-        quad: meshes
-            .add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32)))
-            .into(),
+        quad: meshes.add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32))),
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
         // This isn't strictly required in practical use unless you need your app to be deterministic.
         color_rng: ChaCha8Rng::seed_from_u64(42),
@@ -257,43 +253,49 @@ fn setup(
         transform_rng: ChaCha8Rng::seed_from_u64(42),
     };
 
-    let text_section = move |color: Srgba, value: &str| {
-        TextSection::new(
-            value,
-            TextStyle {
-                font_size: 40.0,
-                color: color.into(),
-                ..default()
-            },
-        )
+    let font = TextFont {
+        font_size: 40.0,
+        ..Default::default()
     };
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node {
                 position_type: PositionType::Absolute,
                 padding: UiRect::all(Val::Px(5.0)),
                 ..default()
             },
-            z_index: ZIndex::Global(i32::MAX),
-            background_color: Color::BLACK.with_alpha(0.75).into(),
-            ..default()
-        })
-        .with_children(|c| {
-            c.spawn((
-                TextBundle::from_sections([
-                    text_section(LIME, "Bird Count: "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (raw): "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (SMA): "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (EMA): "),
-                    text_section(AQUA, ""),
-                ]),
-                StatsText,
-            ));
+            BackgroundColor(Color::BLACK.with_alpha(0.75)),
+            GlobalZIndex(i32::MAX),
+        ))
+        .with_children(|p| {
+            p.spawn((Text::default(), StatsText)).with_children(|p| {
+                p.spawn((
+                    TextSpan::new("Bird Count: "),
+                    font.clone(),
+                    TextColor(LIME.into()),
+                ));
+                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
+                p.spawn((
+                    TextSpan::new("\nFPS (raw): "),
+                    font.clone(),
+                    TextColor(LIME.into()),
+                ));
+                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
+                p.spawn((
+                    TextSpan::new("\nFPS (SMA): "),
+                    font.clone(),
+                    TextColor(LIME.into()),
+                ));
+                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
+                p.spawn((
+                    TextSpan::new("\nFPS (EMA): "),
+                    font.clone(),
+                    TextColor(LIME.into()),
+                ));
+                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
+            });
         });
 
     let mut scheduled = BirdScheduled {
@@ -307,7 +309,7 @@ fn setup(
             spawn_birds(
                 &mut commands,
                 args,
-                &windows.single().resolution,
+                &window.resolution,
                 counter,
                 scheduled.per_wave,
                 &mut bird_resources,
@@ -327,7 +329,7 @@ fn mouse_handler(
     args: Res<Args>,
     time: Res<Time>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
+    window: Single<&Window>,
     bird_resources: ResMut<BirdResources>,
     mut counter: ResMut<BevyCounter>,
     mut rng: Local<Option<ChaCha8Rng>>,
@@ -339,14 +341,13 @@ fn mouse_handler(
         *rng = Some(ChaCha8Rng::seed_from_u64(42));
     }
     let rng = rng.as_mut().unwrap();
-    let window = windows.single();
 
     if mouse_button_input.just_released(MouseButton::Left) {
         counter.color = Color::linear_rgb(rng.gen(), rng.gen(), rng.gen());
     }
 
     if mouse_button_input.pressed(MouseButton::Left) {
-        let spawn_count = (BIRDS_PER_SECOND as f64 * time.delta_seconds_f64()) as usize;
+        let spawn_count = (BIRDS_PER_SECOND as f64 * time.delta_secs_f64()) as usize;
         spawn_birds(
             &mut commands,
             args.into_inner(),
@@ -433,16 +434,16 @@ fn spawn_birds(
                         color
                     };
                     (
-                        SpriteBundle {
-                            texture: bird_resources
+                        Sprite {
+                            image: bird_resources
                                 .textures
                                 .choose(&mut bird_resources.material_rng)
                                 .unwrap()
                                 .clone(),
-                            transform,
-                            sprite: Sprite { color, ..default() },
+                            color,
                             ..default()
                         },
+                        transform,
                         Bird { velocity },
                     )
                 })
@@ -477,12 +478,9 @@ fn spawn_birds(
                             bird_resources.materials[wave % bird_resources.materials.len()].clone()
                         };
                     (
-                        MaterialMesh2dBundle {
-                            mesh: bird_resources.quad.clone(),
-                            material,
-                            transform,
-                            ..default()
-                        },
+                        Mesh2d(bird_resources.quad.clone()),
+                        MeshMaterial2d(material),
+                        transform,
                         Bird { velocity },
                     )
                 })
@@ -513,7 +511,7 @@ fn movement_system(
     let dt = if args.benchmark {
         FIXED_DELTA_TIME
     } else {
-        time.delta_seconds()
+        time.delta_secs()
     };
     for (mut bird, mut transform) in &mut bird_query {
         step_movement(&mut transform.translation, &mut bird.velocity, dt);
@@ -534,9 +532,7 @@ fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3)
         velocity.y = 0.0;
     }
 }
-fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
-    let window = windows.single();
-
+fn collision_system(window: Single<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
     let half_extents = 0.5 * window.size();
 
     for (mut bird, transform) in &mut bird_query {
@@ -547,23 +543,24 @@ fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &
 fn counter_system(
     diagnostics: Res<DiagnosticsStore>,
     counter: Res<BevyCounter>,
-    mut query: Query<&mut Text, With<StatsText>>,
+    query: Single<Entity, With<StatsText>>,
+    mut writer: TextUiWriter,
 ) {
-    let mut text = query.single_mut();
+    let text = *query;
 
     if counter.is_changed() {
-        text.sections[1].value = counter.count.to_string();
+        *writer.text(text, 2) = counter.count.to_string();
     }
 
     if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(raw) = fps.value() {
-            text.sections[3].value = format!("{raw:.2}");
+            *writer.text(text, 4) = format!("{raw:.2}");
         }
         if let Some(sma) = fps.average() {
-            text.sections[5].value = format!("{sma:.2}");
+            *writer.text(text, 6) = format!("{sma:.2}");
         }
         if let Some(ema) = fps.smoothed() {
-            text.sections[7].value = format!("{ema:.2}");
+            *writer.text(text, 8) = format!("{ema:.2}");
         }
     };
 }

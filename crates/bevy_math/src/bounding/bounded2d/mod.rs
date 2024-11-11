@@ -24,9 +24,9 @@ fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
 /// A trait with methods that return 2D bounding volumes for a shape.
 pub trait Bounded2d {
     /// Get an axis-aligned bounding box for the shape translated and rotated by the given isometry.
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d;
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d;
     /// Get a bounding circle for the shape translated and rotated by the given isometry.
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle;
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle;
 }
 
 /// A 2D axis-aligned bounding box, or bounding rectangle
@@ -58,7 +58,9 @@ impl Aabb2d {
     ///
     /// Panics if the given set of points is empty.
     #[inline(always)]
-    pub fn from_point_cloud(isometry: Isometry2d, points: &[Vec2]) -> Aabb2d {
+    pub fn from_point_cloud(isometry: impl Into<Isometry2d>, points: &[Vec2]) -> Aabb2d {
+        let isometry = isometry.into();
+
         // Transform all points by rotation
         let mut iter = points.iter().map(|point| isometry.rotation * *point);
 
@@ -472,7 +474,9 @@ impl BoundingCircle {
     ///
     /// The bounding circle is not guaranteed to be the smallest possible.
     #[inline(always)]
-    pub fn from_point_cloud(isometry: Isometry2d, points: &[Vec2]) -> BoundingCircle {
+    pub fn from_point_cloud(isometry: impl Into<Isometry2d>, points: &[Vec2]) -> BoundingCircle {
+        let isometry = isometry.into();
+
         let center = point_cloud_2d_center(points);
         let mut radius_squared = 0.0;
 

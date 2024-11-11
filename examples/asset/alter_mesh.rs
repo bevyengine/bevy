@@ -104,79 +104,56 @@ fn setup(
     commands.spawn((
         Left,
         Name::new("Left Shape"),
-        PbrBundle {
-            mesh: left_shape_model,
-            material: material_handle.clone(),
-            transform: Transform::from_xyz(-3.0, 0.0, 0.0),
-            ..default()
-        },
+        Mesh3d(left_shape_model),
+        MeshMaterial3d(material_handle.clone()),
+        Transform::from_xyz(-3.0, 0.0, 0.0),
         left_shape,
     ));
 
     commands.spawn((
         Name::new("Right Shape"),
-        PbrBundle {
-            mesh: right_shape_model,
-            material: material_handle,
-            transform: Transform::from_xyz(3.0, 0.0, 0.0),
-            ..default()
-        },
+        Mesh3d(right_shape_model),
+        MeshMaterial3d(material_handle),
+        Transform::from_xyz(3.0, 0.0, 0.0),
         right_shape,
     ));
 
     commands.spawn((
         Name::new("Point Light"),
-        PointLightBundle {
-            transform: Transform::from_xyz(4.0, 5.0, 4.0),
-            ..default()
-        },
+        PointLight::default(),
+        Transform::from_xyz(4.0, 5.0, 4.0),
     ));
 
     commands.spawn((
         Name::new("Camera"),
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 3.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 3.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+}
+
+fn spawn_text(mut commands: Commands) {
+    commands.spawn((
+        Name::new("Instructions"),
+        Text::new(
+            "Space: swap meshes by mutating a Handle<Mesh>\n\
+            Return: mutate the mesh itself, changing all copies of it",
+        ),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.),
+            left: Val::Px(12.),
             ..default()
         },
     ));
 }
 
-fn spawn_text(mut commands: Commands) {
-    commands
-        .spawn((
-            Name::new("Instructions"),
-            NodeBundle {
-                style: Style {
-                    align_items: AlignItems::Start,
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Start,
-                    width: Val::Percent(100.),
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Space: swap meshes by mutating a Handle<Mesh>",
-                TextStyle::default(),
-            ));
-            parent.spawn(TextBundle::from_section(
-                "Return: mutate the mesh itself, changing all copies of it",
-                TextStyle::default(),
-            ));
-        });
-}
-
 fn alter_handle(
     asset_server: Res<AssetServer>,
-    mut right_shape: Query<(&mut Handle<Mesh>, &mut Shape), Without<Left>>,
+    right_shape: Single<(&mut Mesh3d, &mut Shape), Without<Left>>,
 ) {
     // Mesh handles, like other parts of the ECS, can be queried as mutable and modified at
     // runtime. We only spawned one shape without the `Left` marker component.
-    let Ok((mut handle, mut shape)) = right_shape.get_single_mut() else {
-        return;
-    };
+    let (mut mesh, mut shape) = right_shape.into_inner();
 
     // Switch to a new Shape variant
     shape.set_next_variant();
@@ -184,7 +161,7 @@ fn alter_handle(
     // Modify the handle associated with the Shape on the right side. Note that we will only
     // have to load the same path from storage media once: repeated attempts will re-use the
     // asset.
-    *handle = asset_server.load(
+    mesh.0 = asset_server.load(
         GltfAssetLabel::Primitive {
             mesh: 0,
             primitive: 0,
@@ -195,17 +172,11 @@ fn alter_handle(
 
 fn alter_mesh(
     mut is_mesh_scaled: Local<bool>,
-    left_shape: Query<&Handle<Mesh>, With<Left>>,
+    left_shape: Single<&Mesh3d, With<Left>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    // It's convenient to retrieve the asset handle stored with the shape on the left. However,
-    // we could just as easily have retained this in a resource or a dedicated component.
-    let Ok(handle) = left_shape.get_single() else {
-        return;
-    };
-
     // Obtain a mutable reference to the Mesh asset.
-    let Some(mesh) = meshes.get_mut(handle) else {
+    let Some(mesh) = meshes.get_mut(*left_shape) else {
         return;
     };
 
@@ -233,7 +204,7 @@ fn alter_mesh(
             position[2] *= scale_factor;
         }
 
-        // Flip the local value to reverse the behaviour next time the key is pressed.
+        // Flip the local value to reverse the behavior next time the key is pressed.
         *is_mesh_scaled = !*is_mesh_scaled;
     }
 }

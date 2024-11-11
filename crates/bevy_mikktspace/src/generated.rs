@@ -5,7 +5,7 @@
 //! modification to Morten S. Mikkelsen's original tangent space algorithm
 //! implementation written in C. The original source code can be found at
 //! <https://archive.blender.org/wiki/index.php/Dev:Shading/Tangent_Space_Normal_Maps>
-//! and includes the following licence:
+//! and includes the following license:
 //!
 //! Copyright (C) 2011 by Morten S. Mikkelsen
 //!
@@ -45,6 +45,7 @@
     unsafe_code
 )]
 
+use alloc::{vec, vec::Vec};
 use core::ptr::{self, null_mut};
 
 use glam::Vec3;
@@ -211,7 +212,7 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
     let mut index = 0;
     let iNrFaces = geometry.num_faces();
     let mut bRes: bool = false;
-    let fThresCos = fAngularThreshold.to_radians().cos();
+    let fThresCos = cos(fAngularThreshold.to_radians());
     f = 0;
     while f < iNrFaces {
         let verts = geometry.num_vertices_of_face(f);
@@ -630,7 +631,7 @@ unsafe fn VNotZero(v: Vec3) -> bool {
 }
 
 unsafe fn NotZero(fX: f32) -> bool {
-    fX.abs() > 1.17549435e-38f32
+    abs(fX) > 1.17549435e-38f32
 }
 
 unsafe fn EvalTspace<I: Geometry>(
@@ -724,7 +725,7 @@ unsafe fn EvalTspace<I: Geometry>(
             } else {
                 fCos
             };
-            fAngle = (fCos as f64).acos() as f32;
+            fAngle = acosf64(fCos as f64) as f32;
             fMagS = (*pTriInfos.offset(f as isize)).fMagS;
             fMagT = (*pTriInfos.offset(f as isize)).fMagT;
             res.vOs = res.vOs + (fAngle * vOs);
@@ -1010,7 +1011,7 @@ unsafe fn InitTriInfo<I: Geometry>(
             0i32
         };
         if NotZero(fSignedAreaSTx2) {
-            let fAbsArea: f32 = fSignedAreaSTx2.abs();
+            let fAbsArea: f32 = abs(fSignedAreaSTx2);
             let fLenOs: f32 = vOs.length();
             let fLenOt: f32 = vOt.length();
             let fS: f32 = if (*pTriInfos.offset(f as isize)).iFlag & 8i32 == 0i32 {
@@ -1807,4 +1808,64 @@ unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
         t += 1
     }
     return iTSpacesOffs;
+}
+
+fn cos(value: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        value.cos()
+    }
+    #[cfg(all(not(feature = "std"), feature = "libm"))]
+    {
+        libm::cosf(value)
+    }
+    #[cfg(all(not(feature = "std"), not(feature = "libm")))]
+    {
+        compile_error!("Require either 'libm' or 'std' for `cos`")
+    }
+}
+
+fn acos(value: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        value.acos()
+    }
+    #[cfg(all(not(feature = "std"), feature = "libm"))]
+    {
+        libm::acosf(value)
+    }
+    #[cfg(all(not(feature = "std"), not(feature = "libm")))]
+    {
+        compile_error!("Require either 'libm' or 'std' for `acos`")
+    }
+}
+
+fn abs(value: f32) -> f32 {
+    #[cfg(feature = "std")]
+    {
+        value.abs()
+    }
+    #[cfg(all(not(feature = "std"), feature = "libm"))]
+    {
+        libm::fabsf(value)
+    }
+    #[cfg(all(not(feature = "std"), not(feature = "libm")))]
+    {
+        compile_error!("Require either 'libm' or 'std' for `abs`")
+    }
+}
+
+fn acosf64(value: f64) -> f64 {
+    #[cfg(feature = "std")]
+    {
+        value.acos()
+    }
+    #[cfg(all(not(feature = "std"), feature = "libm"))]
+    {
+        libm::acos(value)
+    }
+    #[cfg(all(not(feature = "std"), not(feature = "libm")))]
+    {
+        compile_error!("Require either 'libm' or 'std' for `acos`")
+    }
 }

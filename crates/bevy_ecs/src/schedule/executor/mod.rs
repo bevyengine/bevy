@@ -180,18 +180,6 @@ mod __rust_begin_short_backtrace {
     }
 }
 
-#[macro_export]
-/// Emits a warning about system being skipped.
-macro_rules! warn_system_skipped {
-    ($ty:literal, $sys:expr) => {
-        bevy_utils::tracing::warn!(
-            "{} {} was skipped due to inaccessible system parameters.",
-            $ty,
-            $sys
-        )
-    };
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{

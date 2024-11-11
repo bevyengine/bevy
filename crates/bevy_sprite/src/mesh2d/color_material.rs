@@ -1,14 +1,13 @@
+#![expect(deprecated)]
+
 use crate::{AlphaMode2d, Material2d, Material2dPlugin, MaterialMesh2dBundle};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Alpha, Color, ColorToComponents, LinearRgba};
+use bevy_image::Image;
 use bevy_math::Vec4;
 use bevy_reflect::prelude::*;
-use bevy_render::{
-    render_asset::RenderAssets,
-    render_resource::*,
-    texture::{GpuImage, Image},
-};
+use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
 
 pub const COLOR_MATERIAL_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(3253086872234592509);
@@ -28,6 +27,7 @@ impl Plugin for ColorMaterialPlugin {
         app.add_plugins(Material2dPlugin::<ColorMaterial>::default())
             .register_asset_reflect::<ColorMaterial>();
 
+        // Initialize the default material handle.
         app.world_mut()
             .resource_mut::<Assets<ColorMaterial>>()
             .insert(
@@ -40,7 +40,7 @@ impl Plugin for ColorMaterialPlugin {
     }
 }
 
-/// A [2d material](Material2d) that renders [2d meshes](crate::Mesh2dHandle) with a texture tinted by a uniform color
+/// A [2d material](Material2d) that renders [2d meshes](crate::Mesh2d) with a texture tinted by a uniform color
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[reflect(Default, Debug)]
 #[uniform(0, ColorMaterialUniform)]
@@ -158,5 +158,9 @@ impl Material2d for ColorMaterial {
     }
 }
 
-/// A component bundle for entities with a [`Mesh2dHandle`](crate::Mesh2dHandle) and a [`ColorMaterial`].
+/// A component bundle for entities with a [`Mesh2d`](crate::Mesh2d) and a [`ColorMaterial`].
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `Mesh3d` and `MeshMaterial3d` components instead. Inserting them will now also insert the other components required by them automatically."
+)]
 pub type ColorMesh2dBundle = MaterialMesh2dBundle<ColorMaterial>;
