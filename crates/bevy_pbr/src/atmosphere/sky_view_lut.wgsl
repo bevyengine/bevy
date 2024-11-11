@@ -7,7 +7,7 @@
             sample_atmosphere, get_local_up,
             sample_transmittance_lut, sample_multiscattering_lut, rayleigh, henyey_greenstein,
             distance_to_bottom_atmosphere_boundary, ray_intersects_ground, AtmosphereSample,
-            sky_view_lut_uv_to_lat_long, sample_local_inscattering, get_local_r, 
+            sky_view_lut_uv_to_lat_long, sample_local_inscattering, get_local_r, view_radius
         },
         bruneton_functions::{distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary, ray_intersects_ground}
     }
@@ -19,9 +19,9 @@
 @fragment
 fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let lat_long = sky_view_lut_uv_to_lat_long(in.uv);
-    let view_dir = get_ray_direction(lat_long);
-    let r = view.world_position.y / 1000.0 + atmosphere.bottom_radius; //we center the sky view on the planet ground
-    let mu = view_dir.y;
+    let ray_dir = get_ray_direction(lat_long);
+    let r = view_radius(); //TODO: paper says to center the sky view on the planet ground
+    let mu = ray_dir.y;
 
     let atmosphere_dist = distance_to_top_atmosphere_boundary(r, mu);
     let step_length = atmosphere_dist / f32(settings.sky_view_lut_samples);
@@ -29,15 +29,15 @@ fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     var total_inscattering = vec3(0.0);
     var optical_depth = vec3(0.0);
     for (var step_i: u32 = 0u; step_i < settings.sky_view_lut_samples; step_i++) {
-        let displacement = step_length * (f32(step_i) + 0.5); //todo: 0.3???;
-        let local_r = get_local_r(r, mu, displacement);
-        let local_up = get_local_up(r, displacement * view_dir);
+        let t_i = step_length * (f32(step_i) + 0.5); //todo: 0.3???;
+        let local_r = get_local_r(r, mu, t_i);
+        let local_up = get_local_up(r, t_i, ray_dir);
 
         let local_atmosphere = sample_atmosphere(local_r);
         optical_depth += local_atmosphere.extinction * step_length; //TODO: Units between atmosphere and step_length
         let transmittance_to_sample = exp(-optical_depth);
 
-        var local_inscattering = sample_local_inscattering(local_atmosphere, transmittance_to_sample, view_dir, local_r, local_up);
+        var local_inscattering = sample_local_inscattering(local_atmosphere, transmittance_to_sample, ray_dir, local_r, local_up);
         total_inscattering += local_inscattering * step_length;
     }
 

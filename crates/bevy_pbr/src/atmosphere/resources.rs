@@ -229,6 +229,7 @@ impl FromWorld for AtmospherePipelines {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+            zero_initialize_workgroup_memory: false,
             fragment: Some(FragmentState {
                 shader: shaders::TRANSMITTANCE_LUT.clone(),
                 shader_defs: vec![],
@@ -249,6 +250,7 @@ impl FromWorld for AtmospherePipelines {
                 shader: shaders::MULTISCATTERING_LUT,
                 shader_defs: vec![],
                 entry_point: "main".into(),
+                zero_initialize_workgroup_memory: false,
             });
 
         let sky_view_lut = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
@@ -259,6 +261,7 @@ impl FromWorld for AtmospherePipelines {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+            zero_initialize_workgroup_memory: false,
             fragment: Some(FragmentState {
                 shader: shaders::SKY_VIEW_LUT.clone(),
                 shader_defs: vec![],
@@ -278,6 +281,7 @@ impl FromWorld for AtmospherePipelines {
             shader: shaders::AERIAL_VIEW_LUT,
             shader_defs: vec![],
             entry_point: "main".into(),
+            zero_initialize_workgroup_memory: false,
         });
 
         let render_sky = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
@@ -288,6 +292,7 @@ impl FromWorld for AtmospherePipelines {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+            zero_initialize_workgroup_memory: false,
             fragment: Some(FragmentState {
                 shader: shaders::RENDER_SKY.clone(),
                 shader_defs: vec![],
@@ -296,8 +301,8 @@ impl FromWorld for AtmospherePipelines {
                     format: TextureFormat::Rgba16Float,
                     blend: Some(BlendState {
                         color: BlendComponent {
-                            src_factor: BlendFactor::One,
-                            dst_factor: BlendFactor::OneMinusSrcAlpha,
+                            src_factor: BlendFactor::SrcAlpha,
+                            dst_factor: BlendFactor::One,
                             operation: BlendOperation::Add,
                         },
                         alpha: BlendComponent {

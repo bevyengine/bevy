@@ -11,7 +11,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{auto_exposure::AutoExposure, core_3d::Camera3dDepthTextureUsage},
-    pbr::{Atmosphere, CascadeShadowConfigBuilder},
+    pbr::{Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder},
     prelude::*,
 };
 use bevy_internal::core_pipeline::tonemapping::Tonemapping;
@@ -25,7 +25,7 @@ fn main() {
             Startup,
             (setup_camera_fog, setup_terrain_scene, setup_instructions),
         )
-        .add_systems(Update, rotate_sun)
+        .add_systems(Update, (rotate_sun/*, rotate_camera*/))
         .run();
 }
 
@@ -45,8 +45,8 @@ fn setup_camera_fog(mut commands: Commands) {
         Tonemapping::AcesFitted,
         Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
         Atmosphere::EARTH,
-        AutoExposure {
-            range: -500.0..=500.0,
+        AtmosphereSettings {
+            scene_units_to_km: 1.0,
             ..Default::default()
         },
     ));
@@ -109,6 +109,13 @@ fn setup_instructions(mut commands: Commands) {
 //     }
 // }
 
-fn rotate_sun(mut sun: Query<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
-    sun.single_mut().rotate_z(time.delta_secs() * PI / 30.0);
+fn rotate_sun(mut sun: Single<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
+    sun.rotate_z(time.delta_secs() * PI / 60.0);
+}
+
+fn rotate_camera(mut camera: Single<&mut Transform, With<Camera>>, time: Res<Time>) {
+    if time.elapsed_secs() < 6.0 {
+        return;
+    }
+    camera.rotate_y(time.delta_secs() * PI / 30.0);
 }

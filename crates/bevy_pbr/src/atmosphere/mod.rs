@@ -172,6 +172,7 @@ impl Plugin for AtmospherePlugin {
     }
 }
 
+/// This component describes the atmosphere of a planet
 //TODO: padding/alignment?
 #[derive(Clone, Component, Reflect, ShaderType)]
 #[require(AtmosphereSettings)]
@@ -181,7 +182,8 @@ pub struct Atmosphere {
     /// units: km
     bottom_radius: f32,
 
-    // Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
+    /// Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
+    /// units: km
     top_radius: f32,
 
     ground_albedo: Vec3, //used for estimating multiscattering
@@ -197,6 +199,25 @@ pub struct Atmosphere {
     ozone_layer_center_altitude: f32, //units: km
     ozone_layer_half_width: f32,      //units: km
     ozone_absorption: Vec3,           //ozone absorption. units: km^-1
+}
+
+impl Atmosphere {
+    //TODO: check all these values before merge
+    //TODO: UNITS
+    pub const EARTH: Atmosphere = Atmosphere {
+        bottom_radius: 6360.0,
+        top_radius: 6460.0,
+        ground_albedo: Vec3::splat(0.3),
+        rayleigh_density_exp_scale: -1.0 / 8.0,
+        rayleigh_scattering: Vec3::new(0.005802, 0.013558, 0.033100),
+        mie_density_exp_scale: -1.0 / 1.2,
+        mie_scattering: 0.003996,
+        mie_absorption: 0.004440,
+        mie_asymmetry: 0.8,
+        ozone_layer_center_altitude: 25.0,
+        ozone_layer_half_width: 15.0,
+        ozone_absorption: Vec3::new(0.000650, 0.001881, 0.000085),
+    };
 }
 
 impl Default for Atmosphere {
@@ -217,37 +238,6 @@ impl ExtractComponent for Atmosphere {
     }
 }
 
-impl ExtractComponent for AtmosphereSettings {
-    type QueryData = Read<AtmosphereSettings>;
-
-    type QueryFilter = (With<Camera3d>, With<Atmosphere>);
-
-    type Out = AtmosphereSettings;
-
-    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
-        Some(item.clone())
-    }
-}
-
-impl Atmosphere {
-    //TODO: check all these values before merge
-    //TODO: UNITS
-    pub const EARTH: Atmosphere = Atmosphere {
-        bottom_radius: 6360.0,
-        top_radius: 6460.0,
-        ground_albedo: Vec3::splat(0.3),
-        rayleigh_density_exp_scale: -1.0 / 8.0,
-        rayleigh_scattering: Vec3::new(0.005802, 0.013558, 0.033100),
-        mie_density_exp_scale: -1.0 / 1.2,
-        mie_scattering: 0.03996,
-        mie_absorption: 0.000444,
-        mie_asymmetry: 0.8,
-        ozone_layer_center_altitude: 25.0,
-        ozone_layer_half_width: 15.0,
-        ozone_absorption: Vec3::new(0.000650, 0.001881, 0.000085),
-    };
-}
-
 #[derive(Clone, Component, Reflect, ShaderType)]
 pub struct AtmosphereSettings {
     pub transmittance_lut_size: UVec2,
@@ -259,6 +249,7 @@ pub struct AtmosphereSettings {
     pub multiscattering_lut_samples: u32,
     pub sky_view_lut_samples: u32,
     pub aerial_view_lut_samples: u32,
+    pub scene_units_to_km: f32,
 }
 
 impl Default for AtmosphereSettings {
@@ -273,6 +264,19 @@ impl Default for AtmosphereSettings {
             sky_view_lut_samples: 30,
             aerial_view_lut_size: UVec3::new(32, 32, 32),
             aerial_view_lut_samples: 10,
+            scene_units_to_km: 1.0e-3,
         }
+    }
+}
+
+impl ExtractComponent for AtmosphereSettings {
+    type QueryData = Read<AtmosphereSettings>;
+
+    type QueryFilter = (With<Camera3d>, With<Atmosphere>);
+
+    type Out = AtmosphereSettings;
+
+    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+        Some(item.clone())
     }
 }

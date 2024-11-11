@@ -6,7 +6,7 @@
         functions::{
             sample_transmittance_lut, sample_atmosphere, rayleigh, henyey_greenstein,
             sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
-            get_local_r, get_local_up
+            get_local_r, get_local_up, view_radius, M_TO_KM, uv_to_ndc, position_ndc_to_world, depth_ndc_to_view_z
         },
         bruneton_functions::{distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary,ray_intersects_ground}
     }
@@ -22,51 +22,46 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     var optical_depth: vec3<f32> = vec3(0.0);
 
     let uv = (vec2<f32>(idx.xy) + 0.5) / vec2<f32>(settings.aerial_view_lut_size.xy);
-    let view_dir = uv_to_ray_direction(uv); //TODO: negate for lighting calcs?
-    let r = view.world_position.y / 1000.0 + atmosphere.bottom_radius;
-    let mu = view_dir.y;
+    let ray_dir = uv_to_ray_direction(uv); //TODO: negate for lighting calcs?
+    let r = view_radius();
+    let mu = ray_dir.y;
 
-    var prev_view_z = 0.0;
+    var prev_t = 0.0;
     var total_inscattering = vec3(0.0);
-    for (var slice_i: i32 = i32(settings.aerial_view_lut_size.z - 1); slice_i >= 0; slice_i--) { //reversed loop to iterate depth near->far 
+    for (var slice_i: i32 = i32(settings.aerial_view_lut_size.z - 1); slice_i >= 0; slice_i--) { //reversed loop to iterate raw depth values near->far 
         var sum_transmittance = 0.0;
         for (var step_i: i32 = i32(settings.aerial_view_lut_samples - 1); step_i >= 0; step_i--) { //same here
-            let ndc_z = (f32(slice_i) + ((f32(step_i) + 0.5) / f32(settings.aerial_view_lut_samples))) / f32(settings.aerial_view_lut_size.z);
+            let sample_depth = depth_at_sample(slice_i, step_i);
             //view_dir.w is the cosine of the angle between the view vector and the camera forward vector, used to correct the step length.            
-            let view_z = depth_ndc_to_view_z(ndc_z) / view_dir.w / 1000.0;
+            let t_i = -depth_ndc_to_view_z(sample_depth) / ray_dir.w * settings.scene_units_to_km;
 
-            //subtraction is flipped because z values in front of the camera are negative
-            let step_length = (prev_view_z - view_z);
-            prev_view_z = view_z;
+            let step_length = (t_i - prev_t);
+            prev_t = t_i;
 
-            let local_r = get_local_r(r, mu, view_z);
+            let local_r = get_local_r(r, mu, t_i);
             if local_r > atmosphere.top_radius { break; }
-            let local_up = get_local_up(r, view_z * view_dir.xyz);
+            let local_up = get_local_up(r, t_i, ray_dir.xyz);
 
             let local_atmosphere = sample_atmosphere(local_r);
             optical_depth += local_atmosphere.extinction * step_length; //TODO: units between step_length and atmosphere
 
             let transmittance_to_sample = exp(-optical_depth);
 
-            var local_inscattering = sample_local_inscattering(local_atmosphere, transmittance_to_sample, view_dir.xyz, local_r, local_up);
+            var local_inscattering = sample_local_inscattering(local_atmosphere, transmittance_to_sample, ray_dir.xyz, local_r, local_up);
             total_inscattering += local_inscattering * step_length;
             sum_transmittance += transmittance_to_sample.r + transmittance_to_sample.g + transmittance_to_sample.b;
+
+            let mean_transmittance = sum_transmittance / (f32(settings.aerial_view_lut_samples) * 3.0);
+            textureStore(aerial_view_lut_out, vec3(vec2<i32>(idx.xy), slice_i), vec4(total_inscattering, mean_transmittance));
+            //textureStore(aerial_view_lut_out, vec3(vec2<i32>(idx.xy), slice_i), vec4(optical_depth, step_length));
         }
-        let mean_transmittance = sum_transmittance / (f32(settings.aerial_view_lut_samples) * 3.0);
-        textureStore(aerial_view_lut_out, vec3(vec2<i32>(idx.xy), slice_i), vec4(total_inscattering, mean_transmittance));
     }
 }
 
-/// Convert uv [0.0 .. 1.0] coordinate to ndc space xy [-1.0 .. 1.0]
-fn uv_to_ndc(uv: vec2<f32>) -> vec2<f32> {
-    return uv * vec2(2.0, -2.0) + vec2(-1.0, 1.0);
+fn depth_at_sample(slice_i: i32, step_i: i32) -> f32 {
+    return (f32(slice_i) + ((f32(step_i) + 0.5) / f32(settings.aerial_view_lut_samples))) / f32(settings.aerial_view_lut_size.z);
 }
 
-/// Convert a ndc space position to world space
-fn position_ndc_to_world(ndc_pos: vec3<f32>) -> vec3<f32> {
-    let world_pos = view.world_from_clip * vec4(ndc_pos, 1.0);
-    return world_pos.xyz / world_pos.w;
-}
 
 //Modified from skybox.wgsl. For this pass we don't need to apply a separate sky transform or consider camera viewport.
 //w component is the cosine of the view direction with the view forward vector, to correct step distance at the edges of the viewport
@@ -94,12 +89,4 @@ fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
     let ray_direction = (view.world_from_view * vec4(view_ray_direction, 0.0)).xyz;
 
     return vec4(normalize(ray_direction), -view_ray_direction.z); //TODO: correct sign?
-}
-
-
-/// Convert ndc depth to linear view z. 
-/// Note: Depth values in front of the camera will be negative as -z is forward
-fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
-    let view_pos = view.view_from_clip * vec4(0.0, 0.0, ndc_depth, 1.0);
-    return view_pos.z / view_pos.w;
 }

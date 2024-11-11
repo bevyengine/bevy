@@ -60,13 +60,15 @@ fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
 fn sample_sky_view_lut(ray_dir: vec3<f32>) -> vec3<f32> {
     let lat_long = ray_dir_to_lat_long(ray_dir);
     let uv = sky_view_lut_lat_long_to_uv(lat_long.x, lat_long.y);
+    let long = fract(abs(lat_long.y));
+    //return vec3(long, long, long);
     return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, uv, 0.0).rgb;
 }
 
 //RGB channels: total inscattered light along the camera ray to the current sample.
 //A channel: average transmittance across all wavelengths to the current sample.
 fn sample_aerial_view_lut(ndc: vec3<f32>) -> vec4<f32> {
-    return textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, ndc, 0.0);
+    return textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, vec3(ndc_to_uv(ndc.xy), ndc.z), 0.0);
 }
 
 // PHASE FUNCTIONS
@@ -118,14 +120,13 @@ fn sample_atmosphere(r: f32) -> AtmosphereSample {
     return sample;
 }
 
-fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_to_sample: vec3<f32>, view_dir: vec3<f32>, local_r: f32, local_up: vec3<f32>) -> vec3<f32> {
-    //TODO: storing these outside the loop saves several multiplications, but at the cost of an extra vector register
+fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_to_sample: vec3<f32>, ray_dir: vec3<f32>, local_r: f32, local_up: vec3<f32>) -> vec3<f32> {
     var rayleigh_scattering = vec3(0.0);
     var mie_scattering = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
         let mu_light = dot((*light).direction_to_light, local_up);
-        let neg_LdotV = dot((*light).direction_to_light, view_dir);
+        let neg_LdotV = dot((*light).direction_to_light, ray_dir);
         let rayleigh_phase = rayleigh(neg_LdotV);
         let mie_phase = henyey_greenstein(neg_LdotV);
 
@@ -142,10 +143,15 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_t
 
 // TRANSFORM UTILITIES
 
+fn view_radius() -> f32 {
+    return view.world_position.y * settings.scene_units_to_km + atmosphere.bottom_radius;
+}
+
 //We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
-//NOTE: this means that if your bevy world is actually placed on a sphere, this will be wrong.
-fn get_local_up(view_r: f32, displacement: vec3<f32>) -> vec3<f32> {
-    return normalize(vec3(0.0, view_r, 0.0) + displacement);
+//t = distance along view ray (km)
+//NOTE: this means that if your world is actually spherical, this will be wrong.
+fn get_local_up(r: f32, t: f32, ray_dir: vec3<f32>) -> vec3<f32> {
+    return normalize(vec3(0.0, r, 0.0) + t * ray_dir);
 }
 
 fn get_local_r(view_r: f32, view_mu: f32, dist: f32) -> f32 {
@@ -155,6 +161,11 @@ fn get_local_r(view_r: f32, view_mu: f32, dist: f32) -> f32 {
 // Convert uv [0.0 .. 1.0] coordinate to ndc space xy [-1.0 .. 1.0]
 fn uv_to_ndc(uv: vec2<f32>) -> vec2<f32> {
     return uv * vec2(2.0, -2.0) + vec2(-1.0, 1.0);
+}
+
+/// Convert ndc space xy coordinate [-1.0 .. 1.0] to uv [0.0 .. 1.0]
+fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
+    return ndc * vec2(0.5, -0.5) + vec2(0.5);
 }
 
 /// Convert a ndc space position to world space

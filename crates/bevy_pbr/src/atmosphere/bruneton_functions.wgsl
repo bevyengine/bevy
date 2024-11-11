@@ -134,7 +134,6 @@ fn distance_to_bottom_atmosphere_boundary(r: f32, mu: f32) -> f32 {
     return max(-r * mu - sqrt(positive_discriminant), 0.0);
 }
 
-//TODO: What is m2??? is it just there to catch copyright?????
 fn ray_intersects_ground(r: f32, mu: f32) -> bool {
-    return mu < 0.0 && r * r * (mu * mu - 1.0) + atmosphere.bottom_radius * atmosphere.bottom_radius >= 0.0; // * m2;
+    return mu < 0.0 && r * r * (mu * mu - 1.0) + atmosphere.bottom_radius * atmosphere.bottom_radius >= 0.0;
 }
