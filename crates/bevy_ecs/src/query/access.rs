@@ -2,7 +2,7 @@ use crate::component::ComponentId;
 use crate::storage::SparseSetIndex;
 use crate::world::World;
 use core::{fmt, fmt::Debug, marker::PhantomData};
-use derive_more::derive::From;
+use derive_more::derive::{Display, Error, From};
 use fixedbitset::FixedBitSet;
 
 /// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
@@ -761,38 +761,57 @@ impl<T: SparseSetIndex> Access<T> {
         self.archetypal.ones().map(T::get_sparse_set_index)
     }
 
-    /// Returns an iterator over the component IDs that this `Access` either
-    /// reads and writes or can't read or write.
-    ///
-    /// The returned flag specifies whether the list consists of the components
-    /// that the access *can* read or write (false) or whether the list consists
-    /// of the components that the access *can't* read or write (true).
-    ///
-    /// Because this method depends on internal implementation details of
-    /// `Access`, it's not recommended. Prefer to manage your own lists of
-    /// accessible components if your application needs to do that.
-    #[doc(hidden)]
-    #[deprecated]
-    pub fn component_reads_and_writes(&self) -> (impl Iterator<Item = T> + '_, bool) {
-        (
-            self.component_read_and_writes
-                .ones()
-                .map(T::get_sparse_set_index),
-            self.component_read_and_writes_inverted,
-        )
-    }
+    /// Returns an iterator over the component IDs and their [`AccessKind`].
+    pub fn try_iter_component_access(
+        &self,
+    ) -> Result<impl Iterator<Item = ComponentAccessKind<T>> + '_, UnboundedAccess> {
+        if self.component_writes_inverted || self.component_read_and_writes_inverted {
+            return Err(UnboundedAccess);
+        }
 
-    /// Returns an iterator over the component IDs that this `Access` either
-    /// writes or can't write.
-    ///
-    /// The returned flag specifies whether the list consists of the components
-    /// that the access *can* write (false) or whether the list consists of the
-    /// components that the access *can't* write (true).
-    pub(crate) fn component_writes(&self) -> (impl Iterator<Item = T> + '_, bool) {
-        (
-            self.component_writes.ones().map(T::get_sparse_set_index),
-            self.component_writes_inverted,
-        )
+        let reads_and_writes = self.component_read_and_writes.ones().map(|index| {
+            let sparse_index = T::get_sparse_set_index(index);
+
+            if self.component_writes.contains(index) {
+                ComponentAccessKind::Exclusive(sparse_index)
+            } else {
+                ComponentAccessKind::Shared(sparse_index)
+            }
+        });
+
+        let archetypical = self
+            .archetypal
+            .ones()
+            .filter(|&index| {
+                !self.component_writes.contains(index)
+                    && !self.component_read_and_writes.contains(index)
+            })
+            .map(|index| ComponentAccessKind::Archetypical(T::get_sparse_set_index(index)));
+
+        Ok(reads_and_writes.chain(archetypical))
+    }
+}
+
+/// Error returned when attempting to iterate over items included in an [`Access`]
+/// if the access excludes items rather than including them.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Display, Error)]
+pub struct UnboundedAccess;
+
+/// Describes the level of access for a particular component as defined in an [`Access`].
+pub enum ComponentAccessKind<T> {
+    /// Archetypical access, such as `Has<Foo>`.
+    Archetypical(T),
+    /// Shared access, such as `&Foo`.
+    Shared(T),
+    /// Exclusive access, such as `&mut Foo`.
+    Exclusive(T),
+}
+
+impl<T> ComponentAccessKind<T> {
+    /// Gets the index of this `ComponentAccessKind`.
+    pub fn index(&self) -> &T {
+        let (Self::Archetypical(value) | Self::Shared(value) | Self::Exclusive(value)) = self;
+        value
     }
 }
 

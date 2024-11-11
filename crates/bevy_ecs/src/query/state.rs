@@ -17,8 +17,8 @@ use core::{borrow::Borrow, fmt, mem::MaybeUninit, ptr};
 use fixedbitset::FixedBitSet;
 
 use super::{
-    NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
-    QuerySingleError, ROQueryItem,
+    ComponentAccessKind, NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter,
+    QueryManyIter, QuerySingleError, ROQueryItem,
 };
 
 /// An ID for either a table or an archetype. Used for Query iteration.
@@ -509,24 +509,23 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         access: &mut Access<ArchetypeComponentId>,
     ) {
         // As a fast path, we can iterate directly over the components involved
-        // if the `access` isn't inverted.
-        #[allow(deprecated)]
-        let (component_reads_and_writes, component_reads_and_writes_inverted) =
-            self.component_access.access.component_reads_and_writes();
-        let (component_writes, component_writes_inverted) =
-            self.component_access.access.component_writes();
+        // if the `access` is finite.
+        if let Ok(iter) = self.component_access.access.try_iter_component_access() {
+            iter.for_each(|component_access| {
+                if let Some(id) = archetype.get_archetype_component_id(*component_access.index()) {
+                    match component_access {
+                        ComponentAccessKind::Archetypical(_) => {}
+                        ComponentAccessKind::Shared(_) => {
+                            access.add_component_read(id);
+                        }
+                        ComponentAccessKind::Exclusive(_) => {
+                            access.add_component_read(id);
+                            access.add_component_write(id);
+                        }
+                    }
+                }
+            });
 
-        if !component_reads_and_writes_inverted && !component_writes_inverted {
-            component_reads_and_writes.for_each(|id| {
-                if let Some(id) = archetype.get_archetype_component_id(id) {
-                    access.add_component_read(id);
-                }
-            });
-            component_writes.for_each(|id| {
-                if let Some(id) = archetype.get_archetype_component_id(id) {
-                    access.add_component_write(id);
-                }
-            });
             return;
         }
 
