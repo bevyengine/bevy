@@ -16,13 +16,13 @@ use bevy_ecs::{
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
+use bevy_image::Image;
 use bevy_math::Vec2;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::view::Visibility;
 use bevy_render::{
     primitives::Aabb,
-    texture::Image,
     view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
