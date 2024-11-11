@@ -1,6 +1,8 @@
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
 use bevy_utils::tracing::trace;
-use std::{fmt::Debug, sync::Arc};
+
+use alloc::sync::Arc;
+use core::fmt::Debug;
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
 /// and number of total cores
@@ -22,7 +24,7 @@ pub struct TaskPoolThreadAssignmentPolicy {
 }
 
 impl Debug for TaskPoolThreadAssignmentPolicy {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("TaskPoolThreadAssignmentPolicy")
             .field("min_threads", &self.min_threads)
             .field("max_threads", &self.max_threads)
