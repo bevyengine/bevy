@@ -21,7 +21,7 @@ pub trait Animatable: Reflect + Sized + Send + Sync + 'static {
     /// Interpolates between `a` and `b` with  a interpolation factor of `time`.
     ///
     /// The `time` parameter here may not be clamped to the range `[0.0, 1.0]`.
-    fn interpolate(a: &Self, b: &Self, time: f32) -> Self;
+    fn interpolate(&self, b: &Self, time: f32) -> Self;
 
     /// Blends one or more values together.
     ///
@@ -33,9 +33,9 @@ macro_rules! impl_float_animatable {
     ($ty: ty, $base: ty) => {
         impl Animatable for $ty {
             #[inline]
-            fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
+            fn interpolate(&self, b: &Self, t: f32) -> Self {
                 let t = <$base>::from(t);
-                (*a) * (1.0 - t) + (*b) * t
+                (*self) * (1.0 - t) + (*b) * t
             }
 
             #[inline]
@@ -58,8 +58,8 @@ macro_rules! impl_color_animatable {
     ($ty: ident) => {
         impl Animatable for $ty {
             #[inline]
-            fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
-                let value = *a * (1. - t) + *b * t;
+            fn interpolate(&self, b: &Self, t: f32) -> Self {
+                let value = *self * (1. - t) + *b * t;
                 value
             }
 
@@ -98,8 +98,8 @@ impl_color_animatable!(Xyza);
 // Vec3 is special cased to use Vec3A internally for blending
 impl Animatable for Vec3 {
     #[inline]
-    fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
-        (*a) * (1.0 - t) + (*b) * t
+    fn interpolate(&self, b: &Self, t: f32) -> Self {
+        (*self) * (1.0 - t) + (*b) * t
     }
 
     #[inline]
@@ -118,8 +118,8 @@ impl Animatable for Vec3 {
 
 impl Animatable for bool {
     #[inline]
-    fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
-        util::step_unclamped(*a, *b, t)
+    fn interpolate(&self, b: &Self, t: f32) -> Self {
+        util::step_unclamped(*self, *b, t)
     }
 
     #[inline]
@@ -132,11 +132,11 @@ impl Animatable for bool {
 }
 
 impl Animatable for Transform {
-    fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
+    fn interpolate(&self, b: &Self, t: f32) -> Self {
         Self {
-            translation: Vec3::interpolate(&a.translation, &b.translation, t),
-            rotation: Quat::interpolate(&a.rotation, &b.rotation, t),
-            scale: Vec3::interpolate(&a.scale, &b.scale, t),
+            translation: Vec3::interpolate(&self.translation, &b.translation, t),
+            rotation: Quat::interpolate(&self.rotation, &b.rotation, t),
+            scale: Vec3::interpolate(&self.scale, &b.scale, t),
         }
     }
 
@@ -173,10 +173,10 @@ impl Animatable for Transform {
 impl Animatable for Quat {
     /// Performs a slerp to smoothly interpolate between quaternions.
     #[inline]
-    fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
+    fn interpolate(&self, b: &Self, t: f32) -> Self {
         // We want to smoothly interpolate between the two quaternions by default,
         // rather than using a quicker but less correct linear interpolation.
-        a.slerp(*b, t)
+        self.slerp(*b, t)
     }
 
     #[inline]
