@@ -230,10 +230,10 @@ jobs:
       - name: Taplo info
         if: failure()
         run: |
-          echo 'To fix toml fmt, please run `taplo fmt`'
-          echo 'To check for a diff, run `taplo fmt --check --diff'
+          echo 'To fix toml fmt, please run `taplo fmt`.'
+          echo 'To check for a diff, run `taplo fmt --check --diff`.'
           echo 'You can find taplo here: https://taplo.tamasfe.dev/'
-          echo 'Or if you use VSCode, use the `Even Better Toml` extension with 2 spaces'
+          echo 'Or if you use VSCode, use the `Even Better Toml` extension.'
           echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml'
 
   typos:

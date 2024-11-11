@@ -31,7 +31,7 @@ jobs:
         with:
           path: |
             target
-          key: ${{ runner.os }}-ios-install-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-ios-install-${{ hashFiles('**/Cargo.lock') }}
 
       # TODO: remove x86 target once it always run on arm GitHub runners
       - name: Add iOS targets
