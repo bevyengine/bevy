@@ -514,12 +514,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             iter.for_each(|component_access| {
                 if let Some(id) = archetype.get_archetype_component_id(*component_access.index()) {
                     match component_access {
-                        ComponentAccessKind::Archetypical(_) => {}
+                        ComponentAccessKind::Archetypal(_) => {}
                         ComponentAccessKind::Shared(_) => {
                             access.add_component_read(id);
                         }
                         ComponentAccessKind::Exclusive(_) => {
-                            access.add_component_read(id);
                             access.add_component_write(id);
                         }
                     }

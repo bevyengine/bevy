@@ -783,16 +783,16 @@ impl<T: SparseSetIndex> Access<T> {
             }
         });
 
-        let archetypical = self
+        let archetypal = self
             .archetypal
             .ones()
             .filter(|&index| {
                 !self.component_writes.contains(index)
                     && !self.component_read_and_writes.contains(index)
             })
-            .map(|index| ComponentAccessKind::Archetypical(T::get_sparse_set_index(index)));
+            .map(|index| ComponentAccessKind::Archetypal(T::get_sparse_set_index(index)));
 
-        Ok(reads_and_writes.chain(archetypical))
+        Ok(reads_and_writes.chain(archetypal))
     }
 }
 
@@ -804,7 +804,7 @@ pub struct UnboundedAccess;
 /// Describes the level of access for a particular component as defined in an [`Access`].
 pub enum ComponentAccessKind<T> {
     /// Archetypical access, such as `Has<Foo>`.
-    Archetypical(T),
+    Archetypal(T),
     /// Shared access, such as `&Foo`.
     Shared(T),
     /// Exclusive access, such as `&mut Foo`.
@@ -814,7 +814,7 @@ pub enum ComponentAccessKind<T> {
 impl<T> ComponentAccessKind<T> {
     /// Gets the index of this `ComponentAccessKind`.
     pub fn index(&self) -> &T {
-        let (Self::Archetypical(value) | Self::Shared(value) | Self::Exclusive(value)) = self;
+        let (Self::Archetypal(value) | Self::Shared(value) | Self::Exclusive(value)) = self;
         value
     }
 }
