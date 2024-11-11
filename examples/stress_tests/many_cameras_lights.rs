@@ -2,8 +2,11 @@
 
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
-use bevy_render::camera::Viewport;
+use bevy::{
+    math::ops::{cos, sin},
+    prelude::*,
+    render::camera::Viewport,
+};
 
 fn main() {
     App::new()
@@ -48,7 +51,7 @@ fn setup(
                 shadows_enabled: true,
                 ..default()
             },
-            Transform::from_xyz(angle.sin() * 4.0, 2.0, angle.cos() * 4.0),
+            Transform::from_xyz(sin(angle) * 4.0, 2.0, cos(angle) * 4.0),
         ));
     }
 
@@ -74,7 +77,7 @@ fn setup(
                     order: i,
                     ..default()
                 },
-                Transform::from_xyz(angle.sin() * 4.0, 2.5, angle.cos() * 4.0)
+                Transform::from_xyz(sin(angle) * 4.0, 2.5, cos(angle) * 4.0)
                     .looking_at(Vec3::ZERO, Vec3::Y),
             ));
             i += 1;
