@@ -4,7 +4,7 @@ use bevy_ecs::{
     entity::Entity,
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_math::{Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _};
+use bevy_math::{ops, Mat4, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles as _, Vec4, Vec4Swizzles as _};
 use bevy_render::{
     camera::Camera,
     primitives::{Aabb, Frustum, HalfSpace, Sphere},
@@ -17,9 +17,11 @@ use bevy_utils::tracing::warn;
 
 use crate::{
     ClusterConfig, ClusterFarZMode, Clusters, GlobalVisibleClusterableObjects, PointLight,
-    SpotLight, ViewClusterBindings, VisibleClusterableObjects,
+    SpotLight, ViewClusterBindings, VisibleClusterableObjects, VolumetricLight,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
 };
+
+use super::ClusterableObjectOrderData;
 
 const NDC_MIN: Vec2 = Vec2::NEG_ONE;
 const NDC_MAX: Vec2 = Vec2::ONE;
@@ -34,6 +36,7 @@ pub(crate) struct ClusterableObjectAssignmentData {
     transform: GlobalTransform,
     range: f32,
     shadows_enabled: bool,
+    volumetric: bool,
     spot_light_angle: Option<f32>,
     render_layers: RenderLayers,
 }
@@ -67,6 +70,7 @@ pub(crate) fn assign_objects_to_clusters(
         &GlobalTransform,
         &PointLight,
         Option<&RenderLayers>,
+        Option<&VolumetricLight>,
         &ViewVisibility,
     )>,
     spot_lights_query: Query<(
@@ -74,6 +78,7 @@ pub(crate) fn assign_objects_to_clusters(
         &GlobalTransform,
         &SpotLight,
         Option<&RenderLayers>,
+        Option<&VolumetricLight>,
         &ViewVisibility,
     )>,
     mut clusterable_objects: Local<Vec<ClusterableObjectAssignmentData>>,
@@ -93,11 +98,12 @@ pub(crate) fn assign_objects_to_clusters(
             .iter()
             .filter(|(.., visibility)| visibility.get())
             .map(
-                |(entity, transform, point_light, maybe_layers, _visibility)| {
+                |(entity, transform, point_light, maybe_layers, volumetric, _visibility)| {
                     ClusterableObjectAssignmentData {
                         entity,
                         transform: GlobalTransform::from_translation(transform.translation()),
                         shadows_enabled: point_light.shadows_enabled,
+                        volumetric: volumetric.is_some(),
                         range: point_light.range,
                         spot_light_angle: None,
                         render_layers: maybe_layers.unwrap_or_default().clone(),
@@ -110,11 +116,12 @@ pub(crate) fn assign_objects_to_clusters(
             .iter()
             .filter(|(.., visibility)| visibility.get())
             .map(
-                |(entity, transform, spot_light, maybe_layers, _visibility)| {
+                |(entity, transform, spot_light, maybe_layers, volumetric, _visibility)| {
                     ClusterableObjectAssignmentData {
                         entity,
                         transform: *transform,
                         shadows_enabled: spot_light.shadows_enabled,
+                        volumetric: volumetric.is_some(),
                         range: spot_light.range,
                         spot_light_angle: Some(spot_light.outer_angle),
                         render_layers: maybe_layers.unwrap_or_default().clone(),
@@ -134,16 +141,18 @@ pub(crate) fn assign_objects_to_clusters(
     {
         clusterable_objects.sort_by(|clusterable_object_1, clusterable_object_2| {
             crate::clusterable_object_order(
-                (
-                    &clusterable_object_1.entity,
-                    &clusterable_object_1.shadows_enabled,
-                    &clusterable_object_1.spot_light_angle.is_some(),
-                ),
-                (
-                    &clusterable_object_2.entity,
-                    &clusterable_object_2.shadows_enabled,
-                    &clusterable_object_2.spot_light_angle.is_some(),
-                ),
+                ClusterableObjectOrderData {
+                    entity: &clusterable_object_1.entity,
+                    shadows_enabled: &clusterable_object_1.shadows_enabled,
+                    is_volumetric_light: &clusterable_object_1.volumetric,
+                    is_spot_light: &clusterable_object_1.spot_light_angle.is_some(),
+                },
+                ClusterableObjectOrderData {
+                    entity: &clusterable_object_2.entity,
+                    shadows_enabled: &clusterable_object_2.shadows_enabled,
+                    is_volumetric_light: &clusterable_object_2.volumetric,
+                    is_spot_light: &clusterable_object_2.spot_light_angle.is_some(),
+                },
             )
         });
 
@@ -209,9 +218,12 @@ pub(crate) fn assign_objects_to_clusters(
             continue;
         }
 
-        let Some(screen_size) = camera.physical_viewport_size() else {
-            clusters.clear();
-            continue;
+        let screen_size = match camera.physical_viewport_size() {
+            Some(screen_size) if screen_size.x != 0 && screen_size.y != 0 => screen_size,
+            _ => {
+                clusters.clear();
+                continue;
+            }
         };
 
         let mut requested_cluster_dimensions = config.dimensions_for_screen_size(screen_size);
@@ -360,7 +372,7 @@ pub(crate) fn assign_objects_to_clusters(
 
         // initialize empty cluster bounding spheres
         cluster_aabb_spheres.clear();
-        cluster_aabb_spheres.extend(std::iter::repeat(None).take(cluster_count));
+        cluster_aabb_spheres.extend(core::iter::repeat(None).take(cluster_count));
 
         // Calculate the x/y/z cluster frustum planes in view space
         let mut x_planes = Vec::with_capacity(clusters.dimensions.x as usize + 1);
@@ -478,13 +490,13 @@ pub(crate) fn assign_objects_to_clusters(
                 // as they often assume that the widest part of the sphere under projection is the
                 // center point on the axis of interest plus the radius, and that is not true!
                 let view_clusterable_object_sphere = Sphere {
-                    center: Vec3A::from(
+                    center: Vec3A::from_vec4(
                         view_from_world * clusterable_object_sphere.center.extend(1.0),
                     ),
                     radius: clusterable_object_sphere.radius * view_from_world_scale_max,
                 };
                 let spot_light_dir_sin_cos = clusterable_object.spot_light_angle.map(|angle| {
-                    let (angle_sin, angle_cos) = angle.sin_cos();
+                    let (angle_sin, angle_cos) = ops::sin_cos(angle);
                     (
                         (view_from_world * clusterable_object.transform.back().extend(0.0))
                             .truncate()
@@ -723,14 +735,18 @@ fn compute_aabb_for_cluster(
         let cluster_near = if ijk.z == 0.0 {
             0.0
         } else {
-            -z_near * z_far_over_z_near.powf((ijk.z - 1.0) / (cluster_dimensions.z - 1) as f32)
+            -z_near
+                * ops::powf(
+                    z_far_over_z_near,
+                    (ijk.z - 1.0) / (cluster_dimensions.z - 1) as f32,
+                )
         };
         // NOTE: This could be simplified to:
         // cluster_far = cluster_near * z_far_over_z_near;
         let cluster_far = if cluster_dimensions.z == 1 {
             -z_far
         } else {
-            -z_near * z_far_over_z_near.powf(ijk.z / (cluster_dimensions.z - 1) as f32)
+            -z_near * ops::powf(z_far_over_z_near, ijk.z / (cluster_dimensions.z - 1) as f32)
         };
 
         // Calculate the four intersection points of the min and max points with the cluster near and far planes
@@ -762,7 +778,7 @@ fn z_slice_to_view_z(
     if z_slice == 0 {
         0.0
     } else {
-        -near * (far / near).powf((z_slice - 1) as f32 / (z_slices - 1) as f32)
+        -near * ops::powf(far / near, (z_slice - 1) as f32 / (z_slices - 1) as f32)
     }
 }
 
@@ -788,6 +804,7 @@ fn ndc_position_to_cluster(
 }
 
 /// Calculate bounds for the clusterable object using a view space aabb.
+///
 /// Returns a `(Vec3, Vec3)` containing minimum and maximum with
 ///     `X` and `Y` in normalized device coordinates with range `[-1, 1]`
 ///     `Z` in view space, with range `[-inf, -f32::MIN_POSITIVE]`
@@ -798,7 +815,7 @@ fn cluster_space_clusterable_object_aabb(
     clusterable_object_sphere: &Sphere,
 ) -> (Vec3, Vec3) {
     let clusterable_object_aabb_view = Aabb {
-        center: Vec3A::from(view_from_world * clusterable_object_sphere.center.extend(1.0)),
+        center: Vec3A::from_vec4(view_from_world * clusterable_object_sphere.center.extend(1.0)),
         half_extents: Vec3A::from(clusterable_object_sphere.radius * view_from_world_scale.abs()),
     };
     let (mut clusterable_object_aabb_view_min, mut clusterable_object_aabb_view_max) = (
@@ -900,7 +917,7 @@ fn view_z_to_z_slice(
         ((view_z - cluster_factors.x) * cluster_factors.y).floor() as u32
     } else {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
-        ((-view_z).ln() * cluster_factors.x - cluster_factors.y + 1.0) as u32
+        (ops::ln(-view_z) * cluster_factors.x - cluster_factors.y + 1.0) as u32
     };
     // NOTE: We use min as we may limit the far z plane used for clustering to be closer than
     // the furthest thing being drawn. This means that we need to limit to the maximum cluster.

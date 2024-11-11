@@ -3,6 +3,7 @@ use crate::{
         Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
         RunSubGraphError, SlotInfo, SlotInfos,
     },
+    render_phase::DrawError,
     renderer::RenderContext,
 };
 pub use bevy_ecs::label::DynEq;
@@ -13,9 +14,9 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_utils::all_tuples_with_size;
+use core::fmt::Debug;
+use derive_more::derive::{Display, Error, From};
 use downcast_rs::{impl_downcast, Downcast};
-use std::fmt::Debug;
-use thiserror::Error;
 
 pub use bevy_render_macros::RenderLabel;
 
@@ -35,7 +36,8 @@ pub trait IntoRenderNodeArray<const N: usize> {
 }
 
 macro_rules! impl_render_label_tuples {
-    ($N: expr, $(($T: ident, $I: ident)),*) => {
+    ($N: expr, $(#[$meta:meta])* $(($T: ident, $I: ident)),*) => {
+        $(#[$meta])*
         impl<$($T: RenderLabel),*> IntoRenderNodeArray<$N> for ($($T,)*) {
             #[inline]
             fn into_array(self) -> [InternedRenderLabel; $N] {
@@ -46,7 +48,14 @@ macro_rules! impl_render_label_tuples {
     }
 }
 
-all_tuples_with_size!(impl_render_label_tuples, 1, 32, T, l);
+all_tuples_with_size!(
+    #[doc(fake_variadic)]
+    impl_render_label_tuples,
+    1,
+    32,
+    T,
+    l
+);
 
 /// A render node that can be added to a [`RenderGraph`](super::RenderGraph).
 ///
@@ -89,14 +98,16 @@ pub trait Node: Downcast + Send + Sync + 'static {
 
 impl_downcast!(Node);
 
-#[derive(Error, Debug, Eq, PartialEq)]
+#[derive(Error, Display, Debug, Eq, PartialEq, From)]
 pub enum NodeRunError {
-    #[error("encountered an input slot error")]
-    InputSlotError(#[from] InputSlotError),
-    #[error("encountered an output slot error")]
-    OutputSlotError(#[from] OutputSlotError),
-    #[error("encountered an error when running a sub-graph")]
-    RunSubGraphError(#[from] RunSubGraphError),
+    #[display("encountered an input slot error")]
+    InputSlotError(InputSlotError),
+    #[display("encountered an output slot error")]
+    OutputSlotError(OutputSlotError),
+    #[display("encountered an error when running a sub-graph")]
+    RunSubGraphError(RunSubGraphError),
+    #[display("encountered an error when executing draw command")]
+    DrawError(DrawError),
 }
 
 /// A collection of input and output [`Edges`](Edge) for a [`Node`].
@@ -226,7 +237,7 @@ pub struct NodeState {
 }
 
 impl Debug for NodeState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, "{:?} ({:?})", self.label, self.type_name)
     }
 }
@@ -243,7 +254,7 @@ impl NodeState {
             input_slots: node.input().into(),
             output_slots: node.output().into(),
             node: Box::new(node),
-            type_name: std::any::type_name::<T>(),
+            type_name: core::any::type_name::<T>(),
             edges: Edges {
                 label,
                 input_edges: Vec::new(),

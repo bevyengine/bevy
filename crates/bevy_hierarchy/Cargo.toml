@@ -24,6 +24,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "smallvec",
 ], optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
+disqualified = "1.0"
 
 smallvec = { version = "1.11", features = ["union", "const_generics"] }
 
@@ -31,5 +32,5 @@ smallvec = { version = "1.11", features = ["union", "const_generics"] }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

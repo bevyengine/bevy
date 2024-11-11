@@ -25,10 +25,10 @@ fn main() {
     let _ = pass.into_function();
 
     let _ = return_not_reflect.into_function();
-    //~^ ERROR: no method named `into_function` found
+    //~^ E0599
 
     let _ = return_with_lifetime_pass.into_function();
 
     let _ = return_with_invalid_lifetime.into_function();
-    //~^ ERROR: no method named `into_function` found
+    //~^ E0599
 }

@@ -28,5 +28,5 @@ bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev", optional 
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options"]
 all-features = true

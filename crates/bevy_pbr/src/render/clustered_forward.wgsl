@@ -77,25 +77,26 @@ fn cluster_debug_visualization(
 
     // Cluster allocation debug (using 'over' alpha blending)
 #ifdef CLUSTERED_FORWARD_DEBUG_Z_SLICES
-    // NOTE: This debug mode visualises the z-slices
+    // NOTE: This debug mode visualizes the z-slices
     let cluster_overlay_alpha = 0.1;
     var z_slice: u32 = view_z_to_z_slice(view_z, is_orthographic);
     // A hack to make the colors alternate a bit more
     if (z_slice & 1u) == 1u {
         z_slice = z_slice + bindings::lights.cluster_dimensions.z / 2u;
     }
-    let slice_color = hsv_to_rgb(
+    let slice_color_hsv = vec3(
         f32(z_slice) / f32(bindings::lights.cluster_dimensions.z + 1u) * PI_2,
         1.0,
         0.5
     );
+    let slice_color = hsv_to_rgb(slice_color_hsv);
     output_color = vec4<f32>(
         (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * slice_color,
         output_color.a
     );
 #endif // CLUSTERED_FORWARD_DEBUG_Z_SLICES
 #ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COMPLEXITY
-    // NOTE: This debug mode visualises the number of clusterable objects within
+    // NOTE: This debug mode visualizes the number of clusterable objects within
     // the cluster that contains the fragment. It shows a sort of cluster
     // complexity measure.
     let cluster_overlay_alpha = 0.1;
@@ -115,7 +116,8 @@ fn cluster_debug_visualization(
     // NOTE: Visualizes the cluster to which the fragment belongs
     let cluster_overlay_alpha = 0.1;
     var rng = cluster_index;
-    let cluster_color = hsv_to_rgb(rand_f(&rng) * PI_2, 1.0, 0.5);
+    let cluster_color_hsv = vec3(rand_f(&rng) * PI_2, 1.0, 0.5);
+    let cluster_color = hsv_to_rgb(cluster_color_hsv);
     output_color = vec4<f32>(
         (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * cluster_color,
         output_color.a

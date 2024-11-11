@@ -66,9 +66,9 @@
 // --------- END OF W3C SHORT NOTICE ---------------------------------------------------------------
 
 use crate::{ButtonInput, ButtonState};
-use bevy_ecs::entity::Entity;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
+    entity::Entity,
     event::{Event, EventReader},
     system::ResMut,
 };
@@ -88,8 +88,12 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`]
 /// to update the [`ButtonInput<KeyCode>`](ButtonInput<KeyCode>) resource.
-#[derive(Event, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Event, Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Hash)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -102,6 +106,10 @@ pub struct KeyboardInput {
     pub logical_key: Key,
     /// The press state of the key.
     pub state: ButtonState,
+    /// On some systems, holding down a key for some period of time causes that key to be repeated
+    /// as though it were being pressed and released repeatedly. This field is [`true`] if this
+    /// event is the result of one of those repeats.
+    pub repeat: bool,
     /// Window that received the input.
     pub window: Entity,
 }
@@ -126,7 +134,7 @@ pub struct KeyboardFocusLost;
 /// ## Differences
 ///
 /// The main difference between the [`KeyboardInput`] event and the [`ButtonInput<KeyCode>`] resources is that
-/// the latter have convenient functions such as [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`].
+/// the latter has convenient functions such as [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`] and is window id agnostic.
 pub fn keyboard_input_system(
     mut key_input: ResMut<ButtonInput<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
@@ -387,7 +395,7 @@ pub enum KeyCode {
     /// Japanese: <kbd>無変換</kbd> (muhenkan)
     NonConvert,
     /// <kbd>⌦</kbd>. The forward delete key.
-    /// Note that on Apple keyboards, the key labelled <kbd>Delete</kbd> on the main part of
+    /// Note that on Apple keyboards, the key labeled <kbd>Delete</kbd> on the main part of
     /// the keyboard is encoded as [`Backspace`].
     ///
     /// [`Backspace`]: Self::Backspace
@@ -524,9 +532,9 @@ pub enum KeyCode {
     /// <kbd>Eject</kbd> or <kbd>⏏</kbd>. This key is placed in the function section on some Apple
     /// keyboards.
     Eject,
-    /// Sometimes labelled <kbd>My Computer</kbd> on the keyboard
+    /// Sometimes labeled <kbd>My Computer</kbd> on the keyboard
     LaunchApp1,
-    /// Sometimes labelled <kbd>Calculator</kbd> on the keyboard
+    /// Sometimes labeled <kbd>Calculator</kbd> on the keyboard
     LaunchApp2,
     /// LaunchMail
     LaunchMail,
@@ -832,7 +840,7 @@ pub enum Key {
     /// Scroll up or display previous page of content.
     PageUp,
     /// Used to remove the character to the left of the cursor. This key value is also used for
-    /// the key labeled `Delete` on MacOS keyboards.
+    /// the key labeled `Delete` on macOS keyboards.
     Backspace,
     /// Remove the currently selected input.
     Clear,
@@ -843,7 +851,7 @@ pub enum Key {
     /// Cut the current selection. (`APPCOMMAND_CUT`)
     Cut,
     /// Used to delete the character to the right of the cursor. This key value is also used for the
-    /// key labeled `Delete` on MacOS keyboards when `Fn` is active.
+    /// key labeled `Delete` on macOS keyboards when `Fn` is active.
     Delete,
     /// The Erase to End of Field key. This key deletes all characters from the current cursor
     /// position to the end of the current field.
@@ -919,7 +927,7 @@ pub enum Key {
     /// be restored. The computer will then shutdown.
     Hibernate,
     /// The Standby key. This key turns off the display and places the computer into a low-power
-    /// mode without completely shutting down. It is sometimes labelled `Suspend` or `Sleep` key.
+    /// mode without completely shutting down. It is sometimes labeled `Suspend` or `Sleep` key.
     /// (`KEYCODE_SLEEP`)
     Standby,
     /// The WakeUp key. (`KEYCODE_WAKEUP`)

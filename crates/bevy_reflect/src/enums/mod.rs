@@ -50,6 +50,18 @@ mod tests {
             if let VariantInfo::Tuple(variant) = info.variant("B").unwrap() {
                 assert!(variant.field_at(0).unwrap().is::<usize>());
                 assert!(variant.field_at(1).unwrap().is::<i32>());
+                assert!(variant
+                    .field_at(0)
+                    .unwrap()
+                    .type_info()
+                    .unwrap()
+                    .is::<usize>());
+                assert!(variant
+                    .field_at(1)
+                    .unwrap()
+                    .type_info()
+                    .unwrap()
+                    .is::<i32>());
             } else {
                 panic!("Expected `VariantInfo::Tuple`");
             }
@@ -60,6 +72,12 @@ mod tests {
             if let VariantInfo::Struct(variant) = info.variant("C").unwrap() {
                 assert!(variant.field_at(0).unwrap().is::<f32>());
                 assert!(variant.field("foo").unwrap().is::<f32>());
+                assert!(variant
+                    .field("foo")
+                    .unwrap()
+                    .type_info()
+                    .unwrap()
+                    .is::<f32>());
             } else {
                 panic!("Expected `VariantInfo::Struct`");
             }
@@ -191,6 +209,12 @@ mod tests {
         dyn_enum.set_variant("A", ());
         value.apply(&dyn_enum);
         assert_eq!(MyEnum::A, value);
+    }
+
+    #[test]
+    fn dynamic_enum_should_return_is_dynamic() {
+        let dyn_enum = DynamicEnum::from(MyEnum::B(123, 321));
+        assert!(dyn_enum.is_dynamic());
     }
 
     #[test]
@@ -596,71 +620,71 @@ mod tests {
             C2 { value: f32 },
         }
 
-        let a: &dyn Reflect = &TestEnum::A;
-        let b: &dyn Reflect = &TestEnum::A;
+        let a: &dyn PartialReflect = &TestEnum::A;
+        let b: &dyn PartialReflect = &TestEnum::A;
         assert!(
             a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::A == TestEnum::A"
         );
 
-        let a: &dyn Reflect = &TestEnum::A;
-        let b: &dyn Reflect = &TestEnum::A1;
+        let a: &dyn PartialReflect = &TestEnum::A;
+        let b: &dyn PartialReflect = &TestEnum::A1;
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::A != TestEnum::A1"
         );
 
-        let a: &dyn Reflect = &TestEnum::B(123);
-        let b: &dyn Reflect = &TestEnum::B(123);
+        let a: &dyn PartialReflect = &TestEnum::B(123);
+        let b: &dyn PartialReflect = &TestEnum::B(123);
         assert!(
             a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) == TestEnum::B(123)"
         );
 
-        let a: &dyn Reflect = &TestEnum::B(123);
-        let b: &dyn Reflect = &TestEnum::B(321);
+        let a: &dyn PartialReflect = &TestEnum::B(123);
+        let b: &dyn PartialReflect = &TestEnum::B(321);
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) != TestEnum::B(321)"
         );
 
-        let a: &dyn Reflect = &TestEnum::B(123);
-        let b: &dyn Reflect = &TestEnum::B1(123);
+        let a: &dyn PartialReflect = &TestEnum::B(123);
+        let b: &dyn PartialReflect = &TestEnum::B1(123);
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) != TestEnum::B1(123)"
         );
 
-        let a: &dyn Reflect = &TestEnum::B(123);
-        let b: &dyn Reflect = &TestEnum::B2(123, 123);
+        let a: &dyn PartialReflect = &TestEnum::B(123);
+        let b: &dyn PartialReflect = &TestEnum::B2(123, 123);
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) != TestEnum::B2(123, 123)"
         );
 
-        let a: &dyn Reflect = &TestEnum::C { value: 123 };
-        let b: &dyn Reflect = &TestEnum::C { value: 123 };
+        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
+        let b: &dyn PartialReflect = &TestEnum::C { value: 123 };
         assert!(
             a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} == TestEnum::C{{value: 123}}"
         );
 
-        let a: &dyn Reflect = &TestEnum::C { value: 123 };
-        let b: &dyn Reflect = &TestEnum::C { value: 321 };
+        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
+        let b: &dyn PartialReflect = &TestEnum::C { value: 321 };
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} != TestEnum::C{{value: 321}}"
         );
 
-        let a: &dyn Reflect = &TestEnum::C { value: 123 };
-        let b: &dyn Reflect = &TestEnum::C1 { value: 123 };
+        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
+        let b: &dyn PartialReflect = &TestEnum::C1 { value: 123 };
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} != TestEnum::C1{{value: 123}}"
         );
 
-        let a: &dyn Reflect = &TestEnum::C { value: 123 };
-        let b: &dyn Reflect = &TestEnum::C2 { value: 1.23 };
+        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
+        let b: &dyn PartialReflect = &TestEnum::C2 { value: 1.23 };
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} != TestEnum::C2{{value: 1.23}}"

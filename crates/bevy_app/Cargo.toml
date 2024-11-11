@@ -13,6 +13,11 @@ trace = []
 bevy_debug_stepping = []
 default = ["bevy_reflect"]
 bevy_reflect = ["dep:bevy_reflect", "bevy_ecs/bevy_reflect"]
+reflect_functions = [
+  "bevy_reflect",
+  "bevy_reflect/functions",
+  "bevy_ecs/reflect_functions",
+]
 
 [dependencies]
 # bevy
@@ -24,7 +29,11 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
 
 # other
 downcast-rs = "1.2.0"
-thiserror = "1.0"
+derive_more = { version = "1", default-features = false, features = [
+  "error",
+  "from",
+  "display",
+] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ctrlc = "3.4.4"
@@ -38,5 +47,5 @@ console_error_panic_hook = "0.1.6"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

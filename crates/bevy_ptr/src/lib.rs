@@ -1,15 +1,19 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![allow(unsafe_code)]
+#![expect(unsafe_code, reason = "Raw pointers are inherently unsafe.")]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
-use core::fmt::{self, Formatter, Pointer};
 use core::{
-    cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize, ptr::NonNull,
+    cell::UnsafeCell,
+    fmt::{self, Formatter, Pointer},
+    marker::PhantomData,
+    mem::ManuallyDrop,
+    num::NonZeroUsize,
+    ptr::{self, NonNull},
 };
 
 /// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is aligned.
@@ -49,7 +53,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     /// let x = 0u32;
     /// let ptr = ConstNonNull::<u32>::new(&x as *const _).expect("ptr is null!");
     ///
-    /// if let Some(ptr) = ConstNonNull::<u32>::new(std::ptr::null()) {
+    /// if let Some(ptr) = ConstNonNull::<u32>::new(core::ptr::null()) {
     ///     unreachable!();
     /// }
     /// ```
@@ -78,7 +82,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     /// use bevy_ptr::ConstNonNull;
     ///
     /// // NEVER DO THAT!!! This is undefined behavior. ⚠️
-    /// let ptr = unsafe { ConstNonNull::<u32>::new_unchecked(std::ptr::null()) };
+    /// let ptr = unsafe { ConstNonNull::<u32>::new_unchecked(core::ptr::null()) };
     /// ```
     pub const unsafe fn new_unchecked(ptr: *const T) -> Self {
         // SAFETY: This function's safety invariants are identical to `NonNull::new_unchecked`
@@ -175,6 +179,7 @@ pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>
 pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
 /// Type-erased Box-like pointer to some unknown type chosen when constructing this type.
+///
 /// Conceptually represents ownership of whatever data is being pointed to and so is
 /// responsible for calling its `Drop` impl. This pointer is _not_ responsible for freeing
 /// the memory pointed to by this pointer as it may be pointing to an element in a `Vec` or
@@ -308,13 +313,12 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// If possible, it is strongly encouraged to use [`deref`](Self::deref) over this function,
     /// as it retains the lifetime.
     #[inline]
-    #[allow(clippy::wrong_self_convention)]
     pub fn as_ptr(self) -> *mut u8 {
         self.0.as_ptr()
     }
 }
 
-impl<'a, T> From<&'a T> for Ptr<'a> {
+impl<'a, T: ?Sized> From<&'a T> for Ptr<'a> {
     #[inline]
     fn from(val: &'a T) -> Self {
         // SAFETY: The returned pointer has the same lifetime as the passed reference.
@@ -364,7 +368,6 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     /// If possible, it is strongly encouraged to use [`deref_mut`](Self::deref_mut) over
     /// this function, as it retains the lifetime.
     #[inline]
-    #[allow(clippy::wrong_self_convention)]
     pub fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
     }
@@ -384,7 +387,7 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     }
 }
 
-impl<'a, T> From<&'a mut T> for PtrMut<'a> {
+impl<'a, T: ?Sized> From<&'a mut T> for PtrMut<'a> {
     #[inline]
     fn from(val: &'a mut T) -> Self {
         // SAFETY: The returned pointer has the same lifetime as the passed reference.
@@ -394,13 +397,23 @@ impl<'a, T> From<&'a mut T> for PtrMut<'a> {
 }
 
 impl<'a> OwningPtr<'a> {
+    /// This exists mostly to reduce compile times;
+    /// code is only duplicated per type, rather than per function called.
+    ///
+    /// # Safety
+    ///
+    /// Safety constraints of [`PtrMut::promote`] must be upheld.
+    unsafe fn make_internal<T>(temp: &mut ManuallyDrop<T>) -> OwningPtr<'_> {
+        // SAFETY: The constraints of `promote` are upheld by caller.
+        unsafe { PtrMut::from(&mut *temp).promote() }
+    }
+
     /// Consumes a value and creates an [`OwningPtr`] to it while ensuring a double drop does not happen.
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
-        let mut temp = ManuallyDrop::new(val);
         // SAFETY: The value behind the pointer will not get dropped or observed later,
         // so it's safe to promote it to an owning pointer.
-        f(unsafe { PtrMut::from(&mut *temp).promote() })
+        f(unsafe { Self::make_internal(&mut ManuallyDrop::new(val)) })
     }
 }
 
@@ -451,7 +464,6 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     /// If possible, it is strongly encouraged to use the other more type-safe functions
     /// over this function.
     #[inline]
-    #[allow(clippy::wrong_self_convention)]
     pub fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
     }
@@ -531,11 +543,12 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
 
 /// Creates a dangling pointer with specified alignment.
 /// See [`NonNull::dangling`].
-pub fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
+pub const fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
     debug_assert!(align.is_power_of_two(), "Alignment must be power of two.");
     // SAFETY: The pointer will not be null, since it was created
-    // from the address of a `NonZeroUsize`.
-    unsafe { NonNull::new_unchecked(align.get() as *mut u8) }
+    // from the address of a `NonZero<usize>`.
+    // TODO: use https://doc.rust-lang.org/std/ptr/struct.NonNull.html#method.with_addr once stabilized
+    unsafe { NonNull::new_unchecked(ptr::null_mut::<u8>().wrapping_add(align.get())) }
 }
 
 mod private {
@@ -599,7 +612,7 @@ trait DebugEnsureAligned {
 impl<T: Sized> DebugEnsureAligned for *mut T {
     #[track_caller]
     fn debug_ensure_aligned(self) -> Self {
-        let align = core::mem::align_of::<T>();
+        let align = align_of::<T>();
         // Implementation shamelessly borrowed from the currently unstable
         // ptr.is_aligned_to.
         //

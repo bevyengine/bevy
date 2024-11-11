@@ -1,18 +1,17 @@
-use std::ops::DerefMut;
+use core::ops::DerefMut;
 
-use bevy_ecs::entity::EntityHashMap;
-use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, Vec3A, Vec4};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_math::{ops, Mat4, Vec3A, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection},
     extract_component::ExtractComponent,
     extract_resource::ExtractResource,
-    mesh::Mesh,
+    mesh::Mesh3d,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     view::{
-        InheritedVisibility, RenderLayers, ViewVisibility, VisibilityRange, VisibleEntities,
-        VisibleEntityRanges, WithMesh,
+        InheritedVisibility, NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange,
+        VisibleEntityRanges,
     },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -52,7 +51,7 @@ pub mod light_consts {
     /// Predefined for lux values in several locations.
     ///
     /// The **lux** (symbol: **lx**) is the unit of [illuminance], or [luminous flux] per unit area,
-    /// in the [International System of Units] (SI). It is equal to one lumen per square metre.
+    /// in the [International System of Units] (SI). It is equal to one lumen per square meter.
     ///
     /// For more information, see [wikipedia](https://en.wikipedia.org/wiki/Lux)
     ///
@@ -88,7 +87,7 @@ pub mod light_consts {
 }
 
 #[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource)]
+#[reflect(Resource, Debug, Default)]
 pub struct PointLightShadowMap {
     pub size: usize,
 }
@@ -100,12 +99,12 @@ impl Default for PointLightShadowMap {
 }
 
 /// A convenient alias for `Or<(With<PointLight>, With<SpotLight>,
-/// With<DirectionalLight>)>`, for use with [`VisibleEntities`].
+/// With<DirectionalLight>)>`, for use with [`bevy_render::view::VisibleEntities`].
 pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLight>)>;
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
 #[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource)]
+#[reflect(Resource, Debug, Default)]
 pub struct DirectionalLightShadowMap {
     pub size: usize,
 }
@@ -130,7 +129,7 @@ impl Default for DirectionalLightShadowMap {
 /// }.into();
 /// ```
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct CascadeShadowConfig {
     /// The (positive) distance to the far boundary of each cascade.
     pub bounds: Vec<f32>,
@@ -154,9 +153,12 @@ fn calculate_cascade_bounds(
     if num_cascades == 1 {
         return vec![shadow_maximum_distance];
     }
-    let base = (shadow_maximum_distance / nearest_bound).powf(1.0 / (num_cascades - 1) as f32);
+    let base = ops::powf(
+        shadow_maximum_distance / nearest_bound,
+        1.0 / (num_cascades - 1) as f32,
+    );
     (0..num_cascades)
-        .map(|i| nearest_bound * base.powf(i as f32))
+        .map(|i| nearest_bound * ops::powf(base, i as f32))
         .collect()
 }
 
@@ -271,7 +273,7 @@ impl From<CascadeShadowConfigBuilder> for CascadeShadowConfig {
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Debug, Default)]
 pub struct Cascades {
     /// Map from a view to the configuration of each of its [`Cascade`]s.
     pub(crate) cascades: EntityHashMap<Vec<Cascade>>,
@@ -367,6 +369,7 @@ pub fn build_directional_light_cascades<P: CameraProjection + Component>(
 }
 
 /// Returns a [`Cascade`] for the frustum defined by `frustum_corners`.
+///
 /// The corner vertices should be specified in the following order:
 /// first the bottom right, top right, top left, bottom left for the near plane, then similar for the far plane.
 fn calculate_cascade(
@@ -437,19 +440,19 @@ fn calculate_cascade(
         texel_size: cascade_texel_size,
     }
 }
-/// Add this component to make a [`Mesh`] not cast shadows.
+/// Add this component to make a [`Mesh3d`] not cast shadows.
 #[derive(Debug, Component, Reflect, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct NotShadowCaster;
-/// Add this component to make a [`Mesh`] not receive shadows.
+/// Add this component to make a [`Mesh3d`] not receive shadows.
 ///
 /// **Note:** If you're using diffuse transmission, setting [`NotShadowReceiver`] will
 /// cause both “regular” shadows as well as diffusely transmitted shadows to be disabled,
 /// even when [`TransmittedShadowReceiver`] is being used.
 #[derive(Debug, Component, Reflect, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct NotShadowReceiver;
-/// Add this component to make a [`Mesh`] using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
+/// Add this component to make a [`Mesh3d`] using a PBR material with [`diffuse_transmission`](crate::pbr_material::StandardMaterial::diffuse_transmission)`> 0.0`
 /// receive shadows on its diffuse transmission lobe. (i.e. its “backside”)
 ///
 /// Not enabled by default, as it requires carefully setting up [`thickness`](crate::pbr_material::StandardMaterial::thickness)
@@ -457,7 +460,7 @@ pub struct NotShadowReceiver;
 ///
 /// **Note:** Using [`NotShadowReceiver`] overrides this component.
 #[derive(Debug, Component, Reflect, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct TransmittedShadowReceiver;
 
 /// Add this component to a [`Camera3d`](bevy_core_pipeline::core_3d::Camera3d)
@@ -466,7 +469,7 @@ pub struct TransmittedShadowReceiver;
 /// The different modes use different approaches to
 /// [Percentage Closer Filtering](https://developer.nvidia.com/gpugems/gpugems/part-ii-lighting-and-shadows/chapter-11-shadow-map-antialiasing).
 #[derive(Debug, Component, ExtractComponent, Reflect, Clone, Copy, PartialEq, Eq, Default)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub enum ShadowFilteringMethod {
     /// Hardware 2x2.
     ///
@@ -486,7 +489,7 @@ pub enum ShadowFilteringMethod {
     /// A randomized filter that varies over time, good when TAA is in use.
     ///
     /// Good quality when used with
-    /// [`TemporalAntiAliasSettings`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasSettings)
+    /// [`TemporalAntiAliasing`](bevy_core_pipeline::experimental::taa::TemporalAntiAliasing)
     /// and good performance.
     ///
     /// For directional and spot lights, this uses a [method by Jorge Jimenez for
@@ -497,12 +500,19 @@ pub enum ShadowFilteringMethod {
     Temporal,
 }
 
+/// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
     AddClusters,
     AssignLightsToClusters,
+    /// System order ambiguities between systems in this set are ignored:
+    /// each [`build_directional_light_cascades`] system is independent of the others,
+    /// and should operate on distinct sets of entities.
     UpdateDirectionalLightCascades,
     UpdateLightFrusta,
+    /// System order ambiguities between systems in this set are ignored:
+    /// the order of systems within this set is irrelevant, as the various visibility-checking systesms
+    /// assumes that their operations are irreversible during the frame.
     CheckLightVisibility,
 }
 
@@ -517,7 +527,7 @@ pub enum SimulationLightSystems {
 pub(crate) fn directional_light_order(
     (entity_1, volumetric_1, shadows_enabled_1): (&Entity, &bool, &bool),
     (entity_2, volumetric_2, shadows_enabled_2): (&Entity, &bool, &bool),
-) -> std::cmp::Ordering {
+) -> core::cmp::Ordering {
     volumetric_2
         .cmp(volumetric_1) // volumetric before shadows
         .then_with(|| shadows_enabled_2.cmp(shadows_enabled_1)) // shadow casters before non-casters
@@ -570,8 +580,6 @@ pub fn update_point_light_frusta(
         Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
     >,
 ) {
-    let clip_from_view =
-        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let view_rotations = CUBE_MAP_FACES
         .iter()
         .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
@@ -586,6 +594,12 @@ pub fn update_point_light_frusta(
         if !point_light.shadows_enabled || !global_lights.entities.contains(&entity) {
             continue;
         }
+
+        let clip_from_view = Mat4::perspective_infinite_reverse_rh(
+            core::f32::consts::FRAC_PI_2,
+            1.0,
+            point_light.shadow_map_near_z,
+        );
 
         // ignore scale because we don't want to effectively scale light radius and range
         // by applying those as a view transform to shadow map rendering of objects
@@ -629,7 +643,8 @@ pub fn update_spot_light_frusta(
         let view_backward = transform.back();
 
         let spot_world_from_view = spot_light_world_from_view(transform);
-        let spot_clip_from_view = spot_light_clip_from_view(spot_light.outer_angle);
+        let spot_clip_from_view =
+            spot_light_clip_from_view(spot_light.outer_angle, spot_light.shadow_map_near_z);
         let clip_from_world = spot_clip_from_view * spot_world_from_view.inverse();
 
         *frustum = Frustum::from_clip_from_world_custom_far(
@@ -677,11 +692,12 @@ pub fn check_dir_light_mesh_visibility(
             Option<&Aabb>,
             Option<&GlobalTransform>,
             Has<VisibilityRange>,
+            Has<NoFrustumCulling>,
         ),
         (
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
-            With<Handle<Mesh>>,
+            With<Mesh3d>,
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
@@ -698,9 +714,7 @@ pub fn check_dir_light_mesh_visibility(
             match frusta.frusta.get(view) {
                 Some(view_frusta) => {
                     cascade_view_entities.resize(view_frusta.len(), Default::default());
-                    cascade_view_entities
-                        .iter_mut()
-                        .for_each(VisibleEntities::clear::<WithMesh>);
+                    cascade_view_entities.iter_mut().for_each(|x| x.clear());
                 }
                 None => views_to_remove.push(*view),
             };
@@ -709,7 +723,7 @@ pub fn check_dir_light_mesh_visibility(
             visible_entities
                 .entities
                 .entry(*view)
-                .or_insert_with(|| vec![VisibleEntities::default(); frusta.len()]);
+                .or_insert_with(|| vec![VisibleMeshEntities::default(); frusta.len()]);
         }
 
         for v in views_to_remove {
@@ -738,6 +752,7 @@ pub fn check_dir_light_mesh_visibility(
                     maybe_aabb,
                     maybe_transform,
                     has_visibility_range,
+                    has_no_frustum_culling,
                 )| {
                     if !inherited_visibility.get() {
                         return;
@@ -764,7 +779,9 @@ pub fn check_dir_light_mesh_visibility(
                             .zip(view_visible_entities_local_queue.iter_mut())
                         {
                             // Disable near-plane culling, as a shadow caster could lie before the near plane.
-                            if !frustum.intersects_obb(aabb, &transform.affine(), false, true) {
+                            if !has_no_frustum_culling
+                                && !frustum.intersects_obb(aabb, &transform.affine(), false, true)
+                            {
                                 continue;
                             }
                             visible = true;
@@ -790,7 +807,6 @@ pub fn check_dir_light_mesh_visibility(
                     .get_mut(view)
                     .unwrap()
                     .iter_mut()
-                    .map(VisibleEntities::get_mut::<WithMesh>)
                     .zip(entities.iter_mut())
                     .for_each(|(dst, source)| {
                         dst.append(source);
@@ -801,15 +817,15 @@ pub fn check_dir_light_mesh_visibility(
         for (_, cascade_view_entities) in &mut visible_entities.entities {
             cascade_view_entities
                 .iter_mut()
-                .map(VisibleEntities::get_mut::<WithMesh>)
+                .map(DerefMut::deref_mut)
                 .for_each(shrink_entities);
         }
     }
 
     // Defer marking view visibility so this system can run in parallel with check_point_light_mesh_visibility
     // TODO: use resource to avoid unnecessary memory alloc
-    let mut defer_queue = std::mem::take(defer_visible_entities_queue.deref_mut());
-    commands.add(move |world: &mut World| {
+    let mut defer_queue = core::mem::take(defer_visible_entities_queue.deref_mut());
+    commands.queue(move |world: &mut World| {
         let mut query = world.query::<&mut ViewVisibility>();
         for entities in defer_queue.iter_mut() {
             let mut iter = query.iter_many_mut(world, entities.iter());
@@ -833,7 +849,7 @@ pub fn check_point_light_mesh_visibility(
         &SpotLight,
         &GlobalTransform,
         &Frustum,
-        &mut VisibleEntities,
+        &mut VisibleMeshEntities,
         Option<&RenderLayers>,
     )>,
     mut visible_entity_query: Query<
@@ -845,11 +861,12 @@ pub fn check_point_light_mesh_visibility(
             Option<&Aabb>,
             Option<&GlobalTransform>,
             Has<VisibilityRange>,
+            Has<NoFrustumCulling>,
         ),
         (
             Without<NotShadowCaster>,
             Without<DirectionalLight>,
-            With<Handle<Mesh>>,
+            With<Mesh3d>,
         ),
     >,
     visible_entity_ranges: Option<Res<VisibleEntityRanges>>,
@@ -869,7 +886,7 @@ pub fn check_point_light_mesh_visibility(
             )) = point_lights.get_mut(light_entity)
             {
                 for visible_entities in cubemap_visible_entities.iter_mut() {
-                    visible_entities.clear::<WithMesh>();
+                    visible_entities.entities.clear();
                 }
 
                 // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
@@ -894,6 +911,7 @@ pub fn check_point_light_mesh_visibility(
                         maybe_aabb,
                         maybe_transform,
                         has_visibility_range,
+                        has_no_frustum_culling,
                     )| {
                         if !inherited_visibility.get() {
                             return;
@@ -914,7 +932,9 @@ pub fn check_point_light_mesh_visibility(
                         if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                             let model_to_world = transform.affine();
                             // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
-                            if !light_sphere.intersects_obb(aabb, &model_to_world) {
+                            if !has_no_frustum_culling
+                                && !light_sphere.intersects_obb(aabb, &model_to_world)
+                            {
                                 return;
                             }
 
@@ -922,7 +942,9 @@ pub fn check_point_light_mesh_visibility(
                                 .iter()
                                 .zip(cubemap_visible_entities_local_queue.iter_mut())
                             {
-                                if frustum.intersects_obb(aabb, &model_to_world, true, true) {
+                                if has_no_frustum_culling
+                                    || frustum.intersects_obb(aabb, &model_to_world, true, true)
+                                {
                                     view_visibility.set();
                                     visible_entities.push(entity);
                                 }
@@ -940,13 +962,12 @@ pub fn check_point_light_mesh_visibility(
                 for entities in cubemap_visible_entities_queue.iter_mut() {
                     cubemap_visible_entities
                         .iter_mut()
-                        .map(VisibleEntities::get_mut::<WithMesh>)
                         .zip(entities.iter_mut())
-                        .for_each(|(dst, source)| dst.append(source));
+                        .for_each(|(dst, source)| dst.entities.append(source));
                 }
 
                 for visible_entities in cubemap_visible_entities.iter_mut() {
-                    shrink_entities(visible_entities.get_mut::<WithMesh>());
+                    shrink_entities(visible_entities);
                 }
             }
 
@@ -954,7 +975,7 @@ pub fn check_point_light_mesh_visibility(
             if let Ok((point_light, transform, frustum, mut visible_entities, maybe_view_mask)) =
                 spot_lights.get_mut(light_entity)
             {
-                visible_entities.clear::<WithMesh>();
+                visible_entities.clear();
 
                 // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
                 if !point_light.shadows_enabled {
@@ -978,6 +999,7 @@ pub fn check_point_light_mesh_visibility(
                         maybe_aabb,
                         maybe_transform,
                         has_visibility_range,
+                        has_no_frustum_culling,
                     )| {
                         if !inherited_visibility.get() {
                             return;
@@ -999,11 +1021,15 @@ pub fn check_point_light_mesh_visibility(
                         if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
                             let model_to_world = transform.affine();
                             // Do a cheap sphere vs obb test to prune out most meshes outside the sphere of the light
-                            if !light_sphere.intersects_obb(aabb, &model_to_world) {
+                            if !has_no_frustum_culling
+                                && !light_sphere.intersects_obb(aabb, &model_to_world)
+                            {
                                 return;
                             }
 
-                            if frustum.intersects_obb(aabb, &model_to_world, true, true) {
+                            if has_no_frustum_culling
+                                || frustum.intersects_obb(aabb, &model_to_world, true, true)
+                            {
                                 view_visibility.set();
                                 spot_visible_entities_local_queue.push(entity);
                             }
@@ -1015,10 +1041,10 @@ pub fn check_point_light_mesh_visibility(
                 );
 
                 for entities in spot_visible_entities_queue.iter_mut() {
-                    visible_entities.get_mut::<WithMesh>().append(entities);
+                    visible_entities.append(entities);
                 }
 
-                shrink_entities(visible_entities.get_mut::<WithMesh>());
+                shrink_entities(visible_entities.deref_mut());
             }
         }
     }

@@ -11,11 +11,11 @@
 //! which have made SMAA less popular when advanced photorealistic rendering
 //! features are used in recent years.
 //!
-//! To use SMAA, add [`SmaaSettings`] to a [`bevy_render::camera::Camera`]. In a
+//! To use SMAA, add [`Smaa`] to a [`bevy_render::camera::Camera`]. In a
 //! pinch, you can simply use the default settings (via the [`Default`] trait)
 //! for a high-quality, high-performance appearance. When using SMAA, you will
-//! likely want to turn the default MSAA off by inserting the
-//! [`bevy_render::Msaa::Off`] resource into the [`App`].
+//! likely want set [`bevy_render::view::Msaa`] to [`bevy_render::view::Msaa::Off`]
+//! for every camera using SMAA.
 //!
 //! Those who have used SMAA in other engines should be aware that Bevy doesn't
 //! yet support the following more advanced features of SMAA:
@@ -30,6 +30,10 @@
 //!
 //! [SMAA]: https://www.iryoku.com/smaa/
 
+use crate::{
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
+};
 use bevy_app::{App, Plugin};
 #[cfg(feature = "smaa_luts")]
 use bevy_asset::load_internal_binary_asset;
@@ -44,6 +48,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_image::{BevyDefault, Image};
 use bevy_math::{vec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -67,23 +72,11 @@ use bevy_render::{
         VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    texture::{BevyDefault, CachedTexture, GpuImage, Image, TextureCache},
+    texture::{CachedTexture, GpuImage, TextureCache},
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
-#[cfg(feature = "smaa_luts")]
-use bevy_render::{
-    render_asset::RenderAssetUsages,
-    texture::{CompressedImageFormats, ImageFormat, ImageSampler, ImageType},
-};
 use bevy_utils::prelude::default;
-
-#[cfg(not(feature = "smaa_luts"))]
-use crate::tonemapping::lut_placeholder;
-use crate::{
-    core_2d::graph::{Core2d, Node2d},
-    core_3d::graph::{Core3d, Node3d},
-};
 
 /// The handle of the `smaa.wgsl` shader.
 const SMAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(12247928498010601081);
@@ -95,16 +88,20 @@ const SMAA_SEARCH_LUT_TEXTURE_HANDLE: Handle<Image> = Handle::weak_from_u128(318
 /// Adds support for subpixel morphological antialiasing, or SMAA.
 pub struct SmaaPlugin;
 
-/// Add this component to a [`bevy_render::camera::Camera`] to enable subpixel
-/// morphological antialiasing (SMAA).
+/// A component for enabling Subpixel Morphological Anti-Aliasing (SMAA)
+/// for a [`bevy_render::camera::Camera`].
 #[derive(Clone, Copy, Default, Component, Reflect, ExtractComponent)]
 #[reflect(Component, Default)]
-pub struct SmaaSettings {
+#[doc(alias = "SubpixelMorphologicalAntiAliasing")]
+pub struct Smaa {
     /// A predefined set of SMAA parameters: i.e. a quality level.
     ///
     /// Generally, you can leave this at its default level.
     pub preset: SmaaPreset,
 }
+
+#[deprecated(since = "0.15.0", note = "Renamed to `Smaa`")]
+pub type SmaaSettings = Smaa;
 
 /// A preset quality level for SMAA.
 ///
@@ -302,11 +299,11 @@ impl Plugin for SmaaPlugin {
                 #[cfg(all(debug_assertions, feature = "dds"))]
                 "SMAAAreaLUT".to_owned(),
                 bytes,
-                ImageType::Format(ImageFormat::Ktx2),
-                CompressedImageFormats::NONE,
+                bevy_image::ImageType::Format(bevy_image::ImageFormat::Ktx2),
+                bevy_image::CompressedImageFormats::NONE,
                 false,
-                ImageSampler::Default,
-                RenderAssetUsages::RENDER_WORLD,
+                bevy_image::ImageSampler::Default,
+                bevy_asset::RenderAssetUsages::RENDER_WORLD,
             )
             .expect("Failed to load SMAA area LUT")
         );
@@ -320,11 +317,11 @@ impl Plugin for SmaaPlugin {
                 #[cfg(all(debug_assertions, feature = "dds"))]
                 "SMAASearchLUT".to_owned(),
                 bytes,
-                ImageType::Format(ImageFormat::Ktx2),
-                CompressedImageFormats::NONE,
+                bevy_image::ImageType::Format(bevy_image::ImageFormat::Ktx2),
+                bevy_image::CompressedImageFormats::NONE,
                 false,
-                ImageSampler::Default,
-                RenderAssetUsages::RENDER_WORLD,
+                bevy_image::ImageSampler::Default,
+                bevy_asset::RenderAssetUsages::RENDER_WORLD,
             )
             .expect("Failed to load SMAA search LUT")
         );
@@ -339,8 +336,8 @@ impl Plugin for SmaaPlugin {
             .resource_mut::<bevy_asset::Assets<Image>>()
             .insert(SMAA_SEARCH_LUT_TEXTURE_HANDLE.id(), lut_placeholder());
 
-        app.add_plugins(ExtractComponentPlugin::<SmaaSettings>::default())
-            .register_type::<SmaaSettings>();
+        app.add_plugins(ExtractComponentPlugin::<Smaa>::default())
+            .register_type::<Smaa>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -508,6 +505,7 @@ impl SpecializedRenderPipeline for SmaaEdgeDetectionPipeline {
                 bias: default(),
             }),
             multisample: MultisampleState::default(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -567,6 +565,7 @@ impl SpecializedRenderPipeline for SmaaBlendingWeightCalculationPipeline {
                 bias: default(),
             }),
             multisample: MultisampleState::default(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -603,6 +602,7 @@ impl SpecializedRenderPipeline for SmaaNeighborhoodBlendingPipeline {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -614,13 +614,13 @@ fn prepare_smaa_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut specialized_render_pipelines: ResMut<SmaaSpecializedRenderPipelines>,
     smaa_pipelines: Res<SmaaPipelines>,
-    view_targets: Query<(Entity, &ExtractedView, &SmaaSettings)>,
+    view_targets: Query<(Entity, &ExtractedView, &Smaa)>,
 ) {
-    for (entity, view, settings) in &view_targets {
+    for (entity, view, smaa) in &view_targets {
         let edge_detection_pipeline_id = specialized_render_pipelines.edge_detection.specialize(
             &pipeline_cache,
             &smaa_pipelines.edge_detection,
-            settings.preset,
+            smaa.preset,
         );
 
         let blending_weight_calculation_pipeline_id = specialized_render_pipelines
@@ -628,7 +628,7 @@ fn prepare_smaa_pipelines(
             .specialize(
                 &pipeline_cache,
                 &smaa_pipelines.blending_weight_calculation,
-                settings.preset,
+                smaa.preset,
             );
 
         let neighborhood_blending_pipeline_id = specialized_render_pipelines
@@ -642,7 +642,7 @@ fn prepare_smaa_pipelines(
                     } else {
                         TextureFormat::bevy_default()
                     },
-                    preset: settings.preset,
+                    preset: smaa.preset,
                 },
             );
 
@@ -660,7 +660,7 @@ fn prepare_smaa_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    view_targets: Query<(Entity, &ExtractedView), With<SmaaSettings>>,
+    view_targets: Query<(Entity, &ExtractedView), With<Smaa>>,
     mut smaa_info_buffer: ResMut<SmaaInfoUniformBuffer>,
 ) {
     smaa_info_buffer.clear();
@@ -691,7 +691,7 @@ fn prepare_smaa_textures(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
-    view_targets: Query<(Entity, &ExtractedCamera), (With<ExtractedView>, With<SmaaSettings>)>,
+    view_targets: Query<(Entity, &ExtractedCamera), (With<ExtractedView>, With<Smaa>)>,
 ) {
     for (entity, camera) in &view_targets {
         let Some(texture_size) = camera.physical_target_size else {
@@ -765,7 +765,7 @@ fn prepare_smaa_bind_groups(
     render_device: Res<RenderDevice>,
     smaa_pipelines: Res<SmaaPipelines>,
     images: Res<RenderAssets<GpuImage>>,
-    view_targets: Query<(Entity, &SmaaTextures), (With<ExtractedView>, With<SmaaSettings>)>,
+    view_targets: Query<(Entity, &SmaaTextures), (With<ExtractedView>, With<Smaa>)>,
 ) {
     // Fetch the two lookup textures. These are bundled in this library.
     let (Some(search_texture), Some(area_texture)) = (

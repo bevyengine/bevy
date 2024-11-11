@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use bevy::prelude::*;
 
 #[derive(Component, Default)]

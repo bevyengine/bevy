@@ -1,5 +1,3 @@
-#![warn(missing_docs)]
-
 //! Adds motion vector support to skyboxes. See [`SkyboxPrepassPipeline`] for details.
 
 use bevy_asset::Handle;
@@ -107,6 +105,7 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
                 entry_point: "fragment".into(),
                 targets: prepass_target_descriptors(key.normal_prepass, true, false),
             }),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -116,11 +115,10 @@ pub fn prepare_skybox_prepass_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPrepassPipeline>>,
-    msaa: Res<Msaa>,
     pipeline: Res<SkyboxPrepassPipeline>,
-    views: Query<(Entity, Has<NormalPrepass>), (With<Skybox>, With<MotionVectorPrepass>)>,
+    views: Query<(Entity, Has<NormalPrepass>, &Msaa), (With<Skybox>, With<MotionVectorPrepass>)>,
 ) {
-    for (entity, normal_prepass) in &views {
+    for (entity, normal_prepass, msaa) in &views {
         let pipeline_key = SkyboxPrepassPipelineKey {
             samples: msaa.samples(),
             normal_prepass,

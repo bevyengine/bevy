@@ -1,21 +1,21 @@
 //! Helpers for mapping window entities to accessibility types
 
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-};
+use alloc::{collections::VecDeque, sync::Arc};
+use std::sync::Mutex;
 
-use accesskit_winit::Adapter;
-use bevy_a11y::accesskit::{ActivationHandler, DeactivationHandler, Node};
-use bevy_a11y::{
-    accesskit::{ActionHandler, ActionRequest, NodeBuilder, NodeId, Role, Tree, TreeUpdate},
-    AccessibilityNode, AccessibilityRequested, AccessibilitySystem, Focus,
+use accesskit::{
+    ActionHandler, ActionRequest, ActivationHandler, DeactivationHandler, Node, NodeId, Role, Tree,
+    TreeUpdate,
 };
-use bevy_a11y::{ActionRequest as ActionRequestWrapper, ManageAccessibilityUpdates};
+use accesskit_winit::Adapter;
+use bevy_a11y::{
+    AccessibilityNode, AccessibilityRequested, AccessibilitySystem,
+    ActionRequest as ActionRequestWrapper, Focus, ManageAccessibilityUpdates,
+};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
+    entity::EntityHashMap,
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
     query::With,
     schedule::IntoSystemConfigs,
@@ -28,7 +28,7 @@ use bevy_window::{PrimaryWindow, Window, WindowClosed};
 #[derive(Default, Deref, DerefMut)]
 pub struct AccessKitAdapters(pub EntityHashMap<Adapter>);
 
-/// Maps window entities to their respective [`WinitActionRequests`]s.
+/// Maps window entities to their respective [`ActionRequest`]s.
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct WinitActionRequestHandlers(pub EntityHashMap<Arc<Mutex<WinitActionRequestHandler>>>);
 
@@ -64,9 +64,9 @@ impl AccessKitState {
     }
 
     fn build_root(&mut self) -> Node {
-        let mut builder = NodeBuilder::new(Role::Window);
-        builder.set_name(self.name.clone());
-        builder.build()
+        let mut node = Node::new(Role::Window);
+        node.set_label(self.name.clone());
+        node
     }
 
     fn build_initial_tree(&mut self) -> TreeUpdate {
@@ -227,16 +227,14 @@ fn update_adapter(
         queue_node_for_update(entity, parent, &node_entities, &mut window_children);
         add_children_nodes(children, &node_entities, &mut node);
         let node_id = NodeId(entity.to_bits());
-        let node = node.build();
         to_update.push((node_id, node));
     }
-    let mut window_node = NodeBuilder::new(Role::Window);
+    let mut window_node = Node::new(Role::Window);
     if primary_window.focused {
         let title = primary_window.title.clone();
-        window_node.set_name(title.into_boxed_str());
+        window_node.set_label(title.into_boxed_str());
     }
     window_node.set_children(window_children);
-    let window_node = window_node.build();
     let node_id = NodeId(primary_window_id.to_bits());
     let window_update = (node_id, window_node);
     to_update.insert(0, window_update);
@@ -268,7 +266,7 @@ fn queue_node_for_update(
 fn add_children_nodes(
     children: Option<&Children>,
     node_entities: &Query<Entity, With<AccessibilityNode>>,
-    node: &mut NodeBuilder,
+    node: &mut Node,
 ) {
     let Some(children) = children else {
         return;

@@ -1,6 +1,6 @@
 //! This example demonstrates the implementation and behavior of the axes gizmo.
-use bevy::prelude::*;
-use bevy::render::primitives::Aabb;
+
+use bevy::{prelude::*, render::primitives::Aabb};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use std::f32::consts::PI;
@@ -47,28 +47,24 @@ fn setup(
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
 
     // Lights...
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(2., 6., 0.),
-        ..default()
-    });
+        Transform::from_xyz(2., 6., 0.),
+    ));
 
     // Camera...
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0., 1.5, -8.).looking_at(Vec3::new(0., -0.5, 0.), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0., 1.5, -8.).looking_at(Vec3::new(0., -0.5, 0.), Vec3::Y),
+    ));
 
     // Action! (Our cubes that are going to move)
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::new(1., 1., 1.)),
-            material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::new(1., 1., 1.))),
+        MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
         ShowAxes,
         TransformTracking {
             initial_transform: default(),
@@ -78,11 +74,8 @@ fn setup(
     ));
 
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-            material: materials.add(Color::srgb(0.6, 0.7, 0.8)),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
+        MeshMaterial3d(materials.add(Color::srgb(0.6, 0.7, 0.8))),
         ShowAxes,
         TransformTracking {
             initial_transform: default(),
@@ -92,12 +85,11 @@ fn setup(
     ));
 
     // A plane to give a sense of place
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(20., 20.)),
-        material: materials.add(Color::srgb(0.1, 0.1, 0.1)),
-        transform: Transform::from_xyz(0., -2., 0.),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(20., 20.))),
+        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.1, 0.1))),
+        Transform::from_xyz(0., -2., 0.),
+    ));
 
     commands.insert_resource(SeededRng(rng));
 }
@@ -125,7 +117,7 @@ fn move_cubes(
         );
 
         if tracking.progress < TRANSITION_DURATION {
-            tracking.progress += time.delta_seconds();
+            tracking.progress += time.delta_secs();
         } else {
             tracking.initial_transform = *transform;
             tracking.target_transform = random_transform(&mut rng.0);
@@ -174,21 +166,21 @@ fn random_scale(rng: &mut impl Rng) -> Vec3 {
         + SCALING_BOUND_LOWER_LOG;
 
     Vec3::new(
-        x_factor_log.exp2(),
-        y_factor_log.exp2(),
-        z_factor_log.exp2(),
+        ops::exp2(x_factor_log),
+        ops::exp2(y_factor_log),
+        ops::exp2(z_factor_log),
     )
 }
 
 fn elerp(v1: Vec3, v2: Vec3, t: f32) -> Vec3 {
-    let x_factor_log = (1. - t) * v1.x.log2() + t * v2.x.log2();
-    let y_factor_log = (1. - t) * v1.y.log2() + t * v2.y.log2();
-    let z_factor_log = (1. - t) * v1.z.log2() + t * v2.z.log2();
+    let x_factor_log = (1. - t) * ops::log2(v1.x) + t * ops::log2(v2.x);
+    let y_factor_log = (1. - t) * ops::log2(v1.y) + t * ops::log2(v2.y);
+    let z_factor_log = (1. - t) * ops::log2(v1.z) + t * ops::log2(v2.z);
 
     Vec3::new(
-        x_factor_log.exp2(),
-        y_factor_log.exp2(),
-        z_factor_log.exp2(),
+        ops::exp2(x_factor_log),
+        ops::exp2(y_factor_log),
+        ops::exp2(z_factor_log),
     )
 }
 
@@ -208,9 +200,9 @@ fn random_direction(rng: &mut impl Rng) -> Vec3 {
 
 fn build_direction(height: f32, theta: f32) -> Vec3 {
     let z = height;
-    let m = f32::acos(z).sin();
-    let x = theta.cos() * m;
-    let y = theta.sin() * m;
+    let m = ops::sin(ops::acos(z));
+    let x = ops::cos(theta) * m;
+    let y = ops::sin(theta) * m;
 
     Vec3::new(x, y, z)
 }

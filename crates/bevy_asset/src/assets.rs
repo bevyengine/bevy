@@ -1,20 +1,18 @@
-use crate::{self as bevy_asset};
-use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
+use crate::{
+    self as bevy_asset, Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle,
+    UntypedHandle,
+};
+use alloc::sync::Arc;
 use bevy_ecs::{
     prelude::EventWriter,
     system::{Res, ResMut, Resource},
 };
 use bevy_reflect::{Reflect, TypePath};
 use bevy_utils::HashMap;
+use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
+use derive_more::derive::{Display, Error};
 use serde::{Deserialize, Serialize};
-use std::{
-    any::TypeId,
-    iter::Enumerate,
-    marker::PhantomData,
-    sync::{atomic::AtomicU32, Arc},
-};
-use thiserror::Error;
 use uuid::Uuid;
 
 /// A generational runtime-only identifier for a specific [`Asset`] stored in [`Assets`]. This is optimized for efficient runtime
@@ -81,7 +79,7 @@ impl AssetIndexAllocator {
             AssetIndex {
                 index: self
                     .next_index
-                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+                    .fetch_add(1, core::sync::atomic::Ordering::Relaxed),
                 generation: 0,
             }
         }
@@ -193,10 +191,7 @@ impl<A: Asset> DenseAssetStorage<A> {
             Entry::None => return None,
             Entry::Some { value, generation } => {
                 if *generation == index.generation {
-                    value.take().map(|value| {
-                        self.len -= 1;
-                        value
-                    })
+                    value.take().inspect(|_| self.len -= 1)
                 } else {
                     return None;
                 }
@@ -239,7 +234,7 @@ impl<A: Asset> DenseAssetStorage<A> {
         let new_len = self
             .allocator
             .next_index
-            .load(std::sync::atomic::Ordering::Relaxed);
+            .load(core::sync::atomic::Ordering::Relaxed);
         self.storage.resize_with(new_len as usize, || Entry::Some {
             value: None,
             generation: 0,
@@ -580,7 +575,7 @@ impl<A: Asset> Assets<A> {
 /// A mutable iterator over [`Assets`].
 pub struct AssetsMutIterator<'a, A: Asset> {
     queued_events: &'a mut Vec<AssetEvent<A>>,
-    dense_storage: Enumerate<std::slice::IterMut<'a, Entry<A>>>,
+    dense_storage: Enumerate<core::slice::IterMut<'a, Entry<A>>>,
     hash_map: bevy_utils::hashbrown::hash_map::IterMut<'a, Uuid, A>,
 }
 
@@ -618,8 +613,8 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
     }
 }
 
-#[derive(Error, Debug)]
-#[error("AssetIndex {index:?} has an invalid generation. The current generation is: '{current_generation}'.")]
+#[derive(Error, Display, Debug)]
+#[display("AssetIndex {index:?} has an invalid generation. The current generation is: '{current_generation}'.")]
 pub struct InvalidGenerationError {
     index: AssetIndex,
     current_generation: u32,

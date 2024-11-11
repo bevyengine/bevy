@@ -137,7 +137,7 @@ pub(crate) fn lerp_hue(a: f32, b: f32, t: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::Debug;
+    use core::fmt::Debug;
 
     use super::*;
     use crate::{testing::assert_approx_eq, Hsla};
@@ -183,7 +183,7 @@ mod tests {
 
     #[test]
     fn test_gray() {
-        verify_gray::<crate::Hsla>();
+        verify_gray::<Hsla>();
         verify_gray::<crate::Hsva>();
         verify_gray::<crate::Hwba>();
         verify_gray::<crate::Laba>();

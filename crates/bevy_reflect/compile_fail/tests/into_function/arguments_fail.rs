@@ -33,8 +33,8 @@ fn main() {
     let _ = pass.into_function();
 
     let _ = too_many_arguments.into_function();
-    //~^ ERROR: no method named `into_function` found
+    //~^ E0599
 
     let _ = argument_not_reflect.into_function();
-    //~^ ERROR: no method named `into_function` found
+    //~^ E0599
 }

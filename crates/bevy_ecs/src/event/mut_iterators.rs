@@ -3,9 +3,11 @@ use crate as bevy_ecs;
 use bevy_ecs::batching::BatchingStrategy;
 use bevy_ecs::event::{Event, EventCursor, EventId, EventInstance, Events};
 use bevy_utils::detailed_trace;
-use std::{iter::Chain, slice::IterMut};
+use core::{iter::Chain, slice::IterMut};
 
 /// An iterator that yields any unread events from an [`EventMutator`] or [`EventCursor`].
+///
+/// [`EventMutator`]: super::EventMutator
 #[derive(Debug)]
 pub struct EventMutIterator<'a, E: Event> {
     iter: EventMutIteratorWithId<'a, E>,
@@ -44,6 +46,8 @@ impl<'a, E: Event> ExactSizeIterator for EventMutIterator<'a, E> {
 }
 
 /// An iterator that yields any unread events (and their IDs) from an [`EventMutator`] or [`EventCursor`].
+///
+/// [`EventMutator`]: super::EventMutator
 #[derive(Debug)]
 pub struct EventMutIteratorWithId<'a, E: Event> {
     mutator: &'a mut EventCursor<E>,

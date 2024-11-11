@@ -15,8 +15,15 @@ license = "Zlib AND (MIT OR Apache-2.0)"
 keywords = ["bevy", "3D", "graphics", "algorithm", "tangent"]
 rust-version = "1.76.0"
 
+[features]
+default = ["std"]
+
+std = ["glam/std"]
+libm = ["glam/libm", "dep:libm"]
+
 [dependencies]
-glam = "0.27"
+glam = { version = "0.29.0", default-features = false }
+libm = { version = "0.2", default-features = false, optional = true }
 
 [[example]]
 name = "generate"
@@ -25,5 +32,5 @@ name = "generate"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

@@ -1,15 +1,14 @@
-use bevy_ecs::query::QueryData;
 #[cfg(feature = "bevy_reflect")]
 use bevy_ecs::reflect::ReflectComponent;
-use bevy_ecs::{component::Component, entity::Entity};
+use bevy_ecs::{component::Component, entity::Entity, query::QueryData};
 
+use alloc::borrow::Cow;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::AHasher;
-use std::{
-    borrow::Cow,
+use core::{
     hash::{Hash, Hasher},
     ops::Deref,
 };
@@ -87,17 +86,17 @@ impl Name {
     }
 }
 
-impl std::fmt::Display for Name {
+impl core::fmt::Display for Name {
     #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.name, f)
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        core::fmt::Display::fmt(&self.name, f)
     }
 }
 
-impl std::fmt::Debug for Name {
+impl core::fmt::Debug for Name {
     #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Debug::fmt(&self.name, f)
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        core::fmt::Debug::fmt(&self.name, f)
     }
 }
 
@@ -107,7 +106,7 @@ impl std::fmt::Debug for Name {
 /// # use bevy_core::prelude::*;
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)] pub struct Score(f32);
-/// fn increment_score(mut scores: Query<(DebugName, &mut Score)>) {
+/// fn increment_score(mut scores: Query<(NameOrEntity, &mut Score)>) {
 ///     for (name, mut score) in &mut scores {
 ///         score.0 += 1.0;
 ///         if score.0.is_nan() {
@@ -120,28 +119,28 @@ impl std::fmt::Debug for Name {
 ///
 /// # Implementation
 ///
-/// The `Display` impl for `DebugName` returns the `Name` where there is one
+/// The `Display` impl for `NameOrEntity` returns the `Name` where there is one
 /// or {index}v{generation} for entities without one.
 #[derive(QueryData)]
 #[query_data(derive(Debug))]
-pub struct DebugName {
+pub struct NameOrEntity {
     /// A [`Name`] that the entity might have that is displayed if available.
     pub name: Option<&'static Name>,
     /// The unique identifier of the entity as a fallback.
     pub entity: Entity,
 }
 
-impl<'a> std::fmt::Display for DebugNameItem<'a> {
+impl<'a> core::fmt::Display for NameOrEntityItem<'a> {
     #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self.name {
-            Some(name) => std::fmt::Display::fmt(name, f),
-            None => std::fmt::Display::fmt(&self.entity, f),
+            Some(name) => core::fmt::Display::fmt(name, f),
+            None => core::fmt::Display::fmt(&self.entity, f),
         }
     }
 }
 
-/* Conversions from strings */
+// Conversions from strings
 
 impl From<&str> for Name {
     #[inline(always)]
@@ -156,7 +155,7 @@ impl From<String> for Name {
     }
 }
 
-/* Conversions to strings */
+// Conversions to strings
 
 impl AsRef<str> for Name {
     #[inline(always)]
@@ -197,13 +196,13 @@ impl PartialEq for Name {
 impl Eq for Name {}
 
 impl PartialOrd for Name {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for Name {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.name.cmp(&other.name)
     }
 }
@@ -227,12 +226,12 @@ mod tests {
         let e1 = world.spawn_empty().id();
         let name = Name::new("MyName");
         let e2 = world.spawn(name.clone()).id();
-        let mut query = world.query::<DebugName>();
+        let mut query = world.query::<NameOrEntity>();
         let d1 = query.get(&world, e1).unwrap();
         let d2 = query.get(&world, e2).unwrap();
-        // DebugName Display for entities without a Name should be {index}v{generation}
+        // NameOrEntity Display for entities without a Name should be {index}v{generation}
         assert_eq!(d1.to_string(), "0v1");
-        // DebugName Display for entities with a Name should be the Name
+        // NameOrEntity Display for entities with a Name should be the Name
         assert_eq!(d2.to_string(), "MyName");
     }
 }

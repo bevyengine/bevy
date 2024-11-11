@@ -7,7 +7,7 @@ use crate::{
 };
 use bevy_ecs::{define_label, intern::Interned, prelude::World, system::Resource};
 use bevy_utils::HashMap;
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use super::{EdgeExistence, InternedRenderLabel, IntoRenderNodeArray};
 
@@ -23,10 +23,11 @@ define_label!(
 pub type InternedRenderSubGraph = Interned<dyn RenderSubGraph>;
 
 /// The render graph configures the modular and re-usable render logic.
+///
 /// It is a retained and stateless (nodes themselves may have their own internal state) structure,
 /// which can not be modified while it is executed by the graph runner.
 ///
-/// The [`RenderGraphRunner`](crate::renderer::graph_runner::RenderGraphRunner) is responsible for executing the entire graph each frame.
+/// The render graph runner is responsible for executing the entire graph each frame.
 /// It will execute each node in the graph in the correct order, based on the edges between the nodes.
 ///
 /// It consists of three main components: [`Nodes`](Node), [`Edges`](Edge)
@@ -626,7 +627,7 @@ impl RenderGraph {
 }
 
 impl Debug for RenderGraph {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         for node in self.iter_nodes() {
             writeln!(f, "{:?}", node.label)?;
             writeln!(f, "  in: {:?}", node.input_slots)?;

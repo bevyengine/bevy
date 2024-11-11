@@ -1,5 +1,4 @@
-use crate::derive_data::ReflectMeta;
-use crate::utility::WhereClauseOptions;
+use crate::{derive_data::ReflectMeta, where_clause_options::WhereClauseOptions};
 use quote::quote;
 
 pub(crate) fn impl_into_return(
@@ -14,19 +13,19 @@ pub(crate) fn impl_into_return(
 
     quote! {
         impl #impl_generics #bevy_reflect::func::IntoReturn for #type_path #ty_generics #where_reflect_clause {
-            fn into_return<'into_return>(self) -> #bevy_reflect::func::Return<'into_return> {
+            fn into_return<'into_return>(self) -> #bevy_reflect::func::Return<'into_return> where Self: 'into_return {
                 #bevy_reflect::func::Return::Owned(Box::new(self))
             }
         }
 
-        impl #impl_generics #bevy_reflect::func::IntoReturn for &'static #type_path #ty_generics #where_reflect_clause {
-            fn into_return<'into_return>(self) -> #bevy_reflect::func::Return<'into_return> {
+        impl #impl_generics #bevy_reflect::func::IntoReturn for &#type_path #ty_generics #where_reflect_clause {
+            fn into_return<'into_return>(self) -> #bevy_reflect::func::Return<'into_return> where Self: 'into_return {
                 #bevy_reflect::func::Return::Ref(self)
             }
         }
 
-        impl #impl_generics #bevy_reflect::func::IntoReturn for &'static mut #type_path #ty_generics #where_reflect_clause {
-            fn into_return<'into_return>(self) -> #bevy_reflect::func::Return<'into_return> {
+        impl #impl_generics #bevy_reflect::func::IntoReturn for &mut #type_path #ty_generics #where_reflect_clause {
+            fn into_return<'into_return>(self) -> #bevy_reflect::func::Return<'into_return> where Self: 'into_return {
                 #bevy_reflect::func::Return::Mut(self)
             }
         }
