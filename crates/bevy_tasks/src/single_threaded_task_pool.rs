@@ -47,12 +47,12 @@ impl TaskPoolBuilder {
     }
 
     /// No op on the single threaded task pool
-    pub fn on_thread_spawn(mut self, _f: impl Fn() + Send + Sync + 'static) -> Self {
+    pub fn on_thread_spawn(self, _f: impl Fn() + Send + Sync + 'static) -> Self {
         self
     }
 
     /// No op on the single threaded task pool
-    pub fn on_thread_destroy(mut self, _f: impl Fn() + Send + Sync + 'static) -> Self {
+    pub fn on_thread_destroy(self, _f: impl Fn() + Send + Sync + 'static) -> Self {
         self
     }
 
