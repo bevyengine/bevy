@@ -14,6 +14,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_image::{BevyDefault, Image};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
@@ -32,7 +33,7 @@ use bevy_render::{
         SpecializedRenderPipelines, TextureDimension, TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    texture::{BevyDefault, GpuImage, Image},
+    texture::GpuImage,
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };

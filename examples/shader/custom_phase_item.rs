@@ -30,7 +30,6 @@ use bevy::{
             VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
-        texture::BevyDefault as _,
         view::{self, ExtractedView, RenderVisibleEntities, VisibilitySystems},
         Render, RenderApp, RenderSet,
     },

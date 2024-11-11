@@ -9,6 +9,7 @@ use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
 };
+use bevy_image::BevyDefault as _;
 use bevy_render::{
     render_resource::{
         binding_types::{storage_buffer_sized, texture_depth_2d, uniform_buffer},
@@ -18,7 +19,6 @@ use bevy_render::{
         RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderStages, TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
-    texture::BevyDefault,
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
