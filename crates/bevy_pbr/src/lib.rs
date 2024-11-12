@@ -34,6 +34,7 @@ mod light;
 mod light_probe;
 mod lightmap;
 mod material;
+mod material_bind_groups;
 mod mesh_material;
 mod parallax;
 mod pbr_material;
@@ -42,6 +43,8 @@ mod render;
 mod ssao;
 mod ssr;
 mod volumetric_fog;
+
+use crate::material_bind_groups::FallbackBindlessResources;
 
 use bevy_color::{Color, LinearRgba};
 use core::marker::PhantomData;
@@ -474,7 +477,8 @@ impl Plugin for PbrPlugin {
         // Extract the required data from the main world
         render_app
             .init_resource::<ShadowSamplers>()
-            .init_resource::<GlobalClusterableObjectMeta>();
+            .init_resource::<GlobalClusterableObjectMeta>()
+            .init_resource::<FallbackBindlessResources>();
     }
 }
 

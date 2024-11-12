@@ -6,7 +6,7 @@ pub use bevy_asset::RenderAssetUsages;
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::{
     prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
-    schedule::SystemConfigs,
+    schedule::{SystemConfigs, SystemSet},
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
@@ -25,6 +25,9 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
     #[display("Failed to build bind group: {_0}")]
     AsBindGroupError(AsBindGroupError),
 }
+
+#[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct ExtractAssetsSet;
 
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
@@ -61,8 +64,11 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// ECS data may be accessed via `param`.
     fn prepare_asset(
         source_asset: Self::SourceAsset,
+        asset_id: AssetId<Self::SourceAsset>,
         param: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>>;
+
+    fn finalize_asset(_: AssetId<Self::SourceAsset>, _: &mut SystemParamItem<Self::Param>) {}
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"
@@ -99,7 +105,10 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
-                .add_systems(ExtractSchedule, extract_render_asset::<A>);
+                .add_systems(
+                    ExtractSchedule,
+                    extract_render_asset::<A>.in_set(ExtractAssetsSet),
+                );
             AFTER::register_system(
                 render_app,
                 prepare_assets::<A>.in_set(RenderSet::PrepareAssets),
@@ -310,7 +319,7 @@ pub fn prepare_assets<A: RenderAsset>(
             0
         };
 
-        match A::prepare_asset(extracted_asset, &mut param) {
+        match A::prepare_asset(extracted_asset, id, &mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
                 bpf.write_bytes(write_bytes);
@@ -330,6 +339,7 @@ pub fn prepare_assets<A: RenderAsset>(
 
     for removed in extracted_assets.removed.drain() {
         render_assets.remove(removed);
+        A::finalize_asset(removed, &mut param);
     }
 
     for (id, extracted_asset) in extracted_assets.extracted.drain(..) {
@@ -348,7 +358,7 @@ pub fn prepare_assets<A: RenderAsset>(
             0
         };
 
-        match A::prepare_asset(extracted_asset, &mut param) {
+        match A::prepare_asset(extracted_asset, id, &mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
                 bpf.write_bytes(write_bytes);

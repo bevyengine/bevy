@@ -1,5 +1,6 @@
 mod prepass_bindings;
 
+use crate::material_bind_groups::MaterialBindGroupAllocator;
 use bevy_render::{
     mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_resource::binding_types::uniform_buffer,
@@ -696,6 +697,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
+    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
     mut opaque_prepass_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
     mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
@@ -784,6 +786,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
             let Some(material) = render_materials.get(*material_asset_id) else {
                 continue;
             };
+            let Some(material_bind_group) =
+                material_bind_group_allocator.get(material.binding.group)
+            else {
+                continue;
+            };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
@@ -852,7 +859,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 &prepass_pipeline,
                 MaterialPipelineKey {
                     mesh_key,
-                    bind_group_data: material.key.clone(),
+                    bind_group_data: material_bind_group
+                        .get_extra_data(material.binding.slot)
+                        .clone(),
                 },
                 &mesh.layout,
             );
@@ -864,9 +873,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
-            mesh_instance
-                .material_bind_group_id
-                .set(material.get_bind_group_id());
             match mesh_key
                 .intersection(MeshPipelineKey::BLEND_RESERVED_BITS | MeshPipelineKey::MAY_DISCARD)
             {
@@ -877,7 +883,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 draw_function: opaque_draw_deferred,
                                 pipeline: pipeline_id,
                                 asset_id: mesh_instance.mesh_asset_id.into(),
-                                material_bind_group_id: material.get_bind_group_id().0,
+                                material_bind_group_index: Some(material.binding.group.0),
                             },
                             (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
@@ -888,7 +894,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 draw_function: opaque_draw_prepass,
                                 pipeline: pipeline_id,
                                 asset_id: mesh_instance.mesh_asset_id.into(),
-                                material_bind_group_id: material.get_bind_group_id().0,
+                                material_bind_group_index: Some(material.binding.group.0),
                             },
                             (*render_entity, *visible_entity),
                             BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
@@ -902,7 +908,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             pipeline: pipeline_id,
                             draw_function: alpha_mask_draw_deferred,
                             asset_id: mesh_instance.mesh_asset_id.into(),
-                            material_bind_group_id: material.get_bind_group_id().0,
+                            material_bind_group_index: Some(material.binding.group.0),
                         };
                         alpha_mask_deferred_phase.as_mut().unwrap().add(
                             bin_key,
@@ -914,7 +920,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             pipeline: pipeline_id,
                             draw_function: alpha_mask_draw_prepass,
                             asset_id: mesh_instance.mesh_asset_id.into(),
-                            material_bind_group_id: material.get_bind_group_id().0,
+                            material_bind_group_index: Some(material.binding.group.0),
                         };
                         alpha_mask_phase.add(
                             bin_key,
