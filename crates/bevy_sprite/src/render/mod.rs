@@ -18,6 +18,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
+use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::view::RenderVisibleEntities;
@@ -33,10 +34,7 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
     sync_world::{RenderEntity, TemporaryRenderEntity},
-    texture::{
-        BevyDefault, DefaultImageSampler, FallbackImage, GpuImage, Image, ImageSampler,
-        TextureFormatPixelInfo,
-    },
+    texture::{DefaultImageSampler, FallbackImage, GpuImage},
     view::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
         ViewVisibility,
@@ -323,6 +321,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
             },
             label: Some("sprite_pipeline".into()),
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

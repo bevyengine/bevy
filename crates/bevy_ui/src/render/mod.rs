@@ -4,7 +4,7 @@ mod render_pass;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
 
-use crate::widget::UiImage;
+use crate::widget::ImageNode;
 use crate::{
     experimental::UiChildren, BackgroundColor, BorderColor, CalculatedClip, ComputedNode,
     DefaultUiCamera, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias, UiBoxShadowSamples,
@@ -18,6 +18,7 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
+use bevy_image::Image;
 use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::sync_world::MainEntity;
@@ -29,7 +30,6 @@ use bevy_render::{
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::Image,
     view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
 };
@@ -41,7 +41,7 @@ use bevy_render::{
     ExtractSchedule, Render,
 };
 use bevy_sprite::TextureAtlasLayout;
-use bevy_sprite::{BorderRect, ImageScaleMode, SpriteAssetEvents};
+use bevy_sprite::{BorderRect, SpriteAssetEvents};
 
 use crate::{Display, Node};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
@@ -75,7 +75,7 @@ pub mod graph {
 /// When this is _not_ possible, pick a suitably unique index unlikely to clash with other things (ex: `0.1826823` not `0.1`).
 ///
 /// Offsets should be unique for a given node entity to avoid z fighting.
-/// These should pretty much _always_ be larger than -1.0 and smaller than 1.0 to avoid clipping into nodes
+/// These should pretty much _always_ be larger than -0.5 and smaller than 0.5 to avoid clipping into nodes
 /// above / below the current node in the stack.
 ///
 /// A z-index of 0.0 is the baseline, which is used as the primary "background color" of the node.
@@ -83,7 +83,9 @@ pub mod graph {
 /// Note that nodes "stack" on each other, so a negative offset on the node above could clip _into_
 /// a positive offset on a node below.
 pub mod stack_z_offsets {
-    pub const BACKGROUND_COLOR: f32 = 0.0;
+    pub const BOX_SHADOW: f32 = -0.1;
+    pub const TEXTURE_SLICE: f32 = 0.0;
+    pub const NODE: f32 = 0.0;
     pub const MATERIAL: f32 = 0.18267;
 }
 
@@ -108,7 +110,7 @@ pub fn build_ui_render(app: &mut App) {
 
     render_app
         .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
-        .init_resource::<UiImageBindGroups>()
+        .init_resource::<ImageNodeBindGroups>()
         .init_resource::<UiMeta>()
         .init_resource::<ExtractedUiNodes>()
         .allow_ambiguous_resource::<ExtractedUiNodes>()
@@ -206,7 +208,7 @@ pub enum ExtractedUiItem {
         flip_x: bool,
         flip_y: bool,
         /// Border radius of the UI node.
-        /// Ordering: top left, top right, bottom right, bottom left.   
+        /// Ordering: top left, top right, bottom right, bottom left.
         border_radius: ResolvedBorderRadius,
         /// Border thickness of the UI node.
         /// Ordering: left, top, right, bottom.
@@ -309,18 +311,15 @@ pub fn extract_uinode_images(
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
-        Query<
-            (
-                Entity,
-                &ComputedNode,
-                &GlobalTransform,
-                &ViewVisibility,
-                Option<&CalculatedClip>,
-                Option<&TargetCamera>,
-                &UiImage,
-            ),
-            Without<ImageScaleMode>,
-        >,
+        Query<(
+            Entity,
+            &ComputedNode,
+            &GlobalTransform,
+            &ViewVisibility,
+            Option<&CalculatedClip>,
+            Option<&TargetCamera>,
+            &ImageNode,
+        )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
@@ -338,6 +337,7 @@ pub fn extract_uinode_images(
         if !view_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+            || image.image_mode.uses_slices()
         {
             continue;
         }
@@ -865,7 +865,7 @@ pub fn queue_uinodes(
             pipeline,
             entity: (*entity, extracted_uinode.main_entity),
             sort_key: (
-                FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR),
+                FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::NODE),
                 entity.index(),
             ),
             // batch_range will be calculated in prepare_uinodes
@@ -876,7 +876,7 @@ pub fn queue_uinodes(
 }
 
 #[derive(Resource, Default)]
-pub struct UiImageBindGroups {
+pub struct ImageNodeBindGroups {
     pub values: HashMap<AssetId<Image>, BindGroup>,
 }
 
@@ -889,7 +889,7 @@ pub fn prepare_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
-    mut image_bind_groups: ResMut<UiImageBindGroups>,
+    mut image_bind_groups: ResMut<ImageNodeBindGroups>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     events: Res<SpriteAssetEvents>,

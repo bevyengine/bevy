@@ -2,18 +2,19 @@ use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiScale};
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
+use bevy_image::Image;
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::texture::{Image, TRANSPARENT_IMAGE_HANDLE};
-use bevy_sprite::{TextureAtlas, TextureAtlasLayout};
+use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
+use bevy_sprite::{TextureAtlas, TextureAtlasLayout, TextureSlicer};
 use bevy_window::{PrimaryWindow, Window};
 use taffy::{MaybeMath, MaybeResolve};
 
-/// The 2D texture displayed for this UI node
+/// A UI Node that renders an image.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
-#[require(Node, UiImageSize, ContentSize)]
-pub struct UiImage {
+#[require(Node, ImageNodeSize, ContentSize)]
+pub struct ImageNode {
     /// The tint color used to draw the image.
     ///
     /// This is multiplied by the color of each pixel in the image.
@@ -23,11 +24,11 @@ pub struct UiImage {
     ///
     /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
     pub image: Handle<Image>,
-    /// The (optional) texture atlas used to render the image
+    /// The (optional) texture atlas used to render the image.
     pub texture_atlas: Option<TextureAtlas>,
-    /// Whether the image should be flipped along its x-axis
+    /// Whether the image should be flipped along its x-axis.
     pub flip_x: bool,
-    /// Whether the image should be flipped along its y-axis
+    /// Whether the image should be flipped along its y-axis.
     pub flip_y: bool,
     /// An optional rectangle representing the region of the image to render, instead of rendering
     /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`].
@@ -35,18 +36,20 @@ pub struct UiImage {
     /// When used with a [`TextureAtlas`], the rect
     /// is offset by the atlas's minimal (top-left) corner position.
     pub rect: Option<Rect>,
+    /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space to allocate for the image.
+    pub image_mode: NodeImageMode,
 }
 
-impl Default for UiImage {
+impl Default for ImageNode {
     /// A transparent 1x1 image with a solid white tint.
     ///
     /// # Warning
     ///
     /// This will be invisible by default.
     /// To set this to a visible image, you need to set the `texture` field to a valid image handle,
-    /// or use [`Handle<Image>`]'s default 1x1 solid white texture (as is done in [`UiImage::solid_color`]).
+    /// or use [`Handle<Image>`]'s default 1x1 solid white texture (as is done in [`ImageNode::solid_color`]).
     fn default() -> Self {
-        UiImage {
+        ImageNode {
             // This should be white because the tint is multiplied with the image,
             // so if you set an actual image with default tint you'd want its original colors
             color: Color::WHITE,
@@ -56,12 +59,13 @@ impl Default for UiImage {
             flip_x: false,
             flip_y: false,
             rect: None,
+            image_mode: NodeImageMode::Auto,
         }
     }
 }
 
-impl UiImage {
-    /// Create a new [`UiImage`] with the given texture.
+impl ImageNode {
+    /// Create a new [`ImageNode`] with the given texture.
     pub fn new(texture: Handle<Image>) -> Self {
         Self {
             image: texture,
@@ -70,7 +74,7 @@ impl UiImage {
         }
     }
 
-    /// Create a solid color [`UiImage`].
+    /// Create a solid color [`ImageNode`].
     ///
     /// This is primarily useful for debugging / mocking the extents of your image.
     pub fn solid_color(color: Color) -> Self {
@@ -81,10 +85,11 @@ impl UiImage {
             flip_y: false,
             texture_atlas: None,
             rect: None,
+            image_mode: NodeImageMode::Auto,
         }
     }
 
-    /// Create a [`UiImage`] from an image, with an associated texture atlas
+    /// Create a [`ImageNode`] from an image, with an associated texture atlas
     pub fn from_atlas_image(image: Handle<Image>, atlas: TextureAtlas) -> Self {
         Self {
             image,
@@ -119,11 +124,50 @@ impl UiImage {
         self.rect = Some(rect);
         self
     }
+
+    #[must_use]
+    pub const fn with_mode(mut self, mode: NodeImageMode) -> Self {
+        self.image_mode = mode;
+        self
+    }
 }
 
-impl From<Handle<Image>> for UiImage {
+impl From<Handle<Image>> for ImageNode {
     fn from(texture: Handle<Image>) -> Self {
         Self::new(texture)
+    }
+}
+
+/// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space in the layout for the image
+#[derive(Default, Debug, Clone, Reflect)]
+pub enum NodeImageMode {
+    /// The image will be sized automatically by taking the size of the source image and applying any layout constraints.
+    #[default]
+    Auto,
+    /// The image will be resized to match the size of the node. The image's original size and aspect ratio will be ignored.
+    Stretch,
+    /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
+    Sliced(TextureSlicer),
+    /// The texture will be repeated if stretched beyond `stretched_value`
+    Tiled {
+        /// Should the image repeat horizontally
+        tile_x: bool,
+        /// Should the image repeat vertically
+        tile_y: bool,
+        /// The texture will repeat when the ratio between the *drawing dimensions* of texture and the
+        /// *original texture size* are above this value.
+        stretch_value: f32,
+    },
+}
+
+impl NodeImageMode {
+    /// Returns true if this mode uses slices internally ([`NodeImageMode::Sliced`] or [`NodeImageMode::Tiled`])
+    #[inline]
+    pub fn uses_slices(&self) -> bool {
+        matches!(
+            self,
+            NodeImageMode::Sliced(..) | NodeImageMode::Tiled { .. }
+        )
     }
 }
 
@@ -132,14 +176,14 @@ impl From<Handle<Image>> for UiImage {
 /// This component is updated automatically by [`update_image_content_size_system`]
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
-pub struct UiImageSize {
+pub struct ImageNodeSize {
     /// The size of the image's texture
     ///
     /// This field is updated automatically by [`update_image_content_size_system`]
     size: UVec2,
 }
 
-impl UiImageSize {
+impl ImageNodeSize {
     /// The size of the image's texture
     pub fn size(&self) -> UVec2 {
         self.size
@@ -216,7 +260,7 @@ pub fn update_image_content_size_system(
     textures: Res<Assets<Image>>,
 
     atlases: Res<Assets<TextureAtlasLayout>>,
-    mut query: Query<(&mut ContentSize, &UiImage, &mut UiImageSize), UpdateImageFilter>,
+    mut query: Query<(&mut ContentSize, Ref<ImageNode>, &mut ImageNodeSize), UpdateImageFilter>,
 ) {
     let combined_scale_factor = windows
         .get_single()
@@ -225,6 +269,16 @@ pub fn update_image_content_size_system(
         * ui_scale.0;
 
     for (mut content_size, image, mut image_size) in &mut query {
+        if !matches!(image.image_mode, NodeImageMode::Auto)
+            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+        {
+            if image.is_changed() {
+                // Mutably derefs, marking the `ContentSize` as changed ensuring `ui_layout_system` will remove the node's measure func if present.
+                content_size.measure = None;
+            }
+            continue;
+        }
+
         if let Some(size) = match &image.texture_atlas {
             Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
             None => textures.get(&image.image).map(Image::size),
