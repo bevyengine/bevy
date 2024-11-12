@@ -544,12 +544,12 @@ where
     }
 }
 
-/// The [`Command`] type for removing one shot systems from [`Commands`](crate::system::Commands).
-pub struct RemoveSystem<I: SystemInput + 'static, O: 'static> {
+/// The [`Command`] type for unregistering one-shot systems from [`Commands`](crate::system::Commands).
+pub struct UnregisterSystem<I: SystemInput + 'static, O: 'static> {
     system_id: SystemId<I, O>,
 }
 
-impl<I, O> RemoveSystem<I, O>
+impl<I, O> UnregisterSystem<I, O>
 where
     I: SystemInput + 'static,
     O: 'static,
@@ -560,13 +560,13 @@ where
     }
 }
 
-impl<I, O> Command for RemoveSystem<I, O>
+impl<I, O> Command for UnregisterSystem<I, O>
 where
     I: SystemInput + 'static,
     O: 'static,
 {
     fn apply(self, world: &mut World) {
-        let _ = world.remove_system(self.system_id);
+        let _ = world.unregister_system(self.system_id);
     }
 }
 

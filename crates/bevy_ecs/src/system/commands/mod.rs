@@ -3,7 +3,7 @@ mod parallel_scope;
 use core::{marker::PhantomData, panic::Location};
 
 use super::{
-    Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, RemoveSystem, Resource,
+    Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, UnregisterSystem, Resource,
     RunSystemCachedWith,
 };
 use crate::{
@@ -893,13 +893,13 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Removes a system previously registered with [`Commands::register_system`] or [`World::register_system`].
     ///
-    /// See [`World::remove_system`] for more information.
-    pub fn remove_system<I, O>(&mut self, system_id: SystemId<I, O>)
+    /// See [`World::unregister_system`] for more information.
+    pub fn unregister_system<I, O>(&mut self, system_id: SystemId<I, O>)
     where
         I: SystemInput + Send + 'static,
         O: Send + 'static,
     {
-        self.queue(RemoveSystem::new(system_id));
+        self.queue(UnregisterSystem::new(system_id));
     }
 
     /// Similar to [`Self::run_system`], but caching the [`SystemId`] in a
