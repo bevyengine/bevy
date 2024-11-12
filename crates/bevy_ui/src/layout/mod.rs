@@ -1349,13 +1349,13 @@ mod tests {
         let mut child1_entity = None;
         let mut child2_entity = None;
         let parent_entity = world
-            .spawn(NodeBundle::default())
+            .spawn(Node::default())
             .with_children(|children| {
                 child1_entity = Some(
                     children
-                        .spawn(NodeBundle::default())
+                        .spawn(Node::default())
                         .with_children(|children| {
-                            child2_entity = Some(children.spawn(NodeBundle::default()).id());
+                            child2_entity = Some(children.spawn(Node::default()).id());
                         })
                         .id(),
                 );
