@@ -1337,4 +1337,104 @@ mod tests {
         let taffy_node = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
         assert!(ui_surface.taffy.layout(*taffy_node).is_ok());
     }
+
+    struct DespawnTestEntityReference {
+        parent_entity: Entity,
+        child1_entity: Entity,
+        child2_entity: Entity,
+    }
+    fn recursive_despawn_setup() -> (World, Schedule, DespawnTestEntityReference) {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let mut child1_entity = None;
+        let mut child2_entity = None;
+        let parent_entity = world
+            .spawn(NodeBundle::default())
+            .with_children(|children| {
+                child1_entity = Some(
+                    children
+                        .spawn(NodeBundle::default())
+                        .with_children(|children| {
+                            child2_entity = Some(children.spawn(NodeBundle::default()).id());
+                        })
+                        .id(),
+                );
+            })
+            .id();
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.get_resource::<UiSurface>().unwrap();
+        // 1 for root node, 1 for implicit viewport node
+        // 2 children
+        assert_eq!(ui_surface.taffy.total_node_count(), 4);
+
+        (
+            world,
+            ui_schedule,
+            DespawnTestEntityReference {
+                parent_entity,
+                child1_entity: child1_entity.expect("expected child 1"),
+                child2_entity: child2_entity.expect("expected child 2"),
+            },
+        )
+    }
+
+    #[test]
+    fn test_recursive_despawn_on_parent() {
+        let (
+            mut world,
+            mut ui_schedule,
+            DespawnTestEntityReference {
+                parent_entity,
+                child1_entity,
+                child2_entity,
+            },
+        ) = recursive_despawn_setup();
+
+        let ui_surface = world.get_resource::<UiSurface>().unwrap();
+
+        let parent_taffy = *ui_surface.entity_to_taffy.get(&parent_entity).unwrap();
+        let child1_taffy = *ui_surface.entity_to_taffy.get(&child1_entity).unwrap();
+        let child2_taffy = *ui_surface.entity_to_taffy.get(&child2_entity).unwrap();
+        assert_eq!(ui_surface.taffy.parent(child2_taffy), Some(child1_taffy));
+        assert_eq!(ui_surface.taffy.parent(child1_taffy), Some(parent_taffy));
+
+        world.commands().entity(parent_entity).despawn_recursive();
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.get_resource::<UiSurface>().unwrap();
+        // all nodes should be removed
+        assert_eq!(ui_surface.taffy.total_node_count(), 0);
+    }
+
+    #[test]
+    fn test_recursive_despawn_on_child() {
+        let (
+            mut world,
+            mut ui_schedule,
+            DespawnTestEntityReference {
+                parent_entity,
+                child1_entity,
+                child2_entity,
+            },
+        ) = recursive_despawn_setup();
+
+        let ui_surface = world.get_resource::<UiSurface>().unwrap();
+
+        let parent_taffy = *ui_surface.entity_to_taffy.get(&parent_entity).unwrap();
+        let child1_taffy = *ui_surface.entity_to_taffy.get(&child1_entity).unwrap();
+        let child2_taffy = *ui_surface.entity_to_taffy.get(&child2_entity).unwrap();
+        assert_eq!(ui_surface.taffy.parent(child2_taffy), Some(child1_taffy));
+        assert_eq!(ui_surface.taffy.parent(child1_taffy), Some(parent_taffy));
+
+        world.commands().entity(child1_entity).despawn_recursive();
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.get_resource::<UiSurface>().unwrap();
+        // only root node and implicit viewport left
+        assert_eq!(ui_surface.taffy.total_node_count(), 2);
+    }
 }
