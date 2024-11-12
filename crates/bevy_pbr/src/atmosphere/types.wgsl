@@ -25,10 +25,10 @@ struct Atmosphere {
 struct AtmosphereSettings {
     transmittance_lut_size: vec2<u32>,
     multiscattering_lut_size: vec2<u32>,
-    sky_view_lut_size: vec2<u32>,
-    transmittance_lut_samples: u32,
-    multiscattering_lut_dirs: u32,
     aerial_view_lut_size: vec3<u32>, //Gross ordering for padding reasons
+    sky_view_lut_size: u32,
+    multiscattering_lut_dirs: u32,
+    transmittance_lut_samples: u32,
     multiscattering_lut_samples: u32,
     sky_view_lut_samples: u32,
     aerial_view_lut_samples: u32,

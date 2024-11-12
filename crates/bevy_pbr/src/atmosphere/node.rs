@@ -62,7 +62,7 @@ impl ViewNode for AtmosphereLutsNode {
         ) = (
             pipeline_cache.get_render_pipeline(pipelines.transmittance_lut),
             pipeline_cache.get_compute_pipeline(pipelines.multiscattering_lut),
-            pipeline_cache.get_render_pipeline(pipelines.sky_view_lut),
+            pipeline_cache.get_compute_pipeline(pipelines.sky_view_lut),
             pipeline_cache.get_compute_pipeline(pipelines.aerial_view_lut),
         )
         else {
@@ -127,16 +127,14 @@ impl ViewNode for AtmosphereLutsNode {
             multiscattering_lut_pass.dispatch_workgroups(workgroups_x, workgroups_y, 1);
         }
 
+        const SKY_VIEW_WORKGROUP_SIZE: u32 = 16;
+        let workgroups_x = settings.sky_view_lut_size.div_ceil(SKY_VIEW_WORKGROUP_SIZE);
+        let workgroups_y = settings.sky_view_lut_size.div_ceil(SKY_VIEW_WORKGROUP_SIZE);
+
         {
-            let mut sky_view_lut_pass = commands.begin_render_pass(&RenderPassDescriptor {
+            let mut sky_view_lut_pass = commands.begin_compute_pass(&ComputePassDescriptor {
                 label: Some("sky_view_lut_pass"),
-                color_attachments: &[Some(RenderPassColorAttachment {
-                    view: &textures.sky_view_lut.default_view,
-                    resolve_target: None,
-                    ops: Operations::default(),
-                })],
-                depth_stencil_attachment: None,
-                ..Default::default()
+                timestamp_writes: None,
             });
             sky_view_lut_pass.set_pipeline(sky_view_lut_pipeline);
             sky_view_lut_pass.set_bind_group(
@@ -149,7 +147,7 @@ impl ViewNode for AtmosphereLutsNode {
                     lights_uniforms_offset.offset,
                 ],
             );
-            sky_view_lut_pass.draw(0..3, 0..1);
+            sky_view_lut_pass.dispatch_workgroups(workgroups_x, workgroups_y, 6);
         }
 
         {

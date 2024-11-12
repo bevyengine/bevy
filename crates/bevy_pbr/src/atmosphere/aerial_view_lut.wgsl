@@ -6,20 +6,19 @@
         functions::{
             sample_transmittance_lut, sample_atmosphere, rayleigh, henyey_greenstein,
             sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
-            get_local_r, get_local_up, view_radius, M_TO_KM, uv_to_ndc, position_ndc_to_world, depth_ndc_to_view_z
+            get_local_r, get_local_up, view_radius, uv_to_ndc, position_ndc_to_world, depth_ndc_to_view_z
         },
         bruneton_functions::{distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary,ray_intersects_ground}
     }
 }
 
 
-@group(0) @binding(13) var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;
+@group(0) @binding(12) var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;
 
 @compute
 @workgroup_size(16, 16, 1) //TODO: this approach makes it so closer slices get fewer samples. But we also expect those to have less scattering. So win/win?
 fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     if any(idx.xy > settings.aerial_view_lut_size.xy) { return; }
-    var optical_depth: vec3<f32> = vec3(0.0);
 
     let uv = (vec2<f32>(idx.xy) + 0.5) / vec2<f32>(settings.aerial_view_lut_size.xy);
     let ray_dir = uv_to_ray_direction(uv); //TODO: negate for lighting calcs?
@@ -28,6 +27,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
     var prev_t = 0.0;
     var total_inscattering = vec3(0.0);
+    var optical_depth = vec3(0.0);
     for (var slice_i: i32 = i32(settings.aerial_view_lut_size.z - 1); slice_i >= 0; slice_i--) { //reversed loop to iterate raw depth values near->far 
         var sum_transmittance = 0.0;
         for (var step_i: i32 = i32(settings.aerial_view_lut_samples - 1); step_i >= 0; step_i--) { //same here
@@ -50,11 +50,9 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             var local_inscattering = sample_local_inscattering(local_atmosphere, transmittance_to_sample, ray_dir.xyz, local_r, local_up);
             total_inscattering += local_inscattering * step_length;
             sum_transmittance += transmittance_to_sample.r + transmittance_to_sample.g + transmittance_to_sample.b;
-
-            let mean_transmittance = sum_transmittance / (f32(settings.aerial_view_lut_samples) * 3.0);
-            textureStore(aerial_view_lut_out, vec3(vec2<i32>(idx.xy), slice_i), vec4(total_inscattering, mean_transmittance));
-            //textureStore(aerial_view_lut_out, vec3(vec2<i32>(idx.xy), slice_i), vec4(optical_depth, step_length));
         }
+        let mean_transmittance = sum_transmittance / (f32(settings.aerial_view_lut_samples) * 3.0);
+        textureStore(aerial_view_lut_out, vec3(vec2<i32>(idx.xy), slice_i), vec4(total_inscattering, mean_transmittance));
     }
 }
 

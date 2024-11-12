@@ -26,6 +26,7 @@ fn main() {
             (setup_camera_fog, setup_terrain_scene, setup_instructions),
         )
         .add_systems(Update, rotate_sun)
+        //.add_systems(Update, rotate_camera)
         .run();
 }
 
@@ -43,7 +44,7 @@ fn setup_camera_fog(mut commands: Commands) {
         },
         Msaa::Off,
         Tonemapping::AcesFitted,
-        Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
+        Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.15, Vec3::Y),
         Atmosphere::EARTH,
         AtmosphereSettings {
             scene_units_to_km: 1.0,
@@ -112,3 +113,7 @@ fn setup_instructions(mut commands: Commands) {
 fn rotate_sun(mut sun: Single<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
     sun.rotate_z(time.delta_secs() * PI / 30.0);
 }
+
+// fn rotate_camera(mut camera: Single<&mut Transform, With<Camera>>, time: Res<Time>) {
+//     camera.rotate_y(time.delta_secs() * PI / 30.0);
+// }

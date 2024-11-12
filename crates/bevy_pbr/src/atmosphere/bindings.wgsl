@@ -15,7 +15,7 @@
 @group(0) @binding(5) var transmittance_lut_sampler: sampler;
 @group(0) @binding(6) var multiscattering_lut: texture_2d<f32>;
 @group(0) @binding(7) var multiscattering_lut_sampler: sampler;
-@group(0) @binding(8) var sky_view_lut: texture_2d<f32>;
+@group(0) @binding(8) var sky_view_lut: texture_cube<f32>;
 @group(0) @binding(9) var sky_view_lut_sampler: sampler;
 @group(0) @binding(10) var aerial_view_lut: texture_3d<f32>;
 @group(0) @binding(11) var aerial_view_lut_sampler: sampler;

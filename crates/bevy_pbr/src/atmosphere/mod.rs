@@ -178,25 +178,25 @@ pub struct Atmosphere {
     /// Radius of the planet
     ///
     /// units: km
-    bottom_radius: f32,
+    pub bottom_radius: f32,
 
     /// Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
     /// units: km
-    top_radius: f32,
+    pub top_radius: f32,
 
-    ground_albedo: Vec3, //used for estimating multiscattering
+    pub ground_albedo: Vec3, //used for estimating multiscattering
 
-    rayleigh_density_exp_scale: f32,
-    rayleigh_scattering: Vec3,
+    pub rayleigh_density_exp_scale: f32,
+    pub rayleigh_scattering: Vec3,
 
-    mie_density_exp_scale: f32,
-    mie_scattering: f32, //units: km^-1
-    mie_absorption: f32, //units: km^-1
-    mie_asymmetry: f32,  //the "asymmetry" value of the phase function, unitless. Domain: (-1, 1)
+    pub mie_density_exp_scale: f32,
+    pub mie_scattering: f32, //units: km^-1
+    pub mie_absorption: f32, //units: km^-1
+    pub mie_asymmetry: f32, //the "asymmetry" value of the phase function, unitless. Domain: (-1, 1)
 
-    ozone_layer_center_altitude: f32, //units: km
-    ozone_layer_half_width: f32,      //units: km
-    ozone_absorption: Vec3,           //ozone absorption. units: km^-1
+    pub ozone_layer_center_altitude: f32, //units: km
+    pub ozone_layer_half_width: f32,      //units: km
+    pub ozone_absorption: Vec3,           //ozone absorption. units: km^-1
 }
 
 impl Atmosphere {
@@ -240,10 +240,10 @@ impl ExtractComponent for Atmosphere {
 pub struct AtmosphereSettings {
     pub transmittance_lut_size: UVec2,
     pub multiscattering_lut_size: UVec2,
-    pub sky_view_lut_size: UVec2,
+    pub aerial_view_lut_size: UVec3,
+    pub sky_view_lut_size: u32,
     pub multiscattering_lut_dirs: u32,
     pub transmittance_lut_samples: u32,
-    pub aerial_view_lut_size: UVec3,
     pub multiscattering_lut_samples: u32,
     pub sky_view_lut_samples: u32,
     pub aerial_view_lut_samples: u32,
@@ -258,7 +258,7 @@ impl Default for AtmosphereSettings {
             multiscattering_lut_size: UVec2::new(32, 32),
             multiscattering_lut_dirs: 64,
             multiscattering_lut_samples: 20,
-            sky_view_lut_size: UVec2::new(200, 100),
+            sky_view_lut_size: 64,
             sky_view_lut_samples: 30,
             aerial_view_lut_size: UVec3::new(32, 32, 32),
             aerial_view_lut_samples: 10,

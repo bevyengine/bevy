@@ -32,17 +32,15 @@ fn multiscattering_lut_uv_to_r_mu(uv: vec2<f32>) -> vec2<f32> {
     return vec2(r, mu);
 }
 
-fn sky_view_lut_lat_long_to_uv(lat: f32, long: f32) -> vec2<f32> {
-    let u = long * FRAC_PI + 0.5;
-    let v = sqrt(2 * abs(lat) * FRAC_PI) * sign(lat) * 0.5 + 0.5;
-    return vec2(u, v);
+fn sky_view_lut_squash_ray_dir(ray_dir_vs: vec3<f32>) -> vec3<f32> {
+    let new_y = sqrt(abs(ray_dir_vs.y)) * sign(ray_dir_vs.y);
+    return normalize(vec3(ray_dir_vs.x, new_y, ray_dir_vs.z));
 }
 
-fn sky_view_lut_uv_to_lat_long(uv: vec2<f32>) -> vec2<f32> {
-    let long = (uv.x - 0.5) * TAU;
-    let v_minus_half = uv.y - 0.5;
-    let lat = TAU * (v_minus_half * v_minus_half) * sign(v_minus_half);
-    return vec2(lat, long);
+fn sky_view_lut_unsquash_ray_dir(ray_dir_vs: vec3<f32>) -> vec3<f32> {
+    let abs_y = abs(ray_dir_vs.y);
+    let new_y = abs_y * abs_y * sign(ray_dir_vs.y);
+    return normalize(vec3(ray_dir_vs.x, new_y, ray_dir_vs.z));
 }
 
 // LUT SAMPLING
@@ -57,12 +55,9 @@ fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
     return textureSampleLevel(multiscattering_lut, multiscattering_lut_sampler, uv, 0.0).rgb;
 }
 
-fn sample_sky_view_lut(ray_dir: vec3<f32>) -> vec3<f32> {
-    let lat_long = ray_dir_to_lat_long(ray_dir);
-    let uv = sky_view_lut_lat_long_to_uv(lat_long.x, lat_long.y);
-    let long = fract(abs(lat_long.y));
-    //return vec3(long, long, long);
-    return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, uv, 0.0).rgb;
+fn sample_sky_view_lut(ray_dir_vs: vec3<f32>) -> vec3<f32> {
+    let ray_dir_vs_squashed = sky_view_lut_squash_ray_dir(ray_dir_vs);
+    return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, ray_dir_vs_squashed, 0.0).rgb;
 }
 
 //RGB channels: total inscattered light along the camera ray to the current sample.
@@ -82,7 +77,6 @@ fn henyey_greenstein(neg_LdotV: f32) -> f32 {
     let denom = 1.0 + g * g - 2.0 * g * neg_LdotV;
     return FRAC_4_PI * (1.0 - g * g) / (denom * sqrt(denom));
 }
-
 
 // ATMOSPHERE SAMPLING
 
@@ -144,6 +138,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, transmittance_t
 
 //TODO: make pr to specify light angular size on struct itself
 const SUN_ANGULAR_SIZE: f32 = 0.00436332; //angular radius of sun in radians
+//const SUN_ANGULAR_SIZE: f32 = 0.1;
 
 fn sample_sun_disk(ray_dir: vec3<f32>, transmittance: vec3<f32>) -> vec3<f32> {
     var sun_contribution = vec3(0.0);
@@ -221,11 +216,10 @@ fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
     return vec4(normalize(ray_direction), -view_ray_direction.z);
 }
 
-fn ray_dir_to_lat_long(ray_dir: vec3<f32>) -> vec2<f32> {
-    let view_dir = -view.world_from_view[2].xyz;
-    let lat = asin(ray_dir.y);
-    let long = atan2(view_dir.z, view_dir.x) - atan2(ray_dir.z, ray_dir.x); //TODO: explain
-    return vec2(lat, long);
+/// Convert a view space direction to world space
+fn direction_view_to_world(view_dir: vec3<f32>) -> vec3<f32> {
+    let world_dir = view.world_from_view * vec4(view_dir, 0.0);
+    return world_dir.xyz;
 }
 
 /// Convert ndc depth to linear view z. 
