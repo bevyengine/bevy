@@ -3,8 +3,8 @@ mod parallel_scope;
 use core::{marker::PhantomData, panic::Location};
 
 use super::{
-    Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, UnregisterSystem, Resource,
-    RunSystemCachedWith,
+    Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource, RunSystemCachedWith,
+    UnregisterSystem,
 };
 use crate::{
     self as bevy_ecs,
