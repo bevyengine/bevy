@@ -66,7 +66,6 @@ pub struct UiSurface {
     pub(super) camera_root_nodes: EntityHashMap<EntityHashSet>,
     /// Manages the UI Node Tree
     pub(super) taffy: TaffyTree<NodeMeasure>,
-    taffy_children_scratch: Vec<taffy::NodeId>,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
@@ -84,7 +83,6 @@ impl fmt::Debug for UiSurface {
             .field("entity_to_taffy", &self.entity_to_taffy)
             .field("root_node_data", &self.root_node_data)
             .field("camera_root_nodes", &self.camera_root_nodes)
-            .field("taffy_children_scratch", &self.taffy_children_scratch)
             .finish()
     }
 }
@@ -97,7 +95,6 @@ impl Default for UiSurface {
             root_node_data: Default::default(),
             camera_root_nodes: Default::default(),
             taffy,
-            taffy_children_scratch: Vec::new(),
         }
     }
 }
@@ -155,18 +152,19 @@ impl UiSurface {
 
     /// Update the children of the taffy node corresponding to the given [`Entity`].
     pub fn update_children(&mut self, entity: Entity, children: impl Iterator<Item = Entity>) {
-        self.taffy_children_scratch.clear();
-
-        for child in children {
-            if let Some(taffy_node) = self.entity_to_taffy.get(&child) {
-                self.taffy_children_scratch.push(*taffy_node);
-            }
-        }
+        let children = children
+            .map(|child| {
+                self.entity_to_taffy
+                    .get(&child)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        panic!("failed to resolve taffy id for child entity {child} in {entity}")
+                    })
+            })
+            .collect::<Vec<_>>();
 
         let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
-        self.taffy
-            .set_children(*taffy_node, &self.taffy_children_scratch)
-            .unwrap();
+        self.taffy.set_children(*taffy_node, &children).unwrap();
     }
 
     /// Removes children from the entity's taffy node if it exists. Does nothing otherwise.
