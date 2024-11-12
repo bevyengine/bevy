@@ -5,28 +5,25 @@ use crate::{
 use core::{fmt, fmt::Formatter};
 use serde::de::{SeqAccess, Visitor};
 
+use super::ReflectDeserializerProcessor;
+
 /// A [`Visitor`] for deserializing [`Set`] values.
 ///
 /// [`Set`]: crate::Set
-pub(super) struct SetVisitor<'a> {
-    set_info: &'static SetInfo,
-    registry: &'a TypeRegistry,
+pub(super) struct SetVisitor<'a, P> {
+    pub set_info: &'static SetInfo,
+    pub registry: &'a TypeRegistry,
+    pub processor: Option<&'a mut P>,
 }
 
-impl<'a> SetVisitor<'a> {
-    pub fn new(set_info: &'static SetInfo, registry: &'a TypeRegistry) -> Self {
-        Self { set_info, registry }
-    }
-}
-
-impl<'a, 'de> Visitor<'de> for SetVisitor<'a> {
+impl<'de, P: ReflectDeserializerProcessor> Visitor<'de> for SetVisitor<'_, P> {
     type Value = DynamicSet;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("reflected set value")
     }
 
-    fn visit_seq<V>(self, mut set: V) -> Result<Self::Value, V::Error>
+    fn visit_seq<V>(mut self, mut set: V) -> Result<Self::Value, V::Error>
     where
         V: SeqAccess<'de>,
     {
@@ -35,6 +32,7 @@ impl<'a, 'de> Visitor<'de> for SetVisitor<'a> {
         while let Some(value) = set.next_element_seed(TypedReflectDeserializer::new_internal(
             value_registration,
             self.registry,
+            self.processor.as_deref_mut(),
         ))? {
             dynamic_set.insert_boxed(value);
         }

@@ -8,7 +8,6 @@
 //! If you want to hot reload asset changes, enable the `file_watcher` cargo feature.
 
 use bevy::{
-    math::Vec3A,
     prelude::*,
     render::primitives::{Aabb, Sphere},
 };
