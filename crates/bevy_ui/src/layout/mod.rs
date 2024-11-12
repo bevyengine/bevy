@@ -270,10 +270,6 @@ with UI components as a child of an entity without UI components, your UI layout
                     );
                 }
             }
-
-            if ui_children.is_changed(entity) {
-                ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
-            }
         });
 
     let text_buffers = &mut buffer_query;
