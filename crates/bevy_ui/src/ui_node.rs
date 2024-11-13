@@ -22,7 +22,7 @@ pub struct ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub(crate) stack_index: u32,
-    /// The size of the node as width and height in logical pixels
+    /// The size of the node as width and height in physical pixels
     ///
     /// automatically calculated by [`super::layout::ui_layout_system`]
     pub(crate) size: Vec2,
@@ -37,21 +37,21 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) outline_offset: f32,
-    /// The unrounded size of the node as width and height in logical pixels.
+    /// The unrounded size of the node as width and height in physical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) unrounded_size: Vec2,
-    /// Resolved border values in logical pixels
+    /// Resolved border values in physical pixels
     /// Border updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) border: BorderRect,
-    /// Resolved border radius values in logical pixels.
+    /// Resolved border radius values in physical pixels.
     /// Border radius updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) border_radius: ResolvedBorderRadius,
-    /// Resolved padding values in logical pixels
+    /// Resolved padding values in physical pixels
     /// Padding updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
@@ -59,7 +59,7 @@ pub struct ComputedNode {
 }
 
 impl ComputedNode {
-    /// The calculated node size as width and height in logical pixels.
+    /// The calculated node size as width and height in physical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
@@ -82,7 +82,7 @@ impl ComputedNode {
         self.stack_index
     }
 
-    /// The calculated node size as width and height in logical pixels before rounding.
+    /// The calculated node size as width and height in physical pixels before rounding.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
@@ -90,7 +90,7 @@ impl ComputedNode {
         self.unrounded_size
     }
 
-    /// Returns the thickness of the UI node's outline in logical pixels.
+    /// Returns the thickness of the UI node's outline in physical pixels.
     /// If this value is negative or `0.` then no outline will be rendered.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
@@ -99,7 +99,7 @@ impl ComputedNode {
         self.outline_width
     }
 
-    /// Returns the amount of space between the outline and the edge of the node in logical pixels.
+    /// Returns the amount of space between the outline and the edge of the node in physical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
@@ -139,7 +139,7 @@ impl ComputedNode {
         }
     }
 
-    /// Returns the thickness of the node's border on each edge in logical pixels.
+    /// Returns the thickness of the node's border on each edge in physical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
@@ -147,7 +147,7 @@ impl ComputedNode {
         self.border
     }
 
-    /// Returns the border radius for each of the node's corners in logical pixels.
+    /// Returns the border radius for each of the node's corners in physical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
@@ -155,7 +155,7 @@ impl ComputedNode {
         self.border_radius
     }
 
-    /// Returns the inner border radius for each of the node's corners in logical pixels.
+    /// Returns the inner border radius for each of the node's corners in physical pixels.
     pub fn inner_radius(&self) -> ResolvedBorderRadius {
         fn clamp_corner(r: f32, size: Vec2, offset: Vec2) -> f32 {
             let s = 0.5 * size + offset;
@@ -177,7 +177,7 @@ impl ComputedNode {
         }
     }
 
-    /// Returns the thickness of the node's padding on each edge in logical pixels.
+    /// Returns the thickness of the node's padding on each edge in physical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     #[inline]
@@ -185,7 +185,7 @@ impl ComputedNode {
         self.padding
     }
 
-    /// Returns the combined inset on each edge including both padding and border thickness in logical pixels.
+    /// Returns the combined inset on each edge including both padding and border thickness in physical pixels.
     #[inline]
     pub const fn content_inset(&self) -> BorderRect {
         BorderRect {
@@ -2355,7 +2355,7 @@ impl BorderRadius {
 
 /// Represents the resolved border radius values for a UI node.
 ///
-/// The values are in logical pixels.
+/// The values are in physical pixels.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
 pub struct ResolvedBorderRadius {
     pub top_left: f32,

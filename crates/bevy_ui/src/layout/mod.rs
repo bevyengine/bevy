@@ -303,7 +303,6 @@ with UI components as a child of an entity without UI components, your UI layout
                 None,
                 &mut node_transform_query,
                 &ui_children,
-                //inverse_target_scale_factor,
                 Vec2::ZERO,
                 Vec2::ZERO,
             );
@@ -328,7 +327,6 @@ with UI components as a child of an entity without UI components, your UI layout
             Option<&ScrollPosition>,
         )>,
         ui_children: &UiChildren,
-        //inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
     ) {
