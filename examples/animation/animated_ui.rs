@@ -5,18 +5,6 @@ use bevy::{
     prelude::*,
 };
 
-// A type that represents the font size of the first text section.
-//
-// We implement `AnimatableProperty` on this.
-#[derive(Reflect)]
-struct FontSizeProperty;
-
-// A type that represents the color of the first text section.
-//
-// We implement `AnimatableProperty` on this.
-#[derive(Reflect)]
-struct TextColorProperty;
-
 // Holds information about the animation we programmatically create.
 struct AnimationInfo {
     // The name of the animation target (in this case, the text).
@@ -39,29 +27,6 @@ fn main() {
         .run();
 }
 
-impl AnimatableProperty for FontSizeProperty {
-    type Component = TextFont;
-
-    type Property = f32;
-
-    fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-        Some(&mut component.font_size)
-    }
-}
-
-impl AnimatableProperty for TextColorProperty {
-    type Component = TextColor;
-
-    type Property = Srgba;
-
-    fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-        match component.0 {
-            Color::Srgba(ref mut color) => Some(color),
-            _ => None,
-        }
-    }
-}
-
 impl AnimationInfo {
     // Programmatically creates the UI animation.
     fn create(
@@ -76,35 +41,40 @@ impl AnimationInfo {
         let mut animation_clip = AnimationClip::default();
 
         // Create a curve that animates font size.
-        //
-        // The curve itself is a `Curve<f32>`, and `f32` is `FontSizeProperty::Property`,
-        // which is required by `AnimatableCurve::from_curve`.
         animation_clip.add_curve_to_target(
             animation_target_id,
-            AnimatableKeyframeCurve::new(
-                [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
-                    .into_iter()
-                    .zip([24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0]),
-            )
-            .map(AnimatableCurve::<FontSizeProperty, _>::from_curve)
-            .expect("should be able to build translation curve because we pass in valid samples"),
+            AnimatableCurve::new(
+                AnimatedProperty::new(|font: &mut TextFont| &mut font.font_size),
+                AnimatableKeyframeCurve::new(
+                    [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+                        .into_iter()
+                        .zip([24.0, 80.0, 24.0, 80.0, 24.0, 80.0, 24.0]),
+                )
+                .expect(
+                    "should be able to build translation curve because we pass in valid samples",
+                ),
+            ),
         );
 
         // Create a curve that animates font color. Note that this should have
         // the same time duration as the previous curve.
-        //
-        // Similar to the above, the curve itself is a `Curve<Srgba>`, and `Srgba` is
-        // `TextColorProperty::Property`, which is required by the `from_curve` method.
         animation_clip.add_curve_to_target(
             animation_target_id,
-            AnimatableKeyframeCurve::new([0.0, 1.0, 2.0, 3.0].into_iter().zip([
-                Srgba::RED,
-                Srgba::GREEN,
-                Srgba::BLUE,
-                Srgba::RED,
-            ]))
-            .map(AnimatableCurve::<TextColorProperty, _>::from_curve)
-            .expect("should be able to build translation curve because we pass in valid samples"),
+            AnimatableCurve::new(
+                AnimatedPropertyOptional::new(|color: &mut TextColor| match &mut color.0 {
+                    Color::Srgba(srgba) => Some(srgba),
+                    _ => None,
+                }),
+                AnimatableKeyframeCurve::new([0.0, 1.0, 2.0, 3.0].into_iter().zip([
+                    Srgba::RED,
+                    Srgba::GREEN,
+                    Srgba::BLUE,
+                    Srgba::RED,
+                ]))
+                .expect(
+                    "should be able to build translation curve because we pass in valid samples",
+                ),
+            ),
         );
 
         // Save our animation clip as an asset.

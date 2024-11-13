@@ -17,7 +17,7 @@ pub mod transition;
 mod util;
 
 use core::{
-    any::{Any, TypeId},
+    any::TypeId,
     cell::RefCell,
     fmt::Debug,
     hash::{Hash, Hasher},
@@ -38,12 +38,7 @@ use bevy_ecs::{
     world::EntityMutExcept,
 };
 use bevy_math::FloatOrd;
-use bevy_reflect::{
-    prelude::ReflectDefault, utility::NonGenericTypeInfoCell, ApplyError, DynamicTupleStruct,
-    FromReflect, FromType, GetTypeRegistration, PartialReflect, Reflect, ReflectFromPtr,
-    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TupleStruct, TupleStructFieldIter,
-    TupleStructInfo, TypeInfo, TypePath, TypeRegistration, Typed, UnnamedField,
-};
+use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{
@@ -100,175 +95,6 @@ impl VariableCurve {
     }
 }
 
-// We have to implement `PartialReflect` manually because of the embedded
-// `Box<dyn AnimationCurve>`, which can't be automatically derived yet.
-impl PartialReflect for VariableCurve {
-    #[inline]
-    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
-        Some(<Self as Typed>::type_info())
-    }
-
-    #[inline]
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
-        Ok(self)
-    }
-
-    #[inline]
-    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
-        Some(self)
-    }
-
-    #[inline]
-    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
-        Some(self)
-    }
-
-    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let ReflectRef::TupleStruct(tuple_value) = value.reflect_ref() {
-            for (i, value) in tuple_value.iter_fields().enumerate() {
-                if let Some(v) = self.field_mut(i) {
-                    v.try_apply(value)?;
-                }
-            }
-        } else {
-            return Err(ApplyError::MismatchedKinds {
-                from_kind: value.reflect_kind(),
-                to_kind: ReflectKind::TupleStruct,
-            });
-        }
-        Ok(())
-    }
-
-    fn reflect_ref(&self) -> ReflectRef {
-        ReflectRef::TupleStruct(self)
-    }
-
-    fn reflect_mut(&mut self) -> ReflectMut {
-        ReflectMut::TupleStruct(self)
-    }
-
-    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::TupleStruct(self)
-    }
-
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new((*self).clone())
-    }
-}
-
-// We have to implement `Reflect` manually because of the embedded `Box<dyn
-// AnimationCurve>`, which can't be automatically derived yet.
-impl Reflect for VariableCurve {
-    #[inline]
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline]
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    #[inline]
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    #[inline]
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    #[inline]
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    #[inline]
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-}
-
-// We have to implement `TupleStruct` manually because of the embedded `Box<dyn
-// AnimationCurve>`, which can't be automatically derived yet.
-impl TupleStruct for VariableCurve {
-    fn field(&self, index: usize) -> Option<&dyn PartialReflect> {
-        match index {
-            0 => Some(self.0.as_partial_reflect()),
-            _ => None,
-        }
-    }
-
-    fn field_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        match index {
-            0 => Some(self.0.as_partial_reflect_mut()),
-            _ => None,
-        }
-    }
-
-    fn field_len(&self) -> usize {
-        1
-    }
-
-    fn iter_fields(&self) -> TupleStructFieldIter {
-        TupleStructFieldIter::new(self)
-    }
-
-    fn clone_dynamic(&self) -> DynamicTupleStruct {
-        DynamicTupleStruct::from_iter([PartialReflect::clone_value(&*self.0)])
-    }
-}
-
-// We have to implement `FromReflect` manually because of the embedded `Box<dyn
-// AnimationCurve>`, which can't be automatically derived yet.
-impl FromReflect for VariableCurve {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        Some(reflect.try_downcast_ref::<VariableCurve>()?.clone())
-    }
-}
-
-// We have to implement `GetTypeRegistration` manually because of the embedded
-// `Box<dyn AnimationCurve>`, which can't be automatically derived yet.
-impl GetTypeRegistration for VariableCurve {
-    fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<Self>();
-        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
-        registration
-    }
-}
-
-// We have to implement `Typed` manually because of the embedded `Box<dyn
-// AnimationCurve>`, which can't be automatically derived yet.
-impl Typed for VariableCurve {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| {
-            TypeInfo::TupleStruct(TupleStructInfo::new::<Self>(&[UnnamedField::new::<()>(0)]))
-        })
-    }
-}
-
 /// A list of [`VariableCurve`]s and the [`AnimationTargetId`]s to which they
 /// apply.
 ///
@@ -276,6 +102,7 @@ impl Typed for VariableCurve {
 /// [`AnimationTarget`] with that ID.
 #[derive(Asset, Reflect, Clone, Debug, Default)]
 pub struct AnimationClip {
+    #[reflect(ignore)]
     curves: AnimationCurves,
     events: AnimationEvents,
     duration: f32,

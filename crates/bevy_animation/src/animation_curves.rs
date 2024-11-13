@@ -91,7 +91,7 @@ use bevy_math::{
     },
     Quat, Vec3,
 };
-use bevy_reflect::{FromReflect, Reflect, Reflectable, TypePath};
+use bevy_reflect::{FromReflect, Reflect, Reflectable};
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_transform::prelude::Transform;
 
@@ -100,6 +100,7 @@ use crate::{
     prelude::{Animatable, BlendInput},
     AnimationEntityMut, AnimationEvaluationError,
 };
+use downcast_rs::{impl_downcast, Downcast};
 
 /// A value on a component that Bevy can animate.
 ///
@@ -160,17 +161,83 @@ use crate::{
 /// configured above).
 ///
 /// [`AnimationClip`]: crate::AnimationClip
-pub trait AnimatableProperty: Reflect + TypePath {
+pub trait AnimatableProperty {
     /// The type of the component that the property lives on.
     type Component: Component;
 
     /// The type of the property to be animated.
-    type Property: Animatable + FromReflect + Reflectable + Clone + Sync + Debug;
+    type Property: Animatable + Clone + Sync + Debug;
 
     /// Given a reference to the component, returns a reference to the property.
     ///
     /// If the property couldn't be found, returns `None`.
-    fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property>;
+    fn get_mut<'a>(&self, component: &'a mut Self::Component) -> Option<&'a mut Self::Property>;
+}
+
+/// A [`Component`] property that can be animated, defined by a function that reads the component and returns
+/// the accessed field / property.
+#[derive(Clone)]
+pub struct AnimatedProperty<C, P, F: Fn(&mut C) -> &mut P> {
+    func: F,
+    marker: PhantomData<(C, P)>,
+}
+
+impl<C, P, F> AnimatableProperty for AnimatedProperty<C, P, F>
+where
+    C: Component,
+    P: Animatable + Clone + Sync + Debug,
+    F: Fn(&mut C) -> &mut P,
+{
+    type Component = C;
+
+    type Property = P;
+
+    fn get_mut<'a>(&self, component: &'a mut Self::Component) -> Option<&'a mut Self::Property> {
+        Some((self.func)(component))
+    }
+}
+
+impl<C, P, F: Fn(&mut C) -> &mut P + 'static> AnimatedProperty<C, P, F> {
+    /// Creates a new instance of [`AnimatedProperty`]
+    pub fn new(func: F) -> Self {
+        Self {
+            func,
+            marker: PhantomData,
+        }
+    }
+}
+
+/// A [`Component`] property that can be animated, defined by a function that reads the component and returns
+/// either the accessed field / property, or [`None`] if it does not exist
+#[derive(Clone)]
+pub struct AnimatedPropertyOptional<C, P, F: Fn(&mut C) -> Option<&mut P>> {
+    func: F,
+    marker: PhantomData<(C, P)>,
+}
+
+impl<C, P, F> AnimatableProperty for AnimatedPropertyOptional<C, P, F>
+where
+    C: Component,
+    P: Animatable + Clone + Sync + Debug,
+    F: Fn(&mut C) -> Option<&mut P>,
+{
+    type Component = C;
+
+    type Property = P;
+
+    fn get_mut<'a>(&self, component: &'a mut Self::Component) -> Option<&'a mut Self::Property> {
+        (self.func)(component)
+    }
+}
+
+impl<C, P, F: Fn(&mut C) -> Option<&mut P> + 'static> AnimatedPropertyOptional<C, P, F> {
+    /// Creates a new instance of [`AnimatedPropertyOptional`]
+    pub fn new(func: F) -> Self {
+        Self {
+            func,
+            marker: PhantomData,
+        }
+    }
 }
 
 /// This trait collects the additional requirements on top of [`Curve<T>`] needed for a
@@ -187,12 +254,14 @@ impl<T, C> AnimationCompatibleCurve<T> for C where C: Curve<T> + Debug + Clone +
 #[derive(Reflect, FromReflect)]
 #[reflect(from_reflect = false)]
 pub struct AnimatableCurve<P, C> {
+    /// The property selector, which defines what component to access and how to access
+    /// a property on that component.
+    pub property: P,
+
     /// The inner [curve] whose values are used to animate the property.
     ///
     /// [curve]: Curve
     pub curve: C,
-    #[reflect(ignore)]
-    _phantom: PhantomData<P>,
 }
 
 /// An [`AnimatableCurveEvaluator`] for [`AnimatableProperty`] instances.
@@ -205,8 +274,7 @@ where
     P: AnimatableProperty,
 {
     evaluator: BasicAnimationCurveEvaluator<P::Property>,
-    #[reflect(ignore)]
-    phantom: PhantomData<P>,
+    property: P,
 }
 
 impl<P, C> AnimatableCurve<P, C>
@@ -218,22 +286,20 @@ where
     /// valued in an [animatable property].
     ///
     /// [animatable property]: AnimatableProperty::Property
-    pub fn from_curve(curve: C) -> Self {
-        Self {
-            curve,
-            _phantom: PhantomData,
-        }
+    pub fn new(property: P, curve: C) -> Self {
+        Self { property, curve }
     }
 }
 
 impl<P, C> Clone for AnimatableCurve<P, C>
 where
     C: Clone,
+    P: Clone,
 {
     fn clone(&self) -> Self {
         Self {
             curve: self.curve.clone(),
-            _phantom: PhantomData,
+            property: self.property.clone(),
         }
     }
 }
@@ -249,10 +315,10 @@ where
     }
 }
 
-impl<P, C> AnimationCurve for AnimatableCurve<P, C>
+impl<P: Send + Sync + 'static, C> AnimationCurve for AnimatableCurve<P, C>
 where
-    P: AnimatableProperty,
-    C: AnimationCompatibleCurve<P::Property>,
+    P: AnimatableProperty + Clone,
+    C: AnimationCompatibleCurve<P::Property> + Clone,
 {
     fn clone_value(&self) -> Box<dyn AnimationCurve> {
         Box::new(self.clone())
@@ -269,7 +335,7 @@ where
     fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
         Box::new(AnimatableCurveEvaluator {
             evaluator: BasicAnimationCurveEvaluator::default(),
-            phantom: PhantomData::<P>,
+            property: self.property.clone(),
         })
     }
 
@@ -280,7 +346,7 @@ where
         weight: f32,
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
+        let curve_evaluator = curve_evaluator
             .downcast_mut::<AnimatableCurveEvaluator<P>>()
             .unwrap();
         let value = self.curve.sample_clamped(t);
@@ -298,7 +364,7 @@ where
 
 impl<P> AnimationCurveEvaluator for AnimatableCurveEvaluator<P>
 where
-    P: AnimatableProperty,
+    P: AnimatableProperty + Send + Sync + 'static,
 {
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
         self.evaluator.combine(graph_node, /*additive=*/ false)
@@ -324,7 +390,9 @@ where
         let mut component = entity.get_mut::<P::Component>().ok_or_else(|| {
             AnimationEvaluationError::ComponentNotPresent(TypeId::of::<P::Component>())
         })?;
-        let property = P::get_mut(&mut component)
+        let property = self
+            .property
+            .get_mut(&mut component)
             .ok_or_else(|| AnimationEvaluationError::PropertyNotPresent(TypeId::of::<P>()))?;
         *property = self
             .evaluator
@@ -382,7 +450,7 @@ where
         weight: f32,
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
+        let curve_evaluator = curve_evaluator
             .downcast_mut::<TranslationCurveEvaluator>()
             .unwrap();
         let value = self.0.sample_clamped(t);
@@ -479,7 +547,7 @@ where
         weight: f32,
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
+        let curve_evaluator = curve_evaluator
             .downcast_mut::<RotationCurveEvaluator>()
             .unwrap();
         let value = self.0.sample_clamped(t);
@@ -576,7 +644,7 @@ where
         weight: f32,
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
+        let curve_evaluator = curve_evaluator
             .downcast_mut::<ScaleCurveEvaluator>()
             .unwrap();
         let value = self.0.sample_clamped(t);
@@ -704,7 +772,7 @@ where
         weight: f32,
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
+        let curve_evaluator = curve_evaluator
             .downcast_mut::<WeightsCurveEvaluator>()
             .unwrap();
 
@@ -968,7 +1036,7 @@ where
 /// mutated in the implementation of [`apply`].
 ///
 /// [`apply`]: AnimationCurve::apply
-pub trait AnimationCurve: Reflect + Debug + Send + Sync {
+pub trait AnimationCurve: Debug + Send + Sync + 'static {
     /// Returns a boxed clone of this value.
     fn clone_value(&self) -> Box<dyn AnimationCurve>;
 
@@ -1031,7 +1099,7 @@ pub trait AnimationCurve: Reflect + Debug + Send + Sync {
 /// translation keyframes.  The stack stores intermediate values generated while
 /// evaluating the [`crate::graph::AnimationGraph`], while the blend register
 /// stores the result of a blend operation.
-pub trait AnimationCurveEvaluator: Reflect {
+pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     /// Blends the top element of the stack with the blend register.
     ///
     /// The semantics of this method are as follows:
@@ -1098,6 +1166,8 @@ pub trait AnimationCurveEvaluator: Reflect {
         entity: AnimationEntityMut<'a>,
     ) -> Result<(), AnimationEvaluationError>;
 }
+
+impl_downcast!(AnimationCurveEvaluator);
 
 /// A [curve] defined by keyframes with values in an [animatable] type.
 ///
