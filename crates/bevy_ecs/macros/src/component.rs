@@ -82,7 +82,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         for require in requires {
             let ident = &require.path;
             register_recursive_requires.push(quote! {
-                <#ident as Component>::register_required_components(
+                <#ident as #bevy_ecs_path::component::Component>::register_required_components(
                     requiree,
                     components,
                     storages,
