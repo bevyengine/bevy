@@ -30,7 +30,7 @@ pub struct SystemIdMarker;
 /// A system that has been removed from the registry.
 /// It contains the system and whether or not it has been initialized.
 ///
-/// This struct is returned by [`World::remove_system`].
+/// This struct is returned by [`World::unregister_system`].
 pub struct RemovedSystem<I = (), O = ()> {
     initialized: bool,
     system: BoxedSystem<I, O>,
@@ -172,7 +172,7 @@ impl World {
     ///
     /// If no system corresponds to the given [`SystemId`], this method returns an error.
     /// Systems are also not allowed to remove themselves, this returns an error too.
-    pub fn remove_system<I, O>(
+    pub fn unregister_system<I, O>(
         &mut self,
         id: SystemId<I, O>,
     ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>>
@@ -412,7 +412,7 @@ impl World {
     /// Removes a cached system and its [`CachedSystemId`] resource.
     ///
     /// See [`World::register_system_cached`] for more information.
-    pub fn remove_system_cached<I, O, M, S>(
+    pub fn unregister_system_cached<I, O, M, S>(
         &mut self,
         _system: S,
     ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>>
@@ -424,7 +424,7 @@ impl World {
         let id = self
             .remove_resource::<CachedSystemId<S::System>>()
             .ok_or(RegisteredSystemError::SystemNotCached)?;
-        self.remove_system(id.0)
+        self.unregister_system(id.0)
     }
 
     /// Runs a cached system, registering it if necessary.
@@ -541,6 +541,32 @@ where
         if let Ok(mut entity) = world.get_entity_mut(self.entity) {
             entity.insert(system_bundle(self.system));
         }
+    }
+}
+
+/// The [`Command`] type for unregistering one-shot systems from [`Commands`](crate::system::Commands).
+pub struct UnregisterSystem<I: SystemInput + 'static, O: 'static> {
+    system_id: SystemId<I, O>,
+}
+
+impl<I, O> UnregisterSystem<I, O>
+where
+    I: SystemInput + 'static,
+    O: 'static,
+{
+    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands).
+    pub fn new(system_id: SystemId<I, O>) -> Self {
+        Self { system_id }
+    }
+}
+
+impl<I, O> Command for UnregisterSystem<I, O>
+where
+    I: SystemInput + 'static,
+    O: 'static,
+{
+    fn apply(self, world: &mut World) {
+        let _ = world.unregister_system(self.system_id);
     }
 }
 
@@ -834,7 +860,7 @@ mod tests {
         let new = world.register_system_cached(four);
         assert_eq!(old, new);
 
-        let result = world.remove_system_cached(four);
+        let result = world.unregister_system_cached(four);
         assert!(result.is_ok());
         let new = world.register_system_cached(four);
         assert_ne!(old, new);
