@@ -30,6 +30,7 @@ struct MyComponent(KeyCode);
 
 impl Component for MyComponent {
     const STORAGE_TYPE: StorageType = StorageType::Table;
+    type Mutable = Self;
 
     /// Hooks can also be registered during component initialization by
     /// implementing `register_component_hooks`

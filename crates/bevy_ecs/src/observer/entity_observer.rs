@@ -1,5 +1,5 @@
 use crate::{
-    component::{Component, ComponentHooks, ComponentMut, StorageType},
+    component::{Component, ComponentHooks, StorageType},
     entity::Entity,
     observer::ObserverState,
 };
@@ -10,6 +10,7 @@ pub(crate) struct ObservedBy(pub(crate) Vec<Entity>);
 
 impl Component for ObservedBy {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    type Mutable = Self;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_remove(|mut world, entity, _| {
@@ -40,5 +41,3 @@ impl Component for ObservedBy {
         });
     }
 }
-
-impl ComponentMut for ObservedBy {}

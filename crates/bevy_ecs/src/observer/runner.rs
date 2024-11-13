@@ -1,7 +1,7 @@
 use core::any::Any;
 
 use crate::{
-    component::{ComponentHook, ComponentHooks, ComponentId, ComponentMut, StorageType},
+    component::{ComponentHook, ComponentHooks, ComponentId, StorageType},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
@@ -62,6 +62,7 @@ impl ObserverState {
 
 impl Component for ObserverState {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    type Mutable = Self;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|mut world, entity, _| {
@@ -84,8 +85,6 @@ impl Component for ObserverState {
         });
     }
 }
-
-impl ComponentMut for ObserverState {}
 
 /// Type for function that is run when an observer is triggered.
 ///
@@ -316,6 +315,7 @@ impl Observer {
 
 impl Component for Observer {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    type Mutable = Self;
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|world, entity, _id| {
             let Some(observe) = world.get::<Self>(entity) else {
@@ -326,8 +326,6 @@ impl Component for Observer {
         });
     }
 }
-
-impl ComponentMut for Observer {}
 
 fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     mut world: DeferredWorld,

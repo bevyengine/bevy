@@ -68,6 +68,7 @@ impl Default for OrderIndependentTransparencySettings {
 // we can hook on_add to issue a warning in case `layer_count` is seemingly too high.
 impl Component for OrderIndependentTransparencySettings {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    type Mutable = Self;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|world, entity, _| {
@@ -79,8 +80,6 @@ impl Component for OrderIndependentTransparencySettings {
         });
     }
 }
-
-impl ComponentMut for OrderIndependentTransparencySettings {}
 
 /// A plugin that adds support for Order Independent Transparency (OIT).
 /// This can correctly render some scenes that would otherwise have artifacts due to alpha blending, but uses more memory.

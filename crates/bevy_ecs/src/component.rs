@@ -388,6 +388,18 @@ pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
 
+    /// A marker type to assist Bevy with determining if this component is
+    /// mutable, or immutable. Mutable components will have [`ComponentMut`]
+    /// automatically implemented for them, while immutable components will
+    /// receive [`ComponentImmutable`].
+    ///
+    /// * For a component to be mutable, this type must be `Self`.
+    /// * For a component to be immutable, this type must be `()`.
+    ///
+    /// If you use any other type, this component will be immutable but will not
+    /// implement [`ComponentImmutable`].
+    type Mutable;
+
     /// Called when registering this component, allowing mutable access to its [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
 
@@ -405,12 +417,24 @@ pub trait Component: Send + Sync + 'static {
 /// Marks that a [`Component`] is mutable.
 /// Without this marker, a component is immutable.
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a `ComponentMut`",
-    label = "invalid `ComponentMut`",
+    message = "`{Self}` is not a mutable `Component`",
+    label = "invalid mutable `Component`",
     note = "consider annotating `{Self}` with `#[derive(Component)]`",
     note = "if `{Self}` is a `Component`, it is immutable"
 )]
-pub trait ComponentMut: Component {}
+pub trait ComponentMut: Component<Mutable = Self> {}
+
+impl<C: Component<Mutable = Self>> ComponentMut for C {}
+
+/// Marks that a [`Component`] is immutable.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an immutable `Component`",
+    label = "invalid immutable `Component`",
+    note = "consider annotating `{Self}` with `#[derive(Component)]` and #[component(immutable)]"
+)]
+pub trait ComponentImmutable: Component<Mutable = ()> {}
+
+impl<C: Component<Mutable = ()>> ComponentImmutable for C {}
 
 /// The storage used for a specific component type.
 ///
