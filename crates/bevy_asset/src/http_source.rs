@@ -36,7 +36,7 @@ impl WebAssetReader {
         .join(path)
     }
 
-    /// See [crate::io::get_meta_path]
+    /// See [`crate::io::get_meta_path`]
     fn make_meta_uri(&self, path: &Path) -> Option<PathBuf> {
         let mut uri = self.make_uri(path);
         let mut extension = path.extension()?.to_os_string();
