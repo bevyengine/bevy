@@ -243,7 +243,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// # use bevy_scene::DynamicSceneBuilder;
     /// # use bevy_ecs::reflect::AppTypeRegistry;
     /// # use bevy_ecs::{
-    /// #     component::Component, prelude::Entity, query::With, reflect::ReflectComponent, world::World,
+    /// #     component::Component, prelude::Entity, query::With, reflect::{ReflectComponent, ReflectComponentMut}, world::World,
     /// # };
     /// # use bevy_reflect::Reflect;
     /// #[derive(Component, Default, Reflect)]
