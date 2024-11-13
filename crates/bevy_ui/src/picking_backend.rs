@@ -94,15 +94,15 @@ pub fn ui_picking(
             let Ok((_, camera_data, _)) = camera_query.get(camera) else {
                 continue;
             };
-            let mut pointer_pos = pointer_location.position;
+            let mut pointer_pos =
+                pointer_location.position * camera_data.target_scaling_factor().unwrap_or(1.);
             if let Some(viewport) = camera_data.physical_viewport_rect() {
                 pointer_pos -= viewport.min.as_vec2();
             }
-            let scaled_pointer_pos = pointer_pos;
             pointer_pos_by_camera
                 .entry(camera)
                 .or_default()
-                .insert(pointer_id, scaled_pointer_pos);
+                .insert(pointer_id, pointer_pos);
         }
     }
 

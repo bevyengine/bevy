@@ -1,6 +1,5 @@
 use crate::{
-    CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, TargetCamera, UiScale,
-    UiStack,
+    CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, TargetCamera, UiStack,
 };
 use bevy_ecs::{
     change_detection::DetectChangesMut,
