@@ -220,7 +220,7 @@ impl UiSurface {
     fn create_or_update_root_node_data(
         &mut self,
         root_node_entity: Entity,
-        camera_entity: Entity,
+        camera_entity: Option<Entity>,
     ) -> &mut RootNodeData {
         let user_root_node = *self.entity_to_taffy.get(&root_node_entity).expect("create_or_update_root_node_data called before root_node_entity was added to taffy tree or was previously removed");
 
@@ -233,10 +233,12 @@ impl UiSurface {
             .or_insert_with(|| {
                 added = true;
 
-                self.camera_root_nodes
-                    .entry(camera_entity)
-                    .or_default()
-                    .insert(root_node_entity);
+                if let Some(camera_entity) = camera_entity {
+                    self.camera_root_nodes
+                        .entry(camera_entity)
+                        .or_default()
+                        .insert(root_node_entity);
+                }
 
                 let implicit_viewport_node = self.taffy.new_leaf(default_viewport_style()).unwrap();
 
@@ -245,13 +247,13 @@ impl UiSurface {
                     .unwrap();
 
                 RootNodeData {
-                    camera_entity: Some(camera_entity),
+                    camera_entity,
                     implicit_viewport_node,
                 }
             });
 
         if !added {
-            self.replace_camera_association(root_node_entity, Some(camera_entity));
+            self.replace_camera_association(root_node_entity, camera_entity);
         }
 
         self.root_node_data
@@ -270,7 +272,7 @@ impl UiSurface {
 
         for ui_entity in children {
             // creates mutable borrow on self that lives as long as the result
-            let _ = self.create_or_update_root_node_data(ui_entity, camera_entity);
+            let _ = self.create_or_update_root_node_data(ui_entity, Some(camera_entity));
 
             // drop the mutable borrow on self by re-fetching
             let root_node_data = self
