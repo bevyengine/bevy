@@ -40,7 +40,8 @@ fn demo_1(world: &mut World) {
 }
 
 /// This is an example of a component like [`Name`](bevy::prelude::Name), but immutable.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Component)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Component, Reflect)]
+#[reflect(Hash, Component)]
 #[component(
     immutable,
     // Since this component is immutable, we can fully capture all mutations through
