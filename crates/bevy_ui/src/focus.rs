@@ -200,13 +200,13 @@ pub fn ui_focus_system(
             };
 
             let viewport_position = camera
-                .logical_viewport_rect()
-                .map(|rect| rect.min)
+                .physical_viewport_rect()
+                .map(|rect| rect.min.as_vec2())
                 .unwrap_or_default();
             windows
                 .get(window_ref.entity())
                 .ok()
-                .and_then(Window::cursor_position)
+                .and_then(Window::physical_cursor_position)
                 .or_else(|| touches_input.first_pressed_position())
                 .map(|cursor_position| (entity, cursor_position - viewport_position))
         })
