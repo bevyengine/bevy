@@ -204,6 +204,19 @@ pub fn ui_layout_system(
         }
     );
 
+    let promoted_root_ui_nodes = removed_components
+        .removed_parents
+        .read()
+        .filter(|&entity| root_nodes.is_root_node(entity));
+
+    for entity in promoted_root_ui_nodes {
+        ui_surface.promote_ui_node(entity);
+    }
+
+    for (entity, parent) in root_nodes.iter_demoted_root_nodes() {
+        ui_surface.demote_ui_node(entity, parent.get());
+    }
+
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_components.removed_content_sizes.read() {
         ui_surface.try_remove_node_context(entity);
