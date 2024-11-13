@@ -305,7 +305,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 None,
                 &mut node_transform_query,
                 &ui_children,
-                inverse_target_scale_factor,
+                //inverse_target_scale_factor,
                 Vec2::ZERO,
                 Vec2::ZERO,
             );
@@ -330,7 +330,7 @@ with UI components as a child of an entity without UI components, your UI layout
             Option<&ScrollPosition>,
         )>,
         ui_children: &UiChildren,
-        inverse_target_scale_factor: f32,
+        //inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
     ) {
@@ -343,15 +343,13 @@ with UI components as a child of an entity without UI components, your UI layout
             maybe_scroll_position,
         )) = node_transform_query.get_mut(entity)
         {
-            let Ok((layout, unrounded_unscaled_size)) = ui_surface.get_layout(entity) else {
+            let Ok((layout, unrounded_size)) = ui_surface.get_layout(entity) else {
                 return;
             };
 
-            let layout_size =
-                inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
-            let unrounded_size = inverse_target_scale_factor * unrounded_unscaled_size;
-            let layout_location =
-                inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
+            let layout_size = Vec2::new(layout.size.width, layout.size.height);
+
+            let layout_location = Vec2::new(layout.location.x, layout.location.y);
 
             // The position of the center of the node, stored in the node's transform
             let node_center =
@@ -364,10 +362,10 @@ with UI components as a child of an entity without UI components, your UI layout
             }
 
             let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
-                left: rect.left * inverse_target_scale_factor,
-                right: rect.right * inverse_target_scale_factor,
-                top: rect.top * inverse_target_scale_factor,
-                bottom: rect.bottom * inverse_target_scale_factor,
+                left: rect.left,
+                right: rect.right,
+                top: rect.top,
+                bottom: rect.bottom,
             };
 
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
@@ -422,8 +420,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 })
                 .unwrap_or_default();
 
-            let content_size = Vec2::new(layout.content_size.width, layout.content_size.height)
-                * inverse_target_scale_factor;
+            let content_size = Vec2::new(layout.content_size.width, layout.content_size.height);
             let max_possible_offset = (content_size - layout_size).max(Vec2::ZERO);
             let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
 
@@ -441,7 +438,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     Some(viewport_size),
                     node_transform_query,
                     ui_children,
-                    inverse_target_scale_factor,
+                    //inverse_target_scale_factor,
                     layout_size,
                     clamped_scroll_position,
                 );
