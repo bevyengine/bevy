@@ -1451,4 +1451,86 @@ mod tests {
         // only root node and implicit viewport left
         assert_eq!(ui_surface.taffy.total_node_count(), 2);
     }
+
+    #[test]
+    /// test to make sure the ui updates when root nodes become children of other nodes during runtime
+    fn ui_demotion_from_root_to_child() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let ui_entity1 = world.spawn(Node::default()).id();
+        let ui_entity2 = world.spawn(Node::default()).id();
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity1));
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity2));
+        assert_eq!(ui_surface.taffy.total_node_count(), 4);
+
+        world.commands().entity(ui_entity1).add_child(ui_entity2);
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity1));
+        assert!(!ui_surface.root_node_data.contains_key(&ui_entity2));
+        assert_eq!(ui_surface.taffy.total_node_count(), 3);
+        let taffy_parent = ui_surface.entity_to_taffy.get(&ui_entity1).unwrap();
+        let taffy_child = ui_surface.entity_to_taffy.get(&ui_entity2).unwrap();
+        assert_eq!(
+            ui_surface.taffy.parent(*taffy_child).unwrap(),
+            *taffy_parent
+        );
+    }
+
+    #[test]
+    fn ui_promotion_from_child_to_root() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let camera_1 = world
+            .query_filtered::<Entity, With<Camera>>()
+            .get_single(&world)
+            .expect("expected camera");
+        let camera_2 = world.spawn((Camera2d, IsDefaultUiCamera)).id();
+        let ui_entity1 = world.spawn((Node::default(), TargetCamera(camera_1))).id();
+        let ui_entity2 = world.spawn(Node::default()).id();
+        world.commands().entity(ui_entity1).add_child(ui_entity2);
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        let ui_entity2_taffy = *ui_surface.entity_to_taffy.get(&ui_entity2).unwrap();
+        let original_ui_entity2_taffy_parent = ui_surface.taffy.parent(ui_entity2_taffy);
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity1));
+        assert!(!ui_surface.root_node_data.contains_key(&ui_entity2));
+        assert_eq!(ui_surface.taffy.total_node_count(), 3);
+        // end setup
+
+        // promote the ui node to a root node by removing its parent
+        world.commands().entity(ui_entity2).remove_parent();
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        let implicit_viewport_node_id = ui_surface
+            .root_node_data
+            .get(&ui_entity2)
+            .map(|rnd| rnd.implicit_viewport_node);
+        let current_ui_entity2_taffy_parent = ui_surface.taffy.parent(ui_entity2_taffy);
+        // parent should be an implicit view node, not the old parent
+        assert_eq!(implicit_viewport_node_id, current_ui_entity2_taffy_parent);
+        assert_ne!(implicit_viewport_node_id, original_ui_entity2_taffy_parent);
+
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity1));
+        assert!(ui_surface.root_node_data.contains_key(&ui_entity2));
+
+        // camera 2 should not have any ui nodes associated
+        assert_eq!(
+            ui_surface.camera_root_nodes.get(&camera_2),
+            Some(&Default::default())
+        );
+
+        // total node count should have increased by 1 to account for the new implicit view node
+        assert_eq!(ui_surface.taffy.total_node_count(), 4);
+    }
 }
