@@ -20,7 +20,7 @@ use bevy_ecs::{
     entity::Entity,
     observer::Trigger,
     query::With,
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectComponentMut},
     system::{Commands, Local, Query},
     world::{OnRemove, Ref},
 };
@@ -50,7 +50,7 @@ impl Plugin for CursorPlugin {
 
 /// Insert into a window entity to set the cursor for that window.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
-#[reflect(Component, Debug, Default, PartialEq)]
+#[reflect(ComponentMut, Component, Debug, Default, PartialEq)]
 pub enum CursorIcon {
     #[cfg(feature = "custom_cursor")]
     /// Custom cursor image.

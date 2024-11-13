@@ -82,7 +82,7 @@ pub enum SpriteSystem {
 ///
 /// Right now, this is used for `Text`.
 #[derive(Component, Reflect, Clone, Copy, Debug, Default)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 pub struct SpriteSource;
 
 /// A convenient alias for `Or<With<Sprite>, With<SpriteSource>>`, for use with

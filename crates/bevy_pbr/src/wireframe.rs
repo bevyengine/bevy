@@ -58,7 +58,7 @@ impl Plugin for WireframePlugin {
 ///
 /// This requires the [`WireframePlugin`] to be enabled.
 #[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(ComponentMut, Component, Default, Debug, PartialEq)]
 pub struct Wireframe;
 
 /// Sets the color of the [`Wireframe`] of the entity it is attached to.
@@ -71,7 +71,7 @@ pub struct Wireframe;
 // This could blow up in size if people use random colored wireframes for each mesh.
 // It will also be important to remove unused materials from the cache.
 #[derive(Component, Debug, Clone, Default, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 pub struct WireframeColor {
     pub color: Color,
 }
@@ -81,7 +81,7 @@ pub struct WireframeColor {
 ///
 /// This requires the [`WireframePlugin`] to be enabled.
 #[derive(Component, Debug, Clone, Default, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(ComponentMut, Component, Default, Debug, PartialEq)]
 pub struct NoWireframe;
 
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]

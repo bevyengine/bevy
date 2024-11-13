@@ -1,5 +1,5 @@
 use crate::{
-    component::{Component, ComponentHooks, StorageType},
+    component::{Component, ComponentHooks, ComponentMut, StorageType},
     entity::Entity,
     observer::ObserverState,
 };
@@ -40,3 +40,5 @@ impl Component for ObservedBy {
         });
     }
 }
+
+impl ComponentMut for ObservedBy {}

@@ -6,7 +6,7 @@ use bevy_ecs::{
     entity::Entity,
     observer::Trigger,
     query::With,
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectComponentMut},
     system::{Local, Query, ResMut, Resource, SystemState},
     world::{Mut, OnAdd, OnRemove, World},
 };
@@ -118,7 +118,7 @@ impl Plugin for SyncWorldPlugin {
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect[Component]]
+#[reflect[ComponentMut, Component]]
 #[component(storage = "SparseSet")]
 pub struct SyncToRenderWorld;
 

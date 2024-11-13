@@ -12,7 +12,9 @@ use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     entity::Entity,
     event::EventReader,
-    prelude::{ReflectComponent, With},
+    prelude::{
+        With, {ReflectComponent, ReflectComponentMut},
+    },
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
@@ -88,7 +90,7 @@ pub struct Text2dBundle {}
 /// ));
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 #[require(
     TextLayout,
     TextFont,

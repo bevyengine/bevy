@@ -6,7 +6,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectComponentMut},
     system::{ResMut, Resource},
 };
 use bevy_image::Image;
@@ -396,7 +396,7 @@ impl TextPipeline {
 /// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`] when an entity has
 /// [`TextLayout`] and [`ComputedTextBlock`] components.
 #[derive(Component, Clone, Default, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 pub struct TextLayoutInfo {
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,

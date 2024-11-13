@@ -11,7 +11,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     event::EventReader,
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectComponentMut},
     system::{Res, ResMut, Resource},
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect, ReflectSerialize};
@@ -127,7 +127,7 @@ pub struct AnimationGraph {
 
 /// A [`Handle`] to the [`AnimationGraph`] to be used by the [`AnimationPlayer`](crate::AnimationPlayer) on the same entity.
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
-#[reflect(Component, Default)]
+#[reflect(ComponentMut, Component, Default)]
 pub struct AnimationGraphHandle(pub Handle<AnimationGraph>);
 
 impl From<AnimationGraphHandle> for AssetId<AnimationGraph> {

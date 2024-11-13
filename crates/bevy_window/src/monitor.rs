@@ -1,4 +1,7 @@
-use bevy_ecs::{component::Component, prelude::ReflectComponent};
+use bevy_ecs::{
+    component::Component,
+    prelude::{ReflectComponent, ReflectComponentMut},
+};
 use bevy_math::{IVec2, UVec2};
 use bevy_reflect::Reflect;
 
@@ -21,7 +24,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Component, Debug)]
+#[reflect(ComponentMut, Component, Debug)]
 pub struct Monitor {
     /// The name of the monitor
     pub name: Option<String>,
@@ -41,7 +44,7 @@ pub struct Monitor {
 
 /// A marker component for the primary monitor
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Debug)]
+#[reflect(ComponentMut, Component, Debug)]
 pub struct PrimaryMonitor;
 
 impl Monitor {

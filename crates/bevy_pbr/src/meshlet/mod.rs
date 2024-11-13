@@ -70,7 +70,7 @@ use bevy_ecs::{
     entity::Entity,
     prelude::With,
     query::Has,
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectComponentMut},
     schedule::IntoSystemConfigs,
     system::{Commands, Query},
 };
@@ -299,7 +299,7 @@ impl Plugin for MeshletPlugin {
 
 /// The meshlet mesh equivalent of [`bevy_render::mesh::Mesh3d`].
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
-#[reflect(Component, Default)]
+#[reflect(ComponentMut, Component, Default)]
 #[require(Transform, PreviousGlobalTransform, Visibility)]
 pub struct MeshletMesh3d(pub Handle<MeshletMesh>);
 

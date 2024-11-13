@@ -1,4 +1,7 @@
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{
+    component::Component,
+    reflect::{ReflectComponent, ReflectComponentMut},
+};
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
@@ -11,7 +14,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// reliable limit if it is necessary to contain the text strictly in the bounds. Currently this
 /// component is mainly useful for text wrapping only.
 #[derive(Component, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 pub struct TextBounds {
     /// The maximum width of text in logical pixels.
     /// If `None`, the width is unbounded.

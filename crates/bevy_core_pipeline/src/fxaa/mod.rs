@@ -51,7 +51,7 @@ impl Sensitivity {
 /// A component for enabling Fast Approximate Anti-Aliasing (FXAA)
 /// for a [`bevy_render::camera::Camera`].
 #[derive(Reflect, Component, Clone, ExtractComponent)]
-#[reflect(Component, Default)]
+#[reflect(ComponentMut, Component, Default)]
 #[extract_component_filter(With<Camera>)]
 #[doc(alias = "FastApproximateAntiAliasing")]
 pub struct Fxaa {

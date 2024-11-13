@@ -35,7 +35,7 @@ use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectComponentMut},
     schedule::IntoSystemConfigs,
     system::{Query, Res, ResMut, Resource},
 };
@@ -70,7 +70,7 @@ pub struct LightmapPlugin;
 /// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_render::mesh::Mesh::ATTRIBUTE_UV_1)),
 /// then the lightmap will render using those UVs.
 #[derive(Component, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(ComponentMut, Component, Default)]
 pub struct Lightmap {
     /// The lightmap texture.
     pub image: Handle<Image>,

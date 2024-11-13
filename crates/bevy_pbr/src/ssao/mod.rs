@@ -11,7 +11,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{Has, QueryItem, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectComponentMut},
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
@@ -163,7 +163,7 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 ///
 /// SSAO is not supported on `WebGL2`, and is not currently supported on `WebGPU`.
 #[derive(Component, ExtractComponent, Reflect, PartialEq, Clone, Debug)]
-#[reflect(Component, Debug, Default, PartialEq)]
+#[reflect(ComponentMut, Component, Debug, Default, PartialEq)]
 #[require(DepthPrepass, NormalPrepass)]
 #[doc(alias = "Ssao")]
 pub struct ScreenSpaceAmbientOcclusion {

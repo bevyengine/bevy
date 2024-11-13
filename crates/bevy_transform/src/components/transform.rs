@@ -3,7 +3,10 @@ use bevy_math::{Affine3A, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
 use core::ops::Mul;
 #[cfg(feature = "bevy-support")]
 use {
-    bevy_ecs::{component::Component, reflect::ReflectComponent},
+    bevy_ecs::{
+        component::Component,
+        reflect::{ReflectComponent, ReflectComponentMut},
+    },
     bevy_reflect::prelude::*,
 };
 
@@ -42,7 +45,7 @@ use {
     feature = "bevy-support",
     derive(Component, Reflect),
     require(GlobalTransform),
-    reflect(Component, Default, PartialEq, Debug)
+    reflect(ComponentMut, Component, Default, PartialEq, Debug)
 )]
 #[cfg_attr(
     all(feature = "bevy-support", feature = "serialize"),

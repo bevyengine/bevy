@@ -10,7 +10,7 @@ use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     prelude::Component,
     query::With,
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectComponentMut},
     system::{Local, Query, Res, ResMut},
     world::{Mut, Ref},
 };
@@ -31,7 +31,7 @@ use taffy::style::AvailableSpace;
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 pub struct TextNodeFlags {
     /// If set then a new measure function for the text node will be created.
     needs_measure_fn: bool,
@@ -102,7 +102,7 @@ pub struct TextBundle {}
 /// ));
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 #[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
 pub struct Text(pub String);
 

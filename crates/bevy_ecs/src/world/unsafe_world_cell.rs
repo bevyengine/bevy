@@ -7,7 +7,9 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::{MaybeUnsafeCellLocation, MutUntyped, Ticks, TicksMut},
-    component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
+    component::{
+        ComponentId, ComponentMut, ComponentTicks, Components, StorageType, Tick, TickCells,
+    },
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
     prelude::Component,
@@ -843,7 +845,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
-    pub unsafe fn get_mut<T: Component>(self) -> Option<Mut<'w, T>> {
+    pub unsafe fn get_mut<T: ComponentMut>(self) -> Option<Mut<'w, T>> {
         // SAFETY: same safety requirements
         unsafe { self.get_mut_using_ticks(self.world.last_change_tick(), self.world.change_tick()) }
     }
@@ -853,7 +855,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
-    pub(crate) unsafe fn get_mut_using_ticks<T: Component>(
+    pub(crate) unsafe fn get_mut_using_ticks<T: ComponentMut>(
         &self,
         last_change_tick: Tick,
         change_tick: Tick,
@@ -971,6 +973,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// It is the callers responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
+    /// - the component implements [`ComponentMut`]
     #[inline]
     pub unsafe fn get_mut_by_id(self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
         let info = self.world.components().get_info(component_id)?;

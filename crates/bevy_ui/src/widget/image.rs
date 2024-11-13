@@ -12,7 +12,7 @@ use taffy::{MaybeMath, MaybeResolve};
 
 /// A UI Node that renders an image.
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 #[require(Node, ImageNodeSize, ContentSize)]
 pub struct ImageNode {
     /// The tint color used to draw the image.
@@ -175,7 +175,7 @@ impl NodeImageMode {
 ///
 /// This component is updated automatically by [`update_image_content_size_system`]
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 pub struct ImageNodeSize {
     /// The size of the image's texture
     ///

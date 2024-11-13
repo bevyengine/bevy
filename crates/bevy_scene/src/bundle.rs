@@ -116,13 +116,15 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         entity::Entity,
-        prelude::{AppTypeRegistry, ReflectComponent, World},
+        prelude::{
+            AppTypeRegistry, World, {ReflectComponent, ReflectComponentMut},
+        },
     };
     use bevy_hierarchy::{Children, HierarchyPlugin};
     use bevy_reflect::Reflect;
 
     #[derive(Component, Reflect, Default)]
-    #[reflect(Component)]
+    #[reflect(ComponentMut, Component)]
     struct ComponentA {
         pub x: f32,
         pub y: f32,

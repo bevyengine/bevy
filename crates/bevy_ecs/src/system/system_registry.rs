@@ -1,5 +1,5 @@
 #[cfg(feature = "bevy_reflect")]
-use crate::reflect::ReflectComponent;
+use crate::reflect::{ReflectComponent, ReflectComponentMut};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
@@ -24,7 +24,7 @@ struct RegisteredSystem<I, O> {
 /// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
 #[derive(Component)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Component))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, ComponentMut))]
 pub struct SystemIdMarker;
 
 /// A system that has been removed from the registry.

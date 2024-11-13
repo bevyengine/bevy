@@ -185,7 +185,7 @@ pub mod prelude {
 /// make an entity non-hoverable, or allow items below it to be hovered. See the documentation on
 /// the fields for more details.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(ComponentMut, Component, Default, Debug, PartialEq)]
 pub struct PickingBehavior {
     /// Should this entity block entities below it from being picked?
     ///

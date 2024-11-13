@@ -1,7 +1,10 @@
 use crate::{mesh::Mesh, view::Visibility};
 use bevy_asset::{AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{
+    component::Component,
+    reflect::{ReflectComponent, ReflectComponentMut},
+};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 use derive_more::derive::From;
@@ -34,7 +37,7 @@ use derive_more::derive::From;
 /// }
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
-#[reflect(Component, Default)]
+#[reflect(ComponentMut, Component, Default)]
 #[require(Transform, Visibility)]
 pub struct Mesh2d(pub Handle<Mesh>);
 
@@ -81,7 +84,7 @@ impl From<&Mesh2d> for AssetId<Mesh> {
 /// }
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
-#[reflect(Component, Default)]
+#[reflect(ComponentMut, Component, Default)]
 #[require(Transform, Visibility)]
 pub struct Mesh3d(pub Handle<Mesh>);
 

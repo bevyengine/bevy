@@ -17,7 +17,9 @@ use serde::{Deserialize, Serialize};
 pub struct CameraProjectionPlugin<T: CameraProjection + Component + GetTypeRegistration>(
     PhantomData<T>,
 );
-impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
+impl<T: CameraProjection + ComponentMut + GetTypeRegistration> Plugin
+    for CameraProjectionPlugin<T>
+{
     fn build(&self, app: &mut App) {
         app.register_type::<T>()
             .add_systems(
@@ -97,7 +99,7 @@ pub trait CameraProjection {
 
 /// A configurable [`CameraProjection`] that can select its projection type at runtime.
 #[derive(Component, Debug, Clone, Reflect, From)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 pub enum Projection {
     Perspective(PerspectiveProjection),
     Orthographic(OrthographicProjection),
@@ -148,7 +150,7 @@ impl Default for Projection {
 
 /// A 3D camera projection in which distant objects appear smaller than close objects.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 pub struct PerspectiveProjection {
     /// The vertical field of view (FOV) in radians.
     ///
@@ -340,7 +342,7 @@ pub enum ScalingMode {
 /// });
 /// ```
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Debug, FromWorld)]
+#[reflect(ComponentMut, Component, Debug, FromWorld)]
 pub struct OrthographicProjection {
     /// The distance of the near clipping plane in world units.
     ///

@@ -42,7 +42,7 @@ impl<T> Target<T> {
 }
 
 trait TargetUpdate {
-    type TargetComponent: Component;
+    type TargetComponent: ComponentMut;
     const NAME: &'static str;
     fn update_target(&self, target: &mut Self::TargetComponent) -> String;
 }

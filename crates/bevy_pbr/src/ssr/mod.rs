@@ -18,7 +18,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{Has, QueryItem, With},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectComponentMut},
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
@@ -97,7 +97,7 @@ pub struct ScreenSpaceReflectionsBundle {
 /// bug whereby Naga doesn't generate correct GLSL when sampling depth buffers,
 /// which is required for screen-space raymarching.
 #[derive(Clone, Copy, Component, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(ComponentMut, Component, Default)]
 #[require(DepthPrepass, DeferredPrepass)]
 #[doc(alias = "Ssr")]
 pub struct ScreenSpaceReflections {

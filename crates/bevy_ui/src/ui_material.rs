@@ -1,7 +1,10 @@
 use crate::Node;
 use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{
+    component::Component,
+    reflect::{ReflectComponent, ReflectComponentMut},
+};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::ExtractComponent,
@@ -156,7 +159,7 @@ where
 #[derive(
     Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, ExtractComponent, From,
 )]
-#[reflect(Component, Default)]
+#[reflect(ComponentMut, Component, Default)]
 #[require(Node)]
 pub struct MaterialNode<M: UiMaterial>(pub Handle<M>);
 

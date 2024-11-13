@@ -3,7 +3,7 @@ use alloc::collections::BTreeMap;
 use bevy_ecs::{
     component::{Component, ComponentId},
     prelude::Entity,
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponentMut, ReflectResource},
     system::Resource,
     world::World,
 };
@@ -15,7 +15,7 @@ use bevy_utils::default;
 /// # Component Extraction
 ///
 /// By default, all components registered with [`ReflectComponent`] type data in a world's [`AppTypeRegistry`] will be extracted.
-/// (this type data is added automatically during registration if [`Reflect`] is derived with the `#[reflect(Component)]` attribute).
+/// (this type data is added automatically during registration if [`Reflect`] is derived with the `#[reflect(ComponentMut, Component)]` attribute).
 /// This can be changed by [specifying a filter](DynamicSceneBuilder::with_component_filter) or by explicitly
 /// [allowing](DynamicSceneBuilder::allow_component)/[denying](DynamicSceneBuilder::deny_component) certain components.
 ///
@@ -45,7 +45,7 @@ use bevy_utils::default;
 /// # };
 /// # use bevy_reflect::Reflect;
 /// # #[derive(Component, Reflect, Default, Eq, PartialEq, Debug)]
-/// # #[reflect(Component)]
+/// # #[reflect(ComponentMut, Component)]
 /// # struct ComponentA;
 /// # let mut world = World::default();
 /// # world.init_resource::<AppTypeRegistry>();
@@ -247,7 +247,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// # };
     /// # use bevy_reflect::Reflect;
     /// #[derive(Component, Default, Reflect)]
-    /// #[reflect(Component)]
+    /// #[reflect(ComponentMut, Component)]
     /// struct MyComponent;
     ///
     /// # let mut world = World::default();
@@ -297,7 +297,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                     let type_registration = type_registry.get(type_id)?;
 
                     let component = type_registration
-                        .data::<ReflectComponent>()?
+                        .data::<ReflectComponentMut>()?
                         .reflect(original_entity)?;
 
                     // Clone via `FromReflect`. Unlike `PartialReflect::clone_value` this
@@ -394,7 +394,9 @@ mod tests {
         component::Component,
         prelude::{Entity, Resource},
         query::With,
-        reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+        reflect::{
+            AppTypeRegistry, ReflectResource, {ReflectComponent, ReflectComponentMut},
+        },
         world::World,
     };
 
@@ -403,11 +405,11 @@ mod tests {
     use super::DynamicSceneBuilder;
 
     #[derive(Component, Reflect, Default, Eq, PartialEq, Debug)]
-    #[reflect(Component)]
+    #[reflect(ComponentMut, Component)]
     struct ComponentA;
 
     #[derive(Component, Reflect, Default, Eq, PartialEq, Debug)]
-    #[reflect(Component)]
+    #[reflect(ComponentMut, Component)]
     struct ComponentB;
 
     #[derive(Resource, Reflect, Default, Eq, PartialEq, Debug)]
@@ -699,7 +701,7 @@ mod tests {
     #[test]
     fn should_use_from_reflect() {
         #[derive(Resource, Component, Reflect)]
-        #[reflect(Resource, Component)]
+        #[reflect(Resource, ComponentMut, Component)]
         struct SomeType(i32);
 
         let mut world = World::default();

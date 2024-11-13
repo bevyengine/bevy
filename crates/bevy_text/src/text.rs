@@ -7,7 +7,7 @@ use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_ecs::{prelude::*, reflect::ReflectComponentMut};
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::prelude::*;
 use bevy_utils::warn_once;
@@ -43,7 +43,7 @@ pub struct TextEntity {
 ///
 /// Automatically updated by 2d and UI text systems.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Debug, Default)]
+#[reflect(ComponentMut, Component, Debug, Default)]
 pub struct ComputedTextBlock {
     /// Buffer for managing text layout and creating [`TextLayoutInfo`].
     ///
@@ -106,7 +106,7 @@ impl Default for ComputedTextBlock {
 ///
 /// See [`Text2d`](crate::Text2d) for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 #[require(ComputedTextBlock, TextLayoutInfo)]
 pub struct TextLayout {
     /// The text's internal alignment.
@@ -193,7 +193,7 @@ impl TextLayout {
 /// ));
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 #[require(TextFont, TextColor)]
 pub struct TextSpan(pub String);
 
@@ -266,7 +266,7 @@ impl From<JustifyText> for cosmic_text::Align {
 /// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
 /// the font face, the font size, and the color.
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 pub struct TextFont {
     /// The specific font face to use, as a `Handle` to a [`Font`] asset.
     ///
@@ -308,7 +308,7 @@ impl Default for TextFont {
 
 /// The color of the text for this section.
 #[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 pub struct TextColor(pub Color);
 
 impl Default for TextColor {

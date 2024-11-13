@@ -140,7 +140,7 @@ pub struct TonemappingPipeline {
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component, Debug, Hash, Default, PartialEq)]
+#[reflect(ComponentMut, Component, Debug, Hash, Default, PartialEq)]
 pub enum Tonemapping {
     /// Bypass tonemapping.
     None,
@@ -396,7 +396,7 @@ pub fn prepare_view_tonemapping_pipelines(
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
 #[extract_component_filter(With<Camera>)]
-#[reflect(Component, Debug, Hash, Default, PartialEq)]
+#[reflect(ComponentMut, Component, Debug, Hash, Default, PartialEq)]
 pub enum DebandDither {
     #[default]
     Disabled,

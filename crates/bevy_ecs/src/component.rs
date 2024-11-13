@@ -73,6 +73,16 @@ use derive_more::derive::{Display, Error};
 ///
 /// # Component and data access
 ///
+/// Components can be marked as immutable by adding the `#[immutable]` attribute when using the
+/// derive macro. Alternatively, a component will be immutable by default when implementing
+/// [`Component`] manually. To make a manually implemented component mutable, also implement
+/// the marker trait [`ComponentMut`].
+///
+/// Immutable components can be removed, replaced, and inserted just like mutable components.
+/// The only guarantee that's enforced is that while an immutable component is attached
+/// to an entity, an exclusive reference `&mut C` will never be produced. This allows
+/// hooks to observe all changes made to an immutable component.
+///
 /// See the [`entity`] module level documentation to learn how to add or remove components from an entity.
 ///
 /// See the documentation for [`Query`] to learn how to access component data from a system.
@@ -391,6 +401,16 @@ pub trait Component: Send + Sync + 'static {
     ) {
     }
 }
+
+/// Marks that a [`Component`] is mutable.
+/// Without this marker, a component is immutable.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a `ComponentMut`",
+    label = "invalid `ComponentMut`",
+    note = "consider annotating `{Self}` with `#[derive(Component)]`",
+    note = "if `{Self}` is a `Component`, it is immutable"
+)]
+pub trait ComponentMut: Component {}
 
 /// The storage used for a specific component type.
 ///

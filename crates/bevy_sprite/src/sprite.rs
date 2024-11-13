@@ -1,6 +1,9 @@
 use bevy_asset::Handle;
 use bevy_color::Color;
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{
+    component::Component,
+    reflect::{ReflectComponent, ReflectComponentMut},
+};
 use bevy_image::Image;
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -12,7 +15,7 @@ use crate::{TextureAtlas, TextureSlicer};
 /// Describes a sprite to be rendered to a 2D camera
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[require(Transform, Visibility, SyncToRenderWorld)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 pub struct Sprite {
     /// The image used to render the sprite
     pub image: Handle<Image>,
@@ -116,7 +119,7 @@ impl SpriteImageMode {
 /// How a sprite is positioned relative to its [`Transform`].
 /// It defaults to `Anchor::Center`.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Default, Reflect)]
-#[reflect(Component, Default, Debug, PartialEq)]
+#[reflect(ComponentMut, Component, Default, Debug, PartialEq)]
 #[doc(alias = "pivot")]
 pub enum Anchor {
     #[default]

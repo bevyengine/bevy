@@ -8,7 +8,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::Without,
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectComponentMut},
     schedule::IntoSystemConfigs,
     system::{Query, Res},
 };
@@ -64,7 +64,7 @@ pub struct AabbGizmoConfigGroup {
 
 /// Add this [`Component`] to an entity to draw its [`Aabb`] component.
 #[derive(Component, Reflect, Default, Debug)]
-#[reflect(Component, Default, Debug)]
+#[reflect(ComponentMut, Component, Default, Debug)]
 pub struct ShowAabbGizmo {
     /// The color of the box.
     ///

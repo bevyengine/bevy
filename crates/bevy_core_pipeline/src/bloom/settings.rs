@@ -1,5 +1,9 @@
 use super::downsampling_pipeline::BloomUniforms;
-use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
+use bevy_ecs::{
+    prelude::Component,
+    query::QueryItem,
+    reflect::{ReflectComponent, ReflectComponentMut},
+};
 use bevy_math::{AspectRatio, URect, UVec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
@@ -25,7 +29,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// See <https://starlederer.github.io/bloom/> for a visualization of the parametric curve
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
 #[derive(Component, Reflect, Clone)]
-#[reflect(Component, Default)]
+#[reflect(ComponentMut, Component, Default)]
 pub struct Bloom {
     /// Controls the baseline of how much the image is scattered (default: 0.15).
     ///

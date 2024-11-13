@@ -80,6 +80,8 @@ impl Component for OrderIndependentTransparencySettings {
     }
 }
 
+impl ComponentMut for OrderIndependentTransparencySettings {}
+
 /// A plugin that adds support for Order Independent Transparency (OIT).
 /// This can correctly render some scenes that would otherwise have artifacts due to alpha blending, but uses more memory.
 ///

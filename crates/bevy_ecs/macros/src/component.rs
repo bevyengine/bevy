@@ -33,6 +33,8 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #bevy_ecs_path::component::StorageType::SparseSet;
         }
+
+        impl #impl_generics #bevy_ecs_path::component::ComponentMut for #struct_name #type_generics #where_clause { }
     })
 }
 
@@ -141,7 +143,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
-    TokenStream::from(quote! {
+    let mut implementation = TokenStream::from(quote! {
         #required_component_docs
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
@@ -164,7 +166,15 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 #on_remove
             }
         }
-    })
+    });
+
+    if !attrs.immutable {
+        implementation.extend(TokenStream::from(quote! {
+            impl #impl_generics #bevy_ecs_path::component::ComponentMut for #struct_name #type_generics #where_clause { }
+        }));
+    }
+
+    implementation
 }
 
 pub const COMPONENT: &str = "component";
@@ -176,6 +186,8 @@ pub const ON_INSERT: &str = "on_insert";
 pub const ON_REPLACE: &str = "on_replace";
 pub const ON_REMOVE: &str = "on_remove";
 
+pub const IMMUTABLE: &str = "immutable";
+
 struct Attrs {
     storage: StorageTy,
     requires: Option<Punctuated<Require, Comma>>,
@@ -183,6 +195,7 @@ struct Attrs {
     on_insert: Option<ExprPath>,
     on_replace: Option<ExprPath>,
     on_remove: Option<ExprPath>,
+    immutable: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -213,6 +226,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         on_replace: None,
         on_remove: None,
         requires: None,
+        immutable: false,
     };
 
     let mut require_paths = HashSet::new();
@@ -262,6 +276,8 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
             } else {
                 attrs.requires = Some(punctuated);
             }
+        } else if attr.path().is_ident(IMMUTABLE) {
+            attrs.immutable = true;
         }
     }
 

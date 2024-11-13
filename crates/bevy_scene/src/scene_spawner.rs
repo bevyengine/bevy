@@ -479,7 +479,7 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         observer::Trigger,
-        prelude::ReflectComponent,
+        prelude::{ReflectComponent, ReflectComponentMut},
         query::With,
         system::{Commands, Query, Res, ResMut, RunSystemOnce},
     };
@@ -490,7 +490,7 @@ mod tests {
     use super::*;
 
     #[derive(Reflect, Component, Debug, PartialEq, Eq, Clone, Copy, Default)]
-    #[reflect(Component)]
+    #[reflect(ComponentMut, Component)]
     struct A(usize);
 
     #[test]
@@ -541,7 +541,7 @@ mod tests {
     }
 
     #[derive(Component, Reflect, Default)]
-    #[reflect(Component)]
+    #[reflect(ComponentMut, Component)]
     struct ComponentA;
 
     #[derive(Resource, Default)]
