@@ -1,7 +1,7 @@
 use crate::{
     entity::Entity,
     prelude::Mut,
-    reflect::{AppTypeRegistry, ReflectBundle, ReflectComponentMut},
+    reflect::{AppTypeRegistry, ReflectBundle, ReflectComponent},
     system::{EntityCommands, Resource},
     world::{Command, World},
 };
@@ -45,11 +45,11 @@ pub trait ReflectCommandExt {
     ///     data: Box<dyn Reflect>,
     /// }
     /// #[derive(Component, Reflect, Default)]
-    /// #[reflect(ComponentMut, Component)]
+    /// #[reflect(Component)]
     /// struct ComponentA(u32);
     ///
     /// #[derive(Component, Reflect, Default)]
-    /// #[reflect(ComponentMut, Component)]
+    /// #[reflect(Component)]
     /// struct ComponentB(String);
     ///
     /// #[derive(Bundle, Reflect, Default)]
@@ -135,10 +135,10 @@ pub trait ReflectCommandExt {
     ///     data: Box<dyn Reflect>,
     /// }
     /// #[derive(Component, Reflect, Default)]
-    /// #[reflect(ComponentMut, Component)]
+    /// #[reflect(Component)]
     /// struct ComponentA(u32);
     /// #[derive(Component, Reflect, Default)]
-    /// #[reflect(ComponentMut, Component)]
+    /// #[reflect(Component)]
     /// struct ComponentB(String);
     /// #[derive(Bundle, Reflect, Default)]
     /// #[reflect(Bundle)]
@@ -228,7 +228,7 @@ fn insert_reflect(
         panic!("`{type_path}` should be registered in type registry via `App::register_type<{type_path}>`");
     };
 
-    if let Some(reflect_component) = type_registration.data::<ReflectComponentMut>() {
+    if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
         reflect_component.insert(&mut entity, component.as_partial_reflect(), type_registry);
     } else if let Some(reflect_bundle) = type_registration.data::<ReflectBundle>() {
         reflect_bundle.insert(&mut entity, component.as_partial_reflect(), type_registry);
@@ -290,7 +290,7 @@ fn remove_reflect(
     let Some(type_registration) = type_registry.get_with_type_path(&component_type_path) else {
         return;
     };
-    if let Some(reflect_component) = type_registration.data::<ReflectComponentMut>() {
+    if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
         reflect_component.remove(&mut entity);
     } else if let Some(reflect_bundle) = type_registration.data::<ReflectBundle>() {
         reflect_bundle.remove(&mut entity);
@@ -351,9 +351,7 @@ mod tests {
         self as bevy_ecs,
         bundle::Bundle,
         component::Component,
-        prelude::{
-            AppTypeRegistry, {ReflectComponent, ReflectComponentMut},
-        },
+        prelude::{AppTypeRegistry, ReflectComponent},
         reflect::{ReflectBundle, ReflectCommandExt},
         system::{Commands, SystemState},
         world::World,
@@ -373,11 +371,11 @@ mod tests {
     }
 
     #[derive(Component, Reflect, Default, PartialEq, Eq, Debug)]
-    #[reflect(ComponentMut, Component)]
+    #[reflect(Component)]
     struct ComponentA(u32);
 
     #[derive(Component, Reflect, Default, PartialEq, Eq, Debug)]
-    #[reflect(ComponentMut, Component)]
+    #[reflect(Component)]
     struct ComponentB(u32);
 
     #[derive(Bundle, Reflect, Default, Debug, PartialEq)]
@@ -395,7 +393,7 @@ mod tests {
         {
             let mut registry = type_registry.write();
             registry.register::<ComponentA>();
-            registry.register_type_data::<ComponentA, ReflectComponentMut>();
+            registry.register_type_data::<ComponentA, ReflectComponent>();
         }
         world.insert_resource(type_registry);
 
@@ -433,7 +431,7 @@ mod tests {
         type_registry.type_registry.register::<ComponentA>();
         type_registry
             .type_registry
-            .register_type_data::<ComponentA, ReflectComponentMut>();
+            .register_type_data::<ComponentA, ReflectComponent>();
         world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
@@ -462,7 +460,7 @@ mod tests {
         {
             let mut registry = type_registry.write();
             registry.register::<ComponentA>();
-            registry.register_type_data::<ComponentA, ReflectComponentMut>();
+            registry.register_type_data::<ComponentA, ReflectComponent>();
         }
         world.insert_resource(type_registry);
 
@@ -492,7 +490,7 @@ mod tests {
         type_registry.type_registry.register::<ComponentA>();
         type_registry
             .type_registry
-            .register_type_data::<ComponentA, ReflectComponentMut>();
+            .register_type_data::<ComponentA, ReflectComponent>();
         world.insert_resource(type_registry);
 
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);

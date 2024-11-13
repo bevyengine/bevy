@@ -9,7 +9,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{QueryItem, With},
-    reflect::{ReflectComponent, ReflectComponentMut},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
@@ -96,7 +96,7 @@ pub struct PostProcessingPlugin;
 ///
 /// [Gjøl & Svendsen 2016]: https://github.com/playdeadgames/publications/blob/master/INSIDE/rendering_inside_gdc2016.pdf
 #[derive(Reflect, Component, Clone)]
-#[reflect(ComponentMut, Component, Default)]
+#[reflect(Component, Default)]
 pub struct ChromaticAberration {
     /// The lookup texture that determines the color gradient.
     ///

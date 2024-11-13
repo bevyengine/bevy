@@ -100,14 +100,14 @@ pub enum Backfaces {
 
 /// Disables backface culling for [ray casts](MeshRayCast) on this entity.
 #[derive(Component, Copy, Clone, Default, Reflect)]
-#[reflect(ComponentMut, Component, Default)]
+#[reflect(Component, Default)]
 pub struct RayCastBackfaces;
 
 /// A simplified mesh component that can be used for [ray casting](super::MeshRayCast).
 ///
 /// Consider using this component for complex meshes that don't need perfectly accurate ray casting.
 #[derive(Component, Clone, Debug, Deref, DerefMut, Reflect)]
-#[reflect(ComponentMut, Component, Debug)]
+#[reflect(Component, Debug)]
 pub struct SimplifiedMesh(pub Handle<Mesh>);
 
 type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;

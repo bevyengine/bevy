@@ -14,7 +14,7 @@ use bevy_reflect::{
     FromReflect, FromType, PartialReflect, Reflect, ReflectRef, TypePath, TypeRegistry,
 };
 
-use super::{from_reflect_with_fallback, ReflectComponentMut};
+use super::{from_reflect_with_fallback, ReflectComponent};
 
 /// A struct used to operate on reflected [`Bundle`] trait of a type.
 ///
@@ -146,7 +146,7 @@ impl<B: Bundle + Reflect + TypePath> FromType<B> for ReflectBundle {
             },
             apply: |mut entity, reflected_bundle, registry| {
                 if let Some(reflect_component) =
-                    registry.get_type_data::<ReflectComponentMut>(TypeId::of::<B>())
+                    registry.get_type_data::<ReflectComponent>(TypeId::of::<B>())
                 {
                     reflect_component.apply(entity, reflected_bundle);
                 } else {
@@ -167,7 +167,7 @@ impl<B: Bundle + Reflect + TypePath> FromType<B> for ReflectBundle {
             },
             apply_or_insert: |entity, reflected_bundle, registry| {
                 if let Some(reflect_component) =
-                    registry.get_type_data::<ReflectComponentMut>(TypeId::of::<B>())
+                    registry.get_type_data::<ReflectComponent>(TypeId::of::<B>())
                 {
                     reflect_component.apply_or_insert(entity, reflected_bundle, registry);
                 } else {
@@ -205,7 +205,7 @@ fn apply_field(entity: &mut EntityMut, field: &dyn PartialReflect, registry: &Ty
             field.reflect_type_path()
         );
     };
-    if let Some(reflect_component) = registry.get_type_data::<ReflectComponentMut>(type_id) {
+    if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(type_id) {
         reflect_component.apply(entity.reborrow(), field);
     } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(type_id) {
         reflect_bundle.apply(entity.reborrow(), field, registry);
@@ -229,7 +229,7 @@ fn apply_or_insert_field(
         );
     };
 
-    if let Some(reflect_component) = registry.get_type_data::<ReflectComponentMut>(type_id) {
+    if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(type_id) {
         reflect_component.apply_or_insert(entity, field, registry);
     } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(type_id) {
         reflect_bundle.apply_or_insert(entity, field, registry);

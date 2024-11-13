@@ -3,7 +3,7 @@ use bevy_asset::Asset;
 use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap, SceneEntityMapper},
-    reflect::{AppTypeRegistry, ReflectComponentMut, ReflectMapEntities},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
 use bevy_reflect::{PartialReflect, TypePath, TypeRegistry};
@@ -97,7 +97,7 @@ impl DynamicScene {
                     }
                 })?;
                 let reflect_component =
-                    registration.data::<ReflectComponentMut>().ok_or_else(|| {
+                    registration.data::<ReflectComponent>().ok_or_else(|| {
                         SceneSpawnError::UnregisteredComponent {
                             type_path: type_info.type_path().to_string(),
                         }
@@ -202,10 +202,7 @@ mod tests {
         entity::{
             Entity, EntityHashMap, EntityMapper, MapEntities, VisitEntities, VisitEntitiesMut,
         },
-        reflect::{
-            AppTypeRegistry, ReflectMapEntities, ReflectResource,
-            {ReflectComponent, ReflectComponentMut},
-        },
+        reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
         system::Resource,
         world::{Command, World},
     };
@@ -343,11 +340,11 @@ mod tests {
     #[test]
     fn no_panic_in_map_entities_after_pending_entity_in_hook() {
         #[derive(Default, Component, Reflect)]
-        #[reflect(ComponentMut, Component)]
+        #[reflect(Component)]
         struct A;
 
         #[derive(Component, Reflect, VisitEntities)]
-        #[reflect(ComponentMut, Component, MapEntities)]
+        #[reflect(Component, MapEntities)]
         struct B(pub Entity);
 
         impl MapEntities for B {

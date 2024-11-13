@@ -7,7 +7,7 @@ use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
     query::{With, Without},
-    reflect::{ReflectComponent, ReflectComponentMut},
+    reflect::ReflectComponent,
     system::{Commands, Query, Res, Resource},
     world::{FromWorld, World},
 };
@@ -86,7 +86,7 @@ pub struct ClusterZConfig {
 
 /// Configuration of the clustering strategy for clustered forward rendering
 #[derive(Debug, Copy, Clone, Component, Reflect)]
-#[reflect(ComponentMut, Component, Debug, Default)]
+#[reflect(Component, Debug, Default)]
 pub enum ClusterConfig {
     /// Disable cluster calculations for this view
     None,

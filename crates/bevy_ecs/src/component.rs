@@ -74,9 +74,7 @@ use derive_more::derive::{Display, Error};
 /// # Component and data access
 ///
 /// Components can be marked as immutable by adding the `#[component(immutable)]` attribute when using the
-/// derive macro. Alternatively, a component will be immutable by default when implementing
-/// [`Component`] manually. To make a manually implemented component mutable, also implement
-/// the marker trait [`ComponentMut`].
+/// derive macro.
 ///
 /// Immutable components can be removed, replaced, and inserted just like mutable components.
 /// The only guarantee that's enforced is that while an immutable component is attached
@@ -398,7 +396,7 @@ pub trait Component: Send + Sync + 'static {
     ///
     /// If you use any other type, this component will be immutable but will not
     /// implement [`ComponentImmutable`].
-    type Mutable;
+    type Mutable: 'static;
 
     /// Called when registering this component, allowing mutable access to its [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}

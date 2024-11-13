@@ -102,10 +102,7 @@ pub use loader::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp, AssetPath, Handle};
-use bevy_ecs::{
-    prelude::Component,
-    reflect::{ReflectComponent, ReflectComponentMut},
-};
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_image::CompressedImageFormats;
 use bevy_pbr::StandardMaterial;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
@@ -423,7 +420,7 @@ impl GltfPrimitive {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(ComponentMut, Component, Default, Debug)]
+#[reflect(Component, Default, Debug)]
 pub struct GltfExtras {
     /// Content of the extra data.
     pub value: String,
@@ -433,7 +430,7 @@ pub struct GltfExtras {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(ComponentMut, Component, Default, Debug)]
+#[reflect(Component, Default, Debug)]
 pub struct GltfSceneExtras {
     /// Content of the extra data.
     pub value: String,
@@ -443,7 +440,7 @@ pub struct GltfSceneExtras {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(ComponentMut, Component, Default, Debug)]
+#[reflect(Component, Default, Debug)]
 pub struct GltfMeshExtras {
     /// Content of the extra data.
     pub value: String,
@@ -453,7 +450,7 @@ pub struct GltfMeshExtras {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(ComponentMut, Component, Default, Debug)]
+#[reflect(Component, Default, Debug)]
 pub struct GltfMaterialExtras {
     /// Content of the extra data.
     pub value: String,
@@ -463,7 +460,7 @@ pub struct GltfMaterialExtras {
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-material).
 #[derive(Clone, Debug, Reflect, Default, Component)]
-#[reflect(ComponentMut, Component)]
+#[reflect(Component)]
 pub struct GltfMaterialName(pub String);
 
 /// Labels that can be used to load part of a glTF

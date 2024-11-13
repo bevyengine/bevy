@@ -10,9 +10,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core::FrameCount;
 use bevy_ecs::{
-    prelude::{
-        Bundle, Component, Entity, {ReflectComponent, ReflectComponentMut},
-    },
+    prelude::{Bundle, Component, Entity, ReflectComponent},
     query::{QueryItem, With},
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
@@ -147,7 +145,7 @@ pub struct TemporalAntiAliasBundle {
 ///
 /// If no [`MipBias`] component is attached to the camera, TAA will add a `MipBias(-1.0)` component.
 #[derive(Component, Reflect, Clone)]
-#[reflect(ComponentMut, Component, Default)]
+#[reflect(Component, Default)]
 #[require(TemporalJitter, DepthPrepass, MotionVectorPrepass)]
 #[doc(alias = "Taa")]
 pub struct TemporalAntiAliasing {

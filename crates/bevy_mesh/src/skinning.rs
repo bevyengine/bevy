@@ -2,7 +2,7 @@ use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, VisitEntities, VisitEntitiesMut},
-    prelude::{ReflectComponent, ReflectComponentMut},
+    prelude::ReflectComponent,
     reflect::{ReflectMapEntities, ReflectVisitEntities, ReflectVisitEntitiesMut},
 };
 use bevy_math::Mat4;
@@ -11,7 +11,6 @@ use core::ops::Deref;
 
 #[derive(Component, Debug, Default, Clone, Reflect, VisitEntities, VisitEntitiesMut)]
 #[reflect(
-    ComponentMut,
     Component,
     MapEntities,
     VisitEntities,

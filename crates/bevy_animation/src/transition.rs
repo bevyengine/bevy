@@ -5,7 +5,7 @@
 
 use bevy_ecs::{
     component::Component,
-    reflect::{ReflectComponent, ReflectComponentMut},
+    reflect::ReflectComponent,
     system::{Query, Res},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -29,7 +29,7 @@ use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
 /// component to get confused about which animation is the "main" animation, and
 /// transitions will usually be incorrect as a result.
 #[derive(Component, Default, Reflect)]
-#[reflect(ComponentMut, Component, Default)]
+#[reflect(Component, Default)]
 pub struct AnimationTransitions {
     main_animation: Option<AnimationNodeIndex>,
     transitions: Vec<AnimationTransition>,

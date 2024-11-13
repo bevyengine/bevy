@@ -21,7 +21,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{QueryItem, With},
-    reflect::{ReflectComponent, ReflectComponentMut},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
@@ -77,7 +77,7 @@ pub struct DepthOfFieldPlugin;
 ///
 /// [depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
 #[derive(Component, Clone, Copy, Reflect)]
-#[reflect(ComponentMut, Component, Default)]
+#[reflect(Component, Default)]
 pub struct DepthOfField {
     /// The appearance of the effect.
     pub mode: DepthOfFieldMode,

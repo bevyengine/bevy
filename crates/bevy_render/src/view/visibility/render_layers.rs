@@ -1,6 +1,4 @@
-use bevy_ecs::prelude::{
-    Component, {ReflectComponent, ReflectComponentMut},
-};
+use bevy_ecs::prelude::{Component, ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use smallvec::SmallVec;
 
@@ -22,7 +20,7 @@ pub type Layer = usize;
 ///
 /// Entities without this component belong to layer `0`.
 #[derive(Component, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
-#[reflect(ComponentMut, Component, Default, PartialEq, Debug)]
+#[reflect(Component, Default, PartialEq, Debug)]
 pub struct RenderLayers(SmallVec<[u64; INLINE_BLOCKS]>);
 
 /// The number of memory blocks stored inline

@@ -70,7 +70,7 @@ pub struct ScreenshotCaptured(pub Image);
 /// }
 /// ```
 #[derive(Component, Deref, DerefMut, Reflect, Debug)]
-#[reflect(ComponentMut, Component, Debug)]
+#[reflect(Component, Debug)]
 pub struct Screenshot(pub RenderTarget);
 
 /// A marker component that indicates that a screenshot is currently being captured.

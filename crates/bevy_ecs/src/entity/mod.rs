@@ -253,7 +253,7 @@ impl Entity {
     /// # use bevy_ecs::{prelude::*, component::*};
     /// # use bevy_reflect::Reflect;
     /// #[derive(Reflect, Component)]
-    /// #[reflect(ComponentMut, Component)]
+    /// #[reflect(Component)]
     /// pub struct MyStruct {
     ///     pub entity: Entity,
     /// }

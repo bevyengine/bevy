@@ -357,7 +357,7 @@ impl Hash for AnimationTargetId {
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
 #[derive(Clone, Copy, Component, Reflect, VisitEntities, VisitEntitiesMut)]
-#[reflect(ComponentMut, Component, MapEntities, VisitEntities, VisitEntitiesMut)]
+#[reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut)]
 pub struct AnimationTarget {
     /// The ID of this animation target.
     ///
@@ -768,7 +768,7 @@ impl ActiveAnimation {
 /// Automatically added to any root animations of a scene when it is
 /// spawned.
 #[derive(Component, Default, Reflect)]
-#[reflect(ComponentMut, Component, Default)]
+#[reflect(Component, Default)]
 pub struct AnimationPlayer {
     active_animations: HashMap<AnimationNodeIndex, ActiveAnimation>,
     blend_weights: HashMap<AnimationNodeIndex, f32>,

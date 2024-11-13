@@ -67,5 +67,5 @@ fn remove(mut commands: Commands, cube_entity: Single<Entity, With<Cube>>) {
 }
 
 #[derive(Component, Reflect, Serialize, Deserialize)]
-#[reflect(Component, ComponentMut, Serialize, Deserialize)]
+#[reflect(Component, Serialize, Deserialize)]
 struct Cube(f32);

@@ -99,7 +99,7 @@ pub trait CameraProjection {
 
 /// A configurable [`CameraProjection`] that can select its projection type at runtime.
 #[derive(Component, Debug, Clone, Reflect, From)]
-#[reflect(ComponentMut, Component, Default, Debug)]
+#[reflect(Component, Default, Debug)]
 pub enum Projection {
     Perspective(PerspectiveProjection),
     Orthographic(OrthographicProjection),
@@ -150,7 +150,7 @@ impl Default for Projection {
 
 /// A 3D camera projection in which distant objects appear smaller than close objects.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(ComponentMut, Component, Default, Debug)]
+#[reflect(Component, Default, Debug)]
 pub struct PerspectiveProjection {
     /// The vertical field of view (FOV) in radians.
     ///
@@ -342,7 +342,7 @@ pub enum ScalingMode {
 /// });
 /// ```
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(ComponentMut, Component, Debug, FromWorld)]
+#[reflect(Component, Debug, FromWorld)]
 pub struct OrthographicProjection {
     /// The distance of the near clipping plane in world units.
     ///

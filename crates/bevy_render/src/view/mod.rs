@@ -168,7 +168,7 @@ impl Plugin for ViewPlugin {
     Hash,
     Debug,
 )]
-#[reflect(ComponentMut, Component, Default, PartialEq, Hash, Debug)]
+#[reflect(Component, Default, PartialEq, Hash, Debug)]
 pub enum Msaa {
     Off = 1,
     Sample2 = 2,
@@ -212,7 +212,7 @@ impl ExtractedView {
 /// `post_saturation` value in [`ColorGradingGlobal`], which is applied after
 /// tonemapping.
 #[derive(Component, Reflect, Debug, Default, Clone)]
-#[reflect(ComponentMut, Component, Default, Debug)]
+#[reflect(Component, Default, Debug)]
 pub struct ColorGrading {
     /// Filmic color grading values applied to the image as a whole (as opposed
     /// to individual sections, like shadows and highlights).

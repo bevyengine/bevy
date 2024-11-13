@@ -71,7 +71,7 @@ pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
     pub use crate::reflect::{
-        AppTypeRegistry, ReflectComponent, ReflectComponentMut, ReflectFromWorld, ReflectResource,
+        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
     };
 
     #[doc(hidden)]

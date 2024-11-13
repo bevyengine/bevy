@@ -48,10 +48,7 @@
 
 use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{
-    bundle::Bundle,
-    component::Component,
-    query::QueryItem,
-    reflect::{ReflectComponent, ReflectComponentMut},
+    bundle::Bundle, component::Component, query::QueryItem, reflect::ReflectComponent,
     system::lifetimeless::Read,
 };
 use bevy_image::Image;
@@ -88,7 +85,7 @@ pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
 ///
 /// See [`crate::environment_map`] for detailed information.
 #[derive(Clone, Component, Reflect)]
-#[reflect(ComponentMut, Component, Default)]
+#[reflect(Component, Default)]
 pub struct EnvironmentMapLight {
     /// The blurry image that represents diffuse radiance surrounding a region.
     pub diffuse_map: Handle<Image>,

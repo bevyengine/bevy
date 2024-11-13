@@ -11,7 +11,7 @@ use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
     query::{Changed, With},
-    reflect::{ReflectComponent, ReflectComponentMut},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
     system::{Query, Res, ResMut, Resource},
 };
@@ -112,7 +112,7 @@ impl Plugin for VisibilityRangePlugin {
 /// `start_margin` of the next lower LOD; this is important for the crossfade
 /// effect to function properly.
 #[derive(Component, Clone, PartialEq, Reflect)]
-#[reflect(ComponentMut, Component, PartialEq, Hash)]
+#[reflect(Component, PartialEq, Hash)]
 pub struct VisibilityRange {
     /// The range of distances, in world units, between which this entity will
     /// smoothly fade into view as the camera zooms out.

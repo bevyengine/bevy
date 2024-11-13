@@ -1,5 +1,5 @@
 #[cfg(feature = "bevy_reflect")]
-use bevy_ecs::reflect::{ReflectComponent, ReflectComponentMut};
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{component::Component, entity::Entity, query::QueryData};
 
 use alloc::borrow::Cow;
@@ -27,7 +27,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(ComponentMut, Component, Default, Debug)
+    reflect(Component, Default, Debug)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),

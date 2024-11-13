@@ -21,9 +21,7 @@ mod resource;
 mod visit_entities;
 
 pub use bundle::{ReflectBundle, ReflectBundleFns};
-pub use component::{
-    ReflectComponent, ReflectComponentFns, ReflectComponentMut, ReflectComponentMutFns,
-};
+pub use component::{ReflectComponent, ReflectComponentFns};
 pub use entity_commands::ReflectCommandExt;
 pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
 pub use map_entities::ReflectMapEntities;

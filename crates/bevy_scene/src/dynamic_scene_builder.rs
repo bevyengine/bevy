@@ -3,7 +3,7 @@ use alloc::collections::BTreeMap;
 use bevy_ecs::{
     component::{Component, ComponentId},
     prelude::Entity,
-    reflect::{AppTypeRegistry, ReflectComponentMut, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     system::Resource,
     world::World,
 };
@@ -14,8 +14,8 @@ use bevy_utils::default;
 ///
 /// # Component Extraction
 ///
-/// By default, all components registered with [`ReflectComponentMut`] type data in a world's [`AppTypeRegistry`] will be extracted.
-/// (this type data is added automatically during registration if [`Reflect`] is derived with the `#[reflect(ComponentMut, Component)]` attribute).
+/// By default, all components registered with [`ReflectComponent`] type data in a world's [`AppTypeRegistry`] will be extracted.
+/// (this type data is added automatically during registration if [`Reflect`] is derived with the `#[reflect(Component)]` attribute).
 /// This can be changed by [specifying a filter](DynamicSceneBuilder::with_component_filter) or by explicitly
 /// [allowing](DynamicSceneBuilder::allow_component)/[denying](DynamicSceneBuilder::deny_component) certain components.
 ///
@@ -41,11 +41,11 @@ use bevy_utils::default;
 /// # use bevy_scene::DynamicSceneBuilder;
 /// # use bevy_ecs::reflect::AppTypeRegistry;
 /// # use bevy_ecs::{
-/// #     component::Component, prelude::Entity, query::With, reflect::{ReflectComponent, ReflectComponentMut}, world::World,
+/// #     component::Component, prelude::Entity, query::With, reflect::{ReflectComponent}, world::World,
 /// # };
 /// # use bevy_reflect::Reflect;
 /// # #[derive(Component, Reflect, Default, Eq, PartialEq, Debug)]
-/// # #[reflect(ComponentMut, Component)]
+/// # #[reflect(Component)]
 /// # struct ComponentA;
 /// # let mut world = World::default();
 /// # world.init_resource::<AppTypeRegistry>();
@@ -243,11 +243,11 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// # use bevy_scene::DynamicSceneBuilder;
     /// # use bevy_ecs::reflect::AppTypeRegistry;
     /// # use bevy_ecs::{
-    /// #     component::Component, prelude::Entity, query::With, reflect::{ReflectComponent, ReflectComponentMut}, world::World,
+    /// #     component::Component, prelude::Entity, query::With, reflect::{ReflectComponent}, world::World,
     /// # };
     /// # use bevy_reflect::Reflect;
     /// #[derive(Component, Default, Reflect)]
-    /// #[reflect(ComponentMut, Component)]
+    /// #[reflect(Component)]
     /// struct MyComponent;
     ///
     /// # let mut world = World::default();
@@ -297,7 +297,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                     let type_registration = type_registry.get(type_id)?;
 
                     let component = type_registration
-                        .data::<ReflectComponentMut>()?
+                        .data::<ReflectComponent>()?
                         .reflect(original_entity)?;
 
                     // Clone via `FromReflect`. Unlike `PartialReflect::clone_value` this
@@ -394,9 +394,7 @@ mod tests {
         component::Component,
         prelude::{Entity, Resource},
         query::With,
-        reflect::{
-            AppTypeRegistry, ReflectResource, {ReflectComponent, ReflectComponentMut},
-        },
+        reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
         world::World,
     };
 
@@ -405,11 +403,11 @@ mod tests {
     use super::DynamicSceneBuilder;
 
     #[derive(Component, Reflect, Default, Eq, PartialEq, Debug)]
-    #[reflect(ComponentMut, Component)]
+    #[reflect(Component)]
     struct ComponentA;
 
     #[derive(Component, Reflect, Default, Eq, PartialEq, Debug)]
-    #[reflect(ComponentMut, Component)]
+    #[reflect(Component)]
     struct ComponentB;
 
     #[derive(Resource, Reflect, Default, Eq, PartialEq, Debug)]
@@ -701,7 +699,7 @@ mod tests {
     #[test]
     fn should_use_from_reflect() {
         #[derive(Resource, Component, Reflect)]
-        #[reflect(Resource, ComponentMut, Component)]
+        #[reflect(Resource, Component)]
         struct SomeType(i32);
 
         let mut world = World::default();

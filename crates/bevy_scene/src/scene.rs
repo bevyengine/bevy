@@ -2,7 +2,7 @@ use crate::{DynamicScene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap, SceneEntityMapper},
-    reflect::{AppTypeRegistry, ReflectComponentMut, ReflectMapEntities, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
 use bevy_reflect::{PartialReflect, TypePath};
@@ -118,7 +118,7 @@ impl Scene {
                             std_type_name: component_info.name().to_string(),
                         })?;
                     let reflect_component =
-                        registration.data::<ReflectComponentMut>().ok_or_else(|| {
+                        registration.data::<ReflectComponent>().ok_or_else(|| {
                             SceneSpawnError::UnregisteredComponent {
                                 type_path: registration.type_info().type_path().to_string(),
                             }

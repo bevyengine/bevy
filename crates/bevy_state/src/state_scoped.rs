@@ -1,5 +1,5 @@
 #[cfg(feature = "bevy_reflect")]
-use bevy_ecs::reflect::{ReflectComponent, ReflectComponentMut};
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -57,11 +57,7 @@ use crate::state::{StateTransitionEvent, States};
 /// app.add_systems(OnEnter(GameState::InGame), spawn_player);
 /// ```
 #[derive(Component, Clone)]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect),
-    reflect(Component, ComponentMut)
-)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct StateScoped<S: States>(pub S);
 
 /// Removes entities marked with [`StateScoped<S>`]

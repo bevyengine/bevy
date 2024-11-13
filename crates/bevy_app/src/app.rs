@@ -562,7 +562,7 @@ impl App {
     /// adding reflect data as specified in the [`Reflect`](bevy_reflect::Reflect) derive:
     /// ```ignore (No serde "derive" feature)
     /// #[derive(Component, Serialize, Deserialize, Reflect)]
-    /// #[reflect(ComponentMut, Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
+    /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
     /// ```
     ///
     /// See [`bevy_reflect::TypeRegistry::register`] for more information.

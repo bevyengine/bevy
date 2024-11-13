@@ -19,7 +19,7 @@ use crate::Node;
 /// Instances of this type cannot be constructed unless the `ghost_nodes` feature is enabled.
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[cfg_attr(feature = "ghost_nodes", derive(Default))]
-#[reflect(ComponentMut, Component, Debug)]
+#[reflect(Component, Debug)]
 #[require(Visibility, Transform)]
 pub struct GhostNode {
     // This is a workaround to ensure that GhostNode is only constructable when the appropriate feature flag is enabled

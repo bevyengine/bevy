@@ -516,9 +516,7 @@ mod tests {
     };
     use bevy_ecs::{
         entity::{Entity, EntityHashMap, VisitEntities, VisitEntitiesMut},
-        prelude::{
-            Component, ReflectResource, Resource, World, {ReflectComponent, ReflectComponentMut},
-        },
+        prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
         query::{With, Without},
         reflect::{AppTypeRegistry, ReflectMapEntities},
         world::FromWorld,
@@ -529,13 +527,13 @@ mod tests {
     use std::io::BufReader;
 
     #[derive(Component, Reflect, Default)]
-    #[reflect(ComponentMut, Component)]
+    #[reflect(Component)]
     struct Foo(i32);
     #[derive(Component, Reflect, Default)]
-    #[reflect(ComponentMut, Component)]
+    #[reflect(Component)]
     struct Bar(i32);
     #[derive(Component, Reflect, Default)]
-    #[reflect(ComponentMut, Component)]
+    #[reflect(Component)]
     struct Baz(i32);
 
     // De/serialize as hex.
@@ -559,11 +557,11 @@ mod tests {
     }
 
     #[derive(Component, Copy, Clone, Reflect, Debug, PartialEq, Serialize, Deserialize)]
-    #[reflect(ComponentMut, Component, Serialize, Deserialize)]
+    #[reflect(Component, Serialize, Deserialize)]
     struct Qux(#[serde(with = "qux")] u32);
 
     #[derive(Component, Reflect, Default)]
-    #[reflect(ComponentMut, Component)]
+    #[reflect(Component)]
     struct MyComponent {
         foo: [usize; 3],
         bar: (f32, f32),
@@ -587,7 +585,7 @@ mod tests {
     }
 
     #[derive(Clone, Component, Reflect, PartialEq, VisitEntities, VisitEntitiesMut)]
-    #[reflect(ComponentMut, Component, MapEntities, PartialEq)]
+    #[reflect(Component, MapEntities, PartialEq)]
     struct MyEntityRef(Entity);
 
     impl FromWorld for MyEntityRef {

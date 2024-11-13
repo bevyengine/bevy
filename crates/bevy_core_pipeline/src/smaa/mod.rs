@@ -44,7 +44,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{QueryItem, With},
-    reflect::{ReflectComponent, ReflectComponentMut},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
@@ -92,7 +92,7 @@ pub struct SmaaPlugin;
 /// A component for enabling Subpixel Morphological Anti-Aliasing (SMAA)
 /// for a [`bevy_render::camera::Camera`].
 #[derive(Clone, Copy, Default, Component, Reflect, ExtractComponent)]
-#[reflect(ComponentMut, Component, Default)]
+#[reflect(Component, Default)]
 #[doc(alias = "SubpixelMorphologicalAntiAliasing")]
 pub struct Smaa {
     /// A predefined set of SMAA parameters: i.e. a quality level.

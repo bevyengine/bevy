@@ -25,7 +25,7 @@ use bevy_ecs::{
     event::EventReader,
     prelude::With,
     query::Has,
-    reflect::{ReflectComponent, ReflectComponentMut},
+    reflect::ReflectComponent,
     system::{Commands, Query, Res, ResMut, Resource},
     world::DeferredWorld,
 };
@@ -146,7 +146,7 @@ pub struct ComputedCameraValues {
 /// <https://en.wikipedia.org/wiki/Exposure_(photography)>
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(opaque)]
-#[reflect(ComponentMut, Component, Default)]
+#[reflect(Component, Default)]
 pub struct Exposure {
     /// <https://en.wikipedia.org/wiki/Exposure_value#Tabulated_exposure_values>
     pub ev100: f32,
@@ -286,7 +286,7 @@ pub enum ViewportConversionError {
 /// [`Camera2d`]: https://docs.rs/crate/bevy_core_pipeline/latest/core_2d/struct.Camera2d.html
 /// [`Camera3d`]: https://docs.rs/crate/bevy_core_pipeline/latest/core_3d/struct.Camera3d.html
 #[derive(Component, Debug, Reflect, Clone)]
-#[reflect(ComponentMut, Component, Default, Debug)]
+#[reflect(Component, Default, Debug)]
 #[component(on_add = warn_on_no_render_graph)]
 #[require(
     Frustum,
@@ -693,7 +693,7 @@ impl Default for CameraOutputMode {
 /// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
 #[derive(Component, Debug, Deref, DerefMut, Reflect, Clone)]
 #[reflect(opaque)]
-#[reflect(ComponentMut, Component, Debug)]
+#[reflect(Component, Debug)]
 pub struct CameraRenderGraph(InternedRenderSubGraph);
 
 impl CameraRenderGraph {
@@ -987,7 +987,7 @@ pub fn camera_system<T: CameraProjection + ComponentMut>(
 /// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
 #[derive(Component, ExtractComponent, Clone, Copy, Reflect)]
 #[reflect(opaque)]
-#[reflect(ComponentMut, Component, Default)]
+#[reflect(Component, Default)]
 pub struct CameraMainTextureUsages(pub TextureUsages);
 impl Default for CameraMainTextureUsages {
     fn default() -> Self {
@@ -1238,7 +1238,7 @@ pub fn sort_cameras(
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 #[derive(Component, Clone, Default, Reflect)]
-#[reflect(Default, ComponentMut, Component)]
+#[reflect(Default, Component)]
 pub struct TemporalJitter {
     /// Offset is in range [-0.5, 0.5].
     pub offset: Vec2,
@@ -1265,5 +1265,5 @@ impl TemporalJitter {
 ///
 /// Often used in conjunction with antialiasing post-process effects to reduce textures blurriness.
 #[derive(Default, Component, Reflect)]
-#[reflect(Default, ComponentMut, Component)]
+#[reflect(Default, Component)]
 pub struct MipBias(pub f32);

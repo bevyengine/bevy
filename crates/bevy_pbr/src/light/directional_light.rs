@@ -50,7 +50,7 @@ use super::*;
 ///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
 /// ```
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(ComponentMut, Component, Default, Debug)]
+#[reflect(Component, Default, Debug)]
 #[require(
     Cascades,
     CascadesFrusta,

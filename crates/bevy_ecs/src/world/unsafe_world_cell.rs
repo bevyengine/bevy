@@ -846,16 +846,35 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - no other references to the component exist at the same time
     #[inline]
     pub unsafe fn get_mut<T: ComponentMut>(self) -> Option<Mut<'w, T>> {
-        // SAFETY: same safety requirements
-        unsafe { self.get_mut_using_ticks(self.world.last_change_tick(), self.world.change_tick()) }
+        // SAFETY:
+        // - trait bound `T: ComponentMut` ensures component is mutable
+        // - same safety requirements
+        unsafe { self.get_mut_assume_mutable() }
     }
 
     /// # Safety
     /// It is the callers responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
+    /// - The component `T` is mutable
     #[inline]
-    pub(crate) unsafe fn get_mut_using_ticks<T: ComponentMut>(
+    pub unsafe fn get_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
+        // SAFETY: same safety requirements
+        unsafe {
+            self.get_mut_using_ticks_assume_mutable(
+                self.world.last_change_tick(),
+                self.world.change_tick(),
+            )
+        }
+    }
+
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the component mutably
+    /// - no other references to the component exist at the same time
+    /// - The component `T` is mutable
+    #[inline]
+    pub(crate) unsafe fn get_mut_using_ticks_assume_mutable<T: Component>(
         &self,
         last_change_tick: Tick,
         change_tick: Tick,

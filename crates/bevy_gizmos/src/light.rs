@@ -13,7 +13,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::Without,
-    reflect::{ReflectComponent, ReflectComponentMut},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Query, Res},
 };
@@ -185,7 +185,7 @@ impl Default for LightGizmoConfigGroup {
 /// Add this [`Component`] to an entity to draw any of its lights components
 /// ([`PointLight`], [`SpotLight`] and [`DirectionalLight`]).
 #[derive(Component, Reflect, Default, Debug)]
-#[reflect(ComponentMut, Component, Default, Debug)]
+#[reflect(Component, Default, Debug)]
 pub struct ShowLightGizmo {
     /// Default color strategy for this light gizmo. if [`None`], use the one provided by [`LightGizmoConfigGroup`].
     ///

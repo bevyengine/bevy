@@ -521,6 +521,18 @@ impl<'w> EntityMut<'w> {
         unsafe { self.0.get_mut() }
     }
 
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// # Safety
+    ///
+    /// - `T` must be a mutable component
+    #[inline]
+    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+        // SAFETY: &mut self implies exclusive access for duration of returned value
+        unsafe { self.0.get_mut_assume_mutable() }
+    }
+
     /// Consumes self and gets mutable access to the component of type `T`
     /// with the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
@@ -2672,11 +2684,28 @@ impl<'w> FilteredEntityMut<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn into_mut<T: ComponentMut>(self) -> Option<Mut<'w, T>> {
+        // SAFETY:
+        // - We have write access
+        // - The bound `T: ComponentMut` ensures the component is mutable
+        unsafe { self.into_mut_assume_mutable() }
+    }
+
+    /// Consumes self and gets mutable access to the component of type `T`
+    /// with the world `'w` lifetime for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// # Safety
+    ///
+    /// - `T` must be a mutable component
+    #[inline]
+    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_component_write(id)
-            // SAFETY: We have write access
-            .then(|| unsafe { self.entity.get_mut() })
+            // SAFETY:
+            // - We have write access
+            // - Caller ensures `T` is a mutable component
+            .then(|| unsafe { self.entity.get_mut_assume_mutable() })
             .flatten()
     }
 

@@ -58,7 +58,7 @@ use crate::{
 /// The documentation for the [`pointer_events`] explains the events this module exposes and
 /// the order in which they fire.
 #[derive(Clone, PartialEq, Debug, Reflect, Component)]
-#[reflect(ComponentMut, Component, Debug)]
+#[reflect(Component, Debug)]
 pub struct Pointer<E: Debug + Clone + Reflect> {
     /// The original target of this picking event, before bubbling
     pub target: Entity,

@@ -17,7 +17,7 @@ use smallvec::SmallVec;
 
 /// Provides the computed size and layout properties of the node.
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
-#[reflect(ComponentMut, Component, Default, Debug)]
+#[reflect(Component, Default, Debug)]
 pub struct ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
@@ -222,7 +222,7 @@ impl Default for ComputedNode {
 /// `ScrollPosition` may be updated by the layout system when a layout change makes a previously valid `ScrollPosition` invalid.
 /// Changing this does nothing on a `Node` without setting at least one `OverflowAxis` to `OverflowAxis::Scroll`.
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(ComponentMut, Component, Default)]
+#[reflect(Component, Default)]
 pub struct ScrollPosition {
     /// How far across the node is scrolled, in pixels. (0 = not scrolled / scrolled to right)
     pub offset_x: f32,
@@ -295,7 +295,7 @@ impl From<&Vec2> for ScrollPosition {
     Visibility,
     ZIndex
 )]
-#[reflect(ComponentMut, Component, Default, PartialEq, Debug)]
+#[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1907,7 +1907,7 @@ pub enum GridPlacementError {
 ///
 /// This serves as the "fill" color.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(ComponentMut, Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1934,7 +1934,7 @@ impl<T: Into<Color>> From<T> for BackgroundColor {
 
 /// The border color of the UI node.
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(ComponentMut, Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1960,7 +1960,7 @@ impl Default for BorderColor {
 }
 
 #[derive(Component, Copy, Clone, Default, Debug, PartialEq, Reflect)]
-#[reflect(ComponentMut, Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -2042,7 +2042,7 @@ impl Outline {
 
 /// The calculated clip of the node
 #[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(ComponentMut, Component, Default, Debug)]
+#[reflect(Component, Default, Debug)]
 pub struct CalculatedClip {
     /// The rect of the clip
     pub clip: Rect,
@@ -2058,7 +2058,7 @@ pub struct CalculatedClip {
 ///
 /// Nodes without this component will be treated as if they had a value of [`ZIndex(0)`].
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
-#[reflect(ComponentMut, Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct ZIndex(pub i32);
 
 /// `GlobalZIndex` allows a [`Node`] entity anywhere in the UI hierarchy to escape the implicit draw ordering of the UI's layout tree and
@@ -2068,7 +2068,7 @@ pub struct ZIndex(pub i32);
 ///
 /// If two Nodes have the same `GlobalZIndex`, the node with the greater [`ZIndex`] will be drawn on top.
 #[derive(Component, Copy, Clone, Debug, Default, PartialEq, Eq, Reflect)]
-#[reflect(ComponentMut, Component, Default, Debug, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct GlobalZIndex(pub i32);
 
 /// Used to add rounded corners to a UI node. You can set a UI node to have uniformly
@@ -2109,7 +2109,7 @@ pub struct GlobalZIndex(pub i32);
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(ComponentMut, Component, PartialEq, Default, Debug)]
+#[reflect(Component, PartialEq, Default, Debug)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -2374,7 +2374,7 @@ impl ResolvedBorderRadius {
 }
 
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(ComponentMut, Component, PartialEq, Default)]
+#[reflect(Component, PartialEq, Default)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -2449,7 +2449,7 @@ mod tests {
 ///
 /// Optional if there is only one camera in the world. Required otherwise.
 #[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
-#[reflect(ComponentMut, Component, Debug, PartialEq)]
+#[reflect(Component, Debug, PartialEq)]
 pub struct TargetCamera(pub Entity);
 
 impl TargetCamera {

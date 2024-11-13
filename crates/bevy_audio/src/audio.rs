@@ -51,7 +51,7 @@ pub enum PlaybackMode {
 /// [`AudioSink`][crate::AudioSink] or [`SpatialAudioSink`][crate::SpatialAudioSink]
 /// components. Changes to this component will *not* be applied to already-playing audio.
 #[derive(Component, Clone, Copy, Debug, Reflect)]
-#[reflect(Default, ComponentMut, Component, Debug)]
+#[reflect(Default, Component, Debug)]
 pub struct PlaybackSettings {
     /// The desired playback behavior.
     pub mode: PlaybackMode,
@@ -147,7 +147,7 @@ impl PlaybackSettings {
 /// This must be accompanied by `Transform` and `GlobalTransform`.
 /// Only one entity with a `SpatialListener` should be present at any given time.
 #[derive(Component, Clone, Debug, Reflect)]
-#[reflect(Default, ComponentMut, Component, Debug)]
+#[reflect(Default, Component, Debug)]
 pub struct SpatialListener {
     /// Left ear position relative to the `GlobalTransform`.
     pub left_ear_offset: Vec3,
@@ -249,7 +249,7 @@ pub type AudioBundle = AudioSourceBundle<AudioSource>;
 /// Playback can be configured using the [`PlaybackSettings`] component. Note that changes to the
 /// `PlaybackSettings` component will *not* affect already-playing audio.
 #[derive(Component, Reflect)]
-#[reflect(ComponentMut, Component)]
+#[reflect(Component)]
 #[require(PlaybackSettings)]
 pub struct AudioPlayer<Source = AudioSource>(pub Handle<Source>)
 where

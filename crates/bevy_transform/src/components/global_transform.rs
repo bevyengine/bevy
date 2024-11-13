@@ -7,10 +7,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use derive_more::derive::From;
 #[cfg(feature = "bevy-support")]
 use {
-    bevy_ecs::{
-        component::Component,
-        reflect::{ReflectComponent, ReflectComponentMut},
-    },
+    bevy_ecs::{component::Component, reflect::ReflectComponent},
     bevy_reflect::{std_traits::ReflectDefault, Reflect},
 };
 
@@ -48,7 +45,7 @@ use {
 #[cfg_attr(
     feature = "bevy-support",
     derive(Component, Reflect),
-    reflect(ComponentMut, Component, Default, PartialEq, Debug)
+    reflect(Component, Default, PartialEq, Debug)
 )]
 #[cfg_attr(
     all(feature = "bevy-support", feature = "serialize"),

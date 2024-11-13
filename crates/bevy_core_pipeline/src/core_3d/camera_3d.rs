@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 /// This means "forward" is -Z.
 #[derive(Component, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
-#[reflect(ComponentMut, Component, Default)]
+#[reflect(Component, Default)]
 #[require(
     Camera,
     DebandDither(|| DebandDither::Enabled),

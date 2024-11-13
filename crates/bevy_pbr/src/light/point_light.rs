@@ -20,7 +20,7 @@ use super::*;
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
 #[derive(Component, Debug, Clone, Copy, Reflect)]
-#[reflect(ComponentMut, Component, Default, Debug)]
+#[reflect(Component, Default, Debug)]
 #[require(CubemapFrusta, CubemapVisibleEntities, Transform, Visibility)]
 pub struct PointLight {
     /// The color of this light source.

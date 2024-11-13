@@ -9,7 +9,7 @@ use bevy_ecs::{
     bundle::Bundle,
     component::Component,
     entity::{Entity, EntityHashMap},
-    reflect::{ReflectComponent, ReflectComponentMut},
+    reflect::ReflectComponent,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::sync_world::MainEntity;
@@ -66,21 +66,21 @@ impl<M: Material> Default for MaterialMeshBundle<M> {
 /// This component contains all mesh entities visible from the current light view.
 /// The collection is updated automatically by [`crate::SimulationLightSystems`].
 #[derive(Component, Clone, Debug, Default, Reflect, Deref, DerefMut)]
-#[reflect(ComponentMut, Component, Debug, Default)]
+#[reflect(Component, Debug, Default)]
 pub struct VisibleMeshEntities {
     #[reflect(ignore)]
     pub entities: Vec<Entity>,
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect, Deref, DerefMut)]
-#[reflect(ComponentMut, Component, Debug, Default)]
+#[reflect(Component, Debug, Default)]
 pub struct RenderVisibleMeshEntities {
     #[reflect(ignore)]
     pub entities: Vec<(Entity, MainEntity)>,
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(ComponentMut, Component, Debug, Default)]
+#[reflect(Component, Debug, Default)]
 pub struct CubemapVisibleEntities {
     #[reflect(ignore)]
     data: [VisibleMeshEntities; 6],
@@ -105,7 +105,7 @@ impl CubemapVisibleEntities {
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(ComponentMut, Component, Debug, Default)]
+#[reflect(Component, Debug, Default)]
 pub struct RenderCubemapVisibleEntities {
     #[reflect(ignore)]
     pub(crate) data: [RenderVisibleMeshEntities; 6],
@@ -130,7 +130,7 @@ impl RenderCubemapVisibleEntities {
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(ComponentMut, Component)]
+#[reflect(Component)]
 pub struct CascadesVisibleEntities {
     /// Map of view entity to the visible entities for each cascade frustum.
     #[reflect(ignore)]
@@ -138,7 +138,7 @@ pub struct CascadesVisibleEntities {
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(ComponentMut, Component)]
+#[reflect(Component)]
 pub struct RenderCascadesVisibleEntities {
     /// Map of view entity to the visible entities for each cascade frustum.
     #[reflect(ignore)]

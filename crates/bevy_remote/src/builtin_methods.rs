@@ -8,7 +8,7 @@ use bevy_ecs::{
     entity::Entity,
     event::EventCursor,
     query::QueryBuilder,
-    reflect::{AppTypeRegistry, ReflectComponentMut},
+    reflect::{AppTypeRegistry, ReflectComponent},
     removal_detection::RemovedComponentEntity,
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
@@ -567,18 +567,18 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
     //
     // We also will just collect the `ReflectComponent` values from the type registry all
     // at once so that we can reuse them between components.
-    let paths_and_reflect_components: Vec<(&str, &ReflectComponentMut)> = components
+    let paths_and_reflect_components: Vec<(&str, &ReflectComponent)> = components
         .into_iter()
         .chain(option)
         .map(|(type_id, _)| reflect_component_from_id(type_id, &type_registry))
-        .collect::<AnyhowResult<Vec<(&str, &ReflectComponentMut)>>>()
+        .collect::<AnyhowResult<Vec<(&str, &ReflectComponent)>>>()
         .map_err(BrpError::component_error)?;
 
     // ... and the analogous construction for `has`:
-    let has_paths_and_reflect_components: Vec<(&str, &ReflectComponentMut)> = has
+    let has_paths_and_reflect_components: Vec<(&str, &ReflectComponent)> = has
         .into_iter()
         .map(|(type_id, _)| reflect_component_from_id(type_id, &type_registry))
-        .collect::<AnyhowResult<Vec<(&str, &ReflectComponentMut)>>>()
+        .collect::<AnyhowResult<Vec<(&str, &ReflectComponent)>>>()
         .map_err(BrpError::component_error)?;
 
     let mut response = BrpQueryResponse::default();
@@ -734,7 +734,7 @@ pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World)
     // If `None`, list all registered components.
     else {
         for registered_type in type_registry.iter() {
-            if registered_type.data::<ReflectComponentMut>().is_some() {
+            if registered_type.data::<ReflectComponent>().is_some() {
                 response.push(registered_type.type_info().type_path().to_owned());
             }
         }
@@ -844,7 +844,7 @@ fn get_component_ids(
 /// where the value is not present on an entity are simply skipped.
 fn build_components_map<'a>(
     entity_ref: FilteredEntityRef,
-    paths_and_reflect_components: impl Iterator<Item = (&'a str, &'a ReflectComponentMut)>,
+    paths_and_reflect_components: impl Iterator<Item = (&'a str, &'a ReflectComponent)>,
     type_registry: &TypeRegistry,
 ) -> AnyhowResult<HashMap<String, Value>> {
     let mut serialized_components_map = HashMap::new();
@@ -871,7 +871,7 @@ fn build_components_map<'a>(
 /// a boolean value indicating whether or not that component is present on the entity.
 fn build_has_map<'a>(
     entity_ref: FilteredEntityRef,
-    paths_and_reflect_components: impl Iterator<Item = (&'a str, &'a ReflectComponentMut)>,
+    paths_and_reflect_components: impl Iterator<Item = (&'a str, &'a ReflectComponent)>,
 ) -> HashMap<String, Value> {
     let mut has_map = HashMap::new();
 
@@ -891,7 +891,7 @@ fn build_has_map<'a>(
 fn reflect_component_from_id(
     component_type_id: TypeId,
     type_registry: &TypeRegistry,
-) -> AnyhowResult<(&str, &ReflectComponentMut)> {
+) -> AnyhowResult<(&str, &ReflectComponent)> {
     let Some(type_registration) = type_registry.get(component_type_id) else {
         return Err(anyhow!(
             "Component `{:?}` isn't registered",
@@ -901,7 +901,7 @@ fn reflect_component_from_id(
 
     let type_path = type_registration.type_info().type_path();
 
-    let Some(reflect_component) = type_registration.data::<ReflectComponentMut>() else {
+    let Some(reflect_component) = type_registration.data::<ReflectComponent>() else {
         return Err(anyhow!("Component `{}` isn't reflectable", type_path));
     };
 
@@ -946,16 +946,16 @@ fn insert_reflected_components(
     Ok(())
 }
 
-/// Given a component's type path, return the associated [`ReflectComponentMut`] from the given
+/// Given a component's type path, return the associated [`ReflectComponent`] from the given
 /// `type_registry` if possible.
 fn get_reflect_component<'r>(
     type_registry: &'r TypeRegistry,
     component_path: &str,
-) -> AnyhowResult<&'r ReflectComponentMut> {
+) -> AnyhowResult<&'r ReflectComponent> {
     let component_registration = get_component_type_registration(type_registry, component_path)?;
 
     component_registration
-        .data::<ReflectComponentMut>()
+        .data::<ReflectComponent>()
         .ok_or_else(|| anyhow!("Component `{}` isn't reflectable", component_path))
 }
 

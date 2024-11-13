@@ -2,7 +2,7 @@ use core::num::NonZero;
 
 use bevy_ecs::{
     entity::{Entity, VisitEntities, VisitEntitiesMut},
-    prelude::{Component, ReflectComponent, ReflectComponentMut},
+    prelude::{Component, ReflectComponent},
 };
 use bevy_math::{CompassOctant, DVec2, IVec2, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -20,7 +20,7 @@ use bevy_utils::tracing::warn;
 /// with this component if [`primary_window`](crate::WindowPlugin::primary_window)
 /// is `Some`.
 #[derive(Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect)]
-#[reflect(ComponentMut, Component, Debug, Default, PartialEq)]
+#[reflect(Component, Debug, Default, PartialEq)]
 pub struct PrimaryWindow;
 
 /// Reference to a [`Window`], whether it be a direct link to a specific entity or
@@ -131,7 +131,7 @@ impl NormalizedWindowRef {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(ComponentMut, Component, Default, Debug)]
+#[reflect(Component, Default, Debug)]
 pub struct Window {
     /// The cursor options of this window. Cursor icons are set with the `Cursor` component on the
     /// window entity.

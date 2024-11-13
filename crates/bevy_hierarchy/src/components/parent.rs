@@ -1,7 +1,7 @@
 #[cfg(feature = "reflect")]
 use bevy_ecs::reflect::{
-    ReflectComponent, ReflectComponentMut, ReflectFromWorld, ReflectMapEntities,
-    ReflectVisitEntities, ReflectVisitEntitiesMut,
+    ReflectComponent, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
+    ReflectVisitEntitiesMut,
 };
 use bevy_ecs::{
     component::Component,
@@ -30,7 +30,6 @@ use core::ops::Deref;
     feature = "reflect",
     reflect(
         Component,
-        ComponentMut,
         MapEntities,
         VisitEntities,
         VisitEntitiesMut,
