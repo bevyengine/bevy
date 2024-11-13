@@ -86,6 +86,7 @@ pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
     removed_children: RemovedComponents<'w, 's, Children>,
     removed_content_sizes: RemovedComponents<'w, 's, ContentSize>,
     removed_nodes: RemovedComponents<'w, 's, Node>,
+    removed_parents: RemovedComponents<'w, 's, Parent>,
 }
 
 #[doc(hidden)]
