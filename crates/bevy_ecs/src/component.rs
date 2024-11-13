@@ -99,9 +99,19 @@ use derive_more::derive::{Display, Error};
 /// [`Table`]: crate::storage::Table
 /// [`SparseSet`]: crate::storage::SparseSet
 ///
-/// # Required Components
+/// # Related Components
 ///
-/// Components can specify Required Components. If some [`Component`] `A` requires [`Component`] `B`,  then when `A` is inserted,
+/// Components can specify Related Components, which are intended to work together.
+/// There are three levels of [`Relatedness`] whose functionality builds on previous levels, ranging from "helpful suggestion" to "manadatory":
+///
+/// 1. [`Relatedness::Suggested`]: These components work well together, check it out!
+/// 2. [`Relatedness::Included`]: These components are typically used together, so we'll include them for you upon insertion.
+/// 3. [`Relatedness::Required`]: These components must be used together. Not only are they included upon insertion, you can't opt out.
+///
+/// When using the `suggests`/`includes`/`required` attributes as part of the derive macro,
+/// documentation will automatically be generated for the [`Component`] impl of your type.
+///
+/// Additionally, if some [`Component`] `A` requires or includes [`Component`] `B`,  then when `A` is inserted,
 /// `B` will _also_ be initialized and inserted (if it was not manually specified).
 ///
 /// The [`Default`] constructor will be used to initialize the component, by default:
@@ -175,7 +185,7 @@ use derive_more::derive::{Display, Error};
 /// assert_eq!(&C(20), world.entity(id).get::<C>().unwrap());
 /// ```
 ///
-/// Required components are _recursive_. This means, if a Required Component has required components,
+/// Related components are _recursive_. This means, if a Related Component has related components,
 /// those components will _also_ be inserted if they are missing:
 ///
 /// ```
@@ -234,12 +244,12 @@ use derive_more::derive::{Display, Error};
 /// 1. Specifying a required component constructor for Foo directly on a spawned component Bar will result in that constructor being used (and overriding existing constructors lower in the inheritance tree). This is the classic "inheritance override" behavior people expect.
 /// 2. For cases where "multiple inheritance" results in constructor clashes, Components should be listed in "importance order". List a component earlier in the requirement list to initialize its inheritance tree earlier.
 ///
-/// ## Registering required components at runtime
+/// ## Registering related components at runtime
 ///
-/// In most cases, required components should be registered using the `require` attribute as shown above.
+/// In most cases, required components should be registered using attributes like `require` as shown above.
 /// However, in some cases, it may be useful to register required components at runtime.
 ///
-/// This can be done through [`World::register_required_components`] or  [`World::register_required_components_with`]
+/// This can be done through [`World::register_related_components`] or  [`World::register_related_components_with`]
 /// for the [`Default`] and custom constructors respectively:
 ///
 /// ```
@@ -255,8 +265,8 @@ use derive_more::derive::{Display, Error};
 ///
 /// # let mut world = World::default();
 /// // Register B as required by A and C as required by B.
-/// world.register_required_components::<A, B>();
-/// world.register_required_components_with::<B, C>(|| C(2));
+/// world.register_related_components::<A, B>();
+/// world.register_related_components_with::<B, C>(|| C(2));
 ///
 /// // This will implicitly also insert B with its Default constructor
 /// // and C with the custom constructor defined by B.
@@ -381,12 +391,12 @@ pub trait Component: Send + Sync + 'static {
     /// Called when registering this component, allowing mutable access to its [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
 
-    /// Registers required components.
-    fn register_required_components(
+    /// Registers related components.
+    fn register_related_components(
         _component_id: ComponentId,
         _components: &mut Components,
         _storages: &mut Storages,
-        _required_components: &mut RequiredComponents,
+        _required_components: &mut RelatedComponents,
         _inheritance_depth: u16,
     ) {
     }
@@ -600,7 +610,7 @@ pub struct ComponentInfo {
     id: ComponentId,
     descriptor: ComponentDescriptor,
     hooks: ComponentHooks,
-    required_components: RequiredComponents,
+    required_components: RelatedComponents,
     required_by: HashSet<ComponentId>,
 }
 
@@ -688,9 +698,9 @@ impl ComponentInfo {
         &self.hooks
     }
 
-    /// Retrieves the [`RequiredComponents`] collection, which contains all required components (and their constructors)
+    /// Retrieves the [`RelatedComponents`] collection, which contains all required components (and their constructors)
     /// needed by this component. This includes _recursive_ required components.
-    pub fn required_components(&self) -> &RequiredComponents {
+    pub fn related_components(&self) -> &RelatedComponents {
         &self.required_components
     }
 }
@@ -913,8 +923,8 @@ impl Components {
             })
         };
         if registered {
-            let mut required_components = RequiredComponents::default();
-            T::register_required_components(id, self, storages, &mut required_components, 0);
+            let mut required_components = RelatedComponents::default();
+            T::register_related_components(id, self, storages, &mut required_components, 0);
             let info = &mut self.components[id.index()];
             T::register_component_hooks(&mut info.hooks);
             info.required_components = required_components;
@@ -1001,21 +1011,21 @@ impl Components {
     }
 
     #[inline]
-    pub(crate) fn get_required_components_mut(
+    pub(crate) fn get_related_components_mut(
         &mut self,
         id: ComponentId,
-    ) -> Option<&mut RequiredComponents> {
+    ) -> Option<&mut RelatedComponents> {
         self.components
             .get_mut(id.0)
             .map(|info| &mut info.required_components)
     }
 
-    /// Registers the given component `R` and [required components] inherited from it as required by `T`.
+    /// Registers the given component `R` and [related components] inherited from it as required by `T`.
     ///
     /// When `T` is added to an entity, `R` will also be added if it was not already provided.
     /// The given `constructor` will be used for the creation of `R`.
     ///
-    /// [required components]: Component#required-components
+    /// [related components]: Component#related-components
     ///
     /// # Safety
     ///
@@ -1023,36 +1033,39 @@ impl Components {
     ///
     /// # Errors
     ///
-    /// Returns a [`RequiredComponentsError`] if the `required` component is already a directly required component for the `requiree`.
+    /// Returns a [`RelatedComponentsError`] if the `required` component is already a directly required component for the `requiree`.
     ///
     /// Indirect requirements through other components are allowed. In those cases, the more specific
     /// registration will be used.
-    pub(crate) unsafe fn register_required_components<R: Component>(
+    pub(crate) unsafe fn register_related_components<R: Component>(
         &mut self,
         required: ComponentId,
         requiree: ComponentId,
         constructor: fn() -> R,
-    ) -> Result<(), RequiredComponentsError> {
+        relatedness: Relatedness,
+    ) -> Result<(), RelatedComponentsError> {
         // SAFETY: The caller ensures that the `requiree` is valid.
-        let required_components = unsafe {
-            self.get_required_components_mut(requiree)
+        let related_components = unsafe {
+            self.get_related_components_mut(requiree)
                 .debug_checked_unwrap()
         };
 
-        // Cannot directly require the same component twice.
-        if required_components
-            .0
-            .get(&required)
-            .is_some_and(|c| c.inheritance_depth == 0)
-        {
-            return Err(RequiredComponentsError::DuplicateRegistration(
+        let map = match relatedness {
+            Relatedness::Suggested => &related_components.suggested_components,
+            Relatedness::Included => &related_components.included_components,
+            Relatedness::Required => &related_components.required_components,
+        };
+
+        // Cannot directly create the same relation between components twice.
+        if map.get(&required).is_some_and(|c| c.inheritance_depth == 0) {
+            return Err(RelatedComponentsError::DuplicateRegistration(
                 requiree, required,
             ));
         }
 
         // Register the required component for the requiree.
         // This is a direct requirement with a depth of `0`.
-        required_components.register_by_id(required, constructor, 0);
+        related_components.register_by_id(required, constructor, 0, relatedness);
 
         // Add the requiree to the list of components that require the required component.
         // SAFETY: The component is in the list of required components, so it must exist already.
@@ -1061,20 +1074,20 @@ impl Components {
 
         // SAFETY: The caller ensures that the `requiree` and `required` components are valid.
         let inherited_requirements =
-            unsafe { self.register_inherited_required_components(requiree, required) };
+            unsafe { self.register_inherited_required_components(requiree, required, relatedness) };
 
         // Propagate the new required components up the chain to all components that require the requiree.
         if let Some(required_by) = self.get_required_by(requiree).cloned() {
             for &required_by_id in required_by.iter() {
                 // SAFETY: The component is in the list of required components, so it must exist already.
                 let required_components = unsafe {
-                    self.get_required_components_mut(required_by_id)
+                    self.get_related_components_mut(required_by_id)
                         .debug_checked_unwrap()
                 };
 
                 // Register the original required component for the requiree.
                 // The inheritance depth is `1` since this is a component required by the original requiree.
-                required_components.register_by_id(required, constructor, 1);
+                required_components.register_by_id(required, constructor, 1, relatedness);
 
                 for (component_id, component) in inherited_requirements.iter() {
                     // Register the required component.
@@ -1086,6 +1099,7 @@ impl Components {
                             *component_id,
                             component.constructor.clone(),
                             component.inheritance_depth + 1,
+                            relatedness,
                         );
                     };
                 }
@@ -1105,18 +1119,19 @@ impl Components {
         &mut self,
         requiree: ComponentId,
         required: ComponentId,
-    ) -> Vec<(ComponentId, RequiredComponent)> {
+        relatedness: Relatedness,
+    ) -> Vec<(ComponentId, RelatedComponent)> {
         // Get required components inherited from the `required` component.
         // SAFETY: The caller ensures that the `required` component is valid.
         let required_component_info = unsafe { self.get_info(required).debug_checked_unwrap() };
-        let inherited_requirements: Vec<(ComponentId, RequiredComponent)> = required_component_info
-            .required_components()
-            .0
+        let inherited_requirements: Vec<(ComponentId, RelatedComponent)> = required_component_info
+            .related_components()
+            .required_components
             .iter()
             .map(|(component_id, required_component)| {
                 (
                     *component_id,
-                    RequiredComponent {
+                    RelatedComponent {
                         constructor: required_component.constructor.clone(),
                         // Add `1` to the inheritance depth since this will be registered
                         // for the component that requires `required`.
@@ -1126,21 +1141,22 @@ impl Components {
             })
             .collect();
 
-        // Register the new required components.
+        // Register the new related components.
         for (component_id, component) in inherited_requirements.iter().cloned() {
             // SAFETY: The caller ensures that the `requiree` is valid.
             let required_components = unsafe {
-                self.get_required_components_mut(requiree)
+                self.get_related_components_mut(requiree)
                     .debug_checked_unwrap()
             };
 
-            // Register the required component for the requiree.
+            // Register the related component for the requiree.
             // SAFETY: Component ID and constructor match the ones on the original requiree.
             unsafe {
                 required_components.register_dynamic(
                     component_id,
                     component.constructor,
                     component.inheritance_depth,
+                    relatedness,
                 );
             };
 
@@ -1159,44 +1175,46 @@ impl Components {
     // NOTE: This should maybe be private, but it is currently public so that `bevy_ecs_macros` can use it.
     //       We can't directly move this there either, because this uses `Components::get_required_by_mut`,
     //       which is private, and could be equally risky to expose to users.
-    /// Registers the given component `R` as a [required component] for `T`,
+    /// Registers the given component `R` as a [related component] for `T`,
     /// and adds `T` to the list of requirees for `R`.
     ///
     /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
     /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
     /// Lower depths are more specific requirements, and can override existing less specific registrations.
     ///
-    /// This method does *not* recursively register required components for components required by `R`,
+    /// This method does *not* recursively register related components for components required by `R`,
     /// nor does it register them for components that require `T`.
     ///
-    /// Only use this method if you know what you are doing. In most cases, you should instead use [`World::register_required_components`],
+    /// Only use this method if you know what you are doing. In most cases, you should instead use [`World::register_related_components`],
     /// or the equivalent method in `bevy_app::App`.
     ///
-    /// [required component]: Component#required-components
+    /// [related component]: Component#related-components
     #[doc(hidden)]
-    pub fn register_required_components_manual<T: Component, R: Component>(
+    pub fn register_related_components_manual<T: Component, R: Component>(
         &mut self,
         storages: &mut Storages,
-        required_components: &mut RequiredComponents,
+        required_components: &mut RelatedComponents,
         constructor: fn() -> R,
         inheritance_depth: u16,
+        relatedness: Relatedness,
     ) {
         let requiree = self.register_component::<T>(storages);
         let required = self.register_component::<R>(storages);
 
         // SAFETY: We just created the components.
         unsafe {
-            self.register_required_components_manual_unchecked::<R>(
+            self.register_related_components_manual_unchecked::<R>(
                 requiree,
                 required,
                 required_components,
                 constructor,
                 inheritance_depth,
+                relatedness,
             );
         }
     }
 
-    /// Registers the given component `R` as a [required component] for `T`,
+    /// Registers the given component `R` as a [related component] for `T`,
     /// and adds `T` to the list of requirees for `R`.
     ///
     /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
@@ -1206,18 +1224,19 @@ impl Components {
     /// This method does *not* recursively register required components for components required by `R`,
     /// nor does it register them for components that require `T`.
     ///
-    /// [required component]: Component#required-components
+    /// [related component]: Component#related-components
     ///
     /// # Safety
     ///
     /// The given component IDs `required` and `requiree` must be valid.
-    pub(crate) unsafe fn register_required_components_manual_unchecked<R: Component>(
+    pub(crate) unsafe fn register_related_components_manual_unchecked<R: Component>(
         &mut self,
         requiree: ComponentId,
         required: ComponentId,
-        required_components: &mut RequiredComponents,
+        required_components: &mut RelatedComponents,
         constructor: fn() -> R,
         inheritance_depth: u16,
+        relatedness: Relatedness,
     ) {
         // Components cannot require themselves.
         if required == requiree {
@@ -1225,7 +1244,7 @@ impl Components {
         }
 
         // Register the required component `R` for the requiree.
-        required_components.register_by_id(required, constructor, inheritance_depth);
+        required_components.register_by_id(required, constructor, inheritance_depth, relatedness);
 
         // Add the requiree to the list of components that require `R`.
         // SAFETY: The caller ensures that the component ID is valid.
@@ -1614,11 +1633,13 @@ impl<T: Component> FromWorld for InitComponentId<T> {
     }
 }
 
-/// An error returned when the registration of a required component fails.
+/// An error returned when the registration of a related component fails.
+///
+/// See [`RelatedComponents`] for the place where this information is stored and [`Relatedness`] for the strictness of the relationship.
 #[derive(Error, Display, Debug)]
 #[non_exhaustive]
-pub enum RequiredComponentsError {
-    /// The component is already a directly required component for the requiree.
+pub enum RelatedComponentsError {
+    /// The component is already a directly related component for the requiree.
     #[display("Component {0:?} already directly requires component {_1:?}")]
     #[error(ignore)]
     DuplicateRegistration(ComponentId, ComponentId),
@@ -1630,27 +1651,27 @@ pub enum RequiredComponentsError {
     ArchetypeExists(ComponentId),
 }
 
-/// A Required Component constructor. See [`Component`] for details.
+/// A Related Component constructor. See [`Component`] for details.
 #[cfg(feature = "track_change_detection")]
 #[derive(Clone)]
-pub struct RequiredComponentConstructor(
+pub struct RelatedComponentConstructor(
     pub Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity, &'static Location<'static>)>,
 );
 
-/// A Required Component constructor. See [`Component`] for details.
+/// A Related Component constructor. See [`Component`] for details.
 #[cfg(not(feature = "track_change_detection"))]
 #[derive(Clone)]
-pub struct RequiredComponentConstructor(
+pub struct RelatedComponentConstructor(
     pub Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity)>,
 );
 
-impl RequiredComponentConstructor {
+impl RelatedComponentConstructor {
     /// # Safety
     /// This is intended to only be called in the context of [`BundleInfo::write_components`] to initialized required components.
     /// Calling it _anywhere else_ should be considered unsafe.
     ///
     /// `table_row` and `entity` must correspond to a valid entity that currently needs a component initialized via the constructor stored
-    /// on this [`RequiredComponentConstructor`]. The stored constructor must correspond to a component on `entity` that needs initialization.
+    /// on this [`RelatedComponentConstructor`]. The stored constructor must correspond to a component on `entity` that needs initialization.
     /// `table` and `sparse_sets` must correspond to storages on a world where `entity` needs this required component initialized.
     ///
     /// Again, don't call this anywhere but [`BundleInfo::write_components`].
@@ -1675,11 +1696,13 @@ impl RequiredComponentConstructor {
     }
 }
 
-/// Metadata associated with a required component. See [`Component`] for details.
+/// Metadata associated with a required component.
+///
+/// See [`Component`] for details on usage, and [`RelatedComponents`] for the storage.
 #[derive(Clone)]
-pub struct RequiredComponent {
-    /// The constructor used for the required component.
-    pub constructor: RequiredComponentConstructor,
+pub struct RelatedComponent {
+    /// The constructor used for the related component.
+    pub constructor: RelatedComponentConstructor,
 
     /// The depth of the component requirement in the requirement hierarchy for this component.
     /// This is used for determining which constructor is used in cases where there are duplicate requires.
@@ -1694,22 +1717,81 @@ pub struct RequiredComponent {
     pub inheritance_depth: u16,
 }
 
-/// The collection of metadata for components that are required for a given component.
+/// The collection of metadata for components that are related to a given component.
 ///
-/// For more information, see the "Required Components" section of [`Component`].
+/// For usage information, see the "Related Components" section of [`Component`].
+/// For the metadata associated with a relayed component, see [`RelatedComponent`].
 #[derive(Default, Clone)]
-pub struct RequiredComponents(pub(crate) HashMap<ComponentId, RequiredComponent>);
+pub struct RelatedComponents {
+    // NOTE: these are stored in separate maps to allow for more efficient lookups.
+    // A double map keyed by [`Relatedness`] then [`ComponentId`] would be more ergonomic,
+    // but would require more expensive lookups.
+    /// The components corresponding to [`Relatedness::Suggested`].
+    pub(crate) suggested_components: HashMap<ComponentId, RelatedComponent>,
+    /// The components corresponding to [`Relatedness::Included`].
+    pub(crate) included_components: HashMap<ComponentId, RelatedComponent>,
+    /// The components corresponding to [`Relatedness::Required`].
+    pub(crate) required_components: HashMap<ComponentId, RelatedComponent>,
+}
 
-impl Debug for RequiredComponents {
+impl Debug for RelatedComponents {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("RequiredComponents")
-            .field(&self.0.keys())
+        f.debug_struct("RelatedComponents")
+            .field("Suggested", &self.suggested_components.keys())
+            .field("Included", &self.included_components.keys())
+            .field("Required", &self.required_components.keys())
             .finish()
     }
 }
 
-impl RequiredComponents {
-    /// Registers a required component.
+/// The strictness of the relationship between components.
+///
+/// These enum variants are ordered from least strict to most strict.
+///
+/// Related components are unidirectional: if `A` requires `B`, `B` does not necessarily require `A`.
+/// These variants describe the strength of the relationship from `A` to `B`, where `A` is the component
+/// that you are registering related components for.
+///
+/// In many cases, you might create an included/required component relationship in one direction,
+/// but merely suggest the relationship in the other direction to help users discover the connection.
+///
+/// For usage information, see the "Related Components" section of [`Component`].
+/// For the collection of metadata associated with a specific component, see [`RelatedComponents`].
+/// For a single piece of metadata associated with a related component, see [`RelatedComponent`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Relatedness {
+    /// This component has a helpful interaction with the related component.
+    ///
+    /// At this level, documentation is automatically generated (when used as part of the derive macro),
+    /// and runtime metadata linking the components is stored for use with tooling.
+    ///
+    /// This level is appropriate to link components that have a helpful, optional effect when used together.
+    Suggested,
+    /// This component should typically be used with the related component.
+    ///
+    /// In addition to the features of [`Relatedness::Suggested`],
+    /// whenever this component is added to an entity, the related component will also be added if it was not already provided.
+    ///
+    /// This level is appropriate to link components that should almost always be used together,
+    /// but where power users may wish to opt-out of this behavior.
+    Included,
+    /// This component must be used with the related component.
+    ///
+    /// In addition to the features of [`Relatedness::Suggested`],
+    /// whenever this component is added to an entity, the relationship between these components cannot be removed.
+    /// In the future, we intend to this level to enforce even stricter guarantees, such as removing this component
+    /// if any of its required component is removed.
+    ///
+    /// This level is appropriate for strict correctness requirements,
+    /// where the related component is a fundamental part of the component's functionality
+    /// and removing it would break the component's behavior.
+    /// It cannot currently be relied on for soundness however,
+    /// as the required component can be removed without removing the requiring component.
+    Required,
+}
+
+impl RelatedComponents {
+    /// Registers a related component.
     ///
     /// If the component is already registered, it will be overwritten if the given inheritance depth
     /// is smaller than the depth of the existing registration. Otherwise, the new registration will be ignored.
@@ -1723,25 +1805,26 @@ impl RequiredComponents {
     pub unsafe fn register_dynamic(
         &mut self,
         component_id: ComponentId,
-        constructor: RequiredComponentConstructor,
+        constructor: RelatedComponentConstructor,
         inheritance_depth: u16,
+        relatedness: Relatedness,
     ) {
-        self.0
+        self.get_map_mut(relatedness)
             .entry(component_id)
             .and_modify(|component| {
                 if component.inheritance_depth > inheritance_depth {
-                    // New registration is more specific than existing requirement
+                    // New registration is more specific than existing relation
                     component.constructor = constructor.clone();
                     component.inheritance_depth = inheritance_depth;
                 }
             })
-            .or_insert(RequiredComponent {
+            .or_insert(RelatedComponent {
                 constructor,
                 inheritance_depth,
             });
     }
 
-    /// Registers a required component.
+    /// Registers a related component.
     ///
     /// If the component is already registered, it will be overwritten if the given inheritance depth
     /// is smaller than the depth of the existing registration. Otherwise, the new registration will be ignored.
@@ -1751,12 +1834,13 @@ impl RequiredComponents {
         storages: &mut Storages,
         constructor: fn() -> C,
         inheritance_depth: u16,
+        relatedness: Relatedness,
     ) {
         let component_id = components.register_component::<C>(storages);
-        self.register_by_id(component_id, constructor, inheritance_depth);
+        self.register_by_id(component_id, constructor, inheritance_depth, relatedness);
     }
 
-    /// Registers the [`Component`] with the given ID as required if it exists.
+    /// Registers the [`Component`] with the given ID as related if it exists.
     ///
     /// If the component is already registered, it will be overwritten if the given inheritance depth
     /// is smaller than the depth of the existing registration. Otherwise, the new registration will be ignored.
@@ -1765,8 +1849,9 @@ impl RequiredComponents {
         component_id: ComponentId,
         constructor: fn() -> C,
         inheritance_depth: u16,
+        relatedness: Relatedness,
     ) {
-        let erased: RequiredComponentConstructor = RequiredComponentConstructor(Arc::new(
+        let erased: RelatedComponentConstructor = RelatedComponentConstructor(Arc::new(
             move |table,
                   sparse_sets,
                   change_tick,
@@ -1779,7 +1864,7 @@ impl RequiredComponents {
                     // C::STORAGE_TYPE is the storage type associated with `component_id` / `C`
                     // `ptr` points to valid `C` data, which matches the type associated with `component_id`
                     unsafe {
-                        BundleInfo::initialize_required_component(
+                        BundleInfo::initialize_related_component(
                             table,
                             sparse_sets,
                             change_tick,
@@ -1800,29 +1885,67 @@ impl RequiredComponents {
         // `erased` initializes a component for `component_id` in such a way that
         // matches the storage type of the component. It only uses the given `table_row` or `Entity` to
         // initialize the storage corresponding to the given entity.
-        unsafe { self.register_dynamic(component_id, erased, inheritance_depth) };
+        unsafe { self.register_dynamic(component_id, erased, inheritance_depth, relatedness) };
     }
 
-    /// Iterates the ids of all required components. This includes recursive required components.
-    pub fn iter_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.0.keys().copied()
+    /// Iterates the ids of all related components. This includes recursive related components.
+    pub fn iter_ids(&self, relatedness: Relatedness) -> impl Iterator<Item = ComponentId> + '_ {
+        self.get_map(relatedness).keys().copied()
     }
 
     /// Removes components that are explicitly provided in a given [`Bundle`]. These components should
     /// be logically treated as normal components, not "required components".
     ///
     /// [`Bundle`]: crate::bundle::Bundle
-    pub(crate) fn remove_explicit_components(&mut self, components: &[ComponentId]) {
-        for component in components {
-            self.0.remove(component);
+    pub(crate) fn remove_explicit_components(&mut self, explicit_components: &[ComponentId]) {
+        for component in explicit_components {
+            self.required_components.remove(component);
         }
     }
 
-    // Merges `required_components` into this collection. This only inserts a required component
+    /// Gets read-only access to the map corresponding to the given [`Relatedness`].
+    pub(crate) fn get_map(
+        &self,
+        relatedness: Relatedness,
+    ) -> &HashMap<ComponentId, RelatedComponent> {
+        match relatedness {
+            Relatedness::Suggested => &self.suggested_components,
+            Relatedness::Included => &self.included_components,
+            Relatedness::Required => &self.required_components,
+        }
+    }
+
+    /// Gets mutable access to the map corresponding to the given [`Relatedness`].
+    pub(crate) fn get_map_mut(
+        &mut self,
+        relatedness: Relatedness,
+    ) -> &mut HashMap<ComponentId, RelatedComponent> {
+        match relatedness {
+            Relatedness::Suggested => &mut self.suggested_components,
+            Relatedness::Included => &mut self.included_components,
+            Relatedness::Required => &mut self.required_components,
+        }
+    }
+
+    // Merges `related_components` into this collection. This only inserts a related component
     // if it _did not already exist_.
-    pub(crate) fn merge(&mut self, required_components: &RequiredComponents) {
-        for (id, constructor) in &required_components.0 {
-            self.0.entry(*id).or_insert_with(|| constructor.clone());
+    pub(crate) fn merge(&mut self, related_components: &RelatedComponents) {
+        for (id, constructor) in &related_components.suggested_components {
+            self.suggested_components
+                .entry(*id)
+                .or_insert_with(|| constructor.clone());
+        }
+
+        for (id, constructor) in &related_components.included_components {
+            self.included_components
+                .entry(*id)
+                .or_insert_with(|| constructor.clone());
+        }
+
+        for (id, constructor) in &related_components.required_components {
+            self.required_components
+                .entry(*id)
+                .or_insert_with(|| constructor.clone());
         }
     }
 }

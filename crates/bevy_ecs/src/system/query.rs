@@ -477,7 +477,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[inline]
     pub fn iter(&self) -> QueryIter<'_, 's, D::ReadOnly, F> {
         // SAFETY:
-        // - `self.world` has permission to access the required components.
+        // - `self.world` has permission to access the related components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
         unsafe {
             self.state
@@ -548,7 +548,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         &self,
     ) -> QueryCombinationIter<'_, 's, D::ReadOnly, F, K> {
         // SAFETY:
-        // - `self.world` has permission to access the required components.
+        // - `self.world` has permission to access the related components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
         unsafe {
             self.state.as_readonly().iter_combinations_unchecked_manual(
@@ -634,7 +634,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         entities: EntityList,
     ) -> QueryManyIter<'_, 's, D::ReadOnly, F, EntityList::IntoIter> {
         // SAFETY:
-        // - `self.world` has permission to access the required components.
+        // - `self.world` has permission to access the related components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
         unsafe {
             self.state.as_readonly().iter_many_unchecked_manual(
@@ -711,7 +711,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[inline]
     pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, 's, D, F> {
         // SAFETY:
-        // - `self.world` has permission to access the required components.
+        // - `self.world` has permission to access the related components.
         // - The caller ensures that this operation will not result in any aliased mutable accesses.
         unsafe {
             self.state
@@ -737,7 +737,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         &self,
     ) -> QueryCombinationIter<'_, 's, D, F, K> {
         // SAFETY:
-        // - `self.world` has permission to access the required components.
+        // - `self.world` has permission to access the related components.
         // - The caller ensures that this operation will not result in any aliased mutable accesses.
         unsafe {
             self.state
@@ -764,7 +764,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         entities: EntityList,
     ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter> {
         // SAFETY:
-        // - `self.world` has permission to access the required components.
+        // - `self.world` has permission to access the related components.
         // - The caller ensures that this operation will not result in any aliased mutable accesses.
         unsafe {
             self.state.iter_many_unchecked_manual(
