@@ -256,6 +256,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                 } else if nested.path.is_ident(ON_REMOVE) {
                     attrs.on_remove = Some(nested.value()?.parse::<ExprPath>()?);
                     Ok(())
+                } else if nested.path.is_ident(IMMUTABLE) {
+                    attrs.immutable = true;
+                    Ok(())
                 } else {
                     Err(nested.error("Unsupported attribute"))
                 }
@@ -276,8 +279,6 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
             } else {
                 attrs.requires = Some(punctuated);
             }
-        } else if attr.path().is_ident(IMMUTABLE) {
-            attrs.immutable = true;
         }
     }
 

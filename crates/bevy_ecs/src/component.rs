@@ -73,7 +73,7 @@ use derive_more::derive::{Display, Error};
 ///
 /// # Component and data access
 ///
-/// Components can be marked as immutable by adding the `#[immutable]` attribute when using the
+/// Components can be marked as immutable by adding the `#[component(immutable)]` attribute when using the
 /// derive macro. Alternatively, a component will be immutable by default when implementing
 /// [`Component`] manually. To make a manually implemented component mutable, also implement
 /// the marker trait [`ComponentMut`].

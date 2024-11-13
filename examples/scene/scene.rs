@@ -23,7 +23,7 @@ fn main() {
 // For simple use cases you can just implement the `Default` trait (which automatically implements
 // `FromWorld`). The simplest registered component just needs these three derives:
 #[derive(Component, Reflect, Default)]
-#[reflect(Component)] // this tells the reflect derive to also reflect component behaviors
+#[reflect(Component, ComponentMut)] // this tells the reflect derive to also reflect component behaviors
 struct ComponentA {
     pub x: f32,
     pub y: f32,
@@ -34,7 +34,7 @@ struct ComponentA {
 // trait comes into play. `FromWorld` gives you access to your App's current ECS `Resources`
 // when you construct your component.
 #[derive(Component, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, ComponentMut)]
 struct ComponentB {
     pub value: String,
     #[reflect(skip_serializing)]

@@ -721,7 +721,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
-#[proc_macro_derive(Component, attributes(component, require, immutable))]
+#[proc_macro_derive(Component, attributes(component, require))]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
 }

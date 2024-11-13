@@ -11,10 +11,10 @@ pub struct MyMutableComponent(bool);
 /// or removed. Replacement is also permitted, as this is equivalent to removal
 /// and insertion.
 ///
-/// Adding the `#[immutable]` attribute prevents the implementation of [`ComponentMut`]
+/// Adding the `#[component(immutable)]` attribute prevents the implementation of [`ComponentMut`]
 /// in the derive macro.
 #[derive(Component)]
-#[immutable]
+#[component(immutable)]
 pub struct MyImmutableComponent(bool);
 
 fn main() {

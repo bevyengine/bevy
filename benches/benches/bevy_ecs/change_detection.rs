@@ -1,5 +1,5 @@
 use bevy_ecs::{
-    component::Component,
+    component::{Component, ComponentMut},
     entity::Entity,
     prelude::{Added, Changed, EntityWorldMut, QueryState},
     query::QueryFilter,
