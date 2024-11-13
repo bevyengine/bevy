@@ -48,7 +48,7 @@ impl WebAssetReader {
 
 #[cfg(target_arch = "wasm32")]
 async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
-    use bevy::asset::io::VecReader;
+    use crate::io::VecReader;
     use js_sys::Uint8Array;
     use wasm_bindgen::JsCast;
     use wasm_bindgen_futures::JsFuture;
