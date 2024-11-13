@@ -209,9 +209,6 @@ pub fn ui_focus_system(
                 .or_else(|| touches_input.first_pressed_position())
                 .map(|cursor_position| (entity, cursor_position - viewport_position))
         })
-        // The cursor position returned by `Window` only takes into account the window scale factor and not `UiScale`.
-        // To convert the cursor position to logical UI viewport coordinates we have to divide it by `UiScale`.
-        .map(|(entity, cursor_position)| (entity, cursor_position))
         .collect();
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
