@@ -292,8 +292,6 @@ where
     /// Clears out the buffers in preparation for a new frame.
     pub fn clear(&mut self) {
         self.data_buffer.clear();
-        self.current_input_buffer.clear();
-        self.previous_input_buffer.clear();
         for work_item_buffer in self.work_item_buffers.values_mut() {
             work_item_buffer.buffer.clear();
         }
@@ -671,13 +669,12 @@ pub fn write_batched_instance_buffers<GFBD>(
         ref mut data_buffer,
         work_item_buffers: ref mut index_buffers,
         ref mut current_input_buffer,
-        previous_input_buffer: _,
+        ref mut previous_input_buffer,
     } = gpu_array_buffer.into_inner();
 
     data_buffer.write_buffer(&render_device);
     current_input_buffer.write_buffer(&render_device, &render_queue);
-    // There's no need to write `previous_input_buffer`, as we wrote
-    // that on the previous frame, and it hasn't changed.
+    previous_input_buffer.write_buffer(&render_device, &render_queue);
 
     for index_buffer in index_buffers.values_mut() {
         index_buffer

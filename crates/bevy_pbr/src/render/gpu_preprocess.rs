@@ -483,5 +483,4 @@ pub fn write_mesh_culling_data_buffer(
     mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
 ) {
     mesh_culling_data_buffer.write_buffer(&render_device, &render_queue);
-    mesh_culling_data_buffer.clear();
 }
