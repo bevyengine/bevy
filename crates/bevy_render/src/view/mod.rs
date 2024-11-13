@@ -186,6 +186,31 @@ impl Msaa {
 
 #[derive(Component)]
 pub struct ExtractedView {
+    /// Right-handed projection matrix
+    ///
+    /// Perspective (infinite reverse z)
+    /// ```
+    /// f = 1 / tan(fov_y_radians / 2)
+    ///
+    /// ⎡ f / aspect  0     0   0 ⎤
+    /// ⎢          0  f     0   0 ⎥
+    /// ⎢          0  0     0  -1 ⎥
+    /// ⎣          0  0  near   0 ⎦
+    /// ```
+    ///
+    /// Orthographic
+    /// ```
+    /// w = right - left
+    /// h = top - bottom
+    /// d = near - far
+    /// cw = -right - left
+    /// ch = -top - bottom
+    ///
+    /// ⎡  2 / w       0         0  0 ⎤
+    /// ⎢      0   2 / h         0  0 ⎥
+    /// ⎢      0       0     1 / d  0 ⎥
+    /// ⎣ cw / w  ch / h  near / d  1 ⎦
+    /// ```
     pub clip_from_view: Mat4,
     pub world_from_view: GlobalTransform,
     // The view-projection matrix. When provided it is used instead of deriving it from
@@ -423,6 +448,31 @@ pub struct ViewUniform {
     pub world_from_clip: Mat4,
     pub world_from_view: Mat4,
     pub view_from_world: Mat4,
+    /// Right-handed projection matrix
+    ///
+    /// Perspective (infinite reverse z)
+    /// ```
+    /// f = 1 / tan(fov_y_radians / 2)
+    ///
+    /// ⎡ f / aspect  0     0   0 ⎤
+    /// ⎢          0  f     0   0 ⎥
+    /// ⎢          0  0     0  -1 ⎥
+    /// ⎣          0  0  near   0 ⎦
+    /// ```
+    ///
+    /// Orthographic
+    /// ```
+    /// w = right - left
+    /// h = top - bottom
+    /// d = near - far
+    /// cw = -right - left
+    /// ch = -top - bottom
+    ///
+    /// ⎡  2 / w       0         0  0 ⎤
+    /// ⎢      0   2 / h         0  0 ⎥
+    /// ⎢      0       0     1 / d  0 ⎥
+    /// ⎣ cw / w  ch / h  near / d  1 ⎦
+    /// ```
     pub clip_from_view: Mat4,
     pub view_from_clip: Mat4,
     pub world_position: Vec3,
