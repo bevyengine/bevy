@@ -992,10 +992,15 @@ impl<'w> UnsafeEntityCell<'w> {
     /// It is the callers responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
-    /// - the component implements [`ComponentMut`]
     #[inline]
     pub unsafe fn get_mut_by_id(self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
         let info = self.world.components().get_info(component_id)?;
+
+        // If a component is immutable then a mutable reference to it doesn't exist
+        if info.immutable() {
+            return None;
+        }
+
         // SAFETY: entity_location is valid, component_id is valid as checked by the line above
         unsafe {
             get_component_and_ticks(

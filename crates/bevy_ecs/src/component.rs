@@ -659,6 +659,12 @@ impl ComponentInfo {
         &self.descriptor.name
     }
 
+    /// Returns the name of the current component.
+    #[inline]
+    pub fn immutable(&self) -> bool {
+        self.descriptor.immutable
+    }
+
     /// Returns the [`TypeId`] of the underlying component type.
     /// Returns `None` if the component does not correspond to a Rust type.
     #[inline]
@@ -811,6 +817,7 @@ pub struct ComponentDescriptor {
     // this descriptor describes.
     // None if the underlying type doesn't need to be dropped
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
+    immutable: bool,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -822,8 +829,20 @@ impl Debug for ComponentDescriptor {
             .field("is_send_and_sync", &self.is_send_and_sync)
             .field("type_id", &self.type_id)
             .field("layout", &self.layout)
+            .field("immutable", &self.immutable)
             .finish()
     }
+}
+
+/// Helper to determine if a [`Component`] `C` is immutable or not.
+fn immutable<C: Component>() -> bool {
+    use core::any::TypeId;
+
+    let is_mutable = TypeId::of::<<C as Component>::Mutable>() == TypeId::of::<C>();
+
+    // We conservatively assume that if a component is not mutable then it must
+    // be immutable.
+    !is_mutable
 }
 
 impl ComponentDescriptor {
@@ -846,6 +865,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+            immutable: immutable::<T>(),
         }
     }
 
@@ -867,6 +887,29 @@ impl ComponentDescriptor {
             type_id: None,
             layout,
             drop,
+            immutable: false,
+        }
+    }
+
+    /// Create a new `ComponentDescriptor`.
+    ///
+    /// # Safety
+    /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
+    /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
+    pub unsafe fn new_immutable_with_layout(
+        name: impl Into<Cow<'static, str>>,
+        storage_type: StorageType,
+        layout: Layout,
+        drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            storage_type,
+            is_send_and_sync: true,
+            type_id: None,
+            layout,
+            drop,
+            immutable: true,
         }
     }
 
@@ -883,6 +926,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+            immutable: false,
         }
     }
 
@@ -894,6 +938,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+            immutable: false,
         }
     }
 
@@ -914,6 +959,12 @@ impl ComponentDescriptor {
     #[inline]
     pub fn name(&self) -> &str {
         self.name.as_ref()
+    }
+
+    /// Returns whether this component is immutable.
+    #[inline]
+    pub fn immutable(&self) -> bool {
+        self.immutable
     }
 }
 
