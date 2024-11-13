@@ -795,6 +795,7 @@ struct UiVertex {
     pub size: [f32; 2],
     /// Position relative to the center of the UI node.
     pub point: [f32; 2],
+    pub inverse_scale_factor: f32,
 }
 
 #[derive(Resource)]
@@ -937,7 +938,6 @@ pub fn prepare_uinodes(
         for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
             let mut batch_image_handle = AssetId::invalid();
-            let mut inverse_scale_factor = 1.;
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
@@ -951,10 +951,8 @@ pub fn prepare_uinodes(
                             && batch_image_handle != extracted_uinode.image)
                         || existing_batch.as_ref().map(|(_, b)| b.camera)
                             != Some(extracted_uinode.camera_entity)
-                        || item.inverse_scale_factor != inverse_scale_factor
                     {
                         if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
-                            inverse_scale_factor = item.inverse_scale_factor;
                             batch_item_index = item_index;
                             batch_image_handle = extracted_uinode.image;
 
@@ -963,20 +961,6 @@ pub fn prepare_uinodes(
                                 image: extracted_uinode.image,
                                 camera: extracted_uinode.camera_entity,
                             };
-
-                            let pxscale_buffer =
-                                render_device.create_buffer_with_data(&BufferInitDescriptor {
-                                    label: Some("pxscale_buffer"),
-                                    contents: bytemuck::bytes_of(&inverse_scale_factor),
-                                    usage: BufferUsages::UNIFORM,
-                                });
-
-                            // Create the PxScaleUniform bind group
-                            ui_meta.pxscale_bind_group = Some(render_device.create_bind_group(
-                                "ui_pxscale_bind_group",
-                                &ui_pipeline.pxscale_layout,
-                                &BindGroupEntries::single(pxscale_buffer.as_entire_binding()),
-                            ));
 
                             batches.push((item.entity(), new_batch));
 
@@ -1169,6 +1153,7 @@ pub fn prepare_uinodes(
                                     border: [border.left, border.top, border.right, border.bottom],
                                     size: rect_size.xy().into(),
                                     point: points[i].into(),
+                                    inverse_scale_factor: item.inverse_scale_factor,
                                 });
                             }
 
@@ -1272,6 +1257,7 @@ pub fn prepare_uinodes(
                                         border: [0.0; 4],
                                         size: size.into(),
                                         point: [0.0; 2],
+                                        inverse_scale_factor: item.inverse_scale_factor,
                                     });
                                 }
 
