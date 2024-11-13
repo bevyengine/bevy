@@ -13,7 +13,7 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
         .entity_to_taffy
         .iter()
         .map(|(&ui_entity, &taffy_node)| (taffy_node, ui_entity))
-        .collect::<HashMap<NodeId, Entity>>();
+        .collect();
     for (&camera_entity, root_node_set) in ui_surface.camera_root_nodes.iter() {
         bevy_utils::tracing::info!("Layout tree for camera entity: {camera_entity}");
         for &root_node_entity in root_node_set.iter() {
