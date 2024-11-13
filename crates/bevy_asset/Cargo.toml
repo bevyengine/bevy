@@ -11,9 +11,11 @@ keywords = ["bevy"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
+default = ["http_source"]
 file_watcher = ["notify-debouncer-full", "watch"]
 embedded_watcher = ["file_watcher"]
 multi_threaded = ["bevy_tasks/multi_threaded"]
+http_source = ["pin-project", "surf"]
 asset_processor = []
 watch = []
 trace = []
@@ -51,6 +53,8 @@ derive_more = { version = "1", default-features = false, features = [
 ] }
 uuid = { version = "1.0", features = ["v4"] }
 
+pin-project = { version = "1", optional = true }
+
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_window = { path = "../bevy_window", version = "0.15.0-dev" }
 
@@ -66,6 +70,9 @@ js-sys = "0.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 notify-debouncer-full = { version = "0.4.0", optional = true }
+surf = { version = "2.3", default-features = false, features = [
+  "h1-client-rustls",
+], optional = true }
 
 [dev-dependencies]
 bevy_core = { path = "../bevy_core", version = "0.15.0-dev" }
