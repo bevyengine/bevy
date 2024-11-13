@@ -803,7 +803,6 @@ pub struct UiMeta {
     vertices: RawBufferVec<UiVertex>,
     indices: RawBufferVec<u32>,
     view_bind_group: Option<BindGroup>,
-    pxscale_bind_group: Option<BindGroup>,
 }
 
 impl Default for UiMeta {
@@ -812,7 +811,6 @@ impl Default for UiMeta {
             vertices: RawBufferVec::new(BufferUsages::VERTEX),
             indices: RawBufferVec::new(BufferUsages::INDEX),
             view_bind_group: None,
-            pxscale_bind_group: None,
         }
     }
 }
