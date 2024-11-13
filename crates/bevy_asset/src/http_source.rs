@@ -47,7 +47,7 @@ impl WebAssetReader {
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn get<'a>(path: PathBuf) -> Result<Box<Reader<'a>>, AssetReaderError> {
+async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     use bevy::asset::io::VecReader;
     use js_sys::Uint8Array;
     use wasm_bindgen::JsCast;
@@ -82,7 +82,7 @@ async fn get<'a>(path: PathBuf) -> Result<Box<Reader<'a>>, AssetReaderError> {
         200 => {
             let data = JsFuture::from(resp.array_buffer().unwrap()).await.unwrap();
             let bytes = Uint8Array::new(&data).to_vec();
-            let reader: Box<Reader> = Box::new(VecReader::new(bytes));
+            let reader = Box::new(VecReader::new(bytes));
             Ok(reader)
         }
         404 => Err(AssetReaderError::NotFound(path)),
