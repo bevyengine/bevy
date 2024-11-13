@@ -367,6 +367,68 @@ impl UiSurface {
         }
     }
 
+    /// Promotes child ui node to a root node
+    pub(super) fn promote_ui_node(&mut self, target_entity: Entity) {
+        let Some(&new_root_node_taffy_id) = self.entity_to_taffy.get(&target_entity)
+        else {
+            // no taffy entry
+            return;
+        };
+        let Some(old_parent_taffy_id) = self.taffy.parent(new_root_node_taffy_id) else {
+            // no parent assigned
+            // TODO: is this ignorable?
+            return;
+        };
+
+        self
+            .taffy
+            .remove_child(old_parent_taffy_id, new_root_node_taffy_id)
+            .unwrap();
+
+        let Some(implicit_viewport_node) = self.taffy.parent(old_parent_taffy_id) else {
+            // no implicit_viewport_node assigned
+            // TODO: is this ignorable?
+            return;
+        };
+        let Some((_, &RootNodeData { camera_entity, .. } )) =
+            self
+                .root_node_data
+                .iter()
+                .find(|(_root_node_entity, root_node_data)| {
+                    root_node_data.implicit_viewport_node == implicit_viewport_node
+                })
+        else {
+            // no matching `RootNodeData` with `implicit_viewport_node`
+            // TODO: should this be handled?
+            return;
+        };
+
+        self.create_or_update_root_node_data(target_entity, camera_entity);
+
+        if let Some(camera_entity) = camera_entity {
+            self
+                .camera_root_nodes
+                .entry(camera_entity)
+                .or_default()
+                .insert(target_entity);
+        }
+    }
+
+    /// Demotes root node to a child node of the specified parent
+    pub(super) fn demote_ui_node(&mut self, target_entity: Entity, parent_entity: Entity) {
+        // remove camera association
+        self.mark_root_node_as_orphaned(target_entity);
+
+        if let Some(root_node_data) = self.root_node_data.remove(&target_entity) {
+            self.taffy
+                .remove(root_node_data.implicit_viewport_node)
+                .unwrap();
+            let parent_taffy = self.entity_to_taffy.get(&parent_entity).unwrap();
+            let child_taffy = self.entity_to_taffy.get(&target_entity).unwrap();
+            self.taffy.add_child(*parent_taffy, *child_taffy).unwrap();
+        }
+    }
+
     /// Disassociates the camera from all of its assigned root nodes and removes their viewport nodes
     /// Removes entry in `camera_root_nodes`
     pub(super) fn remove_camera(&mut self, camera_entity: Entity) {
