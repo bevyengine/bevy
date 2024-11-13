@@ -9,7 +9,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2d::default());
+    commands.spawn(Camera2d);
 
     commands.spawn(
         // Simply use a url where you would normally use an asset folder relative path
