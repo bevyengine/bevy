@@ -8,8 +8,8 @@
 //! Because `bevy_picking` is very loosely coupled with its backends, you can mix and match as
 //! many backends as you want. For example, you could use the `rapier` backend to raycast against
 //! physics objects, a picking shader backend to pick non-physics meshes, and the `bevy_ui` backend
-//! for your UI. The [`PointerHits`] produced by these various backends will be combined, sorted,
-//! and used as a homogeneous input for the picking systems that consume these events.
+//! for your UI. The [`PointerHits`] instances produced by these various backends will be combined,
+//! sorted, and used as a homogeneous input for the picking systems that consume these events.
 //!
 //! ## Implementation
 //!
