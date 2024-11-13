@@ -27,7 +27,7 @@ struct View {
     viewport: vec4<f32>,
     // 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
     // The normal vectors point towards the interior of the frustum.
-    // a half space contains `p` if `normal.dot(p) + distance > 0.`
+    // A half space contains `p` if `normal.dot(p) + distance > 0.`
     frustum: array<vec4<f32>, 6>,
     color_grading: ColorGrading,
     mip_bias: f32,
