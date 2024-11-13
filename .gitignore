@@ -21,6 +21,8 @@ dxil.dll
 assets/**/*.meta
 crates/bevy_asset/imported_assets
 imported_assets
+# Bevy Asset - http-cache-surf
+http-cacache
 
 # Bevy Examples
 example_showcase_config.ron

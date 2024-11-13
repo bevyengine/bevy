@@ -5,10 +5,9 @@ use bevy_app::App;
 use bevy_utils::ConditionalSendFuture;
 use std::path::{Path, PathBuf};
 
-///
 /// Adds the `http` and `https` asset sources to the app.
-/// Any asset path that begins with `http://` or `https://` will be loaded from the web
-/// instead of .
+/// Any asset path that begins with `http` or `https` will be loaded from the web
+/// via `fetch`(wasm) or `surf`(native).
 pub fn http_source_plugin(app: &mut App) {
     app.register_asset_source(
         "http",
@@ -37,7 +36,7 @@ impl WebAssetReader {
         .join(path)
     }
 
-    /// See [bevy::asset::io::get_meta_path]
+    /// See [crate::io::get_meta_path]
     fn make_meta_uri(&self, path: &Path) -> Option<PathBuf> {
         let mut uri = self.make_uri(path);
         let mut extension = path.extension()?.to_os_string();
@@ -99,12 +98,13 @@ async fn get<'a>(path: PathBuf) -> Result<Box<Reader<'a>>, AssetReaderError> {
 
 #[cfg(not(target_arch = "wasm32"))]
 async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
-    use std::future::Future;
+    use core::future::Future;
+    use core::pin::Pin;
+    use core::task::{Context, Poll};
     use std::io;
-    use std::pin::Pin;
-    use std::task::{Context, Poll};
 
     use crate::io::VecReader;
+    use http_cache_surf::{CACacheManager, Cache, CacheMode, HttpCache, HttpCacheOptions};
     use surf::StatusCode;
 
     #[pin_project::pin_project]
@@ -130,20 +130,30 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
             .into(),
         )
     })?;
-    let mut response = ContinuousPoll(surf::get(str_path)).await.map_err(|err| {
-        AssetReaderError::Io(
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "unexpected status code {} while loading {}: {}",
-                    err.status(),
-                    path.display(),
-                    err.into_inner(),
-                ),
+
+    let req = surf::get(str_path);
+    let middleware_client = surf::client().with(Cache(HttpCache {
+        mode: CacheMode::Default,
+        manager: CACacheManager::default(),
+        options: HttpCacheOptions::default(),
+    }));
+
+    let mut response = ContinuousPoll(middleware_client.send(req))
+        .await
+        .map_err(|err| {
+            AssetReaderError::Io(
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    format!(
+                        "unexpected status code {} while loading {}: {}",
+                        err.status(),
+                        path.display(),
+                        err.into_inner(),
+                    ),
+                )
+                .into(),
             )
-            .into(),
-        )
-    })?;
+        })?;
 
     match response.status() {
         StatusCode::Ok => Ok(Box::new(VecReader::new(
