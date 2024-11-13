@@ -1,7 +1,7 @@
 #[cfg(feature = "reflect")]
 use bevy_ecs::reflect::{
-    ReflectComponent, ReflectComponentMut, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
-    ReflectVisitEntitiesMut,
+    ReflectComponent, ReflectComponentMut, ReflectFromWorld, ReflectMapEntities,
+    ReflectVisitEntities, ReflectVisitEntitiesMut,
 };
 use bevy_ecs::{
     component::Component,
