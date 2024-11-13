@@ -1,6 +1,6 @@
 #[cfg(feature = "reflect")]
 use bevy_ecs::reflect::{
-    ReflectComponent, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
+    ReflectComponent, ReflectComponentMut, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
     ReflectVisitEntitiesMut,
 };
 use bevy_ecs::{
@@ -31,6 +31,7 @@ use smallvec::SmallVec;
     feature = "reflect",
     reflect(
         Component,
+        ComponentMut,
         MapEntities,
         VisitEntities,
         VisitEntitiesMut,

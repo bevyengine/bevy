@@ -2004,7 +2004,7 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).0, 4);
     ///
     /// # let mut entity = world.get_entity_mut(entity_id).unwrap();
-    /// entity.entry().or_insert(Comp(15)).0 *= 2;
+    /// entity.entry().or_insert(Comp(15)).into_mut().0 *= 2;
     /// assert_eq!(world.query::<&Comp>().single(&world).0, 8);
     /// ```
     #[inline]
@@ -2229,7 +2229,7 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
     /// let mut entity = world.spawn_empty();
     ///
     /// if let Entry::Vacant(v) = entity.entry::<Comp>() {
-    ///     v.insert_entry(Comp(10));
+    ///     v.insert(Comp(10));
     /// }
     ///
     /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
