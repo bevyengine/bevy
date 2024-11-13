@@ -7,9 +7,9 @@
 //! `Curve<Vec3>` that we want to use to animate something. That could be defined in
 //! a number of different ways, but let's imagine that we've defined it [using a function]:
 //!
-//!     # use bevy_math::curve::{Curve, Interval, function_curve};
+//!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_math::vec3;
-//!     let wobble_curve = function_curve(
+//!     let wobble_curve = FunctionCurve::new(
 //!         Interval::UNIT,
 //!         |t| { vec3(t.cos(), 0.0, 0.0) },
 //!     );
@@ -25,10 +25,10 @@
 //! the adaptor [`TranslationCurve`], which wraps any `Curve<Vec3>` and turns it into an
 //! [`AnimationCurve`] that will use the given curve to animate the entity's translation:
 //!
-//!     # use bevy_math::curve::{Curve, Interval, function_curve};
+//!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_math::vec3;
 //!     # use bevy_animation::animation_curves::*;
-//!     # let wobble_curve = function_curve(
+//!     # let wobble_curve = FunctionCurve::new(
 //!     #     Interval::UNIT,
 //!     #     |t| vec3(t.cos(), 0.0, 0.0)
 //!     # );
@@ -37,11 +37,11 @@
 //! And finally, this `AnimationCurve` needs to be added to an [`AnimationClip`] in order to
 //! actually animate something. This is what that looks like:
 //!
-//!     # use bevy_math::curve::{Curve, Interval, function_curve};
+//!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_animation::{AnimationClip, AnimationTargetId, animation_curves::*};
 //!     # use bevy_core::Name;
 //!     # use bevy_math::vec3;
-//!     # let wobble_curve = function_curve(
+//!     # let wobble_curve = FunctionCurve::new(
 //!     #     Interval::UNIT,
 //!     #     |t| { vec3(t.cos(), 0.0, 0.0) },
 //!     # );
@@ -71,7 +71,7 @@
 //! Animation of arbitrary components can be accomplished using [`AnimatableProperty`] in
 //! conjunction with [`AnimatableCurve`]. See the documentation [there] for details.
 //!
-//! [using a function]: bevy_math::curve::function_curve
+//! [using a function]: bevy_math::curve::FunctionCurve
 //! [translation component of a `Transform`]: bevy_transform::prelude::Transform::translation
 //! [`AnimationClip`]: crate::AnimationClip
 //! [there]: AnimatableProperty
