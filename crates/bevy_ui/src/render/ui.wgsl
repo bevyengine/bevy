@@ -122,7 +122,6 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 // get alpha for antialiasing for sdf
 fn antialias(distance: f32) -> f32 {
     // Using the fwidth(distance) was causing artifacts, so just use the distance.
-    // This antialiases between the distance values of 0.25 and -0.25
     return clamp(0.0, 1.0, (0.5 - 2. * px_scale.value * distance));
 }
 

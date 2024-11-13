@@ -528,6 +528,11 @@ const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 #[derive(Component)]
 pub struct DefaultCameraView(pub Entity);
 
+#[derive(Component)]
+pub struct ExtractedAA {
+    pub inverse_scale_factor: f32,
+}
+
 /// Extracts all UI elements associated with a camera into the render world.
 pub fn extract_default_ui_camera_view(
     mut commands: Commands,
@@ -555,7 +560,7 @@ pub fn extract_default_ui_camera_view(
             commands
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.")
-                .remove::<(DefaultCameraView, UiAntiAlias, UiBoxShadowSamples)>();
+                .remove::<(DefaultCameraView, ExtractedAA, UiBoxShadowSamples)>();
             continue;
         }
 
@@ -566,10 +571,12 @@ pub fn extract_default_ui_camera_view(
                 ..
             }),
             Some(physical_size),
+            Some(scale_factor),
         ) = (
             camera.logical_viewport_size(),
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
+            camera.target_scaling_factor(),
         ) {
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
@@ -580,6 +587,7 @@ pub fn extract_default_ui_camera_view(
                 0.0,
                 UI_CAMERA_FAR,
             );
+
             let default_camera_view = commands
                 .spawn((
                     ExtractedView {
@@ -606,8 +614,10 @@ pub fn extract_default_ui_camera_view(
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.");
             entity_commands.insert(DefaultCameraView(default_camera_view));
-            if let Some(ui_anti_alias) = ui_anti_alias {
-                entity_commands.insert(*ui_anti_alias);
+            if let Some(UiAntiAlias::On) = ui_anti_alias {
+                entity_commands.insert(ExtractedAA {
+                    inverse_scale_factor: (scale_factor * ui_scale.0).recip(),
+                });
             }
             if let Some(shadow_samples) = shadow_samples {
                 entity_commands.insert(*shadow_samples);
@@ -837,13 +847,13 @@ pub fn queue_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView, Option<&UiAntiAlias>)>,
+    mut views: Query<(Entity, &ExtractedView, Option<&ExtractedAA>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view_entity, view, ui_anti_alias)) = views.get_mut(extracted_uinode.camera_entity)
+        let Ok((view_entity, view, extracted_aa)) = views.get_mut(extracted_uinode.camera_entity)
         else {
             continue;
         };
@@ -857,7 +867,7 @@ pub fn queue_uinodes(
             &ui_pipeline,
             UiPipelineKey {
                 hdr: view.hdr,
-                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+                anti_alias: extracted_aa.is_some(),
             },
         );
         transparent_phase.add(TransparentUi {
@@ -871,6 +881,7 @@ pub fn queue_uinodes(
             // batch_range will be calculated in prepare_uinodes
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::NONE,
+            inverse_scale_factor: extracted_aa.map(|aa| aa.inverse_scale_factor).unwrap_or(1.),
         });
     }
 }
@@ -919,22 +930,6 @@ pub fn prepare_uinodes(
             &BindGroupEntries::single(view_binding),
         ));
 
-        // Create the PxScaleUniform buffer
-        let px_scale_uniform = PxScaleUniform { value: 3. };
-
-        let pxscale_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            label: Some("pxscale_buffer"),
-            contents: bytemuck::bytes_of(&px_scale_uniform),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        });
-
-        // Create the PxScaleUniform bind group
-        ui_meta.pxscale_bind_group = Some(render_device.create_bind_group(
-            "ui_pxscale_bind_group",
-            &ui_pipeline.pxscale_layout,
-            &BindGroupEntries::single(pxscale_buffer.as_entire_binding()),
-        ));
-
         // Buffer indexes
         let mut vertices_index = 0;
         let mut indices_index = 0;
@@ -942,6 +937,7 @@ pub fn prepare_uinodes(
         for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
             let mut batch_image_handle = AssetId::invalid();
+            let mut inverse_scale_factor = 1.;
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
@@ -955,8 +951,10 @@ pub fn prepare_uinodes(
                             && batch_image_handle != extracted_uinode.image)
                         || existing_batch.as_ref().map(|(_, b)| b.camera)
                             != Some(extracted_uinode.camera_entity)
+                        || item.inverse_scale_factor != inverse_scale_factor
                     {
                         if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
+                            inverse_scale_factor = item.inverse_scale_factor;
                             batch_item_index = item_index;
                             batch_image_handle = extracted_uinode.image;
 
@@ -965,6 +963,20 @@ pub fn prepare_uinodes(
                                 image: extracted_uinode.image,
                                 camera: extracted_uinode.camera_entity,
                             };
+
+                            let pxscale_buffer =
+                                render_device.create_buffer_with_data(&BufferInitDescriptor {
+                                    label: Some("pxscale_buffer"),
+                                    contents: bytemuck::bytes_of(&inverse_scale_factor),
+                                    usage: BufferUsages::UNIFORM,
+                                });
+
+                            // Create the PxScaleUniform bind group
+                            ui_meta.pxscale_bind_group = Some(render_device.create_bind_group(
+                                "ui_pxscale_bind_group",
+                                &ui_pipeline.pxscale_layout,
+                                &BindGroupEntries::single(pxscale_buffer.as_entire_binding()),
+                            ));
 
                             batches.push((item.entity(), new_batch));
 
