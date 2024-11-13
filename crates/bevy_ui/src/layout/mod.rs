@@ -293,8 +293,6 @@ with UI components as a child of an entity without UI components, your UI layout
     });
 
     for (camera_id, mut camera) in camera_layout_info.drain() {
-        let inverse_target_scale_factor = camera.scale_factor.recip();
-
         ui_surface.compute_camera_layout(camera_id, camera.size, text_buffers, &mut font_system);
 
         for root in &camera.root_nodes {
@@ -438,7 +436,6 @@ with UI components as a child of an entity without UI components, your UI layout
                     Some(viewport_size),
                     node_transform_query,
                     ui_children,
-                    //inverse_target_scale_factor,
                     layout_size,
                     clamped_scroll_position,
                 );
