@@ -68,8 +68,8 @@ impl<'w> DeferredWorld<'w> {
         unsafe { Commands::new_raw_from_entities(command_queue, self.world.entities()) }
     }
 
-    /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
-    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
+    /// Retrieves a mutable reference to the given `entity`'s [`Component`](`crate::prelude::Component`) of the given type.
+    /// Returns `None` if the `entity` does not have a [`Component`](`crate::prelude::Component`) of the given type.
     #[inline]
     pub fn get_mut<T: ComponentMut>(&mut self, entity: Entity) -> Option<Mut<T>> {
         // SAFETY:
@@ -389,8 +389,8 @@ impl<'w> DeferredWorld<'w> {
         unsafe { self.world.get_non_send_resource_mut_by_id(component_id) }
     }
 
-    /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`] of the given [`ComponentId`].
-    /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
+    /// Retrieves a mutable untyped reference to the given `entity`'s [`Component`](`crate::prelude::Component`) of the given [`ComponentId`].
+    /// Returns `None` if the `entity` does not have a [`Component`](`crate::prelude::Component`) of the given type.
     ///
     /// **You should prefer to use the typed API [`World::get_mut`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**

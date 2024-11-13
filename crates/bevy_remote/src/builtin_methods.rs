@@ -946,7 +946,7 @@ fn insert_reflected_components(
     Ok(())
 }
 
-/// Given a component's type path, return the associated [`ReflectComponent`] from the given
+/// Given a component's type path, return the associated [`ReflectComponentMut`] from the given
 /// `type_registry` if possible.
 fn get_reflect_component<'r>(
     type_registry: &'r TypeRegistry,

@@ -14,7 +14,7 @@ use bevy_utils::default;
 ///
 /// # Component Extraction
 ///
-/// By default, all components registered with [`ReflectComponent`] type data in a world's [`AppTypeRegistry`] will be extracted.
+/// By default, all components registered with [`ReflectComponentMut`] type data in a world's [`AppTypeRegistry`] will be extracted.
 /// (this type data is added automatically during registration if [`Reflect`] is derived with the `#[reflect(ComponentMut, Component)]` attribute).
 /// This can be changed by [specifying a filter](DynamicSceneBuilder::with_component_filter) or by explicitly
 /// [allowing](DynamicSceneBuilder::allow_component)/[denying](DynamicSceneBuilder::deny_component) certain components.

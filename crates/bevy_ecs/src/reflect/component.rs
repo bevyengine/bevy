@@ -399,7 +399,7 @@ impl ReflectComponent {
         (self.0.reflect)(entity.into())
     }
 
-    /// Gets the value of this [`Component`] type from entity from `source_world` and [applies](Self::apply()) it to the value of this [`Component`] type in entity in `destination_world`.
+    /// Gets the value of this [`Component`] type from entity from `source_world` and applies it to the value of this [`Component`] type in entity in `destination_world`.
     ///
     /// # Panics
     ///
