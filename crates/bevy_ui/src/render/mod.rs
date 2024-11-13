@@ -530,7 +530,7 @@ pub struct DefaultCameraView(pub Entity);
 
 #[derive(Component)]
 pub struct ExtractedAA {
-    pub inverse_scale_factor: f32,
+    pub scale_factor: f32,
 }
 
 /// Extracts all UI elements associated with a camera into the render world.
@@ -614,9 +614,9 @@ pub fn extract_default_ui_camera_view(
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.");
             entity_commands.insert(DefaultCameraView(default_camera_view));
-            if let Some(UiAntiAlias::On) = ui_anti_alias {
+            if ui_anti_alias != Some(&UiAntiAlias::Off) {
                 entity_commands.insert(ExtractedAA {
-                    inverse_scale_factor: (scale_factor * ui_scale.0).recip(),
+                    scale_factor: (scale_factor * ui_scale.0),
                 });
             }
             if let Some(shadow_samples) = shadow_samples {
@@ -880,7 +880,7 @@ pub fn queue_uinodes(
             // batch_range will be calculated in prepare_uinodes
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::NONE,
-            inverse_scale_factor: extracted_aa.map(|aa| aa.inverse_scale_factor).unwrap_or(1.),
+            inverse_scale_factor: extracted_aa.map(|aa| aa.scale_factor).unwrap_or(1.),
         });
     }
 }
