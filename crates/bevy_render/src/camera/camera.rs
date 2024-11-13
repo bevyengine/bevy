@@ -441,7 +441,10 @@ impl Camera {
 
     #[inline]
     pub fn target_scaling_factor(&self) -> Option<f32> {
-        self.computed.target_info.as_ref().map(|t| t.scale_factor)
+        self.computed
+            .target_info
+            .as_ref()
+            .map(|t: &RenderTargetInfo| t.scale_factor)
     }
 
     /// The projection matrix computed using this camera's [`CameraProjection`].

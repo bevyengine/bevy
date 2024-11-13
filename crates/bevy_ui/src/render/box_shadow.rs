@@ -371,6 +371,7 @@ pub fn queue_shadows(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::NONE,
+            inverse_scale_factor: 1.,
         });
     }
 }

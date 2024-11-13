@@ -525,6 +525,11 @@ const UI_CAMERA_TRANSFORM_OFFSET: f32 = -0.1;
 #[derive(Component)]
 pub struct DefaultCameraView(pub Entity);
 
+#[derive(Component)]
+pub struct ExtractedAA {
+    pub scale_factor: f32,
+}
+
 /// Extracts all UI elements associated with a camera into the render world.
 pub fn extract_default_ui_camera_view(
     mut commands: Commands,
@@ -552,7 +557,7 @@ pub fn extract_default_ui_camera_view(
             commands
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.")
-                .remove::<(DefaultCameraView, UiAntiAlias, UiBoxShadowSamples)>();
+                .remove::<(DefaultCameraView, ExtractedAA, UiBoxShadowSamples)>();
             continue;
         }
 
@@ -563,10 +568,12 @@ pub fn extract_default_ui_camera_view(
                 ..
             }),
             Some(physical_size),
+            Some(scale_factor),
         ) = (
             camera.logical_viewport_size(),
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
+            camera.target_scaling_factor(),
         ) {
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
@@ -577,6 +584,7 @@ pub fn extract_default_ui_camera_view(
                 0.0,
                 UI_CAMERA_FAR,
             );
+
             let default_camera_view = commands
                 .spawn((
                     ExtractedView {
@@ -603,8 +611,10 @@ pub fn extract_default_ui_camera_view(
                 .get_entity(entity)
                 .expect("Camera entity wasn't synced.");
             entity_commands.insert(DefaultCameraView(default_camera_view));
-            if let Some(ui_anti_alias) = ui_anti_alias {
-                entity_commands.insert(*ui_anti_alias);
+            if ui_anti_alias != Some(&UiAntiAlias::Off) {
+                entity_commands.insert(ExtractedAA {
+                    scale_factor: (scale_factor * ui_scale.0),
+                });
             }
             if let Some(shadow_samples) = shadow_samples {
                 entity_commands.insert(*shadow_samples);
@@ -782,6 +792,7 @@ struct UiVertex {
     pub size: [f32; 2],
     /// Position relative to the center of the UI node.
     pub point: [f32; 2],
+    pub inverse_scale_factor: f32,
 }
 
 #[derive(Resource)]
@@ -832,13 +843,13 @@ pub fn queue_uinodes(
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView, Option<&UiAntiAlias>)>,
+    mut views: Query<(Entity, &ExtractedView, Option<&ExtractedAA>)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
-        let Ok((view_entity, view, ui_anti_alias)) = views.get_mut(extracted_uinode.camera_entity)
+        let Ok((view_entity, view, extracted_aa)) = views.get_mut(extracted_uinode.camera_entity)
         else {
             continue;
         };
@@ -852,7 +863,7 @@ pub fn queue_uinodes(
             &ui_pipeline,
             UiPipelineKey {
                 hdr: view.hdr,
-                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+                anti_alias: extracted_aa.is_some(),
             },
         );
         transparent_phase.add(TransparentUi {
@@ -866,6 +877,7 @@ pub fn queue_uinodes(
             // batch_range will be calculated in prepare_uinodes
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::NONE,
+            inverse_scale_factor: extracted_aa.map(|aa| aa.scale_factor).unwrap_or(1.),
         });
     }
 }
@@ -1136,6 +1148,7 @@ pub fn prepare_uinodes(
                                     border: [border.left, border.top, border.right, border.bottom],
                                     size: rect_size.xy().into(),
                                     point: points[i].into(),
+                                    inverse_scale_factor: item.inverse_scale_factor,
                                 });
                             }
 
@@ -1239,6 +1252,7 @@ pub fn prepare_uinodes(
                                         border: [0.0; 4],
                                         size: size.into(),
                                         point: [0.0; 2],
+                                        inverse_scale_factor: item.inverse_scale_factor,
                                     });
                                 }
 
