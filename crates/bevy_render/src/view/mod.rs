@@ -189,7 +189,7 @@ pub struct ExtractedView {
     /// Right-handed projection matrix
     ///
     /// Perspective (infinite reverse z)
-    /// ```
+    /// ```text
     /// f = 1 / tan(fov_y_radians / 2)
     ///
     /// ⎡ f / aspect  0     0   0 ⎤
@@ -199,7 +199,7 @@ pub struct ExtractedView {
     /// ```
     ///
     /// Orthographic
-    /// ```
+    /// ```text
     /// w = right - left
     /// h = top - bottom
     /// d = near - far
@@ -451,7 +451,7 @@ pub struct ViewUniform {
     /// Right-handed projection matrix
     ///
     /// Perspective (infinite reverse z)
-    /// ```
+    /// ```text
     /// f = 1 / tan(fov_y_radians / 2)
     ///
     /// ⎡ f / aspect  0     0   0 ⎤
@@ -461,7 +461,7 @@ pub struct ViewUniform {
     /// ```
     ///
     /// Orthographic
-    /// ```
+    /// ```text
     /// w = right - left
     /// h = top - bottom
     /// d = near - far
