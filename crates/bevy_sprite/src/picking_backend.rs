@@ -20,21 +20,21 @@ use bevy_window::PrimaryWindow;
 #[derive(Resource, Reflect)]
 #[reflect(Resource, Default)]
 pub struct SpriteBackendSettings {
-    /// When set to `true` picking will ignore any part of a sprite which is transparent
+    /// When set to `true` picking will ignore any part of a sprite which has an alpha lower than the cutoff
     /// Off by default for backwards compatibility. This setting is provided to give you fine-grained
     /// control over if transparency on sprites is ignored.
-    pub transparency_passthrough: bool,
+    pub alpha_passthrough: bool,
     /// How Opaque does part of a sprite need to be in order count as none-transparent (defaults to 10)
     ///
     /// This is on a scale from 0 - 255 representing the alpha channel value you'd get in most art programs.
-    pub transparency_cutoff: u8,
+    pub alpha_cutoff: u8,
 }
 
 impl Default for SpriteBackendSettings {
     fn default() -> Self {
         Self {
-            transparency_passthrough: false,
-            transparency_cutoff: 10,
+            alpha_passthrough: false,
+            alpha_cutoff: 10,
         }
     }
 }
@@ -158,7 +158,7 @@ pub fn sprite_picking(
                 let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
 
                 let cursor_in_valid_pixels_of_sprite = is_cursor_in_sprite
-                    && (!settings.transparency_passthrough || {
+                    && (!settings.alpha_passthrough || {
                         let texture: &Image = images.get(&sprite.image)?;
                         // If using a texture atlas, grab the offset of the current sprite index. (0,0) otherwise
                         let texture_rect = sprite
@@ -179,10 +179,8 @@ pub fn sprite_picking(
                             (texture_position.y * texture.width() + texture_position.x) as usize;
                         // check transparency
                         match texture.data.get(pixel_index * 4..(pixel_index * 4 + 4)) {
-                            // If possible check the transparency bit is above cutoff
-                            Some(pixel_data) if pixel_data[3] > settings.transparency_cutoff => {
-                                true
-                            }
+                            // If possible check the alpha bit is above cutoff
+                            Some(pixel_data) if pixel_data[3] > settings.alpha_cutoff => true,
                             // If not possible, it's not in the sprite
                             _ => false,
                         }
