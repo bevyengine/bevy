@@ -11,16 +11,39 @@ use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{prelude::*, FloatExt, FloatOrd};
 use bevy_picking::backend::prelude::*;
+use bevy_reflect::prelude::*;
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
+
+/// Runtime settings for the [`SpriteBackend`].
+#[derive(Resource, Reflect)]
+#[reflect(Resource, Default)]
+pub struct SpriteBackendSettings {
+    /// When set to `true` picking will ignore any part of a sprite which is transparent
+    /// Off by default for backwards compatibility. This setting is provided to give you fine-grained
+    /// control over if transparncy on sprites is ignored.
+    pub passthrough_transparency: bool,
+    /// How Opaque does part of a sprite need to be in order count as none-transparent (defaults to 10)
+    pub transparency_cutoff: u8,
+}
+
+impl Default for SpriteBackendSettings {
+    fn default() -> Self {
+        Self {
+            passthrough_transparency: true,
+            transparency_cutoff: 10,
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct SpritePickingPlugin;
 
 impl Plugin for SpritePickingPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, sprite_picking.in_set(PickSet::Backend));
+        app.init_resource::<SpriteBackendSettings>()
+            .add_systems(PreUpdate, sprite_picking.in_set(PickSet::Backend));
     }
 }
 
@@ -30,6 +53,7 @@ pub fn sprite_picking(
     primary_window: Query<Entity, With<PrimaryWindow>>,
     images: Res<Assets<Image>>,
     texture_atlas_layout: Res<Assets<TextureAtlasLayout>>,
+    settings: Res<SpriteBackendSettings>,
     sprite_query: Query<(
         Entity,
         &Sprite,
@@ -130,12 +154,43 @@ pub fn sprite_picking(
 
                 let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
 
-                blocked = is_cursor_in_sprite
+                let cursor_in_valid_pixels_of_sprite = is_cursor_in_sprite
+                    && (!settings.passthrough_transparency || {
+                        let texture: &Image = images.get(&sprite.image)?;
+                        // If using a texture atlas, grab the offset of the current sprite index. (0,0) otherwise
+                        let texture_rect = sprite
+                            .texture_atlas
+                            .as_ref()
+                            .and_then(|atlas| {
+                                texture_atlas_layout
+                                    .get(&atlas.layout)
+                                    .map(|f| f.textures[atlas.index])
+                            })
+                            .or(Some(URect::new(0, 0, texture.width(), texture.height())))?;
+                        // get mouse position on texture
+                        let texture_position = (texture_rect.center().as_vec2()
+                            + cursor_pos_sprite.trunc())
+                        .as_uvec2();
+                        // grab pixel
+                        let pixel_index =
+                            (texture_position.y * texture.width() + texture_position.x) as usize;
+                        // check transparancy
+                        if let Some(pixel_data) =
+                            texture.data.get(pixel_index * 4..(pixel_index * 4 + 4))
+                        {
+                            let transparency = pixel_data[3];
+                            transparency > settings.transparency_cutoff
+                        } else {
+                            false
+                        }
+                    });
+
+                blocked = cursor_in_valid_pixels_of_sprite
                     && picking_behavior
                         .map(|p| p.should_block_lower)
                         .unwrap_or(true);
 
-                is_cursor_in_sprite.then(|| {
+                cursor_in_valid_pixels_of_sprite.then(|| {
                     let hit_pos_world =
                         sprite_transform.transform_point(cursor_pos_sprite.extend(0.0));
                     // Transform point from world to camera space to get the Z distance
