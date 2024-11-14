@@ -333,7 +333,7 @@ pub struct PickingEventWriters<'w> {
 /// + When a pointer moves over the target:
 ///   [`Over`], [`Move`], [`Out`].
 /// + When a pointer presses buttons on the target:
-///   [`Down`], [`Up`], [`Click`].
+///   [`Down`], [`Click`], [`Up`].
 /// + When a pointer drags the target:
 ///   [`DragStart`], [`Drag`], [`DragEnd`].
 /// + When a pointer drags something over the target:
