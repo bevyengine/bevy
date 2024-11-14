@@ -674,7 +674,7 @@ impl ComponentInfo {
         &self.descriptor.name
     }
 
-    /// Returns the name of the current component.
+    /// Returns `true` if the current component is immutable.
     #[inline]
     pub fn immutable(&self) -> bool {
         self.descriptor.immutable
