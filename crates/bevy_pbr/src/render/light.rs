@@ -10,7 +10,6 @@ use bevy_ecs::{
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::camera::SortedCameras;
-use bevy_render::sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
@@ -20,13 +19,11 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
+    sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
     texture::*,
+    view::ViewUniforms,
     view::{ExtractedView, RenderLayers, ViewVisibility},
     Extract,
-};
-use bevy_render::{
-    sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
-    view::ViewUniforms,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 #[cfg(feature = "trace")]
