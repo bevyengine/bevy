@@ -174,7 +174,7 @@ pub fn sprite_picking(
                         // grab pixel
                         let pixel_index =
                             (texture_position.y * texture.width() + texture_position.x) as usize;
-                        // check transparancy
+                        // check transparency
                         if let Some(pixel_data) =
                             texture.data.get(pixel_index * 4..(pixel_index * 4 + 4))
                         {
