@@ -420,7 +420,7 @@ pub fn pointer_events(
 
             // Possibly send DragLeave events
             for button in PointerButton::iter() {
-                let state = pointer_state.entry((pointer_id, button)).or_default();
+                let state = pointer_state.get_mut(pointer_id, button);
                 state.dragging_over.remove(&hovered_entity);
                 for drag_target in state.dragging.keys() {
                     let drag_leave_event = Pointer::new(
