@@ -31,7 +31,7 @@ pub struct SpriteBackendSettings {
 impl Default for SpriteBackendSettings {
     fn default() -> Self {
         Self {
-            passthrough_transparency: true,
+            passthrough_transparency: false,
             transparency_cutoff: 10,
         }
     }
