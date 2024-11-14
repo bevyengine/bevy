@@ -176,13 +176,13 @@ pub fn sprite_picking(
                         let pixel_index =
                             (texture_position.y * texture.width() + texture_position.x) as usize;
                         // check transparency
-                        if let Some(pixel_data) =
-                            texture.data.get(pixel_index * 4..(pixel_index * 4 + 4))
-                        {
-                            let transparency = pixel_data[3];
-                            transparency > settings.transparency_cutoff
-                        } else {
-                            false
+                        match texture.data.get(pixel_index * 4..(pixel_index * 4 + 4)) {
+                            // If possible check the transparency bit is above cutoff
+                            Some(pixel_data) if pixel_data[3] > settings.transparency_cutoff => {
+                                true
+                            }
+                            // If not possible, it's not in the sprite
+                            _ => false,
                         }
                     });
 
