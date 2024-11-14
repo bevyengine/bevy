@@ -49,7 +49,8 @@ pub struct UiRootNodes<'w, 's> {
     root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<Parent>)>,
     all_nodes_query: Query<'w, 's, Entity, With<Node>>,
     ui_children: UiChildren<'w, 's>,
-    demoted_root_nodes_query: Query<'w, 's, (Entity, Ref<'static, Parent>), (With<Node>, Added<Parent>)>,
+    demoted_root_nodes_query:
+        Query<'w, 's, (Entity, Ref<'static, Parent>), (With<Node>, Added<Parent>)>,
 }
 
 impl<'w, 's> UiRootNodes<'w, 's> {
@@ -73,8 +74,12 @@ impl<'w, 's> UiRootNodes<'w, 's> {
     }
 
     /// Iterates [`Node`] with newly added [`Parent`] (demotion from root to child ui node).
-    pub fn iter_demoted_root_nodes(&'s self) -> impl Iterator<Item = (Entity, Ref<'s, Parent>)> + 's {
-        self.demoted_root_nodes_query.iter().filter(|(_, parent_ref)| parent_ref.is_added())
+    pub fn iter_demoted_root_nodes(
+        &'s self,
+    ) -> impl Iterator<Item = (Entity, Ref<'s, Parent>)> + 's {
+        self.demoted_root_nodes_query
+            .iter()
+            .filter(|(_, parent_ref)| parent_ref.is_added())
     }
 }
 

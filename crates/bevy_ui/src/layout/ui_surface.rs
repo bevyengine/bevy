@@ -369,8 +369,7 @@ impl UiSurface {
 
     /// Promotes child ui node to a root node
     pub(super) fn promote_ui_node(&mut self, target_entity: Entity) {
-        let Some(&new_root_node_taffy_id) = self.entity_to_taffy.get(&target_entity)
-        else {
+        let Some(&new_root_node_taffy_id) = self.entity_to_taffy.get(&target_entity) else {
             // no taffy entry
             return;
         };
@@ -380,8 +379,7 @@ impl UiSurface {
             return;
         };
 
-        self
-            .taffy
+        self.taffy
             .remove_child(old_parent_taffy_id, new_root_node_taffy_id)
             .unwrap();
 
@@ -390,9 +388,8 @@ impl UiSurface {
             // TODO: is this ignorable?
             return;
         };
-        let Some((_, &RootNodeData { camera_entity, .. } )) =
-            self
-                .root_node_data
+        let Some((_, &RootNodeData { camera_entity, .. })) =
+            self.root_node_data
                 .iter()
                 .find(|(_root_node_entity, root_node_data)| {
                     root_node_data.implicit_viewport_node == implicit_viewport_node
@@ -406,8 +403,7 @@ impl UiSurface {
         self.create_or_update_root_node_data(target_entity, camera_entity);
 
         if let Some(camera_entity) = camera_entity {
-            self
-                .camera_root_nodes
+            self.camera_root_nodes
                 .entry(camera_entity)
                 .or_default()
                 .insert(target_entity);
