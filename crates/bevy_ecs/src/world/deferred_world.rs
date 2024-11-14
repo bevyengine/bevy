@@ -7,7 +7,7 @@ use crate::{
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
     observer::{Observers, TriggerTargets},
-    prelude::{ComponentMut, QueryState},
+    prelude::{Component, Mutable, QueryState},
     query::{QueryData, QueryFilter},
     system::{Commands, Query, Resource},
     traversal::Traversal,
@@ -71,7 +71,10 @@ impl<'w> DeferredWorld<'w> {
     /// Retrieves a mutable reference to the given `entity`'s [`Component`](`crate::prelude::Component`) of the given type.
     /// Returns `None` if the `entity` does not have a [`Component`](`crate::prelude::Component`) of the given type.
     #[inline]
-    pub fn get_mut<T: ComponentMut>(&mut self, entity: Entity) -> Option<Mut<T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(
+        &mut self,
+        entity: Entity,
+    ) -> Option<Mut<T>> {
         // SAFETY:
         // - `as_unsafe_world_cell` is the only thing that is borrowing world
         // - `as_unsafe_world_cell` provides mutable permission to everything
@@ -401,7 +404,12 @@ impl<'w> DeferredWorld<'w> {
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
-        unsafe { self.world.get_entity(entity)?.get_mut_by_id(component_id) }
+        unsafe {
+            self.world
+                .get_entity(entity)?
+                .get_mut_by_id(component_id)
+                .ok()
+        }
     }
 
     /// Triggers all `on_add` hooks for [`ComponentId`] in target.

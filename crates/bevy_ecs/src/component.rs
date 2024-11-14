@@ -73,13 +73,25 @@ use derive_more::derive::{Display, Error};
 ///
 /// # Component and data access
 ///
-/// Components can be marked as immutable by adding the `#[component(immutable)]` attribute when using the
-/// derive macro.
+/// Components can be marked as immutable by adding the `#[component(immutable)]`
+/// attribute when using the derive macro.
 ///
-/// Immutable components can be removed, replaced, and inserted just like mutable components.
-/// The only guarantee that's enforced is that while an immutable component is attached
-/// to an entity, an exclusive reference `&mut C` will never be produced. This allows
-/// hooks to observe all changes made to an immutable component.
+/// ```
+/// # use bevy_ecs::component::Component;
+/// #
+/// #[derive(Component)]
+/// #[component(immutable)]
+/// struct ImmutableFoo;
+/// ```
+///
+/// Immutable components are guaranteed to never have an exclusive reference,
+/// `&mut ...`, created while inserted onto an entity.
+/// In all other ways, they are identical to mutable components.
+/// This restriction allows hooks to observe all changes made to an immutable
+/// component, effectively turning the `OnInsert` and `OnReplace` hooks into a
+/// `OnMutate` hook.
+/// This is not practical for mutable components, as the runtime cost of invoking
+/// a hook for every exclusive reference created would be far too high.
 ///
 /// See the [`entity`] module level documentation to learn how to add or remove components from an entity.
 ///
@@ -387,16 +399,12 @@ pub trait Component: Send + Sync + 'static {
     const STORAGE_TYPE: StorageType;
 
     /// A marker type to assist Bevy with determining if this component is
-    /// mutable, or immutable. Mutable components will have [`ComponentMut`]
-    /// automatically implemented for them, while immutable components will
-    /// receive [`ComponentImmutable`].
+    /// mutable, or immutable. Mutable components will have [`Component<Mutability = Mutable>`],
+    /// while immutable components will instead have [`Component<Mutability = Immutable>`].
     ///
-    /// * For a component to be mutable, this type must be `Self`.
-    /// * For a component to be immutable, this type must be `()`.
-    ///
-    /// If you use any other type, this component will be immutable but will not
-    /// implement [`ComponentImmutable`].
-    type Mutable: 'static;
+    /// * For a component to be mutable, this type must be [`Mutable`].
+    /// * For a component to be immutable, this type must be [`Immutable`].
+    type Mutability: ComponentMutability;
 
     /// Called when registering this component, allowing mutable access to its [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
@@ -412,27 +420,34 @@ pub trait Component: Send + Sync + 'static {
     }
 }
 
-/// Marks that a [`Component`] is mutable.
-/// Without this marker, a component is immutable.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a mutable `Component`",
-    label = "invalid mutable `Component`",
-    note = "consider annotating `{Self}` with `#[derive(Component)]`",
-    note = "if `{Self}` is a `Component`, it is immutable"
-)]
-pub trait ComponentMut: Component<Mutable = Self> {}
+mod private {
+    pub trait Seal {}
+}
 
-impl<C: Component<Mutable = Self>> ComponentMut for C {}
+/// The mutability option for a [`Component`]. This can either be:
+/// * [`Mutable`]
+/// * [`Immutable`]
+pub trait ComponentMutability: private::Seal + 'static {
+    /// Boolean to indicate if this mutability setting implies a mutable or immutable
+    /// component.
+    const MUTABLE: bool;
+}
 
-/// Marks that a [`Component`] is immutable.
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an immutable `Component`",
-    label = "invalid immutable `Component`",
-    note = "consider annotating `{Self}` with `#[derive(Component)]` and #[component(immutable)]"
-)]
-pub trait ComponentImmutable: Component<Mutable = ()> {}
+/// Parameter indicating a [`Component`] is immutable.
+pub struct Immutable;
 
-impl<C: Component<Mutable = ()>> ComponentImmutable for C {}
+impl private::Seal for Immutable {}
+impl ComponentMutability for Immutable {
+    const MUTABLE: bool = false;
+}
+
+/// Parameter indicating a [`Component`] is mutable.
+pub struct Mutable;
+
+impl private::Seal for Mutable {}
+impl ComponentMutability for Mutable {
+    const MUTABLE: bool = true;
+}
 
 /// The storage used for a specific component type.
 ///
@@ -834,17 +849,6 @@ impl Debug for ComponentDescriptor {
     }
 }
 
-/// Helper to determine if a [`Component`] `C` is immutable or not.
-fn immutable<C: Component>() -> bool {
-    use core::any::TypeId;
-
-    let is_mutable = TypeId::of::<<C as Component>::Mutable>() == TypeId::of::<C>();
-
-    // We conservatively assume that if a component is not mutable then it must
-    // be immutable.
-    !is_mutable
-}
-
 impl ComponentDescriptor {
     /// # Safety
     ///
@@ -865,7 +869,7 @@ impl ComponentDescriptor {
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
-            immutable: immutable::<T>(),
+            immutable: !T::Mutability::MUTABLE,
         }
     }
 
@@ -891,7 +895,7 @@ impl ComponentDescriptor {
         }
     }
 
-    /// Create a new `ComponentDescriptor`.
+    /// Create a new `ComponentDescriptor` for an immutable [`Component`].
     ///
     /// # Safety
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`

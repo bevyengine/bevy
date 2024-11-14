@@ -82,7 +82,10 @@ use core::{
     marker::PhantomData,
 };
 
-use bevy_ecs::{component::ComponentMut, world::Mut};
+use bevy_ecs::{
+    component::{Component, Mutable},
+    world::Mut,
+};
 use bevy_math::{
     curve::{
         cores::{UnevenCore, UnevenCoreError},
@@ -162,7 +165,7 @@ use crate::{
 /// [`AnimationClip`]: crate::AnimationClip
 pub trait AnimatableProperty: Reflect + TypePath {
     /// The type of the component that the property lives on.
-    type Component: ComponentMut;
+    type Component: Component<Mutability = Mutable>;
 
     /// The type of the property to be animated.
     type Property: Animatable + FromReflect + Reflectable + Clone + Sync + Debug;

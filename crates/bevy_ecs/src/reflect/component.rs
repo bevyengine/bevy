@@ -60,7 +60,7 @@
 use super::from_reflect_with_fallback;
 use crate::{
     change_detection::Mut,
-    component::ComponentId,
+    component::{ComponentId, ComponentMutability},
     entity::Entity,
     prelude::Component,
     world::{
@@ -264,17 +264,6 @@ impl ReflectComponent {
     }
 }
 
-/// Helper to determine if a [`Component`] `C` is immutable or not.
-fn immutable<C: Component>() -> bool {
-    use core::any::TypeId;
-
-    let is_mutable = TypeId::of::<<C as Component>::Mutable>() == TypeId::of::<C>();
-
-    // We conservatively assume that if a component is not mutable then it must
-    // be immutable.
-    !is_mutable
-}
-
 impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         // TODO: Currently we panic of a component is immutable and you use
@@ -287,7 +276,7 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                 entity.insert(component);
             },
             apply: |mut entity, reflected_component| {
-                if immutable::<C>() {
+                if !C::Mutability::MUTABLE {
                     panic!("This component is immutable, you cannot modify it through reflection");
                 }
 
@@ -296,7 +285,7 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                 component.apply(reflected_component);
             },
             apply_or_insert: |entity, reflected_component, registry| {
-                if immutable::<C>() {
+                if !C::Mutability::MUTABLE {
                     panic!("This component is immutable, you cannot modify it through reflection");
                 }
 
@@ -324,7 +313,7 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             reflect: |entity| entity.get::<C>().map(|c| c as &dyn Reflect),
             reflect_mut: |entity| {
-                if immutable::<C>() {
+                if !C::Mutability::MUTABLE {
                     panic!("This component is immutable, you cannot modify it through reflection");
                 }
 
@@ -336,7 +325,7 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                 }
             },
             reflect_unchecked_mut: |entity| {
-                if immutable::<C>() {
+                if !C::Mutability::MUTABLE {
                     panic!("This component is immutable, you cannot modify it through reflection");
                 }
 

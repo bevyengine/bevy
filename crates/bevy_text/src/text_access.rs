@@ -8,7 +8,7 @@ use bevy_hierarchy::Children;
 use crate::{TextColor, TextFont, TextSpan};
 
 /// Helper trait for using the [`TextReader`] and [`TextWriter`] system params.
-pub trait TextSpanAccess: ComponentMut {
+pub trait TextSpanAccess: Component<Mutability = Mutable> {
     /// Gets the text span's string.
     fn read_span(&self) -> &str;
     /// Gets mutable reference to the text span's string.

@@ -7,7 +7,7 @@ use bevy::{
 };
 
 /// This component is mutable, the default case. This is indicated by components
-/// implementing two traits, [`Component`], and [`ComponentMut`].
+/// implementing two traits, [`Component`], and [`Component<Mutability = Mutable>`].
 #[derive(Component)]
 pub struct MyMutableComponent(bool);
 
@@ -15,7 +15,7 @@ pub struct MyMutableComponent(bool);
 /// or removed. Replacement is also permitted, as this is equivalent to removal
 /// and insertion.
 ///
-/// Adding the `#[component(immutable)]` attribute prevents the implementation of [`ComponentMut`]
+/// Adding the `#[component(immutable)]` attribute prevents the implementation of [`Component<Mutability = Mutable>`]
 /// in the derive macro.
 #[derive(Component)]
 #[component(immutable)]

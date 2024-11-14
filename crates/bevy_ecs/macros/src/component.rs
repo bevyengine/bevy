@@ -32,7 +32,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #bevy_ecs_path::component::StorageType::SparseSet;
-            type Mutable = #struct_name #type_generics;
+            type Mutability = #bevy_ecs_path::component::Mutable;
         }
     })
 }
@@ -142,8 +142,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let mutable_type = attrs
         .immutable
-        .then_some(quote! { () })
-        .unwrap_or(quote! { #struct_name #type_generics });
+        .then_some(quote! { #bevy_ecs_path::component::Immutable })
+        .unwrap_or(quote! { #bevy_ecs_path::component::Mutable });
 
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
@@ -151,7 +151,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         #required_component_docs
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
-            type Mutable = #mutable_type;
+            type Mutability = #mutable_type;
             fn register_required_components(
                 requiree: #bevy_ecs_path::component::ComponentId,
                 components: &mut #bevy_ecs_path::component::Components,

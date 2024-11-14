@@ -46,7 +46,7 @@ pub mod prelude {
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
-        component::{Component, ComponentMut},
+        component::{Component, Immutable, Mutable},
         entity::{Entity, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         observer::{Observer, Trigger},

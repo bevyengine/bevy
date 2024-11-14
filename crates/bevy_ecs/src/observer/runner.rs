@@ -1,7 +1,7 @@
 use core::any::Any;
 
 use crate::{
-    component::{ComponentHook, ComponentHooks, ComponentId, StorageType},
+    component::{ComponentHook, ComponentHooks, ComponentId, Mutable, StorageType},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
@@ -62,7 +62,7 @@ impl ObserverState {
 
 impl Component for ObserverState {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
-    type Mutable = Self;
+    type Mutability = Mutable;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|mut world, entity, _| {
@@ -315,7 +315,7 @@ impl Observer {
 
 impl Component for Observer {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
-    type Mutable = Self;
+    type Mutability = Mutable;
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|world, entity, _id| {
             let Some(observe) = world.get::<Self>(entity) else {

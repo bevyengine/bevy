@@ -2,10 +2,11 @@ use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle, InsertMode},
     change_detection::MutUntyped,
-    component::{Component, ComponentId, ComponentMut, ComponentTicks, Components, StorageType},
+    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     event::Event,
     observer::{Observer, Observers},
+    prelude::Mutable,
     query::{Access, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
@@ -516,7 +517,7 @@ impl<'w> EntityMut<'w> {
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn get_mut<T: ComponentMut>(&mut self) -> Option<Mut<'_, T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
         unsafe { self.0.get_mut() }
     }
@@ -537,7 +538,7 @@ impl<'w> EntityMut<'w> {
     /// with the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn into_mut<T: ComponentMut>(self) -> Option<Mut<'w, T>> {
+    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
         unsafe { self.0.get_mut() }
     }
@@ -1029,7 +1030,7 @@ impl<'w> EntityWorldMut<'w> {
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn get_mut<T: ComponentMut>(&mut self) -> Option<Mut<'_, T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
         unsafe { self.as_unsafe_entity_cell().get_mut() }
     }
@@ -1038,7 +1039,7 @@ impl<'w> EntityWorldMut<'w> {
     /// with the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn into_mut<T: ComponentMut>(self) -> Option<Mut<'w, T>> {
+    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
         unsafe { self.into_unsafe_entity_cell().get_mut() }
     }
@@ -1940,7 +1941,7 @@ pub enum Entry<'w, 'a, T: Component> {
     Vacant(VacantEntry<'w, 'a, T>),
 }
 
-impl<'w, 'a, T: ComponentMut> Entry<'w, 'a, T> {
+impl<'w, 'a, T: Component<Mutability = Mutable>> Entry<'w, 'a, T> {
     /// Provides in-place mutable access to an occupied entry.
     ///
     /// # Examples
@@ -2157,7 +2158,7 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     }
 }
 
-impl<'w, 'a, T: ComponentMut> OccupiedEntry<'w, 'a, T> {
+impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedEntry<'w, 'a, T> {
     /// Gets a mutable reference to the component in the entry.
     ///
     /// If you need a reference to the `OccupiedEntry` which may outlive the destruction of
@@ -2670,7 +2671,7 @@ impl<'w> FilteredEntityMut<'w> {
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn get_mut<T: ComponentMut>(&mut self) -> Option<Mut<'_, T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_component_write(id)
@@ -2683,10 +2684,10 @@ impl<'w> FilteredEntityMut<'w> {
     /// with the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn into_mut<T: ComponentMut>(self) -> Option<Mut<'w, T>> {
+    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
         // SAFETY:
         // - We have write access
-        // - The bound `T: ComponentMut` ensures the component is mutable
+        // - The bound `T: Component<Mutability = Mutable>` ensures the component is mutable
         unsafe { self.into_mut_assume_mutable() }
     }
 
@@ -2753,7 +2754,7 @@ impl<'w> FilteredEntityMut<'w> {
         self.access
             .has_component_write(component_id)
             // SAFETY: We have write access
-            .then(|| unsafe { self.entity.get_mut_by_id(component_id) })
+            .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
             .flatten()
     }
 }
@@ -2988,7 +2989,7 @@ where
     #[inline]
     pub fn get_mut<C>(&mut self) -> Option<Mut<'_, C>>
     where
-        C: ComponentMut,
+        C: Component<Mutability = Mutable>,
     {
         let components = self.entity.world().components();
         let id = components.component_id::<C>()?;
@@ -3310,7 +3311,8 @@ unsafe impl DynamicComponentFetch for ComponentId {
         cell: UnsafeEntityCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityComponentError> {
         // SAFETY: caller ensures that the cell has mutable access to the component.
-        unsafe { cell.get_mut_by_id(self) }.ok_or(EntityComponentError::MissingComponent(self))
+        unsafe { cell.get_mut_by_id(self) }
+            .map_err(|_| EntityComponentError::MissingComponent(self))
     }
 }
 
@@ -3379,7 +3381,7 @@ unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
             *ptr = MaybeUninit::new(
                 // SAFETY: caller ensures that the cell has mutable access to the component.
                 unsafe { cell.get_mut_by_id(id) }
-                    .ok_or(EntityComponentError::MissingComponent(id))?,
+                    .map_err(|_| EntityComponentError::MissingComponent(id))?,
             );
         }
 
@@ -3429,7 +3431,7 @@ unsafe impl DynamicComponentFetch for &'_ [ComponentId] {
             ptrs.push(
                 // SAFETY: caller ensures that the cell has mutable access to the component.
                 unsafe { cell.get_mut_by_id(id) }
-                    .ok_or(EntityComponentError::MissingComponent(id))?,
+                    .map_err(|_| EntityComponentError::MissingComponent(id))?,
             );
         }
         Ok(ptrs)
@@ -3468,7 +3470,7 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
                 id,
                 // SAFETY: caller ensures that the cell has mutable access to the component.
                 unsafe { cell.get_mut_by_id(id) }
-                    .ok_or(EntityComponentError::MissingComponent(id))?,
+                    .map_err(|_| EntityComponentError::MissingComponent(id))?,
             );
         }
         Ok(ptrs)
