@@ -42,6 +42,10 @@ struct Args {
     /// use the grid layout model
     #[argh(switch)]
     grid: bool,
+
+    /// at the start of each frame despawn any existing UI nodes and spawn a new UI tree
+    #[argh(switch)]
+    respawn: bool,
 }
 
 /// This example shows what happens when there is a lot of buttons on screen.
