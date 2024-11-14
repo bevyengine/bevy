@@ -74,7 +74,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, GpuImage, TextureCache},
-    view::{ExtractedView, ViewTarget},
+    view::{ExtractedViews, ViewTarget},
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::prelude::default;
@@ -618,7 +618,7 @@ fn prepare_smaa_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut specialized_render_pipelines: ResMut<SmaaSpecializedRenderPipelines>,
     smaa_pipelines: Res<SmaaPipelines>,
-    view_targets: Query<(Entity, &ExtractedView, &Smaa)>,
+    view_targets: Query<(Entity, &ExtractedViews, &Smaa)>,
 ) {
     for (entity, view, smaa) in &view_targets {
         let edge_detection_pipeline_id = specialized_render_pipelines.edge_detection.specialize(
@@ -664,7 +664,7 @@ fn prepare_smaa_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    view_targets: Query<(Entity, &ExtractedView), With<Smaa>>,
+    view_targets: Query<(Entity, &ExtractedViews), With<Smaa>>,
     mut smaa_info_buffer: ResMut<SmaaInfoUniformBuffer>,
 ) {
     smaa_info_buffer.clear();
@@ -695,7 +695,7 @@ fn prepare_smaa_textures(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
-    view_targets: Query<(Entity, &ExtractedCamera), (With<ExtractedView>, With<Smaa>)>,
+    view_targets: Query<(Entity, &ExtractedCamera), (With<ExtractedViews>, With<Smaa>)>,
 ) {
     for (entity, camera) in &view_targets {
         let Some(texture_size) = camera.physical_target_size else {
@@ -769,7 +769,7 @@ fn prepare_smaa_bind_groups(
     render_device: Res<RenderDevice>,
     smaa_pipelines: Res<SmaaPipelines>,
     images: Res<RenderAssets<GpuImage>>,
-    view_targets: Query<(Entity, &SmaaTextures), (With<ExtractedView>, With<Smaa>)>,
+    view_targets: Query<(Entity, &SmaaTextures), (With<ExtractedViews>, With<Smaa>)>,
 ) {
     // Fetch the two lookup textures. These are bundled in this library.
     let (Some(search_texture), Some(area_texture)) = (

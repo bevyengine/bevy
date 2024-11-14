@@ -37,7 +37,7 @@ use bevy_render::{
         TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
+    view::{ExtractedViews, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::{info_once, prelude::default};
@@ -418,7 +418,7 @@ pub fn prepare_ssr_pipelines(
     views: Query<
         (
             Entity,
-            &ExtractedView,
+            &ExtractedViews,
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<NormalPrepass>,
             Has<MotionVectorPrepass>,
@@ -474,7 +474,7 @@ pub fn prepare_ssr_pipelines(
 /// writes them into a GPU buffer.
 pub fn prepare_ssr_settings(
     mut commands: Commands,
-    views: Query<(Entity, Option<&ScreenSpaceReflectionsUniform>), With<ExtractedView>>,
+    views: Query<(Entity, Option<&ScreenSpaceReflectionsUniform>), With<ExtractedViews>>,
     mut ssr_settings_buffer: ResMut<ScreenSpaceReflectionsBuffer>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,

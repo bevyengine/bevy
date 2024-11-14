@@ -27,7 +27,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedView, Msaa, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedViews, Msaa, ViewUniformOffset, ViewUniforms},
     Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -621,7 +621,7 @@ pub fn prepare_previous_view_uniforms(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut previous_view_uniforms: ResMut<PreviousViewUniforms>,
-    views: Query<(Entity, &ExtractedView, Option<&PreviousViewData>), PreviousViewFilter>,
+    views: Query<(Entity, &ExtractedViews, Option<&PreviousViewData>), PreviousViewFilter>,
 ) {
     let views_iter = views.iter();
     let view_count = views_iter.len();
@@ -637,10 +637,11 @@ pub fn prepare_previous_view_uniforms(
         let prev_view_data = match maybe_previous_view_uniforms {
             Some(previous_view) => previous_view.clone(),
             None => {
-                let view_from_world = camera.world_from_view.compute_matrix().inverse();
+                // TODO: Multiview
+                let view_from_world = camera.views[0].world_from_view.compute_matrix().inverse();
                 PreviousViewData {
                     view_from_world,
-                    clip_from_world: camera.clip_from_view * view_from_world,
+                    clip_from_world: camera.views[0].clip_from_view * view_from_world,
                 }
             }
         };
@@ -725,7 +726,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             Option<&MotionVectorPrepass>,
             Option<&DeferredPrepass>,
         ),
-        With<ExtractedView>,
+        With<ExtractedViews>,
     >,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,

@@ -51,7 +51,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{
-        prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
+        prepare_view_targets, ExtractedViews, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -670,7 +670,7 @@ pub fn prepare_depth_of_field_pipelines(
     global_bind_group_layout: Res<DepthOfFieldGlobalBindGroupLayout>,
     view_targets: Query<(
         Entity,
-        &ExtractedView,
+        &ExtractedViews,
         &DepthOfField,
         &ViewDepthOfFieldBindGroupLayouts,
         &Msaa,

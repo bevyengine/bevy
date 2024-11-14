@@ -27,7 +27,7 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderContext, RenderDevice},
-    view::{ExtractedView, ViewTarget, ViewUniformOffset},
+    view::{ExtractedViews, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSet,
 };
 
@@ -431,7 +431,7 @@ pub fn prepare_deferred_lighting_pipelines(
     views: Query<
         (
             Entity,
-            &ExtractedView,
+            &ExtractedViews,
             Option<&Tonemapping>,
             Option<&DebandDither>,
             Option<&ShadowFilteringMethod>,

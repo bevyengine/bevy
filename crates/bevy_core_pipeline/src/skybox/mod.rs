@@ -21,7 +21,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::GpuImage,
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
+    view::{ExtractedViews, Msaa, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::Transform;
@@ -248,7 +248,7 @@ fn prepare_skybox_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
-    views: Query<(Entity, &ExtractedView, &Msaa), With<Skybox>>,
+    views: Query<(Entity, &ExtractedViews, &Msaa), With<Skybox>>,
 ) {
     for (entity, view, msaa) in &views {
         let pipeline_id = pipelines.specialize(

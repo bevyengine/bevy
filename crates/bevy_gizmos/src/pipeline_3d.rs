@@ -27,7 +27,7 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
+    view::{ExtractedViews, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::tracing::error;
@@ -288,7 +288,7 @@ fn queue_line_gizmos_3d(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     mut views: Query<(
         Entity,
-        &ExtractedView,
+        &ExtractedViews,
         &Msaa,
         Option<&RenderLayers>,
         (
@@ -377,7 +377,7 @@ fn queue_line_joint_gizmos_3d(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     mut views: Query<(
         Entity,
-        &ExtractedView,
+        &ExtractedViews,
         &Msaa,
         Option<&RenderLayers>,
         (

@@ -20,7 +20,7 @@ use bevy_render::{
         TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedViews, Msaa, ViewTarget},
 };
 
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
@@ -155,7 +155,7 @@ pub(crate) fn prepare_motion_blur_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<MotionBlurPipeline>>,
     pipeline: Res<MotionBlurPipeline>,
-    views: Query<(Entity, &ExtractedView, &Msaa), With<MotionBlur>>,
+    views: Query<(Entity, &ExtractedViews, &Msaa), With<MotionBlur>>,
 ) {
     for (entity, view, msaa) in &views {
         let pipeline_id = pipelines.specialize(

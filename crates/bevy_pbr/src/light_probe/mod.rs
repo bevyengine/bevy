@@ -24,7 +24,7 @@ use bevy_render::{
     settings::WgpuFeatures,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
-    view::{ExtractedView, Visibility},
+    view::{ExtractedViews, Visibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
@@ -457,7 +457,7 @@ fn gather_light_probes<C>(
 /// writes them into a GPU buffer.
 pub fn prepare_environment_uniform_buffer(
     mut commands: Commands,
-    views: Query<(Entity, Option<&EnvironmentMapUniform>), With<ExtractedView>>,
+    views: Query<(Entity, Option<&EnvironmentMapUniform>), With<ExtractedViews>>,
     mut environment_uniform_buffer: ResMut<EnvironmentMapUniformBuffer>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -487,7 +487,7 @@ pub fn prepare_environment_uniform_buffer(
 // a single structure, ready to be passed to the shader.
 fn upload_light_probes(
     mut commands: Commands,
-    views: Query<Entity, With<ExtractedView>>,
+    views: Query<Entity, With<ExtractedViews>>,
     mut light_probes_buffer: ResMut<LightProbesBuffer>,
     mut view_light_probes_query: Query<(
         Option<&RenderViewLightProbes<EnvironmentMapLight>>,
